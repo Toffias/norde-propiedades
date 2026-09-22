@@ -7,11 +7,13 @@
     "db:setup": "tsx db/setup.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:seed": "tsx db/seed.ts"
   },
   "dependencies": {
     "pg": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@norde/config": "workspace:*",

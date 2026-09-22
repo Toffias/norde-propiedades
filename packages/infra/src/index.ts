@@ -37,3 +37,11 @@ export {
   type MetaWhatsAppMessengerOptions,
 } from './adapters/whatsapp/meta-whatsapp-messenger';
 export { LogTeamNotifier, WebhookTeamNotifier } from './adapters/notifications/team-notifiers';
+
+export { OutboxRelay, type OutboxRelayOptions } from './jobs/outbox-relay';
+export {
+  PgBossEventBus,
+  type EventSubscription,
+  type PgBossEventBusOptions,
+} from './jobs/pg-boss-event-bus';
+export type { PublishedEvent } from './jobs/published-event';

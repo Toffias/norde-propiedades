@@ -15,6 +15,7 @@ export function useTestDatabase() {
 
   beforeEach(async () => {
     await connection.db.execute(sql`
+      drop schema if exists pgboss_test cascade;
       truncate core.properties, core.clients, core.client_channels, core.opportunities,
         core.conversations, core.conversation_messages, core.outbox, core.audit_log
     `);

@@ -15,7 +15,7 @@ Cada app y paquete tiene su propio `CLAUDE.md` con reglas específicas. Se aplic
 | `apps/agent`         | Fastify: agente IA (WhatsApp + web chat), webhooks entrantes, jobs (pg-boss) |
 | `packages/core`      | `@norde/core`: **dominio + casos de uso**. Sin frameworks                    |
 | `packages/infra`     | `@norde/infra`: Drizzle, OpenAI, WhatsApp, mail, storage, portales           |
-| `packages/agent-kit` | `@norde/agent-kit`: runner de agentes IA reutilizable (a crear)              |
+| `packages/agent-kit` | `@norde/agent-kit`: runner de agentes IA reutilizable (OpenAI Agents SDK)    |
 | `packages/ui`        | `@norde/ui`: Tailwind v4, tokens y componentes shadcn compartidos            |
 | `packages/config`    | tsconfig, eslint, prettier, vitest base                                      |
 | `docs/`              | Arquitectura, ADRs y detalle funcional por módulo (`docs/modulos/`)          |
@@ -77,7 +77,7 @@ Las dependencias apuntan **solo hacia adentro**: presentación (`apps/*`) → in
 
 - Toda regla de dominio nueva o modificada lleva un **unit test**.
 - Todo caso de uso lleva tests del camino feliz, de cada error esperado y de los permisos. Se usan **fakes en memoria** de los puertos, no mocks de Drizzle.
-- Repositorios y queries no triviales: test de integración con Postgres real (Testcontainers).
+- Repositorios y queries no triviales: test de integración con Postgres real (`*.int.test.ts`, ver `packages/infra/CLAUDE.md` y ADR 0010).
 - Webhooks y endpoints públicos: tests de firma y validación.
 - Bug corregido = test que lo reproduce.
 
@@ -117,6 +117,9 @@ pnpm check                   # lint + typecheck + test + build + formato (lo mis
 pnpm format                  # Prettier
 pnpm --filter @norde/infra db:generate   # generar migración desde el esquema Drizzle
 pnpm --filter @norde/infra db:migrate
+pnpm --filter @norde/infra test:int     # tests de integración contra Postgres real
+pnpm db:setup && pnpm db:seed            # base local con migraciones y propiedades de prueba
+pnpm --filter @norde/agent simulate      # chatear con el agente por consola
 ```
 
 - Versiones de dependencias: **solo** en el `catalog` de `pnpm-workspace.yaml`; en los `package.json` se usa `"catalog:"`.

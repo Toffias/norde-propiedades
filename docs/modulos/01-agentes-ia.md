@@ -208,8 +208,8 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 
 | Fase                           | Alcance                                                                                                                |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| **F1: Base**                   | Copiar APZ-WP-BOT al nuevo repo. Separar núcleo y canal. Agregar `channel` al modelo. Probar con `scripts/simulate.ts` |
-| **F2: Conexión al core**       | Tools que llaman a `SearchProperties` y `RegisterContact` de `@norde/core`, en lugar del provider mock                 |
+| **F1: Base** ✅                | Copiar APZ-WP-BOT al nuevo repo. Separar núcleo y canal. Agregar `channel` al modelo. Probar con `scripts/simulate.ts` |
+| **F2: Conexión al core** ✅    | Tools que llaman a `SearchProperties` y `RegisterContact` de `@norde/core`, en lugar del provider mock                 |
 | **F3: WhatsApp en producción** | Número de Norde, app de Meta en Live, token de System User, deploy en el VPS                                           |
 | **F4: Handoff**                | Estado respetado por el bot, bandeja en el panel, responder desde el panel, devolver al bot                            |
 | **F5: Web Chat**               | Endpoint con SSE, widget React en el sitio, sesión anónima, contexto de propiedad                                      |
@@ -225,3 +225,46 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 4. **Horario**: ¿el bot responde siempre, o fuera de horario promete contacto al día hábil siguiente?
 5. **Web chat anónimo**: ¿se pide teléfono o email antes de empezar, o recién al derivar? Recomendación: al derivar, para no cortar la conversación.
 6. **Número de WhatsApp**: ¿se usa un número nuevo o el actual de Norde? El número no puede seguir usándose en la app de WhatsApp.
+
+---
+
+## 8. Estado de la implementación
+
+### 8.1 Hecho (F1 y F2)
+
+El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyecto:
+
+- **Core**:
+  - `properties`: `SearchProperties` y `GetPropertyDetail`. Solo ofrecen propiedades disponibles y publicadas en la web.
+  - `clients`: `RegisterContact`, que deduplica por teléfono o email y abre la oportunidad o suma el pedido a la que está abierta. Incluye el estado "Aplica a otra inmobiliaria" y `NotifyTeamOfOpportunity`.
+  - `conversations`: `ReceiveInboundMessages`, que registra los mensajes de forma idempotente y decide el plan de respuesta, y `SendReply`.
+- **`@norde/agent-kit`**: el runner del MVP sobre el OpenAI Agents SDK (ADR 0009).
+- **`apps/agent`**:
+  - Instrucciones del MVP adaptadas a Norde, con un bloque por canal.
+  - Las tools `search_properties`, `get_property`, `show_photo`, `offer_buttons` y `register_client`.
+  - Canal WhatsApp completo: firma, debounce, cola por contacto, límites, breaker y un mensaje por turno.
+- **Jobs**: outbox → pg-boss → aviso al equipo por webhook (Slack, Teams, n8n) o, sin webhook configurado, al log.
+- **Herramientas**:
+  - `pnpm db:seed` carga las 28 propiedades de prueba del MVP.
+  - `pnpm --filter @norde/agent simulate` permite chatear por consola con el agente real, sin WhatsApp.
+
+### 8.2 Decisiones tomadas al implementar
+
+- **Handoff**: el bot no responde si la conversación está `handed_off`. Lo decide el core, que devuelve el plan `silent`.
+  - Hoy nada la pone en ese estado: registrar al cliente **no** silencia al bot, así el cliente sigue atendido hasta que exista la bandeja (F4).
+  - Tras 24 h de inactividad, la conversación arranca de cero y vuelve al bot.
+- **Deduplicación por teléfono**: el mismo celular con o sin el 9 de móvil (`+54 9 11…` en WhatsApp, `11…` en un formulario) es el mismo cliente (`Phone.matchKey`). La base lo garantiza con índices únicos.
+- **Tasaciones**: por ahora se registran como oportunidad de tipo `appraisal`. Cuando exista el módulo `appraisals`, una tool `request_appraisal` va a crear la tasación.
+- **Topes de uso**: ventanas móviles (última hora y últimas 24 h) en lugar del día calendario UTC del MVP.
+- **Auditoría**: se auditan los cambios de estado (conversación iniciada o vinculada a un cliente, cliente registrado, oportunidad abierta o actualizada). Cada mensaje no se audita: el registro de mensajes ya es su traza.
+- **Memoria del agente**: se guarda en la conversación y es opaca para el core. Si el turno falla, no se guarda.
+
+### 8.3 Pendiente
+
+| Tema                           | Detalle                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| **F3: WhatsApp en producción** | Número de Norde, app de Meta en modo Live, token de System User, webhook en `https://<dominio>/webhooks/whatsapp`, deploy |
+| **F4: Handoff**                | Bandeja en `apps/gestion`, `HandOffConversation` y `ReturnConversationToBot`, responder desde el panel                    |
+| **F5: Web Chat**               | Endpoint con SSE y widget. El agente ya tiene el bloque de instrucciones del canal `web_chat`                             |
+| Asignación de asesor           | Pregunta abierta 2 (sección 7). Hoy la oportunidad nace sin asesor y el aviso va al canal del equipo                      |
+| Alta de propiedades            | El stock sale del seed de desarrollo hasta que el panel tenga el ABM de propiedades                                       |

@@ -131,7 +131,7 @@ packages/infra/src/
 │   └── unit-of-work.ts              # Transacciones
 ├── properties/drizzle-property.repository.ts
 ├── clients/…
-├── outbox/                          # Outbox de eventos + publicación a pg-boss
+├── jobs/                            # Relay del outbox y colas de eventos (pg-boss)
 ├── adapters/
 │   ├── whatsapp/                    # Meta Cloud API (del MVP APZ-WP-BOT)
 │   ├── openai/
@@ -331,7 +331,7 @@ export class RegisterContact {
 | Panel                   | **Next.js 16** (App Router, Server Actions)                                                                            | Mismo framework que la web, un solo stack de frontend                                                              |
 | Agente, webhooks y jobs | **Fastify 5**, ejecutado con **tsx** desde el código fuente (sin bundle)                                               | Reutiliza el MVP APZ-WP-BOT. Sin bundle, cada paquete del workspace resuelve sus dependencias (pnpm estricto)      |
 | Paquetes internos       | Se consumen como **TypeScript fuente** (sin build propio); Next.js los transpila con `transpilePackages`               | Cero pasos de build intermedios; los cambios en el core se ven al instante en las apps                             |
-| IA                      | **OpenAI Agents SDK** (`@openai/agents`) detrás de un puerto                                                           | Reutiliza el MVP; se puede cambiar de proveedor sin tocar el core                                                  |
+| IA                      | **OpenAI Agents SDK** (`@openai/agents`), solo dentro de `@norde/agent-kit` (ADR 0009)                                 | Reutiliza el MVP; cambiar de proveedor es reescribir `agent-kit`, sin tocar el core ni las tools                   |
 | Base de datos           | **PostgreSQL 17+** (en desarrollo local, 18)                                                                           | Única base: esquemas `core`, `payload`, `pgboss`. En producción usar la misma versión mayor que en desarrollo      |
 | ORM                     | **Drizzle** (solo en `@norde/infra`)                                                                                   | Usado en el MVP y por Payload; SQL explícito y tipado                                                              |
 | Colas y jobs            | **pg-boss**                                                                                                            | Colas, reintentos y cron sobre la misma base; sin Redis por ahora                                                  |
@@ -343,7 +343,7 @@ export class RegisterContact {
 | Plata e IPC             | Montos en centavos (`bigint`) más `decimal.js` para índices                                                            | Sin errores de coma flotante                                                                                       |
 | Excel                   | `exceljs`                                                                                                              | Exportaciones                                                                                                      |
 | Archivos                | S3 o Cloudflare R2 (`@payloadcms/storage-s3` en la web)                                                                | Servicio en la nube para imágenes                                                                                  |
-| Tests                   | **Vitest** (unit e integración), **Testcontainers** (Postgres real), **Playwright** (E2E)                              |                                                                                                                    |
+| Tests                   | **Vitest** (unit e integración contra Postgres real, ADR 0010), **Playwright** (E2E)                                   |                                                                                                                    |
 | Calidad                 | ESLint (flat config) + `typescript-eslint` + **`eslint-plugin-boundaries`**, Prettier, Husky + lint-staged, commitlint | Los límites de capas y módulos se verifican automáticamente                                                        |
 | Errores en producción   | Sentry (opcional desde el inicio)                                                                                      |                                                                                                                    |
 | Deploy                  | VPS Hostinger, **PM2** (los tres procesos en un `ecosystem.config.cjs`), Nginx, Certbot, GitHub Actions                | Reutiliza el pipeline de DS-DESIGN-Landing                                                                         |
@@ -356,7 +356,7 @@ export class RegisterContact {
 | ------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------- |
 | **Dominio**              | Entidades, value objects, transiciones de estado, cálculo de IPC                 | Unit tests puros, sin mocks                      | **Siempre**, para toda regla nueva |
 | **Aplicación**           | Casos de uso: camino feliz, errores esperados, permisos                          | Fakes en memoria de los puertos                  | **Siempre**, para todo caso de uso |
-| **Infraestructura**      | Repos Drizzle, mapeos, queries                                                   | Postgres real con Testcontainers                 | Para repos y queries no triviales  |
+| **Infraestructura**      | Repos Drizzle, mapeos, queries                                                   | Postgres real (base `_test`, ADR 0010)           | Para repos y queries no triviales  |
 | **Adaptadores externos** | WhatsApp, portales, mail                                                         | Tests con respuestas grabadas; firma de webhooks | Parsing y firma, siempre           |
 | **Presentación**         | Rutas Fastify (`inject`), Server Actions críticas                                | Integración                                      | Webhooks y endpoints públicos      |
 | **E2E**                  | Flujos clave: login, cargar propiedad, verla en la web, lead del bot en el panel | Playwright                                       | Flujos críticos                    |
@@ -394,16 +394,18 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 
 ## 11. Decisiones tomadas (ADRs a registrar)
 
-| #    | Decisión                                                                                   |
-| ---- | ------------------------------------------------------------------------------------------ |
-| 0001 | Monorepo con pnpm workspaces + Turborepo                                                   |
-| 0002 | Clean Architecture sobre un monolito modular (`@norde/core` + `@norde/infra`)              |
-| 0003 | Gestión y agente en **procesos separados** que comparten core y base, sin API HTTP interna |
-| 0004 | Payload solo para contenido editorial (blog, páginas). El negocio vive en el core          |
-| 0005 | Una sola base PostgreSQL con esquemas separados                                            |
-| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent`               |
-| 0007 | Inyección de dependencias manual por composition root                                      |
-| 0008 | `Result` para errores esperados y excepciones para los inesperados                         |
+| #    | Decisión                                                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 0001 | Monorepo con pnpm workspaces + Turborepo                                                                                              |
+| 0002 | Clean Architecture sobre un monolito modular (`@norde/core` + `@norde/infra`)                                                         |
+| 0003 | Gestión y agente en **procesos separados** que comparten core y base, sin API HTTP interna                                            |
+| 0004 | Payload solo para contenido editorial (blog, páginas). El negocio vive en el core                                                     |
+| 0005 | Una sola base PostgreSQL con esquemas separados                                                                                       |
+| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent`                                                          |
+| 0007 | Inyección de dependencias manual por composition root                                                                                 |
+| 0008 | `Result` para errores esperados y excepciones para los inesperados                                                                    |
+| 0009 | [`@norde/agent-kit` envuelve el OpenAI Agents SDK](adr/0009-agent-kit-sobre-openai-agents-sdk.md), sin puerto `LlmGateway` en el core |
+| 0010 | [Tests de integración contra un Postgres real](adr/0010-tests-de-integracion-con-postgres-local.md), sin Testcontainers por ahora     |
 
 ---
 
@@ -412,7 +414,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 "Una persona escribe por WhatsApp preguntando por un 2 ambientes en Palermo y pide visitar uno":
 
 1. **`apps/agent`, presentación**: la ruta `POST /webhook` verifica la firma, agrupa los mensajes y encola el turno.
-2. **`@norde/agent-kit`**: el runner arma el prompt y llama al LLM a través del puerto `LlmGateway`, implementado en infra con OpenAI.
+2. **`@norde/agent-kit`**: el runner arma el prompt y corre el turno con el OpenAI Agents SDK, que llama a las tools (ADR 0009).
 3. **Tool `search_properties`** (presentación, en `apps/agent`): valida los argumentos y llama al caso de uso `SearchProperties` del módulo `properties` con `actor = system:agent-ia`.
 4. **`SearchProperties`** (aplicación): usa el puerto `PropertySearchQuery`, que infra implementa con SQL. Devuelve DTOs.
 5. **Tool `register_client`**: llama a `RegisterContact` del módulo `clients`, que deduplica por teléfono, agrega el canal WhatsApp, abre la oportunidad (tipo alquiler, estado nuevo), guarda el evento `OpportunityCreated` en el outbox y audita.

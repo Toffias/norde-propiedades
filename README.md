@@ -6,15 +6,16 @@ Antes de contribuir, leé [CLAUDE.md](CLAUDE.md) (reglas obligatorias) y [docs/a
 
 ## Estructura
 
-| Ruta              | Qué es                                                      | Puerto dev |
-| ----------------- | ----------------------------------------------------------- | ---------- |
-| `apps/web`        | Next.js + Payload: sitio público y blog (admin en `/admin`) | 3000       |
-| `apps/gestion`    | Next.js: panel interno                                      | 3001       |
-| `apps/agent`      | Fastify: agente IA (WhatsApp + web chat), webhooks, jobs    | 3100       |
-| `packages/core`   | `@norde/core`: dominio y casos de uso                       | —          |
-| `packages/infra`  | `@norde/infra`: Drizzle y adaptadores externos              | —          |
-| `packages/ui`     | `@norde/ui`: Tailwind v4 + componentes shadcn compartidos   | —          |
-| `packages/config` | `@norde/config`: tsconfig, ESLint (capas y módulos), Vitest | —          |
+| Ruta                 | Qué es                                                       | Puerto dev |
+| -------------------- | ------------------------------------------------------------ | ---------- |
+| `apps/web`           | Next.js + Payload: sitio público y blog (admin en `/admin`)  | 3000       |
+| `apps/gestion`       | Next.js: panel interno                                       | 3001       |
+| `apps/agent`         | Fastify: agente IA (WhatsApp + web chat), webhooks, jobs     | 3100       |
+| `packages/core`      | `@norde/core`: dominio y casos de uso                        | —          |
+| `packages/infra`     | `@norde/infra`: Drizzle y adaptadores externos               | —          |
+| `packages/agent-kit` | `@norde/agent-kit`: runner de agentes IA (OpenAI Agents SDK) | —          |
+| `packages/ui`        | `@norde/ui`: Tailwind v4 + componentes shadcn compartidos    | —          |
+| `packages/config`    | `@norde/config`: tsconfig, ESLint (capas y módulos), Vitest  | —          |
 
 ## Requisitos
 
@@ -40,6 +41,15 @@ pnpm dev
 
 `db:setup` necesita un usuario de Postgres con permiso para crear bases. Si preferís un rol dedicado al proyecto en lugar de `postgres`, creálo antes con `scripts/db/create-dev-database.sql`.
 
+Para probar el agente con datos, cargá las propiedades de prueba y usá el simulador por consola (necesita `OPENAI_API_KEY` en `apps/agent/.env`; no hace falta WhatsApp):
+
+```bash
+pnpm db:seed
+pnpm --filter @norde/agent simulate
+```
+
+El canal WhatsApp se habilita completando las variables `WHATSAPP_*` (guía de Meta: `C:APZ-WP-BOTdocsWHATSAPP-SETUP.md`). El webhook queda en `/webhooks/whatsapp`.
+
 El primer usuario del admin de Payload se crea en <http://localhost:3000/admin>.
 
 ```bash
@@ -56,6 +66,9 @@ pnpm check                                # lint + typecheck + test + build + fo
 pnpm format                               # formatear con Prettier
 pnpm --filter @norde/infra db:generate    # migración del core desde el esquema Drizzle
 pnpm db:setup                             # crear base local + aplicar todas las migraciones
+pnpm db:seed                              # propiedades de prueba (solo desarrollo)
+pnpm --filter @norde/agent simulate       # chatear con el agente por consola
+pnpm --filter @norde/infra test:int       # tests de integración (base <db>_test)
 pnpm --filter @norde/web migrate:create   # migración de Payload tras cambiar colecciones
 pnpm --filter @norde/web generate:types   # regenerar payload-types.ts
 ```

@@ -35,5 +35,10 @@ Se aplica además del `CLAUDE.md` de la raíz.
 
 ## Tests
 
-- Repositorios y queries: integración con Postgres real (Testcontainers), en `*.int.test.ts`.
+- Repositorios y queries: integración con Postgres real, en `*.int.test.ts`. Se corren con `pnpm --filter @norde/infra test:int`:
+  - Usan `TEST_DATABASE_URL` o, si no está, la `DATABASE_URL` de `apps/agent/.env` con el sufijo `_test`.
+  - `test/global-setup.ts` crea la base si falta, borra el esquema `core` y aplica las migraciones desde cero. Solo acepta bases que terminan en `_test`.
+  - Cada test arranca con las tablas vacías (`useTestDatabase()` en `test/database.ts`).
+  - Cuando haya Docker en todas las máquinas se puede pasar a Testcontainers sin cambiar los tests.
+- Las migraciones generadas se revisan: si crean el esquema `core`, tiene que ser con `CREATE SCHEMA IF NOT EXISTS` (drizzle-kit lo crea antes para su tabla de migraciones).
 - Adaptadores: respuestas grabadas (fixtures) y tests de parsing, firma y manejo de errores. Sin llamadas reales en CI.

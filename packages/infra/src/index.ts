@@ -6,5 +6,34 @@ export {
   type DatabaseConnection,
   type DatabaseOptions,
 } from './db/client';
+export type { DbExecutor } from './db/executor';
+export { DrizzleUnitOfWork } from './db/unit-of-work';
+
 export { SystemClock } from './shared/system-clock';
 export { UuidV7IdGenerator } from './shared/uuid-v7-id-generator';
+export { DrizzleAuditLog } from './shared/drizzle-audit-log';
+export { DrizzleOutboxPublisher } from './shared/drizzle-outbox-publisher';
+export { maskEmail, maskPhone, type InfraLogger } from './shared/logger';
+
+export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
+export { createClientsUnitOfWork } from './clients/clients-unit-of-work';
+export {
+  DrizzleClientRepository,
+  DrizzleOpportunityRepository,
+} from './clients/drizzle-client-repositories';
+export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
+export {
+  DrizzleConversationRepository,
+  DrizzleMessageLog,
+} from './conversations/drizzle-conversation-repositories';
+
+export {
+  MetaWhatsAppMessenger,
+  WHATSAPP_BUTTON_BODY_LIMIT,
+  WHATSAPP_BUTTON_TITLE_LIMIT,
+  WHATSAPP_CAPTION_LIMIT,
+  WHATSAPP_MAX_BUTTONS,
+  WHATSAPP_TEXT_LIMIT,
+  type MetaWhatsAppMessengerOptions,
+} from './adapters/whatsapp/meta-whatsapp-messenger';
+export { LogTeamNotifier, WebhookTeamNotifier } from './adapters/notifications/team-notifiers';

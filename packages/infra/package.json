@@ -13,14 +13,16 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
     "@norde/core": "workspace:*",
     "drizzle-orm": "catalog:",
     "pg": "catalog:",
     "pg-boss": "catalog:",
-    "uuid": "catalog:"
+    "uuid": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@norde/config": "workspace:*",

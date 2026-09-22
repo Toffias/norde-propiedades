@@ -479,6 +479,9 @@ importers:
       uuid:
         specifier: 'catalog:'
         version: 14.0.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
     devDependencies:
       '@norde/config':
         specifier: workspace:*

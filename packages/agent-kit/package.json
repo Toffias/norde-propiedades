@@ -1,27 +1,26 @@
 {
-  "name": "@norde/core",
+  "name": "@norde/agent-kit",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./*/contracts": "./src/*/contracts/index.ts",
-    "./*/testing": "./src/*/testing/index.ts",
-    "./*": "./src/*/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run"
   },
   "dependencies": {
-    "libphonenumber-js": "catalog:",
+    "@openai/agents": "catalog:",
+    "@openai/agents-core": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@norde/config": "workspace:*",
-    "@vitest/coverage-v8": "catalog:",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

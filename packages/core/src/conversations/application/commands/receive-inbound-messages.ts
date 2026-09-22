@@ -121,6 +121,7 @@ export class ReceiveInboundMessages {
 
     return ok({
       conversationId: conversation.id,
+      externalId: conversation.externalId,
       contactName: conversation.contactName,
       clientId: conversation.clientId,
       agentMemory: conversation.agentMemory,

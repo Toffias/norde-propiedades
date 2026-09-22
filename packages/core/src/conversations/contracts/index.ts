@@ -65,6 +65,8 @@ export type ReplyPlan =
 
 export interface ReceiveInboundMessagesOutput {
   readonly conversationId: string;
+  /** Identidad del contacto en el canal (el número en WhatsApp). */
+  readonly externalId: string;
   readonly contactName: string | undefined;
   readonly clientId: string | undefined;
   /** Memoria del agente para este turno (vacía si se reinició por inactividad). */

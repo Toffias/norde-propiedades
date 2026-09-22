@@ -39,8 +39,9 @@ const SYNTAX = {
     selector: "MemberExpression[object.name='process'][property.name='env']",
     message: 'process.env solo se lee en src/config/env.ts (validado con Zod).',
   },
+  // Solo `new Date()` sin argumentos lee la hora actual; derivar fechas (`new Date(ms)`) es válido.
   noNewDate: {
-    selector: "NewExpression[callee.name='Date']",
+    selector: "NewExpression[callee.name='Date'][arguments.length=0]",
     message: 'En el core el tiempo sale del puerto Clock.',
   },
   noDateNow: {
@@ -295,6 +296,15 @@ export function core({ tsconfigRootDir }) {
  * @param {{ tsconfigRootDir: string }} options
  */
 export function infra({ tsconfigRootDir }) {
+  return library({ tsconfigRootDir });
+}
+
+/**
+ * Librerías internas con dependencias externas (ej. @norde/agent-kit). Igual que infra:
+ * la configuración llega por constructor, nunca de process.env.
+ * @param {{ tsconfigRootDir: string }} options
+ */
+export function library({ tsconfigRootDir }) {
   return defineConfig(base({ tsconfigRootDir }), {
     files: ['src/**/*.ts'],
     rules: {

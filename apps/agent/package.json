@@ -8,9 +8,11 @@
     "start": "node --import tsx src/main.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "simulate": "tsx scripts/simulate.ts"
   },
   "dependencies": {
+    "@norde/agent-kit": "workspace:*",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",
     "fastify": "catalog:",

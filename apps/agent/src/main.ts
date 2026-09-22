@@ -6,9 +6,18 @@ import { buildServer } from './http/server';
 const env = loadEnv();
 const logger = createLogger(env);
 const container = createContainer(env, logger);
-const server = buildServer({ logger, healthCheck: container.healthCheck });
+const server = buildServer({
+  logger,
+  healthCheck: container.healthCheck,
+  whatsapp: container.whatsapp?.webhook,
+});
 
+await container.startJobs();
 await server.listen({ host: env.HOST, port: env.PORT });
+logger.info(
+  { model: env.OPENAI_MODEL, whatsapp: container.whatsapp !== undefined },
+  'Norde agent ready',
+);
 
 let shuttingDown = false;
 
@@ -18,7 +27,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   logger.info({ signal }, 'shutting down');
 
   try {
-    // Primero se deja de aceptar tráfico; después se liberan los recursos.
+    // Primero se deja de aceptar tráfico; después se drenan los turnos y los jobs.
     await server.close();
     await container.close();
     process.exit(0);

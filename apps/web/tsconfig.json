@@ -1,0 +1,15 @@
+{
+  "extends": "@norde/config/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "allowJs": true,
+    // Las dos opciones siguientes son por el código que genera Payload (migraciones):
+    // importa tipos sin `import type` y declara parámetros sin usar. En nuestro código,
+    // ESLint sigue exigiendo `import type` y detecta parámetros sin usar.
+    "verbatimModuleSyntax": false,
+    "noUnusedParameters": false,
+    "paths": {
+      "@payload-config": ["./src/payload.config.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "src", "*.config.ts", ".next/types/**/*.ts"]
+}

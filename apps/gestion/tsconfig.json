@@ -1,0 +1,4 @@
+{
+  "extends": "@norde/config/tsconfig/nextjs.json",
+  "include": ["next-env.d.ts", "src", "*.config.ts", ".next/types/**/*.ts"]
+}

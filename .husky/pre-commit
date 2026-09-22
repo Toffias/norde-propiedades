@@ -1,0 +1,15 @@
+# Bloquea commits directos a main (salvo el primer commit del repositorio).
+if git rev-parse --verify --quiet HEAD >/dev/null; then
+  branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo detached)"
+  if [ "$branch" = "main" ]; then
+    echo "No se commitea directo a main. Creá una rama: git switch -c feat/<scope>-<descripcion>"
+    exit 1
+  fi
+fi
+
+pnpm exec lint-staged
+pnpm turbo run typecheck --output-logs=errors-only
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --redact --no-banner
+fi

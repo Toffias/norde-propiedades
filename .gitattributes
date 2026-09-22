@@ -1,0 +1,8 @@
+# Finales de línea LF en el repositorio, también en Windows (igual que .editorconfig y Prettier).
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary

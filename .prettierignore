@@ -1,0 +1,11 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+pnpm-lock.yaml
+**/db/migrations/**
+payload-types.ts
+**/admin/importMap.js
+**/src/migrations/**
+**/src/app/(payload)/**

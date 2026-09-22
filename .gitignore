@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+
+# Builds y caches
+dist/
+.next/
+.turbo/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Entorno (solo se versiona .env.example)
+.env
+.env.*
+!.env.example
+
+# Logs y sistema
+*.log
+.DS_Store
+Thumbs.db
+
+# Uploads locales de Payload (desarrollo)
+/apps/web/media/

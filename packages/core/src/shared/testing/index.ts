@@ -1,0 +1,55 @@
+// Fakes del shared kernel para tests de casos de uso (`@norde/core/shared/testing`).
+
+import type {
+  AuditEntry,
+  AuditLog,
+  Clock,
+  EventPublisher,
+  IdGenerator,
+} from '../application/ports';
+import type { DomainEvent } from '../domain/domain-event';
+
+/** Reloj fijo, avanzable a mano. */
+export class FixedClock implements Clock {
+  #now: Date;
+
+  constructor(now: Date | string = '2026-01-01T12:00:00.000Z') {
+    this.#now = new Date(now);
+  }
+
+  now(): Date {
+    return new Date(this.#now);
+  }
+
+  advance(milliseconds: number): void {
+    this.#now = new Date(this.#now.getTime() + milliseconds);
+  }
+}
+
+/** IDs determinísticos con formato UUID v7 válido: ...-000000000001, ...-000000000002, etc. */
+export class SequentialIdGenerator implements IdGenerator {
+  #counter = 0;
+
+  next(): string {
+    this.#counter += 1;
+    return `00000000-0000-7000-8000-${this.#counter.toString().padStart(12, '0')}`;
+  }
+}
+
+export class InMemoryEventPublisher implements EventPublisher {
+  readonly published: DomainEvent[] = [];
+
+  publish(events: readonly DomainEvent[]): Promise<void> {
+    this.published.push(...events);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryAuditLog implements AuditLog {
+  readonly entries: AuditEntry[] = [];
+
+  record(entry: AuditEntry): Promise<void> {
+    this.entries.push(entry);
+    return Promise.resolve();
+  }
+}

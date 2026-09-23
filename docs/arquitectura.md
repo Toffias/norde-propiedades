@@ -406,6 +406,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 | 0008 | `Result` para errores esperados y excepciones para los inesperados                                                                    |
 | 0009 | [`@norde/agent-kit` envuelve el OpenAI Agents SDK](adr/0009-agent-kit-sobre-openai-agents-sdk.md), sin puerto `LlmGateway` en el core |
 | 0010 | [Tests de integración contra un Postgres real](adr/0010-tests-de-integracion-con-postgres-local.md), sin Testcontainers por ahora     |
+| 0011 | [La web no lee la base en el build](adr/0011-web-render-on-demand-sin-base-en-el-build.md): ISR on-demand y caché de datos por tag    |
 
 ---
 

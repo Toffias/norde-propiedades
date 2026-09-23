@@ -27,6 +27,8 @@ Se aplica además del `CLAUDE.md` de la raíz.
   - Entrada en el sitemap.
   - Un solo H1.
 - **Datos del negocio** (nombre, teléfono, dirección, redes): solo desde `src/constants/business.ts`.
+- **Rutas públicas**: solo desde `src/lib/seo/routes.ts` (links, canonical, sitemap, breadcrumbs y preview).
+- **Caché** ([ADR 0011](../../docs/adr/0011-web-render-on-demand-sin-base-en-el-build.md)): el build corre sin base. Ninguna página lee la base en el build: las rutas dinámicas usan ISR on-demand (`generateStaticParams` → `[]`) y las fijas `dynamic = 'force-dynamic'`. Las lecturas de Payload van en `src/lib/blog/queries.ts`, con `unstable_cache` y el tag del blog, que invalidan los hooks de `src/payload/hooks/revalidate-blog.ts`.
 - **Paginación** con `<a href>` reales. Imágenes con `next/image` y `alt` descriptivo.
 - **Payload**:
   - Estructura:

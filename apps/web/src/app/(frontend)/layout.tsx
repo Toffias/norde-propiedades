@@ -1,24 +1,60 @@
 import './globals.css';
 
 import { ThemeProvider } from '@norde/ui/components/theme-provider';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
-import { getEnv } from '../../config/env';
+import { SiteFooter } from '../../components/layout/site-footer';
+import { SiteHeader } from '../../components/layout/site-header';
+import { JsonLdScript } from '../../components/seo/json-ld-script';
+import { BUSINESS, SITE_TITLE } from '../../constants/business';
+import { organizationSchema, websiteSchema } from '../../lib/seo/json-ld';
+import { buildMetadata } from '../../lib/seo/metadata';
+import { routes } from '../../lib/seo/routes';
+import { getSiteUrl } from '../../lib/site-url';
 
 export function generateMetadata(): Metadata {
+  // Valores por defecto (OG, Twitter). El canonical lo define cada página: no se hereda.
+  const { alternates: _canonical, ...defaults } = buildMetadata({
+    title: SITE_TITLE,
+    path: routes.home(),
+  });
   return {
-    metadataBase: new URL(getEnv().NEXT_PUBLIC_SERVER_URL),
-    title: { default: 'Norde Propiedades', template: '%s | Norde Propiedades' },
-    description: 'Compra, venta y alquiler de propiedades.',
+    ...defaults,
+    metadataBase: new URL(getSiteUrl()),
+    title: { default: SITE_TITLE, template: `%s | ${BUSINESS.name}` },
+    applicationName: BUSINESS.name,
+    formatDetection: { telephone: false },
   };
 }
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
+};
+
 export default function FrontendLayout({ children }: { readonly children: ReactNode }) {
+  const siteUrl = getSiteUrl();
+
   return (
     <html lang="es-AR" suppressHydrationWarning>
-      <body>
-        <ThemeProvider>{children}</ThemeProvider>
+      <body className="flex min-h-dvh flex-col">
+        <JsonLdScript data={[organizationSchema(siteUrl), websiteSchema(siteUrl)]} />
+        <ThemeProvider>
+          <a
+            href="#contenido"
+            className="bg-primary text-primary-foreground sr-only z-50 rounded-md px-4 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+          >
+            Saltar al contenido
+          </a>
+          <SiteHeader />
+          <main id="contenido" className="flex-1">
+            {children}
+          </main>
+          <SiteFooter />
+        </ThemeProvider>
       </body>
     </html>
   );

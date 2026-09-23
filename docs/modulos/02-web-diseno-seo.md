@@ -269,6 +269,38 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 | **F6: Conversión**            | Formularios hacia la gestión, widget de web chat (módulo 1), sugerencias y destacados                                                    |
 | **F7: Alertas por mail**      | Suscripción, doble opt-in, envío periódico                                                                                               |
 
+### Estado de implementación
+
+**Hecho (base de F2, F4 y F5):**
+
+- **Admin de Payload** (`/admin`), grupo "Blog":
+  - **Artículos** (`posts`): pestañas Contenido, Preguntas frecuentes y SEO. Borradores con autoguardado, publicación programada (la ejecuta el cron de jobs de Payload), 50 versiones y live preview (mobile, tablet, desktop). Editor sin H1, con H2 a H4, listas, citas, tablas, imágenes y links internos a otros posts. Autores, categorías y hasta 3 artículos relacionados.
+  - **Categorías** (`categories`): nombre, descripción (intro y meta description) y slug.
+  - **Redirecciones** (grupo "Configuración"): 301 hacia un post o una URL.
+  - **Usuarios**: nombre, cargo, bio y foto. El sitio muestra solo esos datos (nunca el email).
+  - Slugs sin acentos ni eñes (`como-se-calcula-el-ipc`), con `pagina` y `categoria` reservados.
+- **Blog**: `/blog`, `/blog/pagina/<n>`, `/blog/categoria/<slug>` (con su paginación) y `/blog/<slug>`. Paginación con `<a href>` y una sola constante de tamaño (`POSTS_PER_PAGE`).
+- **Post**: fecha de publicación y de última actualización visibles, tiempo de lectura, autores con bio, FAQ con `<details>`, artículos relacionados.
+- **SEO**:
+  - `buildMetadata` (title, description, canonical, Open Graph y Twitter card) en todas las páginas.
+  - JSON-LD: `RealEstateAgent` y `WebSite` sitewide, `BlogPosting` con autores `Person`, `BreadcrumbList` y `FAQPage`.
+  - `sitemap.xml` (home, blog, categorías con posts y posts), `robots.txt` (crawlers de IA permitidos explícitamente), `llms.txt` e imagen OG por defecto en `/og-image.png`.
+  - Headers de seguridad y `X-Robots-Tag: noindex` en el admin.
+- **Home**: hero con buscador (operación, tipo y zona, hacia `/propiedades` con query params en español), servicios, últimos artículos y llamado para propietarios.
+- **Caché**: ver [ADR 0011](../adr/0011-web-render-on-demand-sin-base-en-el-build.md). Al publicar, los hooks invalidan el tag `blog` y el cambio se ve en la próxima visita.
+
+**Diferencias con lo planeado:**
+
+- El **preview** se autoriza con la sesión del admin de Payload (`/next/preview` verifica al usuario), no con un `PREVIEW_SECRET`: el secreto viajaba en la URL y no agregaba seguridad real.
+- Los sitemaps usan el `sitemap.ts` de Next.js en lugar de `next-sitemap`.
+- No se instalaron `search` (no hay página de búsqueda del blog todavía), `nested-docs` (las categorías son planas) ni `form-builder` (los formularios van al core, sin guardar datos personales en Payload).
+
+**Pendiente:**
+
+- Datos del negocio en `src/constants/business.ts` (teléfono, WhatsApp, dirección, zonas, redes): están en `null` hasta que Norde los confirme. Sin esos datos no se muestran ni se publican en el JSON-LD.
+- Header, footer y home editables desde Payload (globals y page builder por bloques), identidad visual (`DESIGN.md`), storage en la nube para las imágenes y E2E con Playwright.
+- `/propiedades` (F3) y `/tasar-mi-propiedad` (F6): el buscador de la home ya apunta al listado.
+
 ---
 
 ## 10. Preguntas abiertas

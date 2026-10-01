@@ -1,5 +1,11 @@
-import { FEATURE_KINDS, LOCATION_KINDS, type PropertyCatalogQuery } from '@norde/core/properties';
+import {
+  CUSTOM_ATTRIBUTE_KINDS,
+  FEATURE_KINDS,
+  LOCATION_KINDS,
+  type PropertyCatalogQuery,
+} from '@norde/core/properties';
 import type {
+  CustomAttributeRow,
   FavoriteSearchRow,
   FeatureRow,
   LocationRow,
@@ -26,6 +32,7 @@ import {
   developmentTagAssignments,
   favoritePropertySearches,
   features,
+  propertyCustomAttributes,
   locations,
   propertyTagAssignments,
   propertyTagGroups,
@@ -54,6 +61,8 @@ const outerTagId = sql.raw('"property_tags"."id"');
 
 const LocationKind = z.enum(LOCATION_KINDS);
 const FeatureKind = z.enum(FEATURE_KINDS);
+const CustomAttributeKind = z.enum(CUSTOM_ATTRIBUTE_KINDS);
+const CustomAttributeOptions = z.array(z.string()).catch([]);
 const Params = z.record(z.string(), z.string());
 
 /** Lecturas paginadas de los catálogos de propiedades. Cada filtro y orden tiene su índice (0009). */
@@ -151,6 +160,37 @@ export class DrizzlePropertyCatalogQuery implements PropertyCatalogQuery {
     ]);
     return {
       items: rows.map((row) => ({ ...row, kind: FeatureKind.parse(row.kind) })),
+      total: totals[0]?.total ?? 0,
+    };
+  }
+
+  async listCustomAttributes(
+    criteria: Parameters<PropertyCatalogQuery['listCustomAttributes']>[0],
+  ): Promise<PageSlice<CustomAttributeRow>> {
+    const { field, direction } = criteria.sort;
+    const [rows, totals] = await Promise.all([
+      this.db
+        .select()
+        .from(propertyCustomAttributes)
+        .orderBy(
+          by(
+            direction,
+            field === 'name' ? propertyCustomAttributes.name : propertyCustomAttributes.position,
+          ),
+          by(direction, propertyCustomAttributes.id),
+        )
+        .limit(criteria.limit)
+        .offset(criteria.offset),
+      this.db.select({ total: count() }).from(propertyCustomAttributes),
+    ]);
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        kind: CustomAttributeKind.parse(row.kind),
+        options: CustomAttributeOptions.parse(row.options),
+        isActive: row.isActive,
+      })),
       total: totals[0]?.total ?? 0,
     };
   }

@@ -1,5 +1,6 @@
 import type { PageSlice } from '../../../shared';
 import type {
+  CustomAttributeRow,
   FavoriteSearchRow,
   FeatureKindValue,
   FeatureRow,
@@ -60,6 +61,12 @@ export interface PropertyCatalogQuery {
       readonly sort: { readonly field: 'name' | 'updatedAt'; readonly direction: Direction };
     },
   ): Promise<PageSlice<FavoriteSearchRow>>;
+
+  listCustomAttributes(
+    criteria: Paging & {
+      readonly sort: { readonly field: 'position' | 'name'; readonly direction: Direction };
+    },
+  ): Promise<PageSlice<CustomAttributeRow>>;
 
   /** Los ocho tipos; los que no tienen configuración guardada, con la recomendada. */
   typeSettings(): Promise<readonly PropertyTypeSetting[]>;

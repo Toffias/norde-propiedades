@@ -375,3 +375,37 @@ describe('custom attributes', () => {
     });
   });
 });
+
+describe('custom attributes listing', () => {
+  it('pages the definitions by position or by name', async () => {
+    const repository = new DrizzleCustomAttributeRepository(db);
+    for (const [position, name] of ['Vista', 'Amenities extra', 'Mascotas'].entries()) {
+      await repository.save(
+        unwrap(
+          CustomAttribute.create({
+            id: id<'CustomAttribute'>(),
+            name,
+            kind: 'text',
+            options: [],
+            position,
+            now: NOW,
+          }),
+        ),
+        ADMIN,
+      );
+    }
+    const byPosition = await catalog.listCustomAttributes({
+      sort: { field: 'position', direction: 'asc' },
+      offset: 0,
+      limit: 2,
+    });
+    expect(byPosition.total).toBe(3);
+    expect(byPosition.items.map((row) => row.name)).toEqual(['Vista', 'Amenities extra']);
+    const byName = await catalog.listCustomAttributes({
+      sort: { field: 'name', direction: 'asc' },
+      offset: 2,
+      limit: 2,
+    });
+    expect(byName.items.map((row) => row.name)).toEqual(['Vista']);
+  });
+});

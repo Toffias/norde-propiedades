@@ -40,8 +40,49 @@ import {
   UpdateUser,
 } from '@norde/core/identity';
 import {
+  ListPropertyInterestedClients,
+  ListPropertySends,
+  type PropertyProfiles,
+} from '@norde/core/clients';
+import {
+  AddPropertyMediaLink,
   BulkEditProperties,
+  ChangePropertyCode,
+  ChangePropertyProducer,
+  ChangePropertyStatus,
+  ChangePropertyTags,
   CompareProperties,
+  CreateCustomAttribute,
+  DeletePropertyAttachment,
+  DeletePropertyMedia,
+  GetPanelPropertyDetail,
+  GetPropertyAttachmentDownload,
+  GetPropertyDocumentDownload,
+  GetPropertyInterestProfile,
+  GetPropertyMediaFile,
+  ListCustomAttributes,
+  ListPropertyAttachments,
+  ListPropertyDocuments,
+  ListPropertyHistory,
+  ListPropertyMedia,
+  ReorderPropertyMedia,
+  RequestPropertyDocument,
+  SendOwnerReport,
+  SetPropertyCover,
+  UpdateCustomAttribute,
+  UpdatePropertyAttachment,
+  UpdatePropertyCharacteristics,
+  UpdatePropertyCustomAttributes,
+  UpdatePropertyDeal,
+  UpdatePropertyDescription,
+  UpdatePropertyFeatures,
+  UpdatePropertyInternalInfo,
+  UpdatePropertyLocation,
+  UpdatePropertyMedia,
+  UpdatePropertyOperations,
+  UpdatePropertyPublication,
+  UploadPropertyAttachment,
+  UploadPropertyMedia,
   CreateFeature,
   CreateLocation,
   CreateProperty,
@@ -72,6 +113,11 @@ import {
   type ReferenceCodeAllocator,
   type UserNames,
 } from '@norde/core/properties';
+import {
+  GetOwnerReport,
+  GetPropertyStatistics,
+  type ReportingPropertyProfiles,
+} from '@norde/core/reporting';
 import {
   AllocateReferenceCode,
   ChangeCompanyLogo,
@@ -111,6 +157,7 @@ import {
   createIdentityUnitOfWork,
   createPropertiesUnitOfWork,
   createSettingsUnitOfWork,
+  DrizzleAuditHistoryQuery,
   DrizzleAuditLog,
   DrizzleCompanyFileRepository,
   DrizzleCompanyFilesQuery,
@@ -119,6 +166,11 @@ import {
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
   DrizzlePropertyCatalogQuery,
+  DrizzlePropertyDetailLookups,
+  DrizzlePropertyDocumentQuery,
+  DrizzlePropertyInterestQuery,
+  DrizzlePropertyMediaQuery,
+  DrizzlePropertyStatisticsQuery,
   DrizzleReferenceCodeSequenceQuery,
   DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
@@ -186,10 +238,16 @@ export interface Container {
   readonly settings: SettingsUseCases;
   /** Propiedades: buscador, alta, papelera, catálogos, mapa y acciones masivas (#5). */
   readonly properties: PropertiesUseCases;
+  /** Lo que la ficha de propiedad muestra de los clientes: interesados y envíos (#6). */
+  readonly clients: ClientsUseCases;
+  /** Estadísticas y reporte al propietario de la ficha (#6). */
+  readonly reporting: ReportingUseCases;
 }
 
 export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
 export type PropertiesUseCases = ReturnType<typeof createPropertiesUseCases>;
+export type ClientsUseCases = ReturnType<typeof createDetailReadModels>['clients'];
+export type ReportingUseCases = ReturnType<typeof createDetailReadModels>['reporting'];
 
 let container: Container | undefined;
 
@@ -311,6 +369,9 @@ function createPropertiesUseCases(
       return user?.status === 'active' ? { branchId: user.branchId } : undefined;
     },
   };
+  const storage = createStorage(env);
+  const lookups = new DrizzlePropertyDetailLookups(db);
+  const media = new DrizzlePropertyMediaQuery(db);
   const geocoder = new NominatimGeocoder({
     userAgent: env.GEOCODER_USER_AGENT,
     baseUrl: env.GEOCODER_URL,
@@ -358,6 +419,97 @@ function createPropertiesUseCases(
     listFavoriteSearches: new ListFavoriteSearches({ catalog }),
     saveFavoriteSearch: new SaveFavoriteSearch({ uow, ids, clock }),
     deleteFavoriteSearch: new DeleteFavoriteSearch({ uow }),
+
+    // Ficha (#6)
+    getPanelPropertyDetail: new GetPanelPropertyDetail({ uow, lookups, users }),
+    updatePropertyLocation: new UpdatePropertyLocation({ uow, geocoder, clock }),
+    changePropertyCode: new ChangePropertyCode({ uow, clock }),
+    updatePropertyOperations: new UpdatePropertyOperations({ uow, clock }),
+    changePropertyStatus: new ChangePropertyStatus({ uow, clock }),
+    updatePropertyCharacteristics: new UpdatePropertyCharacteristics({ uow, clock }),
+    updatePropertyDeal: new UpdatePropertyDeal({ uow, clock }),
+    updatePropertyFeatures: new UpdatePropertyFeatures({ uow, clock }),
+    updatePropertyDescription: new UpdatePropertyDescription({ uow, clock }),
+    updatePropertyCustomAttributes: new UpdatePropertyCustomAttributes({ uow, clock }),
+    changePropertyTags: new ChangePropertyTags({ uow, clock }),
+    changePropertyProducer: new ChangePropertyProducer({ uow, producers, clock }),
+    updatePropertyInternalInfo: new UpdatePropertyInternalInfo({ uow, producers, clock }),
+    updatePropertyPublication: new UpdatePropertyPublication({ uow, clock }),
+    listCustomAttributes: new ListCustomAttributes({ catalog }),
+    createCustomAttribute: new CreateCustomAttribute({ uow, ids, clock }),
+    updateCustomAttribute: new UpdateCustomAttribute({ uow, clock }),
+    listPropertyHistory: new ListPropertyHistory({
+      uow,
+      history: new DrizzleAuditHistoryQuery(db),
+      users,
+    }),
+    getPropertyInterestProfile: new GetPropertyInterestProfile({ uow }),
+    // Multimedia y archivos
+    listPropertyMedia: new ListPropertyMedia({ media }),
+    getPropertyMediaFile: new GetPropertyMediaFile({ uow, storage }),
+    uploadPropertyMedia: new UploadPropertyMedia({ uow, storage, ids, clock }),
+    addPropertyMediaLink: new AddPropertyMediaLink({ uow, ids, clock }),
+    updatePropertyMedia: new UpdatePropertyMedia({ uow, clock }),
+    reorderPropertyMedia: new ReorderPropertyMedia({ uow, clock }),
+    setPropertyCover: new SetPropertyCover({ uow, clock }),
+    deletePropertyMedia: new DeletePropertyMedia({ uow, clock }),
+    listPropertyAttachments: new ListPropertyAttachments({ media, users }),
+    uploadPropertyAttachment: new UploadPropertyAttachment({ uow, storage, ids, clock }),
+    updatePropertyAttachment: new UpdatePropertyAttachment({ uow, clock }),
+    deletePropertyAttachment: new DeletePropertyAttachment({ uow, clock }),
+    getPropertyAttachmentDownload: new GetPropertyAttachmentDownload({ uow, storage }),
+    // PDF
+    requestPropertyDocument: new RequestPropertyDocument({ uow, ids, clock }),
+    listPropertyDocuments: new ListPropertyDocuments({
+      documents: new DrizzlePropertyDocumentQuery(db),
+      users,
+    }),
+    getPropertyDocumentDownload: new GetPropertyDocumentDownload({ uow, storage }),
+    sendOwnerReport: new SendOwnerReport({
+      uow,
+      storage,
+      mailer: new ResendMailer({
+        apiKey: env.RESEND_API_KEY,
+        fromAddress: env.MAIL_FROM_ADDRESS,
+        logger: getLogger(),
+      }),
+      settings: new DrizzleCompanySettingsRepository(db, clock),
+    }),
+  };
+}
+
+/**
+ * Interesados, envíos y estadísticas de la ficha. Cruzan la propiedad con los clientes: el perfil
+ * de la propiedad (tipo, operaciones, ubicación) lo da el caso de uso de propiedades.
+ */
+function createDetailReadModels(
+  db: Database,
+  properties: PropertiesUseCases,
+  deps: { readonly clock: Clock },
+) {
+  const directory = new DrizzleDirectory(db);
+  const agents = { names: (userIds: readonly string[]) => directory.names('user', userIds) };
+  const profiles: PropertyProfiles & ReportingPropertyProfiles = {
+    async find(propertyId, actor) {
+      const profile = await properties.getPropertyInterestProfile.execute({ propertyId }, actor);
+      return profile.isOk() ? profile.value : undefined;
+    },
+  };
+  const interest = new DrizzlePropertyInterestQuery(db);
+  const statistics = new DrizzlePropertyStatisticsQuery(db);
+  return {
+    clients: {
+      listPropertyInterestedClients: new ListPropertyInterestedClients({
+        profiles,
+        interest,
+        agents,
+      }),
+      listPropertySends: new ListPropertySends({ interest, agents }),
+    },
+    reporting: {
+      getPropertyStatistics: new GetPropertyStatistics({ profiles, statistics, clock: deps.clock }),
+      getOwnerReport: new GetOwnerReport({ profiles, statistics }),
+    },
   };
 }
 
@@ -385,6 +537,7 @@ function createContainer(): Container {
   const roleQuery = new DrizzleRoleListQuery(database.db);
   const organization = new DrizzleOrganizationQuery(database.db);
   const settings = createSettingsUseCases(database.db, env, { ids, clock });
+  const properties = createPropertiesUseCases(database.db, env, settings, { ids, clock });
 
   return {
     database,
@@ -393,7 +546,8 @@ function createContainer(): Container {
     sessions: new BetterAuthSessionReader(auth),
     resolveSessionActor: new ResolveSessionActor({ users: userAccess }),
     settings,
-    properties: createPropertiesUseCases(database.db, env, settings, { ids, clock }),
+    properties,
+    ...createDetailReadModels(database.db, properties, { clock }),
     identity: {
       listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),
       listRoles: new ListRoles({ roles: roleQuery }),

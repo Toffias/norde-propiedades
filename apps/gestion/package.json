@@ -12,6 +12,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dnd-kit/core": "catalog:",
+    "@dnd-kit/sortable": "catalog:",
+    "@dnd-kit/utilities": "catalog:",
     "@hookform/resolvers": "catalog:",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",

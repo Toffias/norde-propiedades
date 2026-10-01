@@ -16,6 +16,8 @@ export type MediaProcessingValue = (typeof MEDIA_PROCESSING_VALUES)[number];
 export const MEDIA_IMAGE_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export const MAX_MEDIA_UPLOAD_BYTES = 15 * 1024 * 1024;
 export const MAX_ATTACHMENT_UPLOAD_BYTES = 25 * 1024 * 1024;
+/** Lo que ofrece el selector de archivos de la ficha (el caso de uso valida el tipo real). */
+export const ATTACHMENT_UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
 
 const bytes = (max: number) =>
   z

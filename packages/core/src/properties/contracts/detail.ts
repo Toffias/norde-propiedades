@@ -3,6 +3,7 @@
 import { z } from 'zod';
 
 import { historyQuerySchema } from '../../audit/contracts';
+import { pageQuerySchema } from '../../shared/contracts';
 
 import { AmountSchema } from './amount';
 import { CURRENCIES, MANUAL_STATUS_VALUES, OPERATIONS } from './values';
@@ -430,3 +431,9 @@ export interface PanelPropertyDetail {
   readonly updatedAt: Date;
   readonly deletedAt: Date | undefined;
 }
+
+export const ListCustomAttributesQuerySchema = pageQuerySchema({
+  sortable: ['position', 'name'],
+  defaultSort: { field: 'position', direction: 'asc' },
+});
+export type ListCustomAttributesQuery = z.input<typeof ListCustomAttributesQuerySchema>;

@@ -783,6 +783,10 @@ export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
     return this.empty<never>('listFeatures', criteria);
   }
 
+  listCustomAttributes(criteria: Parameters<PropertyCatalogQuery['listCustomAttributes']>[0]) {
+    return this.empty<never>('listCustomAttributes', criteria);
+  }
+
   listTagGroups(criteria: Parameters<PropertyCatalogQuery['listTagGroups']>[0]) {
     return this.empty<never>('listTagGroups', criteria);
   }

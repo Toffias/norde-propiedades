@@ -1,10 +1,15 @@
 import {
+  auditAction,
+  auditCreated,
+  diffChanges,
   Email,
   err,
   nextId,
   ok,
   Phone,
+  toAuditValue,
   type Actor,
+  type AuditState,
   type Clock,
   type ForbiddenError,
   type IdGenerator,
@@ -20,6 +25,27 @@ import {
 import { Client, type MissingContactInfoError } from '../../domain/client';
 import { findOpenOpportunityAbout, Opportunity } from '../../domain/opportunity';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
+
+/** Lo que se audita de un cliente: sus datos de contacto, crudos. */
+function clientAuditState(client: Client): AuditState {
+  const { name, phone, email } = client.toSnapshot();
+  return { name, phone: phone?.e164, email: email?.value };
+}
+
+/** Lo que se audita de una oportunidad. Las notas quedan en la actividad del cliente. */
+function opportunityAuditState(opportunity: Opportunity): AuditState {
+  const { clientId, originChannel, type, intent, status, propertyId, search } =
+    opportunity.toSnapshot();
+  return {
+    clientId,
+    originChannel,
+    type,
+    intent,
+    status,
+    propertyId,
+    search: toAuditValue(search),
+  };
+}
 
 export type RegisterContactError =
   | ForbiddenError
@@ -76,6 +102,7 @@ export class RegisterContact {
         const existing =
           byPhone ?? (contact.email ? await tx.clients.findByEmail(contact.email) : undefined);
 
+        const clientBefore = existing ? clientAuditState(existing) : undefined;
         let client: Client;
         if (existing) {
           client = existing;
@@ -99,6 +126,7 @@ export class RegisterContact {
           propertyId,
         });
 
+        const opportunityBefore = open ? opportunityAuditState(open) : undefined;
         let opportunity: Opportunity;
         if (open) {
           opportunity = open;
@@ -125,18 +153,38 @@ export class RegisterContact {
         await tx.clients.save(client);
         await tx.opportunities.save(opportunity);
         await tx.events.publish([...client.pullEvents(), ...opportunity.pullEvents()]);
-        await tx.audit.record({
-          actorId: actor.id,
-          action: existing ? 'client.contact_recorded' : 'client.registered',
-          entityType: 'client',
-          entityId: client.id,
-        });
-        await tx.audit.record({
-          actorId: actor.id,
-          action: open ? 'opportunity.request_added' : 'opportunity.opened',
+        const clientTarget = { entityType: 'client', entityId: client.id, clientIds: [client.id] };
+        await tx.audit.record(
+          clientBefore
+            ? auditAction(
+                actor,
+                { ...clientTarget, action: 'client.contact_recorded' },
+                diffChanges(clientBefore, clientAuditState(client)),
+              )
+            : auditCreated(
+                actor,
+                { ...clientTarget, action: 'client.registered' },
+                clientAuditState(client),
+              ),
+        );
+        const opportunityTarget = {
           entityType: 'opportunity',
           entityId: opportunity.id,
-        });
+          clientIds: [client.id],
+        };
+        await tx.audit.record(
+          opportunityBefore
+            ? auditAction(
+                actor,
+                { ...opportunityTarget, action: 'opportunity.request_added' },
+                diffChanges(opportunityBefore, opportunityAuditState(opportunity)),
+              )
+            : auditCreated(
+                actor,
+                { ...opportunityTarget, action: 'opportunity.opened' },
+                opportunityAuditState(opportunity),
+              ),
+        );
 
         return ok({
           clientId: client.id,

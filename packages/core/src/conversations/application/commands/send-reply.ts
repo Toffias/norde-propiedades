@@ -1,4 +1,5 @@
 import {
+  auditAction,
   err,
   ok,
   parseId,
@@ -71,13 +72,18 @@ export class SendReply {
       const linkedClient = clientId?.isOk() ? clientId.value : undefined;
       if (linkedClient && conversation.clientId !== linkedClient) {
         conversation.linkClient(linkedClient, now);
-        await tx.audit.record({
-          actorId: actor.id,
-          action: 'conversation.linked_to_client',
-          entityType: 'conversation',
-          entityId: conversation.id,
-          changes: { clientId: { before: target.clientId ?? null, after: linkedClient } },
-        });
+        await tx.audit.record(
+          auditAction(
+            actor,
+            {
+              action: 'conversation.linked_to_client',
+              entityType: 'conversation',
+              entityId: conversation.id,
+              clientIds: [linkedClient, ...(target.clientId ? [target.clientId] : [])],
+            },
+            { clientId: { before: target.clientId ?? null, after: linkedClient } },
+          ),
+        );
       }
       await tx.conversations.save(conversation);
 

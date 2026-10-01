@@ -26,20 +26,58 @@ export interface EventPublisher {
   publish(events: readonly DomainEvent[]): Promise<void>;
 }
 
+/** Desde dónde se ejecutó el cambio. Lo deriva el `Actor` (`actor.source`). */
+export type AuditSource = 'gestion' | 'agent' | 'web' | 'scheduler' | 'import';
+
+/**
+ * Valor crudo de un campo auditado: centavos como `bigint`, IDs, fechas. La pantalla lo formatea.
+ * Otras entidades se referencian por ID, nunca copiando nombres, teléfonos ni emails.
+ */
+export type AuditValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | Date
+  | null
+  | readonly AuditValue[]
+  | { readonly [field: string]: AuditValue };
+
 export interface FieldChange {
-  readonly before: unknown;
-  readonly after: unknown;
+  readonly before: AuditValue;
+  readonly after: AuditValue;
 }
 
-export interface AuditEntry {
+/** Diff por campo. Las filas hijas van prefijadas contra la entidad principal (`phones.mobile`). */
+export type AuditChanges = Readonly<Record<string, FieldChange>>;
+
+interface AuditEntryBase {
   readonly actorId: string;
+  /** `<entidad>.<acción>`: `client.registered`, `property.deleted`. */
   readonly action: string;
   readonly entityType: string;
   readonly entityId: string;
-  readonly changes?: Readonly<Record<string, FieldChange>>;
+  readonly source: AuditSource;
+  /** Agrupa las entradas de un mismo command o request. */
+  readonly correlationId?: string;
+  /** Clientes cuyos datos aparecen en la entrada: es lo que permite la supresión. */
+  readonly clientIds: readonly string[];
 }
 
-/** Registro de trazabilidad: quién hizo qué, cuándo y sobre qué entidad. */
+/**
+ * Entrada del historial de cambios. Se arma con `auditCreated`, `auditUpdated` o `auditAction`
+ * (`shared/application/audit.ts`).
+ *
+ * - `created`: los valores iniciales (`before: null`).
+ * - `updated`: solo los campos que cambiaron. Sin cambios, no se registra.
+ * - `action`: baja, restauración, unificación, cambio de estado, asignación; el diff es opcional.
+ */
+export type AuditEntry =
+  | (AuditEntryBase & { readonly kind: 'created'; readonly changes: AuditChanges })
+  | (AuditEntryBase & { readonly kind: 'updated'; readonly changes: AuditChanges })
+  | (AuditEntryBase & { readonly kind: 'action'; readonly changes?: AuditChanges });
+
+/** Registro de trazabilidad: quién hizo qué, cuándo y sobre qué entidad. Solo de inserción. */
 export interface AuditLog {
   record(entry: AuditEntry): Promise<void>;
 }

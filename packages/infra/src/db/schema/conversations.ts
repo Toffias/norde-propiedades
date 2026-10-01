@@ -21,6 +21,9 @@ export const conversations = coreSchema.table(
     searchCriteria: jsonb('search_criteria'),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull(),
+    /** Nullable hasta el backfill (expand): la `0000` no la tenía. */
+    createdBy: text('created_by'),
+    updatedBy: text('updated_by'),
   },
   (t) => [
     uniqueIndex('conversations_identity_uq').on(t.channel, t.externalId),

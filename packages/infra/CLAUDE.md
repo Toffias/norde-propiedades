@@ -23,6 +23,9 @@ Se aplica además del `CLAUDE.md` de la raíz.
 - Índices para toda columna usada en filtros de listados, búsquedas del agente o reportes.
 - Transacciones solo a través de `UnitOfWork`. Los repositorios reciben el `tx` y no abren transacciones propias.
 - Sin foreign keys entre tablas de módulos distintos, salvo que un ADR lo permita.
+- Las tablas, las convenciones (fila única, papelera, autoría) y las columnas a retirar están en `docs/modelo-de-datos.md`. Las columnas comunes salen de `src/db/schema/columns.ts`.
+- Búsqueda de texto: columna generada `search_text` con `core.search_normalize(...)` (extensiones `pg_trgm` y `unaccent`) e índice GIN trigram. No se filtra con `ilike` sobre columnas sin índice.
+- `audit_log` es solo de inserción por código: ningún adaptador hace `update` ni `delete` sobre esa tabla, salvo el de supresión de datos (ADR 0015).
 
 ## Adaptadores externos
 
@@ -38,7 +41,7 @@ Se aplica además del `CLAUDE.md` de la raíz.
 - Repositorios y queries: integración con Postgres real, en `*.int.test.ts`. Se corren con `pnpm --filter @norde/infra test:int`:
   - Usan `TEST_DATABASE_URL` o, si no está, la `DATABASE_URL` de `apps/agent/.env` con el sufijo `_test`.
   - `test/global-setup.ts` crea la base si falta, borra el esquema `core` y aplica las migraciones desde cero. Solo acepta bases que terminan en `_test`.
-  - Cada test arranca con las tablas vacías (`useTestDatabase()` en `test/database.ts`).
+  - Cada test arranca con las tablas vacías (`useTestDatabase()` en `test/database.ts`): se vacían todas las tablas de `core` y se vuelven a crear las filas únicas de configuración. Una tabla nueva no hay que agregarla a mano.
   - Cuando haya Docker en todas las máquinas se puede pasar a Testcontainers sin cambiar los tests.
 - Las migraciones generadas se revisan: si crean el esquema `core`, tiene que ser con `CREATE SCHEMA IF NOT EXISTS` (drizzle-kit lo crea antes para su tabla de migraciones).
 - Adaptadores: respuestas grabadas (fixtures) y tests de parsing, firma y manejo de errores. Sin llamadas reales en CI.

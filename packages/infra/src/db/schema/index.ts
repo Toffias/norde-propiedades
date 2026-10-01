@@ -1,5 +1,10 @@
 export { coreSchema } from './core-schema';
+export * from './appraisals';
 export * from './clients';
 export * from './conversations';
+export * from './identity';
+export * from './notifications';
 export * from './platform';
+export * from './portals';
 export * from './properties';
+export * from './settings';

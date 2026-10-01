@@ -13,11 +13,32 @@ export function useTestDatabase() {
     maxConnections: 4,
   });
 
+  // Vacía todas las tablas de `core` salvo las migraciones, y vuelve a crear las filas únicas de
+  // configuración con sus valores por defecto (como las deja la migración).
   beforeEach(async () => {
     await connection.db.execute(sql`
       drop schema if exists pgboss_test cascade;
-      truncate core.properties, core.clients, core.client_channels, core.opportunities,
-        core.conversations, core.conversation_messages, core.outbox, core.audit_log
+      do $$
+      declare
+        tables text;
+        singleton record;
+      begin
+        select string_agg(format('core.%I', tablename), ', ') into tables
+        from pg_tables
+        where schemaname = 'core' and tablename <> '__drizzle_migrations';
+        execute 'truncate ' || tables;
+
+        for singleton in
+          select c.conrelid::regclass as name from pg_constraint c
+          where c.connamespace = 'core'::regnamespace and c.conname like '%\_singleton'
+        loop
+          execute format(
+            'insert into %s (created_at, updated_at, created_by, updated_by) '
+              || 'values (now(), now(), %L, %L)',
+            singleton.name, 'system:import', 'system:import'
+          );
+        end loop;
+      end $$;
     `);
   });
 

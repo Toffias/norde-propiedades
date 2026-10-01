@@ -79,6 +79,7 @@ async function main(): Promise<void> {
   for (const url of urls) await ensureDatabase(url);
 
   const coreUrl = envs.find((e) => e.app === 'agent')?.env?.DATABASE_URL ?? [...urls][0];
+  if (!coreUrl) throw new Error('Ningún .env define DATABASE_URL.');
   const coreJournal = path.join(ROOT, 'packages/infra/src/db/migrations/meta/_journal.json');
   if (existsSync(coreJournal)) {
     run('Migraciones del core (Drizzle)', ['--filter', '@norde/infra', 'db:migrate'], {

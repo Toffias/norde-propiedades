@@ -514,18 +514,26 @@ export const favoritePropertySearches = coreSchema.table(
 );
 
 /** Definición de los atributos personalizados de propiedad (EAV, ADR 0014). */
-export const propertyCustomAttributes = coreSchema.table('property_custom_attributes', {
-  id: uuid('id').primaryKey(),
-  name: text('name').notNull(),
-  /** `text` / `number` / `boolean` / `select`. */
-  kind: text('kind').notNull(),
-  /** Opciones de un atributo `select`. */
-  options: jsonb('options'),
-  position: integer('position').notNull().default(0),
-  isActive: boolean('is_active').notNull().default(true),
-  ...timestamps(),
-  ...authorship(),
-});
+export const propertyCustomAttributes = coreSchema.table(
+  'property_custom_attributes',
+  {
+    id: uuid('id').primaryKey(),
+    name: text('name').notNull(),
+    /** `text` / `number` / `boolean` / `select`. */
+    kind: text('kind').notNull(),
+    /** Opciones de un atributo `select`. */
+    options: jsonb('options'),
+    position: integer('position').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    // Un nombre por atributo, sin acentos ni mayúsculas; también resuelve la búsqueda por nombre.
+    uniqueIndex('property_custom_attributes_name_uq').on(sql`core.search_normalize(${t.name})`),
+    index('property_custom_attributes_position_idx').on(t.position, t.id),
+  ],
+);
 
 /** Valor de un atributo personalizado, en la columna de su tipo (ADR 0014). */
 export const propertyCustomAttributeValues = coreSchema.table(
@@ -576,6 +584,11 @@ export const mediaItems = coreSchema.table(
     variants: jsonb('variants')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /** Tipo de la original subida (fotos y planos). */
+    contentType: text('content_type'),
+    /** `pending` / `ready` / `failed`: las variantes las genera un job (ADR 0020). */
+    processingStatus: text('processing_status').notNull().default('ready'),
+    processingError: text('processing_error'),
     uploadedBy: text('uploaded_by').notNull(),
     ...timestamps(),
     ...authorship(),
@@ -615,8 +628,36 @@ export const attachments = coreSchema.table(
   (t) => [
     check('attachments_single_owner', sql`num_nonnulls(property_id, development_id) = 1`),
     index('attachments_property_created_idx').on(t.propertyId, t.createdAt),
+    // Pestaña Archivos de la ficha, ordenada por nombre.
+    index('attachments_property_name_idx')
+      .on(t.propertyId, t.name, t.id)
+      .where(sql`deleted_at is null`),
     index('attachments_development_created_idx').on(t.developmentId, t.createdAt),
   ],
+);
+
+/** PDF pedidos desde la ficha (ficha, vidriera, reporte al propietario). Los arma un job (ADR 0020). */
+export const propertyDocuments = coreSchema.table(
+  'property_documents',
+  {
+    id: uuid('id').primaryKey(),
+    propertyId: uuid('property_id')
+      .notNull()
+      .references(() => properties.id, { onDelete: 'cascade' }),
+    /** `sheet` / `showcase` / `owner_report`. */
+    kind: text('kind').notNull(),
+    /** `pending` / `ready` / `failed`. */
+    status: text('status').notNull().default('pending'),
+    /** Período del reporte al propietario (días de Buenos Aires). */
+    periodFrom: date('period_from', { mode: 'string' }),
+    periodTo: date('period_to', { mode: 'string' }),
+    storageKey: text('storage_key'),
+    error: text('error'),
+    requestedBy: text('requested_by').notNull(),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [index('property_documents_property_created_idx').on(t.propertyId, t.createdAt, t.id)],
 );
 
 /** Reservas de una propiedad (D3: van con la propiedad porque cambian su estado). */

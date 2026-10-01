@@ -71,6 +71,27 @@
       "when": 1790883005603,
       "tag": "0009_properties_stage_two",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790890959692,
+      "tag": "0010_property_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790892015630,
+      "tag": "0011_property_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790893349964,
+      "tag": "0012_property_documents",
+      "breakpoints": true
     }
   ]
 }

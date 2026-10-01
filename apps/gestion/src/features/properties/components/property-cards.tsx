@@ -1,5 +1,8 @@
 'use client';
 
+import type { Route } from 'next';
+import Link from 'next/link';
+
 import type { PanelPropertyRow } from '@norde/core/properties/contracts';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { TablePagination } from '@norde/ui/components/table-pagination';
@@ -51,7 +54,9 @@ function PropertyCard({
           {row.code} · {PROPERTY_TYPE_LABELS[row.propertyType]}
         </span>
         <h3 className="line-clamp-2 text-sm font-semibold" title={row.portalTitle}>
-          {row.portalTitle}
+          <Link href={`/propiedades/${row.id}` as Route} className="hover:underline">
+            {row.portalTitle}
+          </Link>
         </h3>
         <p className="truncate text-xs text-muted-foreground">{placeSummary(row)}</p>
         <p className="mt-1 text-sm font-medium tabular-nums">{operationsSummary(row.operations)}</p>

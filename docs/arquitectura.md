@@ -118,8 +118,10 @@ packages/core/src/
 ├── identity/                        # Usuarios, roles, permisos, sucursales, equipos
 ├── settings/                        # Configuración general de la empresa, numeración, archivos
 ├── notifications/                   # Notificaciones a usuarios y sus preferencias
-├── audit/                           # Trazabilidad de cambios
-└── reporting/                       # Consultas de reportes (solo lectura)
+├── audit/                           # Trazabilidad de cambios: lectura del historial (la escritura,
+│                                    # `AuditLog`, está en el shared kernel)
+└── reporting/                       # Consultas de reportes (solo lectura): estadísticas de la ficha y
+                                     # reporte al propietario (#6)
 ```
 
 ### 3.2 `@norde/infra`: implementaciones
@@ -426,6 +428,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 | 0017 | [Reglas de pertenencia en el dominio](adr/0017-reglas-de-pertenencia-en-el-dominio.md), con la sucursal en el `Actor`                                  |
 | 0018 | [Archivos en un storage S3 compatible y emails con Resend](adr/0018-storage-s3-r2-y-mail-resend.md), con puertos `FileStorage` y `Mailer`              |
 | 0019 | [Mapa con Leaflet y OpenStreetMap, geocodificación con Nominatim](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md), con puerto `Geocoder` |
+| 0020 | [Multimedia y PDF de la ficha en jobs](adr/0020-multimedia-y-pdf-en-jobs-con-descarga-firmada.md), con estado en la base y descarga por URL firmada    |
 
 ---
 

@@ -2,7 +2,11 @@
 
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
-import type { PanelPropertyRow, PropertyExportFormat } from '../contracts';
+import type {
+  PanelPropertyCustomAttribute,
+  PanelPropertyRow,
+  PropertyExportFormat,
+} from '../contracts';
 import type { GeocodingFailedError, Geocoder } from '../application/ports/geocoder';
 import type {
   BoundingBox,
@@ -28,6 +32,7 @@ import type {
 } from '../application/ports/reference-code-allocator';
 import type { Producers, UserNames } from '../application/ports/user-names';
 import type {
+  CustomAttributeRepository,
   FeatureRepository,
   LocationRepository,
   PropertySettingsRepository,
@@ -41,6 +46,11 @@ import {
   type FavoriteSearchRepository,
   type FavoriteSearchSnapshot,
 } from '../domain/favorite-search';
+import {
+  CustomAttribute,
+  type CustomAttributeId,
+  type CustomAttributeSnapshot,
+} from '../domain/custom-attribute';
 import { Feature, type FeatureId, type FeatureKind, type FeatureSnapshot } from '../domain/feature';
 import type { GridColumn } from '../domain/grid-columns';
 import { Location, type LocationId, type LocationSnapshot } from '../domain/location';
@@ -61,6 +71,35 @@ import {
   type PropertySnapshot,
 } from '../domain/property';
 import type { PropertyRepository } from '../domain/property.repository';
+import { MediaItem, type MediaItemId, type MediaItemSnapshot } from '../domain/media-item';
+import type { MediaItemRepository, PropertyAttachmentRepository } from '../domain/media.repository';
+import {
+  PropertyAttachment,
+  type PropertyAttachmentId,
+  type PropertyAttachmentSnapshot,
+} from '../domain/property-attachment';
+import type { ImageVariantGenerator } from '../application/ports/image-variant-generator';
+import type { PropertyMediaQuery } from '../application/ports/property-media-query';
+import type {
+  OwnerReports,
+  PropertyDocumentContent,
+  PropertyDocumentQuery,
+  PropertyDocumentRenderer,
+} from '../application/ports/property-documents';
+import type { PropertyDetailLookups } from '../application/ports/property-detail-lookups';
+import {
+  PropertyDocument,
+  type PropertyDocumentId,
+  type PropertyDocumentSnapshot,
+} from '../domain/property-document';
+import type { PropertyDocumentRepository } from '../domain/property-document.repository';
+import type { OwnerReport } from '../../reporting';
+import {
+  DEFAULT_PUBLICATION,
+  EMPTY_CHARACTERISTICS,
+  EMPTY_DEAL_ATTRIBUTES,
+  EMPTY_INTERNAL_INFO,
+} from '../domain/property-details';
 
 let sequence = 0;
 
@@ -174,10 +213,25 @@ export function propertySnapshot(
     portalTitle: 'Departamento en venta en Palermo',
     coordinates: undefined,
     locationId: undefined,
-    operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
+    operations: [
+      {
+        operation: 'sale',
+        currency: 'USD',
+        priceCents: 12_000_000n,
+        priceOnRequest: false,
+        commissionPct: undefined,
+      },
+    ],
     tagIds: [],
     producerUserId: PRODUCER_ID,
     branchId: BRANCH_ID,
+    description: '',
+    characteristics: EMPTY_CHARACTERISTICS,
+    deal: EMPTY_DEAL_ATTRIBUTES,
+    featureIds: [],
+    customAttributes: [],
+    internal: EMPTY_INTERNAL_INFO,
+    publication: DEFAULT_PUBLICATION,
     statusChangedAt: new Date('2026-09-01T12:00:00Z'),
     deletedAt: undefined,
     deletedBy: undefined,
@@ -210,6 +264,11 @@ export class InMemoryPropertyRepository implements PropertyRepository {
 
   findById(id: PropertyId) {
     const row = this.rows.get(id);
+    return Promise.resolve(row ? Property.restore(row) : undefined);
+  }
+
+  findByCode(code: string) {
+    const row = [...this.rows.values()].find((r) => r.code === code);
     return Promise.resolve(row ? Property.restore(row) : undefined);
   }
 
@@ -274,6 +333,10 @@ export class InMemoryFeatureRepository implements FeatureRepository {
     return Promise.resolve(row ? Feature.restore(row) : undefined);
   }
 
+  findExistingIds(ids: readonly string[]) {
+    return Promise.resolve(ids.filter((id) => this.rows.has(id)));
+  }
+
   findByName(kind: FeatureKind, name: string) {
     const row = [...this.rows.values()].find(
       (r) => r.kind === kind && normalized(r.name) === normalized(name),
@@ -288,6 +351,43 @@ export class InMemoryFeatureRepository implements FeatureRepository {
 
   save(feature: Feature) {
     this.rows.set(feature.id, feature.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryCustomAttributeRepository implements CustomAttributeRepository {
+  readonly rows = new Map<string, CustomAttributeSnapshot>();
+
+  add(snapshot: CustomAttributeSnapshot): this {
+    this.rows.set(snapshot.id, snapshot);
+    return this;
+  }
+
+  findById(id: CustomAttributeId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? CustomAttribute.restore(row) : undefined);
+  }
+
+  findByName(name: string) {
+    const row = [...this.rows.values()].find((r) => normalized(r.name) === normalized(name));
+    return Promise.resolve(row ? CustomAttribute.restore(row) : undefined);
+  }
+
+  findByIds(ids: readonly string[]) {
+    return Promise.resolve(
+      ids.flatMap((id) => {
+        const row = this.rows.get(id);
+        return row ? [CustomAttribute.restore(row)] : [];
+      }),
+    );
+  }
+
+  nextPosition() {
+    return Promise.resolve(Math.max(-1, ...[...this.rows.values()].map((r) => r.position)) + 1);
+  }
+
+  save(attribute: CustomAttribute) {
+    this.rows.set(attribute.id, attribute.toSnapshot());
     return Promise.resolve();
   }
 }
@@ -435,11 +535,15 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly properties = new InMemoryPropertyRepository();
   readonly locations = new InMemoryLocationRepository();
   readonly features = new InMemoryFeatureRepository();
+  readonly customAttributes = new InMemoryCustomAttributeRepository();
   readonly tags = new InMemoryTagRepository();
   readonly tagGroups = new InMemoryTagGroupRepository(this.tags);
   readonly typeSettings = new InMemoryPropertyTypeSettingsRepository();
   readonly settings = new InMemoryPropertySettingsRepository();
   readonly favoriteSearches = new InMemoryFavoriteSearchRepository();
+  readonly media = new InMemoryMediaItemRepository();
+  readonly attachments = new InMemoryPropertyAttachmentRepository();
+  readonly documents = new InMemoryPropertyDocumentRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
@@ -450,11 +554,15 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.properties,
       this.locations,
       this.features,
+      this.customAttributes,
       this.tags,
       this.tagGroups,
       this.typeSettings,
       this.settings,
       this.favoriteSearches,
+      this.media,
+      this.attachments,
+      this.documents,
     ];
   }
 
@@ -675,6 +783,10 @@ export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
     return this.empty<never>('listFeatures', criteria);
   }
 
+  listCustomAttributes(criteria: Parameters<PropertyCatalogQuery['listCustomAttributes']>[0]) {
+    return this.empty<never>('listCustomAttributes', criteria);
+  }
+
   listTagGroups(criteria: Parameters<PropertyCatalogQuery['listTagGroups']>[0]) {
     return this.empty<never>('listTagGroups', criteria);
   }
@@ -693,5 +805,248 @@ export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
 
   gridColumns() {
     return Promise.resolve(this.gridColumnRows);
+  }
+}
+
+// ---------- Multimedia y archivos ----------
+
+export class InMemoryMediaItemRepository implements MediaItemRepository {
+  readonly rows = new Map<string, MediaItemSnapshot>();
+
+  findById(id: MediaItemId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? MediaItem.restore(row) : undefined);
+  }
+
+  listForProperty(propertyId: PropertyId) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((row) => row.propertyId === propertyId)
+        .sort((a, b) => a.position - b.position)
+        .map((row) => MediaItem.restore(row)),
+    );
+  }
+
+  count(propertyId: PropertyId) {
+    return Promise.resolve(
+      [...this.rows.values()].filter((r) => r.propertyId === propertyId).length,
+    );
+  }
+
+  nextPosition(propertyId: PropertyId) {
+    const positions = [...this.rows.values()]
+      .filter((row) => row.propertyId === propertyId)
+      .map((row) => row.position);
+    return Promise.resolve(Math.max(-1, ...positions) + 1);
+  }
+
+  save(item: MediaItem) {
+    this.rows.set(item.id, item.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: MediaItemId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryPropertyAttachmentRepository implements PropertyAttachmentRepository {
+  readonly rows = new Map<string, PropertyAttachmentSnapshot>();
+
+  findById(id: PropertyAttachmentId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? PropertyAttachment.restore(row) : undefined);
+  }
+
+  save(attachment: PropertyAttachment) {
+    this.rows.set(attachment.id, attachment.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+/** Devuelve variantes de un byte con medidas fijas; con `invalid`, falla como una imagen dañada. */
+export class FakeImageVariantGenerator implements ImageVariantGenerator {
+  invalid = false;
+  readonly requests: Parameters<ImageVariantGenerator['generate']>[0][] = [];
+
+  generate(input: Parameters<ImageVariantGenerator['generate']>[0]) {
+    this.requests.push(input);
+    if (this.invalid) return Promise.resolve(err({ type: 'InvalidImage' as const }));
+    return Promise.resolve(
+      ok({
+        thumbnail: new Uint8Array([1]),
+        web: new Uint8Array([2]),
+        width: 1600,
+        height: 1200,
+      }),
+    );
+  }
+}
+
+/** Lee las filas de los repositorios en memoria, como lo haría el SQL de la galería y los archivos. */
+export class InMemoryPropertyMediaQuery implements PropertyMediaQuery {
+  constructor(
+    private readonly media: InMemoryMediaItemRepository,
+    private readonly attachments: InMemoryPropertyAttachmentRepository,
+  ) {}
+
+  listMedia(criteria: Parameters<PropertyMediaQuery['listMedia']>[0]) {
+    const rows = [...this.media.rows.values()]
+      .filter((row) => row.propertyId === criteria.propertyId)
+      .filter((row) =>
+        criteria.kind === undefined
+          ? true
+          : criteria.kind === 'images'
+            ? row.kind === 'photo' || row.kind === 'floor_plan'
+            : row.kind === 'video' || row.kind === 'tour_360',
+      )
+      .sort((a, b) => a.position - b.position);
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        position: row.position,
+        isCover: row.isCover,
+        showOnWeb: row.showOnWeb,
+        includeInPdf: row.includeInPdf,
+        rotation: row.rotation,
+        description: row.description,
+        externalUrl: row.externalUrl,
+        width: row.width,
+        height: row.height,
+        processing: row.processing,
+        hasThumbnail: row.variants.thumbnail !== undefined,
+        createdAt: row.createdAt,
+      })),
+      total: rows.length,
+    });
+  }
+
+  listAttachments(criteria: Parameters<PropertyMediaQuery['listAttachments']>[0]) {
+    const direction = criteria.sort.direction === 'asc' ? 1 : -1;
+    const rows = [...this.attachments.rows.values()]
+      .filter((row) => row.propertyId === criteria.propertyId && row.deletedAt === undefined)
+      .sort((a, b) =>
+        criteria.sort.field === 'name'
+          ? a.name.localeCompare(b.name) * direction
+          : (a.createdAt.getTime() - b.createdAt.getTime()) * direction,
+      );
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => ({
+        id: row.id,
+        name: row.name,
+        mimeType: row.mimeType,
+        sizeBytes: row.sizeBytes,
+        showOnWeb: row.showOnWeb,
+        uploadedBy: row.uploadedBy,
+        createdAt: row.createdAt,
+      })),
+      total: rows.length,
+    });
+  }
+}
+
+// ---------- Ficha: lectura, documentos ----------
+
+export class InMemoryPropertyDocumentRepository implements PropertyDocumentRepository {
+  readonly rows = new Map<string, PropertyDocumentSnapshot>();
+
+  findById(id: PropertyDocumentId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? PropertyDocument.restore(row) : undefined);
+  }
+
+  save(document: PropertyDocument) {
+    this.rows.set(document.id, document.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryPropertyDocumentQuery implements PropertyDocumentQuery {
+  constructor(private readonly documents: InMemoryPropertyDocumentRepository) {}
+
+  list(criteria: Parameters<PropertyDocumentQuery['list']>[0]) {
+    const rows = [...this.documents.rows.values()]
+      .filter((row) => row.propertyId === criteria.propertyId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        status: row.status,
+        period: row.period,
+        error: row.error,
+        requestedBy: row.requestedBy,
+        createdAt: row.createdAt,
+      })),
+      total: rows.length,
+    });
+  }
+}
+
+/** Registra lo que se le pidió imprimir y devuelve un PDF de mentira. */
+export class FakeDocumentRenderer implements PropertyDocumentRenderer {
+  readonly rendered: PropertyDocumentContent[] = [];
+  fail = false;
+
+  render(content: PropertyDocumentContent) {
+    if (this.fail) return Promise.reject(new Error('pdf-lib exploded'));
+    this.rendered.push(content);
+    return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  }
+}
+
+export class StubOwnerReports implements OwnerReports {
+  report: OwnerReport | undefined = {
+    from: '2026-09-01',
+    to: '2026-09-30',
+    publications: [],
+    emailSends: 2,
+    whatsappSends: 3,
+    inquiries: 4,
+    interested: 1,
+  };
+
+  build() {
+    return Promise.resolve(this.report);
+  }
+}
+
+/** Nombres fijos para los catálogos: alcanza para armar la ficha en los tests. */
+export class StubPropertyDetailLookups implements PropertyDetailLookups {
+  owners_: { id: string; name: string }[] = [];
+  definitions: Omit<PanelPropertyCustomAttribute, 'value'>[] = [];
+
+  locationPath(locationId: string) {
+    return Promise.resolve([{ id: locationId, name: 'Palermo', kind: 'neighborhood' }]);
+  }
+
+  features(ids: readonly string[]) {
+    return Promise.resolve(ids.map((id) => ({ id, kind: 'amenity', name: `Ítem ${id}` })));
+  }
+
+  tags(ids: readonly string[]) {
+    return Promise.resolve(ids.map((id) => ({ id, name: `Etiqueta ${id}`, groupName: undefined })));
+  }
+
+  customAttributes() {
+    return Promise.resolve(this.definitions);
+  }
+
+  owners() {
+    return Promise.resolve(this.owners_);
+  }
+
+  cover() {
+    return Promise.resolve(undefined);
+  }
+
+  counts() {
+    return Promise.resolve({ media: 0, attachments: 0 });
+  }
+
+  createdBy() {
+    return Promise.resolve(PRODUCER_ID);
   }
 }

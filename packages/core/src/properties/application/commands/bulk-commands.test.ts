@@ -106,7 +106,13 @@ describe('BulkEditProperties', () => {
     );
     expect(result.updated).toBe(2);
     expect(uow.properties.rows.get(A)?.operations).toEqual([
-      { operation: 'sale', currency: 'USD', priceCents: 11_500_000n },
+      {
+        operation: 'sale',
+        currency: 'USD',
+        priceCents: 11_500_000n,
+        priceOnRequest: false,
+        commissionPct: undefined,
+      },
     ]);
     expect(uow.properties.priceChanges).toHaveLength(2);
     expect(uow.audit.entries[0]).toMatchObject({

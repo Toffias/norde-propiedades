@@ -42,3 +42,26 @@ export {
   NotifyTeamOfOpportunity,
   type NotifyTeamOfOpportunityError,
 } from './application/handlers/on-opportunity-activity';
+
+// ---------- Interesados y envíos de una propiedad (#6) ----------
+
+export {
+  matchesSavedSearch,
+  type MatchableProperty,
+  type MatchableSearch,
+} from './domain/saved-search-match';
+export type {
+  AgentNames,
+  PropertyInterestCriteria,
+  PropertyInterestQuery,
+  PropertyProfiles,
+  PropertySendsCriteria,
+} from './application/ports/property-interest-query';
+export {
+  ListPropertyInterestedClients,
+  type ListPropertyInterestedClientsError,
+} from './application/queries/list-property-interested-clients';
+export {
+  ListPropertySends,
+  type ListPropertySendsError,
+} from './application/queries/list-property-sends';

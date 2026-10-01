@@ -1,5 +1,8 @@
 'use client';
 
+import type { Route } from 'next';
+import Link from 'next/link';
+
 import type { GridColumnValue, PanelPropertyRow } from '@norde/core/properties/contracts';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
@@ -129,7 +132,15 @@ export function PropertiesGrid({
         header: 'Código',
         sortable: true,
         className: 'w-[110px] font-medium tabular-nums',
-        cell: (row) => row.code,
+        cell: (row) => (
+          <Link
+            // La ficha de la fila: typedRoutes no verifica un segmento dinámico armado.
+            href={`/propiedades/${row.id}` as Route}
+            className="text-primary-700 hover:underline dark:text-primary-400"
+          >
+            {row.code}
+          </Link>
+        ),
       },
       {
         id: 'title',

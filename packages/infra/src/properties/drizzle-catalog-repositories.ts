@@ -1,5 +1,7 @@
 import {
+  CUSTOM_ATTRIBUTE_KINDS,
   Coordinates,
+  CustomAttribute,
   DEFAULT_GRID_COLUMNS,
   FEATURE_KINDS,
   FavoriteSearch,
@@ -12,6 +14,8 @@ import {
   PropertyTag,
   TagGroup,
   defaultTypeSetting,
+  type CustomAttributeId,
+  type CustomAttributeRepository,
   type FavoriteSearchId,
   type FavoriteSearchRepository,
   type FeatureId,
@@ -39,6 +43,7 @@ import {
   favoritePropertySearches,
   features,
   locations,
+  propertyCustomAttributes,
   propertySettings,
   propertyTagAssignments,
   propertyTagGroups,
@@ -168,6 +173,15 @@ export class DrizzleFeatureRepository implements FeatureRepository {
     );
   }
 
+  async findExistingIds(ids: readonly string[]): Promise<readonly string[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select({ id: features.id })
+      .from(features)
+      .where(inArray(features.id, [...ids]));
+    return rows.map((row) => row.id);
+  }
+
   async nextPosition(kind: FeatureKind): Promise<number> {
     const [row] = await this.db
       .select({ last: max(features.position) })
@@ -212,6 +226,80 @@ export class DrizzleFeatureRepository implements FeatureRepository {
       updatedAt: row.updatedAt,
     });
   }
+}
+
+const CustomAttributeKindSchema = z.enum(CUSTOM_ATTRIBUTE_KINDS);
+const CustomAttributeOptionsSchema = z.array(z.string()).catch([]);
+
+/** Tope de definiciones por pedido: las que usa una propiedad, que son pocas. */
+const MAX_CUSTOM_ATTRIBUTES = 200;
+
+export class DrizzleCustomAttributeRepository implements CustomAttributeRepository {
+  constructor(private readonly db: DbExecutor) {}
+
+  async findById(id: CustomAttributeId): Promise<CustomAttribute | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(propertyCustomAttributes)
+      .where(eq(propertyCustomAttributes.id, id))
+      .limit(1);
+    return row ? toCustomAttribute(row) : undefined;
+  }
+
+  async findByName(name: string): Promise<CustomAttribute | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(propertyCustomAttributes)
+      .where(sameName(sql`core.search_normalize(${propertyCustomAttributes.name})`, name))
+      .limit(1);
+    return row ? toCustomAttribute(row) : undefined;
+  }
+
+  async findByIds(ids: readonly string[]): Promise<readonly CustomAttribute[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(propertyCustomAttributes)
+      .where(inArray(propertyCustomAttributes.id, [...ids]))
+      .limit(MAX_CUSTOM_ATTRIBUTES);
+    return rows.map(toCustomAttribute);
+  }
+
+  async nextPosition(): Promise<number> {
+    const [row] = await this.db
+      .select({ last: max(propertyCustomAttributes.position) })
+      .from(propertyCustomAttributes);
+    return row?.last === null || row?.last === undefined ? 0 : row.last + 1;
+  }
+
+  async save(attribute: CustomAttribute, actorId: string): Promise<void> {
+    const s = attribute.toSnapshot();
+    const values = {
+      name: s.name,
+      options: [...s.options],
+      position: s.position,
+      isActive: s.isActive,
+      updatedAt: s.updatedAt,
+      updatedBy: actorId,
+    };
+    await this.db
+      .insert(propertyCustomAttributes)
+      .values({ id: s.id, kind: s.kind, createdAt: s.createdAt, createdBy: actorId, ...values })
+      .onConflictDoUpdate({ target: propertyCustomAttributes.id, set: values });
+  }
+}
+
+function toCustomAttribute(row: typeof propertyCustomAttributes.$inferSelect): CustomAttribute {
+  return CustomAttribute.restore({
+    id: stored(parseId<'CustomAttribute'>(row.id)),
+    name: row.name,
+    kind: CustomAttributeKindSchema.parse(row.kind),
+    options: CustomAttributeOptionsSchema.parse(row.options),
+    position: row.position,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
 }
 
 export class DrizzleTagGroupRepository implements TagGroupRepository {

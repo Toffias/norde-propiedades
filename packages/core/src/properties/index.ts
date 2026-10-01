@@ -212,3 +212,286 @@ export {
   ExportProperties,
   type ExportPropertiesError,
 } from './application/commands/export-properties';
+
+// ---------- Ficha de propiedad (#6) ----------
+
+export {
+  CONDITIONS,
+  CUSTOM_ATTRIBUTE_KINDS,
+  DISPOSITIONS,
+  ORIENTATIONS,
+  type Condition,
+  type CoveredExceedsTotalError,
+  type CustomAttributeDefinition,
+  type CustomAttributeEntry,
+  type CustomAttributeKind,
+  type CustomAttributeNotFoundError,
+  type CustomAttributeValue,
+  type DealAttributes,
+  type Disposition,
+  type InternalInfo,
+  type InvalidCustomAttributeValueError,
+  type NegativeCharacteristicError,
+  type Orientation,
+  type PropertyCharacteristics,
+  type Publication,
+} from './domain/property-details';
+export {
+  CustomAttribute,
+  type CustomAttributeId,
+  type CustomAttributeSnapshot,
+  type InvalidCustomAttributeOptionsError,
+} from './domain/custom-attribute';
+export type { CustomAttributeRepository } from './domain/catalog.repository';
+export type {
+  InvalidCommissionError,
+  InvalidOperationsError,
+  InvalidReferenceCodeError,
+  OperationInput,
+} from './domain/property';
+export type { EditPropertyError } from './application/property-support';
+export {
+  UpdatePropertyLocation,
+  type UpdatePropertyLocationError,
+  type UpdatePropertyLocationOutput,
+} from './application/commands/update-property-location';
+export {
+  ChangePropertyCode,
+  type ChangePropertyCodeError,
+  type ReferenceCodeTakenError,
+} from './application/commands/change-property-code';
+export {
+  UpdatePropertyOperations,
+  type UpdatePropertyOperationsError,
+} from './application/commands/update-property-operations';
+export {
+  ChangePropertyStatus,
+  type ChangePropertyStatusError,
+} from './application/commands/change-property-status';
+export {
+  UpdatePropertyCharacteristics,
+  type UpdatePropertyCharacteristicsError,
+} from './application/commands/update-property-characteristics';
+export {
+  UpdatePropertyDeal,
+  type UpdatePropertyDealError,
+} from './application/commands/update-property-deal';
+export {
+  UpdatePropertyFeatures,
+  type UpdatePropertyFeaturesError,
+} from './application/commands/update-property-features';
+export {
+  UpdatePropertyDescription,
+  type UpdatePropertyDescriptionError,
+} from './application/commands/update-property-description';
+export {
+  UpdatePropertyCustomAttributes,
+  type UpdatePropertyCustomAttributesError,
+} from './application/commands/update-property-custom-attributes';
+export {
+  ChangePropertyTags,
+  type ChangePropertyTagsError,
+} from './application/commands/change-property-tags';
+export {
+  ChangePropertyProducer,
+  type ChangePropertyProducerError,
+  type ProducerNotFoundError,
+} from './application/commands/change-property-producer';
+export {
+  UpdatePropertyInternalInfo,
+  type UpdatePropertyInternalInfoError,
+  type UserNotFoundError,
+} from './application/commands/update-property-internal-info';
+export {
+  UpdatePropertyPublication,
+  type UpdatePropertyPublicationError,
+} from './application/commands/update-property-publication';
+export {
+  CreateCustomAttribute,
+  type CreateCustomAttributeError,
+  type CustomAttributeNameTakenError,
+} from './application/commands/create-custom-attribute';
+export {
+  UpdateCustomAttribute,
+  type UpdateCustomAttributeError,
+} from './application/commands/update-custom-attribute';
+
+// ---------- Multimedia y archivos (#6) ----------
+
+export {
+  MAX_MEDIA_BYTES,
+  MAX_MEDIA_PER_PROPERTY,
+  MEDIA_IMAGE_TYPES,
+  MEDIA_KINDS,
+  MEDIA_PROCESSING_STATUSES,
+  MEDIA_ROTATIONS,
+  MediaItem,
+  type InvalidMediaUrlError,
+  type MediaDeleted,
+  type MediaEvent,
+  type MediaItemId,
+  type MediaItemSnapshot,
+  type MediaKind,
+  type MediaProcessingStatus,
+  type MediaRotation,
+  type MediaTooLargeError,
+  type MediaVariants,
+  type MediaVariantsRequested,
+  type NotAnImageError,
+  type UnsupportedMediaTypeError,
+} from './domain/media-item';
+export {
+  ATTACHMENT_TYPES,
+  MAX_ATTACHMENT_BYTES,
+  PropertyAttachment,
+  type AttachmentTooLargeError,
+  type InvalidAttachmentNameError,
+  type PropertyAttachmentId,
+  type PropertyAttachmentSnapshot,
+  type UnsupportedAttachmentTypeError,
+} from './domain/property-attachment';
+export type { MediaItemRepository, PropertyAttachmentRepository } from './domain/media.repository';
+export type {
+  ImageVariantGenerator,
+  ImageVariants,
+  InvalidImageError as InvalidPropertyImageError,
+} from './application/ports/image-variant-generator';
+export type {
+  PropertyAttachmentCriteria,
+  PropertyMediaCriteria,
+  PropertyMediaQuery,
+} from './application/ports/property-media-query';
+export type {
+  AttachmentNotFoundError,
+  MediaNotFoundError,
+  TooManyMediaError,
+} from './application/media-support';
+export {
+  UploadPropertyMedia,
+  type UploadPropertyMediaError,
+} from './application/commands/upload-property-media';
+export {
+  AddPropertyMediaLink,
+  type AddPropertyMediaLinkError,
+} from './application/commands/add-property-media-link';
+export {
+  UpdatePropertyMedia,
+  type UpdatePropertyMediaError,
+} from './application/commands/update-property-media';
+export {
+  ReorderPropertyMedia,
+  type InvalidMediaOrderError,
+  type ReorderPropertyMediaError,
+} from './application/commands/reorder-property-media';
+export {
+  SetPropertyCover,
+  type SetPropertyCoverError,
+} from './application/commands/set-property-cover';
+export {
+  DeletePropertyMedia,
+  type DeletePropertyMediaError,
+} from './application/commands/delete-property-media';
+export {
+  GeneratePropertyMediaVariants,
+  type GeneratePropertyMediaVariantsError,
+  type MediaProcessingOutcome,
+} from './application/commands/generate-property-media-variants';
+export {
+  DeleteStoredMediaFiles,
+  type DeleteStoredMediaFilesError,
+} from './application/commands/delete-stored-media-files';
+export {
+  UploadPropertyAttachment,
+  type UploadPropertyAttachmentError,
+} from './application/commands/upload-property-attachment';
+export {
+  UpdatePropertyAttachment,
+  type UpdatePropertyAttachmentError,
+} from './application/commands/update-property-attachment';
+export {
+  DeletePropertyAttachment,
+  type DeletePropertyAttachmentError,
+} from './application/commands/delete-property-attachment';
+export {
+  ListPropertyMedia,
+  type ListPropertyMediaError,
+} from './application/queries/list-property-media';
+export {
+  ListPropertyAttachments,
+  type ListPropertyAttachmentsError,
+} from './application/queries/list-property-attachments';
+export {
+  GetPropertyMediaFile,
+  type GetPropertyMediaFileError,
+} from './application/queries/get-property-media-file';
+export {
+  GetPropertyAttachmentDownload,
+  type GetPropertyAttachmentDownloadError,
+} from './application/queries/get-property-attachment-download';
+
+// ---------- Ficha: lectura, historial y documentos (#6) ----------
+
+export {
+  PROPERTY_DOCUMENT_KINDS,
+  PROPERTY_DOCUMENT_STATUSES,
+  PropertyDocument,
+  pdfAddress,
+  pdfPrices,
+  type DocumentNotReadyError,
+  type PdfAddressDisplay,
+  type PdfPrice,
+  type PropertyDocumentId,
+  type PropertyDocumentKind,
+  type PropertyDocumentRequested,
+  type PropertyDocumentSnapshot,
+  type PropertyDocumentStatus,
+  type ReportPeriod,
+  type ReportPeriodRequiredError,
+} from './domain/property-document';
+export type { PropertyDocumentRepository } from './domain/property-document.repository';
+export type { PropertyDetailLookups } from './application/ports/property-detail-lookups';
+export type {
+  OwnerReports,
+  PropertyDocumentContent,
+  PropertyDocumentQuery,
+  PropertyDocumentRenderer,
+} from './application/ports/property-documents';
+export {
+  GetPanelPropertyDetail,
+  buildPanelPropertyDetail,
+  type GetPanelPropertyDetailError,
+} from './application/queries/get-panel-property-detail';
+export {
+  ListPropertyHistory,
+  type ListPropertyHistoryError,
+} from './application/queries/list-property-history';
+export {
+  GetPropertyInterestProfile,
+  type GetPropertyInterestProfileError,
+} from './application/queries/get-property-interest-profile';
+export {
+  RequestPropertyDocument,
+  type RequestPropertyDocumentError,
+} from './application/commands/request-property-document';
+export {
+  RenderPropertyDocument,
+  type DocumentRenderOutcome,
+  type RenderPropertyDocumentError,
+} from './application/commands/render-property-document';
+export {
+  SendOwnerReport,
+  type DocumentNotFoundError,
+  type SendOwnerReportError,
+} from './application/commands/send-owner-report';
+export {
+  ListPropertyDocuments,
+  type ListPropertyDocumentsError,
+} from './application/queries/list-property-documents';
+export {
+  GetPropertyDocumentDownload,
+  type GetPropertyDocumentDownloadError,
+} from './application/queries/get-property-document-download';
+export {
+  ListCustomAttributes,
+  type ListCustomAttributesError,
+} from './application/queries/list-custom-attributes';

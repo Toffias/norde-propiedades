@@ -1,9 +1,30 @@
 import { parseId, type AuditState, type AuditTarget } from '../../shared';
+import type { CustomAttribute } from '../domain/custom-attribute';
 import type { Feature } from '../domain/feature';
 import type { Location } from '../domain/location';
 import type { PropertyTag, TagGroup } from '../domain/property-tag';
 
 // Lo que comparten los commands de los catálogos: errores, auditoría y búsqueda por ID.
+
+export interface Place {
+  readonly locationId: string | undefined;
+  readonly neighborhood: string;
+  readonly city: string;
+  readonly province: string;
+}
+
+/** Barrio, localidad y provincia: los niveles de la ubicación elegida y de sus ancestros. */
+export function placeFromLineage(locationId: string, lineage: readonly Location[]): Place {
+  const named = (kinds: readonly string[]) =>
+    [...lineage].reverse().find((location) => kinds.includes(location.toSnapshot().kind))?.name ??
+    '';
+  return {
+    locationId,
+    neighborhood: named(['subneighborhood', 'neighborhood']),
+    city: named(['city']),
+    province: named(['province']),
+  };
+}
 
 export interface LocationNotFoundError {
   readonly type: 'LocationNotFound';
@@ -47,6 +68,17 @@ export function catalogTarget(entityType: string, action: string, entityId: stri
 export function locationAuditState(location: Location): AuditState {
   const s = location.toSnapshot();
   return { name: s.name, kind: s.kind, parentId: s.parentId };
+}
+
+export function customAttributeAuditState(attribute: CustomAttribute): AuditState {
+  const s = attribute.toSnapshot();
+  return {
+    name: s.name,
+    kind: s.kind,
+    options: [...s.options],
+    position: s.position,
+    isActive: s.isActive,
+  };
 }
 
 export function featureAuditState(feature: Feature): AuditState {

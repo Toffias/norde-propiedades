@@ -58,3 +58,5 @@ export interface RegisterContactOutput {
   readonly clientCreated: boolean;
   readonly opportunityCreated: boolean;
 }
+
+export * from './property-interest';

@@ -7,6 +7,7 @@ import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
 import {
+  DrizzleCustomAttributeRepository,
   DrizzleFavoriteSearchRepository,
   DrizzleFeatureRepository,
   DrizzleLocationRepository,
@@ -15,6 +16,11 @@ import {
   DrizzleTagGroupRepository,
   DrizzleTagRepository,
 } from './drizzle-catalog-repositories';
+import {
+  DrizzleMediaItemRepository,
+  DrizzlePropertyAttachmentRepository,
+} from './drizzle-media-repositories';
+import { DrizzlePropertyDocumentRepository } from './drizzle-property-documents';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 
 export function createPropertiesUnitOfWork(
@@ -25,11 +31,15 @@ export function createPropertiesUnitOfWork(
     properties: new DrizzlePropertyRepository(tx, deps.ids),
     locations: new DrizzleLocationRepository(tx),
     features: new DrizzleFeatureRepository(tx),
+    customAttributes: new DrizzleCustomAttributeRepository(tx),
     tagGroups: new DrizzleTagGroupRepository(tx),
     tags: new DrizzleTagRepository(tx),
     typeSettings: new DrizzlePropertyTypeSettingsRepository(tx),
     settings: new DrizzlePropertySettingsRepository(tx),
     favoriteSearches: new DrizzleFavoriteSearchRepository(tx),
+    media: new DrizzleMediaItemRepository(tx),
+    attachments: new DrizzlePropertyAttachmentRepository(tx),
+    documents: new DrizzlePropertyDocumentRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

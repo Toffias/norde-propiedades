@@ -52,6 +52,15 @@ export class ResendMailer implements Mailer {
           subject: email.subject,
           text: email.text,
           ...(email.replyTo === undefined ? {} : { reply_to: email.replyTo }),
+          ...(email.attachments === undefined || email.attachments.length === 0
+            ? {}
+            : {
+                attachments: email.attachments.map((file) => ({
+                  filename: file.fileName,
+                  content: Buffer.from(file.bytes).toString('base64'),
+                  content_type: file.contentType,
+                })),
+              }),
         }),
         signal: AbortSignal.timeout(15_000),
       });

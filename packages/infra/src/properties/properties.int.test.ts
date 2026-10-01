@@ -15,8 +15,10 @@ import { describe, expect, inject, it } from 'vitest';
 import { useTestDatabase } from '../../test/database';
 import * as schema from '../db/schema';
 import {
+  features,
   mediaItems,
   properties,
+  propertyCustomAttributes,
   propertyOperations,
   propertyPriceChanges,
   propertyTagAssignments,
@@ -94,12 +96,12 @@ describe('DrizzlePropertyRepository', () => {
     });
   });
 
-  it('saves the trash state without touching the rest of the row', async () => {
+  it('saves the trash state without touching the columns the aggregate does not model', async () => {
     const property = aProperty('DEP0002');
     await repository.save(property, PRODUCER);
     await db
       .update(properties)
-      .set({ description: 'Editada en la ficha' })
+      .set({ videoUrl: 'https://youtu.be/abc' })
       .where(eq(properties.id, property.id));
 
     unwrap(property.delete(OTHER, new Date('2026-10-02T12:00:00Z')));
@@ -107,7 +109,7 @@ describe('DrizzlePropertyRepository', () => {
 
     const [row] = await db.select().from(properties).where(eq(properties.id, property.id));
     expect(row).toMatchObject({
-      description: 'Editada en la ficha',
+      videoUrl: 'https://youtu.be/abc',
       deletedBy: OTHER,
       updatedBy: OTHER,
       createdBy: PRODUCER,
@@ -118,6 +120,135 @@ describe('DrizzlePropertyRepository', () => {
       .from(propertyOperations)
       .where(eq(propertyOperations.propertyId, property.id));
     expect(operations).toHaveLength(1);
+  });
+
+  it('round-trips every section of the detail page and removes the child rows left out', async () => {
+    const property = aProperty('DEP0003');
+    await repository.save(property, PRODUCER);
+    const [feature] = await db
+      .insert(features)
+      .values({
+        id: ids.next(),
+        kind: 'amenity',
+        key: 'amenity-pileta',
+        name: 'Pileta',
+        createdAt: NOW,
+        createdBy: PRODUCER,
+        updatedAt: NOW,
+        updatedBy: PRODUCER,
+      })
+      .returning();
+    const [attribute] = await db
+      .insert(propertyCustomAttributes)
+      .values({
+        id: ids.next(),
+        name: 'Vista',
+        kind: 'select',
+        options: ['Al río'],
+        createdAt: NOW,
+        createdBy: PRODUCER,
+        updatedAt: NOW,
+        updatedBy: PRODUCER,
+      })
+      .returning();
+    if (!feature || !attribute) throw new Error('missing fixtures');
+
+    const later = new Date('2026-10-02T12:00:00Z');
+    unwrap(
+      property.setOperations(
+        [
+          { operation: 'sale', currency: 'USD', priceCents: 11_000_000n, commissionPct: 3.5 },
+          { operation: 'rent', currency: 'ARS', priceCents: undefined, priceOnRequest: true },
+        ],
+        later,
+      ),
+    );
+    unwrap(
+      property.updateCharacteristics(
+        {
+          rooms: 3,
+          bedrooms: 2,
+          bathrooms: 1,
+          toilets: undefined,
+          parkingSpaces: 1,
+          ageYears: 15,
+          orientation: 'north',
+          condition: 'very_good',
+          disposition: 'front',
+          isFurnished: false,
+          professionalUse: true,
+          surfaceTotalM2: 80.5,
+          surfaceCoveredM2: 70,
+          surfaceSemiCoveredM2: 5.25,
+          surfaceLandM2: undefined,
+          frontM: undefined,
+          depthM: undefined,
+        },
+        later,
+      ),
+    );
+    unwrap(
+      property.updateDeal(
+        {
+          isExclusive: true,
+          acceptsSwap: false,
+          immediateDeed: true,
+          hasFinancing: false,
+          creditEligible: true,
+          expensesCents: 8_500_000n,
+        },
+        later,
+      ),
+    );
+    unwrap(property.updateFeatures([feature.id], later));
+    unwrap(
+      property.updateCustomAttributes([{ attributeId: attribute.id, value: 'Al río' }], later),
+    );
+    unwrap(
+      property.updateInternalInfo(
+        {
+          maintenanceUserId: OTHER,
+          appraiserUserIds: [OTHER, PRODUCER],
+          keysLocation: 'Portería',
+          legalInfo: undefined,
+          internalComments: 'Llamar antes',
+        },
+        later,
+      ),
+    );
+    unwrap(
+      property.updateDescription({ portalTitle: 'Luminoso', description: 'Al frente.' }, later),
+    );
+    unwrap(property.updatePublication({ publishedOnWeb: true, showPriceOnWeb: false }, later));
+    unwrap(property.changeCode('DEP-0300', later));
+    await repository.save(property, OTHER);
+
+    const loaded = await repository.findById(property.id);
+    expect(loaded?.toSnapshot()).toEqual(property.toSnapshot());
+    expect((await repository.findByCode('DEP-0300'))?.id).toBe(property.id);
+
+    // Se quitan la operación de alquiler, el ítem del catálogo, los tasadores y el atributo.
+    unwrap(
+      property.setOperations(
+        [{ operation: 'sale', currency: 'USD', priceCents: 11_000_000n }],
+        later,
+      ),
+    );
+    unwrap(property.updateFeatures([], later));
+    unwrap(property.updateCustomAttributes([], later));
+    unwrap(
+      property.updateInternalInfo(
+        { ...property.toSnapshot().internal, appraiserUserIds: [] },
+        later,
+      ),
+    );
+    await repository.save(property, OTHER);
+    expect((await repository.findById(property.id))?.toSnapshot()).toEqual(property.toSnapshot());
+    const operations = await db
+      .select()
+      .from(propertyOperations)
+      .where(eq(propertyOperations.propertyId, property.id));
+    expect(operations.map((row) => row.operation)).toEqual(['sale']);
   });
 
   it('saves the quick edits: status, producer, price with its history and tags', async () => {

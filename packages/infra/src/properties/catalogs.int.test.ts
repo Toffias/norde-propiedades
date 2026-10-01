@@ -1,4 +1,5 @@
 import {
+  CustomAttribute,
   FavoriteSearch,
   Feature,
   Location,
@@ -14,6 +15,7 @@ import { properties, propertyTagAssignments } from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import {
+  DrizzleCustomAttributeRepository,
   DrizzleFavoriteSearchRepository,
   DrizzleFeatureRepository,
   DrizzleLocationRepository,
@@ -327,5 +329,83 @@ describe('favorite searches', () => {
 
     await repository.delete(palermo.id);
     expect(await repository.countByUser(USER)).toBe(1);
+  });
+});
+
+describe('custom attributes', () => {
+  const repository = new DrizzleCustomAttributeRepository(db);
+
+  it('round-trips a definition, finds it by name without accents and by IDs', async () => {
+    const view = unwrap(
+      CustomAttribute.create({
+        id: id<'CustomAttribute'>(),
+        name: 'Vista al río',
+        kind: 'select',
+        options: ['Total', 'Parcial'],
+        position: await repository.nextPosition(),
+        now: NOW,
+      }),
+    );
+    await repository.save(view, ADMIN);
+    const pets = unwrap(
+      CustomAttribute.create({
+        id: id<'CustomAttribute'>(),
+        name: 'Acepta mascotas',
+        kind: 'boolean',
+        options: [],
+        position: await repository.nextPosition(),
+        now: NOW,
+      }),
+    );
+    await repository.save(pets, ADMIN);
+
+    expect((await repository.findById(view.id))?.toSnapshot()).toEqual(view.toSnapshot());
+    expect((await repository.findByName('VISTA AL RÍO'))?.id).toBe(view.id);
+    expect(pets.toSnapshot().position).toBe(1);
+    expect((await repository.findByIds([pets.id, view.id])).map((a) => a.id).sort()).toEqual(
+      [pets.id, view.id].sort(),
+    );
+
+    unwrap(view.update({ name: 'Vista', options: ['Total'], isActive: false }, NOW));
+    await repository.save(view, ADMIN);
+    expect((await repository.findById(view.id))?.toSnapshot()).toMatchObject({
+      name: 'Vista',
+      options: ['Total'],
+      isActive: false,
+    });
+  });
+});
+
+describe('custom attributes listing', () => {
+  it('pages the definitions by position or by name', async () => {
+    const repository = new DrizzleCustomAttributeRepository(db);
+    for (const [position, name] of ['Vista', 'Amenities extra', 'Mascotas'].entries()) {
+      await repository.save(
+        unwrap(
+          CustomAttribute.create({
+            id: id<'CustomAttribute'>(),
+            name,
+            kind: 'text',
+            options: [],
+            position,
+            now: NOW,
+          }),
+        ),
+        ADMIN,
+      );
+    }
+    const byPosition = await catalog.listCustomAttributes({
+      sort: { field: 'position', direction: 'asc' },
+      offset: 0,
+      limit: 2,
+    });
+    expect(byPosition.total).toBe(3);
+    expect(byPosition.items.map((row) => row.name)).toEqual(['Vista', 'Amenities extra']);
+    const byName = await catalog.listCustomAttributes({
+      sort: { field: 'name', direction: 'asc' },
+      offset: 2,
+      limit: 2,
+    });
+    expect(byName.items.map((row) => row.name)).toEqual(['Vista']);
   });
 });

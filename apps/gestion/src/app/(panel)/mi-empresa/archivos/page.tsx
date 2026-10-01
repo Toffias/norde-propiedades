@@ -1,9 +1,6 @@
 import { ListFolderContentsQuerySchema } from '@norde/core/settings/contracts';
-import { Button } from '@norde/ui/components/button';
 import { DataTableError } from '@norde/ui/components/data-table';
-import { Trash2Icon } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
 import { getContainer } from '../../../../container';
 import { CompanyFilesGrid } from '../../../../features/settings/components/company-files-grid';
@@ -30,14 +27,6 @@ export default async function CompanyFilesPage({
 
   return (
     <div className="flex flex-col gap-3">
-      {canManage && (
-        <Button asChild variant="outline" size="sm" className="self-end">
-          <Link href="/mi-empresa/archivos/papelera">
-            <Trash2Icon className="h-4 w-4" />
-            Papelera
-          </Link>
-        </Button>
-      )}
       {result.isErr() ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <DataTableError message={messageForError(result.error, COMPANY_FILES_ERROR_MESSAGES)} />

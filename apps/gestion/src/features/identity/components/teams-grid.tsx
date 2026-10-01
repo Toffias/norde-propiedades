@@ -5,15 +5,16 @@ import { Button } from '@norde/ui/components/button';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { ArchiveRestoreIcon, PencilIcon, PlusIcon, Trash2Icon, UsersIcon } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
 import { formatDateTime } from '../../../lib/format';
+import type { PanelData } from '../../../lib/panel-params';
+import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable } from '../../shared/components/server-data-table';
 import { deleteTeamAction, restoreTeamAction } from '../actions';
 import { NameSearchToolbar } from './list-toolbar';
-import { TeamFormDialog } from './team-form-dialog';
+import { TeamSheet, type TeamSheetData } from './team-sheet';
 import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
@@ -43,6 +44,7 @@ export function TeamsGrid({
   view,
   text,
   permissions,
+  detail,
 }: {
   readonly rows: readonly TeamListItem[];
   readonly total: number;
@@ -52,9 +54,11 @@ export function TeamsGrid({
   readonly view: TrashViewValue;
   readonly text: string;
   readonly permissions: TeamPermissions;
+  /** El equipo del panel de edición, si está abierto. */
+  readonly detail: PanelData<TeamSheetData> | undefined;
 }) {
-  const router = useRouter();
-  const [form, setForm] = useState<{ readonly team: TeamListItem | undefined } | undefined>();
+  const navigation = usePanel();
+  const { openEdit, openNew } = navigation;
   const [pending, setPending] = useState<PendingAction | undefined>();
 
   const columns = useMemo((): readonly DataTableColumn<TeamListItem>[] => {
@@ -120,7 +124,7 @@ export function TeamsGrid({
                 icon={UsersIcon}
                 label="Miembros"
                 onClick={() => {
-                  router.push(`/mi-empresa/equipos/${team.id}`);
+                  openEdit(team.id, 'members');
                 }}
               />
               {permissions.update && (
@@ -128,7 +132,7 @@ export function TeamsGrid({
                   icon={PencilIcon}
                   label="Editar"
                   onClick={() => {
-                    setForm({ team });
+                    openEdit(team.id);
                   }}
                 />
               )}
@@ -155,7 +159,7 @@ export function TeamsGrid({
           ),
       },
     ];
-  }, [permissions, router, view]);
+  }, [openEdit, permissions, view]);
 
   return (
     <>
@@ -177,13 +181,7 @@ export function TeamsGrid({
               activeLabel="Equipos"
             />
             {permissions.create && view === 'active' && (
-              <Button
-                type="button"
-                className="sm:ml-auto"
-                onClick={() => {
-                  setForm({ team: undefined });
-                }}
-              >
+              <Button type="button" className="sm:ml-auto" onClick={openNew}>
                 <PlusIcon className="h-4 w-4" />
                 Nuevo equipo
               </Button>
@@ -198,13 +196,7 @@ export function TeamsGrid({
               : 'No hay equipos que coincidan con la búsqueda.'
         }
       />
-      <TeamFormDialog
-        open={form !== undefined}
-        team={form?.team}
-        onOpenChange={(open) => {
-          if (!open) setForm(undefined);
-        }}
-      />
+      <TeamSheet navigation={navigation} detail={detail} canEdit={permissions.update} />
       <ConfirmActionDialog
         copy={pending?.copy}
         run={pending?.run ?? (() => Promise.resolve({ ok: true }))}

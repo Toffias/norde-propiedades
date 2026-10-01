@@ -48,6 +48,13 @@ Se construye de adentro hacia afuera. Cada paso con sus tests antes de pasar al 
 - **Lectura**: la página (Server Component) parsea `searchParams` con el contract y llama a la query del container. Detalle en [grilla-paginada.md](grilla-paginada.md).
 - **Escritura**: Server Action en `features/<modulo>/actions.ts`, en este orden: `Actor` de la sesión → validar con el contract → **un** caso de uso → mapear el `Result` a mensaje en español → `revalidatePath`. Sin `if` de negocio.
 - Formularios con react-hook-form y el mismo schema del contract.
+- **Alta y edición de entidades simples en panel lateral**, no en una pantalla propia (regla de `apps/gestion/CLAUDE.md`):
+  - El panel se abre por la URL (`?panel=new` o `?panel=<id>&tab=...`, `lib/panel-params.ts`). La página parsea el param y carga los datos del panel en el servidor (`PanelData<T>`); la grilla los recibe y renderiza el panel.
+  - Piezas: `usePanel()`, `EntitySheet`, `SheetLoading`, `SheetError` y `useLastDefined()` en `features/shared/components/entity-sheet.tsx`. El formulario va en `SheetBody scroll` y los botones en `SheetFooter`.
+  - Ancho `default` para pocos campos; `wide` con pestañas, grillas o listas largas. Una grilla dentro del panel pagina con `panelPage`, sin tocar la página de la grilla de atrás.
+  - Ejemplos: `branch-sheet.tsx` (simple), `team-sheet.tsx` (pestañas con grilla paginada), `role-sheet.tsx` (ancho, solo lectura sin permiso).
+  - Las confirmaciones (borrar, restaurar, suspender) siguen siendo un diálogo.
+  - **Si la entidad no entra cómoda en un panel** (muchas secciones, timeline, fotos, varias grillas: la ficha de una propiedad o de un cliente), **sugerile al usuario una pantalla propia antes de construirla** y esperá su respuesta.
 - Componentes de `@norde/ui`, tokens semánticos, textos en español rioplatense con "vos".
 - Acciones masivas y exportaciones: mandar el **filtro**, no la lista de IDs; correr por lotes o como job (pg-boss en `apps/agent`).
 

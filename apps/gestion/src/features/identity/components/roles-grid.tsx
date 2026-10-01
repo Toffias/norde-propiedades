@@ -1,6 +1,6 @@
 'use client';
 
-import type { RoleListItem, RoleViewValue } from '@norde/core/identity/contracts';
+import type { RoleDetail, RoleListItem, RoleViewValue } from '@norde/core/identity/contracts';
 import { Badge } from '@norde/ui/components/badge';
 import { Button } from '@norde/ui/components/button';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
@@ -31,15 +31,17 @@ import {
   SearchIcon,
   Trash2Icon,
 } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
 import { formatDateTime } from '../../../lib/format';
+import type { PanelData } from '../../../lib/panel-params';
+import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
 import { deleteRoleAction, restoreRoleAction } from '../actions';
 import { FormAlert } from '../../shared/components/form-alert';
+import type { CatalogGroup } from './permission-picker';
+import { RoleSheet } from './role-sheet';
 
 export interface RolePermissions {
   readonly create: boolean;
@@ -57,6 +59,9 @@ export interface RolesGridProps {
   readonly view: RoleViewValue;
   readonly text: string;
   readonly permissions: RolePermissions;
+  /** El rol del panel de edición, si está abierto. */
+  readonly detail: PanelData<RoleDetail> | undefined;
+  readonly catalog: readonly CatalogGroup[];
 }
 
 function RolesToolbar({
@@ -128,8 +133,11 @@ export function RolesGrid({
   view,
   text,
   permissions,
+  detail,
+  catalog,
 }: RolesGridProps) {
-  const router = useRouter();
+  const navigation = usePanel();
+  const { openEdit, openNew } = navigation;
   const [target, setTarget] = useState<RoleListItem | undefined>();
 
   const columns = useMemo((): readonly DataTableColumn<RoleListItem>[] => {
@@ -191,7 +199,7 @@ export function RolesGrid({
                   icon={permissions.update ? PencilIcon : EyeIcon}
                   label={permissions.update ? 'Editar' : 'Ver permisos'}
                   onClick={() => {
-                    router.push(`/mi-empresa/roles/${role.id}`);
+                    openEdit(role.id);
                   }}
                 />
                 {permissions.delete && (
@@ -215,7 +223,7 @@ export function RolesGrid({
         ),
       },
     ];
-  }, [permissions, router, view]);
+  }, [openEdit, permissions, view]);
 
   return (
     <>
@@ -232,11 +240,9 @@ export function RolesGrid({
           <>
             <RolesToolbar text={text} view={view} canSeeTrash={permissions.delete} />
             {permissions.create && view === 'active' && (
-              <Button asChild className="sm:ml-auto">
-                <Link href="/mi-empresa/roles/nuevo">
-                  <PlusIcon className="h-4 w-4" />
-                  Nuevo rol
-                </Link>
+              <Button type="button" className="sm:ml-auto" onClick={openNew}>
+                <PlusIcon className="h-4 w-4" />
+                Nuevo rol
               </Button>
             )}
           </>
@@ -248,6 +254,12 @@ export function RolesGrid({
               ? 'Todavía no hay roles.'
               : 'No hay roles que coincidan con la búsqueda.'
         }
+      />
+      <RoleSheet
+        navigation={navigation}
+        detail={detail}
+        catalog={catalog}
+        readOnly={!permissions.update}
       />
       <RoleTrashDialog
         role={target}

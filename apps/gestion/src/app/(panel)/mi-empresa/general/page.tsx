@@ -16,18 +16,22 @@ export default async function GeneralSettingsPage() {
   const { settings, canUpdate } = loaded;
 
   return (
-    <div className="flex flex-col gap-5">
-      <SectionCard title="Datos de la empresa">
-        <GeneralSettingsForm settings={settings} disabled={!canUpdate} />
-      </SectionCard>
-      <SectionCard title="Logo">
-        <LogoUploader
-          which="company"
-          hasLogo={settings.hasLogo}
-          version={settings.logoVersion ?? ''}
-          disabled={!canUpdate}
-        />
-      </SectionCard>
-    </div>
+    <SectionCard title="Datos de la empresa">
+      <div className="flex flex-col gap-5 md:flex-row md:gap-8">
+        <div className="flex shrink-0 flex-col gap-2">
+          <span className="text-sm font-medium">Logo</span>
+          <LogoUploader
+            which="company"
+            hasLogo={settings.hasLogo}
+            version={settings.logoVersion ?? ''}
+            disabled={!canUpdate}
+          />
+        </div>
+        <div className="border-t border-border md:border-t-0 md:border-l" />
+        <div className="min-w-0 flex-1">
+          <GeneralSettingsForm settings={settings} disabled={!canUpdate} />
+        </div>
+      </div>
+    </SectionCard>
   );
 }

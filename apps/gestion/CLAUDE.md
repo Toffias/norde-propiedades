@@ -31,6 +31,11 @@ src/
 - **Lecturas** en Server Components, llamando queries del core a través de `container.ts`.
 - **Componentes cliente**: nunca importan `@norde/core` salvo `contracts/` (schemas y tipos), ni `@norde/infra`.
 - **Formularios**: react-hook-form + `zodResolver` con el **mismo** contract del core. No duplicar schemas.
+- **Alta y edición en panel lateral**: crear o editar una entidad simple (usuario, rol, sucursal, equipo y similares) se hace en un **panel lateral** sobre su grilla, no en una pantalla dedicada ni en un modal.
+  - Las acciones de la fila abren el panel; cada pestaña del panel agrupa una parte de la entidad (datos, miembros, permisos).
+  - El panel vive en la URL (`?panel=<id>&tab=...`) y la página carga sus datos en el servidor. Patrón y piezas: skill `gestion-feature`.
+  - Las confirmaciones (borrar, restaurar, suspender) siguen siendo un diálogo.
+  - **Pantalla propia solo si la entidad lo amerita** (muchas secciones, timeline, fotos, varias grillas, como la ficha de una propiedad o un cliente). En ese caso, se le **sugiere al usuario antes de construirla** y se espera su respuesta.
 - **Tablas y listados**: TanStack Table en modo manual (`manualPagination`, `manualSorting`, `manualFiltering`). Paginación, filtros y orden **siempre del lado del servidor**:
   - El estado vive en los query params de la URL (`?page=2&pageSize=50&sort=-updatedAt&agent=...`), así se puede compartir, recargar y volver atrás.
   - La página (Server Component) parsea `searchParams` con el contract Zod de la query y llama a la query del core, que devuelve `Page<T>`.

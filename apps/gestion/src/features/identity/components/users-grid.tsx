@@ -22,14 +22,16 @@ import {
   UserCheckIcon,
   UserXIcon,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { formatDateTime } from '../../../lib/format';
+import type { PanelData } from '../../../lib/panel-params';
+import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
+import type { CatalogGroup } from './permission-picker';
 import type { RoleOption } from './role-checkboxes';
 import { ResetPasswordDialog, UserStatusDialog } from './user-action-dialogs';
-import { CreateUserDialog, EditUserDialog } from './user-form-dialogs';
+import { UserSheet, type UserSheetData } from './user-sheet';
 
 /** Qué puede hacer quien mira la grilla: solo para no mostrar botones que van a fallar. */
 export interface UserPermissions {
@@ -53,6 +55,10 @@ export interface UsersGridProps {
   readonly permissions: UserPermissions;
   /** El usuario de la sesión: no se puede suspender a sí mismo. */
   readonly currentUserId: string;
+  /** El usuario del panel de edición, si está abierto. */
+  readonly detail: PanelData<UserSheetData> | undefined;
+  /** Catálogo de permisos, para la pestaña "Permisos propios". */
+  readonly catalog: readonly CatalogGroup[];
 }
 
 const STATUS_LABELS: Record<UserStatusValue, string> = {
@@ -132,10 +138,11 @@ export function UsersGrid({
   roles,
   permissions,
   currentUserId,
+  detail,
+  catalog,
 }: UsersGridProps) {
-  const router = useRouter();
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<UserListItem | undefined>();
+  const navigation = usePanel();
+  const { openEdit, openNew } = navigation;
   const [changingStatus, setChangingStatus] = useState<UserListItem | undefined>();
   const [resetting, setResetting] = useState<UserListItem | undefined>();
 
@@ -152,7 +159,7 @@ export function UsersGrid({
               icon={PencilIcon}
               label="Editar"
               onClick={() => {
-                setEditing(user);
+                openEdit(user.id);
               }}
             />
           )}
@@ -164,7 +171,7 @@ export function UsersGrid({
                 ? { disabledReason: 'No podés cambiar tus propios permisos' }
                 : {})}
               onClick={() => {
-                router.push(`/mi-empresa/usuarios/${user.id}/permisos`);
+                openEdit(user.id, 'permissions');
               }}
             />
           )}
@@ -268,7 +275,7 @@ export function UsersGrid({
       },
       actions,
     ];
-  }, [permissions, currentUserId, router]);
+  }, [permissions, currentUserId, openEdit]);
 
   const hasFilters = text !== '';
 
@@ -287,13 +294,7 @@ export function UsersGrid({
           <>
             <UsersToolbar text={text} status={status} />
             {permissions.create && (
-              <Button
-                type="button"
-                className="sm:ml-auto"
-                onClick={() => {
-                  setCreating(true);
-                }}
-              >
+              <Button type="button" className="sm:ml-auto" onClick={openNew}>
                 <PlusIcon className="h-4 w-4" />
                 Nuevo usuario
               </Button>
@@ -308,12 +309,15 @@ export function UsersGrid({
               : 'Todavía no hay usuarios.'
         }
       />
-      <CreateUserDialog open={creating} onOpenChange={setCreating} roles={roles} />
-      <EditUserDialog
-        user={editing}
+      <UserSheet
+        navigation={navigation}
+        detail={detail}
         roles={roles}
-        onOpenChange={(open) => {
-          if (!open) setEditing(undefined);
+        catalog={catalog}
+        access={{
+          update: permissions.update,
+          permissions: permissions.permissions,
+          currentUserId,
         }}
       />
       <UserStatusDialog

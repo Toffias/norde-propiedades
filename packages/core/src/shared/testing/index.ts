@@ -8,6 +8,7 @@ import type {
   IdGenerator,
 } from '../application/ports';
 import type { DomainEvent } from '../domain/domain-event';
+import type { Result } from '../domain/result';
 
 /** Reloj fijo, avanzable a mano. */
 export class FixedClock implements Clock {
@@ -52,4 +53,16 @@ export class InMemoryAuditLog implements AuditLog {
     this.entries.push(entry);
     return Promise.resolve();
   }
+}
+
+/** El valor de un `Ok`; si es un `Err`, el test falla mostrando el error. */
+export function unwrap<T, E>(result: Result<T, E>): T {
+  if (result.isErr()) throw new Error(`Expected Ok, got Err: ${JSON.stringify(result.error)}`);
+  return result.value;
+}
+
+/** El error de un `Err`; si es un `Ok`, el test falla. */
+export function unwrapErr<T, E>(result: Result<T, E>): E {
+  if (result.isOk()) throw new Error('Expected Err, got Ok');
+  return result.error;
 }

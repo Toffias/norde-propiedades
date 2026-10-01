@@ -3,6 +3,8 @@ import {
   OPERATIONS,
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
+  type BoundingBox,
+  type PanelPropertyFilterCriteria,
   type PanelPropertyListCriteria,
   type PanelPropertyListItem,
   type PanelPropertyListQuery,
@@ -12,9 +14,11 @@ import type { PageSlice } from '@norde/core/shared';
 import {
   and,
   asc,
+  between,
   count,
   desc,
   eq,
+  gt,
   inArray,
   isNotNull,
   isNull,
@@ -25,7 +29,7 @@ import {
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { properties, propertyOperations } from '../db/schema';
+import { mediaItems, properties, propertyOperations } from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
 const RowEnums = z.object({
@@ -47,71 +51,136 @@ function escapeLike(text: string): string {
  */
 const locationText = sql`core.search_normalize(${properties.neighborhood} || ' ' || ${properties.city} || ' ' || ${properties.province})`;
 
+/**
+ * Columna de la fila exterior dentro de una subconsulta del `select`: drizzle no califica las
+ * columnas ahí, y `"id"` se resolvería contra la tabla de la subconsulta.
+ */
+const outerPropertyId = sql.raw('"properties"."id"');
+
+/** Portada de la propiedad, o su primera foto (índice `media_items_property_position_idx`). */
+const coverImageUrl = sql<string | null>`(
+  select m.url from ${mediaItems} m
+  where m.property_id = ${outerPropertyId} and m.kind = 'photo'
+  order by m.is_cover desc, m.position asc
+  limit 1
+)`;
+
+const listColumns = {
+  id: properties.id,
+  code: properties.code,
+  propertyType: properties.propertyType,
+  status: properties.status,
+  title: properties.title,
+  portalTitle: properties.portalTitle,
+  publishAddress: properties.publishAddress,
+  neighborhood: properties.neighborhood,
+  city: properties.city,
+  province: properties.province,
+  rooms: properties.rooms,
+  bedrooms: properties.bedrooms,
+  bathrooms: properties.bathrooms,
+  parkingSpaces: properties.parkingSpaces,
+  ageYears: properties.ageYears,
+  surfaceTotalM2: properties.surfaceTotalM2,
+  surfaceCoveredM2: properties.surfaceCoveredM2,
+  latitude: properties.latitude,
+  longitude: properties.longitude,
+  coverImageUrl,
+  producerUserId: properties.producerUserId,
+  createdAt: properties.createdAt,
+  updatedAt: properties.updatedAt,
+  deletedAt: properties.deletedAt,
+  deletedBy: properties.deletedBy,
+};
+
+function selectList(db: DbExecutor) {
+  return db.select(listColumns).from(properties);
+}
+type ListRow = Awaited<ReturnType<typeof selectList>>[number];
+
 function by(direction: 'asc' | 'desc', expression: SQL | AnyColumn): SQL {
   return direction === 'asc' ? asc(expression) : desc(expression);
 }
 
+const undefinedIfNull = <T>(value: T | null): T | undefined => value ?? undefined;
+
 /**
  * Buscador de propiedades del panel. Cada filtro y orden tiene su índice (ver `schema/properties.ts`
- * y la migración 0008); el test de integración lo cubre con 5.000 propiedades.
+ * y las migraciones 0008 y 0009); el test de integración lo cubre con 5.000 propiedades.
  */
 export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
   constructor(private readonly db: DbExecutor) {}
 
   async search(criteria: PanelPropertyListCriteria): Promise<PageSlice<PanelPropertyListItem>> {
     const where = and(...this.filters(criteria));
-    const [rows, totals] = await Promise.all([
-      this.db
-        .select({
-          id: properties.id,
-          code: properties.code,
-          propertyType: properties.propertyType,
-          status: properties.status,
-          title: properties.title,
-          portalTitle: properties.portalTitle,
-          publishAddress: properties.publishAddress,
-          neighborhood: properties.neighborhood,
-          city: properties.city,
-          producerUserId: properties.producerUserId,
-          createdAt: properties.createdAt,
-          updatedAt: properties.updatedAt,
-          deletedAt: properties.deletedAt,
-          deletedBy: properties.deletedBy,
-        })
-        .from(properties)
+    const [rows, total] = await Promise.all([
+      selectList(this.db)
         .where(where)
         .orderBy(...this.order(criteria))
         .limit(criteria.limit)
         .offset(criteria.offset),
-      this.db.select({ total: count() }).from(properties).where(where),
+      this.countWhere(where),
     ]);
-
-    const operations = await this.operationsOf(rows.map((row) => row.id));
-    const items = rows.map((row): PanelPropertyListItem => {
-      const enums = RowEnums.parse(row);
-      return {
-        id: row.id,
-        code: row.code,
-        propertyType: enums.propertyType,
-        status: enums.status,
-        portalTitle: row.portalTitle ?? row.title,
-        publishAddress: row.publishAddress ?? undefined,
-        neighborhood: row.neighborhood,
-        city: row.city,
-        operations: operations.get(row.id) ?? [],
-        producerUserId: row.producerUserId ?? undefined,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        deletedAt: row.deletedAt ?? undefined,
-        deletedBy: row.deletedBy ?? undefined,
-      };
-    });
-    return { items, total: totals[0]?.total ?? 0 };
+    return { items: await this.toItems(rows), total };
   }
 
-  private filters(c: PanelPropertyListCriteria): (SQL | undefined)[] {
+  async matchingIds(
+    criteria: PanelPropertyFilterCriteria,
+    page: { readonly afterId: string | undefined; readonly limit: number },
+  ): Promise<readonly { readonly id: string; readonly code: string }[]> {
+    return this.db
+      .select({ id: properties.id, code: properties.code })
+      .from(properties)
+      .where(
+        and(
+          ...this.filters(criteria),
+          page.afterId === undefined ? undefined : gt(properties.id, page.afterId),
+        ),
+      )
+      .orderBy(asc(properties.id))
+      .limit(page.limit);
+  }
+
+  count(criteria: PanelPropertyFilterCriteria): Promise<number> {
+    return this.countWhere(and(...this.filters(criteria)));
+  }
+
+  async mapPins(
+    criteria: PanelPropertyFilterCriteria,
+    area: BoundingBox,
+    limit: number,
+  ): Promise<PageSlice<PanelPropertyListItem>> {
+    // Sin PostGIS: el rectángulo se resuelve con `properties_coordinates_idx` (lat, long).
+    const where = and(
+      ...this.filters(criteria),
+      isNotNull(properties.latitude),
+      isNotNull(properties.longitude),
+      between(properties.latitude, area.south, area.north),
+      between(properties.longitude, area.west, area.east),
+    );
+    const [rows, total] = await Promise.all([
+      selectList(this.db)
+        .where(where)
+        .orderBy(desc(properties.updatedAt), desc(properties.id))
+        .limit(limit),
+      this.countWhere(where),
+    ]);
+    return { items: await this.toItems(rows), total };
+  }
+
+  private async countWhere(where: SQL | undefined): Promise<number> {
+    const [row] = await this.db.select({ total: count() }).from(properties).where(where);
+    return row?.total ?? 0;
+  }
+
+  private filters(c: PanelPropertyFilterCriteria): (SQL | undefined)[] {
     return [
       c.view === 'trash' ? isNotNull(properties.deletedAt) : isNull(properties.deletedAt),
+      c.ids === undefined
+        ? undefined
+        : c.ids.length === 0
+          ? sql`false`
+          : inArray(properties.id, [...c.ids]),
       c.owner.kind === 'producer' ? eq(properties.producerUserId, c.owner.userId) : undefined,
       c.owner.kind === 'branch' ? eq(properties.branchId, c.owner.branchId) : undefined,
       c.text === undefined ? undefined : matchesSearchText(properties.searchText, c.text),
@@ -129,7 +198,7 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
   }
 
   /** Condiciones sobre `po` (una operación de la propiedad): operación, moneda y rango de precio. */
-  private operationMatch(c: PanelPropertyListCriteria): (SQL | undefined)[] {
+  private operationMatch(c: PanelPropertyFilterCriteria): (SQL | undefined)[] {
     return [
       sql`po.property_id = ${properties.id}`,
       c.operation === undefined ? undefined : sql`po.operation = ${c.operation}`,
@@ -160,6 +229,44 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
         return [sql`${by(direction, price)} nulls last`, tiebreak];
       }
     }
+  }
+
+  private async toItems(rows: readonly ListRow[]): Promise<PanelPropertyListItem[]> {
+    const operations = await this.operationsOf(rows.map((row) => row.id));
+    return rows.map((row): PanelPropertyListItem => {
+      const enums = RowEnums.parse(row);
+      return {
+        id: row.id,
+        code: row.code,
+        propertyType: enums.propertyType,
+        status: enums.status,
+        portalTitle: row.portalTitle ?? row.title,
+        publishAddress: undefinedIfNull(row.publishAddress),
+        neighborhood: row.neighborhood,
+        city: row.city,
+        province: row.province,
+        operations: operations.get(row.id) ?? [],
+        attributes: {
+          rooms: undefinedIfNull(row.rooms),
+          bedrooms: undefinedIfNull(row.bedrooms),
+          bathrooms: undefinedIfNull(row.bathrooms),
+          parkingSpaces: undefinedIfNull(row.parkingSpaces),
+          ageYears: undefinedIfNull(row.ageYears),
+          surfaceTotalM2: undefinedIfNull(row.surfaceTotalM2),
+          surfaceCoveredM2: undefinedIfNull(row.surfaceCoveredM2),
+        },
+        coverImageUrl: undefinedIfNull(row.coverImageUrl),
+        coordinates:
+          row.latitude === null || row.longitude === null
+            ? undefined
+            : { latitude: row.latitude, longitude: row.longitude },
+        producerUserId: undefinedIfNull(row.producerUserId),
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        deletedAt: undefinedIfNull(row.deletedAt),
+        deletedBy: undefinedIfNull(row.deletedBy),
+      };
+    });
   }
 
   private async operationsOf(

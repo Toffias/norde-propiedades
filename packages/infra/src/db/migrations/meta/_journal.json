@@ -64,6 +64,13 @@
       "when": 1790875368307,
       "tag": "0008_panel_property_search",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790881480325,
+      "tag": "0009_properties_stage_two",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import type { PageSlice } from '../../../shared';
 import type {
   Currency,
   Operation,
+  PanelPropertyAttributes,
   PanelPropertyOperation,
   PanelPropertySortField,
   PropertyStatusValue,
@@ -15,7 +16,8 @@ export type PropertyOwnerFilter =
   | { readonly kind: 'producer'; readonly userId: string }
   | { readonly kind: 'branch'; readonly branchId: string };
 
-export interface PanelPropertyListCriteria {
+/** Los filtros del buscador, ya resueltos (alcance → captador o sucursal; precio → centavos). */
+export interface PanelPropertyFilterCriteria {
   readonly view: PropertyViewValue;
   readonly owner: PropertyOwnerFilter;
   /** Código, título o dirección, sin distinguir mayúsculas ni acentos. */
@@ -33,9 +35,22 @@ export interface PanelPropertyListCriteria {
         readonly maxCents: bigint | undefined;
       }
     | undefined;
+  /** Solo estas propiedades (selección de una acción masiva, comparador). */
+  readonly ids: readonly string[] | undefined;
+}
+
+export interface PanelPropertyListCriteria extends PanelPropertyFilterCriteria {
   readonly sort: { readonly field: PanelPropertySortField; readonly direction: 'asc' | 'desc' };
   readonly offset: number;
   readonly limit: number;
+}
+
+/** Rectángulo visible del mapa, en grados. */
+export interface BoundingBox {
+  readonly south: number;
+  readonly west: number;
+  readonly north: number;
+  readonly east: number;
 }
 
 /** Fila tal como sale de la base: los usuarios, solo por ID. */
@@ -48,7 +63,11 @@ export interface PanelPropertyListItem {
   readonly publishAddress: string | undefined;
   readonly neighborhood: string;
   readonly city: string;
+  readonly province: string;
   readonly operations: readonly PanelPropertyOperation[];
+  readonly attributes: PanelPropertyAttributes;
+  readonly coverImageUrl: string | undefined;
+  readonly coordinates: { readonly latitude: number; readonly longitude: number } | undefined;
   readonly producerUserId: string | undefined;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -59,4 +78,20 @@ export interface PanelPropertyListItem {
 /** Puerto de consulta del buscador del panel: SQL paginado en infra. */
 export interface PanelPropertyListQuery {
   search(criteria: PanelPropertyListCriteria): Promise<PageSlice<PanelPropertyListItem>>;
+  /**
+   * IDs que cumplen el filtro, en orden de ID y después de `afterId` (paginación por clave, para
+   * recorrer una selección por lotes aunque los cambios la alteren).
+   */
+  matchingIds(
+    criteria: PanelPropertyFilterCriteria,
+    page: { readonly afterId: string | undefined; readonly limit: number },
+  ): Promise<readonly { readonly id: string; readonly code: string }[]>;
+  /** Cuántas cumplen el filtro. */
+  count(criteria: PanelPropertyFilterCriteria): Promise<number>;
+  /** Propiedades con coordenadas dentro del área, las actualizadas más recientemente primero. */
+  mapPins(
+    criteria: PanelPropertyFilterCriteria,
+    area: BoundingBox,
+    limit: number,
+  ): Promise<PageSlice<PanelPropertyListItem>>;
 }

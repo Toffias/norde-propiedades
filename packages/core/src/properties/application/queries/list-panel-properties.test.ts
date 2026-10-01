@@ -4,6 +4,7 @@ import { Actor } from '../../../shared';
 import { unwrap, unwrapErr } from '../../../shared/testing';
 import { ListPanelPropertiesQuerySchema } from '../../contracts';
 import {
+  aPanelItem,
   BRANCH_ID,
   InMemoryUserNames,
   OTHER_USER_ID,
@@ -18,22 +19,14 @@ import {
 import type { PanelPropertyListItem } from '../ports/panel-property-list-query';
 import { ListPanelProperties } from './list-panel-properties';
 
-const ITEM: PanelPropertyListItem = {
+const ITEM: PanelPropertyListItem = aPanelItem({
   id: PROPERTY_ID,
-  code: 'DEP0001',
-  propertyType: 'apartment',
-  status: 'draft',
-  portalTitle: 'Departamento en venta en Palermo',
-  publishAddress: 'Gurruchaga al 1800',
-  neighborhood: 'Palermo',
-  city: 'CABA',
-  operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
   producerUserId: PRODUCER_ID,
   createdAt: TEST_NOW,
   updatedAt: TEST_NOW,
   deletedAt: TEST_NOW,
   deletedBy: OTHER_USER_ID,
-};
+});
 
 function setup(items: readonly PanelPropertyListItem[] = []) {
   const properties = new StubPanelPropertyListQuery({ items, total: 41 });

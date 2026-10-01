@@ -31,6 +31,7 @@ function newProperty(overrides: Partial<NewProperty> = {}): NewProperty {
     publishAddress: undefined,
     portalTitle: undefined,
     coordinates: undefined,
+    locationId: undefined,
     producerUserId: '00000000-0000-7000-8000-0000000000a1',
     branchId: '00000000-0000-7000-8000-0000000000b1',
     now: NOW,
@@ -168,5 +169,107 @@ describe('Property trash', () => {
       ownerId: '00000000-0000-7000-8000-0000000000a1',
       ownerBranchId: '00000000-0000-7000-8000-0000000000b1',
     });
+  });
+});
+
+describe('Property quick edits', () => {
+  function created() {
+    const property = unwrap(Property.create(newProperty()));
+    property.pullEvents();
+    return property;
+  }
+
+  it('changes the status along a valid transition and records it', () => {
+    const property = created();
+    expect(unwrap(property.changeStatus('available', LATER))).toBe(true);
+    expect(property.toSnapshot()).toMatchObject({ status: 'available', statusChangedAt: LATER });
+    expect(unwrap(property.changeStatus('available', LATER))).toBe(false);
+    const events = property.pullEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: 'properties.property_status_changed',
+      payload: { from: 'draft', to: 'available' },
+    });
+  });
+
+  it('rejects an invalid transition, a reservation by hand and edits in the trash', () => {
+    const property = created();
+    expect(unwrapErr(property.changeStatus('sold', LATER))).toEqual({
+      type: 'InvalidStatusTransition',
+      from: 'draft',
+      to: 'sold',
+    });
+    expect(unwrapErr(property.changeStatus('reserved', LATER))).toEqual({
+      type: 'StatusNotManual',
+    });
+    unwrap(property.delete('user-1', LATER));
+    expect(unwrapErr(property.changeStatus('available', LATER))).toEqual({
+      type: 'PropertyInTrash',
+    });
+    expect(unwrapErr(property.changeTags({ add: ['t'], remove: [] }, LATER))).toEqual({
+      type: 'PropertyInTrash',
+    });
+  });
+
+  it('moves the property to the branch of its new producer', () => {
+    const property = created();
+    expect(unwrap(property.changeProducer({ userId: 'user-2', branchId: 'branch-2' }, LATER))).toBe(
+      true,
+    );
+    expect(property.ownership).toEqual({ ownerId: 'user-2', ownerBranchId: 'branch-2' });
+    expect(unwrap(property.changeProducer({ userId: 'user-2', branchId: 'branch-2' }, LATER))).toBe(
+      false,
+    );
+  });
+
+  it('changes the price of an existing operation and keeps the price history', () => {
+    const property = created();
+    expect(
+      unwrap(
+        property.changePrice(
+          { operation: 'sale', currency: 'USD', priceCents: 11_500_000n },
+          LATER,
+        ),
+      ),
+    ).toBe(true);
+    expect(property.toSnapshot().operations).toEqual([
+      { operation: 'sale', currency: 'USD', priceCents: 11_500_000n },
+    ]);
+    expect(property.priceChanges).toEqual([
+      {
+        operation: 'sale',
+        currency: 'USD',
+        oldPriceCents: 12_000_000n,
+        newPriceCents: 11_500_000n,
+        changedAt: LATER,
+      },
+    ]);
+    expect(property.pullEvents().map((e) => e.type)).toEqual(['properties.property_price_changed']);
+  });
+
+  it('does not compare prices across currencies and rejects a missing operation', () => {
+    const property = created();
+    unwrap(
+      property.changePrice({ operation: 'sale', currency: 'ARS', priceCents: undefined }, LATER),
+    );
+    expect(property.priceChanges[0]).toMatchObject({ oldPriceCents: undefined, currency: 'ARS' });
+    expect(
+      unwrapErr(
+        property.changePrice({ operation: 'rent', currency: 'ARS', priceCents: 1n }, LATER),
+      ),
+    ).toEqual({ type: 'OperationNotFound' });
+    expect(
+      unwrapErr(
+        property.changePrice({ operation: 'sale', currency: 'ARS', priceCents: -1n }, LATER),
+      ),
+    ).toEqual({ type: 'NegativePrice' });
+  });
+
+  it('adds and removes tags without repeats', () => {
+    const property = created();
+    expect(unwrap(property.changeTags({ add: ['a', 'b', 'a'], remove: [] }, LATER))).toBe(true);
+    expect(unwrap(property.changeTags({ add: ['c'], remove: ['a'] }, LATER))).toBe(true);
+    expect([...property.tagIds].sort()).toEqual(['b', 'c']);
+    expect(unwrap(property.changeTags({ add: ['b'], remove: ['z'] }, LATER))).toBe(false);
   });
 });

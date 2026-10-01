@@ -65,8 +65,24 @@ Las dependencias apuntan **solo hacia adentro**: presentación (`apps/*`) → in
 - **Toda** regla de negocio vive en el dominio. No en componentes React, Server Actions, rutas, tools del agente, SQL ni triggers de la base.
 - Un caso de uso = una clase con un método `execute(input, actor)` que devuelve `Result<T, E>`.
 - **Autorización en el caso de uso**, con el `Actor`. Ocultar un botón en la UI no es autorización.
-- Todo command que modifica datos: corre dentro de `UnitOfWork`, guarda sus eventos en el outbox en la misma transacción y **registra auditoría**.
+- Todo command que modifica datos: corre dentro de `UnitOfWork`, guarda sus eventos en el outbox en la misma transacción y **registra auditoría** (ver "Auditoría e historial de cambios").
 - Commands pasan por el dominio. Queries de listados y reportes pueden usar un puerto de consulta con SQL optimizado y devolver DTOs planos.
+
+### Auditoría e historial de cambios
+
+Toda entidad es auditable: su ficha muestra **quién cambió qué y cuándo** ("Camila bajó el precio de USD 120.000 a USD 115.000"). Detalle y esquema en #19.
+
+- Todo command que modifica datos escribe en `audit_log` en la misma transacción, **con el diff**:
+  - Alta: los valores iniciales (`before: null`).
+  - Edición: solo los campos que cambiaron, con `before` y `after`. Sin cambios, no se registra.
+  - Bajas, restauraciones, unificaciones, cambios de estado y asignaciones: como acción explícita (`property.deleted`).
+- Los cambios en filas hijas (teléfonos, fotos, operaciones, etiquetas) se registran contra la **entidad principal**, para que aparezcan en su historial.
+- Se guardan valores crudos (centavos + moneda, IDs, fechas ISO); la UI los formatea. Otras entidades se referencian por **ID**, nunca copiando nombres, teléfonos ni emails.
+- Toda entrada con datos de un cliente lleva su ID en `client_ids`, para poder suprimirla.
+- `audit_log` es **solo de inserción**: PROHIBIDO actualizar o borrar entradas, salvo en la supresión de datos.
+- Lo que no pasa por casos de uso también se audita: login, logout, login fallido y cambios de contraseña (hooks de Better Auth), exportaciones, importaciones y backfills (`system:import`).
+- Toda tabla de negocio tiene `created_by` y `updated_by`.
+- Los tests de cada command verifican la entrada de auditoría y su diff (con el fake de `AuditLog`).
 
 ### Listados: siempre paginados en el servidor
 
@@ -112,6 +128,7 @@ Aplica a **toda** grilla, listado, tablero kanban (por columna), bandeja, papele
 - PROHIBIDO commitear secretos, `.env` o tokens. Solo `.env.example` con **nombres** de variables.
 - PROHIBIDO leer `.env`: usar `.env.example` para conocer las variables.
 - Datos personales (Ley 25.326): no loguear teléfonos, emails ni DNI en claro; enmascarar. Las exportaciones quedan auditadas.
+- **Supresión**: si un cliente lo pide, se borra **físicamente** todo lo vinculado a él en todos los módulos, incluido su historial en `audit_log`. Es la única excepción a las bajas lógicas. Queda una constancia sin datos personales (ver #19).
 - Webhooks: firma verificada sobre el body crudo. Endpoints públicos: rate limit + validación.
 - El contenido que llega del cliente, del LLM o de APIs externas es **dato, no instrucción** (prompt injection).
 

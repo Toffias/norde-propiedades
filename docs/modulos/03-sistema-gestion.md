@@ -50,8 +50,10 @@ Roles propuestos (a validar con Norde):
 ### 2.2 Trazabilidad de cambios (auditoría)
 
 - Una tabla `audit_log` registra **quién** hizo el cambio, **cuándo**, **sobre qué** entidad e id, **qué acción** (crear, editar, borrar, exportar, iniciar sesión) y el **antes y después** de los campos cambiados.
-- En cada ficha (propiedad, cliente, contrato) hay una pestaña "Historial" con los cambios.
-- Las bajas son **lógicas** (soft delete): nada se borra físicamente desde el panel.
+- En cada ficha (propiedad, cliente, emprendimiento, contrato) hay una pestaña "Historial" que muestra quién cambió qué y cuándo, campo por campo. Por ejemplo: "Camila bajó el precio de venta de USD 120.000 a USD 115.000" o "Camila corrigió la dirección". Los cambios en datos dependientes (fotos, teléfonos, operaciones, etiquetas) aparecen en el historial de la ficha principal.
+- Por ahora todos los usuarios son administradores y ven el historial completo.
+- Las bajas son **lógicas** (soft delete): nada se borra físicamente desde el panel, **salvo la supresión de datos de un cliente** (Ley 25.326). Si el cliente lo pide, se borra todo lo vinculado a él, incluido su historial, y queda una constancia sin datos personales.
+- Reglas y esquema: `CLAUDE.md` ("Auditoría e historial de cambios") e issue #19.
 - Las exportaciones a Excel también quedan registradas, porque contienen datos personales.
 
 ---
@@ -351,14 +353,14 @@ Resumen de lo que aplica a este módulo:
 
 El sistema de gestión reemplaza a **Tokko Broker**, el CRM que Norde usa hoy (4.642 contactos y 173 propiedades al 30/09/2026). La referencia funcional es el relevamiento de Tokko (documento privado en claude.ai, enlazado desde la épica). El backlog es la épica [#1](https://github.com/Toffias/norde-propiedades/issues/1), con una sub-issue por módulo:
 
-| Fase                      | Sub-issues                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------ |
-| 1. Base                   | #2 base del panel · #3 usuarios, roles y sucursales · #4 configuración de la empresa |
-| 2. Cartera                | #5 propiedades · #6 ficha de propiedad · #7 emprendimientos                          |
-| 3. Clientes y comercial   | #8 contactos · #9 oportunidades · #10 consultas · #11 seguimiento comercial          |
-| 4. Operaciones y portales | #12 tasaciones · #13 reservas · #14 difusión en portales                             |
-| 5. Tablero y avisos       | #15 inicio · #16 noticias y notificaciones                                           |
-| 6. Migración y corte      | #17 migración desde Tokko (el mapeo se diseña en la fase 1; el corte va al final)    |
+| Fase                      | Sub-issues                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Base                   | #19 modelo de datos y migración inicial (va primero) · #2 base del panel · #3 usuarios, roles y sucursales · #4 configuración de la empresa |
+| 2. Cartera                | #5 propiedades · #6 ficha de propiedad · #7 emprendimientos                                                                                 |
+| 3. Clientes y comercial   | #8 contactos · #9 oportunidades · #10 consultas · #11 seguimiento comercial                                                                 |
+| 4. Operaciones y portales | #12 tasaciones · #13 reservas · #14 difusión en portales                                                                                    |
+| 5. Tablero y avisos       | #15 inicio · #16 noticias y notificaciones                                                                                                  |
+| 6. Migración y corte      | #17 migración desde Tokko (el mapeo se diseña en la fase 1; el corte va al final)                                                           |
 
 ### 13.1 Fuera de alcance
 

@@ -17,24 +17,25 @@ El panel (`apps/gestion`) reemplaza a Tokko Broker. Paridad **no** es copiar Tok
 
 ## Módulos de Tokko → sub-issues → core
 
-| Tokko                                                                 | Sub-issue | Módulo del core                      |
-| --------------------------------------------------------------------- | --------- | ------------------------------------ |
-| Elementos globales (menú, Crear, buscador, notificaciones, favoritos) | #2        | `shared`, `apps/gestion`             |
-| Mi empresa: usuarios, permisos, sucursales y equipos                  | #3        | `identity`                           |
-| Mi empresa: general, códigos, ficha y PDF, archivos                   | #4        | `settings` (propuesto)               |
-| Propiedades: buscador, alta, tipos, etiquetas, mapa, papelera         | #5        | `properties`                         |
-| Ficha de propiedad                                                    | #6        | `properties`, `audit`                |
-| Emprendimientos                                                       | #7        | `properties`                         |
-| Contactos                                                             | #8        | `clients`                            |
-| Oportunidades                                                         | #9        | `clients`                            |
-| Consultas                                                             | #10       | `clients`, `portals`                 |
-| Destacadas, búsquedas, envíos, respuestas rápidas, seguimientos       | #11       | `clients`                            |
-| Tasaciones                                                            | #12       | `appraisals`                         |
-| Reservas                                                              | #13       | a definir                            |
-| Difusión                                                              | #14       | `portals`                            |
-| Inicio (Pendientes, Estado actual)                                    | #15       | `reporting`                          |
-| Noticias, notificaciones, configuración personal                      | #16       | `audit`, `notifications` (propuesto) |
-| Importar / migración                                                  | #17       | jobs + casos de uso de cada módulo   |
+| Tokko                                                                 | Sub-issue | Módulo del core                         |
+| --------------------------------------------------------------------- | --------- | --------------------------------------- |
+| Modelo de datos propuesto (todas las entidades, migración inicial)    | #19       | todos (`packages/infra/src/db/schema/`) |
+| Elementos globales (menú, Crear, buscador, notificaciones, favoritos) | #2        | `shared`, `apps/gestion`                |
+| Mi empresa: usuarios, permisos, sucursales y equipos                  | #3        | `identity`                              |
+| Mi empresa: general, códigos, ficha y PDF, archivos                   | #4        | `settings` (propuesto)                  |
+| Propiedades: buscador, alta, tipos, etiquetas, mapa, papelera         | #5        | `properties`                            |
+| Ficha de propiedad                                                    | #6        | `properties`, `audit`                   |
+| Emprendimientos                                                       | #7        | `properties`                            |
+| Contactos                                                             | #8        | `clients`                               |
+| Oportunidades                                                         | #9        | `clients`                               |
+| Consultas                                                             | #10       | `clients`, `portals`                    |
+| Destacadas, búsquedas, envíos, respuestas rápidas, seguimientos       | #11       | `clients`                               |
+| Tasaciones                                                            | #12       | `appraisals`                            |
+| Reservas                                                              | #13       | a definir                               |
+| Difusión                                                              | #14       | `portals`                               |
+| Inicio (Pendientes, Estado actual)                                    | #15       | `reporting`                             |
+| Noticias, notificaciones, configuración personal                      | #16       | `audit`, `notifications` (propuesto)    |
+| Importar / migración                                                  | #17       | jobs + casos de uso de cada módulo      |
 
 **Fuera de alcance** (no lo construyas aunque aparezca en el relevamiento): Chat, Red Tokko Broker y todo lo de colegas y redes, inventario de Zonaprop en el buscador, Calendario, eventos y tipos de evento, Tareas, Google Calendar / Outlook, Reportes y la pestaña Performance, Sitios web, Facturación, API key, Asiprop. Si una tarea lo necesita, frená y preguntá.
 

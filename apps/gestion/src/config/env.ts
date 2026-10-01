@@ -12,6 +12,33 @@ const EnvSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   /** URL pública del panel, sin barra final (`https://gestion.norde.com.ar`). */
   BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
+
+  /** Storage de archivos: `local` (disco, para desarrollo) o `s3` (Cloudflare R2 o AWS S3). */
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_LOCAL_DIR: z.string().default('.storage'),
+  /** R2: `https://<account>.r2.cloudflarestorage.com`. Sin valor, AWS S3. */
+  S3_ENDPOINT: z.url({ protocol: /^https$/ }).optional(),
+  S3_REGION: z.string().optional(),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+
+  /** Resend. Sin API key o remitente, el envío de emails avisa que falta configurarlo. */
+  RESEND_API_KEY: z.string().optional(),
+  /** Dirección de envío en un dominio verificado en Resend. */
+  MAIL_FROM_ADDRESS: z.email().optional(),
+});
+
+/** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
+const S3_REQUIRED = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
+
+const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
+  if (env.STORAGE_DRIVER !== 's3') return;
+  for (const key of S3_REQUIRED) {
+    if (env[key] === undefined) {
+      context.addIssue({ code: 'custom', path: [key], message: 'Required with STORAGE_DRIVER=s3' });
+    }
+  }
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -24,7 +51,7 @@ export function getEnv(): Env {
   const source = Object.fromEntries(
     Object.entries(process.env).filter(([, value]) => value !== undefined && value.trim() !== ''),
   );
-  const parsed = EnvSchema.safeParse(source);
+  const parsed = ValidatedEnvSchema.safeParse(source);
   if (!parsed.success) {
     throw new Error(`Invalid environment variables:\n${z.prettifyError(parsed.error)}`);
   }

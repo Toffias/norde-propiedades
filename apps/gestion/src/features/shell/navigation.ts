@@ -47,7 +47,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
   },
   {
     label: 'Empresa',
-    items: [{ href: '/mi-empresa', label: 'Mi empresa', icon: SettingsIcon, disabledReason: SOON }],
+    items: [{ href: '/mi-empresa', label: 'Mi empresa', icon: SettingsIcon }],
   },
 ];
 

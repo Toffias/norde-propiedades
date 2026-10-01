@@ -6,6 +6,11 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
+  experimental: {
+    // Subida de archivos al gestor de Mi empresa (hasta 25 MB, más el resto del formulario).
+    serverActions: { bodySizeLimit: '26mb' },
+    proxyClientMaxBodySize: '26mb',
+  },
 };
 
 export default config;

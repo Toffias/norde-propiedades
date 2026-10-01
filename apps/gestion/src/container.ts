@@ -37,6 +37,13 @@ import {
   UpdateUser,
 } from '@norde/core/identity';
 import {
+  CreateProperty,
+  DeleteProperty,
+  ListPanelProperties,
+  RestoreProperty,
+  type ReferenceCodeAllocator,
+} from '@norde/core/properties';
+import {
   AllocateReferenceCode,
   ChangeCompanyLogo,
   ChangeReferenceCodePrefix,
@@ -66,13 +73,14 @@ import {
   UploadCompanyFile,
   type FileStorage,
 } from '@norde/core/settings';
-import type { Clock, IdGenerator } from '@norde/core/shared';
+import { err, ok, type Clock, type IdGenerator } from '@norde/core/shared';
 import {
   BetterAuthPasswordHasher,
   BetterAuthSessionReader,
   createAuth,
   createDatabase,
   createIdentityUnitOfWork,
+  createPropertiesUnitOfWork,
   createSettingsUnitOfWork,
   DrizzleAuditLog,
   DrizzleCompanyFileRepository,
@@ -80,6 +88,7 @@ import {
   DrizzleCompanySettingsRepository,
   DrizzleDirectory,
   DrizzleOrganizationQuery,
+  DrizzlePanelPropertyListQuery,
   DrizzleReferenceCodeSequenceQuery,
   DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
@@ -139,9 +148,12 @@ export interface Container {
   };
   /** Mi empresa: configuración, códigos de referencia y gestor de archivos (#4). */
   readonly settings: SettingsUseCases;
+  /** Propiedades: buscador, alta y papelera (#5). */
+  readonly properties: PropertiesUseCases;
 }
 
 export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
+export type PropertiesUseCases = ReturnType<typeof createPropertiesUseCases>;
 
 let container: Container | undefined;
 
@@ -215,6 +227,54 @@ function createSettingsUseCases(
   };
 }
 
+/**
+ * El código de referencia de una propiedad nueva sale de la numeración de Mi empresa (settings).
+ * Cualquier error de la numeración (falta configurarla, se agotó) se informa igual: no hay código.
+ */
+function referenceCodesFrom(settings: SettingsUseCases): ReferenceCodeAllocator {
+  return {
+    async allocate(request, actor) {
+      const result = await settings.allocateReferenceCode.execute(
+        {
+          target: 'property',
+          propertyType: request.kind,
+          userId: request.producerUserId,
+          branchId: request.branchId,
+        },
+        actor,
+      );
+      if (result.isErr()) {
+        getLogger().warn(
+          { error: result.error.type },
+          'Could not allocate a property reference code',
+        );
+        return err({ type: 'ReferenceCodeUnavailable' });
+      }
+      return ok(result.value.code);
+    },
+  };
+}
+
+function createPropertiesUseCases(
+  db: Database,
+  settings: SettingsUseCases,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+) {
+  const { ids, clock } = deps;
+  const uow = createPropertiesUnitOfWork(db, deps);
+  const directory = new DrizzleDirectory(db);
+
+  return {
+    listPanelProperties: new ListPanelProperties({
+      properties: new DrizzlePanelPropertyListQuery(db),
+      users: { names: (userIds) => directory.names('user', userIds) },
+    }),
+    createProperty: new CreateProperty({ uow, codes: referenceCodesFrom(settings), ids, clock }),
+    deleteProperty: new DeleteProperty({ uow, clock }),
+    restoreProperty: new RestoreProperty({ uow, clock }),
+  };
+}
+
 function createContainer(): Container {
   const env = getEnv();
   const database = createDatabase({ url: env.DATABASE_URL, applicationName: 'norde-gestion' });
@@ -238,6 +298,7 @@ function createContainer(): Container {
   const userAccess = new DrizzleUserAccessQuery(database.db);
   const roleQuery = new DrizzleRoleListQuery(database.db);
   const organization = new DrizzleOrganizationQuery(database.db);
+  const settings = createSettingsUseCases(database.db, env, { ids, clock });
 
   return {
     database,
@@ -245,7 +306,8 @@ function createContainer(): Container {
     handleAuthRequest: (request) => auth.handler(request),
     sessions: new BetterAuthSessionReader(auth),
     resolveSessionActor: new ResolveSessionActor({ users: userAccess }),
-    settings: createSettingsUseCases(database.db, env, { ids, clock }),
+    settings,
+    properties: createPropertiesUseCases(database.db, settings, { ids, clock }),
     identity: {
       listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),
       listRoles: new ListRoles({ roles: roleQuery }),

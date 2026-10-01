@@ -7,7 +7,7 @@ import {
   type PropertySearchCriteria,
   type PropertySearchQuery,
 } from '@norde/core/properties';
-import { and, asc, count, eq, gte, inArray, lte, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -70,7 +70,11 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
   }
 
   async findById(id: string) {
-    const [row] = await this.db.select().from(properties).where(eq(properties.id, id)).limit(1);
+    const [row] = await this.db
+      .select()
+      .from(properties)
+      .where(and(eq(properties.id, id), isNull(properties.deletedAt)))
+      .limit(1);
     return row && toRecord(row);
   }
 
@@ -79,6 +83,8 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     const place = sql`${properties.neighborhood} || ' ' || ${properties.city} || ' ' || coalesce(${properties.address}, '')`;
 
     return [
+      // Las de la papelera no existen para la web ni para el agente.
+      isNull(properties.deletedAt),
       inArray(properties.status, [...c.statuses]),
       c.publishedOnWebOnly ? eq(properties.publishedOnWeb, true) : undefined,
       c.operation === undefined ? undefined : eq(properties.operation, c.operation),

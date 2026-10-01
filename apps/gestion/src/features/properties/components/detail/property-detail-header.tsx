@@ -131,7 +131,8 @@ export function PropertyDetailHeader({
             // Foto del storage privado, servida por el panel: no pasa por el optimizador de Next.
             // eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel
             <img
-              src={`/propiedades/${detail.id}/fotos/${detail.cover.mediaId}?v=thumbnail`}
+              // Mientras se procesa, la ruta entrega la original: la versión evita que quede en caché.
+              src={`/propiedades/${detail.id}/fotos/${detail.cover.mediaId}?v=thumbnail&r=${detail.cover.hasThumbnail ? 'ready' : 'pending'}`}
               alt="Portada"
               className="h-full w-full object-cover"
             />
@@ -167,7 +168,12 @@ export function PropertyDetailHeader({
           {permissions.edit && statuses.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="dark:bg-card" disabled={pending}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-foreground dark:bg-card"
+                  disabled={pending}
+                >
                   Cambiar estado
                   <ChevronDownIcon className="h-4 w-4" />
                 </Button>
@@ -193,7 +199,12 @@ export function PropertyDetailHeader({
           {permissions.publish && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="dark:bg-card" disabled={pending}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-foreground dark:bg-card"
+                  disabled={pending}
+                >
                   <GlobeIcon className="h-4 w-4" />
                   Publicación
                   <ChevronDownIcon className="h-4 w-4" />
@@ -247,7 +258,7 @@ export function PropertyDetailHeader({
               <Button
                 size="sm"
                 variant="outline"
-                className="dark:bg-card"
+                className="text-foreground dark:bg-card"
                 aria-label="Más acciones"
               >
                 <MoreHorizontalIcon className="h-4 w-4" />

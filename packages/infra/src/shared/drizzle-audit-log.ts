@@ -19,6 +19,9 @@ export class DrizzleAuditLog implements AuditLog {
       entityType: entry.entityType,
       entityId: entry.entityId,
       changes: entry.changes === undefined ? null : toJsonb(entry.changes),
+      source: entry.source,
+      correlationId: entry.correlationId ?? null,
+      clientIds: [...entry.clientIds],
       occurredAt: this.clock.now(),
     });
   }

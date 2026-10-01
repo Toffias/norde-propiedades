@@ -1,4 +1,5 @@
 import {
+  auditCreated,
   err,
   nextId,
   ok,
@@ -73,12 +74,20 @@ export class ReceiveInboundMessages {
         });
         // Se guarda antes que los mensajes, que la referencian.
         await tx.conversations.save(conversation);
-        await tx.audit.record({
-          actorId: actor.id,
-          action: 'conversation.started',
-          entityType: 'conversation',
-          entityId: conversation.id,
-        });
+        // Sin teléfono ni nombre: la conversación todavía no tiene cliente al que asociarlos
+        // (`client_ids`), y sin eso no se podrían suprimir.
+        await tx.audit.record(
+          auditCreated(
+            actor,
+            {
+              action: 'conversation.started',
+              entityType: 'conversation',
+              entityId: conversation.id,
+              clientIds: [],
+            },
+            { channel: conversation.channel, status: conversation.status },
+          ),
+        );
       }
 
       const recorded: InboundMessage[] = [];

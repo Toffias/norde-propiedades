@@ -3,7 +3,7 @@ import {
   type OpportunityId,
   type RegisterContactInput,
 } from '@norde/core/clients';
-import { Actor, err, ok, Phone } from '@norde/core/shared';
+import { Actor, err, ok, Phone, type AuditEntry } from '@norde/core/shared';
 import { FixedClock } from '@norde/core/shared/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -22,7 +22,16 @@ const clock = new FixedClock('2026-03-01T10:00:00Z');
 const ids = new UuidV7IdGenerator();
 const uow = createClientsUnitOfWork(db, { ids, clock });
 const registerContact = new RegisterContact({ uow, ids, clock });
-const agent = Actor.system('agent-ia', ['clients:create']);
+const agent = Actor.system('agent-ia', ['clients:create']).withCorrelation('wamid.1');
+const TEST_ENTRY: AuditEntry = {
+  kind: 'action',
+  actorId: 'test',
+  action: 'x',
+  entityType: 'x',
+  entityId: 'x',
+  source: 'scheduler',
+  clientIds: [],
+};
 
 const whatsapp: RegisterContactInput = {
   channel: 'whatsapp',
@@ -50,7 +59,22 @@ describe('clients persistence', () => {
       'clients.client_registered',
       'clients.opportunity_created',
     ]);
-    expect(await db.select().from(auditLog)).toHaveLength(2);
+    const entries = await db.select().from(auditLog).orderBy(auditLog.entityType);
+    expect(entries).toMatchObject([
+      {
+        action: 'client.registered',
+        source: 'agent',
+        correlationId: 'wamid.1',
+        clientIds: [result.value.clientId],
+        changes: { phone: { before: null, after: '+5491166899124' } },
+      },
+      {
+        action: 'opportunity.opened',
+        clientIds: [result.value.clientId],
+        // Los centavos se guardan crudos, marcados para recuperar el bigint (`toJsonb`).
+        changes: { search: { after: { maxPriceCents: { $bigint: '80000000' } } } },
+      },
+    ]);
 
     const opportunity = await new DrizzleOpportunityRepository(db).findById(
       result.value.opportunityId as OpportunityId,
@@ -103,7 +127,7 @@ describe('clients persistence', () => {
       await tx.events.publish([
         { type: 'test.event', aggregateId: 'x', occurredAt: clock.now(), payload: {} },
       ]);
-      await tx.audit.record({ actorId: 'test', action: 'x', entityType: 'x', entityId: 'x' });
+      await tx.audit.record(TEST_ENTRY);
       return err({ type: 'Nope' });
     });
 
@@ -114,7 +138,7 @@ describe('clients persistence', () => {
 
   it('commits when the work returns Ok', async () => {
     await uow.run(async (tx) => {
-      await tx.audit.record({ actorId: 'test', action: 'x', entityType: 'x', entityId: 'x' });
+      await tx.audit.record(TEST_ENTRY);
       return ok(undefined);
     });
 

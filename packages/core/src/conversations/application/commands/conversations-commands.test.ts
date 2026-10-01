@@ -74,7 +74,18 @@ describe('ReceiveInboundMessages', () => {
     expect(ctx.uow.conversations.rows.size).toBe(1);
     expect(ctx.uow.messages.inbound).toHaveLength(2);
     expect(ctx.messenger.read).toEqual(['wamid.2']);
-    expect(ctx.uow.audit.entries.map((e) => e.action)).toEqual(['conversation.started']);
+    expect(ctx.uow.audit.entries).toEqual([
+      expect.objectContaining({
+        kind: 'created',
+        action: 'conversation.started',
+        source: 'agent',
+        clientIds: [],
+        changes: {
+          channel: { before: null, after: 'whatsapp' },
+          status: { before: null, after: 'active' },
+        },
+      }),
+    ]);
     expect(ctx.uow.events.published.map((e) => e.type)).toEqual([
       'conversations.conversation_started',
     ]);
@@ -237,7 +248,12 @@ describe('SendReply', () => {
       searchCriteria: { location: 'Palermo' },
       clientId: CLIENT_ID,
     });
-    expect(ctx.uow.audit.entries.at(-1)?.action).toBe('conversation.linked_to_client');
+    expect(ctx.uow.audit.entries.at(-1)).toMatchObject({
+      kind: 'action',
+      action: 'conversation.linked_to_client',
+      clientIds: [CLIENT_ID],
+      changes: { clientId: { before: null, after: CLIENT_ID } },
+    });
     expect(ctx.uow.events.published.at(-1)?.type).toBe(
       'conversations.conversation_linked_to_client',
     );

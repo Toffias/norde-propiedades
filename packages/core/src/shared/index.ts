@@ -9,11 +9,23 @@ export { Phone, type InvalidPhoneError } from './domain/value-objects/phone';
 
 export { Actor, type Permission, type SystemActorName } from './application/actor';
 export type { ForbiddenError } from './application/errors';
+export {
+  auditAction,
+  auditCreated,
+  auditUpdated,
+  diffChanges,
+  toAuditValue,
+  type AuditState,
+  type AuditTarget,
+} from './application/audit';
 export { nextId } from './application/next-id';
 export type { Page } from './application/pagination';
 export type {
+  AuditChanges,
   AuditEntry,
   AuditLog,
+  AuditSource,
+  AuditValue,
   Clock,
   EventPublisher,
   FieldChange,

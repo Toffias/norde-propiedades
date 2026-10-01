@@ -55,7 +55,31 @@ describe('RegisterContact', () => {
       'client.registered',
       'opportunity.opened',
     ]);
-    expect(uow.audit.entries[0]?.actorId).toBe('system:agent-ia');
+    const [clientEntry, opportunityEntry] = uow.audit.entries;
+    const clientId = result.isOk() ? result.value.clientId : '';
+    expect(clientEntry).toEqual({
+      kind: 'created',
+      actorId: 'system:agent-ia',
+      source: 'agent',
+      action: 'client.registered',
+      entityType: 'client',
+      entityId: clientId,
+      clientIds: [clientId],
+      changes: {
+        name: { before: null, after: 'Ana' },
+        phone: { before: null, after: '+5491166899124' },
+      },
+    });
+    expect(opportunityEntry).toMatchObject({
+      kind: 'created',
+      clientIds: [clientId],
+      changes: {
+        clientId: { before: null, after: clientId },
+        type: { before: null, after: 'rent' },
+        status: { before: null, after: 'new' },
+        propertyId: { before: null, after: PROPERTY_ID },
+      },
+    });
   });
 
   it('deduplicates by phone, even when written without the mobile 9', async () => {
@@ -112,7 +136,16 @@ describe('RegisterContact', () => {
     expect(uow.opportunities.rows.size).toBe(1);
     expect([...uow.opportunities.rows.values()][0]?.intent).toBe('visit');
     expect(uow.events.published.at(-1)?.type).toBe('clients.opportunity_request_added');
-    expect(uow.audit.entries.at(-1)?.action).toBe('opportunity.request_added');
+    expect(uow.audit.entries.at(-1)).toMatchObject({
+      kind: 'action',
+      action: 'opportunity.request_added',
+      changes: { intent: { before: 'info', after: 'visit' } },
+    });
+    expect(uow.audit.entries.at(-2)).toMatchObject({
+      kind: 'action',
+      action: 'client.contact_recorded',
+    });
+    expect(uow.audit.entries.at(-2)).not.toHaveProperty('changes');
   });
 
   it('opens the opportunity as "Aplica a otra inmobiliaria" when there is no matching stock', async () => {

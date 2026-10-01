@@ -19,7 +19,9 @@ export const companySettings = coreSchema.table(
   {
     ...singletonId(),
     name: text('name').notNull().default('Norde Propiedades'),
+    /** Sin uso desde 0003: el logo vive en el storage (`logoStorageKey`). Se retira más adelante. */
     logoUrl: text('logo_url'),
+    logoStorageKey: text('logo_storage_key'),
     timezone: text('timezone').notNull().default('America/Argentina/Buenos_Aires'),
     /** Plantilla de la URL de una propiedad en la web (ej. `https://norde.com.ar/propiedades/{slug}`). */
     webPropertyUrlTemplate: text('web_property_url_template'),
@@ -57,7 +59,11 @@ export const referenceCodeSequences = coreSchema.table(
     ...timestamps(),
     ...authorship(),
   },
-  (t) => [uniqueIndex('reference_code_sequences_scope_uq').on(t.scope, t.scopeValue)],
+  (t) => [
+    uniqueIndex('reference_code_sequences_scope_uq').on(t.scope, t.scopeValue),
+    // Dos numeraciones con el mismo prefijo entregarían el mismo código.
+    uniqueIndex('reference_code_sequences_prefix_uq').on(t.prefix),
+  ],
 );
 
 /** Carpetas de los archivos de la empresa. */
@@ -80,6 +86,9 @@ export const fileFolders = coreSchema.table(
       t.name,
     ),
     index('file_folders_path_idx').on(t.path.op('text_pattern_ops')),
+    // Contenido de una carpeta, por nombre o por fecha.
+    index('file_folders_parent_name_idx').on(t.parentId, t.name),
+    index('file_folders_parent_updated_idx').on(t.parentId, t.updatedAt),
   ],
 );
 
@@ -98,5 +107,16 @@ export const companyFiles = coreSchema.table(
     ...authorship(),
     ...trash(),
   },
-  (t) => [index('company_files_folder_name_idx').on(t.folderId, t.name).where(notDeleted)],
+  (t) => [
+    index('company_files_folder_name_idx').on(t.folderId, t.name).where(notDeleted),
+    index('company_files_folder_updated_idx').on(t.folderId, t.updatedAt).where(notDeleted),
+    index('company_files_folder_size_idx').on(t.folderId, t.sizeBytes).where(notDeleted),
+    // Papelera: por fecha de borrado o por nombre.
+    index('company_files_trash_deleted_idx')
+      .on(t.deletedAt)
+      .where(sql`deleted_at is not null`),
+    index('company_files_trash_name_idx')
+      .on(t.name)
+      .where(sql`deleted_at is not null`),
+  ],
 );

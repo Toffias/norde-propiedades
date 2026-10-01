@@ -29,6 +29,19 @@ export {
   DrizzleClientRepository,
   DrizzleOpportunityRepository,
 } from './clients/drizzle-client-repositories';
+export { createSettingsUnitOfWork } from './settings/settings-unit-of-work';
+export {
+  DrizzleCompanyFileRepository,
+  DrizzleCompanySettingsRepository,
+  DrizzleFileFolderRepository,
+  DrizzleReferenceCodeSequenceRepository,
+} from './settings/drizzle-settings-repositories';
+export {
+  DrizzleCompanyFilesQuery,
+  DrizzleDirectory,
+  DrizzleReferenceCodeSequenceQuery,
+  DrizzleReferenceCodeUsage,
+} from './settings/drizzle-settings-queries';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
 export {
   DrizzleConversationRepository,

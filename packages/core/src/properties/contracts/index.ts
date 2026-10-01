@@ -100,11 +100,18 @@ function amountToCents(amount: string): bigint {
   return BigInt(units) * 100n + BigInt(fraction.padEnd(2, '0'));
 }
 
-const AmountSchema = z
-  .string()
-  .trim()
-  .regex(AMOUNT, 'Ingresá un monto sin puntos de miles, con hasta dos decimales.')
-  .transform(amountToCents);
+/**
+ * Monto escrito por el usuario → centavos. También acepta los centavos ya parseados: la página
+ * parsea los query params con el contract y el caso de uso vuelve a validar lo que recibe.
+ */
+const AmountSchema = z.union([
+  z
+    .string()
+    .trim()
+    .regex(AMOUNT, 'Ingresá un monto sin puntos de miles, con hasta dos decimales.')
+    .transform(amountToCents),
+  z.bigint().nonnegative(),
+]);
 
 const OptionalText = (max: number) => z.string().trim().min(1).max(max).optional();
 
@@ -139,6 +146,7 @@ export const CreatePropertyInputSchema = z
     path: ['longitude'],
   });
 export type CreatePropertyInput = z.input<typeof CreatePropertyInputSchema>;
+export type CreatePropertyValues = z.output<typeof CreatePropertyInputSchema>;
 
 export const PropertyIdInputSchema = z.object({ propertyId: z.uuid() });
 export type PropertyIdInput = z.input<typeof PropertyIdInputSchema>;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../../shared';
 import { unwrap, unwrapErr } from '../../../shared/testing';
+import { ListPanelPropertiesQuerySchema } from '../../contracts';
 import {
   BRANCH_ID,
   InMemoryUserNames,
@@ -79,6 +80,21 @@ describe('ListPanelProperties', () => {
         limit: 10,
       },
     ]);
+  });
+
+  it('accepts a query the page already parsed', async () => {
+    const { properties, list } = setup();
+    const parsed = ListPanelPropertiesQuerySchema.parse({
+      currency: 'ARS',
+      minPrice: '1000',
+      sort: '-price',
+    });
+    unwrap(await list.execute(parsed, TEST_PRODUCER));
+    expect(properties.calls[0]?.price).toEqual({
+      currency: 'ARS',
+      minCents: 100_000n,
+      maxCents: undefined,
+    });
   });
 
   it('filters by the actor as producer or by their branch', async () => {

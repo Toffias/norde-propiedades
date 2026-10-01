@@ -115,7 +115,9 @@ packages/core/src/
 ├── promotions/                      # Modal promocional de la web
 ├── conversations/                   # Conversaciones del agente, handoff
 ├── portals/                         # Publicación en portales, contactos entrantes
-├── identity/                        # Usuarios, roles, permisos
+├── identity/                        # Usuarios, roles, permisos, sucursales, equipos
+├── settings/                        # Configuración general de la empresa, numeración, archivos
+├── notifications/                   # Notificaciones a usuarios y sus preferencias
 ├── audit/                           # Trazabilidad de cambios
 └── reporting/                       # Consultas de reportes (solo lectura)
 ```
@@ -197,9 +199,13 @@ packages/infra/src/
 | `promotions`    | Promociones del modal de la web                                                              | `PromotionActivated`                                                 |
 | `conversations` | Conversaciones del agente, historial, handoff humano                                         | `ConversationHandedOff`, `ConversationReturnedToBot`                 |
 | `portals`       | Publicación en portales, estado de sincronización, contactos entrantes                       | `ListingSyncFailed`, `PortalContactReceived`                         |
-| `identity`      | Usuarios, roles, permisos                                                                    | `UserCreated`, `RoleChanged`                                         |
+| `identity`      | Usuarios, roles, permisos, sucursales, equipos, favoritos                                    | `UserCreated`, `RoleChanged`                                         |
+| `settings`      | Configuración general de la empresa, numeración de códigos, archivos de la empresa           | `CompanySettingsChanged`                                             |
+| `notifications` | Notificaciones a usuarios (en el panel y por mail) y sus preferencias                        | —                                                                    |
 | `audit`         | Registro de cambios (quién, qué, cuándo, antes y después)                                    | —                                                                    |
 | `reporting`     | Consultas de solo lectura para reportes (ventas, orígenes, embudo, costos)                   | —                                                                    |
+
+La configuración propia de un módulo (oportunidades, consultas, reservas, propiedades) vive en una tabla de fila única **de ese módulo**, no en `settings`. Las tablas de cada módulo están en `docs/modelo-de-datos.md`.
 
 **Reglas entre módulos:**
 
@@ -297,7 +303,7 @@ export class RegisterContact {
 - La autorización se decide **en el caso de uso** con el `Actor`, no solo ocultando botones en la UI.
   - Permisos: `recurso:acción` (`properties:update`, `clients:export`).
   - Reglas de pertenencia: un agente edita solo sus clientes.
-- **Actores de sistema** con permisos acotados: `system:agent-ia`, `system:portal-sync`, `system:scheduler`, `system:web` (formularios públicos).
+- **Actores de sistema** con permisos acotados: `system:agent-ia`, `system:portal-sync`, `system:scheduler`, `system:web` (formularios públicos), `system:import` (importación de Tokko y backfills).
 - Todo command que modifica datos registra una entrada de **auditoría** en la misma transacción (actor, acción, entidad, cambios).
 
 ### 6.7 Inyección de dependencias
@@ -387,26 +393,35 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
   4. `turbo build`
   5. `pm2 reload` app por app
 - **Migraciones compatibles hacia atrás** (expand, después contract): primero se agrega, después se deja de usar y recién después se borra. Los tres procesos comparten la base y no se recargan en el mismo instante.
-- **Roles de base por proceso** (mínimo privilegio): `web` (lectura de propiedades publicadas y promociones, alta de contactos), `agent` y `gestion` (acceso completo al esquema `core`).
+- **Roles de base** (mínimo privilegio, `packages/infra/src/db/roles.sql`):
+  - Las migraciones corren con el dueño de la base. Ningún proceso se conecta con ese usuario.
+  - `norde_app`: lectura y escritura en `core`, salvo `audit_log`, donde solo puede insertar y leer. Cada proceso (`web`, `agent`, `gestion`) se conecta con un usuario de login propio, miembro de `norde_app`.
+  - `norde_erasure`: el único que puede borrar entradas de `audit_log`, para la supresión de datos de un cliente.
+  - Después de cada `drizzle-kit migrate` se vuelve a aplicar `roles.sql` (es idempotente).
+  - Más adelante, `web` puede tener un rol más acotado (lectura de propiedades publicadas y promociones, alta de contactos).
+- **Extensiones** de PostgreSQL: `pg_trgm` y `unaccent` (búsqueda de texto). Las crea la migración `0001`; el dueño de la base tiene que poder crearlas (son _trusted_ desde PostgreSQL 13).
 - Backups diarios de PostgreSQL con retención.
 
 ---
 
 ## 11. Decisiones tomadas (ADRs a registrar)
 
-| #    | Decisión                                                                                                                              |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 0001 | Monorepo con pnpm workspaces + Turborepo                                                                                              |
-| 0002 | Clean Architecture sobre un monolito modular (`@norde/core` + `@norde/infra`)                                                         |
-| 0003 | Gestión y agente en **procesos separados** que comparten core y base, sin API HTTP interna                                            |
-| 0004 | Payload solo para contenido editorial (blog, páginas). El negocio vive en el core                                                     |
-| 0005 | Una sola base PostgreSQL con esquemas separados                                                                                       |
-| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent`                                                          |
-| 0007 | Inyección de dependencias manual por composition root                                                                                 |
-| 0008 | `Result` para errores esperados y excepciones para los inesperados                                                                    |
-| 0009 | [`@norde/agent-kit` envuelve el OpenAI Agents SDK](adr/0009-agent-kit-sobre-openai-agents-sdk.md), sin puerto `LlmGateway` en el core |
-| 0010 | [Tests de integración contra un Postgres real](adr/0010-tests-de-integracion-con-postgres-local.md), sin Testcontainers por ahora     |
-| 0011 | [La web no lee la base en el build](adr/0011-web-render-on-demand-sin-base-en-el-build.md): ISR on-demand y caché de datos por tag    |
+| #    | Decisión                                                                                                                                             |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0001 | Monorepo con pnpm workspaces + Turborepo                                                                                                             |
+| 0002 | Clean Architecture sobre un monolito modular (`@norde/core` + `@norde/infra`)                                                                        |
+| 0003 | Gestión y agente en **procesos separados** que comparten core y base, sin API HTTP interna                                                           |
+| 0004 | Payload solo para contenido editorial (blog, páginas). El negocio vive en el core                                                                    |
+| 0005 | Una sola base PostgreSQL con esquemas separados                                                                                                      |
+| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent`                                                                         |
+| 0007 | Inyección de dependencias manual por composition root                                                                                                |
+| 0008 | `Result` para errores esperados y excepciones para los inesperados                                                                                   |
+| 0009 | [`@norde/agent-kit` envuelve el OpenAI Agents SDK](adr/0009-agent-kit-sobre-openai-agents-sdk.md), sin puerto `LlmGateway` en el core                |
+| 0010 | [Tests de integración contra un Postgres real](adr/0010-tests-de-integracion-con-postgres-local.md), sin Testcontainers por ahora                    |
+| 0011 | [La web no lee la base en el build](adr/0011-web-render-on-demand-sin-base-en-el-build.md): ISR on-demand y caché de datos por tag                   |
+| 0012 | [El panel adopta el sistema visual de Alquilo](adr/0012-identidad-visual-del-panel-y-temas-por-app.md), con un tema por app en `@norde/ui`           |
+| 0013 | [Estados de oportunidad editables](adr/0013-estados-de-oportunidad-editables-con-categoria-fija.md), cada uno con una categoría fija del dominio     |
+| 0014 | [Atributos de propiedad en columnas tipadas](adr/0014-atributos-de-propiedad-tipados-y-eav-solo-personalizados.md); EAV solo para los personalizados |
 
 ---
 

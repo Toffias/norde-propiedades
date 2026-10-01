@@ -145,6 +145,7 @@ pnpm --filter @norde/infra db:generate   # generar migración desde el esquema D
 pnpm --filter @norde/infra db:migrate
 pnpm --filter @norde/infra test:int     # tests de integración contra Postgres real
 pnpm db:setup && pnpm db:seed            # base local con migraciones y propiedades de prueba
+pnpm db:roles                            # roles de base (después de cada migración; en el deploy también)
 pnpm --filter @norde/agent simulate      # chatear con el agente por consola
 ```
 

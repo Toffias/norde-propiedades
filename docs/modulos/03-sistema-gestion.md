@@ -237,9 +237,9 @@ Igual que en clientes: con filtros, con permiso y registrado en la auditoría.
 
 ### 4.3 Mapa de propiedades
 
-- Vista de mapa en el panel, con filtros por operación, tipo, estado y precio, y un pin por propiedad.
-- La misma API alimenta el mapa del sitio web.
-- Proveedor sugerido: **Leaflet + OpenStreetMap** (gratis) o **Google Maps** (mejor geocoding, con costo por uso). Hace falta geocodificar la dirección al cargar la propiedad.
+- Vista de mapa en el panel, con los mismos filtros del buscador, una capa por estado y los pines agrupados cuando están cerca (§4.7).
+- Proveedor: **Leaflet + OpenStreetMap**, y la dirección se geocodifica con **Nominatim** al dar de alta (ADR 0019).
+- El mapa del sitio web puede usar la misma query cuando se construya.
 
 ### 4.4 Promociones (modal de la web)
 
@@ -272,7 +272,7 @@ Diseño propuesto:
 
 ### 4.6 Buscador, alta corta y papelera (#5)
 
-La #5 se hace en dos etapas. La etapa 1 (la base) está construida; la etapa 2 está detallada en un comentario de la issue (más filtros, vistas de tarjetas y mapa, acciones masivas y exportaciones, configuración de tipos, ubicaciones, catálogos, etiquetas y búsqueda con IA).
+La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (vistas, acciones masivas y catálogos) en §4.7.
 
 **Buscador** (`/propiedades`):
 
@@ -285,13 +285,51 @@ La #5 se hace en dos etapas. La etapa 1 (la base) está construida; la etapa 2 e
 
 **Alta corta** (panel lateral del buscador, `?panel=new`):
 
-- Tipo, operación, moneda y precio (opcional), calle, altura, piso y unidad (privados), barrio, localidad y provincia, y latitud / longitud (opcional).
+- Tipo (solo los habilitados en Mi empresa), operación, moneda y precio (opcional), calle, altura, piso y unidad (privados), ubicación y latitud / longitud (opcional).
+- La ubicación se busca en el catálogo (barrio, localidad y provincia salen de ella) o se carga a mano.
+- Sin coordenadas, la dirección se geocodifica. Si no se encuentra o el servicio falla, la propiedad se crea igual y el alta lo avisa.
 - La propiedad nace como **borrador**, con quien la carga como captador y su sucursal.
 - El código de referencia sale de la numeración de Mi empresa (§14.2).
 - Si se dejan vacías, la dirección para publicar se arma con la calle y la altura redondeada a la centena ("Gurruchaga al 1800"), y el título para portales con tipo, operación y barrio ("Departamento en venta en Palermo").
 - El propietario se carga en la etapa 2: necesita el buscador de clientes (#8).
 
 **Papelera**: borrar es baja lógica. Se ven quién la borró y cuándo, y se restaura. Borra o restaura sus propiedades quien tiene `properties:delete`, y las de cualquiera quien tiene `properties:delete-others`. Las propiedades de la papelera no aparecen en la web ni en el agente.
+
+### 4.7 Vistas, acciones masivas y catálogos (#5, etapa 2)
+
+**Vistas del buscador** (`?layout=`): lista, tarjetas y mapa, con los mismos filtros. La papelera solo se ve en lista.
+
+- **Lista**: columnas fijas (código, propiedad, operación y precio, estado) más hasta 4 que elige la inmobiliaria en Mi empresa → Propiedades (ambientes, dormitorios, baños, cocheras, superficies, antigüedad, captador, alta, actualización). Valen para todos los usuarios, como en Tokko.
+- **Tarjetas**: la foto de portada, el estado, el título, la ubicación, los precios y los atributos principales.
+- **Mapa**: los pines del área visible, como mucho 500 (las actualizadas más recientemente). Una capa por estado y pines agrupados. Las propiedades sin coordenadas no aparecen.
+
+**Favoritas y búsquedas favoritas** (de cada usuario):
+
+- La estrella de cada fila o tarjeta marca la propiedad como favorita.
+- "Búsquedas" guarda los filtros y el orden actuales con un nombre (hasta 50 por usuario). Con un nombre que ya existe, se reemplazan.
+
+**Acciones masivas** sobre las propiedades marcadas o sobre todas las que cumplen el filtro:
+
+- **Exportar** a Excel, CSV o PDF. Hasta 10 con `properties:export`; más, con `properties:export-bulk`. Se arma por lotes, hasta 5.000 filas (100 en PDF), y queda en la auditoría con el filtro y la cantidad. No incluye la dirección privada.
+- **Favoritas**: solo sobre las marcadas en la página.
+- **Comparar**: de 2 a 4 marcadas, lado a lado (precio, superficies, ambientes, dormitorios, baños, cocheras, antigüedad, ubicación y estado).
+- **Edición rápida** (`properties:bulk-edit`, y sobre cada propiedad poder editarla): un campo por vez, hasta 2.000 propiedades, por lotes.
+  - Estado: con las transiciones del dominio. "Disponible" exige `properties:mark-available`; "Reservada" no se elige a mano, la marca una reserva (#13).
+  - Precio de una operación que la propiedad ya tiene (vacío: a consultar). Queda en el historial de precios.
+  - Captador (`properties:change-producer`): la propiedad pasa a la sucursal del nuevo captador.
+  - Etiquetas: agregar y quitar.
+  - Las que no se pueden cambiar se informan con el motivo. Cada cambio queda en el historial de su propiedad.
+
+**Transiciones de estado**: borrador → disponible o dada de baja; disponible → reservada, pausada, vendida, alquilada o dada de baja; reservada → disponible, vendida, alquilada o dada de baja; pausada → disponible o dada de baja; vendida o alquilada → disponible (se relista) o dada de baja; dada de baja → disponible o borrador.
+
+**Mi empresa** (configuración con `settings:update`, etiquetas con `tags:update`):
+
+- **Propiedades**: columnas del buscador y tipos de propiedad. Un tipo deshabilitado no se ofrece en el alta (sus propiedades siguen en la cartera); siempre queda al menos uno. Cada tipo elige qué atributos muestra su ficha, con una configuración recomendada para volver.
+- **Ubicaciones**: país > provincia > localidad > barrio > subbarrio. El nivel es el siguiente al de la ubicación de la que depende. Vienen cargadas las provincias, los barrios de CABA, el Gran Buenos Aires y las ciudades principales. No se repite un nombre bajo el mismo padre.
+- **Servicios y ambientes**: servicios, ambientes y adicionales. Un ítem no se borra: se desactiva.
+- **Etiquetas**: sueltas o en grupos. Un grupo con etiquetas o una etiqueta en uso no se borran.
+
+**Pendiente de #5**: el panel "Más filtros" (se define con Norde qué filtros sirven), el propietario en el alta (necesita el buscador de clientes, #8) y el envío por email o WhatsApp (#8 y #11). Las columnas viejas de `properties` se retiran en #33.
 
 ## 5. Alquiler: gestión de contratos
 

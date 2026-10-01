@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { Actor } from '../../../shared';
+import { Actor, err, ok, parseId } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
 import type { CreatePropertyInput } from '../../contracts';
 import {
   BRANCH_ID,
+  FakeGeocoder,
   FakeReferenceCodeAllocator,
   InMemoryPropertiesUnitOfWork,
   OTHER_USER_ID,
@@ -16,18 +17,27 @@ import {
   TEST_OUTSIDER,
   TEST_PRODUCER,
 } from '../../testing';
+import type { LocationKind } from '../../domain/location';
 import { CreateProperty } from './create-property';
 import { DeleteProperty } from './delete-property';
 import { RestoreProperty } from './restore-property';
 
-function setup(options: { readonly codesAvailable?: boolean } = {}) {
+function setup(
+  options: { readonly codesAvailable?: boolean; readonly geocoder?: FakeGeocoder } = {},
+) {
   const uow = new InMemoryPropertiesUnitOfWork();
   const codes = new FakeReferenceCodeAllocator(options.codesAvailable ?? true);
   const clock = new FixedClock(TEST_NOW);
   return {
     uow,
     codes,
-    create: new CreateProperty({ uow, codes, ids: new SequentialIdGenerator(), clock }),
+    create: new CreateProperty({
+      uow,
+      codes,
+      geocoder: options.geocoder ?? new FakeGeocoder(),
+      ids: new SequentialIdGenerator(),
+      clock,
+    }),
     remove: new DeleteProperty({ uow, clock }),
     restore: new RestoreProperty({ uow, clock }),
   };
@@ -49,7 +59,132 @@ const INPUT: CreatePropertyInput = {
   longitude: -58.4321,
 };
 
+const COUNTRY = '00000000-0000-7000-8000-00000000d001';
+const PROVINCE = '00000000-0000-7000-8000-00000000d002';
+const CITY = '00000000-0000-7000-8000-00000000d003';
+const NEIGHBORHOOD = '00000000-0000-7000-8000-00000000d004';
+
+/** Argentina > CABA > CABA > Palermo, como lo carga la migración. */
+function withLocations(uow: InMemoryPropertiesUnitOfWork) {
+  const node = (
+    id: string,
+    parent: string | undefined,
+    kind: LocationKind,
+    name: string,
+    path: string,
+  ) => ({
+    id: unwrap(parseId<'Location'>(id)),
+    parentId: parent === undefined ? undefined : unwrap(parseId<'Location'>(parent)),
+    kind,
+    name,
+    path,
+    coordinates: undefined,
+    createdAt: TEST_NOW,
+    updatedAt: TEST_NOW,
+  });
+  uow.locations
+    .add(node(COUNTRY, undefined, 'country', 'Argentina', `/${COUNTRY}/`))
+    .add(node(PROVINCE, COUNTRY, 'province', 'CABA', `/${COUNTRY}/${PROVINCE}/`))
+    .add(node(CITY, PROVINCE, 'city', 'CABA', `/${COUNTRY}/${PROVINCE}/${CITY}/`))
+    .add(
+      node(
+        NEIGHBORHOOD,
+        CITY,
+        'neighborhood',
+        'Palermo',
+        `/${COUNTRY}/${PROVINCE}/${CITY}/${NEIGHBORHOOD}/`,
+      ),
+    );
+}
+
 describe('CreateProperty', () => {
+  it('takes neighborhood, city and province from the chosen location', async () => {
+    const { uow, create } = setup();
+    withLocations(uow);
+    const { neighborhood: _n, city: _c, province: _p, ...withoutPlace } = INPUT;
+
+    const { propertyId } = unwrap(
+      await create.execute({ ...withoutPlace, locationId: NEIGHBORHOOD }, TEST_PRODUCER),
+    );
+
+    expect(uow.properties.rows.get(propertyId)).toMatchObject({
+      locationId: NEIGHBORHOOD,
+      address: { neighborhood: 'Palermo', city: 'CABA', province: 'CABA' },
+      portalTitle: 'Departamento en venta en Palermo',
+    });
+    expect(uow.audit.entries[0]?.changes).toMatchObject({
+      locationId: { before: null, after: NEIGHBORHOOD },
+    });
+  });
+
+  it('rejects an unknown location and asks for the place without one', async () => {
+    const { create } = setup();
+    const { neighborhood: _n, city: _c, province: _p, ...withoutPlace } = INPUT;
+    expect(
+      unwrapErr(await create.execute({ ...withoutPlace, locationId: NEIGHBORHOOD }, TEST_PRODUCER)),
+    ).toEqual({ type: 'LocationNotFound' });
+    expect(unwrapErr(await create.execute(withoutPlace, TEST_PRODUCER)).type).toBe('InvalidInput');
+  });
+
+  it('rejects a property type the company disabled', async () => {
+    const { uow, create } = setup();
+    uow.typeSettings.rows.set('apartment', {
+      kind: 'apartment',
+      isEnabled: false,
+      visibleAttributes: [],
+    });
+    expect(unwrapErr(await create.execute(INPUT, TEST_PRODUCER))).toEqual({
+      type: 'PropertyTypeDisabled',
+    });
+    expect(uow.properties.rows.size).toBe(0);
+  });
+
+  it('geocodes the address when the coordinates are empty', async () => {
+    const geocoder = new FakeGeocoder(ok({ latitude: -34.58612345, longitude: -58.4321 }));
+    const { uow, create } = setup({ geocoder });
+    const { latitude: _lat, longitude: _lng, ...withoutCoordinates } = INPUT;
+
+    const output = unwrap(await create.execute(withoutCoordinates, TEST_PRODUCER));
+
+    expect(output.geocoding).toBe('found');
+    expect(geocoder.requests).toEqual([
+      {
+        street: 'Gurruchaga',
+        streetNumber: '1834',
+        floor: '3',
+        unit: 'B',
+        neighborhood: 'Palermo',
+        city: 'CABA',
+        province: 'Buenos Aires',
+      },
+    ]);
+    expect(uow.properties.rows.get(output.propertyId)?.coordinates).toMatchObject({
+      latitude: -34.586123,
+      longitude: -58.4321,
+    });
+  });
+
+  it('creates the property anyway when the address is not found or the service fails', async () => {
+    const { latitude: _lat, longitude: _lng, ...withoutCoordinates } = INPUT;
+
+    const notFound = setup({ geocoder: new FakeGeocoder(ok(undefined)) });
+    const missing = unwrap(await notFound.create.execute(withoutCoordinates, TEST_PRODUCER));
+    expect(missing.geocoding).toBe('not_found');
+    expect(notFound.uow.properties.rows.get(missing.propertyId)?.coordinates).toBeUndefined();
+
+    const failing = setup({ geocoder: new FakeGeocoder(err({ type: 'GeocodingFailed' })) });
+    expect(unwrap(await failing.create.execute(withoutCoordinates, TEST_PRODUCER)).geocoding).toBe(
+      'failed',
+    );
+  });
+
+  it('does not geocode when the coordinates were typed', async () => {
+    const geocoder = new FakeGeocoder();
+    const { create } = setup({ geocoder });
+    expect(unwrap(await create.execute(INPUT, TEST_PRODUCER)).geocoding).toBe('manual');
+    expect(geocoder.requests).toEqual([]);
+  });
+
   it('creates a draft owned by the actor and audits the initial values', async () => {
     const { uow, codes, create } = setup();
 

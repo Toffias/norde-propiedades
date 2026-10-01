@@ -28,6 +28,14 @@ const EnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   /** Dirección de envío en un dominio verificado en Resend. */
   MAIL_FROM_ADDRESS: z.email().optional(),
+
+  /**
+   * Geocodificación con Nominatim (OpenStreetMap): la app y un contacto, como pide su política de
+   * uso (`NordePropiedades/1.0 (sistemas@norde.com.ar)`).
+   */
+  GEOCODER_USER_AGENT: z.string().min(3).default('NordePropiedades/1.0 (panel de gestion)'),
+  /** Otra instancia de Nominatim. Sin valor, la pública de OpenStreetMap. */
+  GEOCODER_URL: z.url({ protocol: /^https?$/ }).optional(),
 });
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */

@@ -9,11 +9,16 @@ import {
   type PropertyRepository,
 } from '@norde/core/properties';
 import { parseId, type IdGenerator, type Result } from '@norde/core/shared';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { properties, propertyOperations } from '../db/schema';
+import {
+  properties,
+  propertyOperations,
+  propertyPriceChanges,
+  propertyTagAssignments,
+} from '../db/schema';
 
 // Columnas `text` de la base → uniones del core. Un valor fuera de catálogo falla fuerte.
 const RowEnums = z.object({
@@ -24,6 +29,9 @@ const OperationEnums = z.object({
   operation: z.enum(OPERATIONS),
   currency: z.enum(CURRENCIES),
 });
+
+/** Tope de lectura de las etiquetas de una propiedad: más que esto no se muestra ni se filtra. */
+const MAX_TAGS_PER_PROPERTY = 200;
 
 function stored<T, E>(result: Result<T, E>): T {
   if (result.isErr()) throw new Error('Invalid value stored in the properties tables');
@@ -51,6 +59,13 @@ export class DrizzlePropertyRepository implements PropertyRepository {
       .where(eq(propertyOperations.propertyId, id))
       .orderBy(asc(propertyOperations.createdAt), asc(propertyOperations.operation))
       .limit(OPERATIONS.length);
+    // Las etiquetas de una propiedad son pocas: el catálogo entero entra en una pantalla.
+    const tags = await this.db
+      .select({ tagId: propertyTagAssignments.tagId })
+      .from(propertyTagAssignments)
+      .where(eq(propertyTagAssignments.propertyId, id))
+      .orderBy(asc(propertyTagAssignments.tagId))
+      .limit(MAX_TAGS_PER_PROPERTY);
 
     const enums = RowEnums.parse(row);
     return Property.restore({
@@ -75,12 +90,15 @@ export class DrizzlePropertyRepository implements PropertyRepository {
         row.latitude === null || row.longitude === null
           ? undefined
           : stored(Coordinates.create(row.latitude, row.longitude)),
+      locationId: row.locationId ?? undefined,
       operations: operations.map((operation) => ({
         ...OperationEnums.parse(operation),
         priceCents: operation.priceCents ?? undefined,
       })),
+      tagIds: tags.map((tag) => tag.tagId),
       producerUserId: row.producerUserId ?? undefined,
       branchId: row.branchId ?? undefined,
+      statusChangedAt: row.statusChangedAt ?? row.createdAt,
       deletedAt: row.deletedAt ?? undefined,
       deletedBy: row.deletedBy ?? undefined,
       createdAt: row.createdAt,
@@ -89,13 +107,18 @@ export class DrizzlePropertyRepository implements PropertyRepository {
   }
 
   /**
-   * El alta inserta la fila completa. Después, el aggregate solo cambia la papelera: el upsert
-   * actualiza esas columnas y no pisa lo que se edita en la ficha (#6).
+   * El alta inserta la fila completa. Después, el aggregate cambia el estado, el captador, la
+   * papelera, los precios y las etiquetas: el upsert actualiza esas columnas y no pisa lo que se
+   * edita en la ficha (#6).
    */
   async save(property: Property, actorId: string): Promise<void> {
     const s = property.toSnapshot();
     const [first] = s.operations;
-    const trashColumns = {
+    const mutable = {
+      status: s.status,
+      statusChangedAt: s.statusChangedAt,
+      producerUserId: s.producerUserId ?? null,
+      branchId: s.branchId ?? null,
       deletedAt: s.deletedAt ?? null,
       deletedBy: s.deletedBy ?? null,
       updatedAt: s.updatedAt,
@@ -108,13 +131,11 @@ export class DrizzlePropertyRepository implements PropertyRepository {
         code: s.code,
         slug: s.slug,
         title: s.portalTitle,
-        // Columnas legacy que todavía lee la búsqueda pública: la primera operación del alta.
+        // Columnas legacy que todavía lee la búsqueda pública (#33): la primera operación del alta.
         operation: first?.operation ?? 'sale',
         currency: first?.currency ?? 'USD',
         priceCents: first?.priceCents ?? null,
         propertyType: s.kind,
-        status: s.status,
-        statusChangedAt: s.createdAt,
         address: fullStreet(s.address.street, s.address.streetNumber),
         street: s.address.street,
         streetNumber: s.address.streetNumber ?? null,
@@ -124,35 +145,86 @@ export class DrizzlePropertyRepository implements PropertyRepository {
         neighborhood: s.address.neighborhood,
         city: s.address.city,
         province: s.address.province,
+        locationId: s.locationId ?? null,
         latitude: s.coordinates?.latitude ?? null,
         longitude: s.coordinates?.longitude ?? null,
         portalTitle: s.portalTitle,
-        producerUserId: s.producerUserId ?? null,
-        branchId: s.branchId ?? null,
         createdAt: s.createdAt,
         createdBy: actorId,
-        ...trashColumns,
+        ...mutable,
       })
-      .onConflictDoUpdate({ target: properties.id, set: trashColumns });
+      .onConflictDoUpdate({ target: properties.id, set: mutable });
 
-    // Las operaciones nacen con el alta; editarlas es de la ficha (#6). Las que ya existen no se tocan.
     for (const operation of s.operations) {
+      const price = {
+        currency: operation.currency,
+        priceCents: operation.priceCents ?? null,
+        updatedAt: s.updatedAt,
+        updatedBy: actorId,
+      };
       await this.db
         .insert(propertyOperations)
         .values({
           id: this.ids.next(),
           propertyId: s.id,
           operation: operation.operation,
-          currency: operation.currency,
-          priceCents: operation.priceCents ?? null,
           createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
           createdBy: actorId,
-          updatedBy: actorId,
+          ...price,
         })
-        .onConflictDoNothing({
+        .onConflictDoUpdate({
           target: [propertyOperations.propertyId, propertyOperations.operation],
+          set: price,
         });
+    }
+
+    for (const change of property.priceChanges) {
+      await this.db.insert(propertyPriceChanges).values({
+        id: this.ids.next(),
+        propertyId: s.id,
+        operation: change.operation,
+        oldPriceCents: change.oldPriceCents ?? null,
+        newPriceCents: change.newPriceCents ?? null,
+        currency: change.currency,
+        changedBy: actorId,
+        changedAt: change.changedAt,
+      });
+    }
+
+    await this.saveTags(s.id, s.tagIds, s.updatedAt, actorId);
+  }
+
+  /** Las etiquetas son filas de vínculo: se insertan las nuevas y se borran las que se quitaron. */
+  private async saveTags(
+    propertyId: string,
+    tagIds: readonly string[],
+    now: Date,
+    actorId: string,
+  ): Promise<void> {
+    const current = await this.db
+      .select({ tagId: propertyTagAssignments.tagId })
+      .from(propertyTagAssignments)
+      .where(eq(propertyTagAssignments.propertyId, propertyId))
+      .limit(MAX_TAGS_PER_PROPERTY);
+    const before = new Set(current.map((row) => row.tagId));
+    const after = new Set(tagIds);
+    const removed = [...before].filter((id) => !after.has(id));
+    const added = [...after].filter((id) => !before.has(id));
+    if (removed.length > 0) {
+      await this.db
+        .delete(propertyTagAssignments)
+        .where(
+          and(
+            eq(propertyTagAssignments.propertyId, propertyId),
+            inArray(propertyTagAssignments.tagId, removed),
+          ),
+        );
+    }
+    if (added.length > 0) {
+      await this.db
+        .insert(propertyTagAssignments)
+        .values(added.map((tagId) => ({ propertyId, tagId, createdAt: now, createdBy: actorId })))
+        .onConflictDoNothing();
     }
   }
 }

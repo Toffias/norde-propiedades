@@ -1,7 +1,9 @@
 import {
   Coordinates,
   Property,
+  type PanelPropertyFilterCriteria,
   type PanelPropertyListCriteria,
+  type PanelPropertyListQuery,
   type PropertyId,
 } from '@norde/core/properties';
 import { parseId, type Result } from '@norde/core/shared';
@@ -12,7 +14,14 @@ import { describe, expect, inject, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
 import * as schema from '../db/schema';
-import { properties, propertyOperations } from '../db/schema';
+import {
+  mediaItems,
+  properties,
+  propertyOperations,
+  propertyPriceChanges,
+  propertyTagAssignments,
+  propertyTags,
+} from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzlePanelPropertyListQuery } from './drizzle-panel-property-list-query';
@@ -56,6 +65,7 @@ function aProperty(code: string) {
       publishAddress: undefined,
       portalTitle: undefined,
       coordinates: unwrap(Coordinates.create(-34.5861, -58.4321)),
+      locationId: undefined,
       producerUserId: PRODUCER,
       branchId: BRANCH,
       now: NOW,
@@ -109,6 +119,64 @@ describe('DrizzlePropertyRepository', () => {
       .where(eq(propertyOperations.propertyId, property.id));
     expect(operations).toHaveLength(1);
   });
+
+  it('saves the quick edits: status, producer, price with its history and tags', async () => {
+    const property = aProperty('DEP0003');
+    await repository.save(property, PRODUCER);
+    const tags = ['00000000-0000-7000-8000-0000000000f1', '00000000-0000-7000-8000-0000000000f2'];
+    await db.insert(propertyTags).values(
+      tags.map((id, i) => ({
+        id,
+        name: `Etiqueta ${i}`,
+        createdAt: NOW,
+        updatedAt: NOW,
+        createdBy: PRODUCER,
+        updatedBy: PRODUCER,
+      })),
+    );
+
+    const later = new Date('2026-10-03T12:00:00Z');
+    const edited = await repository.findById(property.id);
+    if (!edited) throw new Error('Not saved');
+    unwrap(edited.changeStatus('available', later));
+    unwrap(edited.changeProducer({ userId: OTHER, branchId: undefined }, later));
+    unwrap(
+      edited.changePrice({ operation: 'sale', currency: 'USD', priceCents: 11_000_000n }, later),
+    );
+    unwrap(edited.changeTags({ add: tags, remove: [] }, later));
+    await repository.save(edited, OTHER);
+
+    const reloaded = await repository.findById(property.id);
+    if (!reloaded) throw new Error('Not saved');
+    expect(reloaded.toSnapshot()).toMatchObject({
+      status: 'available',
+      statusChangedAt: later,
+      producerUserId: OTHER,
+      branchId: undefined,
+      operations: [{ operation: 'sale', currency: 'USD', priceCents: 11_000_000n }],
+    });
+    expect([...reloaded.tagIds].sort()).toEqual(tags);
+    const history = await db
+      .select()
+      .from(propertyPriceChanges)
+      .where(eq(propertyPriceChanges.propertyId, property.id));
+    expect(history).toEqual([
+      expect.objectContaining({
+        oldPriceCents: 12_000_000n,
+        newPriceCents: 11_000_000n,
+        changedBy: OTHER,
+        changedAt: later,
+      }),
+    ]);
+
+    unwrap(reloaded.changeTags({ add: [], remove: tags.slice(0, 1) }, later));
+    await repository.save(reloaded, OTHER);
+    const assigned = await db
+      .select({ tagId: propertyTagAssignments.tagId })
+      .from(propertyTagAssignments)
+      .where(eq(propertyTagAssignments.propertyId, property.id));
+    expect(assigned).toEqual([{ tagId: tags[1] }]);
+  });
 });
 
 // ---------- Buscador del panel ----------
@@ -152,6 +220,9 @@ async function seedPortfolio(): Promise<void> {
       branchId: i % 4 === 0 ? BRANCH : null,
       createdAt: new Date(Date.UTC(2025, 0, 1) + i * 60_000),
       updatedAt: new Date(Date.UTC(2026, 0, 1) + ((i * 7919) % TOTAL) * 60_000),
+      // Una de cada dos, con coordenadas en una grilla sobre CABA (-34.70..-34.50, -58.55..-58.35).
+      latitude: i % 2 === 0 ? -34.7 + ((i % 100) / 100) * 0.2 : null,
+      longitude: i % 2 === 0 ? -58.55 + (Math.floor(i / 100) % 50) / 250 : null,
       deletedAt: deleted ? NOW : null,
       deletedBy: deleted ? OTHER : null,
     };
@@ -186,9 +257,21 @@ const BASE: PanelPropertyListCriteria = {
   status: undefined,
   location: undefined,
   price: undefined,
+  ids: undefined,
   sort: { field: 'updatedAt', direction: 'desc' },
   offset: 0,
   limit: 25,
+};
+const FILTER: PanelPropertyFilterCriteria = {
+  view: 'active',
+  owner: { kind: 'all' },
+  text: undefined,
+  operation: undefined,
+  propertyType: undefined,
+  status: undefined,
+  location: undefined,
+  price: undefined,
+  ids: undefined,
 };
 
 interface PlanNode {
@@ -210,7 +293,10 @@ function flatten(node: PlanNode): PlanNode[] {
  * se verifica es que exista un índice que resuelva cada filtro y orden: con `enable_seqscan = off`,
  * Postgres solo recorre la tabla entera si no tiene otra forma.
  */
-async function pagePlan(criteria: PanelPropertyListCriteria): Promise<PlanNode[]> {
+async function pagePlan(
+  criteria: PanelPropertyListCriteria,
+  run: (query: PanelPropertyListQuery) => Promise<unknown> = (q) => q.search(criteria),
+): Promise<PlanNode[]> {
   const captured: { sql: string; params: unknown[] }[] = [];
   const pool = new pg.Pool({ connectionString: inject('databaseUrl'), max: 2 });
   try {
@@ -218,7 +304,7 @@ async function pagePlan(criteria: PanelPropertyListCriteria): Promise<PlanNode[]
       schema,
       logger: { logQuery: (statement, params) => captured.push({ sql: statement, params }) },
     });
-    await new DrizzlePanelPropertyListQuery(logged).search(criteria);
+    await run(new DrizzlePanelPropertyListQuery(logged));
     // La primera consulta con `limit` es la de la página (después vienen el total y las operaciones).
     const page = captured.find((q) => /\blimit\b/i.test(q.sql) && !/count\(/i.test(q.sql));
     if (!page) throw new Error('No page query captured');
@@ -337,5 +423,95 @@ describe('DrizzlePanelPropertyListQuery', () => {
     const nodes = await pagePlan({ ...BASE, ...criteria });
     const summary = nodes.map((n) => [n['Node Type'], n['Relation Name'], n['Index Name']]);
     expect(scansWithIndex(nodes), JSON.stringify(summary)).toBe(true);
+  });
+
+  it('returns the attributes and the cover photo of each row', async () => {
+    await seedPortfolio();
+    const id = '00000000-0000-7000-8000-000000000003';
+    await db
+      .update(properties)
+      .set({ rooms: 3, surfaceTotalM2: 70.5 })
+      .where(eq(properties.id, id));
+    await db.insert(mediaItems).values(
+      [
+        { url: 'https://cdn.example/segunda.jpg', position: 1, isCover: false },
+        { url: 'https://cdn.example/portada.jpg', position: 2, isCover: true },
+      ].map((photo, i) => ({
+        id: `00000000-0000-7000-a000-00000000000${i + 1}`,
+        propertyId: id,
+        kind: 'photo',
+        uploadedBy: OTHER,
+        createdAt: NOW,
+        updatedAt: NOW,
+        createdBy: OTHER,
+        updatedBy: OTHER,
+        ...photo,
+      })),
+    );
+
+    const page = await query.search({ ...BASE, ids: [id] });
+
+    expect(page.items[0]).toMatchObject({
+      province: 'Buenos Aires',
+      attributes: { rooms: 3, surfaceTotalM2: 70.5, bedrooms: undefined },
+      coverImageUrl: 'https://cdn.example/portada.jpg',
+      coordinates: { latitude: -34.696, longitude: -58.55 },
+    });
+  });
+
+  it('selects by IDs and walks a selection by key, in batches', async () => {
+    await seedPortfolio();
+    const chosen = ['00000000-0000-7000-8000-000000000002', '00000000-0000-7000-8000-000000000001'];
+    const selected = await query.search({ ...BASE, ids: chosen });
+    // La 1 está en la papelera: la selección por IDs solo toma la cartera.
+    expect(selected.items.map((item) => item.id)).toEqual([chosen[0]]);
+    expect(await query.count({ ...FILTER, ids: [] })).toBe(0);
+
+    const houses = { ...FILTER, propertyType: 'house' as const };
+    const total = await query.count(houses);
+    const seen: string[] = [];
+    let afterId: string | undefined;
+    for (;;) {
+      const batch = await query.matchingIds(houses, { afterId, limit: 300 });
+      if (batch.length === 0) break;
+      seen.push(...batch.map((item) => item.id));
+      afterId = batch.at(-1)?.id;
+    }
+    expect(seen).toHaveLength(total);
+    expect(seen).toEqual([...seen].sort());
+    expect(new Set(seen).size).toBe(total);
+  });
+
+  it('returns the pins inside the map area, newest first, up to the limit', async () => {
+    await seedPortfolio();
+    const area = { south: -34.65, west: -58.55, north: -34.55, east: -58.4 };
+
+    const pins = await query.mapPins(FILTER, area, 50);
+
+    expect(pins.items).toHaveLength(50);
+    expect(pins.total).toBeGreaterThan(50);
+    for (const pin of pins.items) {
+      expect(pin.coordinates?.latitude).toBeGreaterThanOrEqual(area.south);
+      expect(pin.coordinates?.latitude).toBeLessThanOrEqual(area.north);
+      expect(pin.coordinates?.longitude).toBeGreaterThanOrEqual(area.west);
+      expect(pin.coordinates?.longitude).toBeLessThanOrEqual(area.east);
+    }
+    const updated = pins.items.map((item) => item.updatedAt.getTime());
+    expect(updated).toEqual([...updated].sort((a, b) => b - a));
+
+    const filtered = await query.mapPins({ ...FILTER, status: 'available' }, area, 500);
+    expect(filtered.items.every((item) => item.status === 'available')).toBe(true);
+    expect(filtered.total).toBeLessThan(pins.total);
+  });
+
+  it('resolves the map area and the walk by key with an index', async () => {
+    await seedPortfolio();
+    const area = { south: -34.65, west: -58.55, north: -34.55, east: -58.4 };
+    const map = await pagePlan(BASE, (q) => q.mapPins(FILTER, area, 500));
+    expect(map.some((n) => n['Index Name'] === 'properties_coordinates_idx')).toBe(true);
+    const walk = await pagePlan(BASE, (q) =>
+      q.matchingIds(FILTER, { afterId: undefined, limit: 100 }),
+    );
+    expect(scansWithIndex(walk), JSON.stringify(walk.map((n) => n['Node Type']))).toBe(true);
   });
 });

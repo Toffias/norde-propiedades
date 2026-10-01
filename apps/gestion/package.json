@@ -17,6 +17,8 @@
     "@norde/infra": "workspace:*",
     "@norde/ui": "workspace:*",
     "better-auth": "catalog:",
+    "leaflet": "catalog:",
+    "leaflet.markercluster": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "next-themes": "catalog:",
@@ -30,6 +32,8 @@
   "devDependencies": {
     "@norde/config": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
+    "@types/leaflet": "catalog:",
+    "@types/leaflet.markercluster": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

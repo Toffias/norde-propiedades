@@ -10,7 +10,7 @@ export default function CompanyLayout({ children }: { readonly children: ReactNo
       <PageHeader
         icon={SettingsIcon}
         title="Mi empresa"
-        subtitle="Datos de Norde, códigos, ficha, archivos y quién usa el panel"
+        subtitle="Datos de Norde, códigos, ficha, archivos, catálogos de propiedades y quién usa el panel"
       />
       <CompanyTabs />
       {children}

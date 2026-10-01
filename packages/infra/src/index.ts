@@ -31,6 +31,10 @@ export { DrizzleOrganizationQuery } from './identity/drizzle-organization-query'
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
 export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-property-list-query';
 export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
+export { DrizzleUserFavorites } from './identity/drizzle-user-favorites';
+export { DrizzlePropertyCatalogQuery } from './properties/drizzle-property-catalog-query';
+export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
+export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';
 export {
   DrizzleClientRepository,

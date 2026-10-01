@@ -53,6 +53,13 @@ export const locations = coreSchema.table(
     index('locations_parent_idx').on(t.parentId),
     index('locations_path_idx').on(t.path.op('text_pattern_ops')),
     index('locations_normalized_name_idx').using('gin', t.normalizedName.op('gin_trgm_ops')),
+    // Dos ubicaciones con el mismo nombre bajo el mismo padre son la misma.
+    uniqueIndex('locations_parent_name_uq').on(
+      sql`coalesce(${t.parentId}, ${NIL_UUID})`,
+      t.normalizedName,
+    ),
+    // Buscador por nombre: orden alfabético estable.
+    index('locations_name_idx').on(t.name, t.id),
   ],
 );
 
@@ -325,6 +332,13 @@ export const features = coreSchema.table(
   (t) => [
     uniqueIndex('features_key_uq').on(t.key),
     index('features_kind_position_idx').on(t.kind, t.position),
+    // Un nombre por tipo, sin acentos ni mayúsculas; también resuelve el buscador del catálogo.
+    uniqueIndex('features_kind_name_uq').on(t.kind, sql`core.search_normalize(${t.name})`),
+    index('features_kind_name_idx').on(t.kind, t.name),
+    index('features_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
+    ),
   ],
 );
 
@@ -395,13 +409,25 @@ export const propertyAppraisers = coreSchema.table(
   ],
 );
 
-export const propertyTagGroups = coreSchema.table('property_tag_groups', {
-  id: uuid('id').primaryKey(),
-  name: text('name').notNull(),
-  position: integer('position').notNull().default(0),
-  ...timestamps(),
-  ...authorship(),
-});
+export const propertyTagGroups = coreSchema.table(
+  'property_tag_groups',
+  {
+    id: uuid('id').primaryKey(),
+    name: text('name').notNull(),
+    position: integer('position').notNull().default(0),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    uniqueIndex('property_tag_groups_name_uq').on(sql`core.search_normalize(${t.name})`),
+    index('property_tag_groups_position_idx').on(t.position, t.id),
+    index('property_tag_groups_name_idx').on(t.name, t.id),
+    index('property_tag_groups_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
+    ),
+  ],
+);
 
 export const propertyTags = coreSchema.table(
   'property_tags',
@@ -417,6 +443,12 @@ export const propertyTags = coreSchema.table(
     uniqueIndex('property_tags_group_name_uq').on(
       sql`coalesce(${t.groupId}, ${NIL_UUID})`,
       sql`lower(${t.name})`,
+    ),
+    index('property_tags_group_idx').on(t.groupId, t.name),
+    index('property_tags_name_idx').on(t.name, t.id),
+    index('property_tags_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
     ),
   ],
 );
@@ -452,6 +484,32 @@ export const developmentTagAssignments = coreSchema.table(
   (t) => [
     primaryKey({ columns: [t.developmentId, t.tagId] }),
     index('development_tag_assignments_tag_idx').on(t.tagId),
+  ],
+);
+
+/**
+ * Búsquedas favoritas de los usuarios del panel: filtros del buscador de propiedades con un nombre.
+ * No son las búsquedas de un cliente (`saved_searches`).
+ */
+export const favoritePropertySearches = coreSchema.table(
+  'favorite_property_searches',
+  {
+    id: uuid('id').primaryKey(),
+    /** Usuario del módulo identity: solo el ID, sin foreign key entre módulos. */
+    userId: uuid('user_id').notNull(),
+    name: text('name').notNull(),
+    /** Parámetros del buscador tal como van en la URL. */
+    params: jsonb('params').notNull(),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    uniqueIndex('favorite_property_searches_user_name_uq').on(
+      t.userId,
+      sql`core.search_normalize(${t.name})`,
+    ),
+    index('favorite_property_searches_user_name_idx').on(t.userId, t.name, t.id),
+    index('favorite_property_searches_user_updated_idx').on(t.userId, t.updatedAt, t.id),
   ],
 );
 

@@ -94,6 +94,7 @@ export type {
   TeamListCriteria,
 } from './application/ports/organization-query';
 export type { PasswordHasher } from './application/ports/password-hasher';
+export type { FavoriteQuery, UserFavorites } from './application/ports/user-favorites';
 export type { RoleListCriteria, RoleListQuery } from './application/ports/role-list-query';
 export type { UserAccessQuery, UserAccessRecord } from './application/ports/user-access-query';
 export type { UserListCriteria, UserListQuery } from './application/ports/user-list-query';
@@ -108,6 +109,13 @@ export type {
   UserNotFoundError,
 } from './application/user-audit';
 
+export {
+  AddFavorites,
+  RemoveFavorites,
+  type ChangeFavoritesError,
+  type ChangeFavoritesOutput,
+} from './application/commands/change-favorites';
+export { GetFavoriteIds } from './application/queries/get-favorite-ids';
 export { CreateUser, type CreateUserError } from './application/commands/create-user';
 export { UpdateUser, type UpdateUserError } from './application/commands/update-user';
 export { SuspendUser, type SuspendUserError } from './application/commands/suspend-user';

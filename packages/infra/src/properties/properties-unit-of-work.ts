@@ -6,6 +6,15 @@ import { DrizzleUnitOfWork } from '../db/unit-of-work';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
+import {
+  DrizzleFavoriteSearchRepository,
+  DrizzleFeatureRepository,
+  DrizzleLocationRepository,
+  DrizzlePropertySettingsRepository,
+  DrizzlePropertyTypeSettingsRepository,
+  DrizzleTagGroupRepository,
+  DrizzleTagRepository,
+} from './drizzle-catalog-repositories';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 
 export function createPropertiesUnitOfWork(
@@ -14,6 +23,13 @@ export function createPropertiesUnitOfWork(
 ): PropertiesUnitOfWork {
   return new DrizzleUnitOfWork<PropertiesTransaction>(db, (tx) => ({
     properties: new DrizzlePropertyRepository(tx, deps.ids),
+    locations: new DrizzleLocationRepository(tx),
+    features: new DrizzleFeatureRepository(tx),
+    tagGroups: new DrizzleTagGroupRepository(tx),
+    tags: new DrizzleTagRepository(tx),
+    typeSettings: new DrizzlePropertyTypeSettingsRepository(tx),
+    settings: new DrizzlePropertySettingsRepository(tx),
+    favoriteSearches: new DrizzleFavoriteSearchRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

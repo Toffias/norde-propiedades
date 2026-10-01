@@ -58,6 +58,13 @@ function DebouncedInput({
 }) {
   const { setParams } = useListNavigation();
   const [text, setText] = useState(value);
+  // Si la URL cambia desde afuera (una búsqueda favorita, volver atrás), el texto la sigue: si no,
+  // el debounce volvería a escribir el valor viejo.
+  const [synced, setSynced] = useState(value);
+  if (value !== synced) {
+    setSynced(value);
+    setText(value);
+  }
 
   useEffect(() => {
     if (text.trim() === value) return;

@@ -295,3 +295,18 @@ export interface SessionProfile {
   /** Entró con una contraseña temporal: no puede hacer nada hasta cambiarla. */
   readonly mustChangePassword: boolean;
 }
+
+// ---------- Favoritos ----------
+
+/** Qué se puede marcar como favorito: aparece en el panel lateral de favoritos (#2). */
+export const FAVORITE_ENTITY_VALUES = ['client', 'property', 'development'] as const;
+export type FavoriteEntityValue = (typeof FAVORITE_ENTITY_VALUES)[number];
+
+/** Una página de la grilla como mucho: los favoritos se marcan sobre lo que se ve. */
+export const MAX_FAVORITES_PER_REQUEST = 100;
+
+export const FavoritesInputSchema = z.object({
+  entityType: z.enum(FAVORITE_ENTITY_VALUES),
+  ids: z.array(z.uuid()).min(1).max(MAX_FAVORITES_PER_REQUEST),
+});
+export type FavoritesInput = z.input<typeof FavoritesInputSchema>;

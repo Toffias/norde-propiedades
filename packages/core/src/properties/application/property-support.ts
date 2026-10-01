@@ -31,6 +31,7 @@ export function propertyAuditState(property: Property): AuditState {
     portalTitle: s.portalTitle,
     latitude: s.coordinates?.latitude,
     longitude: s.coordinates?.longitude,
+    locationId: s.locationId,
     operations: s.operations.map((o) => ({
       operation: o.operation,
       currency: o.currency,

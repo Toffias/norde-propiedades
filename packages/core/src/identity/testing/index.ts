@@ -14,6 +14,8 @@ import type {
   TeamListCriteria,
 } from '../application/ports/organization-query';
 import type { PasswordHasher } from '../application/ports/password-hasher';
+import type { UserFavorites } from '../application/ports/user-favorites';
+import type { FavoriteEntityValue } from '../contracts';
 import type { RoleListCriteria, RoleListQuery } from '../application/ports/role-list-query';
 import type { UserAccessQuery, UserAccessRecord } from '../application/ports/user-access-query';
 import type { UserListCriteria, UserListQuery } from '../application/ports/user-list-query';
@@ -261,6 +263,25 @@ export class FakePasswordHasher implements PasswordHasher {
  * Unidad de trabajo en memoria. Si el trabajo devuelve un `Err` o lanza, descarta lo escrito
  * (como el rollback de la implementación real).
  */
+/** Favoritos en memoria: `usuario|tipo|id`. */
+export class InMemoryUserFavorites implements UserFavorites {
+  readonly rows = new Set<string>();
+
+  existing(userId: string, entityType: FavoriteEntityValue, ids: readonly string[]) {
+    return Promise.resolve(ids.filter((id) => this.rows.has(`${userId}|${entityType}|${id}`)));
+  }
+
+  add(userId: string, entityType: FavoriteEntityValue, ids: readonly string[]) {
+    for (const id of ids) this.rows.add(`${userId}|${entityType}|${id}`);
+    return Promise.resolve();
+  }
+
+  remove(userId: string, entityType: FavoriteEntityValue, ids: readonly string[]) {
+    for (const id of ids) this.rows.delete(`${userId}|${entityType}|${id}`);
+    return Promise.resolve();
+  }
+}
+
 export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
   readonly users = new InMemoryUserRepository();
   readonly roles = new InMemoryRoleRepository(this.users);
@@ -268,6 +289,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
   readonly branches = new InMemoryBranchRepository(this.users, this.teams);
   readonly credentials = new InMemoryCredentialStore();
   readonly sessions = new InMemoryUserSessions();
+  readonly favorites = new InMemoryUserFavorites();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
 
@@ -280,6 +302,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
       members: new Set(this.teams.members),
       hashes: new Map(this.credentials.hashes),
       sessions: new Map(this.sessions.open),
+      favorites: new Set(this.favorites.rows),
       events: this.events.published.length,
       audit: this.audit.entries.length,
     };
@@ -292,6 +315,8 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
       for (const member of backup.members) this.teams.members.add(member);
       restore(this.credentials.hashes, backup.hashes);
       restore(this.sessions.open, backup.sessions);
+      this.favorites.rows.clear();
+      for (const row of backup.favorites) this.favorites.rows.add(row);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
     };

@@ -12,6 +12,7 @@ import {
   DrizzleTeamRepository,
 } from './drizzle-organization-repositories';
 import { DrizzleRoleRepository } from './drizzle-role-repository';
+import { DrizzleUserFavorites } from './drizzle-user-favorites';
 import { DrizzleUserRepository } from './drizzle-user-repository';
 
 export function createIdentityUnitOfWork(
@@ -25,6 +26,7 @@ export function createIdentityUnitOfWork(
     teams: new DrizzleTeamRepository(tx),
     credentials: new DrizzleCredentialStore(tx, deps.ids, deps.clock),
     sessions: new DrizzleUserSessions(tx),
+    favorites: new DrizzleUserFavorites(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

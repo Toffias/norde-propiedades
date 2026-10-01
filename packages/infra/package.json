@@ -21,6 +21,8 @@
     "@norde/core": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
+    "exceljs": "catalog:",
+    "pdf-lib": "catalog:",
     "pg": "catalog:",
     "pg-boss": "catalog:",
     "sharp": "catalog:",

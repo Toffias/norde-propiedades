@@ -2,11 +2,17 @@
 
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
+import type { PanelPropertyRow, PropertyExportFormat } from '../contracts';
+import type { GeocodingFailedError, Geocoder } from '../application/ports/geocoder';
 import type {
+  BoundingBox,
+  PanelPropertyFilterCriteria,
   PanelPropertyListCriteria,
   PanelPropertyListItem,
   PanelPropertyListQuery,
 } from '../application/ports/panel-property-list-query';
+import type { PropertyCatalogQuery } from '../application/ports/property-catalog-query';
+import type { ExportFile, PropertyExportWriter } from '../application/ports/property-export-writer';
 import type {
   PropertiesTransaction,
   PropertiesUnitOfWork,
@@ -20,8 +26,40 @@ import type {
   ReferenceCodeAllocator,
   ReferenceCodeUnavailableError,
 } from '../application/ports/reference-code-allocator';
-import type { UserNames } from '../application/ports/user-names';
-import { Property, type PropertyId, type PropertySnapshot } from '../domain/property';
+import type { Producers, UserNames } from '../application/ports/user-names';
+import type {
+  FeatureRepository,
+  LocationRepository,
+  PropertySettingsRepository,
+  PropertyTypeSettingsRepository,
+  TagGroupRepository,
+  TagRepository,
+} from '../domain/catalog.repository';
+import {
+  FavoriteSearch,
+  type FavoriteSearchId,
+  type FavoriteSearchRepository,
+  type FavoriteSearchSnapshot,
+} from '../domain/favorite-search';
+import { Feature, type FeatureId, type FeatureKind, type FeatureSnapshot } from '../domain/feature';
+import type { GridColumn } from '../domain/grid-columns';
+import { Location, type LocationId, type LocationSnapshot } from '../domain/location';
+import type { PropertyKind } from '../domain/property-catalog';
+import {
+  PropertyTag,
+  TagGroup,
+  type TagGroupId,
+  type TagGroupSnapshot,
+  type TagId,
+  type TagSnapshot,
+} from '../domain/property-tag';
+import { defaultTypeSetting, type PropertyTypeSetting } from '../domain/property-type-settings';
+import {
+  Property,
+  type PriceChange,
+  type PropertyId,
+  type PropertySnapshot,
+} from '../domain/property';
 import type { PropertyRepository } from '../domain/property.repository';
 
 let sequence = 0;
@@ -135,9 +173,12 @@ export function propertySnapshot(
     publishAddress: 'Gurruchaga al 1800',
     portalTitle: 'Departamento en venta en Palermo',
     coordinates: undefined,
+    locationId: undefined,
     operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
+    tagIds: [],
     producerUserId: PRODUCER_ID,
     branchId: BRANCH_ID,
+    statusChangedAt: new Date('2026-09-01T12:00:00Z'),
     deletedAt: undefined,
     deletedBy: undefined,
     createdAt: new Date('2026-09-01T12:00:00Z'),
@@ -146,10 +187,26 @@ export function propertySnapshot(
   };
 }
 
+/** Nombre en minúsculas y sin acentos, como `core.search_normalize`. */
+function normalized(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/** Un repositorio en memoria guarda snapshots: se puede copiar para deshacer una transacción. */
+interface Snapshotting {
+  readonly rows: Map<string, unknown>;
+}
+
 export class InMemoryPropertyRepository implements PropertyRepository {
   readonly rows = new Map<string, PropertySnapshot>();
   /** Quién guardó cada propiedad por última vez. */
   readonly savedBy = new Map<string, string>();
+  /** Historial de precios guardado, por propiedad. */
+  readonly priceChanges: { readonly propertyId: string; readonly change: PriceChange }[] = [];
 
   findById(id: PropertyId) {
     const row = this.rows.get(id);
@@ -159,6 +216,213 @@ export class InMemoryPropertyRepository implements PropertyRepository {
   save(property: Property, actorId: string) {
     this.rows.set(property.id, property.toSnapshot());
     this.savedBy.set(property.id, actorId);
+    for (const change of property.priceChanges) {
+      this.priceChanges.push({ propertyId: property.id, change });
+    }
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryLocationRepository implements LocationRepository {
+  readonly rows = new Map<string, LocationSnapshot>();
+
+  add(snapshot: LocationSnapshot): this {
+    this.rows.set(snapshot.id, snapshot);
+    return this;
+  }
+
+  findById(id: LocationId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? Location.restore(row) : undefined);
+  }
+
+  findSibling(parentId: LocationId | undefined, name: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.parentId === parentId && normalized(r.name) === normalized(name),
+    );
+    return Promise.resolve(row ? Location.restore(row) : undefined);
+  }
+
+  findLineage(id: LocationId) {
+    const row = this.rows.get(id);
+    if (!row) return Promise.resolve([]);
+    const ids = row.path.split('/').filter((part) => part !== '');
+    return Promise.resolve(
+      ids.flatMap((ancestor) => {
+        const found = this.rows.get(ancestor);
+        return found ? [Location.restore(found)] : [];
+      }),
+    );
+  }
+
+  save(location: Location) {
+    this.rows.set(location.id, location.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryFeatureRepository implements FeatureRepository {
+  readonly rows = new Map<string, FeatureSnapshot>();
+
+  findById(id: FeatureId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? Feature.restore(row) : undefined);
+  }
+
+  findByKey(key: string) {
+    const row = [...this.rows.values()].find((r) => r.key === key);
+    return Promise.resolve(row ? Feature.restore(row) : undefined);
+  }
+
+  findByName(kind: FeatureKind, name: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.kind === kind && normalized(r.name) === normalized(name),
+    );
+    return Promise.resolve(row ? Feature.restore(row) : undefined);
+  }
+
+  nextPosition(kind: FeatureKind) {
+    const positions = [...this.rows.values()].filter((r) => r.kind === kind).map((r) => r.position);
+    return Promise.resolve(positions.length === 0 ? 0 : Math.max(...positions) + 1);
+  }
+
+  save(feature: Feature) {
+    this.rows.set(feature.id, feature.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryTagRepository implements TagRepository {
+  readonly rows = new Map<string, TagSnapshot>();
+  /** Cuántas propiedades usan cada etiqueta (las asignaciones viven en las propiedades). */
+  readonly uses = new Map<string, number>();
+
+  findById(id: TagId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? PropertyTag.restore(row) : undefined);
+  }
+
+  findInGroup(groupId: TagGroupId | undefined, name: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.groupId === groupId && normalized(r.name) === normalized(name),
+    );
+    return Promise.resolve(row ? PropertyTag.restore(row) : undefined);
+  }
+
+  findExistingIds(ids: readonly string[]) {
+    return Promise.resolve(ids.filter((id) => this.rows.has(id)));
+  }
+
+  countUses(id: TagId) {
+    return Promise.resolve(this.uses.get(id) ?? 0);
+  }
+
+  save(tag: PropertyTag) {
+    this.rows.set(tag.id, tag.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: TagId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryTagGroupRepository implements TagGroupRepository {
+  readonly rows = new Map<string, TagGroupSnapshot>();
+
+  constructor(private readonly tags: InMemoryTagRepository) {}
+
+  findById(id: TagGroupId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? TagGroup.restore(row) : undefined);
+  }
+
+  findByName(name: string) {
+    const row = [...this.rows.values()].find((r) => normalized(r.name) === normalized(name));
+    return Promise.resolve(row ? TagGroup.restore(row) : undefined);
+  }
+
+  nextPosition() {
+    const positions = [...this.rows.values()].map((r) => r.position);
+    return Promise.resolve(positions.length === 0 ? 0 : Math.max(...positions) + 1);
+  }
+
+  countTags(id: TagGroupId) {
+    return Promise.resolve([...this.tags.rows.values()].filter((t) => t.groupId === id).length);
+  }
+
+  save(group: TagGroup) {
+    this.rows.set(group.id, group.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: TagGroupId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryPropertyTypeSettingsRepository implements PropertyTypeSettingsRepository {
+  readonly rows = new Map<string, PropertyTypeSetting>();
+
+  all() {
+    return Promise.resolve(
+      (
+        ['apartment', 'house', 'ph', 'land', 'office', 'commercial', 'garage', 'warehouse'] as const
+      ).map((kind) => this.rows.get(kind) ?? defaultTypeSetting(kind)),
+    );
+  }
+
+  find(kind: PropertyKind) {
+    return Promise.resolve(this.rows.get(kind) ?? defaultTypeSetting(kind));
+  }
+
+  save(setting: PropertyTypeSetting) {
+    this.rows.set(setting.kind, setting);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryPropertySettingsRepository implements PropertySettingsRepository {
+  readonly rows = new Map<string, readonly GridColumn[]>([['gridColumns', []]]);
+
+  gridColumns() {
+    return Promise.resolve(this.rows.get('gridColumns') ?? []);
+  }
+
+  saveGridColumns(columns: readonly GridColumn[]) {
+    this.rows.set('gridColumns', columns);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryFavoriteSearchRepository implements FavoriteSearchRepository {
+  readonly rows = new Map<string, FavoriteSearchSnapshot>();
+
+  findById(id: FavoriteSearchId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? FavoriteSearch.restore(row) : undefined);
+  }
+
+  findByName(userId: string, name: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.userId === userId && normalized(r.name) === normalized(name),
+    );
+    return Promise.resolve(row ? FavoriteSearch.restore(row) : undefined);
+  }
+
+  countByUser(userId: string) {
+    return Promise.resolve([...this.rows.values()].filter((r) => r.userId === userId).length);
+  }
+
+  save(search: FavoriteSearch) {
+    this.rows.set(search.id, search.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: FavoriteSearchId) {
+    this.rows.delete(id);
     return Promise.resolve();
   }
 }
@@ -169,20 +433,47 @@ function isErrResult(value: unknown): boolean {
 
 export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly properties = new InMemoryPropertyRepository();
+  readonly locations = new InMemoryLocationRepository();
+  readonly features = new InMemoryFeatureRepository();
+  readonly tags = new InMemoryTagRepository();
+  readonly tagGroups = new InMemoryTagGroupRepository(this.tags);
+  readonly typeSettings = new InMemoryPropertyTypeSettingsRepository();
+  readonly settings = new InMemoryPropertySettingsRepository();
+  readonly favoriteSearches = new InMemoryFavoriteSearchRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
+  /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
+  transactions = 0;
+
+  private stores(): readonly Snapshotting[] {
+    return [
+      this.properties,
+      this.locations,
+      this.features,
+      this.tags,
+      this.tagGroups,
+      this.typeSettings,
+      this.settings,
+      this.favoriteSearches,
+    ];
+  }
 
   async run<T>(work: (tx: PropertiesTransaction) => Promise<T>): Promise<T> {
+    this.transactions += 1;
     const backup = {
-      rows: new Map(this.properties.rows),
+      stores: this.stores().map((store) => new Map(store.rows)),
       events: this.events.published.length,
       audit: this.audit.entries.length,
+      priceChanges: this.properties.priceChanges.length,
     };
     const rollback = () => {
-      this.properties.rows.clear();
-      for (const [key, value] of backup.rows) this.properties.rows.set(key, value);
+      this.stores().forEach((store, index) => {
+        store.rows.clear();
+        for (const [key, value] of backup.stores[index] ?? []) store.rows.set(key, value);
+      });
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
+      this.properties.priceChanges.splice(backup.priceChanges);
     };
     try {
       const result = await work(this);
@@ -213,15 +504,88 @@ export class FakeReferenceCodeAllocator implements ReferenceCodeAllocator {
   }
 }
 
-/** Devuelve las filas dadas y registra con qué criterio se la llamó. */
+/** Fila del buscador con valores razonables; se pisan los campos que importan. */
+export function aPanelItem(overrides: Partial<PanelPropertyListItem> = {}): PanelPropertyListItem {
+  return {
+    id: PROPERTY_ID,
+    code: 'DEP0001',
+    propertyType: 'apartment',
+    status: 'draft',
+    portalTitle: 'Departamento en venta en Palermo',
+    publishAddress: 'Gurruchaga al 1800',
+    neighborhood: 'Palermo',
+    city: 'CABA',
+    province: 'CABA',
+    operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
+    attributes: {
+      rooms: 3,
+      bedrooms: 2,
+      bathrooms: 1,
+      parkingSpaces: undefined,
+      ageYears: 10,
+      surfaceTotalM2: 70,
+      surfaceCoveredM2: 65,
+    },
+    coverImageUrl: undefined,
+    coordinates: undefined,
+    producerUserId: PRODUCER_ID,
+    createdAt: new Date('2026-09-01T12:00:00Z'),
+    updatedAt: new Date('2026-09-20T12:00:00Z'),
+    deletedAt: undefined,
+    deletedBy: undefined,
+    ...overrides,
+  };
+}
+
+/**
+ * Devuelve las filas dadas y registra con qué criterio se la llamó. Con `ids` en el criterio,
+ * devuelve solo esas: alcanza para probar selecciones, no el SQL de los filtros.
+ */
 export class StubPanelPropertyListQuery implements PanelPropertyListQuery {
   readonly calls: PanelPropertyListCriteria[] = [];
+  readonly mapCalls: { readonly area: BoundingBox; readonly limit: number }[] = [];
 
   constructor(private readonly slice: PageSlice<PanelPropertyListItem> = { items: [], total: 0 }) {}
 
+  private matching(criteria: PanelPropertyFilterCriteria): readonly PanelPropertyListItem[] {
+    const { ids } = criteria;
+    return ids === undefined
+      ? this.slice.items
+      : this.slice.items.filter((i) => ids.includes(i.id));
+  }
+
   search(criteria: PanelPropertyListCriteria) {
     this.calls.push(criteria);
-    return Promise.resolve(this.slice);
+    if (criteria.ids === undefined) return Promise.resolve(this.slice);
+    const items = this.matching(criteria);
+    return Promise.resolve({
+      items: items.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: items.length,
+    });
+  }
+
+  matchingIds(
+    criteria: PanelPropertyFilterCriteria,
+    page: { readonly afterId: string | undefined; readonly limit: number },
+  ) {
+    const { afterId } = page;
+    const items = [...this.matching(criteria)]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .filter((item) => afterId === undefined || item.id > afterId)
+      .slice(0, page.limit)
+      .map((item) => ({ id: item.id, code: item.code }));
+    return Promise.resolve(items);
+  }
+
+  count(criteria: PanelPropertyFilterCriteria) {
+    return Promise.resolve(
+      criteria.ids === undefined ? this.slice.total : this.matching(criteria).length,
+    );
+  }
+
+  mapPins(_criteria: PanelPropertyFilterCriteria, area: BoundingBox, limit: number) {
+    this.mapCalls.push({ area, limit });
+    return Promise.resolve({ items: this.slice.items.slice(0, limit), total: this.slice.total });
   }
 }
 
@@ -237,5 +601,97 @@ export class InMemoryUserNames implements UserNames {
         }),
       ),
     );
+  }
+}
+
+/** Usuarios activos con su sucursal. */
+export class InMemoryProducers implements Producers {
+  constructor(
+    private readonly users: ReadonlyMap<
+      string,
+      { readonly branchId: string | undefined }
+    > = new Map(),
+  ) {}
+
+  find(userId: string) {
+    return Promise.resolve(this.users.get(userId));
+  }
+}
+
+/** Devuelve siempre la misma respuesta y registra las direcciones que se le pidieron. */
+export class FakeGeocoder implements Geocoder {
+  readonly requests: Parameters<Geocoder['locate']>[0][] = [];
+
+  constructor(
+    private readonly answer: Result<
+      { readonly latitude: number; readonly longitude: number } | undefined,
+      GeocodingFailedError
+    > = ok(undefined),
+  ) {}
+
+  locate(request: Parameters<Geocoder['locate']>[0]) {
+    this.requests.push(request);
+    return Promise.resolve(this.answer);
+  }
+}
+
+/** Junta las filas que recibiría la planilla, sin armar ningún archivo. */
+export class FakeExportWriter implements PropertyExportWriter {
+  readonly rows: PanelPropertyRow[] = [];
+  format: PropertyExportFormat | undefined;
+
+  write(
+    format: PropertyExportFormat,
+    batches: AsyncIterable<readonly PanelPropertyRow[]>,
+  ): ExportFile {
+    this.format = format;
+    const rows = this.rows;
+    async function* body(): AsyncIterable<Uint8Array> {
+      for await (const batch of batches) {
+        rows.push(...batch);
+        yield new Uint8Array();
+      }
+    }
+    return { filename: `propiedades.${format}`, contentType: 'text/plain', body: body() };
+  }
+}
+
+/** Devuelve páginas vacías y registra los criterios: las queries de catálogo son SQL en infra. */
+export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
+  readonly calls: { readonly method: string; readonly criteria: unknown }[] = [];
+  typeSettingRows: readonly PropertyTypeSetting[] = [];
+  gridColumnRows: readonly GridColumn[] = [];
+
+  private empty<T>(method: string, criteria: unknown): Promise<PageSlice<T>> {
+    this.calls.push({ method, criteria });
+    return Promise.resolve({ items: [], total: 0 });
+  }
+
+  searchLocations(criteria: Parameters<PropertyCatalogQuery['searchLocations']>[0]) {
+    return this.empty<never>('searchLocations', criteria);
+  }
+
+  listFeatures(criteria: Parameters<PropertyCatalogQuery['listFeatures']>[0]) {
+    return this.empty<never>('listFeatures', criteria);
+  }
+
+  listTagGroups(criteria: Parameters<PropertyCatalogQuery['listTagGroups']>[0]) {
+    return this.empty<never>('listTagGroups', criteria);
+  }
+
+  searchTags(criteria: Parameters<PropertyCatalogQuery['searchTags']>[0]) {
+    return this.empty<never>('searchTags', criteria);
+  }
+
+  listFavoriteSearches(criteria: Parameters<PropertyCatalogQuery['listFavoriteSearches']>[0]) {
+    return this.empty<never>('listFavoriteSearches', criteria);
+  }
+
+  typeSettings() {
+    return Promise.resolve(this.typeSettingRows);
+  }
+
+  gridColumns() {
+    return Promise.resolve(this.gridColumnRows);
   }
 }

@@ -209,8 +209,14 @@ export const branches = coreSchema.table(
     ...timestamps(),
     ...authorship(),
     ...trash(),
+    searchText: searchText('name'),
   },
-  (t) => [uniqueIndex('branches_name_uq').on(t.name).where(notDeleted)],
+  (t) => [
+    uniqueIndex('branches_name_uq').on(t.name).where(notDeleted),
+    // Listado y papelera, ordenados por nombre.
+    index('branches_deleted_name_idx').on(t.deletedAt, t.name),
+    index('branches_search_text_idx').using('gin', t.searchText.op('gin_trgm_ops')),
+  ],
 );
 
 export const teams = coreSchema.table(
@@ -221,8 +227,15 @@ export const teams = coreSchema.table(
     branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }),
     ...timestamps(),
     ...authorship(),
+    ...trash(),
+    searchText: searchText('name'),
   },
-  (t) => [index('teams_branch_idx').on(t.branchId)],
+  (t) => [
+    index('teams_branch_idx').on(t.branchId),
+    uniqueIndex('teams_name_uq').on(t.name).where(notDeleted),
+    index('teams_deleted_name_idx').on(t.deletedAt, t.name),
+    index('teams_search_text_idx').using('gin', t.searchText.op('gin_trgm_ops')),
+  ],
 );
 
 export const teamMembers = coreSchema.table(

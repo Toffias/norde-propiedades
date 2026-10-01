@@ -6,6 +6,22 @@ Monorepo del sistema de Norde Propiedades: sitio web, panel de gestión interno 
 
 Cada app y paquete tiene su propio `CLAUDE.md` con reglas específicas. Se aplican **además** de este.
 
+## Contexto del producto
+
+- **Norde es la única inmobiliaria del sistema (mono-tenant).** No hay `tenant_id`, ni RLS por tenant, ni redes entre inmobiliarias. Lo que otros sistemas guardan "por tenant" acá es la configuración de la empresa: un único registro.
+- **El sistema de gestión reemplaza a Tokko Broker**, el CRM que Norde usa hoy. El backlog es la épica [#1](https://github.com/Toffias/norde-propiedades/issues/1), con una sub-issue por módulo. Alcance, exclusiones y diferencias de modelo: `docs/modulos/03-sistema-gestion.md` §13.
+- El contexto de negocio vive en `docs/negocio/` (glosario y decisiones) y en `docs/modulos/`. Cuando el usuario explique una regla, un término o un proceso de Norde, registralo con la skill `norde-negocio`.
+
+## Skills del proyecto
+
+Viven en `.claude/skills/`. Usalas cuando la tarea coincida:
+
+| Skill             | Cuándo                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| `norde-negocio`   | Consultar o registrar contexto de negocio: términos, reglas, procesos, decisiones de Norde |
+| `tokko-paridad`   | Implementar o refinar una sub-issue de la épica #1, contrastando con el relevamiento       |
+| `gestion-feature` | Construir una funcionalidad del panel de punta a punta (core → infra → `apps/gestion`)     |
+
 ## Mapa
 
 | Ruta                 | Qué es                                                                       |
@@ -51,6 +67,16 @@ Las dependencias apuntan **solo hacia adentro**: presentación (`apps/*`) → in
 - **Autorización en el caso de uso**, con el `Actor`. Ocultar un botón en la UI no es autorización.
 - Todo command que modifica datos: corre dentro de `UnitOfWork`, guarda sus eventos en el outbox en la misma transacción y **registra auditoría**.
 - Commands pasan por el dominio. Queries de listados y reportes pueden usar un puerto de consulta con SQL optimizado y devolver DTOs planos.
+
+### Listados: siempre paginados en el servidor
+
+Aplica a **toda** grilla, listado, tablero kanban (por columna), bandeja, papelera, historial, timeline, feed, selector con búsqueda y autocomplete, en cualquier app.
+
+- El contract Zod de la query recibe `page`, `pageSize` (con máximo), `sort` (lista blanca de columnas y dirección) y los filtros.
+- El puerto de consulta recibe `offset` / `limit` y devuelve `Page<T>` (`shared/application/pagination.ts`).
+- PROHIBIDO que una query o un repositorio devuelva una lista sin límite, y PROHIBIDO paginar, filtrar u ordenar en memoria (ni en el caso de uso ni en el cliente).
+- Cada filtro y orden que se ofrece tiene índice en la base; el test de integración de la query lo cubre.
+- Exportaciones (Excel, CSV, PDF masivos) y acciones masivas: por lotes o como job, nunca cargando todo en memoria.
 
 ### Errores
 
@@ -129,4 +155,5 @@ pnpm --filter @norde/agent simulate      # chatear con el agente por consola
 
 - `C:\APZ-WP-BOT`: MVP del agente de WhatsApp (base de `apps/agent` y `@norde/agent-kit`).
 - `C:\DS-DESIGN-Landing`: Next.js + Payload (base de `apps/web`). **No** copiar los problemas listados en `docs/modulos/02-web-diseno-seo.md`, sección 2.
-- Ninguno de los dos sigue esta arquitectura: al portar código, **adaptarlo** a las capas; no pegarlo tal cual.
+- **Relevamiento funcional de Tokko Broker** (documento privado en claude.ai, enlazado desde la épica #1): referencia funcional del panel. Su modelo de datos es C# / EF Core y multi-tenant: **solo** sirve como referencia de campos. Las capturas tienen datos reales de clientes: no se descargan al repo ni se pegan en issues o PRs (ver la skill `tokko-paridad`).
+- Ninguno de los tres sigue esta arquitectura: al portar código o modelos, **adaptarlo** a las capas; no pegarlo tal cual.

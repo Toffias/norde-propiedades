@@ -72,7 +72,7 @@ norde-propiedades/
 │   ├── core/                   # @norde/core: dominio + aplicación (sin frameworks)
 │   ├── infra/                  # @norde/infra: implementaciones de los puertos
 │   ├── agent-kit/              # @norde/agent-kit: runner de agentes IA reutilizable
-│   ├── ui/                     # @norde/ui: componentes shadcn compartidos (web + gestión)
+│   ├── ui/                     # @norde/ui: componentes shadcn compartidos y un tema por app
 │   └── config/                 # @norde/config: tsconfig, eslint, prettier, vitest base
 ├── docs/
 │   ├── arquitectura.md         # este documento
@@ -337,7 +337,7 @@ export class RegisterContact {
 | Colas y jobs            | **pg-boss**                                                                                                            | Colas, reintentos y cron sobre la misma base; sin Redis por ahora                                                  |
 | Validación              | **Zod 4**                                                                                                              | Contracts compartidos entre UI y casos de uso; validación del entorno                                              |
 | Autenticación           | **Better Auth** (adapter de Drizzle)                                                                                   | Sesiones en base, extensible a 2FA; roles y permisos propios en `identity`                                         |
-| UI                      | **Tailwind v4 + shadcn/ui** en `@norde/ui`                                                                             | Mismos componentes en la web y el panel                                                                            |
+| UI                      | **Tailwind v4 + shadcn/ui** en `@norde/ui`                                                                             | Mismos componentes en la web y el panel; un tema por app (ADR 0012, `docs/diseno-gestion.md`)                      |
 | Tablas y formularios    | TanStack Table, react-hook-form + Zod                                                                                  | Estándar para ABMs                                                                                                 |
 | Teléfonos               | `libphonenumber-js`                                                                                                    | Normalización E.164 para deduplicar                                                                                |
 | Plata e IPC             | Montos en centavos (`bigint`) más `decimal.js` para índices                                                            | Sin errores de coma flotante                                                                                       |

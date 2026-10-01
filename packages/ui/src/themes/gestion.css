@@ -1,0 +1,555 @@
+/*
+ * Tema del panel de gestión. Estética "papel cálido": hoja crema, tinta casi negra y un único
+ * acento rojo. Paleta tomada de Alquilo (ver docs/diseno-gestion.md y ADR 0012).
+ * Usar SIEMPRE tokens (bg-card, text-muted-foreground, bg-success-50): nunca hex sueltos en el .tsx.
+ *
+ * Las fuentes las carga la app con next/font y publica `--font-ibm-plex-sans` y `--font-space-grotesk`
+ * en <html>.
+ */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Los componentes de este paquete viven fuera de la app: hay que indicárselos a Tailwind. */
+@source '../components';
+
+/* next-themes pone `data-theme="dark"` en <html>. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 26px;
+  --text-3xl: 32px;
+  --text-4xl: 36px;
+
+  --color-white: #ffffff;
+  --color-black: #14181b;
+
+  /* Carbón cálido: los oscuros son el mismo papel con la luz apagada, no un azul distinto. */
+  --color-surface-dark-1: #161612;
+  --color-surface-dark-2: #1d1d18;
+  --color-surface-dark-3: #26251f;
+  --color-surface-dark-4: #302f28;
+
+  /* Cabecera oscura de las fichas (DarkHeader): marrón oliva, distinto del carbón del sidebar. */
+  --color-entity-header-from: #241c00;
+  --color-entity-header-to: #3a2e05;
+  --color-entity-header-muted: #e7dfc4;
+
+  --z-sticky: 30;
+  --z-dropdown: 40;
+  --z-overlay: 50;
+  --z-toast: 60;
+
+  --color-primary-50: #fdecec;
+  --color-primary-100: #fbdcdc;
+  --color-primary-200: #f6c1c1;
+  --color-primary-300: #ef9496;
+  --color-primary-400: #ea6264;
+  --color-primary-500: #e5383b;
+  --color-primary-600: #c62828;
+  --color-primary-700: #a6231f;
+  --color-primary-800: #841c19;
+  --color-primary-900: #5f1412;
+
+  /* Neutros arena. Sesgan al cálido del papel, no al frío del azul. */
+  --color-gray-50: #fbfaf7;
+  --color-gray-100: #f3f2ee;
+  --color-gray-200: #edeae0;
+  --color-gray-300: #dad6c9;
+  --color-gray-400: #c7c2b4;
+  --color-gray-500: #857f6f;
+  --color-gray-600: #7b7568;
+  --color-gray-700: #4a4638;
+  --color-gray-800: #33302a;
+  --color-gray-900: #1e2328;
+
+  --color-success-50: #e7f5f0;
+  --color-success-100: #dcf0e9;
+  --color-success-300: #79c9ab;
+  --color-success-500: #16a167;
+  --color-success-600: #0b6b4f;
+  --color-success-700: #094f3b;
+
+  --color-warning-50: #fbf3dc;
+  --color-warning-100: #f6e9c2;
+  --color-warning-300: #d8bd6a;
+  --color-warning-500: #c7a748;
+  --color-warning-600: #a08a3c;
+  --color-warning-700: #7c6a2e;
+
+  --color-danger-50: #fbeae6;
+  --color-danger-100: #f6d9d2;
+  --color-danger-300: #e7a493;
+  --color-danger-500: #c9553a;
+  --color-danger-600: #b5482f;
+  --color-danger-700: #a83b27;
+
+  --color-info-50: #e8f0fb;
+  --color-info-100: #d5e4f7;
+  --color-info-300: #8badde;
+  --color-info-500: #3a72b8;
+  --color-info-600: #2e62a8;
+  --color-info-700: #254f88;
+
+  /* El violeta es el quinto acento de los gráficos; se define acá para que no viva
+     como hex suelto en el .tsx que lo usa. */
+  --color-violet-300: #a294d6;
+  --color-violet-600: #6b5fa8;
+  --color-violet-700: #574b8c;
+
+  --shadow-3xl: rgba(20, 24, 27, 0.12) 0px 10px 30px;
+}
+
+/* `inline`: las variables de next/font viven en <html> y se resuelven en cada elemento. */
+@theme inline {
+  --font-display: var(--font-space-grotesk), var(--font-ibm-plex-sans), sans-serif;
+  --font-body: var(--font-ibm-plex-sans), sans-serif;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Base
+   ────────────────────────────────────────────────────────────────────────── */
+
+html,
+body {
+  @apply font-body text-sm md:text-base !p-0 text-foreground bg-background leading-normal;
+}
+
+/* overflow-y solo en el root: si también se declara en body, el body pasa a ser
+   scroll container y `position: sticky` deja de funcionar en toda la app
+   (el scroll real ocurre en el viewport, no dentro del body). */
+html {
+  @apply !overflow-y-auto;
+}
+
+/* La topbar es `sticky`: cualquier panel `sticky` del contenido que se pegue a `top-0` queda por
+   debajo y se ve cortado. Los paneles usan `top-(--app-sticky-offset)`. El valor por defecto es la
+   topbar sola (`h-14`). */
+:root {
+  --app-header-height: 3.5rem;
+  --app-sticky-offset: calc(var(--app-header-height) + 1rem);
+}
+
+@layer base {
+  /* El body nunca debe volverse scroll container: react-remove-scroll (Radix
+     Select/Dialog) le inyecta `overflow: hidden !important` al abrirse, y eso
+     re-ancla los paneles sticky al body (saltan o desaparecen de pantalla).
+     Al estar dentro de @layer, este !important le gana al de la hoja inyectada
+     (sin capa). El bloqueo de scroll de Radix sigue funcionando igual porque
+     intercepta eventos wheel/touch, no depende de este overflow. */
+  body {
+    overflow: visible !important;
+  }
+
+  /* Al abrir un overlay de Radix, react-remove-scroll-bar marca el body con
+     [data-scroll-locked] e inyecta `margin-right: <scrollbar>px` para compensar
+     la scrollbar que oculta. Como arriba forzamos `overflow: visible`, esa
+     scrollbar nunca se oculta y la compensación solo corre el contenido. */
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+/* Tipografía base DENTRO de `@layer base` a propósito: así una utilidad de
+   Tailwind (`text-base`, `font-medium`) pisa el default del elemento sin
+   necesitar el prefijo `!`. Fuera de la capa, el CSS sin capa le ganaría a
+   todas las utilities y cada override tendría que ser `!important`. */
+@layer base {
+  button {
+    @apply cursor-pointer focus-visible:outline-none;
+  }
+
+  p {
+    @apply leading-[1.8];
+
+    &:last-child {
+      @apply mb-0;
+    }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display text-black font-semibold leading-tight dark:text-white;
+  }
+
+  h1 {
+    @apply text-2xl mb-0;
+  }
+  h2 {
+    @apply text-lg mb-0;
+  }
+  h3 {
+    @apply text-md mb-0;
+  }
+  h4 {
+    @apply text-base mb-0;
+  }
+  h5,
+  h6 {
+    @apply text-sm mb-0;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Scrollbar fina para paneles con scroll propio (sidebar, listas largas).
+   ────────────────────────────────────────────────────────────────────────── */
+.custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    border-radius: 10px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 10px;
+  }
+
+  &:hover {
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-gray-200);
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background: var(--color-gray-300);
+    }
+  }
+}
+
+[data-theme='dark'] .custom-scrollbar {
+  &:hover {
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-surface-dark-3);
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background: var(--color-surface-dark-4);
+    }
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Tablas con scroll horizontal propio: la página nunca scrollea de lado.
+   ────────────────────────────────────────────────────────────────────────── */
+.table-responsive {
+  @apply overflow-x-auto;
+  -webkit-overflow-scrolling: touch;
+
+  tbody {
+    tr {
+      &:first-child {
+        td {
+          @apply border-t border-gray-100 dark:border-surface-dark-3;
+        }
+      }
+    }
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Placeholder de carga. Sin barrido cuando el usuario pide menos movimiento.
+   ────────────────────────────────────────────────────────────────────────── */
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  transform: translateX(-100%);
+  animation: skeleton-sweep 2.2s infinite;
+}
+
+[data-theme='dark'] .skeleton-sweep::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-sweep::after {
+    animation: none;
+    display: none;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   ApexCharts alineado al tema (tipografía, tooltip, grilla, toolbar).
+   ────────────────────────────────────────────────────────────────────────── */
+.apexcharts-canvas {
+  .apexcharts-legend-text,
+  .apexcharts-title-text {
+    @apply !font-body dark:!text-gray-400;
+  }
+
+  .apexcharts-text {
+    @apply !font-body dark:fill-gray-400;
+
+    tspan {
+      @apply !font-body;
+    }
+
+    &.apexcharts-datalabel-value {
+      @apply dark:fill-white;
+    }
+  }
+
+  .apexcharts-tooltip-series-group {
+    @apply text-left px-[12px];
+
+    &.apexcharts-active {
+      @apply pb-0;
+    }
+    &:last-child {
+      @apply pb-[4px];
+    }
+  }
+
+  .apexcharts-tooltip {
+    * {
+      @apply !font-body;
+    }
+
+    &.apexcharts-theme-light,
+    &.apexcharts-theme-dark {
+      @apply rounded-md border border-gray-100 bg-white shadow-3xl dark:bg-surface-dark-3 dark:border-surface-dark-3 dark:shadow-none;
+
+      .apexcharts-tooltip-title {
+        @apply py-[9px] px-[12px] mb-[5px] bg-gray-50 text-black rounded-t-md text-sm font-semibold border-b-0 border-gray-100 dark:bg-surface-dark-2 dark:text-white;
+      }
+    }
+  }
+
+  .apexcharts-tooltip-text-y-label,
+  .apexcharts-tooltip-text-y-value,
+  .apexcharts-tooltip-text-goals-value {
+    @apply text-black dark:text-white ml-0;
+  }
+
+  .apexcharts-tooltip-marker {
+    @apply w-[10px] h-[10px] mr-[10px] relative -top-[6px];
+  }
+
+  .apexcharts-xaxistooltip {
+    @apply border-0 -mt-px text-black bg-white shadow-3xl dark:text-white dark:bg-surface-dark-4 dark:shadow-none;
+
+    .apexcharts-xaxistooltip-text {
+      @apply !font-body !text-sm !font-semibold;
+    }
+
+    &::before,
+    &::after {
+      @apply hidden;
+    }
+  }
+
+  .apexcharts-toolbar {
+    @apply text-right mt-[2px] p-0;
+
+    .apexcharts-menu-icon {
+      svg {
+        @apply fill-black transition-colors dark:fill-white;
+      }
+      &:hover {
+        svg {
+          @apply fill-primary-500 dark:fill-primary-400;
+        }
+      }
+    }
+  }
+
+  .apexcharts-menu {
+    @apply p-[5px] min-w-[125px] text-left rounded-md border border-gray-100 bg-white shadow-3xl dark:shadow-none dark:bg-surface-dark-3 dark:border-surface-dark-3;
+
+    .apexcharts-menu-item {
+      @apply transition-colors rounded-[3px] px-[8px] py-[5px] text-sm;
+
+      &:hover {
+        @apply text-primary-500 dark:bg-surface-dark-1;
+      }
+    }
+  }
+
+  .apexcharts-xcrosshairs,
+  .apexcharts-ycrosshairs {
+    @apply fill-primary-100 dark:fill-surface-dark-3;
+  }
+
+  .apexcharts-gridline,
+  .apexcharts-xaxis-tick {
+    @apply dark:stroke-surface-dark-3;
+  }
+
+  .apexcharts-yaxis,
+  .apexcharts-grid-borders {
+    line {
+      @apply dark:stroke-surface-dark-3;
+    }
+  }
+
+  .apexcharts-pie-area {
+    @apply dark:stroke-surface-dark-2;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Tokens de shadcn/ui.
+   `@theme inline` mapea los tokens semánticos a utilidades de Tailwind; los
+   valores concretos viven en `:root` (claro) y `[data-theme='dark']` (oscuro).
+   ────────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sheet-header: var(--sheet-header);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  color-scheme: light;
+  /* Rojo de marca, fondo crema casi blanco y sidebar oscuro. La card sigue siendo #ffffff y se
+     separa por su borde, no por el fondo. */
+  --background: #fafaf8;
+  --foreground: #1f2328;
+  --card: #ffffff;
+  --card-foreground: #1f2328;
+  --popover: #ffffff;
+  --popover-foreground: #1f2328;
+  --primary: #e5383b;
+  --primary-foreground: #ffffff;
+  --secondary: #f2efe5;
+  --secondary-foreground: #3a3f44;
+  --muted: #f2efe5;
+  --muted-foreground: #6b7280;
+  --accent: #f2efe5;
+  --accent-foreground: #3a3f44;
+  --destructive: #c62828;
+  --border: #e7e3d8;
+  /* El borde del control es un punto más oscuro que el de la card: un input tiene que
+     leerse como algo en lo que se escribe, no como una zona de la hoja. */
+  --input: #dcd7c9;
+  --ring: #e5383b;
+  --chart-1: #e5383b;
+  --chart-2: #2e62a8;
+  --chart-3: #a08a3c;
+  --chart-4: #6b5fa8;
+  --chart-5: #a6231f;
+  /* La banda de cabecera de los paneles. Es un gris neutro apenas marcado y no un tinte arena:
+     sobre el panel blanco la arena se leía como un color, y la banda sólo tiene que separar el
+     título del cuerpo. */
+  --sheet-header: #f5f5f4;
+  /* El toast va sobre papel claro; en oscuro se invierte (ver más abajo). */
+  --toast: var(--background);
+  --toast-foreground: var(--foreground);
+  --toast-border: var(--border);
+  --toast-muted: var(--muted-foreground);
+  --sidebar: #1e1b16;
+  --sidebar-foreground: #d8d4c8;
+  --sidebar-primary: #e5383b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2a251d;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2f2a21;
+  --sidebar-ring: #e5383b;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #161612;
+  --foreground: #efede6;
+  --card: #1d1d18;
+  --card-foreground: #efede6;
+  --popover: #26251f;
+  --popover-foreground: #efede6;
+  /* El rojo de marca pierde contraste sobre el carbón: en oscuro sube de luz. */
+  --primary: #f06a6c;
+  --primary-foreground: #2a0707;
+  --secondary: #26251f;
+  --secondary-foreground: #efede6;
+  --muted: #26251f;
+  --muted-foreground: #a8a293;
+  --accent: #26251f;
+  --accent-foreground: #efede6;
+  --destructive: #f08a7e;
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 22%);
+  --ring: #f06a6c;
+  --chart-1: #f06a6c;
+  --chart-2: #6f9fd8;
+  --chart-3: #d8bd6a;
+  --chart-4: #a294d6;
+  --chart-5: #e08272;
+  --sheet-header: #26251f;
+  /* Invertido: superficie clara sobre el carbón, para que interrumpa y no parezca una card. */
+  --toast: var(--foreground);
+  --toast-foreground: var(--background);
+  --toast-border: transparent;
+  --toast-muted: color-mix(in oklab, var(--background) 75%, transparent);
+  --sidebar: #141210;
+  --sidebar-foreground: #d8d4c8;
+  --sidebar-primary: #e5383b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #26221b;
+  --sidebar-accent-foreground: #efede6;
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: #f06a6c;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}

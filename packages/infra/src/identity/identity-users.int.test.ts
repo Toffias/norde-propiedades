@@ -294,12 +294,14 @@ describe('DrizzleRoleListQuery', () => {
     await createUser('bruno@norde.com.ar', [agent]);
 
     const all = await new DrizzleRoleListQuery(db).search({
+      view: 'active',
       text: undefined,
       sort: { field: 'name', direction: 'asc' },
       offset: 0,
       limit: 10,
     });
     const filtered = await new DrizzleRoleListQuery(db).search({
+      view: 'active',
       text: 'géren',
       sort: { field: 'name', direction: 'asc' },
       offset: 0,

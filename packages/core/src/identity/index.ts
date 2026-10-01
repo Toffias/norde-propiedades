@@ -16,13 +16,30 @@ export {
 export {
   PERMISSION_CATALOG,
   isKnownPermission,
+  type UnknownPermissionError,
   type PermissionDefinition,
   type PermissionGroup,
   type PermissionResource,
 } from './domain/permission-catalog';
 export {
+  Role,
+  normalizePermissions,
+  roleKeyFrom,
+  type RoleAlreadyDeletedError,
+  type RoleId,
+  type RoleInUseError,
+  type RoleNotDeletedError,
+  type RoleSnapshot,
+  type SystemRoleCannotBeDeletedError,
+  type SystemRoleCannotBeRenamedError,
+} from './domain/role';
+export type { RoleEvent } from './domain/role.events';
+export type { RoleRepository } from './domain/role.repository';
+export {
   User,
+  type CannotChangeOwnPermissionsError,
   type CannotSuspendSelfError,
+  type DuplicatePermissionError,
   type UserAlreadyActiveError,
   type UserAlreadySuspendedError,
   type UserId,
@@ -36,7 +53,6 @@ export type {
   CredentialStore,
   IdentityTransaction,
   IdentityUnitOfWork,
-  RoleDirectory,
   UserSessions,
 } from './application/ports/identity-transaction';
 export type { PasswordHasher } from './application/ports/password-hasher';
@@ -46,6 +62,7 @@ export type { UserListCriteria, UserListQuery } from './application/ports/user-l
 export type {
   EmailTakenError,
   InvalidInputError,
+  RoleNameTakenError,
   RoleNotFoundError,
   UserNotFoundError,
 } from './application/user-audit';
@@ -62,7 +79,20 @@ export {
   ChangeOwnPassword,
   type ChangeOwnPasswordError,
 } from './application/commands/change-own-password';
+export {
+  SetUserPermissions,
+  type SetUserPermissionsError,
+} from './application/commands/set-user-permissions';
+export { CreateRole, type CreateRoleError } from './application/commands/create-role';
+export { UpdateRole, type UpdateRoleError } from './application/commands/update-role';
+export { DeleteRole, type DeleteRoleError } from './application/commands/delete-role';
+export { RestoreRole, type RestoreRoleError } from './application/commands/restore-role';
 export { ListUsers, type ListUsersError } from './application/queries/list-users';
+export { GetRole, type GetRoleError } from './application/queries/get-role';
+export {
+  GetUserPermissions,
+  type GetUserPermissionsError,
+} from './application/queries/get-user-permissions';
 export { ListRoles, type ListRolesError } from './application/queries/list-roles';
 export {
   ResolveSessionActor,

@@ -1,25 +1,12 @@
-import type { CredentialStore, RoleDirectory, UserSessions } from '@norde/core/identity';
+import type { CredentialStore, UserSessions } from '@norde/core/identity';
 import type { Clock, IdGenerator } from '@norde/core/shared';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import type { DbExecutor } from '../db/executor';
-import { accounts, roles, sessions } from '../db/schema';
+import { accounts, sessions } from '../db/schema';
 
 /** Better Auth guarda la contraseña en la cuenta `credential` cuyo `account_id` es el usuario. */
 const CREDENTIAL_PROVIDER = 'credential';
-
-export class DrizzleRoleDirectory implements RoleDirectory {
-  constructor(private readonly db: DbExecutor) {}
-
-  async findExistingIds(ids: readonly string[]): Promise<readonly string[]> {
-    if (ids.length === 0) return [];
-    const rows = await this.db
-      .select({ id: roles.id })
-      .from(roles)
-      .where(inArray(roles.id, [...ids]));
-    return rows.map((row) => row.id);
-  }
-}
 
 export class DrizzleCredentialStore implements CredentialStore {
   constructor(

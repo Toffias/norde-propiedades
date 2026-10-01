@@ -75,6 +75,19 @@ Roles propuestos (a validar con Norde):
 - Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
 - Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera y el 2FA quedan fuera por ahora (preguntas abiertas de #3).
 
+**Implementado (#3, roles y permisos):**
+
+- **Mi empresa → Roles** (`/mi-empresa/roles`): grilla paginada con búsqueda y cantidad de usuarios por rol, y su **papelera** (baja lógica, con restaurar).
+- **Editor de rol**: nombre, descripción y permisos agrupados como el catálogo. "Todo" en un recurso guarda `recurso:*`, que también cubre las acciones que se agreguen después.
+  - Los cuatro roles del sistema no se renombran ni se borran, pero sus permisos se ajustan.
+  - Un rol con usuarios no se borra: hay que asignarles otro antes.
+  - No puede haber dos roles con el mismo nombre (sin distinguir mayúsculas ni acentos), tampoco contra uno de la papelera.
+  - Un cambio de permisos alcanza a todos los usuarios del rol desde su próxima acción (la sesión se arma en cada request).
+- **Permisos propios** de un usuario (`/mi-empresa/usuarios/<id>/permisos`): para cada permiso del catálogo, "según sus roles", "permitir" o "denegar". La pantalla muestra qué le dan ya sus roles. Denegar gana siempre, también sobre un `recurso:*`. Nadie cambia sus propios permisos.
+- Permisos: `roles:read`, `roles:create`, `roles:update`, `roles:delete` (borrar, restaurar y ver la papelera) y `users:permissions` (dar o quitar permisos propios, aparte de editar usuarios).
+- Auditoría: `role.created`, `role.updated` (con los permisos antes y después), `role.deleted`, `role.restored` contra el rol, y `user.permissions-changed` contra el usuario.
+- La migración `0005` suma a los roles de sistema los recursos nuevos del catálogo (seguimientos, archivos, respuestas rápidas, etiquetas y equipos).
+
 ### 2.2 Trazabilidad de cambios (auditoría)
 
 - Una tabla `audit_log` registra **quién** hizo el cambio, **cuándo**, **sobre qué** entidad e id, **qué acción** (crear, editar, borrar, exportar, iniciar sesión) y el **antes y después** de los campos cambiados.

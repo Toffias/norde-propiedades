@@ -4,7 +4,8 @@ import { err, ok, type Result } from '../../shared/domain/result';
 import type { Email } from '../../shared/domain/value-objects/email';
 import type { Phone } from '../../shared/domain/value-objects/phone';
 
-import type { UserStatus } from './access';
+import type { PermissionEffect, UserPermission, UserStatus } from './access';
+import { isKnownPermission, type UnknownPermissionError } from './permission-catalog';
 import type { UserEvent } from './user.events';
 
 export type UserId = Id<'User'>;
@@ -17,6 +18,11 @@ export interface UserSnapshot {
   readonly status: UserStatus;
   /** Roles del usuario (al menos uno). IDs de `roles`, ordenados. */
   readonly roleIds: readonly string[];
+  /**
+   * Permisos propios, además de los de sus roles: `grant` suma uno y `deny` lo quita aunque venga
+   * de un rol. Uno por permiso, ordenados.
+   */
+  readonly permissions: readonly UserPermission[];
   /** Entra con una contraseña temporal (alta o blanqueo) y tiene que cambiarla. */
   readonly mustChangePassword: boolean;
   readonly createdAt: Date;
@@ -34,6 +40,13 @@ export interface UserAlreadySuspendedError {
 }
 export interface UserAlreadyActiveError {
   readonly type: 'UserAlreadyActive';
+}
+export interface CannotChangeOwnPermissionsError {
+  readonly type: 'CannotChangeOwnPermissions';
+}
+export interface DuplicatePermissionError {
+  readonly type: 'DuplicatePermission';
+  readonly permission: string;
 }
 
 const MAX_NAME_LENGTH = 120;
@@ -72,6 +85,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
       phone: input.phone,
       status: 'active',
       roleIds: roleIds.value,
+      permissions: [],
       mustChangePassword: true,
       createdAt: input.now,
       updatedAt: input.now,
@@ -100,6 +114,10 @@ export class User extends AggregateRoot<UserId, UserEvent> {
 
   get roleIds(): readonly string[] {
     return this.#state.roleIds;
+  }
+
+  get permissions(): readonly UserPermission[] {
+    return this.#state.permissions;
   }
 
   get mustChangePassword(): boolean {
@@ -131,6 +149,42 @@ export class User extends AggregateRoot<UserId, UserEvent> {
       aggregateId: this.id,
       occurredAt: now,
       payload: { userId: this.id, roleIds: normalized.value },
+    });
+    return ok(undefined);
+  }
+
+  /**
+   * Reemplaza sus permisos propios. Cada permiso es del catálogo y aparece una sola vez. Nadie
+   * cambia los suyos: se podría dar cualquier permiso, o quitarse el acceso sin vuelta atrás.
+   */
+  setOwnPermissions(
+    permissions: readonly { readonly permission: string; readonly effect: PermissionEffect }[],
+    by: string,
+    now: Date,
+  ): Result<
+    void,
+    CannotChangeOwnPermissionsError | UnknownPermissionError | DuplicatePermissionError
+  > {
+    if (by === this.id) return err({ type: 'CannotChangeOwnPermissions' });
+    const valid: UserPermission[] = [];
+    const seen = new Set<string>();
+    for (const { permission, effect } of permissions) {
+      if (!isKnownPermission(permission)) return err({ type: 'UnknownPermission', permission });
+      if (seen.has(permission)) return err({ type: 'DuplicatePermission', permission });
+      seen.add(permission);
+      valid.push({ permission, effect });
+    }
+    valid.sort((a, b) => a.permission.localeCompare(b.permission));
+    const key = (list: readonly UserPermission[]) =>
+      list.map((p) => `${p.effect}:${p.permission}`).join();
+    if (key(valid) === key(this.#state.permissions)) return ok(undefined);
+
+    this.#state = { ...this.#state, permissions: valid, updatedAt: now };
+    this.record({
+      type: 'identity.user_permissions_changed',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: { userId: this.id },
     });
     return ok(undefined);
   }

@@ -33,9 +33,13 @@ export class ListRoles {
     if (!parsed.success) {
       return err({ type: 'InvalidSearch', issues: parsed.error.issues.map((i) => i.message) });
     }
-    const { page, pageSize, sort, q } = parsed.data;
+    const { page, pageSize, sort, q, view } = parsed.data;
+
+    // La papelera es de quien puede borrar y restaurar roles.
+    if (view === 'trash' && !actor.can('roles:delete')) return err({ type: 'Forbidden' });
 
     const slice = await this.deps.roles.search({
+      view,
       text: q,
       sort,
       ...toOffsetLimit({ page, pageSize }),

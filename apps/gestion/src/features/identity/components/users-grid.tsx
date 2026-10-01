@@ -18,9 +18,11 @@ import {
   PencilIcon,
   PlusIcon,
   SearchIcon,
+  ShieldIcon,
   UserCheckIcon,
   UserXIcon,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { formatDateTime } from '../../../lib/format';
@@ -35,6 +37,8 @@ export interface UserPermissions {
   readonly update: boolean;
   readonly suspend: boolean;
   readonly resetPassword: boolean;
+  /** Dar o quitar permisos propios. */
+  readonly permissions: boolean;
 }
 
 export interface UsersGridProps {
@@ -129,6 +133,7 @@ export function UsersGrid({
   permissions,
   currentUserId,
 }: UsersGridProps) {
+  const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<UserListItem | undefined>();
   const [changingStatus, setChangingStatus] = useState<UserListItem | undefined>();
@@ -139,7 +144,7 @@ export function UsersGrid({
       id: 'actions',
       header: 'Acciones',
       hideHeader: true,
-      className: 'w-[120px] text-right',
+      className: 'w-[150px] text-right',
       cell: (user) => (
         <RowActions>
           {permissions.update && (
@@ -148,6 +153,18 @@ export function UsersGrid({
               label="Editar"
               onClick={() => {
                 setEditing(user);
+              }}
+            />
+          )}
+          {permissions.permissions && (
+            <RowAction
+              icon={ShieldIcon}
+              label="Permisos propios"
+              {...(user.id === currentUserId
+                ? { disabledReason: 'No podés cambiar tus propios permisos' }
+                : {})}
+              onClick={() => {
+                router.push(`/mi-empresa/usuarios/${user.id}/permisos`);
               }}
             />
           )}
@@ -244,7 +261,7 @@ export function UsersGrid({
       },
       actions,
     ];
-  }, [permissions, currentUserId]);
+  }, [permissions, currentUserId, router]);
 
   const hasFilters = text !== '';
 

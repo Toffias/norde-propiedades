@@ -6,16 +6,19 @@ import type {
   CredentialStore,
   IdentityTransaction,
   IdentityUnitOfWork,
-  RoleDirectory,
   UserSessions,
 } from '../application/ports/identity-transaction';
 import type { PasswordHasher } from '../application/ports/password-hasher';
 import type { RoleListCriteria, RoleListQuery } from '../application/ports/role-list-query';
 import type { UserAccessQuery, UserAccessRecord } from '../application/ports/user-access-query';
 import type { UserListCriteria, UserListQuery } from '../application/ports/user-list-query';
-import type { RoleListItem, UserListItem } from '../contracts';
+import type { RoleDetail, RoleListItem, UserListItem } from '../contracts';
+import { Role, type RoleId, type RoleSnapshot } from '../domain/role';
+import type { RoleRepository } from '../domain/role.repository';
 import { User, type UserId, type UserSnapshot } from '../domain/user';
 import type { UserRepository } from '../domain/user.repository';
+
+import { roleSnapshot } from './fixtures';
 
 export * from './fixtures';
 
@@ -54,11 +57,54 @@ export class InMemoryUserRepository implements UserRepository {
   }
 }
 
-export class InMemoryRoleDirectory implements RoleDirectory {
-  readonly ids = new Set<string>();
+export class InMemoryRoleRepository implements RoleRepository {
+  readonly rows = new Map<string, RoleSnapshot>();
+  readonly updatedBy = new Map<string, string>();
+
+  /** Para contar los usuarios de cada rol. */
+  constructor(private readonly users: InMemoryUserRepository) {}
+
+  findById(id: RoleId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && Role.restore(row));
+  }
+
+  findByKey(key: string) {
+    const row = [...this.rows.values()].find((r) => r.key === key);
+    return Promise.resolve(row && Role.restore(row));
+  }
+
+  findByName(name: string) {
+    // Como `core.search_normalize`: minúsculas y sin acentos.
+    const normalize = (text: string) =>
+      text
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .trim();
+    const row = [...this.rows.values()].find((r) => normalize(r.name) === normalize(name));
+    return Promise.resolve(row && Role.restore(row));
+  }
 
   findExistingIds(ids: readonly string[]) {
-    return Promise.resolve(ids.filter((id) => this.ids.has(id)));
+    return Promise.resolve(
+      ids.filter((id) => {
+        const row = this.rows.get(id);
+        return row !== undefined && row.deletedAt === undefined;
+      }),
+    );
+  }
+
+  countUsers(id: RoleId) {
+    return Promise.resolve(
+      [...this.users.rows.values()].filter((user) => user.roleIds.includes(id)).length,
+    );
+  }
+
+  save(role: Role, actorId: string) {
+    this.rows.set(role.id, role.toSnapshot());
+    this.updatedBy.set(role.id, actorId);
+    return Promise.resolve();
   }
 }
 
@@ -102,7 +148,7 @@ export class FakePasswordHasher implements PasswordHasher {
  */
 export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
   readonly users = new InMemoryUserRepository();
-  readonly roles = new InMemoryRoleDirectory();
+  readonly roles = new InMemoryRoleRepository(this.users);
   readonly credentials = new InMemoryCredentialStore();
   readonly sessions = new InMemoryUserSessions();
   readonly events = new InMemoryEventPublisher();
@@ -111,6 +157,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
   async run<T>(work: (tx: IdentityTransaction) => Promise<T>): Promise<T> {
     const backup = {
       users: new Map(this.users.rows),
+      roles: new Map(this.roles.rows),
       hashes: new Map(this.credentials.hashes),
       sessions: new Map(this.sessions.open),
       events: this.events.published.length,
@@ -118,6 +165,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
     };
     const rollback = () => {
       restore(this.users.rows, backup.users);
+      restore(this.roles.rows, backup.roles);
       restore(this.credentials.hashes, backup.hashes);
       restore(this.sessions.open, backup.sessions);
       this.events.published.splice(backup.events);
@@ -145,11 +193,18 @@ export function seedUser(
   options: { readonly password?: string; readonly openSessions?: number } = {},
 ): void {
   uow.users.rows.set(user.id, user);
-  for (const roleId of user.roleIds) uow.roles.ids.add(roleId);
+  for (const roleId of user.roleIds) {
+    if (!uow.roles.rows.has(roleId)) seedRole(uow, roleSnapshot({ id: roleId, key: roleId }));
+  }
   if (options.password !== undefined) {
     uow.credentials.hashes.set(user.id, `hashed:${options.password}`);
   }
   if (options.openSessions !== undefined) uow.sessions.open.set(user.id, options.openSessions);
+}
+
+/** Siembra un rol ya guardado (sin eventos). */
+export function seedRole(uow: InMemoryIdentityUnitOfWork, role: RoleSnapshot): void {
+  uow.roles.rows.set(role.id, role);
 }
 
 function restore<K, V>(target: Map<K, V>, backup: ReadonlyMap<K, V>): void {
@@ -176,10 +231,17 @@ export class StubUserListQuery implements UserListQuery {
 export class StubRoleListQuery implements RoleListQuery {
   readonly calls: RoleListCriteria[] = [];
 
-  constructor(private readonly slice: PageSlice<RoleListItem> = { items: [], total: 0 }) {}
+  constructor(
+    private readonly slice: PageSlice<RoleListItem> = { items: [], total: 0 },
+    private readonly details: readonly RoleDetail[] = [],
+  ) {}
 
   search(criteria: RoleListCriteria) {
     this.calls.push(criteria);
     return Promise.resolve(this.slice);
+  }
+
+  findById(id: string) {
+    return Promise.resolve(this.details.find((role) => role.id === id));
   }
 }

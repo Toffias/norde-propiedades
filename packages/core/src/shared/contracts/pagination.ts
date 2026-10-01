@@ -18,13 +18,16 @@ export interface Sort<TField extends string> {
  * Orden con lista blanca de columnas: `campo` ordena ascendente y `-campo` descendente (así viaja
  * en la URL). Cualquier otro valor es un error de validación;
  * sin valor, se usa `defaultSort`.
+ *
+ * También acepta el orden ya parseado (`{ field, direction }`): la página parsea los query params
+ * con el contract y el caso de uso vuelve a validar lo que recibe.
  */
 export function sortSchema<const TField extends string>(
   fields: readonly [TField, ...TField[]],
   defaultSort: Sort<NoInfer<TField>>,
 ) {
   const values = fields.flatMap((field) => [field, `-${field}`]);
-  return z
+  const fromUrl = z
     .string()
     .refine((value) => values.includes(value), {
       message: `Orden inválido. Valores posibles: ${values.join(', ')}`,
@@ -35,8 +38,9 @@ export function sortSchema<const TField extends string>(
       // El refine ya garantizó que `name` es uno de `fields`.
       const field = fields.find((candidate) => candidate === name) ?? defaultSort.field;
       return { field, direction: descending ? 'desc' : 'asc' };
-    })
-    .default(defaultSort);
+    });
+  const parsed = z.object({ field: z.enum(fields), direction: z.enum(['asc', 'desc']) });
+  return z.union([fromUrl, parsed]).default(defaultSort);
 }
 
 /**

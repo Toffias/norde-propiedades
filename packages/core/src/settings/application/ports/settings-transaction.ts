@@ -1,4 +1,5 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
+import type { ReferenceCodeUsage } from './reference-code-usage';
 import type {
   CompanyFileRepository,
   CompanySettingsRepository,
@@ -12,6 +13,8 @@ export interface SettingsTransaction {
   readonly sequences: ReferenceCodeSequenceRepository;
   readonly folders: FileFolderRepository;
   readonly files: CompanyFileRepository;
+  /** Lectura de los códigos ya usados, en la misma conexión (si no, la asignación se traba). */
+  readonly codeUsage: ReferenceCodeUsage;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

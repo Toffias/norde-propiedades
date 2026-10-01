@@ -63,7 +63,7 @@ export class CreateReferenceCodeSequence {
         if (created.isErr()) return err(created.error);
         const sequence = created.value;
 
-        await tx.sequences.save(sequence);
+        await tx.sequences.save(sequence, actor.id);
         await tx.audit.record(
           auditCreated(
             actor,

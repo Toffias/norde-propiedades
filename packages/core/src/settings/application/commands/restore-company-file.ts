@@ -33,7 +33,7 @@ export class RestoreCompanyFile {
       const restored = file.restoreFromTrash();
       if (restored.isErr()) return err(restored.error);
 
-      await tx.files.save(file);
+      await tx.files.save(file, actor.id);
       await tx.audit.record(auditAction(actor, fileTarget(file, 'company_file.restored')));
       return ok(undefined);
     });

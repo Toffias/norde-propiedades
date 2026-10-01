@@ -37,7 +37,7 @@ export class MoveCompanyFileToTrash {
       const trashed = file.moveToTrash(actor.id, this.deps.clock.now());
       if (trashed.isErr()) return err(trashed.error);
 
-      await tx.files.save(file);
+      await tx.files.save(file, actor.id);
       await tx.audit.record(auditAction(actor, fileTarget(file, 'company_file.deleted')));
       return ok(undefined);
     });

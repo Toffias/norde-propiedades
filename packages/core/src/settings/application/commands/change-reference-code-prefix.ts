@@ -59,7 +59,7 @@ export class ChangeReferenceCodePrefix {
         sequenceAuditState(sequence),
       );
       if (!entry) return ok(undefined);
-      await tx.sequences.save(sequence);
+      await tx.sequences.save(sequence, actor.id);
       await tx.audit.record(entry);
       return ok(undefined);
     });

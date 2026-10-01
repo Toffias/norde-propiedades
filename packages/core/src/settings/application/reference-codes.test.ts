@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../shared';
 import { SequentialIdGenerator, unwrap, unwrapErr } from '../../shared/testing';
-import {
-  InMemoryDirectory,
-  InMemoryReferenceCodeUsage,
-  InMemorySettingsUnitOfWork,
-} from '../testing';
+import { InMemoryDirectory, InMemorySettingsUnitOfWork } from '../testing';
 
 import { AllocateReferenceCode } from './commands/allocate-reference-code';
 import { ChangeReferenceCodePrefix } from './commands/change-reference-code-prefix';
@@ -26,15 +22,13 @@ const TEAM = '00000000-0000-7000-8000-00000000bbbb';
 function setup() {
   const uow = new InMemorySettingsUnitOfWork();
   const directory = new InMemoryDirectory();
-  const usage = new InMemoryReferenceCodeUsage();
   return {
     uow,
     directory,
-    usage,
     create: new CreateReferenceCodeSequence({ uow, ids: new SequentialIdGenerator() }),
     changePrefix: new ChangeReferenceCodePrefix({ uow }),
     remove: new DeleteReferenceCodeSequence({ uow }),
-    allocate: new AllocateReferenceCode({ uow, usage }),
+    allocate: new AllocateReferenceCode({ uow }),
     list: new ListReferenceCodeSequences({ sequences: uow.sequences, directory }),
     search: new SearchDirectory({ directory }),
   };
@@ -203,8 +197,8 @@ describe('AllocateReferenceCode', () => {
   it('skips codes already taken by hand', async () => {
     const ctx = setup();
     await withGlobal(ctx);
-    ctx.usage.taken.add('P0001');
-    ctx.usage.taken.add('P0002');
+    ctx.uow.codeUsage.taken.add('P0001');
+    ctx.uow.codeUsage.taken.add('P0002');
 
     expect(unwrap(await ctx.allocate.execute({ target: 'property' }, agent)).code).toBe('P0003');
   });

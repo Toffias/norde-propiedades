@@ -44,7 +44,7 @@ export class RenameCompanyFile {
         fileAuditState(file),
       );
       if (!entry) return ok(undefined);
-      await tx.files.save(file);
+      await tx.files.save(file, actor.id);
       await tx.audit.record(entry);
       return ok(undefined);
     });

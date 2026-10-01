@@ -51,7 +51,7 @@ export class RenameFolder {
         folderAuditState(folder),
       );
       if (!entry) return ok(undefined);
-      await tx.folders.save(folder);
+      await tx.folders.save(folder, actor.id);
       await tx.audit.record(entry);
       return ok(undefined);
     });

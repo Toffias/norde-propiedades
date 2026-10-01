@@ -9,7 +9,6 @@ import {
   referenceCodeCandidates,
   resolveReferenceCodeScope,
 } from '../../domain/reference-code';
-import type { ReferenceCodeUsage } from '../ports/reference-code-usage';
 import type { SettingsUnitOfWork } from '../ports/settings-transaction';
 import { parseInput, type ValidationFailedError } from '../settings-input';
 
@@ -33,12 +32,7 @@ export type AllocateReferenceCodeError =
  * en la auditoría del alta que lo usa.
  */
 export class AllocateReferenceCode {
-  constructor(
-    private readonly deps: {
-      readonly uow: SettingsUnitOfWork;
-      readonly usage: ReferenceCodeUsage;
-    },
-  ) {}
+  constructor(private readonly deps: { readonly uow: SettingsUnitOfWork }) {}
 
   async execute(
     input: AllocateReferenceCodeInput,
@@ -60,7 +54,7 @@ export class AllocateReferenceCode {
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
           const number = await tx.sequences.takeNextNumber(sequence.id);
           const code = ReferenceCode.format(sequence.prefix, number);
-          if (!(await this.deps.usage.isTaken(code.value))) {
+          if (!(await tx.codeUsage.isTaken(code.value))) {
             return ok({ code: code.value, sequenceId: sequence.id });
           }
         }

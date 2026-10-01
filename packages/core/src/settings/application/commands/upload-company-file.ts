@@ -86,7 +86,7 @@ export class UploadCompanyFile {
           if (uploaded.isErr()) return err(uploaded.error);
           const file = uploaded.value;
 
-          await tx.files.save(file);
+          await tx.files.save(file, actor.id);
           await tx.audit.record(
             auditCreated(actor, fileTarget(file, 'company_file.uploaded'), fileAuditState(file)),
           );

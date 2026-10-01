@@ -7,7 +7,8 @@ import type { ReferenceCodeSequence, ReferenceCodeSequenceId } from './reference
 /** La fila única de configuración. Siempre existe: la crea la migración. */
 export interface CompanySettingsRepository {
   get(): Promise<CompanySettings>;
-  save(settings: CompanySettings): Promise<void>;
+  /** `actorId` queda como autor del cambio (`updated_by`). */
+  save(settings: CompanySettings, actorId: string): Promise<void>;
 }
 
 export interface ReferenceCodeSequenceRepository {
@@ -15,7 +16,7 @@ export interface ReferenceCodeSequenceRepository {
   /** Las numeraciones configuradas para esos alcances (como mucho, una por alcance). */
   findByScopes(keys: readonly ReferenceCodeScopeKey[]): Promise<ReferenceCodeSequence[]>;
   findByPrefix(prefix: ReferenceCodePrefix): Promise<ReferenceCodeSequence | undefined>;
-  save(sequence: ReferenceCodeSequence): Promise<void>;
+  save(sequence: ReferenceCodeSequence, actorId: string): Promise<void>;
   delete(id: ReferenceCodeSequenceId): Promise<void>;
   /**
    * Toma el próximo número de la numeración y la avanza, de forma atómica: dos altas en paralelo
@@ -33,11 +34,11 @@ export interface FileFolderRepository {
     except?: FileFolderId,
   ): Promise<boolean>;
   contents(id: FileFolderId): Promise<FolderContents>;
-  save(folder: FileFolder): Promise<void>;
+  save(folder: FileFolder, actorId: string): Promise<void>;
   delete(id: FileFolderId): Promise<void>;
 }
 
 export interface CompanyFileRepository {
   findById(id: CompanyFileId): Promise<CompanyFile | undefined>;
-  save(file: CompanyFile): Promise<void>;
+  save(file: CompanyFile, actorId: string): Promise<void>;
 }

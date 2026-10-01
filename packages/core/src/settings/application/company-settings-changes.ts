@@ -45,7 +45,7 @@ export async function saveCompanySettingsChange(
   );
   const events = settings.pullEvents();
   if (!entry) return false;
-  await tx.companySettings.save(settings);
+  await tx.companySettings.save(settings, actor.id);
   await tx.events.publish(events);
   await tx.audit.record(entry);
   return true;

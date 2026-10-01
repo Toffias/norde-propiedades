@@ -183,6 +183,7 @@ export class InMemorySettingsUnitOfWork implements SettingsUnitOfWork {
   readonly sequences = new InMemoryReferenceCodeSequenceRepository();
   readonly files = new InMemoryCompanyFileRepository();
   readonly folders = new InMemoryFileFolderRepository(this.files);
+  readonly codeUsage = new InMemoryReferenceCodeUsage();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
 

@@ -63,7 +63,7 @@ export class CreateFolder {
         if (created.isErr()) return err(created.error);
         const folder = created.value;
 
-        await tx.folders.save(folder);
+        await tx.folders.save(folder, actor.id);
         await tx.audit.record(
           auditCreated(
             actor,

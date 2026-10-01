@@ -10,7 +10,6 @@ import { PropertiesGrid } from '../../../features/properties/components/properti
 import type { PropertyFilterValues } from '../../../features/properties/components/properties-toolbar';
 import { PROPERTY_LIST_ERROR_MESSAGES } from '../../../features/properties/messages';
 import { messageForError } from '../../../lib/errors';
-import { formatCount } from '../../../lib/format';
 import { parseListParams, type SearchParams } from '../../../lib/list-params';
 import { requireSession } from '../../../lib/session';
 
@@ -54,18 +53,6 @@ export default async function PropertiesPage({
         title="Propiedades"
         subtitle="La cartera de Norde: borradores, disponibles, reservadas y cerradas"
       />
-
-      {result.isOk() && (
-        <p className="text-sm text-muted-foreground">
-          {query.view === 'trash'
-            ? formatCount(
-                result.value.total,
-                'propiedad en la papelera',
-                'propiedades en la papelera',
-              )
-            : formatCount(result.value.total, 'propiedad', 'propiedades')}
-        </p>
-      )}
 
       {invalidKeys.length > 0 && (
         <p role="status" className="text-sm text-muted-foreground">

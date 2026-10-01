@@ -1,9 +1,7 @@
 'use client';
 
 import {
-  CURRENCIES,
   OPERATIONS,
-  PROPERTY_SCOPE_VALUES,
   PROPERTY_STATUS_VALUES,
   PROPERTY_TYPES,
   type PropertyViewValue,
@@ -20,13 +18,8 @@ import { MapPinIcon, SearchIcon } from 'lucide-react';
 import { useEffect, useState, type ComponentType } from 'react';
 
 import { useListNavigation } from '../../shared/components/server-data-table';
-import {
-  CURRENCY_LABELS,
-  OPERATION_LABELS,
-  PROPERTY_STATUS_DISPLAY,
-  PROPERTY_TYPE_LABELS,
-  SCOPE_LABELS,
-} from '../labels';
+import { OPERATION_LABELS, PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../labels';
+import { PropertyFiltersPopover } from './property-filters-popover';
 
 /** Filtros del buscador tal como están en la URL (texto, sin parsear). */
 export interface PropertyFilterValues {
@@ -101,7 +94,6 @@ function FilterSelect({
   label,
   anyLabel,
   options,
-  clearOnAny = [],
   className = 'w-full sm:w-[170px]',
 }: {
   readonly param: string;
@@ -110,8 +102,6 @@ function FilterSelect({
   /** Sin `anyLabel` el select no tiene opción "todos" (siempre hay un valor elegido). */
   readonly anyLabel?: string;
   readonly options: readonly { readonly value: string; readonly label: string }[];
-  /** Params que dependen de este y se quitan al elegir "todos". */
-  readonly clearOnAny?: readonly string[];
   readonly className?: string;
 }) {
   const { setParams } = useListNavigation();
@@ -119,11 +109,7 @@ function FilterSelect({
     <Select
       value={value === '' ? ANY : value}
       onValueChange={(next) => {
-        if (next !== ANY) {
-          setParams({ [param]: next });
-          return;
-        }
-        setParams(Object.fromEntries([param, ...clearOnAny].map((key) => [key, undefined])));
+        setParams({ [param]: next === ANY ? undefined : next });
       }}
     >
       <SelectTrigger className={className} aria-label={label}>
@@ -149,8 +135,8 @@ function options<T extends string>(
 }
 
 /**
- * Filtros rápidos del buscador: texto, operación, tipo, estado, ubicación, precio y alcance. El
- * rango de precio necesita moneda (no se comparan pesos con dólares).
+ * Filtros rápidos del buscador (texto, ubicación, operación, tipo y estado) y el botón de más
+ * filtros (moneda y precio, alcance y papelera).
  */
 export function PropertiesToolbar({
   filters,
@@ -162,7 +148,6 @@ export function PropertiesToolbar({
   readonly sortsByPrice: boolean;
   readonly canSeeTrash: boolean;
 }) {
-  const scopeValue = filters.scope === '' ? 'all' : filters.scope;
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
@@ -206,56 +191,11 @@ export function PropertiesToolbar({
             label: PROPERTY_STATUS_DISPLAY[value].label,
           }))}
         />
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
-        <FilterSelect
-          param="currency"
-          value={filters.currency}
-          label="Moneda"
-          anyLabel="Moneda"
-          options={options(CURRENCIES, CURRENCY_LABELS)}
-          clearOnAny={['minPrice', 'maxPrice', ...(sortsByPrice ? ['sort'] : [])]}
+        <PropertyFiltersPopover
+          filters={filters}
+          sortsByPrice={sortsByPrice}
+          canSeeTrash={canSeeTrash}
         />
-        {filters.currency !== '' && (
-          <>
-            <DebouncedInput
-              param="minPrice"
-              value={filters.minPrice}
-              label="Precio desde"
-              placeholder="Desde"
-              className="w-full sm:w-[130px]"
-              inputMode="decimal"
-            />
-            <DebouncedInput
-              param="maxPrice"
-              value={filters.maxPrice}
-              label="Precio hasta"
-              placeholder="Hasta"
-              className="w-full sm:w-[130px]"
-              inputMode="decimal"
-            />
-          </>
-        )}
-        <FilterSelect
-          param="scope"
-          value={scopeValue === 'all' ? '' : scopeValue}
-          label="Qué propiedades"
-          anyLabel={SCOPE_LABELS.all}
-          options={options(
-            PROPERTY_SCOPE_VALUES.filter((value) => value !== 'all'),
-            SCOPE_LABELS,
-          )}
-        />
-        {canSeeTrash && (
-          <FilterSelect
-            param="view"
-            value={filters.view === 'active' ? '' : filters.view}
-            label="Qué ver"
-            anyLabel="Cartera"
-            options={[{ value: 'trash', label: 'Papelera' }]}
-            className="w-full sm:w-[140px]"
-          />
-        )}
       </div>
     </div>
   );

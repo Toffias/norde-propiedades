@@ -32,7 +32,11 @@ export class ResolveSessionActor {
     if (!user) return err({ type: 'UserNotFound' });
     if (!canSignIn(user.status)) return err({ type: 'UserSuspended' });
 
-    const { granted, denied } = effectivePermissions(user.rolePermissions, user.userPermissions);
+    // Con una contraseña temporal (alta o blanqueo) no puede hacer nada más que cambiarla: quien
+    // la conoce es el administrador que la puso.
+    const { granted, denied } = user.mustChangePassword
+      ? { granted: [], denied: [] }
+      : effectivePermissions(user.rolePermissions, user.userPermissions);
     const sessionActor = Actor.user(user.id, granted, denied);
 
     return ok({
@@ -40,7 +44,13 @@ export class ResolveSessionActor {
         input.correlationId === undefined
           ? sessionActor
           : sessionActor.withCorrelation(input.correlationId),
-      profile: { id: user.id, name: user.name, email: user.email, roles: user.roles },
+      profile: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roles: user.roles,
+        mustChangePassword: user.mustChangePassword,
+      },
     });
   }
 }

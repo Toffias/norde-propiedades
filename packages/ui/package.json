@@ -18,6 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tanstack/react-table": "catalog:",
     "apexcharts": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",

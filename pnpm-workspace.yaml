@@ -21,6 +21,7 @@ catalog:
   '@payloadcms/translations': 3.90.1
   '@payloadcms/ui': 3.90.1
   '@tailwindcss/postcss': 4.3.3
+  '@tanstack/react-table': 9.2.4
   '@tailwindcss/typography': 0.5.20
   '@types/node': 24.13.6
   '@types/pg': 8.23.1

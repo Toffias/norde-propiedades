@@ -136,7 +136,7 @@ export class DrizzleDirectory implements Directory {
       case 'user':
         return { table: users, where: eq(users.status, 'active') };
       case 'team':
-        return { table: teams, where: undefined };
+        return { table: teams, where: isNull(teams.deletedAt) };
       case 'branch':
         return { table: branches, where: isNull(branches.deletedAt) };
     }

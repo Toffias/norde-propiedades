@@ -282,7 +282,18 @@ describe('DrizzleDirectory', () => {
     const audit = { createdAt: now, updatedAt: now, createdBy: ACTOR, updatedBy: ACTOR };
     const branchId = ids.next();
     await db.insert(branches).values({ id: branchId, name: 'Casa central', ...audit });
-    await db.insert(teams).values({ id: ids.next(), name: 'Ventas', branchId, ...audit });
+    await db.insert(teams).values([
+      { id: ids.next(), name: 'Ventas', branchId, ...audit },
+      // En la papelera: no se elige para un prefijo exclusivo.
+      {
+        id: ids.next(),
+        name: 'Ventas viejo',
+        branchId,
+        ...audit,
+        deletedAt: now,
+        deletedBy: ACTOR,
+      },
+    ]);
     const ana = ids.next();
     await db.insert(users).values([
       { id: ana, email: 'ana@norde.com.ar', name: 'Ana Gómez', ...audit },

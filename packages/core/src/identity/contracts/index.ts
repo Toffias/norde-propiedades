@@ -70,7 +70,7 @@ export const ListUsersQuerySchema = pageQuerySchema({
 });
 export type ListUsersQuery = z.input<typeof ListUsersQuerySchema>;
 
-export const ROLE_SORT_FIELDS = ['name', 'userCount'] as const;
+export const ROLE_SORT_FIELDS = ['name'] as const;
 export type RoleSortField = (typeof ROLE_SORT_FIELDS)[number];
 
 export const ListRolesQuerySchema = pageQuerySchema({

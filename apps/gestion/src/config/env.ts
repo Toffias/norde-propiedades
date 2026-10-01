@@ -14,7 +14,8 @@ const EnvSchema = z.object({
   BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
 
   /** Storage de archivos: `local` (disco, para desarrollo) o `s3` (Cloudflare R2 o AWS S3). */
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /** Sin valor, `local`; en producción es obligatorio elegirlo. */
+  STORAGE_DRIVER: z.enum(['local', 's3']).optional(),
   STORAGE_LOCAL_DIR: z.string().default('.storage'),
   /** R2: `https://<account>.r2.cloudflarestorage.com`. Sin valor, AWS S3. */
   S3_ENDPOINT: z.url({ protocol: /^https$/ }).optional(),
@@ -33,6 +34,14 @@ const EnvSchema = z.object({
 const S3_REQUIRED = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
 
 const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
+  // Un deploy sin el driver guardaría los archivos en el disco del servidor sin que nadie lo note.
+  if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['STORAGE_DRIVER'],
+      message: 'Required in production (local or s3)',
+    });
+  }
   if (env.STORAGE_DRIVER !== 's3') return;
   for (const key of S3_REQUIRED) {
     if (env[key] === undefined) {

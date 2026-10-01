@@ -3,6 +3,8 @@ import type { BranchRepository, TeamRepository } from '../../domain/organization
 import type { RoleRepository } from '../../domain/role.repository';
 import type { UserRepository } from '../../domain/user.repository';
 
+import type { UserFavorites } from './user-favorites';
+
 /** Contraseña del usuario (la cuenta `credential` del proveedor de autenticación), ya hasheada. */
 export interface CredentialStore {
   findPasswordHash(userId: string): Promise<string | undefined>;
@@ -23,6 +25,7 @@ export interface IdentityTransaction {
   readonly teams: TeamRepository;
   readonly credentials: CredentialStore;
   readonly sessions: UserSessions;
+  readonly favorites: UserFavorites;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

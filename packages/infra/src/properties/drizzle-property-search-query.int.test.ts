@@ -54,6 +54,20 @@ describe('DrizzlePropertySearchQuery', () => {
     expect(result.items.map((p) => p.title)).toEqual(['Disponible']);
   });
 
+  it('leaves out the properties in the trash', async () => {
+    await insertProperty({ title: 'Activa' });
+    const trashed = await insertProperty({
+      title: 'Borrada',
+      deletedAt: new Date('2026-09-30T12:00:00Z'),
+      deletedBy: '00000000-0000-7000-8000-0000000000a1',
+    });
+
+    const result = await query.search(listed);
+
+    expect(result.items.map((p) => p.title)).toEqual(['Activa']);
+    expect(await query.findById(trashed.id)).toBeUndefined();
+  });
+
   it('matches the location by any word, ignoring accents and case', async () => {
     await insertProperty({ title: 'VL', neighborhood: 'Florida', city: 'Vicente López' });
     await insertProperty({ title: 'Palermo', neighborhood: 'Palermo' });

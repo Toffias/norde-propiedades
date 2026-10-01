@@ -15,7 +15,10 @@ import { ServerDataTable } from '../../shared/components/server-data-table';
 import { deleteTeamAction, restoreTeamAction } from '../actions';
 import { NameSearchToolbar } from './list-toolbar';
 import { TeamSheet, type TeamSheetData } from './team-sheet';
-import { ConfirmActionDialog, type ConfirmActionCopy } from './trash-dialog';
+import {
+  ConfirmActionDialog,
+  type ConfirmActionCopy,
+} from '../../shared/components/confirm-action-dialog';
 
 export interface TeamPermissions {
   readonly create: boolean;

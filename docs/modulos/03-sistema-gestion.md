@@ -270,6 +270,29 @@ Diseño propuesto:
 
 ---
 
+### 4.6 Buscador, alta corta y papelera (#5)
+
+La #5 se hace en dos etapas. La etapa 1 (la base) está construida; la etapa 2 está detallada en un comentario de la issue (más filtros, vistas de tarjetas y mapa, acciones masivas y exportaciones, configuración de tipos, ubicaciones, catálogos, etiquetas y búsqueda con IA).
+
+**Buscador** (`/propiedades`):
+
+- Es una query distinta de la búsqueda pública: ve borradores y datos internos.
+- La cartera es de toda la inmobiliaria: con `properties:read` se ven todas. "Mis captaciones" y "Mi sucursal" son filtros.
+- Filtros rápidos: texto (código, título o dirección), barrio / localidad / provincia, operación, tipo, estado, y moneda con rango de precio.
+- El precio se filtra y se ordena en **una sola moneda**: sin moneda no hay rango ni orden por precio. Con operación elegida, el precio es el de esa operación.
+- Orden por última actualización (por defecto), creación, precio o código.
+- Todo paginado en el servidor, con un índice por filtro y orden (probado con 5.000 propiedades).
+
+**Alta corta** (panel lateral del buscador, `?panel=new`):
+
+- Tipo, operación, moneda y precio (opcional), calle, altura, piso y unidad (privados), barrio, localidad y provincia, y latitud / longitud (opcional).
+- La propiedad nace como **borrador**, con quien la carga como captador y su sucursal.
+- El código de referencia sale de la numeración de Mi empresa (§14.2).
+- Si se dejan vacías, la dirección para publicar se arma con la calle y la altura redondeada a la centena ("Gurruchaga al 1800"), y el título para portales con tipo, operación y barrio ("Departamento en venta en Palermo").
+- El propietario se carga en la etapa 2: necesita el buscador de clientes (#8).
+
+**Papelera**: borrar es baja lógica. Se ven quién la borró y cuándo, y se restaura. Borra o restaura sus propiedades quien tiene `properties:delete`, y las de cualquiera quien tiene `properties:delete-others`. Las propiedades de la papelera no aparecen en la web ni en el agente.
+
 ## 5. Alquiler: gestión de contratos
 
 Además de la propiedad publicada en alquiler, cuando se concreta el alquiler se crea un **contrato**:

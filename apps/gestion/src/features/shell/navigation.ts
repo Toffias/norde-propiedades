@@ -33,7 +33,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
   {
     label: 'Cartera',
     items: [
-      { href: '/propiedades', label: 'Propiedades', icon: BuildingIcon, disabledReason: SOON },
+      { href: '/propiedades', label: 'Propiedades', icon: BuildingIcon },
       {
         href: '/emprendimientos',
         label: 'Emprendimientos',

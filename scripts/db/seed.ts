@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   try {
     await client.query('begin');
     for (const p of seed) {
-      await client.query(
+      const saved = await client.query<{ id: string }>(
         `insert into core.properties (
            id, code, slug, title, description, operation, property_type, status, published_on_web,
            featured, address, show_exact_address, neighborhood, city, province, price_cents, currency,
@@ -98,7 +98,8 @@ async function main(): Promise<void> {
            rooms = excluded.rooms, bedrooms = excluded.bedrooms, bathrooms = excluded.bathrooms,
            surface_total_m2 = excluded.surface_total_m2,
            surface_covered_m2 = excluded.surface_covered_m2, amenities = excluded.amenities,
-           image_urls = excluded.image_urls, updated_at = now()`,
+           image_urls = excluded.image_urls, updated_at = now()
+         returning id`,
         [
           randomUUID(),
           p.code,
@@ -126,6 +127,24 @@ async function main(): Promise<void> {
           p.amenities,
           p.imageUrls,
         ].map((value) => (typeof value === 'bigint' ? value.toString() : value)),
+      );
+      // El buscador del panel lee la operación y el precio de `property_operations`.
+      const propertyId = saved.rows[0]?.id;
+      if (propertyId === undefined) throw new Error(`No se guardó la propiedad ${p.code}`);
+      await client.query(
+        `insert into core.property_operations (
+           id, property_id, operation, price_cents, currency, created_at, updated_at, created_by,
+           updated_by)
+         values ($1, $2, $3, $4, $5, now(), now(), 'system:import', 'system:import')
+         on conflict (property_id, operation) do update set
+           price_cents = excluded.price_cents, currency = excluded.currency, updated_at = now()`,
+        [
+          randomUUID(),
+          propertyId,
+          p.operation,
+          p.price === null ? null : (BigInt(p.price) * 100n).toString(),
+          p.currency,
+        ],
       );
     }
     const users = z

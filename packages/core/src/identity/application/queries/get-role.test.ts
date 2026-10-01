@@ -43,6 +43,7 @@ describe('GetUserPermissions', () => {
       name: 'Camila',
       email: 'camila@norde.com.ar',
       status: 'active',
+      branchId: undefined,
       mustChangePassword: false,
       roles: [],
       rolePermissions: ['clients:read', 'rentals:*', 'clients:read'],

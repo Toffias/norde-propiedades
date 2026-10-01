@@ -7,6 +7,8 @@ export interface UserAccessRecord {
   readonly name: string;
   readonly email: string;
   readonly status: UserStatus;
+  /** Su sucursal, si tiene (las reglas de pertenencia la usan). */
+  readonly branchId: string | undefined;
   /** Entró con una contraseña temporal y todavía no la cambió. */
   readonly mustChangePassword: boolean;
   readonly roles: readonly RoleSummary[];

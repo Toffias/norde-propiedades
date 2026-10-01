@@ -12,13 +12,14 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
-import { auditLog, outbox, roles, sessions, userRoles, users } from '../db/schema';
+import { auditLog, branches, outbox, roles, sessions, userRoles, users } from '../db/schema';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import type { InfraLogger } from '../shared/logger';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { BetterAuthPasswordHasher } from './better-auth-password-hasher';
 import { BetterAuthSessionReader, createAuth } from './better-auth';
+import { DrizzleUserAccessQuery } from './drizzle-user-access-query';
 import { DrizzleRoleListQuery } from './drizzle-role-list-query';
 import { DrizzleUserListQuery } from './drizzle-user-list-query';
 import { DrizzleUserRepository } from './drizzle-user-repository';
@@ -313,5 +314,24 @@ describe('DrizzleRoleListQuery', () => {
       ['manager', 0],
     ]);
     expect(filtered.items.map((role) => role.key)).toEqual(['manager']);
+  });
+});
+
+describe('DrizzleUserAccessQuery with a branch', () => {
+  it('returns the branch of the user, for the ownership rules', async () => {
+    const agent = await insertRole('agent', 'Agente');
+    const userId = await createUser('camila@norde.com.ar', [agent]);
+    const branchId = ids.next();
+    await db.insert(branches).values({
+      id: branchId,
+      name: 'Casa central',
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 'system:import',
+      updatedBy: 'system:import',
+    });
+    await db.update(users).set({ branchId }).where(eq(users.id, userId));
+
+    expect((await new DrizzleUserAccessQuery(db).findByUserId(userId))?.branchId).toBe(branchId);
   });
 });

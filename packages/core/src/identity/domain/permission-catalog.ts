@@ -49,6 +49,7 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
           { permission: 'clients:read-owners', label: 'Ver datos de propietarios' },
           { permission: 'clients:create', label: 'Crear contactos' },
           { permission: 'clients:update', label: 'Editar sus contactos' },
+          { permission: 'clients:update-others', label: 'Editar contactos de otros' },
           { permission: 'clients:rename', label: 'Renombrar contactos' },
           { permission: 'clients:reassign', label: 'Cambiar el agente de un contacto' },
           { permission: 'clients:delete', label: 'Borrar sus contactos' },

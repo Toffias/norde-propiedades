@@ -64,8 +64,32 @@ const EnvSchema = z
 
     /** Relay del outbox y workers de pg-boss. */
     JOBS_ENABLED: z.stringbool().default(true),
+
+    // Storage de archivos: los jobs generan las variantes de las fotos y los PDF de la ficha.
+    /** `local` (disco, para desarrollo) o `s3` (Cloudflare R2 o AWS S3), como el panel. */
+    STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+    /** En desarrollo, la misma carpeta que usa el panel. */
+    STORAGE_LOCAL_DIR: z.string().default('../gestion/.storage'),
+    /** R2: `https://<account>.r2.cloudflarestorage.com`. Sin valor, AWS S3. */
+    S3_ENDPOINT: z.url({ protocol: /^https$/ }).optional(),
+    S3_REGION: z.string().optional(),
+    S3_BUCKET: z.string().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.STORAGE_DRIVER === 's3') {
+      for (const key of [
+        'S3_REGION',
+        'S3_BUCKET',
+        'S3_ACCESS_KEY_ID',
+        'S3_SECRET_ACCESS_KEY',
+      ] as const) {
+        if (env[key] === undefined) {
+          ctx.addIssue({ code: 'custom', path: [key], message: 'Required with STORAGE_DRIVER=s3' });
+        }
+      }
+    }
     const present = WHATSAPP_REQUIRED.filter((key) => env[key] !== undefined);
     if (present.length > 0 && present.length < WHATSAPP_REQUIRED.length) {
       for (const key of WHATSAPP_REQUIRED.filter((k) => env[k] === undefined)) {

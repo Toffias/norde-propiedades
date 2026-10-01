@@ -9,12 +9,32 @@ import {
   type ChannelMessengers,
   type ConversationPolicy,
 } from '@norde/core/conversations';
-import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
+import {
+  DeleteStoredMediaFiles,
+  GeneratePropertyMediaVariants,
+  GetPropertyDetail,
+  GetPropertyInterestProfile,
+  RenderPropertyDocument,
+  SearchProperties,
+  type OwnerReports,
+} from '@norde/core/properties';
+import { GetOwnerReport, type ReportingPropertyProfiles } from '@norde/core/reporting';
+import type { FileStorage } from '@norde/core/settings';
 import { Actor } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
   createConversationsUnitOfWork,
   createDatabase,
+  createPropertiesUnitOfWork,
+  DrizzleCompanySettingsRepository,
+  DrizzleDirectory,
+  DrizzlePropertyDetailLookups,
+  DrizzlePropertyStatisticsQuery,
+  LocalFileStorage,
+  PdfLibPropertyDocumentRenderer,
+  S3FileStorage,
+  SharpImageVariantGenerator,
+  SharpImageWatermarker,
   DrizzleClientRepository,
   DrizzleOpportunityRepository,
   DrizzlePropertySearchQuery,
@@ -25,6 +45,7 @@ import {
   SystemClock,
   UuidV7IdGenerator,
   WebhookTeamNotifier,
+  type Database,
 } from '@norde/infra';
 import type { Logger } from 'pino';
 
@@ -49,7 +70,76 @@ const AGENT_ACTOR = Actor.system('agent-ia', [
   'conversations:receive',
   'conversations:reply',
 ]);
-const SCHEDULER_ACTOR = Actor.system('scheduler', ['clients:read']);
+const SCHEDULER_ACTOR = Actor.system('scheduler', [
+  'clients:read',
+  'properties:read',
+  'properties:process-media',
+  'properties:render-documents',
+]);
+
+function createStorage(env: Env): FileStorage {
+  if (env.STORAGE_DRIVER !== 's3') return new LocalFileStorage(env.STORAGE_LOCAL_DIR);
+  // `loadEnv` ya exigió estas variables con STORAGE_DRIVER=s3.
+  return new S3FileStorage({
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION ?? 'auto',
+    bucket: env.S3_BUCKET ?? '',
+    accessKeyId: env.S3_ACCESS_KEY_ID ?? '',
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
+  });
+}
+
+/** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
+function createPropertyJobs(
+  db: Database,
+  env: Env,
+  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
+) {
+  const { clock } = deps;
+  const uow = createPropertiesUnitOfWork(db, deps);
+  const storage = createStorage(env);
+  const settings = new DrizzleCompanySettingsRepository(db, clock);
+  const directory = new DrizzleDirectory(db);
+  const users = { names: (userIds: readonly string[]) => directory.names('user', userIds) };
+  const interestProfile = new GetPropertyInterestProfile({ uow });
+  const profiles: ReportingPropertyProfiles = {
+    async find(propertyId, actor) {
+      const profile = await interestProfile.execute({ propertyId }, actor);
+      return profile.isOk() ? profile.value : undefined;
+    },
+  };
+  const ownerReport = new GetOwnerReport({
+    profiles,
+    statistics: new DrizzlePropertyStatisticsQuery(db),
+  });
+  const ownerReports: OwnerReports = {
+    async build(propertyId, period, actor) {
+      const report = await ownerReport.execute({ propertyId, ...period }, actor);
+      return report.isOk() ? report.value : undefined;
+    },
+  };
+  return {
+    generateMediaVariants: new GeneratePropertyMediaVariants({
+      uow,
+      storage,
+      images: new SharpImageVariantGenerator(),
+      watermarker: new SharpImageWatermarker(),
+      settings,
+      clock,
+    }),
+    deleteStoredMediaFiles: new DeleteStoredMediaFiles({ storage }),
+    renderDocument: new RenderPropertyDocument({
+      uow,
+      lookups: new DrizzlePropertyDetailLookups(db),
+      users,
+      storage,
+      settings,
+      renderer: new PdfLibPropertyDocumentRenderer(),
+      ownerReports,
+      clock,
+    }),
+  };
+}
 
 export interface ContainerOverrides {
   /** Reemplaza el envío por WhatsApp (el simulador imprime en consola). */
@@ -197,6 +287,7 @@ export function createContainer(
   });
   for (const subscription of eventSubscriptions({
     notifyTeam,
+    properties: createPropertyJobs(db, env, { ids, clock }),
     actor: SCHEDULER_ACTOR,
     logger,
   })) {

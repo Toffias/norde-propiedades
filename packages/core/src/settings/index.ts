@@ -76,7 +76,12 @@ export type {
   SettingsUnitOfWork,
 } from './application/ports/settings-transaction';
 export type { FileStorage, SignedUrlOptions, StoredObject } from './application/ports/file-storage';
-export type { Mailer, MailerError, OutgoingEmail } from './application/ports/mailer';
+export type {
+  EmailAttachment,
+  Mailer,
+  MailerError,
+  OutgoingEmail,
+} from './application/ports/mailer';
 export type { ImageWatermarker, InvalidImageError } from './application/ports/image-watermarker';
 export type { ReferenceCodeUsage } from './application/ports/reference-code-usage';
 export type { CompanySettingsReader } from './application/ports/company-settings-reader';

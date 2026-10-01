@@ -34,6 +34,12 @@ export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work
 export { DrizzleUserFavorites } from './identity/drizzle-user-favorites';
 export { DrizzlePropertyCatalogQuery } from './properties/drizzle-property-catalog-query';
 export { DrizzlePropertyMediaQuery } from './properties/drizzle-property-media-query';
+export { DrizzlePropertyDocumentQuery } from './properties/drizzle-property-documents';
+export { DrizzlePropertyDetailLookups } from './properties/drizzle-property-detail-lookups';
+export { DrizzleAuditHistoryQuery } from './audit/drizzle-audit-history-query';
+export { DrizzlePropertyInterestQuery } from './clients/drizzle-property-interest-query';
+export { DrizzlePropertyStatisticsQuery } from './reporting/drizzle-property-statistics-query';
+export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-document-renderer';
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';

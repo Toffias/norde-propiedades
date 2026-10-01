@@ -70,6 +70,25 @@ describe('ResendMailer', () => {
     expect(logs.join()).not.toContain('camila@');
   });
 
+  it('sends the attachments in base64', async () => {
+    const { mailer, requests } = setup(() => Response.json(SENT));
+
+    const result = await mailer.send({
+      ...email,
+      attachments: [
+        { fileName: 'reporte.pdf', contentType: 'application/pdf', bytes: new Uint8Array([1, 2]) },
+      ],
+    });
+
+    expect(result.isOk()).toBe(true);
+    const body: unknown = JSON.parse(
+      typeof requests[0]?.init.body === 'string' ? requests[0].init.body : '{}',
+    );
+    expect(body).toMatchObject({
+      attachments: [{ filename: 'reporte.pdf', content: 'AQI=', content_type: 'application/pdf' }],
+    });
+  });
+
   it('reports a rejection with the provider message, without retrying', async () => {
     const { mailer, requests } = setup(() => Response.json(INVALID_FROM, { status: 403 }));
 

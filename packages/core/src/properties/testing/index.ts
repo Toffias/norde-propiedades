@@ -2,7 +2,11 @@
 
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
-import type { PanelPropertyRow, PropertyExportFormat } from '../contracts';
+import type {
+  PanelPropertyCustomAttribute,
+  PanelPropertyRow,
+  PropertyExportFormat,
+} from '../contracts';
 import type { GeocodingFailedError, Geocoder } from '../application/ports/geocoder';
 import type {
   BoundingBox,
@@ -76,6 +80,20 @@ import {
 } from '../domain/property-attachment';
 import type { ImageVariantGenerator } from '../application/ports/image-variant-generator';
 import type { PropertyMediaQuery } from '../application/ports/property-media-query';
+import type {
+  OwnerReports,
+  PropertyDocumentContent,
+  PropertyDocumentQuery,
+  PropertyDocumentRenderer,
+} from '../application/ports/property-documents';
+import type { PropertyDetailLookups } from '../application/ports/property-detail-lookups';
+import {
+  PropertyDocument,
+  type PropertyDocumentId,
+  type PropertyDocumentSnapshot,
+} from '../domain/property-document';
+import type { PropertyDocumentRepository } from '../domain/property-document.repository';
+import type { OwnerReport } from '../../reporting';
 import {
   DEFAULT_PUBLICATION,
   EMPTY_CHARACTERISTICS,
@@ -525,6 +543,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly favoriteSearches = new InMemoryFavoriteSearchRepository();
   readonly media = new InMemoryMediaItemRepository();
   readonly attachments = new InMemoryPropertyAttachmentRepository();
+  readonly documents = new InMemoryPropertyDocumentRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
@@ -543,6 +562,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.favoriteSearches,
       this.media,
       this.attachments,
+      this.documents,
     ];
   }
 
@@ -920,5 +940,109 @@ export class InMemoryPropertyMediaQuery implements PropertyMediaQuery {
       })),
       total: rows.length,
     });
+  }
+}
+
+// ---------- Ficha: lectura, documentos ----------
+
+export class InMemoryPropertyDocumentRepository implements PropertyDocumentRepository {
+  readonly rows = new Map<string, PropertyDocumentSnapshot>();
+
+  findById(id: PropertyDocumentId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? PropertyDocument.restore(row) : undefined);
+  }
+
+  save(document: PropertyDocument) {
+    this.rows.set(document.id, document.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryPropertyDocumentQuery implements PropertyDocumentQuery {
+  constructor(private readonly documents: InMemoryPropertyDocumentRepository) {}
+
+  list(criteria: Parameters<PropertyDocumentQuery['list']>[0]) {
+    const rows = [...this.documents.rows.values()]
+      .filter((row) => row.propertyId === criteria.propertyId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        status: row.status,
+        period: row.period,
+        error: row.error,
+        requestedBy: row.requestedBy,
+        createdAt: row.createdAt,
+      })),
+      total: rows.length,
+    });
+  }
+}
+
+/** Registra lo que se le pidió imprimir y devuelve un PDF de mentira. */
+export class FakeDocumentRenderer implements PropertyDocumentRenderer {
+  readonly rendered: PropertyDocumentContent[] = [];
+  fail = false;
+
+  render(content: PropertyDocumentContent) {
+    if (this.fail) return Promise.reject(new Error('pdf-lib exploded'));
+    this.rendered.push(content);
+    return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  }
+}
+
+export class StubOwnerReports implements OwnerReports {
+  report: OwnerReport | undefined = {
+    from: '2026-09-01',
+    to: '2026-09-30',
+    publications: [],
+    emailSends: 2,
+    whatsappSends: 3,
+    inquiries: 4,
+    interested: 1,
+  };
+
+  build() {
+    return Promise.resolve(this.report);
+  }
+}
+
+/** Nombres fijos para los catálogos: alcanza para armar la ficha en los tests. */
+export class StubPropertyDetailLookups implements PropertyDetailLookups {
+  owners_: { id: string; name: string }[] = [];
+  definitions: Omit<PanelPropertyCustomAttribute, 'value'>[] = [];
+
+  locationPath(locationId: string) {
+    return Promise.resolve([{ id: locationId, name: 'Palermo', kind: 'neighborhood' }]);
+  }
+
+  features(ids: readonly string[]) {
+    return Promise.resolve(ids.map((id) => ({ id, kind: 'amenity', name: `Ítem ${id}` })));
+  }
+
+  tags(ids: readonly string[]) {
+    return Promise.resolve(ids.map((id) => ({ id, name: `Etiqueta ${id}`, groupName: undefined })));
+  }
+
+  customAttributes() {
+    return Promise.resolve(this.definitions);
+  }
+
+  owners() {
+    return Promise.resolve(this.owners_);
+  }
+
+  cover() {
+    return Promise.resolve(undefined);
+  }
+
+  counts() {
+    return Promise.resolve({ media: 0, attachments: 0 });
+  }
+
+  createdBy() {
+    return Promise.resolve(PRODUCER_ID);
   }
 }

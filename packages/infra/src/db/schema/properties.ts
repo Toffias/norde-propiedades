@@ -636,6 +636,30 @@ export const attachments = coreSchema.table(
   ],
 );
 
+/** PDF pedidos desde la ficha (ficha, vidriera, reporte al propietario). Los arma un job (ADR 0020). */
+export const propertyDocuments = coreSchema.table(
+  'property_documents',
+  {
+    id: uuid('id').primaryKey(),
+    propertyId: uuid('property_id')
+      .notNull()
+      .references(() => properties.id, { onDelete: 'cascade' }),
+    /** `sheet` / `showcase` / `owner_report`. */
+    kind: text('kind').notNull(),
+    /** `pending` / `ready` / `failed`. */
+    status: text('status').notNull().default('pending'),
+    /** Período del reporte al propietario (días de Buenos Aires). */
+    periodFrom: date('period_from', { mode: 'string' }),
+    periodTo: date('period_to', { mode: 'string' }),
+    storageKey: text('storage_key'),
+    error: text('error'),
+    requestedBy: text('requested_by').notNull(),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [index('property_documents_property_created_idx').on(t.propertyId, t.createdAt, t.id)],
+);
+
 /** Reservas de una propiedad (D3: van con la propiedad porque cambian su estado). */
 export const reservations = coreSchema.table(
   'reservations',

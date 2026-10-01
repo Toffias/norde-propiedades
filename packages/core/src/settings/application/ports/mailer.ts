@@ -7,6 +7,14 @@ export interface OutgoingEmail {
   /** Nombre del remitente; la dirección la fija el entorno (dominio verificado). */
   readonly fromName?: string | undefined;
   readonly replyTo?: string | undefined;
+  /** Archivos adjuntos (el reporte al propietario en PDF). */
+  readonly attachments?: readonly EmailAttachment[];
+}
+
+export interface EmailAttachment {
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly bytes: Uint8Array;
 }
 
 export type MailerError =

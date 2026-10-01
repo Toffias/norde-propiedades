@@ -527,6 +527,10 @@ export const savedSearches = coreSchema.table(
       .where(sql`auto_send and deleted_at is null`),
     index('saved_searches_location_ids_idx').using('gin', t.locationIds),
     index('saved_searches_updated_idx').on(t.updatedAt).where(notDeleted),
+    // Interesados de una propiedad (ficha, #6): por operación, los más recientes primero.
+    index('saved_searches_operation_updated_idx')
+      .on(t.operation, t.updatedAt, t.id)
+      .where(sql`deleted_at is null and unsubscribed_at is null`),
   ],
 );
 

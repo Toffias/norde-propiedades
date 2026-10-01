@@ -20,6 +20,7 @@ import {
   DrizzleMediaItemRepository,
   DrizzlePropertyAttachmentRepository,
 } from './drizzle-media-repositories';
+import { DrizzlePropertyDocumentRepository } from './drizzle-property-documents';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 
 export function createPropertiesUnitOfWork(
@@ -38,6 +39,7 @@ export function createPropertiesUnitOfWork(
     favoriteSearches: new DrizzleFavoriteSearchRepository(tx),
     media: new DrizzleMediaItemRepository(tx),
     attachments: new DrizzlePropertyAttachmentRepository(tx),
+    documents: new DrizzlePropertyDocumentRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

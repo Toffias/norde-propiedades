@@ -428,3 +428,66 @@ export {
   GetPropertyAttachmentDownload,
   type GetPropertyAttachmentDownloadError,
 } from './application/queries/get-property-attachment-download';
+
+// ---------- Ficha: lectura, historial y documentos (#6) ----------
+
+export {
+  PROPERTY_DOCUMENT_KINDS,
+  PROPERTY_DOCUMENT_STATUSES,
+  PropertyDocument,
+  pdfAddress,
+  pdfPrices,
+  type DocumentNotReadyError,
+  type PdfAddressDisplay,
+  type PdfPrice,
+  type PropertyDocumentId,
+  type PropertyDocumentKind,
+  type PropertyDocumentRequested,
+  type PropertyDocumentSnapshot,
+  type PropertyDocumentStatus,
+  type ReportPeriod,
+  type ReportPeriodRequiredError,
+} from './domain/property-document';
+export type { PropertyDocumentRepository } from './domain/property-document.repository';
+export type { PropertyDetailLookups } from './application/ports/property-detail-lookups';
+export type {
+  OwnerReports,
+  PropertyDocumentContent,
+  PropertyDocumentQuery,
+  PropertyDocumentRenderer,
+} from './application/ports/property-documents';
+export {
+  GetPanelPropertyDetail,
+  buildPanelPropertyDetail,
+  type GetPanelPropertyDetailError,
+} from './application/queries/get-panel-property-detail';
+export {
+  ListPropertyHistory,
+  type ListPropertyHistoryError,
+} from './application/queries/list-property-history';
+export {
+  GetPropertyInterestProfile,
+  type GetPropertyInterestProfileError,
+} from './application/queries/get-property-interest-profile';
+export {
+  RequestPropertyDocument,
+  type RequestPropertyDocumentError,
+} from './application/commands/request-property-document';
+export {
+  RenderPropertyDocument,
+  type DocumentRenderOutcome,
+  type RenderPropertyDocumentError,
+} from './application/commands/render-property-document';
+export {
+  SendOwnerReport,
+  type DocumentNotFoundError,
+  type SendOwnerReportError,
+} from './application/commands/send-owner-report';
+export {
+  ListPropertyDocuments,
+  type ListPropertyDocumentsError,
+} from './application/queries/list-property-documents';
+export {
+  GetPropertyDocumentDownload,
+  type GetPropertyDocumentDownloadError,
+} from './application/queries/get-property-document-download';

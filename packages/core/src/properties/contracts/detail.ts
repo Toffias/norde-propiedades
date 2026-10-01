@@ -2,6 +2,8 @@
 
 import { z } from 'zod';
 
+import { historyQuerySchema } from '../../audit/contracts';
+
 import { AmountSchema } from './amount';
 import { CURRENCIES, MANUAL_STATUS_VALUES, OPERATIONS } from './values';
 
@@ -284,4 +286,147 @@ export interface CustomAttributeRow {
   readonly kind: CustomAttributeKindValue;
   readonly options: readonly string[];
   readonly isActive: boolean;
+}
+
+// ---------- Historial ----------
+
+/** Filtros de la pestaña Historial: qué tipo de cambio mostrar. */
+export const PROPERTY_HISTORY_CATEGORY_VALUES = [
+  'fields',
+  'price',
+  'status',
+  'media',
+  'files',
+  'publication',
+  'assignments',
+] as const;
+export type PropertyHistoryCategory = (typeof PROPERTY_HISTORY_CATEGORY_VALUES)[number];
+
+export const ListPropertyHistoryQuerySchema = historyQuerySchema().extend({
+  propertyId: z.uuid(),
+  category: z.enum(PROPERTY_HISTORY_CATEGORY_VALUES).optional(),
+});
+export type ListPropertyHistoryQuery = z.input<typeof ListPropertyHistoryQuerySchema>;
+
+// ---------- Ficha (lectura) ----------
+
+export interface PropertyLocationLevel {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: string;
+}
+
+export interface PanelPropertyDetailOperation {
+  readonly operation: (typeof OPERATIONS)[number];
+  readonly currency: (typeof CURRENCIES)[number];
+  readonly priceCents: bigint | undefined;
+  readonly priceOnRequest: boolean;
+  readonly commissionPct: number | undefined;
+}
+
+export interface PanelPropertyCustomAttribute {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: CustomAttributeKindValue;
+  readonly options: readonly string[];
+  readonly isActive: boolean;
+  /** `undefined`: sin valor cargado. */
+  readonly value: string | number | boolean | undefined;
+}
+
+export interface PanelUserRef {
+  readonly id: string;
+  /** `undefined` si el usuario ya no está activo. */
+  readonly name: string | undefined;
+}
+
+/** La ficha completa del panel: también borradores, papelera y datos internos. */
+export interface PanelPropertyDetail {
+  readonly id: string;
+  readonly code: string;
+  readonly slug: string;
+  readonly propertyType: string;
+  readonly status: string;
+  readonly statusChangedAt: Date;
+  readonly address: {
+    readonly street: string;
+    readonly streetNumber: string | undefined;
+    readonly floor: string | undefined;
+    readonly unit: string | undefined;
+    readonly neighborhood: string;
+    readonly city: string;
+    readonly province: string;
+  };
+  readonly publishAddress: string;
+  readonly portalTitle: string;
+  readonly description: string;
+  readonly locationId: string | undefined;
+  /** De la raíz (país) hacia abajo. */
+  readonly locationPath: readonly PropertyLocationLevel[];
+  readonly coordinates: { readonly latitude: number; readonly longitude: number } | undefined;
+  readonly operations: readonly PanelPropertyDetailOperation[];
+  readonly characteristics: {
+    readonly rooms: number | undefined;
+    readonly bedrooms: number | undefined;
+    readonly bathrooms: number | undefined;
+    readonly toilets: number | undefined;
+    readonly parkingSpaces: number | undefined;
+    readonly ageYears: number | undefined;
+    readonly orientation: OrientationValue | undefined;
+    readonly condition: ConditionValue | undefined;
+    readonly disposition: DispositionValue | undefined;
+    readonly isFurnished: boolean;
+    readonly professionalUse: boolean;
+    readonly surfaceTotalM2: number | undefined;
+    readonly surfaceCoveredM2: number | undefined;
+    readonly surfaceSemiCoveredM2: number | undefined;
+    readonly surfaceLandM2: number | undefined;
+    readonly frontM: number | undefined;
+    readonly depthM: number | undefined;
+  };
+  readonly deal: {
+    readonly isExclusive: boolean;
+    readonly acceptsSwap: boolean;
+    readonly immediateDeed: boolean;
+    readonly hasFinancing: boolean;
+    readonly creditEligible: boolean;
+    readonly expensesCents: bigint | undefined;
+  };
+  readonly features: readonly {
+    readonly id: string;
+    readonly kind: string;
+    readonly name: string;
+  }[];
+  readonly tags: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly groupName: string | undefined;
+  }[];
+  /** Los atributos activos de Mi empresa, más los inactivos que tienen valor en esta propiedad. */
+  readonly customAttributes: readonly PanelPropertyCustomAttribute[];
+  readonly internal: {
+    readonly maintenance: PanelUserRef | undefined;
+    readonly appraisers: readonly PanelUserRef[];
+    readonly keysLocation: string | undefined;
+    readonly legalInfo: string | undefined;
+    readonly internalComments: string | undefined;
+  };
+  readonly publication: {
+    readonly publishedOnWeb: boolean;
+    readonly showPriceOnWeb: boolean;
+    readonly featured: boolean;
+    readonly showExactAddress: boolean;
+  };
+  /** La web la muestra: publicada y disponible. */
+  readonly isPubliclyListed: boolean;
+  readonly producer: PanelUserRef | undefined;
+  readonly branchId: string | undefined;
+  /** Propietarios (clientes). Se cargan cuando exista el buscador de contactos (#8). */
+  readonly owners: readonly { readonly id: string; readonly name: string }[];
+  readonly cover: { readonly mediaId: string; readonly hasThumbnail: boolean } | undefined;
+  readonly counts: { readonly media: number; readonly attachments: number };
+  readonly createdAt: Date;
+  readonly createdBy: PanelUserRef | undefined;
+  readonly updatedAt: Date;
+  readonly deletedAt: Date | undefined;
 }

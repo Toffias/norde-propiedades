@@ -26,6 +26,7 @@ export { BetterAuthPasswordHasher } from './identity/better-auth-password-hasher
 export { createIdentityUnitOfWork } from './identity/identity-unit-of-work';
 export { DrizzleUserListQuery } from './identity/drizzle-user-list-query';
 export { DrizzleRoleListQuery } from './identity/drizzle-role-list-query';
+export { DrizzleOrganizationQuery } from './identity/drizzle-organization-query';
 
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';

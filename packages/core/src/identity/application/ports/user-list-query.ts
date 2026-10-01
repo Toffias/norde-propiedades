@@ -5,6 +5,8 @@ export interface UserListCriteria {
   readonly status: UserStatusValue;
   /** Nombre o email, sin distinguir mayúsculas ni acentos. */
   readonly text: string | undefined;
+  readonly branchId: string | undefined;
+  readonly teamId: string | undefined;
   readonly sort: { readonly field: UserSortField; readonly direction: 'asc' | 'desc' };
   readonly offset: number;
   readonly limit: number;

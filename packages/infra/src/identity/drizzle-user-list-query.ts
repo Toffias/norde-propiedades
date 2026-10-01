@@ -6,11 +6,22 @@ import {
   type UserRole,
   type UserSortField,
 } from '@norde/core/identity';
-import { and, asc, count, desc, eq, inArray, sql, type AnyColumn, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  inArray,
+  sql,
+  type AnyColumn,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { roles, userRoles, users } from '../db/schema';
+import { branches, roles, teamMembers, userRoles, users } from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
 const Status = z.enum(USER_STATUSES);
@@ -38,6 +49,18 @@ export class DrizzleUserListQuery implements UserListQuery {
     const where = and(
       eq(users.status, criteria.status),
       criteria.text === undefined ? undefined : matchesSearchText(users.searchText, criteria.text),
+      criteria.branchId === undefined ? undefined : eq(users.branchId, criteria.branchId),
+      // Miembros de un equipo: la PK (team_id, user_id) de `team_members` resuelve el exists.
+      criteria.teamId === undefined
+        ? undefined
+        : exists(
+            this.db
+              .select({ one: sql`1` })
+              .from(teamMembers)
+              .where(
+                and(eq(teamMembers.teamId, criteria.teamId), eq(teamMembers.userId, users.id)),
+              ),
+          ),
     );
     const [rows, totals] = await Promise.all([
       this.db
@@ -47,11 +70,14 @@ export class DrizzleUserListQuery implements UserListQuery {
           email: users.email,
           phoneE164: users.phoneE164,
           status: users.status,
+          branchId: branches.id,
+          branchName: branches.name,
           mustChangePassword: users.mustChangePassword,
           lastLoginAt: users.lastLoginAt,
           createdAt: users.createdAt,
         })
         .from(users)
+        .leftJoin(branches, eq(branches.id, users.branchId))
         .where(where)
         .orderBy(...orderBy(criteria.sort))
         .limit(criteria.limit)
@@ -66,6 +92,10 @@ export class DrizzleUserListQuery implements UserListQuery {
       email: row.email,
       phone: row.phoneE164 ?? undefined,
       status: Status.parse(row.status),
+      branch:
+        row.branchId === null || row.branchName === null
+          ? undefined
+          : { id: row.branchId, name: row.branchName },
       roles: rolesByUser.get(row.id) ?? [],
       mustChangePassword: row.mustChangePassword,
       lastLoginAt: row.lastLoginAt ?? undefined,

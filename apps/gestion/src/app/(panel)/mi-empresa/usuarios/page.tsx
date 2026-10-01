@@ -3,6 +3,7 @@ import { MAX_PAGE_SIZE } from '@norde/core/shared/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 import { getContainer } from '../../../../container';
 import type { RoleOption } from '../../../../features/identity/components/role-checkboxes';
@@ -23,10 +24,14 @@ export default async function UsersPage({
   const { value: query, invalidKeys } = parseListParams(ListUsersQuerySchema, await searchParams);
   const { identity } = getContainer();
 
-  const [users, roles] = await Promise.all([
+  const [users, roles, branch] = await Promise.all([
     identity.listUsers.execute(query, actor),
     // Los roles para el formulario: son pocos, entran en una página.
     identity.listRoles.execute({ pageSize: MAX_PAGE_SIZE }, actor),
+    // Desde "Ver usuarios" de una sucursal: para nombrarla arriba de la grilla.
+    query.branchId === undefined
+      ? undefined
+      : identity.getBranch.execute({ branchId: query.branchId }, actor),
   ]);
 
   if (users.isErr()) {
@@ -52,6 +57,19 @@ export default async function UsersPage({
           query.status === 'active' ? 'usuarios activos' : 'usuarios suspendidos',
         )}
       </p>
+
+      {query.branchId !== undefined && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Usuarios de la sucursal{' '}
+          <span className="font-medium text-foreground">
+            {branch?.isOk() === true ? branch.value.name : 'elegida'}
+          </span>
+          .{' '}
+          <Link href="/mi-empresa/usuarios" className="underline underline-offset-2">
+            Ver todos
+          </Link>
+        </p>
+      )}
 
       {invalidKeys.length > 0 && (
         <p role="status" className="text-sm text-muted-foreground">

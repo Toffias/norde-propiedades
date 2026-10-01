@@ -33,9 +33,10 @@ import { useForm, useFormContext } from 'react-hook-form';
 
 import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
-import { createUserAction, updateUserAction } from '../actions';
+import { createUserAction, loadBranchOptions, updateUserAction } from '../actions';
 import { generateTemporaryPassword } from '../temporary-password';
-import { FormAlert } from './form-alert';
+import { EntityPicker } from './entity-picker';
+import { FormAlert } from '../../shared/components/form-alert';
 import { RoleCheckboxes, type RoleOption } from './role-checkboxes';
 
 interface DialogProps {
@@ -147,6 +148,7 @@ function editValues(user: UserListItem): UpdateUserInput {
     name: user.name,
     email: user.email,
     phone: user.phone ?? '',
+    ...(user.branch === undefined ? {} : { branchId: user.branch.id }),
     roleIds: user.roles.map((role) => role.id),
   };
 }
@@ -216,7 +218,14 @@ function EditUserForm({
           onSubmit={(event) => void form.handleSubmit(submit)(event)}
         >
           <FormAlert message={error} />
-          <ProfileFields roles={roles} />
+          <ProfileFields
+            roles={roles}
+            initialBranch={
+              user.branch === undefined
+                ? undefined
+                : { value: user.branch.id, label: user.branch.name }
+            }
+          />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onDone}>
               Cancelar
@@ -233,10 +242,16 @@ function EditUserForm({
 }
 
 /** Lo que comparten el alta y la edición. */
-type ProfileValues = Pick<CreateUserInput, 'name' | 'email' | 'phone' | 'roleIds'>;
+type ProfileValues = Pick<CreateUserInput, 'name' | 'email' | 'phone' | 'branchId' | 'roleIds'>;
 
 /** Campos del alta y de la edición: se leen del `<Form>` que los contiene. */
-function ProfileFields({ roles }: { readonly roles: readonly RoleOption[] }) {
+function ProfileFields({
+  roles,
+  initialBranch,
+}: {
+  readonly roles: readonly RoleOption[];
+  readonly initialBranch?: { readonly value: string; readonly label: string } | undefined;
+}) {
   const { control } = useFormContext<ProfileValues>();
 
   return (
@@ -282,6 +297,27 @@ function ProfileFields({ roles }: { readonly roles: readonly RoleOption[] }) {
           )}
         />
       </div>
+      <FormField
+        control={control}
+        name="branchId"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Sucursal (opcional)</FormLabel>
+            <FormControl>
+              <EntityPicker
+                value={field.value}
+                initial={initialBranch}
+                onChange={field.onChange}
+                loadPage={loadBranchOptions}
+                placeholder="Sin sucursal"
+                searchPlaceholder="Buscar sucursal"
+                clearLabel="Quitar la sucursal"
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
       <FormField
         control={control}
         name="roleIds"

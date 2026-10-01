@@ -29,6 +29,8 @@ const UserProfileFields = {
   name: z.string().trim().min(1).max(120),
   email: EmailSchema,
   phone: z.string().trim().min(1).max(40).optional(),
+  /** Sin valor: el usuario no está en ninguna sucursal. */
+  branchId: z.uuid().optional(),
   roleIds: z.array(z.uuid()).min(1).max(MAX_ROLES_PER_USER),
 };
 
@@ -67,6 +69,10 @@ export const ListUsersQuerySchema = pageQuerySchema({
   status: z.enum(USER_STATUS_VALUES).default('active'),
   /** Nombre o email. */
   q: z.string().trim().min(1).max(100).optional(),
+  /** Los de una sucursal (sus miembros). */
+  branchId: z.uuid().optional(),
+  /** Los de un equipo (sus miembros). */
+  teamId: z.uuid().optional(),
 });
 export type ListUsersQuery = z.input<typeof ListUsersQuerySchema>;
 
@@ -158,6 +164,7 @@ export interface UserListItem {
   readonly email: string;
   readonly phone: string | undefined;
   readonly status: UserStatusValue;
+  readonly branch: { readonly id: string; readonly name: string } | undefined;
   readonly roles: readonly UserRole[];
   readonly mustChangePassword: boolean;
   readonly lastLoginAt: Date | undefined;
@@ -173,6 +180,109 @@ export interface RoleListItem {
   readonly isSystem: boolean;
   readonly userCount: number;
   /** Solo en la papelera. */
+  readonly deletedAt: Date | undefined;
+}
+
+/** `trash`: la papelera. Lo usan los listados de sucursales y equipos. */
+export const TRASH_VIEW_VALUES = ['active', 'trash'] as const;
+export type TrashViewValue = (typeof TRASH_VIEW_VALUES)[number];
+
+const OptionalText = (max: number) => z.string().trim().min(1).max(max).optional();
+
+const BranchFields = {
+  name: z.string().trim().min(1).max(80),
+  /** Logo para portales y PDF. Por ahora una URL (todavía no hay subida de archivos). */
+  logoUrl: z
+    .url({ protocol: /^https?$/ })
+    .max(500)
+    .optional(),
+  address: OptionalText(200),
+  email: z.string().trim().toLowerCase().max(254).pipe(z.email()).optional(),
+  phone: OptionalText(40),
+  whatsapp: OptionalText(40),
+};
+
+export const CreateBranchInputSchema = z.object(BranchFields);
+export type CreateBranchInput = z.input<typeof CreateBranchInputSchema>;
+
+export const UpdateBranchInputSchema = z.object({ branchId: z.uuid(), ...BranchFields });
+export type UpdateBranchInput = z.input<typeof UpdateBranchInputSchema>;
+
+export const BranchIdInputSchema = z.object({ branchId: z.uuid() });
+export type BranchIdInput = z.input<typeof BranchIdInputSchema>;
+
+const TeamFields = {
+  name: z.string().trim().min(1).max(80),
+  branchId: z.uuid().optional(),
+};
+
+export const CreateTeamInputSchema = z.object(TeamFields);
+export type CreateTeamInput = z.input<typeof CreateTeamInputSchema>;
+
+export const UpdateTeamInputSchema = z.object({ teamId: z.uuid(), ...TeamFields });
+export type UpdateTeamInput = z.input<typeof UpdateTeamInputSchema>;
+
+export const TeamIdInputSchema = z.object({ teamId: z.uuid() });
+export type TeamIdInput = z.input<typeof TeamIdInputSchema>;
+
+export const TeamMemberInputSchema = z.object({ teamId: z.uuid(), userId: z.uuid() });
+export type TeamMemberInput = z.input<typeof TeamMemberInputSchema>;
+
+export const ORGANIZATION_SORT_FIELDS = ['name'] as const;
+export type OrganizationSortField = (typeof ORGANIZATION_SORT_FIELDS)[number];
+
+export const ListBranchesQuerySchema = pageQuerySchema({
+  sortable: ORGANIZATION_SORT_FIELDS,
+  defaultSort: { field: 'name', direction: 'asc' },
+}).extend({
+  q: z.string().trim().min(1).max(100).optional(),
+  view: z.enum(TRASH_VIEW_VALUES).default('active'),
+});
+export type ListBranchesQuery = z.input<typeof ListBranchesQuerySchema>;
+
+export const ListTeamsQuerySchema = pageQuerySchema({
+  sortable: ORGANIZATION_SORT_FIELDS,
+  defaultSort: { field: 'name', direction: 'asc' },
+}).extend({
+  q: z.string().trim().min(1).max(100).optional(),
+  view: z.enum(TRASH_VIEW_VALUES).default('active'),
+  branchId: z.uuid().optional(),
+});
+export type ListTeamsQuery = z.input<typeof ListTeamsQuerySchema>;
+
+export interface BranchListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly address: string | undefined;
+  readonly isMain: boolean;
+  readonly userCount: number;
+  readonly deletedAt: Date | undefined;
+}
+
+export interface BranchDetail {
+  readonly id: string;
+  readonly name: string;
+  readonly logoUrl: string | undefined;
+  readonly address: string | undefined;
+  readonly email: string | undefined;
+  readonly phone: string | undefined;
+  readonly whatsapp: string | undefined;
+  readonly isMain: boolean;
+  readonly deletedAt: Date | undefined;
+}
+
+export interface TeamListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly branch: { readonly id: string; readonly name: string } | undefined;
+  readonly memberCount: number;
+  readonly deletedAt: Date | undefined;
+}
+
+export interface TeamDetail {
+  readonly id: string;
+  readonly name: string;
+  readonly branch: { readonly id: string; readonly name: string } | undefined;
   readonly deletedAt: Date | undefined;
 }
 

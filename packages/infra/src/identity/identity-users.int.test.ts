@@ -213,6 +213,8 @@ describe('DrizzleUserListQuery', () => {
   const base: Omit<UserListCriteria, 'offset' | 'limit'> = {
     status: 'active',
     text: undefined,
+    branchId: undefined,
+    teamId: undefined,
     sort: { field: 'name', direction: 'asc' },
   };
 

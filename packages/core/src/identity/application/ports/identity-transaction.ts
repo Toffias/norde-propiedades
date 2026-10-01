@@ -1,4 +1,5 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
+import type { BranchRepository, TeamRepository } from '../../domain/organization.repository';
 import type { RoleRepository } from '../../domain/role.repository';
 import type { UserRepository } from '../../domain/user.repository';
 
@@ -18,6 +19,8 @@ export interface UserSessions {
 export interface IdentityTransaction {
   readonly users: UserRepository;
   readonly roles: RoleRepository;
+  readonly branches: BranchRepository;
+  readonly teams: TeamRepository;
   readonly credentials: CredentialStore;
   readonly sessions: UserSessions;
   readonly events: EventPublisher;

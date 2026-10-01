@@ -12,6 +12,7 @@ const ROW: UserListItem = {
   email: 'camila@norde.com.ar',
   phone: undefined,
   status: 'active',
+  branch: undefined,
   roles: [],
   mustChangePassword: false,
   lastLoginAt: undefined,
@@ -31,6 +32,8 @@ describe('ListUsers', () => {
       {
         status: 'suspended',
         text: 'cami',
+        branchId: undefined,
+        teamId: undefined,
         sort: { field: 'lastLoginAt', direction: 'desc' },
         offset: 50,
         limit: 25,

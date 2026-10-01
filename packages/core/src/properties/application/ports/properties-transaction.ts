@@ -1,5 +1,6 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
 import type {
+  CustomAttributeRepository,
   FeatureRepository,
   LocationRepository,
   PropertySettingsRepository,
@@ -15,6 +16,7 @@ export interface PropertiesTransaction {
   readonly properties: PropertyRepository;
   readonly locations: LocationRepository;
   readonly features: FeatureRepository;
+  readonly customAttributes: CustomAttributeRepository;
   readonly tagGroups: TagGroupRepository;
   readonly tags: TagRepository;
   readonly typeSettings: PropertyTypeSettingsRepository;

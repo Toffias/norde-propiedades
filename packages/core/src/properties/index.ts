@@ -212,3 +212,106 @@ export {
   ExportProperties,
   type ExportPropertiesError,
 } from './application/commands/export-properties';
+
+// ---------- Ficha de propiedad (#6) ----------
+
+export {
+  CONDITIONS,
+  CUSTOM_ATTRIBUTE_KINDS,
+  DISPOSITIONS,
+  ORIENTATIONS,
+  type Condition,
+  type CoveredExceedsTotalError,
+  type CustomAttributeDefinition,
+  type CustomAttributeEntry,
+  type CustomAttributeKind,
+  type CustomAttributeNotFoundError,
+  type CustomAttributeValue,
+  type DealAttributes,
+  type Disposition,
+  type InternalInfo,
+  type InvalidCustomAttributeValueError,
+  type NegativeCharacteristicError,
+  type Orientation,
+  type PropertyCharacteristics,
+  type Publication,
+} from './domain/property-details';
+export {
+  CustomAttribute,
+  type CustomAttributeId,
+  type CustomAttributeSnapshot,
+  type InvalidCustomAttributeOptionsError,
+} from './domain/custom-attribute';
+export type { CustomAttributeRepository } from './domain/catalog.repository';
+export type {
+  InvalidCommissionError,
+  InvalidOperationsError,
+  InvalidReferenceCodeError,
+  OperationInput,
+} from './domain/property';
+export type { EditPropertyError } from './application/property-support';
+export {
+  UpdatePropertyLocation,
+  type UpdatePropertyLocationError,
+  type UpdatePropertyLocationOutput,
+} from './application/commands/update-property-location';
+export {
+  ChangePropertyCode,
+  type ChangePropertyCodeError,
+  type ReferenceCodeTakenError,
+} from './application/commands/change-property-code';
+export {
+  UpdatePropertyOperations,
+  type UpdatePropertyOperationsError,
+} from './application/commands/update-property-operations';
+export {
+  ChangePropertyStatus,
+  type ChangePropertyStatusError,
+} from './application/commands/change-property-status';
+export {
+  UpdatePropertyCharacteristics,
+  type UpdatePropertyCharacteristicsError,
+} from './application/commands/update-property-characteristics';
+export {
+  UpdatePropertyDeal,
+  type UpdatePropertyDealError,
+} from './application/commands/update-property-deal';
+export {
+  UpdatePropertyFeatures,
+  type UpdatePropertyFeaturesError,
+} from './application/commands/update-property-features';
+export {
+  UpdatePropertyDescription,
+  type UpdatePropertyDescriptionError,
+} from './application/commands/update-property-description';
+export {
+  UpdatePropertyCustomAttributes,
+  type UpdatePropertyCustomAttributesError,
+} from './application/commands/update-property-custom-attributes';
+export {
+  ChangePropertyTags,
+  type ChangePropertyTagsError,
+} from './application/commands/change-property-tags';
+export {
+  ChangePropertyProducer,
+  type ChangePropertyProducerError,
+  type ProducerNotFoundError,
+} from './application/commands/change-property-producer';
+export {
+  UpdatePropertyInternalInfo,
+  type UpdatePropertyInternalInfoError,
+  type UserNotFoundError,
+} from './application/commands/update-property-internal-info';
+export {
+  UpdatePropertyPublication,
+  type UpdatePropertyPublicationError,
+} from './application/commands/update-property-publication';
+export {
+  CreateCustomAttribute,
+  type CreateCustomAttributeError,
+  type CustomAttributeNameTakenError,
+} from './application/commands/create-custom-attribute';
+export {
+  UpdateCustomAttribute,
+  type UpdateCustomAttributeError,
+} from './application/commands/update-custom-attribute';

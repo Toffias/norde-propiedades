@@ -28,6 +28,7 @@ import type {
 } from '../application/ports/reference-code-allocator';
 import type { Producers, UserNames } from '../application/ports/user-names';
 import type {
+  CustomAttributeRepository,
   FeatureRepository,
   LocationRepository,
   PropertySettingsRepository,
@@ -41,6 +42,11 @@ import {
   type FavoriteSearchRepository,
   type FavoriteSearchSnapshot,
 } from '../domain/favorite-search';
+import {
+  CustomAttribute,
+  type CustomAttributeId,
+  type CustomAttributeSnapshot,
+} from '../domain/custom-attribute';
 import { Feature, type FeatureId, type FeatureKind, type FeatureSnapshot } from '../domain/feature';
 import type { GridColumn } from '../domain/grid-columns';
 import { Location, type LocationId, type LocationSnapshot } from '../domain/location';
@@ -61,6 +67,12 @@ import {
   type PropertySnapshot,
 } from '../domain/property';
 import type { PropertyRepository } from '../domain/property.repository';
+import {
+  DEFAULT_PUBLICATION,
+  EMPTY_CHARACTERISTICS,
+  EMPTY_DEAL_ATTRIBUTES,
+  EMPTY_INTERNAL_INFO,
+} from '../domain/property-details';
 
 let sequence = 0;
 
@@ -174,10 +186,25 @@ export function propertySnapshot(
     portalTitle: 'Departamento en venta en Palermo',
     coordinates: undefined,
     locationId: undefined,
-    operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
+    operations: [
+      {
+        operation: 'sale',
+        currency: 'USD',
+        priceCents: 12_000_000n,
+        priceOnRequest: false,
+        commissionPct: undefined,
+      },
+    ],
     tagIds: [],
     producerUserId: PRODUCER_ID,
     branchId: BRANCH_ID,
+    description: '',
+    characteristics: EMPTY_CHARACTERISTICS,
+    deal: EMPTY_DEAL_ATTRIBUTES,
+    featureIds: [],
+    customAttributes: [],
+    internal: EMPTY_INTERNAL_INFO,
+    publication: DEFAULT_PUBLICATION,
     statusChangedAt: new Date('2026-09-01T12:00:00Z'),
     deletedAt: undefined,
     deletedBy: undefined,
@@ -210,6 +237,11 @@ export class InMemoryPropertyRepository implements PropertyRepository {
 
   findById(id: PropertyId) {
     const row = this.rows.get(id);
+    return Promise.resolve(row ? Property.restore(row) : undefined);
+  }
+
+  findByCode(code: string) {
+    const row = [...this.rows.values()].find((r) => r.code === code);
     return Promise.resolve(row ? Property.restore(row) : undefined);
   }
 
@@ -274,6 +306,10 @@ export class InMemoryFeatureRepository implements FeatureRepository {
     return Promise.resolve(row ? Feature.restore(row) : undefined);
   }
 
+  findExistingIds(ids: readonly string[]) {
+    return Promise.resolve(ids.filter((id) => this.rows.has(id)));
+  }
+
   findByName(kind: FeatureKind, name: string) {
     const row = [...this.rows.values()].find(
       (r) => r.kind === kind && normalized(r.name) === normalized(name),
@@ -288,6 +324,43 @@ export class InMemoryFeatureRepository implements FeatureRepository {
 
   save(feature: Feature) {
     this.rows.set(feature.id, feature.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryCustomAttributeRepository implements CustomAttributeRepository {
+  readonly rows = new Map<string, CustomAttributeSnapshot>();
+
+  add(snapshot: CustomAttributeSnapshot): this {
+    this.rows.set(snapshot.id, snapshot);
+    return this;
+  }
+
+  findById(id: CustomAttributeId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? CustomAttribute.restore(row) : undefined);
+  }
+
+  findByName(name: string) {
+    const row = [...this.rows.values()].find((r) => normalized(r.name) === normalized(name));
+    return Promise.resolve(row ? CustomAttribute.restore(row) : undefined);
+  }
+
+  findByIds(ids: readonly string[]) {
+    return Promise.resolve(
+      ids.flatMap((id) => {
+        const row = this.rows.get(id);
+        return row ? [CustomAttribute.restore(row)] : [];
+      }),
+    );
+  }
+
+  nextPosition() {
+    return Promise.resolve(Math.max(-1, ...[...this.rows.values()].map((r) => r.position)) + 1);
+  }
+
+  save(attribute: CustomAttribute) {
+    this.rows.set(attribute.id, attribute.toSnapshot());
     return Promise.resolve();
   }
 }
@@ -435,6 +508,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly properties = new InMemoryPropertyRepository();
   readonly locations = new InMemoryLocationRepository();
   readonly features = new InMemoryFeatureRepository();
+  readonly customAttributes = new InMemoryCustomAttributeRepository();
   readonly tags = new InMemoryTagRepository();
   readonly tagGroups = new InMemoryTagGroupRepository(this.tags);
   readonly typeSettings = new InMemoryPropertyTypeSettingsRepository();
@@ -450,6 +524,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.properties,
       this.locations,
       this.features,
+      this.customAttributes,
       this.tags,
       this.tagGroups,
       this.typeSettings,

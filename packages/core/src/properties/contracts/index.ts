@@ -15,9 +15,12 @@ import {
   type PropertyStatusValue,
   type PropertyType,
 } from './values';
+import { AmountSchema } from './amount';
 
 export * from './values';
 export * from './catalog';
+export * from './detail';
+export { AmountSchema } from './amount';
 
 /** Tope de la búsqueda pública (web y agente). El panel usa el `MAX_PAGE_SIZE` de shared. */
 export const MAX_PAGE_SIZE = 10;
@@ -76,28 +79,6 @@ export interface PropertyDetail extends PropertySummary {
 }
 
 // ---------- Panel de gestión ----------
-
-/** Monto en unidades con hasta dos decimales ("150000", "1500,50"): así lo escribe el usuario. */
-const AMOUNT = /^\d{1,12}(?:[.,]\d{1,2})?$/;
-
-/** "1500,5" → 150050n. Exacto: no pasa por `number`. */
-function amountToCents(amount: string): bigint {
-  const [units = '0', fraction = ''] = amount.replace(',', '.').split('.');
-  return BigInt(units) * 100n + BigInt(fraction.padEnd(2, '0'));
-}
-
-/**
- * Monto escrito por el usuario → centavos. También acepta los centavos ya parseados: la página
- * parsea los query params con el contract y el caso de uso vuelve a validar lo que recibe.
- */
-const AmountSchema = z.union([
-  z
-    .string()
-    .trim()
-    .regex(AMOUNT, 'Ingresá un monto sin puntos de miles, con hasta dos decimales.')
-    .transform(amountToCents),
-  z.bigint().nonnegative(),
-]);
 
 const OptionalText = (max: number) => z.string().trim().min(1).max(max).optional();
 

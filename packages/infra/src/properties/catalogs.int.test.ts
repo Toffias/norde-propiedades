@@ -1,4 +1,5 @@
 import {
+  CustomAttribute,
   FavoriteSearch,
   Feature,
   Location,
@@ -14,6 +15,7 @@ import { properties, propertyTagAssignments } from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import {
+  DrizzleCustomAttributeRepository,
   DrizzleFavoriteSearchRepository,
   DrizzleFeatureRepository,
   DrizzleLocationRepository,
@@ -327,5 +329,49 @@ describe('favorite searches', () => {
 
     await repository.delete(palermo.id);
     expect(await repository.countByUser(USER)).toBe(1);
+  });
+});
+
+describe('custom attributes', () => {
+  const repository = new DrizzleCustomAttributeRepository(db);
+
+  it('round-trips a definition, finds it by name without accents and by IDs', async () => {
+    const view = unwrap(
+      CustomAttribute.create({
+        id: id<'CustomAttribute'>(),
+        name: 'Vista al río',
+        kind: 'select',
+        options: ['Total', 'Parcial'],
+        position: await repository.nextPosition(),
+        now: NOW,
+      }),
+    );
+    await repository.save(view, ADMIN);
+    const pets = unwrap(
+      CustomAttribute.create({
+        id: id<'CustomAttribute'>(),
+        name: 'Acepta mascotas',
+        kind: 'boolean',
+        options: [],
+        position: await repository.nextPosition(),
+        now: NOW,
+      }),
+    );
+    await repository.save(pets, ADMIN);
+
+    expect((await repository.findById(view.id))?.toSnapshot()).toEqual(view.toSnapshot());
+    expect((await repository.findByName('VISTA AL RÍO'))?.id).toBe(view.id);
+    expect(pets.toSnapshot().position).toBe(1);
+    expect((await repository.findByIds([pets.id, view.id])).map((a) => a.id).sort()).toEqual(
+      [pets.id, view.id].sort(),
+    );
+
+    unwrap(view.update({ name: 'Vista', options: ['Total'], isActive: false }, NOW));
+    await repository.save(view, ADMIN);
+    expect((await repository.findById(view.id))?.toSnapshot()).toMatchObject({
+      name: 'Vista',
+      options: ['Total'],
+      isActive: false,
+    });
   });
 });

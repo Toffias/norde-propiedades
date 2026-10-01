@@ -18,7 +18,13 @@ function newProperty(overrides: Partial<NewProperty> = {}): NewProperty {
     id: ID,
     code: 'DEP0001',
     kind: 'apartment',
-    operation: { operation: 'sale', currency: 'USD', priceCents: 12_000_000n },
+    operation: {
+      operation: 'sale',
+      currency: 'USD',
+      priceCents: 12_000_000n,
+      priceOnRequest: false,
+      commissionPct: undefined,
+    },
     address: {
       street: '  Gurruchaga ',
       streetNumber: '1834',
@@ -112,7 +118,13 @@ describe('Property.create', () => {
     expect(snapshot.portalTitle).toBe('Departamento en venta en Palermo');
     expect(snapshot.slug).toBe('departamento-en-venta-en-palermo-dep0001');
     expect(snapshot.operations).toEqual([
-      { operation: 'sale', currency: 'USD', priceCents: 12_000_000n },
+      {
+        operation: 'sale',
+        currency: 'USD',
+        priceCents: 12_000_000n,
+        priceOnRequest: false,
+        commissionPct: undefined,
+      },
     ]);
     expect(property.pullEvents()).toEqual([
       {
@@ -233,7 +245,13 @@ describe('Property quick edits', () => {
       ),
     ).toBe(true);
     expect(property.toSnapshot().operations).toEqual([
-      { operation: 'sale', currency: 'USD', priceCents: 11_500_000n },
+      {
+        operation: 'sale',
+        currency: 'USD',
+        priceCents: 11_500_000n,
+        priceOnRequest: false,
+        commissionPct: undefined,
+      },
     ]);
     expect(property.priceChanges).toEqual([
       {

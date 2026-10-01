@@ -71,6 +71,13 @@
       "when": 1790883005603,
       "tag": "0009_properties_stage_two",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790890959692,
+      "tag": "0010_property_detail",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import type { CustomAttribute, CustomAttributeId } from './custom-attribute';
 import type { Feature, FeatureId, FeatureKind } from './feature';
 import type { Location, LocationId } from './location';
 import type { GridColumn } from './grid-columns';
@@ -23,7 +24,19 @@ export interface FeatureRepository {
   findByName(kind: FeatureKind, name: string): Promise<Feature | undefined>;
   /** La posición que sigue a la última de ese tipo. */
   nextPosition(kind: FeatureKind): Promise<number>;
+  /** Cuáles de estos IDs existen. */
+  findExistingIds(ids: readonly string[]): Promise<readonly string[]>;
   save(feature: Feature, actorId: string): Promise<void>;
+}
+
+export interface CustomAttributeRepository {
+  findById(id: CustomAttributeId): Promise<CustomAttribute | undefined>;
+  /** Otro atributo con ese nombre (sin acentos ni mayúsculas). */
+  findByName(name: string): Promise<CustomAttribute | undefined>;
+  /** Las definiciones de estos IDs, para validar los valores de una propiedad. */
+  findByIds(ids: readonly string[]): Promise<readonly CustomAttribute[]>;
+  nextPosition(): Promise<number>;
+  save(attribute: CustomAttribute, actorId: string): Promise<void>;
 }
 
 export interface TagGroupRepository {

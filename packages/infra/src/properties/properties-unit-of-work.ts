@@ -7,6 +7,7 @@ import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
 import {
+  DrizzleCustomAttributeRepository,
   DrizzleFavoriteSearchRepository,
   DrizzleFeatureRepository,
   DrizzleLocationRepository,
@@ -25,6 +26,7 @@ export function createPropertiesUnitOfWork(
     properties: new DrizzlePropertyRepository(tx, deps.ids),
     locations: new DrizzleLocationRepository(tx),
     features: new DrizzleFeatureRepository(tx),
+    customAttributes: new DrizzleCustomAttributeRepository(tx),
     tagGroups: new DrizzleTagGroupRepository(tx),
     tags: new DrizzleTagRepository(tx),
     typeSettings: new DrizzlePropertyTypeSettingsRepository(tx),

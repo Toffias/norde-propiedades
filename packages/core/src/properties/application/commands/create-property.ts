@@ -16,13 +16,12 @@ import {
   type GeocodingOutcome,
 } from '../../contracts';
 import { Coordinates, type InvalidCoordinatesError } from '../../domain/coordinates';
-import type { Location } from '../../domain/location';
 import { Property, type NegativePriceError, type PropertyAddress } from '../../domain/property';
 import {
   ensureTypeEnabled,
   type PropertyTypeDisabledError,
 } from '../../domain/property-type-settings';
-import { idOf, type LocationNotFoundError } from '../catalog-support';
+import { idOf, placeFromLineage, type LocationNotFoundError, type Place } from '../catalog-support';
 import type { Geocoder } from '../ports/geocoder';
 import type { PropertiesTransaction, PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type {
@@ -45,26 +44,6 @@ export interface CreatePropertyOutput {
   readonly code: string;
   /** Si las coordenadas se cargaron a mano, se encontraron, o quedaron para completar en la ficha. */
   readonly geocoding: GeocodingOutcome;
-}
-
-interface Place {
-  readonly locationId: string | undefined;
-  readonly neighborhood: string;
-  readonly city: string;
-  readonly province: string;
-}
-
-/** Barrio, localidad y provincia: los niveles de la ubicación elegida y de sus ancestros. */
-function placeFromLineage(locationId: string, lineage: readonly Location[]): Place {
-  const named = (kinds: readonly string[]) =>
-    [...lineage].reverse().find((location) => kinds.includes(location.toSnapshot().kind))?.name ??
-    '';
-  return {
-    locationId,
-    neighborhood: named(['subneighborhood', 'neighborhood']),
-    city: named(['city']),
-    province: named(['province']),
-  };
 }
 
 /**

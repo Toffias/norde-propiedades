@@ -514,18 +514,26 @@ export const favoritePropertySearches = coreSchema.table(
 );
 
 /** Definición de los atributos personalizados de propiedad (EAV, ADR 0014). */
-export const propertyCustomAttributes = coreSchema.table('property_custom_attributes', {
-  id: uuid('id').primaryKey(),
-  name: text('name').notNull(),
-  /** `text` / `number` / `boolean` / `select`. */
-  kind: text('kind').notNull(),
-  /** Opciones de un atributo `select`. */
-  options: jsonb('options'),
-  position: integer('position').notNull().default(0),
-  isActive: boolean('is_active').notNull().default(true),
-  ...timestamps(),
-  ...authorship(),
-});
+export const propertyCustomAttributes = coreSchema.table(
+  'property_custom_attributes',
+  {
+    id: uuid('id').primaryKey(),
+    name: text('name').notNull(),
+    /** `text` / `number` / `boolean` / `select`. */
+    kind: text('kind').notNull(),
+    /** Opciones de un atributo `select`. */
+    options: jsonb('options'),
+    position: integer('position').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    // Un nombre por atributo, sin acentos ni mayúsculas; también resuelve la búsqueda por nombre.
+    uniqueIndex('property_custom_attributes_name_uq').on(sql`core.search_normalize(${t.name})`),
+    index('property_custom_attributes_position_idx').on(t.position, t.id),
+  ],
+);
 
 /** Valor de un atributo personalizado, en la columna de su tipo (ADR 0014). */
 export const propertyCustomAttributeValues = coreSchema.table(

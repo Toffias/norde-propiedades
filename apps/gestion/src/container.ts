@@ -3,14 +3,28 @@ import 'server-only';
 // Composition root: único archivo de la app que importa @norde/infra.
 // Arma los casos de uso de @norde/core que usan los Server Components y las Server Actions.
 
-import { ResolveSessionActor } from '@norde/core/identity';
+import {
+  ChangeOwnPassword,
+  CreateUser,
+  ListRoles,
+  ListUsers,
+  ReactivateUser,
+  ResetUserPassword,
+  ResolveSessionActor,
+  SuspendUser,
+  UpdateUser,
+} from '@norde/core/identity';
 import type { IdGenerator } from '@norde/core/shared';
 import {
+  BetterAuthPasswordHasher,
   BetterAuthSessionReader,
   createAuth,
   createDatabase,
+  createIdentityUnitOfWork,
   DrizzleAuditLog,
+  DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
+  DrizzleUserListQuery,
   SystemClock,
   UuidV7IdGenerator,
   type DatabaseConnection,
@@ -27,6 +41,16 @@ export interface Container {
   readonly handleAuthRequest: (request: Request) => Promise<Response>;
   readonly sessions: BetterAuthSessionReader;
   readonly resolveSessionActor: ResolveSessionActor;
+  readonly identity: {
+    readonly listUsers: ListUsers;
+    readonly listRoles: ListRoles;
+    readonly createUser: CreateUser;
+    readonly updateUser: UpdateUser;
+    readonly suspendUser: SuspendUser;
+    readonly reactivateUser: ReactivateUser;
+    readonly resetUserPassword: ResetUserPassword;
+    readonly changeOwnPassword: ChangeOwnPassword;
+  };
 }
 
 let container: Container | undefined;
@@ -49,6 +73,9 @@ function createContainer(): Container {
     rateLimit: env.NODE_ENV === 'production',
   });
 
+  const identityUow = createIdentityUnitOfWork(database.db, { ids, clock });
+  const hasher = new BetterAuthPasswordHasher();
+
   return {
     database,
     ids,
@@ -57,6 +84,16 @@ function createContainer(): Container {
     resolveSessionActor: new ResolveSessionActor({
       users: new DrizzleUserAccessQuery(database.db),
     }),
+    identity: {
+      listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),
+      listRoles: new ListRoles({ roles: new DrizzleRoleListQuery(database.db) }),
+      createUser: new CreateUser({ uow: identityUow, hasher, ids, clock }),
+      updateUser: new UpdateUser({ uow: identityUow, clock }),
+      suspendUser: new SuspendUser({ uow: identityUow, clock }),
+      reactivateUser: new ReactivateUser({ uow: identityUow, clock }),
+      resetUserPassword: new ResetUserPassword({ uow: identityUow, hasher, clock }),
+      changeOwnPassword: new ChangeOwnPassword({ uow: identityUow, hasher, clock }),
+    },
   };
 }
 

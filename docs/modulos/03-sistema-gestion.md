@@ -83,7 +83,7 @@ Roles propuestos (a validar con Norde):
   - Un rol con usuarios no se borra: hay que asignarles otro antes.
   - No puede haber dos roles con el mismo nombre (sin distinguir mayúsculas ni acentos), tampoco contra uno de la papelera.
   - Un cambio de permisos alcanza a todos los usuarios del rol desde su próxima acción (la sesión se arma en cada request).
-- **Permisos propios** de un usuario (`/mi-empresa/usuarios/<id>/permisos`): para cada permiso del catálogo, "según sus roles", "permitir" o "denegar". La pantalla muestra qué le dan ya sus roles. Denegar gana siempre, también sobre un `recurso:*`. Nadie cambia sus propios permisos.
+- **Permisos propios** de un usuario (pestaña del panel lateral del usuario, `/mi-empresa/usuarios?panel=<id>&tab=permissions`): para cada permiso del catálogo, "según sus roles", "permitir" o "denegar". El panel muestra qué le dan ya sus roles. Denegar gana siempre, también sobre un `recurso:*`. Nadie cambia sus propios permisos.
 - Permisos: `roles:read`, `roles:create`, `roles:update`, `roles:delete` (borrar, restaurar y ver la papelera) y `users:permissions` (dar o quitar permisos propios, aparte de editar usuarios).
 - Auditoría: `role.created`, `role.updated` (con los permisos antes y después), `role.deleted`, `role.restored` contra el rol, y `user.permissions-changed` contra el usuario.
 - La migración `0005` suma a los roles de sistema los recursos nuevos del catálogo (seguimientos, archivos, respuestas rápidas, etiquetas y equipos).
@@ -102,7 +102,7 @@ Roles propuestos (a validar con Norde):
   - Cada sucursal tiene nombre, dirección, email, teléfono, WhatsApp y logo. Se usan en portales y PDF. El logo es una URL hasta que exista la subida de archivos.
   - La primera sucursal es la **casa central**; desde la grilla se puede marcar otra (la anterior deja de serlo).
   - La casa central no se borra, ni una sucursal con usuarios o equipos.
-  - "Ver usuarios" abre el listado de usuarios filtrado por esa sucursal.
+  - "Ver usuarios" abre el panel lateral de la sucursal en la pestaña "Usuarios": sus usuarios activos, paginados. Se cambian de sucursal desde el panel de cada usuario.
 - **Sucursal del usuario**: se elige en el alta y la edición con un selector paginado con búsqueda. La usan las reglas de pertenencia.
 - **Mi empresa → Equipos** (`/mi-empresa/equipos`): grilla paginada con su sucursal, cantidad de miembros y papelera. Un equipo en la papelera conserva sus miembros.
   - En la pantalla del equipo, los miembros se listan paginados (es el listado de usuarios filtrado por equipo). Se suman con un buscador paginado y se sacan de a uno.
@@ -445,15 +445,15 @@ Módulo `settings`. Es un único registro de configuración (mono-tenant). Todo 
 
 ### 14.1 Secciones
 
-| Sección (`/mi-empresa/…`) | Qué guarda                                                                                                                                                                |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| General                   | Nombre, logo, zona horaria (por defecto `America/Argentina/Buenos_Aires`), URL de propiedades y de emprendimientos en la web (con `{id}` o `{slug}`), alcance de Noticias |
-| Marca de agua             | Logo, tamaño (5 % a 50 % del ancho), posición (9), opacidad. Se aplica a las fotos de portales y PDF; hay vista previa sobre una foto de muestra, sin guardar             |
-| Portales                  | Pie de la descripción con variables: `{codigo}`, `{telefono_sucursal}`, `{email_sucursal}`, `{whatsapp_sucursal}`, `{url_web}`. Otra variable es un error                 |
-| Email                     | Nombre del remitente y dirección de respuesta. La dirección de envío y la API key de Resend van por entorno. Botón de email de prueba (queda en el historial)             |
-| Códigos                   | Prefijos por tipo de propiedad y exclusivos por usuario, equipo o sucursal                                                                                                |
-| Ficha y PDF               | Contacto de la empresa, datos del agente, precio, dirección al enviar y al descargar (exacta, aproximada u oculta), fotos del emprendimiento en las unidades              |
-| Archivos                  | Gestor de archivos de la empresa                                                                                                                                          |
+| Sección (`/mi-empresa/…`) | Qué guarda                                                                                                                                                                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| General                   | Nombre, logo, zona horaria (por defecto `America/Argentina/Buenos_Aires`), alcance de Noticias. También guarda la URL de propiedades y de emprendimientos en la web (con `{id}` o `{slug}`), pero por ahora no se edita desde el panel |
+| Marca de agua             | Logo, tamaño (5 % a 50 % del ancho), posición (9), opacidad. Se aplica a las fotos de portales y PDF; hay vista previa sobre una foto de muestra, sin guardar                                                                          |
+| Portales                  | Pie de la descripción con variables: `{codigo}`, `{telefono_sucursal}`, `{email_sucursal}`, `{whatsapp_sucursal}`, `{url_web}`. Otra variable es un error                                                                              |
+| Email                     | Nombre del remitente y dirección de respuesta. La dirección de envío y la API key de Resend van por entorno. Botón de email de prueba (queda en el historial)                                                                          |
+| Códigos                   | Prefijos por tipo de propiedad y exclusivos por usuario, equipo o sucursal                                                                                                                                                             |
+| Ficha y PDF               | Contacto de la empresa, datos del agente, precio, dirección al enviar y al descargar (exacta, aproximada u oculta), fotos del emprendimiento en las unidades                                                                           |
+| Archivos                  | Gestor de archivos de la empresa                                                                                                                                                                                                       |
 
 ### 14.2 Códigos de referencia
 

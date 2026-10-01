@@ -9,7 +9,6 @@ import { Button } from '@norde/ui/components/button';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -65,6 +64,7 @@ export function GeneralSettingsForm({
     defaultValues: {
       name: settings.name,
       timezone: settings.timezone,
+      // Las URLs de la web no se editan desde el panel por ahora: se reenvían tal cual para no pisarlas.
       webPropertyUrlTemplate: settings.webPropertyUrlTemplate ?? '',
       webDevelopmentUrlTemplate: settings.webDevelopmentUrlTemplate ?? '',
       newsScope: settings.newsScope,
@@ -126,47 +126,6 @@ export function GeneralSettingsForm({
                     ))}
                   </SelectContent>
                 </Select>
-                <FormDescription>Para mostrar fechas y horas en el panel.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="webPropertyUrlTemplate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>URL de las propiedades en la web</FormLabel>
-                <FormControl>
-                  <Input
-                    type="url"
-                    placeholder="https://norde.com.ar/propiedades/{slug}"
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Usá {'{slug}'} o {'{id}'} donde va cada propiedad.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="webDevelopmentUrlTemplate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>URL de los emprendimientos en la web</FormLabel>
-                <FormControl>
-                  <Input
-                    type="url"
-                    placeholder="https://norde.com.ar/emprendimientos/{slug}"
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Usá {'{slug}'} o {'{id}'} donde va cada emprendimiento.
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

@@ -104,7 +104,7 @@ export function ContactSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[560px]">
+      <SheetContent className="flex flex-col gap-0 sm:max-w-[560px]">
         <SheetHeader>
           <SheetTitle>{isEdit ? 'Editar contacto' : 'Nuevo contacto'}</SheetTitle>
           <SheetDescription>

@@ -13,14 +13,15 @@ import {
   Trash2Icon,
   UsersIcon,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
 import { formatDateTime } from '../../../lib/format';
+import type { PanelData } from '../../../lib/panel-params';
+import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable } from '../../shared/components/server-data-table';
 import { deleteBranchAction, makeMainBranchAction, restoreBranchAction } from '../actions';
-import { NewBranchDialog } from './branch-form-dialog';
+import { BranchSheet, type BranchSheetData } from './branch-sheet';
 import { NameSearchToolbar } from './list-toolbar';
 import { ConfirmActionDialog, type ConfirmActionCopy } from './trash-dialog';
 
@@ -48,6 +49,7 @@ export function BranchesGrid({
   view,
   text,
   permissions,
+  detail,
 }: {
   readonly rows: readonly BranchListItem[];
   readonly total: number;
@@ -57,9 +59,11 @@ export function BranchesGrid({
   readonly view: TrashViewValue;
   readonly text: string;
   readonly permissions: BranchPermissions;
+  /** La sucursal del panel de edición, si está abierto. */
+  readonly detail: PanelData<BranchSheetData> | undefined;
 }) {
-  const router = useRouter();
-  const [creating, setCreating] = useState(false);
+  const navigation = usePanel();
+  const { openEdit, openNew } = navigation;
   const [pending, setPending] = useState<PendingAction | undefined>();
 
   const columns = useMemo((): readonly DataTableColumn<BranchListItem>[] => {
@@ -130,7 +134,7 @@ export function BranchesGrid({
                 icon={UsersIcon}
                 label="Ver usuarios"
                 onClick={() => {
-                  router.push(`/mi-empresa/usuarios?branchId=${branch.id}`);
+                  openEdit(branch.id, 'users');
                 }}
               />
               {permissions.update && (
@@ -139,7 +143,7 @@ export function BranchesGrid({
                     icon={PencilIcon}
                     label="Editar"
                     onClick={() => {
-                      router.push(`/mi-empresa/sucursales/${branch.id}`);
+                      openEdit(branch.id);
                     }}
                   />
                   <RowAction
@@ -188,7 +192,7 @@ export function BranchesGrid({
           ),
       },
     ];
-  }, [permissions, router, view]);
+  }, [openEdit, permissions, view]);
 
   return (
     <>
@@ -210,13 +214,7 @@ export function BranchesGrid({
               activeLabel="Sucursales"
             />
             {permissions.create && view === 'active' && (
-              <Button
-                type="button"
-                className="sm:ml-auto"
-                onClick={() => {
-                  setCreating(true);
-                }}
-              >
+              <Button type="button" className="sm:ml-auto" onClick={openNew}>
                 <PlusIcon className="h-4 w-4" />
                 Nueva sucursal
               </Button>
@@ -231,7 +229,7 @@ export function BranchesGrid({
               : 'No hay sucursales que coincidan con la búsqueda.'
         }
       />
-      <NewBranchDialog open={creating} onOpenChange={setCreating} />
+      <BranchSheet navigation={navigation} detail={detail} canEdit={permissions.update} />
       <ConfirmActionDialog
         copy={pending?.copy}
         run={pending?.run ?? (() => Promise.resolve({ ok: true }))}

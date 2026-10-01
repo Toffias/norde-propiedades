@@ -1,3 +1,4 @@
+import { PERMISSION_CATALOG } from '@norde/core/identity';
 import { ListRolesQuerySchema } from '@norde/core/identity/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
@@ -9,6 +10,7 @@ import { ROLE_ERROR_MESSAGES } from '../../../../features/identity/messages';
 import { messageForError } from '../../../../lib/errors';
 import { formatCount } from '../../../../lib/format';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
+import { parsePanelParams } from '../../../../lib/panel-params';
 import { requireSession } from '../../../../lib/session';
 
 export const metadata: Metadata = { title: 'Roles' };
@@ -19,8 +21,14 @@ export default async function RolesPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { actor } = await requireSession();
-  const { value: query, invalidKeys } = parseListParams(ListRolesQuerySchema, await searchParams);
-  const roles = await getContainer().identity.listRoles.execute(query, actor);
+  const params = await searchParams;
+  const { value: query, invalidKeys } = parseListParams(ListRolesQuerySchema, params);
+  const panel = parsePanelParams(params);
+  const { identity } = getContainer();
+  const [roles, role] = await Promise.all([
+    identity.listRoles.execute(query, actor),
+    panel?.kind === 'edit' ? identity.getRole.execute({ roleId: panel.id }, actor) : undefined,
+  ]);
 
   if (roles.isErr()) {
     return (
@@ -54,6 +62,24 @@ export default async function RolesPage({
           sort={query.sort}
           view={query.view}
           text={query.q ?? ''}
+          catalog={PERMISSION_CATALOG}
+          detail={
+            panel?.kind !== 'edit' || role === undefined
+              ? undefined
+              : role.isErr()
+                ? {
+                    id: panel.id,
+                    ok: false,
+                    message: messageForError(role.error, ROLE_ERROR_MESSAGES),
+                  }
+                : role.value.deletedAt !== undefined
+                  ? {
+                      id: panel.id,
+                      ok: false,
+                      message: 'Este rol está en la papelera: restauralo para editarlo.',
+                    }
+                  : { id: panel.id, ok: true, value: role.value }
+          }
           permissions={{
             create: actor.can('roles:create'),
             update: actor.can('roles:update'),

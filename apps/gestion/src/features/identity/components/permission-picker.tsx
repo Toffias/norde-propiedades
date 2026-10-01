@@ -4,6 +4,8 @@ import { Checkbox } from '@norde/ui/components/checkbox';
 import { Label } from '@norde/ui/components/label';
 import { useId } from 'react';
 
+import { PermissionSection } from './permission-section';
+
 // El catálogo de permisos llega como datos desde la página (Server Component): el cliente no
 // importa el dominio. Estos tipos son la forma que tiene.
 
@@ -30,6 +32,20 @@ function wildcardOf(resource: string): string {
 
 function belongsTo(permission: string, resource: string): boolean {
   return permission.startsWith(`${resource}:`);
+}
+
+/** Cuántos permisos del grupo da el rol (un "Todo" cuenta todas las acciones del recurso). */
+function grantedSummary(group: CatalogGroup, selected: ReadonlySet<string>): string {
+  let granted = 0;
+  let total = 0;
+  for (const resource of group.resources) {
+    const all = selected.has(wildcardOf(resource.resource));
+    for (const { permission } of resource.permissions) {
+      total += 1;
+      if (all || selected.has(permission)) granted += 1;
+    }
+  }
+  return granted === 0 ? 'Ninguno' : `${granted} de ${total}`;
 }
 
 /** Permisos de un rol, agrupados como el catálogo. Un recurso entero se marca con "Todo". */
@@ -60,8 +76,11 @@ export function PermissionPicker({
   return (
     <div className="flex flex-col gap-4">
       {catalog.map((group) => (
-        <fieldset key={group.label} className="rounded-lg border border-border p-4">
-          <legend className="px-1 text-sm font-semibold">{group.label}</legend>
+        <PermissionSection
+          key={group.label}
+          label={group.label}
+          summary={grantedSummary(group, selected)}
+        >
           <div className="grid gap-5 md:grid-cols-2">
             {group.resources.map((resource) => {
               const all = selected.has(wildcardOf(resource.resource));
@@ -109,7 +128,7 @@ export function PermissionPicker({
               );
             })}
           </div>
-        </fieldset>
+        </PermissionSection>
       ))}
     </div>
   );

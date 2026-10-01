@@ -2,7 +2,7 @@
 
 import type { UserListItem } from '@norde/core/identity/contracts';
 import { Button } from '@norde/ui/components/button';
-import type { DataTableColumn } from '@norde/ui/components/data-table';
+import { DataTable, type DataTableColumn } from '@norde/ui/components/data-table';
 import { PagedCombobox, type ComboboxOption } from '@norde/ui/components/paged-combobox';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { toast } from '@norde/ui/components/sonner';
@@ -10,8 +10,8 @@ import { Loader2Icon, UserMinusIcon, UserPlusIcon } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
-import { ServerDataTable } from '../../shared/components/server-data-table';
 import { addTeamMemberAction, loadUserOptions, removeTeamMemberAction } from '../actions';
+import { PANEL_GRID_PAGE_SIZE } from '../panels';
 
 function getRowId(user: UserListItem): string {
   return user.id;
@@ -58,7 +58,10 @@ function AddMember({ teamId }: { readonly teamId: string }) {
   );
 }
 
-/** Miembros de un equipo, paginados en el servidor (es el listado de usuarios con `teamId`). */
+/**
+ * Miembros de un equipo dentro de su panel, paginados en el servidor (es el listado de usuarios con
+ * `teamId`). La página va en la URL del panel (`panelPage`), sin tocar la de la grilla de equipos.
+ */
 export function TeamMembersGrid({
   teamId,
   canEdit,
@@ -66,7 +69,8 @@ export function TeamMembersGrid({
   total,
   page,
   pageSize,
-  sort,
+  pending: navigating,
+  onPageChange,
 }: {
   readonly teamId: string;
   readonly canEdit: boolean;
@@ -74,7 +78,8 @@ export function TeamMembersGrid({
   readonly total: number;
   readonly page: number;
   readonly pageSize: number;
-  readonly sort: { readonly field: string; readonly direction: 'asc' | 'desc' };
+  readonly pending: boolean;
+  readonly onPageChange: (page: number) => void;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -90,14 +95,12 @@ export function TeamMembersGrid({
       {
         id: 'name',
         header: 'Nombre',
-        sortable: true,
         className: 'font-medium',
         cell: (user) => user.name,
       },
       {
         id: 'email',
         header: 'Email',
-        sortable: true,
         showFrom: 'md',
         className: 'text-muted-foreground',
         cell: (user) => user.email,
@@ -126,14 +129,17 @@ export function TeamMembersGrid({
   }, [canEdit, pending, teamId]);
 
   return (
-    <ServerDataTable
+    <DataTable
       label="Miembros del equipo"
       columns={columns}
       rows={rows}
       total={total}
       page={page}
       pageSize={pageSize}
-      sort={sort}
+      pageSizes={[PANEL_GRID_PAGE_SIZE]}
+      onPageChange={onPageChange}
+      onPageSizeChange={() => undefined}
+      pending={navigating}
       getRowId={getRowId}
       toolbar={canEdit ? <AddMember teamId={teamId} /> : undefined}
       empty="Todavía no tiene miembros."

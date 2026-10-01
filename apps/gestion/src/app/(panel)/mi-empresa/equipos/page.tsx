@@ -4,11 +4,21 @@ import { DataTableError } from '@norde/ui/components/data-table';
 import type { Metadata } from 'next';
 
 import { getContainer } from '../../../../container';
+import type { TeamSheetData } from '../../../../features/identity/components/team-sheet';
 import { TeamsGrid } from '../../../../features/identity/components/teams-grid';
 import { TEAM_ERROR_MESSAGES } from '../../../../features/identity/messages';
+import { loadPanelUsers } from '../../../../features/identity/panel-users';
+import { teamTab } from '../../../../features/identity/panels';
+import type { Actor } from '@norde/core/shared';
 import { messageForError } from '../../../../lib/errors';
 import { formatCount } from '../../../../lib/format';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
+import {
+  parsePanelPage,
+  parsePanelParams,
+  type PanelData,
+  type PanelState,
+} from '../../../../lib/panel-params';
 import { requireSession } from '../../../../lib/session';
 
 export const metadata: Metadata = { title: 'Equipos' };
@@ -19,8 +29,12 @@ export default async function TeamsPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { actor } = await requireSession();
-  const { value: query, invalidKeys } = parseListParams(ListTeamsQuerySchema, await searchParams);
-  const teams = await getContainer().identity.listTeams.execute(query, actor);
+  const params = await searchParams;
+  const { value: query, invalidKeys } = parseListParams(ListTeamsQuerySchema, params);
+  const [teams, detail] = await Promise.all([
+    getContainer().identity.listTeams.execute(query, actor),
+    loadTeamPanel(parsePanelParams(params), parsePanelPage(params), actor),
+  ]);
 
   if (teams.isErr()) {
     return (
@@ -54,6 +68,7 @@ export default async function TeamsPage({
           sort={query.sort}
           view={query.view}
           text={query.q ?? ''}
+          detail={detail}
           permissions={{
             create: actor.can('teams:create'),
             update: actor.can('teams:update'),
@@ -63,4 +78,32 @@ export default async function TeamsPage({
       </Card>
     </div>
   );
+}
+
+/** El equipo del panel de edición y, en la pestaña "Miembros", una página de sus miembros. */
+async function loadTeamPanel(
+  panel: PanelState | undefined,
+  page: number,
+  actor: Actor,
+): Promise<PanelData<TeamSheetData> | undefined> {
+  if (panel?.kind !== 'edit') return undefined;
+  const { identity } = getContainer();
+  const team = await identity.getTeam.execute({ teamId: panel.id }, actor);
+  if (team.isErr()) {
+    return { id: panel.id, ok: false, message: messageForError(team.error, TEAM_ERROR_MESSAGES) };
+  }
+  if (team.value.deletedAt !== undefined) {
+    return { id: panel.id, ok: false, message: TEAM_ERROR_MESSAGES.TeamDeleted };
+  }
+  return {
+    id: panel.id,
+    ok: true,
+    value: {
+      team: team.value,
+      members:
+        teamTab(panel.tab) === 'members'
+          ? await loadPanelUsers(panel.id, { teamId: panel.id }, page, actor)
+          : undefined,
+    },
+  };
 }

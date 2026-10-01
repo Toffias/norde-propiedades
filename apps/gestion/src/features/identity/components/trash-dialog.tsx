@@ -15,7 +15,7 @@ import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
 import type { ActionResult } from '../../../lib/action-result';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 
 export interface ConfirmActionCopy {
   readonly title: string;

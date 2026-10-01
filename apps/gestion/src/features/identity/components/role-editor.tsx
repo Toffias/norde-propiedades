@@ -31,7 +31,7 @@ import { useForm, useFormContext } from 'react-hook-form';
 import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
 import { createRoleAction, updateRoleAction } from '../actions';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 import { PermissionPicker, type CatalogGroup } from './permission-picker';
 
 const ROLES = '/mi-empresa/roles';

@@ -36,7 +36,7 @@ import { contractResolver } from '../../../lib/form';
 import { createUserAction, loadBranchOptions, updateUserAction } from '../actions';
 import { generateTemporaryPassword } from '../temporary-password';
 import { EntityPicker } from './entity-picker';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 import { RoleCheckboxes, type RoleOption } from './role-checkboxes';
 
 interface DialogProps {

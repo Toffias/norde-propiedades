@@ -32,7 +32,7 @@ import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
 import { createTeamAction, loadBranchOptions, updateTeamAction } from '../actions';
 import { EntityPicker } from './entity-picker';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 
 /** Alta (sin `team`) o edición de un equipo: nombre y sucursal. */
 export function TeamFormDialog({

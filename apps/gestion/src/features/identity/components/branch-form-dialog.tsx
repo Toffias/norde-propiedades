@@ -32,7 +32,7 @@ import { useForm } from 'react-hook-form';
 import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
 import { createBranchAction, updateBranchAction } from '../actions';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 
 /** Lo que se edita de una sucursal: el alta y la edición usan los mismos campos del contract. */
 type BranchValues = CreateBranchInput;

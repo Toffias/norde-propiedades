@@ -25,7 +25,7 @@ import { runAction } from '../../../lib/action-result';
 import { authClient } from '../../../lib/auth-client';
 import { contractResolver } from '../../../lib/form';
 import { changeOwnPasswordAction } from '../actions';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 
 export function ChangePasswordForm({ temporary }: { readonly temporary: boolean }) {
   const router = useRouter();

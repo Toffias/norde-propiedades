@@ -39,7 +39,7 @@ import { runAction } from '../../../lib/action-result';
 import { formatDateTime } from '../../../lib/format';
 import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
 import { deleteRoleAction, restoreRoleAction } from '../actions';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 
 export interface RolePermissions {
   readonly create: boolean;

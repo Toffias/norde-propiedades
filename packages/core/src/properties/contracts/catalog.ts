@@ -100,6 +100,8 @@ export const NO_TAG_GROUP = 'none';
 export const ListTagGroupsQuerySchema = pageQuerySchema({
   sortable: ['position', 'name'],
   defaultSort: { field: 'position', direction: 'asc' },
+}).extend({
+  q: z.string().trim().min(1).max(60).optional(),
 });
 export type ListTagGroupsQuery = z.input<typeof ListTagGroupsQuerySchema>;
 
@@ -190,6 +192,38 @@ export const PROPERTY_ATTRIBUTE_VALUES = [
   'amenities',
 ] as const;
 export type PropertyAttributeValue = (typeof PROPERTY_ATTRIBUTE_VALUES)[number];
+
+/** Grupo de cada atributo en la ficha (el mismo que el del dominio; un test lo verifica). */
+export const PROPERTY_ATTRIBUTE_GROUP_OF: Readonly<
+  Record<PropertyAttributeValue, PropertyAttributeGroupValue>
+> = {
+  rooms: 'general',
+  bedrooms: 'general',
+  bathrooms: 'general',
+  toilets: 'general',
+  parkingSpaces: 'general',
+  ageYears: 'general',
+  orientation: 'general',
+  condition: 'general',
+  disposition: 'general',
+  isFurnished: 'general',
+  professionalUse: 'general',
+  surfaceTotalM2: 'surfaces',
+  surfaceCoveredM2: 'surfaces',
+  surfaceSemiCoveredM2: 'surfaces',
+  surfaceLandM2: 'surfaces',
+  frontM: 'surfaces',
+  depthM: 'surfaces',
+  expenses: 'operation',
+  creditEligible: 'operation',
+  isExclusive: 'operation',
+  acceptsSwap: 'operation',
+  immediateDeed: 'operation',
+  hasFinancing: 'operation',
+  services: 'catalogs',
+  roomFeatures: 'catalogs',
+  amenities: 'catalogs',
+};
 
 export const UpdatePropertyTypeSettingInputSchema = z.object({
   propertyType: z.enum(PROPERTY_TYPES),

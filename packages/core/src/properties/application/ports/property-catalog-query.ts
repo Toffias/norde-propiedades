@@ -40,6 +40,7 @@ export interface PropertyCatalogQuery {
 
   listTagGroups(
     criteria: Paging & {
+      readonly text: string | undefined;
       readonly sort: { readonly field: 'position' | 'name'; readonly direction: Direction };
     },
   ): Promise<PageSlice<TagGroupRow>>;

@@ -138,14 +138,20 @@ export const CreatePropertyInputSchema = z
   })
   .superRefine((input, ctx) => {
     if (input.locationId !== undefined) return;
-    for (const field of ['neighborhood', 'city', 'province'] as const) {
-      if (input[field] === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Elegí la ubicación en el buscador o completá barrio, localidad y provincia.',
-          path: [field],
-        });
-      }
+    const missing = (['neighborhood', 'city', 'province'] as const).filter(
+      (field) => input[field] === undefined,
+    );
+    if (missing.length === 0) return;
+    // El formulario muestra el buscador o los tres campos: el aviso va en los dos lugares.
+    for (const field of ['locationId', ...missing] as const) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          field === 'locationId'
+            ? 'Elegí la ubicación en el buscador o cargala a mano.'
+            : 'Completá barrio, localidad y provincia, o elegí la ubicación en el buscador.',
+        path: [field],
+      });
     }
   });
 export type CreatePropertyInput = z.input<typeof CreatePropertyInputSchema>;

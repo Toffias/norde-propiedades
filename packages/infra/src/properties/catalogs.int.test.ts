@@ -222,6 +222,7 @@ describe('tags', () => {
 
     const listed = await catalog.listTagGroups({
       ...PAGE,
+      text: 'campana',
       sort: { field: 'name', direction: 'asc' },
     });
     expect(listed.items).toEqual([expect.objectContaining({ name: 'Campañas', tagCount: 1 })]);

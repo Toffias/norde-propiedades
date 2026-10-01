@@ -422,6 +422,10 @@ export const propertyTagGroups = coreSchema.table(
     uniqueIndex('property_tag_groups_name_uq').on(sql`core.search_normalize(${t.name})`),
     index('property_tag_groups_position_idx').on(t.position, t.id),
     index('property_tag_groups_name_idx').on(t.name, t.id),
+    index('property_tag_groups_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
+    ),
   ],
 );
 

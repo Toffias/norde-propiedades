@@ -8,6 +8,7 @@ import {
   LOCATION_KIND_VALUES,
   MANUAL_STATUS_VALUES,
   MAX_GRID_COLUMN_COUNT,
+  PROPERTY_ATTRIBUTE_GROUP_OF,
   PROPERTY_ATTRIBUTE_GROUP_VALUES,
   PROPERTY_ATTRIBUTE_VALUES,
 } from '../contracts';
@@ -22,6 +23,7 @@ import { LOCATION_KINDS, Location, childKind } from './location';
 import { PropertyTag, TagGroup } from './property-tag';
 import { MANUAL_STATUSES, canTransition } from './property-status';
 import {
+  PROPERTY_ATTRIBUTE_GROUP,
   PROPERTY_ATTRIBUTE_GROUPS,
   PROPERTY_ATTRIBUTE_KEYS,
   RECOMMENDED_ATTRIBUTES,
@@ -43,6 +45,7 @@ describe('catalog values', () => {
     expect([...FEATURE_KIND_VALUES]).toEqual([...FEATURE_KINDS]);
     expect([...PROPERTY_ATTRIBUTE_VALUES]).toEqual([...PROPERTY_ATTRIBUTE_KEYS]);
     expect([...PROPERTY_ATTRIBUTE_GROUP_VALUES]).toEqual([...PROPERTY_ATTRIBUTE_GROUPS]);
+    expect(PROPERTY_ATTRIBUTE_GROUP_OF).toEqual(PROPERTY_ATTRIBUTE_GROUP);
     expect([...GRID_COLUMN_VALUES]).toEqual([...GRID_COLUMN_OPTIONS]);
     expect(MAX_GRID_COLUMN_COUNT).toBe(MAX_GRID_COLUMNS);
     expect([...MANUAL_STATUS_VALUES]).toEqual([...MANUAL_STATUSES]);

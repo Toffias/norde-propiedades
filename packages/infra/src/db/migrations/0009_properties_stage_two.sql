@@ -22,6 +22,7 @@ CREATE INDEX IF NOT EXISTS "locations_name_idx" ON "core"."locations" USING btre
 CREATE UNIQUE INDEX IF NOT EXISTS "property_tag_groups_name_uq" ON "core"."property_tag_groups" USING btree (core.search_normalize("name"));--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "property_tag_groups_position_idx" ON "core"."property_tag_groups" USING btree ("position","id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "property_tag_groups_name_idx" ON "core"."property_tag_groups" USING btree ("name","id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "property_tag_groups_name_trgm_idx" ON "core"."property_tag_groups" USING gin (core.search_normalize("name") gin_trgm_ops);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "property_tags_group_idx" ON "core"."property_tags" USING btree ("group_id","name");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "property_tags_name_idx" ON "core"."property_tags" USING btree ("name","id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "property_tags_name_trgm_idx" ON "core"."property_tags" USING gin (core.search_normalize("name") gin_trgm_ops);--> statement-breakpoint

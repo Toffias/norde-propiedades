@@ -35,6 +35,7 @@ export class ListTagGroups {
     const query = parsed.data;
     const { page, pageSize } = query;
     const slice = await this.deps.catalog.listTagGroups({
+      text: query.q,
       sort: query.sort,
       ...toOffsetLimit({ page, pageSize }),
     });

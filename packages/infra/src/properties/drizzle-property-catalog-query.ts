@@ -159,6 +159,10 @@ export class DrizzlePropertyCatalogQuery implements PropertyCatalogQuery {
     criteria: Parameters<PropertyCatalogQuery['listTagGroups']>[0],
   ): Promise<PageSlice<TagGroupRow>> {
     const { field, direction } = criteria.sort;
+    const where =
+      criteria.text === undefined
+        ? undefined
+        : contains(sql`core.search_normalize(${propertyTagGroups.name})`, criteria.text);
     const [rows, totals] = await Promise.all([
       this.db
         .select({
@@ -169,13 +173,14 @@ export class DrizzlePropertyCatalogQuery implements PropertyCatalogQuery {
           tagCount: sql<number>`(select count(*)::int from ${propertyTags} t where t.group_id = ${sql.raw('"property_tag_groups"."id"')})`,
         })
         .from(propertyTagGroups)
+        .where(where)
         .orderBy(
           by(direction, field === 'name' ? propertyTagGroups.name : propertyTagGroups.position),
           by(direction, propertyTagGroups.id),
         )
         .limit(criteria.limit)
         .offset(criteria.offset),
-      this.db.select({ total: count() }).from(propertyTagGroups),
+      this.db.select({ total: count() }).from(propertyTagGroups).where(where),
     ]);
     return { items: rows, total: totals[0]?.total ?? 0 };
   }

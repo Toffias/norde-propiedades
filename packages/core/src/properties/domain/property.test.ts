@@ -1,0 +1,172 @@
+import { describe, expect, it } from 'vitest';
+
+import { parseId } from '../../shared';
+import { unwrap, unwrapErr } from '../../shared/testing';
+import { CURRENCIES, OPERATIONS, PROPERTY_STATUS_VALUES, PROPERTY_TYPES } from '../contracts';
+import { Coordinates } from './coordinates';
+import { propertySlug, suggestPortalTitle, suggestPublishAddress } from './listing-text';
+import { Property, type NewProperty } from './property';
+import { PRICE_CURRENCIES, PROPERTY_KINDS, PROPERTY_OPERATIONS } from './property-catalog';
+import { PROPERTY_STATUSES } from './property-status';
+
+const NOW = new Date('2026-10-01T12:00:00Z');
+const LATER = new Date('2026-10-02T12:00:00Z');
+const ID = unwrap(parseId<'Property'>('00000000-0000-7000-8000-0000000000c1'));
+
+function newProperty(overrides: Partial<NewProperty> = {}): NewProperty {
+  return {
+    id: ID,
+    code: 'DEP0001',
+    kind: 'apartment',
+    operation: { operation: 'sale', currency: 'USD', priceCents: 12_000_000n },
+    address: {
+      street: '  Gurruchaga ',
+      streetNumber: '1834',
+      floor: ' ',
+      unit: 'B',
+      neighborhood: 'Palermo',
+      city: 'CABA',
+      province: 'Buenos Aires',
+    },
+    publishAddress: undefined,
+    portalTitle: undefined,
+    coordinates: undefined,
+    producerUserId: '00000000-0000-7000-8000-0000000000a1',
+    branchId: '00000000-0000-7000-8000-0000000000b1',
+    now: NOW,
+    ...overrides,
+  };
+}
+
+describe('domain values', () => {
+  it('match the values the contracts offer', () => {
+    expect([...PROPERTY_OPERATIONS]).toEqual([...OPERATIONS]);
+    expect([...PROPERTY_KINDS]).toEqual([...PROPERTY_TYPES]);
+    expect([...PRICE_CURRENCIES]).toEqual([...CURRENCIES]);
+    expect([...PROPERTY_STATUSES]).toEqual([...PROPERTY_STATUS_VALUES]);
+  });
+});
+
+describe('suggestPublishAddress', () => {
+  it('rounds the street number down to the hundred', () => {
+    expect(suggestPublishAddress('Gurruchaga', '1834')).toBe('Gurruchaga al 1800');
+    expect(suggestPublishAddress('Gurruchaga', '45')).toBe('Gurruchaga al 0');
+  });
+
+  it('keeps only the street without a numeric street number', () => {
+    expect(suggestPublishAddress(' Ruta 8 ', undefined)).toBe('Ruta 8');
+    expect(suggestPublishAddress('Ruta 8', 'km 50')).toBe('Ruta 8');
+  });
+});
+
+describe('suggestPortalTitle', () => {
+  it('names the kind, the operation and the neighborhood', () => {
+    expect(
+      suggestPortalTitle({ kind: 'ph', operation: 'temporary_rent', neighborhood: 'Belgrano' }),
+    ).toBe('PH en alquiler temporario en Belgrano');
+  });
+
+  it('leaves the place out when there is no neighborhood', () => {
+    expect(suggestPortalTitle({ kind: 'land', operation: 'sale', neighborhood: ' ' })).toBe(
+      'Terreno en venta',
+    );
+  });
+});
+
+describe('propertySlug', () => {
+  it('strips accents and symbols and ends with the code', () => {
+    expect(propertySlug('Galpón en venta en Ñuñoa!', 'GAL0002')).toBe(
+      'galpon-en-venta-en-nunoa-gal0002',
+    );
+  });
+});
+
+describe('Coordinates', () => {
+  it('rounds to six decimals', () => {
+    const point = unwrap(Coordinates.create(-34.58612345, -58.4321));
+    expect(point.latitude).toBe(-34.586123);
+    expect(point.longitude).toBe(-58.4321);
+  });
+
+  it.each([
+    [91, 0],
+    [0, -181],
+    [Number.NaN, 0],
+  ])('rejects %d, %d', (latitude, longitude) => {
+    expect(unwrapErr(Coordinates.create(latitude, longitude))).toEqual({
+      type: 'InvalidCoordinates',
+    });
+  });
+});
+
+describe('Property.create', () => {
+  it('starts as a draft with suggested listing texts and records the event', () => {
+    const property = unwrap(Property.create(newProperty()));
+    const snapshot = property.toSnapshot();
+
+    expect(snapshot.status).toBe('draft');
+    expect(snapshot.address.street).toBe('Gurruchaga');
+    expect(snapshot.address.floor).toBeUndefined();
+    expect(snapshot.publishAddress).toBe('Gurruchaga al 1800');
+    expect(snapshot.portalTitle).toBe('Departamento en venta en Palermo');
+    expect(snapshot.slug).toBe('departamento-en-venta-en-palermo-dep0001');
+    expect(snapshot.operations).toEqual([
+      { operation: 'sale', currency: 'USD', priceCents: 12_000_000n },
+    ]);
+    expect(property.pullEvents()).toEqual([
+      {
+        type: 'properties.property_created',
+        aggregateId: ID,
+        occurredAt: NOW,
+        payload: { propertyId: ID, code: 'DEP0001' },
+      },
+    ]);
+  });
+
+  it('keeps the listing texts the user wrote', () => {
+    const property = unwrap(
+      Property.create(
+        newProperty({ publishAddress: ' Palermo Soho ', portalTitle: 'Luminoso 3 ambientes' }),
+      ),
+    );
+    expect(property.toSnapshot().publishAddress).toBe('Palermo Soho');
+    expect(property.toSnapshot().portalTitle).toBe('Luminoso 3 ambientes');
+  });
+
+  it('rejects a negative price', () => {
+    const result = Property.create(
+      newProperty({ operation: { operation: 'rent', currency: 'ARS', priceCents: -1n } }),
+    );
+    expect(unwrapErr(result)).toEqual({ type: 'NegativePrice' });
+  });
+});
+
+describe('Property trash', () => {
+  it('records who deleted it and when, and restores it', () => {
+    const property = unwrap(Property.create(newProperty()));
+    property.pullEvents();
+
+    unwrap(property.delete('user-1', LATER));
+    expect(property.isDeleted).toBe(true);
+    expect(property.toSnapshot()).toMatchObject({ deletedAt: LATER, deletedBy: 'user-1' });
+    expect(unwrapErr(property.delete('user-1', LATER))).toEqual({
+      type: 'PropertyAlreadyDeleted',
+    });
+
+    unwrap(property.restoreFromTrash(LATER));
+    expect(property.toSnapshot()).toMatchObject({ deletedAt: undefined, deletedBy: undefined });
+    expect(unwrapErr(property.restoreFromTrash(LATER))).toEqual({ type: 'PropertyNotDeleted' });
+    expect(property.pullEvents().map((e) => e.type)).toEqual([
+      'properties.property_deleted',
+      'properties.property_restored',
+    ]);
+  });
+
+  it('exposes its producer and branch for the ownership rules', () => {
+    const property = unwrap(Property.create(newProperty()));
+    expect(property.ownership).toEqual({
+      ownerId: '00000000-0000-7000-8000-0000000000a1',
+      ownerBranchId: '00000000-0000-7000-8000-0000000000b1',
+    });
+  });
+});

@@ -87,12 +87,8 @@
           "tableFrom": "appraisal_photos",
           "tableTo": "appraisals",
           "schemaTo": "core",
-          "columnsFrom": [
-            "appraisal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["appraisal_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -612,12 +608,8 @@
           "tableFrom": "client_activities",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -626,12 +618,8 @@
           "tableFrom": "client_activities",
           "tableTo": "opportunities",
           "schemaTo": "core",
-          "columnsFrom": [
-            "opportunity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["opportunity_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -706,12 +694,8 @@
           "tableFrom": "client_channels",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -719,11 +703,7 @@
       "compositePrimaryKeys": {
         "client_channels_client_id_channel_external_id_pk": {
           "name": "client_channels_client_id_channel_external_id_pk",
-          "columns": [
-            "client_id",
-            "channel",
-            "external_id"
-          ]
+          "columns": ["client_id", "channel", "external_id"]
         }
       },
       "uniqueConstraints": {},
@@ -822,12 +802,8 @@
           "tableFrom": "client_emails",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -954,12 +930,8 @@
           "tableFrom": "client_phones",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1034,12 +1006,8 @@
           "tableFrom": "client_relations",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1048,12 +1016,8 @@
           "tableFrom": "client_relations",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "related_client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["related_client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1061,11 +1025,7 @@
       "compositePrimaryKeys": {
         "client_relations_client_id_related_client_id_kind_pk": {
           "name": "client_relations_client_id_related_client_id_kind_pk",
-          "columns": [
-            "client_id",
-            "related_client_id",
-            "kind"
-          ]
+          "columns": ["client_id", "related_client_id", "kind"]
         }
       },
       "uniqueConstraints": {},
@@ -1125,12 +1085,8 @@
           "tableFrom": "client_tag_assignments",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1139,12 +1095,8 @@
           "tableFrom": "client_tag_assignments",
           "tableTo": "client_tags",
           "schemaTo": "core",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1152,10 +1104,7 @@
       "compositePrimaryKeys": {
         "client_tag_assignments_client_id_tag_id_pk": {
           "name": "client_tag_assignments_client_id_tag_id_pk",
-          "columns": [
-            "client_id",
-            "tag_id"
-          ]
+          "columns": ["client_id", "tag_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1301,12 +1250,8 @@
           "tableFrom": "client_tags",
           "tableTo": "client_tag_groups",
           "schemaTo": "core",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1836,12 +1781,8 @@
           "tableFrom": "featured_listings",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1850,12 +1791,8 @@
           "tableFrom": "featured_listings",
           "tableTo": "opportunities",
           "schemaTo": "core",
-          "columnsFrom": [
-            "opportunity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["opportunity_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2288,12 +2225,8 @@
           "tableFrom": "inquiries",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2302,12 +2235,8 @@
           "tableFrom": "inquiries",
           "tableTo": "opportunities",
           "schemaTo": "core",
-          "columnsFrom": [
-            "opportunity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["opportunity_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2377,12 +2306,8 @@
           "tableFrom": "inquiry_assignment_rule_agents",
           "tableTo": "inquiry_assignment_rules",
           "schemaTo": "core",
-          "columnsFrom": [
-            "rule_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rule_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2390,10 +2315,7 @@
       "compositePrimaryKeys": {
         "inquiry_assignment_rule_agents_rule_id_user_id_pk": {
           "name": "inquiry_assignment_rule_agents_rule_id_user_id_pk",
-          "columns": [
-            "rule_id",
-            "user_id"
-          ]
+          "columns": ["rule_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -2909,12 +2831,8 @@
           "tableFrom": "opportunities",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2923,12 +2841,8 @@
           "tableFrom": "opportunities",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2937,12 +2851,8 @@
           "tableFrom": "opportunities",
           "tableTo": "opportunity_close_reasons",
           "schemaTo": "core",
-          "columnsFrom": [
-            "close_reason_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["close_reason_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3123,12 +3033,8 @@
           "tableFrom": "opportunity_settings",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_on_create_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_on_create_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3137,12 +3043,8 @@
           "tableFrom": "opportunity_settings",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_on_assign_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_on_assign_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3151,12 +3053,8 @@
           "tableFrom": "opportunity_settings",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_on_reactivate_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_on_reactivate_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3165,12 +3063,8 @@
           "tableFrom": "opportunity_settings",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_for_owners_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_for_owners_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3179,12 +3073,8 @@
           "tableFrom": "opportunity_settings",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_after_message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_after_message_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3193,12 +3083,8 @@
           "tableFrom": "opportunity_settings",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_after_like_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_after_like_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -3207,12 +3093,8 @@
           "tableFrom": "opportunity_settings",
           "tableTo": "opportunity_stages",
           "schemaTo": "core",
-          "columnsFrom": [
-            "stage_after_dislike_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["stage_after_dislike_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3428,12 +3310,8 @@
           "tableFrom": "opportunity_status_changes",
           "tableTo": "opportunities",
           "schemaTo": "core",
-          "columnsFrom": [
-            "opportunity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["opportunity_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3758,12 +3636,8 @@
           "tableFrom": "saved_searches",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3772,12 +3646,8 @@
           "tableFrom": "saved_searches",
           "tableTo": "opportunities",
           "schemaTo": "core",
-          "columnsFrom": [
-            "opportunity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["opportunity_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -3872,12 +3742,8 @@
           "tableFrom": "shared_listing_items",
           "tableTo": "shared_listings",
           "schemaTo": "core",
-          "columnsFrom": [
-            "shared_listing_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["shared_listing_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3885,10 +3751,7 @@
       "compositePrimaryKeys": {
         "shared_listing_items_shared_listing_id_property_id_pk": {
           "name": "shared_listing_items_shared_listing_id_property_id_pk",
-          "columns": [
-            "shared_listing_id",
-            "property_id"
-          ]
+          "columns": ["shared_listing_id", "property_id"]
         }
       },
       "uniqueConstraints": {},
@@ -4017,12 +3880,8 @@
           "tableFrom": "shared_listings",
           "tableTo": "clients",
           "schemaTo": "core",
-          "columnsFrom": [
-            "client_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["client_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4176,12 +4035,8 @@
           "tableFrom": "conversation_messages",
           "tableTo": "conversations",
           "schemaTo": "core",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4457,12 +4312,8 @@
           "tableFrom": "accounts",
           "tableTo": "users",
           "schemaTo": "core",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4640,12 +4491,8 @@
           "tableFrom": "role_permissions",
           "tableTo": "roles",
           "schemaTo": "core",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4653,10 +4500,7 @@
       "compositePrimaryKeys": {
         "role_permissions_role_id_permission_pk": {
           "name": "role_permissions_role_id_permission_pk",
-          "columns": [
-            "role_id",
-            "permission"
-          ]
+          "columns": ["role_id", "permission"]
         }
       },
       "uniqueConstraints": {},
@@ -4839,12 +4683,8 @@
           "tableFrom": "sessions",
           "tableTo": "users",
           "schemaTo": "core",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4907,12 +4747,8 @@
           "tableFrom": "team_members",
           "tableTo": "teams",
           "schemaTo": "core",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4921,12 +4757,8 @@
           "tableFrom": "team_members",
           "tableTo": "users",
           "schemaTo": "core",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4934,10 +4766,7 @@
       "compositePrimaryKeys": {
         "team_members_team_id_user_id_pk": {
           "name": "team_members_team_id_user_id_pk",
-          "columns": [
-            "team_id",
-            "user_id"
-          ]
+          "columns": ["team_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -5015,12 +4844,8 @@
           "tableFrom": "teams",
           "tableTo": "branches",
           "schemaTo": "core",
-          "columnsFrom": [
-            "branch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -5110,12 +4935,8 @@
           "tableFrom": "user_favorites",
           "tableTo": "users",
           "schemaTo": "core",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5123,11 +4944,7 @@
       "compositePrimaryKeys": {
         "user_favorites_user_id_entity_type_entity_id_pk": {
           "name": "user_favorites_user_id_entity_type_entity_id_pk",
-          "columns": [
-            "user_id",
-            "entity_type",
-            "entity_id"
-          ]
+          "columns": ["user_id", "entity_type", "entity_id"]
         }
       },
       "uniqueConstraints": {},
@@ -5193,12 +5010,8 @@
           "tableFrom": "user_permissions",
           "tableTo": "users",
           "schemaTo": "core",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5206,10 +5019,7 @@
       "compositePrimaryKeys": {
         "user_permissions_user_id_permission_pk": {
           "name": "user_permissions_user_id_permission_pk",
-          "columns": [
-            "user_id",
-            "permission"
-          ]
+          "columns": ["user_id", "permission"]
         }
       },
       "uniqueConstraints": {},
@@ -5269,12 +5079,8 @@
           "tableFrom": "user_roles",
           "tableTo": "users",
           "schemaTo": "core",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5283,12 +5089,8 @@
           "tableFrom": "user_roles",
           "tableTo": "roles",
           "schemaTo": "core",
-          "columnsFrom": [
-            "role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["role_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -5296,10 +5098,7 @@
       "compositePrimaryKeys": {
         "user_roles_user_id_role_id_pk": {
           "name": "user_roles_user_id_role_id_pk",
-          "columns": [
-            "user_id",
-            "role_id"
-          ]
+          "columns": ["user_id", "role_id"]
         }
       },
       "uniqueConstraints": {},
@@ -5491,12 +5290,8 @@
           "tableFrom": "users",
           "tableTo": "branches",
           "schemaTo": "core",
-          "columnsFrom": [
-            "branch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -5620,10 +5415,7 @@
       "compositePrimaryKeys": {
         "notification_preferences_user_id_type_pk": {
           "name": "notification_preferences_user_id_type_pk",
-          "columns": [
-            "user_id",
-            "type"
-          ]
+          "columns": ["user_id", "type"]
         }
       },
       "uniqueConstraints": {},
@@ -6156,12 +5948,8 @@
           "tableFrom": "import_job_errors",
           "tableTo": "import_jobs",
           "schemaTo": "core",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6632,12 +6420,8 @@
           "tableFrom": "portal_listing_daily_stats",
           "tableTo": "portal_listings",
           "schemaTo": "core",
-          "columnsFrom": [
-            "listing_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["listing_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6645,10 +6429,7 @@
       "compositePrimaryKeys": {
         "portal_listing_daily_stats_listing_id_date_pk": {
           "name": "portal_listing_daily_stats_listing_id_date_pk",
-          "columns": [
-            "listing_id",
-            "date"
-          ]
+          "columns": ["listing_id", "date"]
         }
       },
       "uniqueConstraints": {},
@@ -6892,12 +6673,8 @@
           "tableFrom": "portal_listings",
           "tableTo": "portal_accounts",
           "schemaTo": "core",
-          "columnsFrom": [
-            "portal"
-          ],
-          "columnsTo": [
-            "portal"
-          ],
+          "columnsFrom": ["portal"],
+          "columnsTo": ["portal"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -7053,12 +6830,8 @@
           "tableFrom": "attachments",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7067,12 +6840,8 @@
           "tableFrom": "attachments",
           "tableTo": "developments",
           "schemaTo": "core",
-          "columnsFrom": [
-            "development_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["development_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -7140,12 +6909,8 @@
           "tableFrom": "development_features",
           "tableTo": "developments",
           "schemaTo": "core",
-          "columnsFrom": [
-            "development_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["development_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7154,12 +6919,8 @@
           "tableFrom": "development_features",
           "tableTo": "features",
           "schemaTo": "core",
-          "columnsFrom": [
-            "feature_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["feature_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -7167,10 +6928,7 @@
       "compositePrimaryKeys": {
         "development_features_development_id_feature_id_pk": {
           "name": "development_features_development_id_feature_id_pk",
-          "columns": [
-            "development_id",
-            "feature_id"
-          ]
+          "columns": ["development_id", "feature_id"]
         }
       },
       "uniqueConstraints": {},
@@ -7230,12 +6988,8 @@
           "tableFrom": "development_tag_assignments",
           "tableTo": "developments",
           "schemaTo": "core",
-          "columnsFrom": [
-            "development_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["development_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -7244,12 +6998,8 @@
           "tableFrom": "development_tag_assignments",
           "tableTo": "property_tags",
           "schemaTo": "core",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -7257,10 +7007,7 @@
       "compositePrimaryKeys": {
         "development_tag_assignments_development_id_tag_id_pk": {
           "name": "development_tag_assignments_development_id_tag_id_pk",
-          "columns": [
-            "development_id",
-            "tag_id"
-          ]
+          "columns": ["development_id", "tag_id"]
         }
       },
       "uniqueConstraints": {},
@@ -7642,12 +7389,8 @@
           "tableFrom": "developments",
           "tableTo": "locations",
           "schemaTo": "core",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -7902,12 +7645,8 @@
           "tableFrom": "locations",
           "tableTo": "locations",
           "schemaTo": "core",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -8137,12 +7876,8 @@
           "tableFrom": "media_items",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -8151,12 +7886,8 @@
           "tableFrom": "media_items",
           "tableTo": "developments",
           "schemaTo": "core",
-          "columnsFrom": [
-            "development_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["development_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -8857,12 +8588,8 @@
           "tableFrom": "properties",
           "tableTo": "developments",
           "schemaTo": "core",
-          "columnsFrom": [
-            "development_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["development_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -8871,12 +8598,8 @@
           "tableFrom": "properties",
           "tableTo": "locations",
           "schemaTo": "core",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -8886,16 +8609,12 @@
         "properties_code_unique": {
           "name": "properties_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         },
         "properties_slug_unique": {
           "name": "properties_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -8954,12 +8673,8 @@
           "tableFrom": "property_appraisers",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -8967,10 +8682,7 @@
       "compositePrimaryKeys": {
         "property_appraisers_property_id_user_id_pk": {
           "name": "property_appraisers_property_id_user_id_pk",
-          "columns": [
-            "property_id",
-            "user_id"
-          ]
+          "columns": ["property_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -9066,12 +8778,8 @@
           "tableFrom": "property_custom_attribute_values",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9080,12 +8788,8 @@
           "tableFrom": "property_custom_attribute_values",
           "tableTo": "property_custom_attributes",
           "schemaTo": "core",
-          "columnsFrom": [
-            "attribute_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["attribute_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -9093,10 +8797,7 @@
       "compositePrimaryKeys": {
         "property_custom_attribute_values_property_id_attribute_id_pk": {
           "name": "property_custom_attribute_values_property_id_attribute_id_pk",
-          "columns": [
-            "property_id",
-            "attribute_id"
-          ]
+          "columns": ["property_id", "attribute_id"]
         }
       },
       "uniqueConstraints": {},
@@ -9231,12 +8932,8 @@
           "tableFrom": "property_features",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9245,12 +8942,8 @@
           "tableFrom": "property_features",
           "tableTo": "features",
           "schemaTo": "core",
-          "columnsFrom": [
-            "feature_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["feature_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -9258,10 +8951,7 @@
       "compositePrimaryKeys": {
         "property_features_property_id_feature_id_pk": {
           "name": "property_features_property_id_feature_id_pk",
-          "columns": [
-            "property_id",
-            "feature_id"
-          ]
+          "columns": ["property_id", "feature_id"]
         }
       },
       "uniqueConstraints": {},
@@ -9397,12 +9087,8 @@
           "tableFrom": "property_operations",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9465,12 +9151,8 @@
           "tableFrom": "property_owners",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9478,10 +9160,7 @@
       "compositePrimaryKeys": {
         "property_owners_property_id_client_id_pk": {
           "name": "property_owners_property_id_client_id_pk",
-          "columns": [
-            "property_id",
-            "client_id"
-          ]
+          "columns": ["property_id", "client_id"]
         }
       },
       "uniqueConstraints": {},
@@ -9586,12 +9265,8 @@
           "tableFrom": "property_price_changes",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9710,12 +9385,8 @@
           "tableFrom": "property_tag_assignments",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9724,12 +9395,8 @@
           "tableFrom": "property_tag_assignments",
           "tableTo": "property_tags",
           "schemaTo": "core",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -9737,10 +9404,7 @@
       "compositePrimaryKeys": {
         "property_tag_assignments_property_id_tag_id_pk": {
           "name": "property_tag_assignments_property_id_tag_id_pk",
-          "columns": [
-            "property_id",
-            "tag_id"
-          ]
+          "columns": ["property_id", "tag_id"]
         }
       },
       "uniqueConstraints": {},
@@ -9886,12 +9550,8 @@
           "tableFrom": "property_tags",
           "tableTo": "property_tag_groups",
           "schemaTo": "core",
-          "columnsFrom": [
-            "group_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["group_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -10354,12 +10014,8 @@
           "tableFrom": "reservations",
           "tableTo": "properties",
           "schemaTo": "core",
-          "columnsFrom": [
-            "property_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["property_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -10559,12 +10215,8 @@
           "tableFrom": "company_files",
           "tableTo": "file_folders",
           "schemaTo": "core",
-          "columnsFrom": [
-            "folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["folder_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -10839,12 +10491,8 @@
           "tableFrom": "file_folders",
           "tableTo": "file_folders",
           "schemaTo": "core",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }

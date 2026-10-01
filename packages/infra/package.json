@@ -17,11 +17,13 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "catalog:",
     "@norde/core": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "pg": "catalog:",
     "pg-boss": "catalog:",
+    "sharp": "catalog:",
     "uuid": "catalog:",
     "zod": "catalog:"
   },

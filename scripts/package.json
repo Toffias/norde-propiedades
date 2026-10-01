@@ -8,11 +8,14 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:seed": "tsx db/seed.ts"
+    "db:seed": "tsx db/seed.ts",
+    "user:create-admin": "tsx db/create-admin.ts"
   },
   "dependencies": {
+    "better-auth": "catalog:",
     "pg": "catalog:",
     "tsx": "catalog:",
+    "uuid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

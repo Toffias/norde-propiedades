@@ -159,6 +159,12 @@ Cuando el usuario pida una funcionalidad o un cambio, **en la primera respuesta,
 
 No se asume un modo por defecto ni se arrastra el de una tarea anterior: se pregunta en cada tarea nueva. Las preguntas de seguimiento dentro de la misma tarea siguen en el modo elegido.
 
+**Limpieza del worktree** (modo 2): cuando el PR se abre, se borra sin esperar a que el usuario lo pida:
+
+1. Se verifica que no quede nada sin commitear ni sin pushear (`git status`, `git log origin/<rama>..HEAD`). Si queda algo, se frena y se pregunta.
+2. Se borra con `git worktree remove` (los archivos ignorados, como las copias de `.env`, se van con él) y `git worktree prune`. Si Windows deja la carpeta por rutas largas de `node_modules`, se borra la carpeta.
+3. Se borra la rama local; la remota la maneja GitHub.
+
 ## Comandos
 
 ```bash

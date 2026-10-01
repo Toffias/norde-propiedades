@@ -112,11 +112,48 @@ describe('folders', () => {
     });
   });
 
-  it('deletes a folder only when it is empty, counting the trash', async () => {
+  it('moves the trashed files of a deleted folder to the root, auditing each one', async () => {
     const ctx = setup();
     const { folderId } = unwrap(await ctx.createFolder.execute({ name: 'Contratos' }, admin));
     const { fileId } = unwrap(await ctx.upload.execute({ ...PDF, folderId }, admin));
     unwrap(await ctx.trash.execute({ fileId }, admin));
+
+    unwrap(await ctx.deleteFolder.execute({ folderId }, admin));
+
+    expect(ctx.uow.folders.rows.has(folderId)).toBe(false);
+    expect(ctx.uow.files.rows.get(fileId)?.folderId).toBeUndefined();
+    expect(ctx.uow.audit.entries.slice(-2)).toEqual([
+      expect.objectContaining({
+        kind: 'updated',
+        action: 'company_file.moved',
+        entityId: fileId,
+        changes: { folderId: { before: folderId, after: null } },
+      }),
+      expect.objectContaining({
+        kind: 'action',
+        action: 'file_folder.deleted',
+        entityId: folderId,
+      }),
+    ]);
+    unwrap(await ctx.restore.execute({ fileId }, admin));
+    expect(unwrap(await ctx.list.execute({}, admin)).entries.items).toEqual([
+      expect.objectContaining({ kind: 'file', id: fileId }),
+    ]);
+  });
+
+  it('deletes a folder only without subfolders or active files', async () => {
+    const ctx = setup();
+    const { folderId: parent } = unwrap(await ctx.createFolder.execute({ name: 'Padre' }, admin));
+    unwrap(await ctx.createFolder.execute({ parentId: parent, name: 'Hija' }, admin));
+    expect(unwrapErr(await ctx.deleteFolder.execute({ folderId: parent }, admin))).toEqual({
+      type: 'FolderNotEmpty',
+    });
+  });
+
+  it('deletes a folder only when it is empty', async () => {
+    const ctx = setup();
+    const { folderId } = unwrap(await ctx.createFolder.execute({ name: 'Contratos' }, admin));
+    unwrap(await ctx.upload.execute({ ...PDF, folderId }, admin));
 
     expect(unwrapErr(await ctx.deleteFolder.execute({ folderId }, admin))).toEqual({
       type: 'FolderNotEmpty',

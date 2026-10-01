@@ -49,6 +49,11 @@ export type CompanyFileError =
   | { readonly type: 'FileAlreadyInTrash' }
   | { readonly type: 'FileNotInTrash' };
 
+/** Solo un archivo en la papelera se saca de su carpeta (cuando se borra la carpeta). */
+export interface FileNotInTrashError {
+  readonly type: 'FileNotInTrash';
+}
+
 /** Archivo del gestor de la empresa (contratos modelo, manuales, planillas). Se borra a la papelera. */
 export class CompanyFile extends AggregateRoot<CompanyFileId, never> {
   #state: Omit<CompanyFileSnapshot, 'id'>;
@@ -124,6 +129,16 @@ export class CompanyFile extends AggregateRoot<CompanyFileId, never> {
   moveToTrash(by: string, now: Date): Result<void, CompanyFileError> {
     if (this.isInTrash) return err({ type: 'FileAlreadyInTrash' });
     this.#state = { ...this.#state, deletedAt: now, deletedBy: by };
+    return ok(undefined);
+  }
+
+  /**
+   * Se borra su carpeta: el archivo, que está en la papelera, pasa a la raíz. Si se restaura,
+   * vuelve ahí.
+   */
+  detachFromFolder(): Result<void, FileNotInTrashError> {
+    if (!this.isInTrash) return err({ type: 'FileNotInTrash' });
+    this.#state = { ...this.#state, folderId: undefined };
     return ok(undefined);
   }
 

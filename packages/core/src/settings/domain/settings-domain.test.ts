@@ -408,6 +408,14 @@ describe('CompanyFile', () => {
     ).toEqual({ type: 'FileTypeNotAllowed' });
   });
 
+  it('leaves its folder only from the trash', () => {
+    const file = unwrap(CompanyFile.upload({ ...upload, folderId: id<'FileFolder'>(9) }));
+    expect(unwrapErr(file.detachFromFolder())).toEqual({ type: 'FileNotInTrash' });
+    unwrap(file.moveToTrash('user-2', NOW));
+    expect(file.detachFromFolder().isOk()).toBe(true);
+    expect(file.folderId).toBeUndefined();
+  });
+
   it('moves to the trash and restores', () => {
     const file = unwrap(CompanyFile.upload(upload));
     expect(file.moveToTrash('user-2', NOW).isOk()).toBe(true);

@@ -141,6 +141,8 @@ export type SendTestEmailInput = z.input<typeof SendTestEmailInputSchema>;
 export interface CompanySettingsView {
   readonly name: string;
   readonly hasLogo: boolean;
+  /** Cambia con cada logo nuevo: sirve para que el navegador no muestre el anterior. */
+  readonly logoVersion: string | undefined;
   readonly timezone: string;
   readonly webPropertyUrlTemplate: string | undefined;
   readonly webDevelopmentUrlTemplate: string | undefined;
@@ -148,6 +150,7 @@ export interface CompanySettingsView {
   readonly watermark: {
     readonly enabled: boolean;
     readonly hasLogo: boolean;
+    readonly logoVersion: string | undefined;
     readonly sizePercent: number;
     readonly position: WatermarkPositionValue;
     readonly opacity: number;

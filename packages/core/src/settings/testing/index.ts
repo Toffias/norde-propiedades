@@ -145,7 +145,9 @@ export class InMemoryFileFolderRepository implements FileFolderRepository {
   contents(id: FileFolderId) {
     return Promise.resolve({
       folders: [...this.rows.values()].filter((r) => r.parentId === id).length,
-      files: [...this.files.rows.values()].filter((r) => r.folderId === id).length,
+      files: [...this.files.rows.values()].filter(
+        (r) => r.folderId === id && r.deletedAt === undefined,
+      ).length,
     });
   }
 
@@ -166,6 +168,15 @@ export class InMemoryCompanyFileRepository implements CompanyFileRepository {
   findById(id: CompanyFileId) {
     const row = this.rows.get(id);
     return Promise.resolve(row && CompanyFile.restore(row));
+  }
+
+  findTrashedIn(folderId: FileFolderId, limit: number) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((r) => r.folderId === folderId && r.deletedAt !== undefined)
+        .slice(0, limit)
+        .map((r) => CompanyFile.restore(r)),
+    );
   }
 
   save(file: CompanyFile) {

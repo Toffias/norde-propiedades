@@ -198,7 +198,9 @@ describe('watermark', () => {
 
     unwrap(await configureWatermark.execute(options, admin));
 
-    expect(unwrap(await getSettings.execute({}, admin)).watermark).toEqual({
+    const { logoVersion, ...view } = unwrap(await getSettings.execute({}, admin)).watermark;
+    expect(logoVersion).toBe(uow.companySettings.row.watermark.logoKey?.split('/').at(-1));
+    expect(view).toEqual({
       enabled: true,
       hasLogo: true,
       sizePercent: 25,

@@ -51,11 +51,17 @@ export async function saveCompanySettingsChange(
   return true;
 }
 
+/** El último segmento de la clave (un ID nuevo por cada subida). */
+function storageVersion(key: string | undefined): string | undefined {
+  return key?.split('/').at(-1);
+}
+
 export function toCompanySettingsView(settings: CompanySettings): CompanySettingsView {
   const s = settings.toSnapshot();
   return {
     name: s.name,
     hasLogo: s.logoKey !== undefined,
+    logoVersion: storageVersion(s.logoKey),
     timezone: s.timezone,
     webPropertyUrlTemplate: s.webPropertyUrlTemplate?.value,
     webDevelopmentUrlTemplate: s.webDevelopmentUrlTemplate?.value,
@@ -63,6 +69,7 @@ export function toCompanySettingsView(settings: CompanySettings): CompanySetting
     watermark: {
       enabled: s.watermark.enabled,
       hasLogo: s.watermark.logoKey !== undefined,
+      logoVersion: storageVersion(s.watermark.logoKey),
       sizePercent: s.watermark.sizePercent,
       position: s.watermark.position,
       opacity: s.watermark.opacity,

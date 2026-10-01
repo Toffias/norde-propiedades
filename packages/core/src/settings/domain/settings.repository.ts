@@ -40,5 +40,7 @@ export interface FileFolderRepository {
 
 export interface CompanyFileRepository {
   findById(id: CompanyFileId): Promise<CompanyFile | undefined>;
+  /** Hasta `limit` archivos de la papelera que todavía están en esa carpeta. */
+  findTrashedIn(folderId: FileFolderId, limit: number): Promise<CompanyFile[]>;
   save(file: CompanyFile, actorId: string): Promise<void>;
 }

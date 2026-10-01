@@ -46,7 +46,7 @@ export type FileFolderError =
 /** Hasta cuántos niveles se pueden anidar carpetas. */
 export const MAX_FOLDER_DEPTH = 8;
 
-/** Lo que contiene una carpeta, incluidos los archivos en la papelera. */
+/** Lo que contiene una carpeta, sin contar los archivos de la papelera. */
 export interface FolderContents {
   readonly folders: number;
   readonly files: number;
@@ -111,8 +111,8 @@ export class FileFolder extends AggregateRoot<FileFolderId, never> {
   }
 
   /**
-   * Una carpeta se borra solo vacía: sin subcarpetas ni archivos, tampoco en la papelera (si no,
-   * un archivo restaurado quedaría sin carpeta).
+   * Una carpeta se borra solo vacía: sin subcarpetas ni archivos. Los archivos que tenía en la
+   * papelera pasan a la raíz (`CompanyFile.detachFromFolder`), así se pueden restaurar igual.
    */
   ensureRemovable(contents: FolderContents): Result<void, FileFolderError> {
     if (contents.folders > 0 || contents.files > 0) return err({ type: 'FolderNotEmpty' });

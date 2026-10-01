@@ -203,8 +203,18 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
         resource: 'settings',
         label: 'Configuración',
         permissions: [
+          { permission: 'settings:read', label: 'Ver la configuración de la empresa' },
           { permission: 'settings:update', label: 'Editar la configuración de la empresa' },
           { permission: 'settings:auto-followups', label: 'Configurar seguimientos automáticos' },
+        ],
+      },
+      {
+        resource: 'company-files',
+        label: 'Archivos de la empresa',
+        permissions: [
+          { permission: 'company-files:read', label: 'Ver y descargar archivos' },
+          { permission: 'company-files:upload', label: 'Subir archivos' },
+          { permission: 'company-files:manage', label: 'Organizar, renombrar y borrar archivos' },
         ],
       },
     ],

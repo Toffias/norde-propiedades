@@ -132,6 +132,8 @@ export interface UserPermissionsDetail {
   readonly userId: string;
   readonly name: string;
   readonly rolePermissions: readonly string[];
+  /** Permisos del catálogo que le dan sus roles (también por un `recurso:*`). */
+  readonly grantedByRoles: readonly string[];
   readonly ownPermissions: readonly {
     readonly permission: string;
     readonly effect: PermissionEffectValue;

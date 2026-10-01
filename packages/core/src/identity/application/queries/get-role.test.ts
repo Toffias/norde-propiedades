@@ -50,7 +50,7 @@ describe('GetUserPermissions', () => {
     },
   ]);
 
-  it('returns the role permissions without repeats and the own ones', async () => {
+  it('returns the role permissions without repeats, what they cover and the own ones', async () => {
     const result = await new GetUserPermissions({ users }).execute(
       { userId: '00000000-0000-7000-8000-000000000001' },
       TEST_ADMIN,
@@ -60,6 +60,14 @@ describe('GetUserPermissions', () => {
       userId: '00000000-0000-7000-8000-000000000001',
       name: 'Camila',
       rolePermissions: ['clients:read', 'rentals:*'],
+      // `rentals:*` cubre todas las acciones de alquileres del catálogo.
+      grantedByRoles: [
+        'clients:read',
+        'rentals:read',
+        'rentals:create',
+        'rentals:update',
+        'rentals:delete',
+      ],
       ownPermissions: [{ permission: 'rentals:delete', effect: 'deny' }],
     };
     expect(result.isOk() && result.value).toEqual(expected);

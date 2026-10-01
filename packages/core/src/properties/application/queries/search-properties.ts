@@ -1,4 +1,13 @@
-import { err, ok, type Actor, type ForbiddenError, type Page, type Result } from '../../../shared';
+import {
+  err,
+  ok,
+  toOffsetLimit,
+  toPage,
+  type Actor,
+  type ForbiddenError,
+  type Page,
+  type Result,
+} from '../../../shared';
 import {
   SearchPropertiesInputSchema,
   type PropertySummary,
@@ -31,10 +40,14 @@ export class SearchProperties {
       ...filters,
       statuses: PUBLICLY_LISTED_STATUSES,
       publishedOnWebOnly: true,
-      offset: (page - 1) * pageSize,
-      limit: pageSize,
+      ...toOffsetLimit({ page, pageSize }),
     });
 
-    return ok({ items: result.items.map(toPropertySummary), total: result.total, page, pageSize });
+    return ok(
+      toPage(
+        { items: result.items.map(toPropertySummary), total: result.total },
+        { page, pageSize },
+      ),
+    );
   }
 }

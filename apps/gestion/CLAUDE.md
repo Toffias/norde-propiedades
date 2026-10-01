@@ -32,10 +32,11 @@ src/
 - **Componentes cliente**: nunca importan `@norde/core` salvo `contracts/` (schemas y tipos), ni `@norde/infra`.
 - **Formularios**: react-hook-form + `zodResolver` con el **mismo** contract del core. No duplicar schemas.
 - **Tablas y listados**: TanStack Table en modo manual (`manualPagination`, `manualSorting`, `manualFiltering`). Paginación, filtros y orden **siempre del lado del servidor**:
-  - El estado vive en los query params de la URL (`?page=2&pageSize=50&sort=updatedAt:desc&agent=...`), así se puede compartir, recargar y volver atrás.
+  - El estado vive en los query params de la URL (`?page=2&pageSize=50&sort=-updatedAt&agent=...`), así se puede compartir, recargar y volver atrás.
   - La página (Server Component) parsea `searchParams` con el contract Zod de la query y llama a la query del core, que devuelve `Page<T>`.
   - El cliente solo recibe las filas de la página actual. Nunca traer todo a memoria, ni para un select, un autocomplete o un kanban (cada columna pagina sola).
   - "Seleccionar todos" en acciones masivas manda **el filtro**, no la lista de IDs, y la acción corre por lotes o como job.
+  - La grilla es `ServerDataTable` (`features/shared/components/server-data-table.tsx`) y los params se leen con `parseListParams` (`lib/list-params.ts`).
   - Patrón completo: `.claude/skills/gestion-feature/grilla-paginada.md`.
 - **Papelera**: borrar es baja lógica. Toda entidad con papelera tiene su listado de borrados (paginado) con restaurar.
 - **Autorización**:

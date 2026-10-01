@@ -7,6 +7,7 @@ import { z } from 'zod';
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -31,4 +32,14 @@ export function getEnv(): Env {
 /** Solo el entorno de ejecución, sin exigir el resto de las variables (ej. rutas de desarrollo). */
 export function getNodeEnv(): Env['NODE_ENV'] {
   return EnvSchema.shape.NODE_ENV.parse(process.env.NODE_ENV);
+}
+
+/** Para el logger: no exige el resto de las variables (un error de configuración también se loguea). */
+export function getLogLevel(): Env['LOG_LEVEL'] {
+  return EnvSchema.shape.LOG_LEVEL.catch('info').parse(process.env.LOG_LEVEL);
+}
+
+/** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */
+export function isNodeRuntime(): boolean {
+  return process.env.NEXT_RUNTIME === 'nodejs';
 }

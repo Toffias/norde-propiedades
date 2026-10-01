@@ -10,7 +10,13 @@ export { Phone, type InvalidPhoneError } from './domain/value-objects/phone';
 export { Actor, type Permission, type SystemActorName } from './application/actor';
 export type { ForbiddenError } from './application/errors';
 export { nextId } from './application/next-id';
-export type { Page } from './application/pagination';
+export {
+  toOffsetLimit,
+  toPage,
+  type Page,
+  type PageRequest,
+  type PageSlice,
+} from './application/pagination';
 export type {
   AuditEntry,
   AuditLog,

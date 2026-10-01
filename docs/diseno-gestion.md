@@ -97,6 +97,15 @@ Cada uno tiene su pantalla de ejemplo en `/dev/design-system`.
 
 Solo `lucide-react`. Tamaños: `h-4 w-4` (botones, menú, tablas), `h-5 w-5` (título de pantalla, ícono de card), `h-6 w-6` (`DarkHeader`, dropzone), `h-8 w-8` (pantalla de error). Decorativos con `aria-hidden` y en `text-muted-foreground`.
 
+## Grilla paginada
+
+`DataTable` (`@norde/ui/components/data-table`) es la grilla común: TanStack Table v9 en modo manual sobre `Table` y `TablePagination`. En `apps/gestion` se usa siempre a través de `ServerDataTable` (`features/shared/components`), que guarda página, orden, tamaño y filtros en la URL. Referencia viva: `/dev/design-system/grilla-paginada`.
+
+- Columnas: `{ id, header, cell, sortable?, showFrom?, className?, hideHeader? }`. Si es ordenable, `id` es el campo de orden del contract. `showFrom: 'md'` oculta la columna en mobile.
+- Filtros: van en `toolbar`, dentro de la card. Usan `useListNavigation()` para compartir la navegación y el estado `pending`. Texto libre con debounce de 300 ms.
+- Estados: con navegación en curso, las filas se atenúan (`pending`); sin filas, se muestra `empty`. Para la primera carga hay `DataTableSkeleton` (en `loading.tsx`), y para errores de la query, `DataTableError` con el mensaje de `messageForError`.
+- Selección: casillas por fila y "Seleccionar la página". Si la página está completa y hay más resultados, aparece "Seleccionar los N que cumplen el filtro". Las acciones masivas (`bulkActions`) reciben `{ kind: 'ids', ids }` o `{ kind: 'filter' }`. La selección se limpia cuando cambia la vista.
+
 ## Accesibilidad
 
 - Foco visible siempre: anillo de 3 px `ring-ring/50`.
@@ -109,4 +118,3 @@ Solo `lucide-react`. Tamaños: `h-4 w-4` (botones, menú, tablas), `h-5 w-5` (t�
 ## Pendiente
 
 - **Identidad de Norde**: el isotipo es provisorio y la paleta es la de Alquilo. Cuando estén el logo y el color de marca, se reemplazan siguiendo el ADR 0012.
-- **Grilla con TanStack Table**: el componente de grilla común lo define la sub-issue #2; `Table` y `TablePagination` son la capa visual que va a usar.

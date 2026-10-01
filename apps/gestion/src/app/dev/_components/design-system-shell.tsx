@@ -22,6 +22,7 @@ import {
   ListIcon,
   LogInIcon,
   PaletteIcon,
+  TableIcon,
   UserCogIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
@@ -40,6 +41,11 @@ const NAVIGATION: readonly NavGroup<Route>[] = [
         icon: ListIcon,
         count: 3,
         countLabel: '3 contactos nuevos',
+      },
+      {
+        href: '/dev/design-system/grilla-paginada',
+        label: 'Grilla paginada',
+        icon: TableIcon,
       },
       { href: '/dev/design-system/grilla', label: 'Grilla', icon: LayoutGridIcon },
       { href: '/dev/design-system/ficha', label: 'Ficha', icon: BuildingIcon },

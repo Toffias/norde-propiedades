@@ -2,12 +2,23 @@
 
 Patrón para **todo** listado del panel: grillas, kanban (por columna), bandejas, papeleras, historiales, feeds, selects con búsqueda. La regla está en `CLAUDE.md` ("Listados: siempre paginados en el servidor"); este archivo muestra cómo cumplirla.
 
-Los nombres de los helpers comunes (`ListQuerySchema`, `toOffset`, el componente de grilla) los define la sub-issue #2. Hasta que existan, seguí esta forma y no crees variantes locales.
+Los helpers comunes son de la sub-issue #2. Usalos y no crees variantes locales:
+
+| Pieza                                                     | Dónde                                                               |
+| --------------------------------------------------------- | ------------------------------------------------------------------- |
+| `pageQuerySchema`, `bulkSelectionSchema`, `MAX_PAGE_SIZE` | `@norde/core/shared/contracts`                                      |
+| `toOffsetLimit`, `toPage`, `Page<T>`, `PageSlice<T>`      | `@norde/core/shared`                                                |
+| `DataTable`, `DataTableSkeleton`, `DataTableError`        | `@norde/ui/components/data-table`                                   |
+| `ServerDataTable`, `useListNavigation`                    | `apps/gestion/src/features/shared/components/server-data-table.tsx` |
+| `parseListParams`, `withListParams`, `sortParam`          | `apps/gestion/src/lib/list-params.ts`                               |
+| `messageForError`, `ErrorMessages`                        | `apps/gestion/src/lib/errors.ts`                                    |
+
+Ejemplo vivo: `/dev/design-system/grilla-paginada`.
 
 ## Flujo
 
 ```
-URL ?page=2&pageSize=50&sort=updatedAt:desc&agentId=...
+URL ?page=2&pageSize=50&sort=-updatedAt&agentId=...
   → page.tsx (Server Component): parsea searchParams con el contract
   → query del core (caso de uso): permisos + Page<T>
   → puerto de consulta: SQL con WHERE + ORDER BY + LIMIT/OFFSET y COUNT
@@ -18,22 +29,23 @@ URL ?page=2&pageSize=50&sort=updatedAt:desc&agentId=...
 
 ```ts
 // packages/core/src/clients/contracts/index.ts
+import { pageQuerySchema } from '../../shared/contracts';
+
 export const CLIENT_SORT_FIELDS = ['name', 'createdAt', 'updatedAt'] as const;
 
-export const SearchClientsInputSchema = z.object({
+export const SearchClientsInputSchema = pageQuerySchema({
+  // Lista blanca: nunca un nombre de columna libre. En la URL: `sort=name` o `sort=-updatedAt`.
+  sortable: CLIENT_SORT_FIELDS,
+  defaultSort: { field: 'updatedAt', direction: 'desc' },
+}).extend({
   text: z.string().trim().min(1).max(100).optional(),
   agentId: z.uuid().optional(),
   ownersOnly: z.coerce.boolean().optional(),
-  // Lista blanca: nunca un nombre de columna libre.
-  sort: z.enum(CLIENT_SORT_FIELDS).default('updatedAt'),
-  direction: z.enum(['asc', 'desc']).default('desc'),
-  page: z.coerce.number().int().min(1).max(10_000).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });
 ```
 
-- `z.coerce` porque los query params llegan como string.
-- Máximo de `pageSize` siempre. 100 es un techo razonable para grillas; selects y autocompletes, 20.
+- `pageQuerySchema` trae `page` (default 1), `pageSize` (default 25, máximo `MAX_PAGE_SIZE` = 100: pedir más es error, no se recorta) y `sort` ya parseado a `{ field, direction }`. Acepta strings: sirve para query params.
+- Selects y autocompletes: `.extend({ pageSize: z.coerce.number().int().min(1).max(20).default(20) })`.
 
 ## 2. Caso de uso (core)
 
@@ -53,13 +65,12 @@ export class SearchClients {
     const { page, pageSize, ...criteria } = parsed.data;
     // Las reglas de visibilidad (un agente ve lo suyo) las decide el caso de uso y viajan como criterio.
     const scope = actor.can('clients:read-all') ? {} : { agentId: actor.id };
-    const result = await this.deps.clients.search({
+    const slice = await this.deps.clients.search({
       ...criteria,
       ...scope,
-      offset: (page - 1) * pageSize,
-      limit: pageSize,
+      ...toOffsetLimit({ page, pageSize }),
     });
-    return ok({ items: result.items, total: result.total, page, pageSize });
+    return ok(toPage(slice, { page, pageSize }));
   }
 }
 ```
@@ -69,7 +80,8 @@ export class SearchClients {
 ```ts
 async search(c: ClientSearchCriteria) {
   const where = and(...this.filters(c));
-  const order = c.direction === 'asc' ? asc(SORT_COLUMNS[c.sort]) : desc(SORT_COLUMNS[c.sort]);
+  const column = SORT_COLUMNS[c.sort.field];
+  const order = c.sort.direction === 'asc' ? asc(column) : desc(column);
   const [rows, totals] = await Promise.all([
     this.db.select(/* solo las columnas de la grilla */).from(clients).where(where)
       // Desempate por id: sin esto, filas con el mismo valor se repiten o se pierden entre páginas.
@@ -94,31 +106,72 @@ async search(c: ClientSearchCriteria) {
 export default async function ContactsPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  readonly searchParams: Promise<SearchParams>;
 }) {
   const actor = await requireActor();
-  const input = SearchClientsInputSchema.safeParse(await searchParams);
-  // Params inválidos (URL editada a mano): se vuelve a los valores por defecto, no se rompe la página.
-  const result = await getContainer().searchClients.execute(input.success ? input.data : {}, actor);
-  if (result.isErr()) return <SearchError error={result.error} />;
-  return <ClientsGrid page={result.value} />;
+  // Un param inválido (URL editada a mano) no rompe la página: vuelve a su valor por defecto y
+  // queda en `invalidKeys` para avisarlo.
+  const { value: input, invalidKeys } = parseListParams(
+    SearchClientsInputSchema,
+    await searchParams,
+  );
+  const result = await getContainer().searchClients.execute(input, actor);
+  if (result.isErr())
+    return <DataTableError message={messageForError(result.error, SEARCH_MESSAGES)} />;
+  return <ClientsGrid page={result.value} sort={input.sort} invalidKeys={invalidKeys} />;
 }
 ```
 
+- `SEARCH_MESSAGES` se declara con `satisfies ErrorMessages<SearchClientsError>`: si el caso de uso suma un error, el compilador avisa.
+- `loading.tsx` de la ruta: `DataTableSkeleton` dentro de la misma card.
+
 ## 5. Grilla (componente cliente)
 
-- TanStack Table con `manualPagination`, `manualSorting` y `manualFiltering`; `rowCount = page.total`.
-- Cambiar de página, orden o filtro = actualizar los query params con el router (`router.replace` con `useSearchParams`), lo que vuelve a renderizar la página en el servidor.
-- Al cambiar un filtro, volver a `page=1`.
-- Filtros de texto con debounce (300 ms).
-- Estados: cargando, vacío ("No hay contactos con estos filtros"), error.
-- Mobile: columnas secundarias ocultas o vista de tarjetas; la paginación sigue siendo la misma.
+Las columnas tienen funciones, así que viven en un componente cliente de la feature (`features/clients/components/clients-grid.tsx`):
+
+```tsx
+'use client';
+
+const COLUMNS: readonly DataTableColumn<ClientRow>[] = [
+  { id: 'name', header: 'Nombre', sortable: true, cell: (c) => c.name },
+  { id: 'phone', header: 'Teléfono', cell: (c) => c.phone ?? EMPTY_VALUE },
+  {
+    id: 'updatedAt',
+    header: 'Actualizado',
+    sortable: true,
+    showFrom: 'md',
+    cell: (c) => formatDate(c.updatedAt),
+  },
+];
+
+export function ClientsGrid({ page, sort }: ClientsGridProps) {
+  return (
+    <ServerDataTable
+      label="Contactos"
+      columns={COLUMNS}
+      getRowId={getRowId}
+      rows={page.items}
+      total={page.total}
+      page={page.page}
+      pageSize={page.pageSize}
+      sort={sort}
+      toolbar={<ClientsFilters />}
+      empty="No hay contactos con estos filtros."
+    />
+  );
+}
+```
+
+- `ServerDataTable` navega con `router.replace` cambiando los query params (`withListParams`): cambiar filtro, orden o tamaño vuelve a `page=1`. La página se vuelve a renderizar en el servidor.
+- Los filtros (`toolbar`) usan `useListNavigation().setParams({ text })`, con debounce de 300 ms para texto libre.
+- Estados: `pending` atenúa las filas durante la navegación; `empty` sin filas; `DataTableError` si la query falla.
+- Mobile: columnas secundarias con `showFrom`; la tabla scrollea dentro de la card.
 
 ## Kanban, selects y acciones masivas
 
 - **Kanban**: una query por columna con su propio `page` / `pageSize`; "cargar más" al hacer scroll pide la siguiente página de esa columna. Los contadores por columna salen de una query de conteo agrupado, no de traer las tarjetas.
 - **Select / autocomplete** de clientes, propiedades o usuarios: query con `text` y `pageSize` chico. Nunca precargar la lista entera.
-- **Acción masiva o exportación sobre "todos los que cumplen el filtro"**: la Server Action recibe el mismo input de búsqueda (sin `page`), y el caso de uso recorre por lotes o encola un job. La exportación se audita con el actor y los filtros.
+- **Acción masiva o exportación**: `ServerDataTable` con `selectable` y `bulkActions`. La selección es `{ kind: 'ids', ids }` (filas de la página) o `{ kind: 'filter' }` ("todos los que cumplen el filtro"). El contract de la action usa `bulkSelectionSchema(filtroSinPagina)`: con `filter`, el caso de uso recorre por lotes o encola un job. La exportación se audita con el actor y los filtros.
 
 ## Tests
 

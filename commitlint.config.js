@@ -26,6 +26,8 @@ export default {
         'conversations',
         'portals',
         'identity',
+        'settings',
+        'notifications',
         'audit',
         'reporting',
         // transversales

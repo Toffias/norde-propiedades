@@ -50,8 +50,9 @@ export async function createUser(client: pg.Client, user: NewUser): Promise<stri
   // Better Auth busca la contraseña en la cuenta `credential` cuyo `account_id` es el usuario.
   await client.query(
     `insert into core.accounts (id, user_id, account_id, provider_id, password, created_at, updated_at)
-     values ($1, $2, $2, 'credential', $3, now(), now())`,
-    [uuidv7(), id, await hashPassword(user.password)],
+     values ($1, $2, $3, 'credential', $4, now(), now())`,
+    // Mismo valor, distinto tipo: `user_id` es uuid y `account_id` es text.
+    [uuidv7(), id, id, await hashPassword(user.password)],
   );
   for (const role of roles.rows) {
     await client.query(

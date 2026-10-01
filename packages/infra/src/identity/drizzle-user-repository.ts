@@ -1,12 +1,20 @@
-import { USER_STATUSES, User, type UserId, type UserRepository } from '@norde/core/identity';
+import {
+  isKnownPermission,
+  PERMISSION_EFFECTS,
+  USER_STATUSES,
+  User,
+  type UserId,
+  type UserRepository,
+} from '@norde/core/identity';
 import { Email, parseId, Phone, type Result } from '@norde/core/shared';
 import { and, asc, eq, notInArray, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { userRoles, users } from '../db/schema';
+import { userPermissions, userRoles, users } from '../db/schema';
 
 const Status = z.enum(USER_STATUSES);
+const Effect = z.enum(PERMISSION_EFFECTS);
 
 function storedValue<T, E>(result: Result<T, E>): T {
   if (result.isErr()) throw new Error('Invalid value stored in the users table');
@@ -69,18 +77,39 @@ export class DrizzleUserRepository implements UserRepository {
         })),
       )
       .onConflictDoNothing();
+
+    // Permisos propios: se reemplazan (un cambio de efecto es borrar y volver a insertar la fila).
+    await this.db.delete(userPermissions).where(eq(userPermissions.userId, s.id));
+    if (s.permissions.length > 0) {
+      await this.db.insert(userPermissions).values(
+        s.permissions.map(({ permission, effect }) => ({
+          userId: s.id,
+          permission,
+          effect,
+          createdAt: s.updatedAt,
+          createdBy: actorId,
+        })),
+      );
+    }
   }
 
   private async findOneWhere(where: SQL): Promise<User | undefined> {
     const [row] = await this.db.select().from(users).where(where).limit(1);
     if (!row) return undefined;
 
-    // Un usuario tiene pocos roles (el contract los limita): se traen todos.
-    const roles = await this.db
-      .select({ roleId: userRoles.roleId })
-      .from(userRoles)
-      .where(eq(userRoles.userId, row.id))
-      .orderBy(asc(userRoles.roleId));
+    // Pocos roles (el contract los limita) y permisos propios (acotados por el catálogo).
+    const [roles, own] = await Promise.all([
+      this.db
+        .select({ roleId: userRoles.roleId })
+        .from(userRoles)
+        .where(eq(userRoles.userId, row.id))
+        .orderBy(asc(userRoles.roleId)),
+      this.db
+        .select({ permission: userPermissions.permission, effect: userPermissions.effect })
+        .from(userPermissions)
+        .where(eq(userPermissions.userId, row.id))
+        .orderBy(asc(userPermissions.permission)),
+    ]);
 
     return User.restore({
       id: storedValue(parseId<'User'>(row.id)),
@@ -89,6 +118,10 @@ export class DrizzleUserRepository implements UserRepository {
       phone: row.phoneE164 === null ? undefined : storedValue(Phone.create(row.phoneE164)),
       status: Status.parse(row.status),
       roleIds: roles.map((r) => r.roleId),
+      permissions: own.map(({ permission, effect }) => {
+        if (!isKnownPermission(permission)) throw new Error(`Unknown permission: ${permission}`);
+        return { permission, effect: Effect.parse(effect) };
+      }),
       mustChangePassword: row.mustChangePassword,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

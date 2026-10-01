@@ -1,6 +1,7 @@
 // Datos de prueba de identity: usuarios y actores de ejemplo para los tests de casos de uso.
 
 import { Actor, Email, parseId, Phone, type Result } from '../../shared';
+import type { RoleSnapshot } from '../domain/role';
 import type { UserSnapshot } from '../domain/user';
 
 export const TEST_NOW = new Date('2026-10-01T12:00:00Z');
@@ -25,6 +26,29 @@ export function testUserId(raw: string) {
   return unwrap(parseId<'User'>(raw));
 }
 
+/** `Id<'Role'>` a partir de un UUID de prueba. */
+export function testRoleId(raw: string) {
+  return unwrap(parseId<'Role'>(raw));
+}
+
+export function roleSnapshot(
+  overrides: Partial<Omit<RoleSnapshot, 'id'>> & { readonly id?: string } = {},
+): RoleSnapshot {
+  const { id, ...rest } = overrides;
+  return {
+    id: testRoleId(id ?? ROLE_AGENT_ID),
+    key: 'asesor',
+    name: 'Asesor',
+    description: undefined,
+    isSystem: false,
+    permissions: ['clients:read'],
+    deletedAt: undefined,
+    createdAt: new Date('2026-09-01T12:00:00Z'),
+    updatedAt: new Date('2026-09-01T12:00:00Z'),
+    ...rest,
+  };
+}
+
 export function userSnapshot(overrides: Partial<UserSnapshot> = {}): UserSnapshot {
   return {
     id: testUserId('00000000-0000-7000-8000-000000000001'),
@@ -33,6 +57,7 @@ export function userSnapshot(overrides: Partial<UserSnapshot> = {}): UserSnapsho
     phone: unwrap(Phone.create('+5491166899124')),
     status: 'active',
     roleIds: [ROLE_AGENT_ID],
+    permissions: [],
     mustChangePassword: false,
     createdAt: new Date('2026-09-01T12:00:00Z'),
     updatedAt: new Date('2026-09-01T12:00:00Z'),

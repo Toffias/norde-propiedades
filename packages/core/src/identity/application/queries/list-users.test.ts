@@ -68,6 +68,7 @@ describe('ListRoles', () => {
     description: undefined,
     isSystem: true,
     userCount: 3,
+    deletedAt: undefined,
   };
 
   it('returns one page of roles', async () => {
@@ -76,6 +77,7 @@ describe('ListRoles', () => {
     const result = await new ListRoles({ roles }).execute({ q: 'agen' }, TEST_ADMIN);
 
     expect(roles.calls[0]).toEqual({
+      view: 'active',
       text: 'agen',
       sort: { field: 'name', direction: 'asc' },
       offset: 0,

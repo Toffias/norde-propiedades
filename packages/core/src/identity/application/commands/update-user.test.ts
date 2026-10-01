@@ -7,6 +7,8 @@ import {
   InMemoryIdentityUnitOfWork,
   ROLE_AGENT_ID,
   ROLE_MANAGER_ID,
+  roleSnapshot,
+  seedRole,
   seedUser,
   TEST_ADMIN,
   TEST_AGENT,
@@ -35,7 +37,7 @@ const UNCHANGED: UpdateUserInput = {
 function setup() {
   const uow = new InMemoryIdentityUnitOfWork();
   seedUser(uow, CAMILA);
-  uow.roles.ids.add(ROLE_MANAGER_ID);
+  seedRole(uow, roleSnapshot({ id: ROLE_MANAGER_ID, key: 'manager' }));
   const useCase = new UpdateUser({ uow, clock: new FixedClock(TEST_NOW) });
   return { uow, useCase };
 }

@@ -29,6 +29,20 @@
       "when": 1790865174522,
       "tag": "0003_users_and_roles_listing",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790867079734,
+      "tag": "0004_roles_trash",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790867081036,
+      "tag": "0005_catalog_permissions_for_system_roles",
+      "breakpoints": true
     }
   ]
 }

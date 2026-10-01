@@ -126,11 +126,14 @@ export const roles = coreSchema.table(
     isSystem: boolean('is_system').notNull().default(false),
     ...timestamps(),
     ...authorship(),
+    ...trash(),
     searchText: searchText('name'),
   },
   (t) => [
     uniqueIndex('roles_key_uq').on(t.key),
     index('roles_name_idx').on(t.name),
+    // La papelera de roles, ordenada por nombre.
+    index('roles_deleted_name_idx').on(t.deletedAt, t.name),
     index('roles_search_text_idx').using('gin', t.searchText.op('gin_trgm_ops')),
   ],
 );

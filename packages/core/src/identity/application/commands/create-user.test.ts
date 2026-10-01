@@ -7,6 +7,8 @@ import {
   InMemoryIdentityUnitOfWork,
   ROLE_AGENT_ID,
   ROLE_MANAGER_ID,
+  roleSnapshot,
+  seedRole,
   seedUser,
   TEST_ADMIN,
   TEST_AGENT,
@@ -26,8 +28,8 @@ const INPUT: CreateUserInput = {
 
 function setup() {
   const uow = new InMemoryIdentityUnitOfWork();
-  uow.roles.ids.add(ROLE_AGENT_ID);
-  uow.roles.ids.add(ROLE_MANAGER_ID);
+  seedRole(uow, roleSnapshot({ id: ROLE_AGENT_ID, key: 'agent' }));
+  seedRole(uow, roleSnapshot({ id: ROLE_MANAGER_ID, key: 'manager' }));
   const useCase = new CreateUser({
     uow,
     hasher: new FakePasswordHasher(),

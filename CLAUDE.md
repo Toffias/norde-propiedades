@@ -150,6 +150,15 @@ Una tarea está terminada solo si:
 - Commits chicos y enfocados. No mezclar refactor con cambio funcional.
 - Nunca usar `--no-verify`. Si un hook falla, se arregla la causa.
 
+### Modo de trabajo de cada tarea
+
+Cuando el usuario pida una funcionalidad o un cambio, **en la primera respuesta, antes de tocar archivos**, preguntale cuál de estos modos quiere:
+
+1. **Cambio directo en local**: se edita en el checkout actual, sin rama, sin worktree y sin commit. El usuario revisa y commitea.
+2. **Worktree + PR**: se crea un worktree con una rama `feat/...`, `fix/...` o `chore/...` desde la rama actual, se hace el cambio con sus commits y se termina con un PR **hacia la rama de origen** (no a `main`, salvo que esa sea la de origen).
+
+No se asume un modo por defecto ni se arrastra el de una tarea anterior: se pregunta en cada tarea nueva. Las preguntas de seguimiento dentro de la misma tarea siguen en el modo elegido.
+
 ## Comandos
 
 ```bash

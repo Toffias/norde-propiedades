@@ -18,6 +18,19 @@ describe('Actor', () => {
     expect(admin.can('clients:read')).toBe(false);
   });
 
+  it('lets an explicit deny win over a granted permission and over resource:*', () => {
+    const agent = Actor.user('user-3', ['clients:*', 'properties:read'], ['clients:delete']);
+
+    expect(agent.can('clients:update')).toBe(true);
+    expect(agent.can('clients:delete')).toBe(false);
+  });
+
+  it('treats a denied resource:* as every action on that resource', () => {
+    const agent = Actor.user('user-4', ['clients:read', 'clients:update'], ['clients:*']);
+
+    expect(agent.can('clients:read')).toBe(false);
+  });
+
   it('identifies system actors by name', () => {
     const bot = Actor.system('agent-ia', ['properties:search']);
 

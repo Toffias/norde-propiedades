@@ -358,7 +358,7 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Tomar el control, responder y devolver al bot.
   - Filtrar por agente y por estado.
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
-- **Archivos**: fotos, planos y PDFs en el servicio en la nube para imágenes (por ejemplo S3, Cloudflare R2 o Cloudinary), con thumbnails optimizados.
+- **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
 - **Notificaciones**: un servicio único (panel, mail, WhatsApp) que usan los alquileres, los clientes asignados y las oportunidades.
 - **Tareas programadas**: cálculo de IPC, avisos de vencimiento, sincronización con portales y cruce de oportunidades. Corren como jobs de pg-boss en el proceso `apps/agent`.
 - **Backups** diarios de la base de datos.
@@ -436,3 +436,40 @@ Decidido el 01/10/2026: Chat, Red Tokko Broker (y el inventario de Zonaprop en e
 - **Cliente y oportunidad separados** (§3). En Tokko el contacto _es_ la oportunidad; acá un cliente tiene varias oportunidades y el pipeline muestra oportunidades.
 - El modelo de datos del relevamiento (C# / EF Core, multi-tenant) es solo referencia de campos: se rediseña en Drizzle por módulo.
 - Las capturas del relevamiento tienen datos reales de clientes: no se copian al repo, ni a issues ni a PRs.
+
+---
+
+## 14. Mi empresa: configuración de la empresa (#4)
+
+Módulo `settings`. Es un único registro de configuración (mono-tenant). Todo cambio queda en el historial con su diff. La configuración la ve y la cambia solo el Administrador (`settings:*`).
+
+### 14.1 Secciones
+
+| Sección (`/mi-empresa/…`) | Qué guarda                                                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| General                   | Nombre, logo, zona horaria (por defecto `America/Argentina/Buenos_Aires`), URL de propiedades y de emprendimientos en la web (con `{id}` o `{slug}`), alcance de Noticias |
+| Marca de agua             | Logo, tamaño (5 % a 50 % del ancho), posición (9), opacidad. Se aplica a las fotos de portales y PDF; hay vista previa sobre una foto de muestra, sin guardar             |
+| Portales                  | Pie de la descripción con variables: `{codigo}`, `{telefono_sucursal}`, `{email_sucursal}`, `{whatsapp_sucursal}`, `{url_web}`. Otra variable es un error                 |
+| Email                     | Nombre del remitente y dirección de respuesta. La dirección de envío y la API key de Resend van por entorno. Botón de email de prueba (queda en el historial)             |
+| Códigos                   | Prefijos por tipo de propiedad y exclusivos por usuario, equipo o sucursal                                                                                                |
+| Ficha y PDF               | Contacto de la empresa, datos del agente, precio, dirección al enviar y al descargar (exacta, aproximada u oculta), fotos del emprendimiento en las unidades              |
+| Archivos                  | Gestor de archivos de la empresa                                                                                                                                          |
+
+### 14.2 Códigos de referencia
+
+- Si aplican varios prefijos, gana el más específico: usuario, equipo, sucursal, tipo de propiedad y, por último, el general (`P`), que siempre existe y no se borra.
+- Cada prefijo tiene su propio correlativo; el código es el prefijo + 4 dígitos (`CAS0012`). Dos numeraciones no pueden compartir prefijo.
+- El número se toma de forma atómica: dos altas en paralelo nunca reciben el mismo. La numeración saltea los códigos ya cargados a mano; puede haber huecos, nunca repetidos.
+- Cambiar un prefijo no cambia los códigos ya entregados.
+- La edición manual del código en la ficha llega con #5.
+
+### 14.3 Gestor de archivos
+
+- Carpetas en árbol (hasta 8 niveles), con nombre único dentro de cada carpeta. Archivos de hasta 25 MB: PDF, documentos, planillas, imágenes y ZIP.
+- Borrar un archivo lo manda a la papelera, que es paginada y permite restaurar. Una carpeta se borra solo sin subcarpetas ni archivos activos; sus archivos de la papelera pasan a la raíz.
+- Permiso `company-files`: el Administrador hace todo; Gerente y Agente ven, descargan y suben.
+
+### 14.4 Diferencias con Tokko
+
+- Fuera de alcance: facturación y plan, API key, redes y asociaciones, tipos de evento. La configuración de oportunidades, propiedades, reservas, respuestas rápidas y seguimientos vive en la sub-issue de cada módulo.
+- Las credenciales del proveedor de email no se cargan en el panel: van por variables de entorno.

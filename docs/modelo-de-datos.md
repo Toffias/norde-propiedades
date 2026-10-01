@@ -38,12 +38,12 @@ Entre paréntesis, los IDs de **otros módulos** que guarda cada tabla (sin FK).
 
 ### `settings` (`settings.ts`)
 
-| Tabla                      | Qué es                                                              |
-| -------------------------- | ------------------------------------------------------------------- |
-| `company_settings`         | Configuración general (fila única)                                  |
-| `reference_code_sequences` | Numeración de códigos (`P-001`), tomada con `update … returning`    |
-| `file_folders`             | Carpetas de archivos de la empresa (árbol con `path` materializado) |
-| `company_files`            | Archivos de la empresa (`uploaded_by`)                              |
+| Tabla                      | Qué es                                                                 |
+| -------------------------- | ---------------------------------------------------------------------- |
+| `company_settings`         | Configuración general (fila única); el logo en `logo_storage_key`      |
+| `reference_code_sequences` | Numeración de códigos (`CAS0012`), prefijo único, `update … returning` |
+| `file_folders`             | Carpetas de archivos de la empresa (árbol con `path` materializado)    |
+| `company_files`            | Archivos de la empresa (`uploaded_by`)                                 |
 
 ### `clients` (`clients.ts`)
 

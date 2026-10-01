@@ -21,3 +21,6 @@ Thumbs.db
 
 # Uploads locales de Payload (desarrollo)
 /apps/web/media/
+
+# Storage local de desarrollo (apps/gestion)
+.storage/

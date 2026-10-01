@@ -34,6 +34,19 @@ export {
   DrizzleClientRepository,
   DrizzleOpportunityRepository,
 } from './clients/drizzle-client-repositories';
+export { createSettingsUnitOfWork } from './settings/settings-unit-of-work';
+export {
+  DrizzleCompanyFileRepository,
+  DrizzleCompanySettingsRepository,
+  DrizzleFileFolderRepository,
+  DrizzleReferenceCodeSequenceRepository,
+} from './settings/drizzle-settings-repositories';
+export {
+  DrizzleCompanyFilesQuery,
+  DrizzleDirectory,
+  DrizzleReferenceCodeSequenceQuery,
+  DrizzleReferenceCodeUsage,
+} from './settings/drizzle-settings-queries';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
 export {
   DrizzleConversationRepository,
@@ -50,6 +63,10 @@ export {
   type MetaWhatsAppMessengerOptions,
 } from './adapters/whatsapp/meta-whatsapp-messenger';
 export { LogTeamNotifier, WebhookTeamNotifier } from './adapters/notifications/team-notifiers';
+export { S3FileStorage, type S3FileStorageOptions } from './adapters/storage/s3-file-storage';
+export { LocalFileStorage } from './adapters/storage/local-file-storage';
+export { ResendMailer, type ResendMailerOptions } from './adapters/mail/resend-mailer';
+export { SharpImageWatermarker } from './adapters/images/sharp-image-watermarker';
 
 export { OutboxRelay, type OutboxRelayOptions } from './jobs/outbox-relay';
 export {

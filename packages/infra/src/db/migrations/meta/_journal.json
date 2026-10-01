@@ -50,6 +50,13 @@
       "when": 1790869098735,
       "tag": "0006_branches_and_teams_listing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790872054790,
+      "tag": "0007_company_settings_and_files",
+      "breakpoints": true
     }
   ]
 }

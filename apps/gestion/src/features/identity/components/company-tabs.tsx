@@ -15,6 +15,13 @@ interface CompanySection {
 }
 
 const SECTIONS: readonly CompanySection[] = [
+  { label: 'General', href: '/mi-empresa/general' },
+  { label: 'Marca de agua', href: '/mi-empresa/marca-de-agua' },
+  { label: 'Portales', href: '/mi-empresa/portales' },
+  { label: 'Email', href: '/mi-empresa/email' },
+  { label: 'Códigos', href: '/mi-empresa/codigos' },
+  { label: 'Ficha y PDF', href: '/mi-empresa/ficha-pdf' },
+  { label: 'Archivos', href: '/mi-empresa/archivos' },
   { label: 'Usuarios', href: '/mi-empresa/usuarios' },
   { label: 'Roles', href: '/mi-empresa/roles' },
   { label: 'Sucursales', href: '/mi-empresa/sucursales' },

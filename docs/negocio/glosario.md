@@ -16,6 +16,7 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 | Tasador              | `appraiser`       | Tasador                       | Usuario que hace la tasación                                                                                |
 | Gerente              | rol               | Gerente / Gerente de reservas | Supervisa agentes, reasigna y aprueba reservas                                                              |
 | Sucursal             | `Branch`          | Sucursal                      | Oficina de Norde, con sus datos de contacto para portales y PDF                                             |
+| Equipo               | `Team`            | Equipo                        | Grupo de usuarios de una sucursal. Puede tener un prefijo exclusivo de códigos de referencia                |
 | Inmobiliaria socia   | —                 | Colega (Red Tokko)            | Otra inmobiliaria a la que Norde deriva clientes que no puede atender                                       |
 
 ## Comercial
@@ -43,7 +44,8 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 | Estado de propiedad     | `PropertyStatus`               | Estado                  | Borrador, disponible, reservada, vendida, alquilada, pausada, dada de baja                                      |
 | Destacada en web        | `featured`                     | Destacado en web        | Propiedad que aparece en "Destacados" del sitio. **No** es la propiedad destacada para un cliente               |
 | Publicar en web         | `publishedOnWeb`               | Publicar                | Si la propiedad se muestra en el sitio                                                                          |
-| Código de referencia    | `code`                         | Código de referencia    | Identificador legible de la propiedad, con prefijo por tipo, usuario o sucursal                                 |
+| Código de referencia    | `code`                         | Código de referencia    | Identificador legible de la propiedad: prefijo + 4 dígitos (`CAS0012`). Único; se puede cargar a mano           |
+| Marca de agua           | `Watermark`                    | Marca de agua           | Logo sobre las fotos que van a portales y PDF. La foto original no se modifica                                  |
 | Dirección para publicar | —                              | Dirección para publicar | La que se muestra afuera; la real es privada salvo que se habilite                                              |
 | Ambientes               | `rooms`                        | Ambientes               | Cantidad de espacios habitables sin contar cocina ni baños (uso argentino: un "2 ambientes" tiene 1 dormitorio) |
 | Expensas                | `expenses`                     | Expensas                | Gasto mensual de mantenimiento del edificio                                                                     |

@@ -1,27 +1,32 @@
 'use client';
 
-import type { PanelPropertyRow, UserRef } from '@norde/core/properties/contracts';
-import { Button } from '@norde/ui/components/button';
+import type { GridColumnValue, PanelPropertyRow } from '@norde/core/properties/contracts';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { ArchiveRestoreIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArchiveRestoreIcon, Trash2Icon } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
-import { EMPTY_VALUE, formatDateTime, formatMoney } from '../../../lib/format';
+import { EMPTY_VALUE, formatDateTime } from '../../../lib/format';
 import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
 } from '../../shared/components/confirm-action-dialog';
-import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable } from '../../shared/components/server-data-table';
 import { deletePropertyAction, restorePropertyAction } from '../actions';
-import { OPERATION_LABELS, PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../labels';
-import { PropertiesToolbar, type PropertyFilterValues } from './properties-toolbar';
-import { PropertySheet } from './property-sheet';
+import {
+  GRID_COLUMN_LABELS,
+  OPERATION_LABELS,
+  PROPERTY_STATUS_DISPLAY,
+  PROPERTY_TYPE_LABELS,
+} from '../labels';
+import { gridColumnValue, operationPrice, placeSummary, userName } from '../property-format';
+import { FavoriteToggle } from './favorite-toggle';
+import { PropertyBulkActions, type BulkPermissions } from './property-bulk-actions';
+import type { PropertyFilterValues } from './properties-toolbar';
 
-export interface PropertyPermissions {
+export interface PropertyPermissions extends BulkPermissions {
   readonly create: boolean;
   /** Borrar o restaurar: el caso de uso decide sobre cada propiedad (propias o de otros). */
   readonly delete: boolean;
@@ -36,12 +41,6 @@ function getRowId(row: PanelPropertyRow): string {
   return row.id;
 }
 
-/** "Camila Ruiz", o un aviso si el usuario ya no está activo o fue un proceso del sistema. */
-function userName(user: UserRef | undefined): string {
-  if (user === undefined) return EMPTY_VALUE;
-  return user.name ?? 'Usuario inactivo';
-}
-
 function OperationsCell({ row }: { readonly row: PanelPropertyRow }) {
   if (row.operations.length === 0) {
     return <span className="text-muted-foreground">{EMPTY_VALUE}</span>;
@@ -51,17 +50,20 @@ function OperationsCell({ row }: { readonly row: PanelPropertyRow }) {
       {row.operations.map((operation) => (
         <li key={operation.operation} className="whitespace-nowrap">
           <span className="text-muted-foreground">{OPERATION_LABELS[operation.operation]}</span>{' '}
-          <span className="font-medium tabular-nums">
-            {operation.priceCents === null
-              ? 'Consultar'
-              : formatMoney({ amountCents: operation.priceCents, currency: operation.currency })}
-          </span>
+          <span className="font-medium tabular-nums">{operationPrice(operation)}</span>
         </li>
       ))}
     </ul>
   );
 }
 
+/** Las columnas que se ordenan en el servidor, por su ID en la grilla. */
+const SORTABLE: ReadonlySet<string> = new Set(['code', 'createdAt', 'updatedAt']);
+
+/**
+ * Vista de lista del buscador: columnas fijas (código, propiedad, operación y precio, estado) más
+ * las que elige la inmobiliaria en Mi empresa. Con selección para las acciones masivas.
+ */
 export function PropertiesGrid({
   rows,
   total,
@@ -70,6 +72,9 @@ export function PropertiesGrid({
   sort,
   filters,
   permissions,
+  gridColumns,
+  favoriteIds,
+  toolbar,
 }: {
   readonly rows: readonly PanelPropertyRow[];
   readonly total: number;
@@ -78,9 +83,11 @@ export function PropertiesGrid({
   readonly sort: { readonly field: string; readonly direction: 'asc' | 'desc' };
   readonly filters: PropertyFilterValues;
   readonly permissions: PropertyPermissions;
+  readonly gridColumns: readonly GridColumnValue[];
+  readonly favoriteIds: ReadonlySet<string>;
+  readonly toolbar: ReactNode;
 }) {
   const [pending, setPending] = useState<PendingAction | undefined>();
-  const navigation = usePanel();
   const inTrash = filters.view === 'trash';
   // El orden por precio compara una sola moneda: solo se ofrece con la moneda elegida.
   const canSortByPrice = filters.currency !== '';
@@ -89,7 +96,34 @@ export function PropertiesGrid({
   );
 
   const columns = useMemo((): readonly DataTableColumn<PanelPropertyRow>[] => {
+    const configurable = inTrash
+      ? []
+      : gridColumns.map((column): DataTableColumn<PanelPropertyRow> => ({
+          id: column,
+          header: GRID_COLUMN_LABELS[column],
+          sortable: SORTABLE.has(column),
+          showFrom: 'lg',
+          className: 'whitespace-nowrap text-muted-foreground tabular-nums',
+          cell: (row) => gridColumnValue(row, column),
+        }));
     return [
+      ...(inTrash
+        ? []
+        : [
+            {
+              id: 'favorite',
+              header: 'Favorita',
+              hideHeader: true,
+              className: 'w-10 pr-0',
+              cell: (row: PanelPropertyRow) => (
+                <FavoriteToggle
+                  propertyId={row.id}
+                  code={row.code}
+                  favorite={favoriteIds.has(row.id)}
+                />
+              ),
+            },
+          ]),
       {
         id: 'code',
         header: 'Código',
@@ -106,10 +140,7 @@ export function PropertiesGrid({
               {row.portalTitle}
             </span>
             <span className="truncate text-xs text-muted-foreground">
-              {PROPERTY_TYPE_LABELS[row.propertyType]} ·{' '}
-              {[row.publishAddress, row.neighborhood, row.city]
-                .filter((part) => part !== undefined && part !== '')
-                .join(', ')}
+              {PROPERTY_TYPE_LABELS[row.propertyType]} · {placeSummary(row)}
             </span>
           </div>
         ),
@@ -131,34 +162,23 @@ export function PropertiesGrid({
           </StatusPill>
         ),
       },
-      inTrash
-        ? {
-            id: 'deletedAt',
-            header: 'Borrada',
-            showFrom: 'lg',
-            className: 'w-[200px] text-muted-foreground',
-            cell: (row) => (
-              <div className="flex flex-col">
-                <span className="tabular-nums">{formatDateTime(row.deletedAt)}</span>
-                <span className="text-xs">por {userName(row.deletedBy)}</span>
-              </div>
-            ),
-          }
-        : {
-            id: 'producer',
-            header: 'Captador',
-            showFrom: 'lg',
-            className: 'w-[170px] text-muted-foreground',
-            cell: (row) => userName(row.producer),
-          },
-      {
-        id: 'updatedAt',
-        header: 'Actualizada',
-        sortable: true,
-        showFrom: 'xl',
-        className: 'w-[170px] text-muted-foreground tabular-nums',
-        cell: (row) => formatDateTime(row.updatedAt),
-      },
+      ...configurable,
+      ...(inTrash
+        ? [
+            {
+              id: 'deletedAt',
+              header: 'Borrada',
+              showFrom: 'lg' as const,
+              className: 'w-[200px] text-muted-foreground',
+              cell: (row: PanelPropertyRow) => (
+                <div className="flex flex-col">
+                  <span className="tabular-nums">{formatDateTime(row.deletedAt)}</span>
+                  <span className="text-xs">por {userName(row.deletedBy)}</span>
+                </div>
+              ),
+            },
+          ]
+        : []),
       {
         id: 'actions',
         header: 'Acciones',
@@ -206,7 +226,7 @@ export function PropertiesGrid({
           ),
       },
     ];
-  }, [canSortByPrice, inTrash, permissions.delete]);
+  }, [canSortByPrice, inTrash, permissions.delete, gridColumns, favoriteIds]);
 
   return (
     <>
@@ -219,21 +239,16 @@ export function PropertiesGrid({
         pageSize={pageSize}
         sort={sort}
         getRowId={getRowId}
-        toolbar={
-          <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-start">
-            <PropertiesToolbar
-              filters={filters}
-              sortsByPrice={sort.field === 'price'}
-              canSeeTrash={permissions.delete}
-            />
-            {permissions.create && !inTrash && (
-              <Button type="button" className="lg:ml-auto" onClick={navigation.openNew}>
-                <PlusIcon className="h-4 w-4" />
-                Nueva propiedad
-              </Button>
-            )}
-          </div>
-        }
+        selectable={!inTrash}
+        bulkActions={(selection, count) => (
+          <PropertyBulkActions
+            selection={selection}
+            count={count}
+            filters={filters}
+            permissions={permissions}
+          />
+        )}
+        toolbar={toolbar}
         empty={
           inTrash
             ? 'La papelera está vacía.'
@@ -242,7 +257,6 @@ export function PropertiesGrid({
               : 'Todavía no hay propiedades en la cartera.'
         }
       />
-      {permissions.create && <PropertySheet navigation={navigation} />}
       <ConfirmActionDialog
         copy={pending?.copy}
         run={pending?.run ?? (() => Promise.resolve({ ok: true }))}

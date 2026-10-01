@@ -10,7 +10,15 @@ import {
 import { EMPTY_SELECTION, type DataTableSelection } from '@norde/ui/lib/data-table-selection';
 import type { Route } from 'next';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { createContext, use, useCallback, useMemo, useState, useTransition } from 'react';
+import {
+  createContext,
+  use,
+  useCallback,
+  useMemo,
+  useState,
+  useTransition,
+  type ReactNode,
+} from 'react';
 
 import { sortParam, withListParams, type ListParamChanges } from '../../../lib/list-params';
 
@@ -25,8 +33,43 @@ const ListNavigationContext = createContext<ListNavigation | null>(null);
 /** Para los filtros del toolbar: comparten la navegación (y el estado `pending`) con la grilla. */
 export function useListNavigation(): ListNavigation {
   const navigation = use(ListNavigationContext);
-  if (!navigation) throw new Error('useListNavigation se usa dentro de <ServerDataTable>.');
+  if (!navigation) {
+    throw new Error(
+      'useListNavigation se usa dentro de <ServerDataTable> o <ListNavigationProvider>.',
+    );
+  }
   return navigation;
+}
+
+/** Cambia los query params de la ruta actual sin recargar la página entera. */
+function useUrlNavigation(): ListNavigation {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [pending, startTransition] = useTransition();
+
+  const setParams = useCallback(
+    (changes: ListParamChanges) => {
+      // Misma ruta con otros query params: typedRoutes no puede verificar un string armado.
+      const href =
+        `${pathname}${withListParams(new URLSearchParams(searchParams), changes)}` as Route;
+      startTransition(() => {
+        router.replace(href, { scroll: false });
+      });
+    },
+    [pathname, router, searchParams],
+  );
+
+  return useMemo(() => ({ setParams, pending }), [setParams, pending]);
+}
+
+/**
+ * La misma navegación por URL de la grilla, para vistas que no son una tabla (tarjetas, mapa): los
+ * filtros del toolbar funcionan igual.
+ */
+export function ListNavigationProvider({ children }: { readonly children: ReactNode }) {
+  const navigation = useUrlNavigation();
+  return <ListNavigationContext value={navigation}>{children}</ListNavigationContext>;
 }
 
 type ControlledProps =
@@ -58,10 +101,9 @@ export function ServerDataTable<T extends DataTableRow>({
   selectable = false,
   ...props
 }: ServerDataTableProps<T>) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [pending, startTransition] = useTransition();
+  const navigation = useUrlNavigation();
+  const { setParams, pending } = navigation;
 
   // La selección vale para la vista actual: si cambian los params (otra página, otro filtro),
   // arranca vacía.
@@ -71,20 +113,6 @@ export function ServerDataTable<T extends DataTableRow>({
     readonly selection: DataTableSelection;
   }>({ viewKey, selection: EMPTY_SELECTION });
   const selection = selectionState.viewKey === viewKey ? selectionState.selection : EMPTY_SELECTION;
-
-  const setParams = useCallback(
-    (changes: ListParamChanges) => {
-      // Misma ruta con otros query params: typedRoutes no puede verificar un string armado.
-      const href =
-        `${pathname}${withListParams(new URLSearchParams(searchParams), changes)}` as Route;
-      startTransition(() => {
-        router.replace(href, { scroll: false });
-      });
-    },
-    [pathname, router, searchParams],
-  );
-
-  const navigation = useMemo(() => ({ setParams, pending }), [setParams, pending]);
 
   return (
     <ListNavigationContext value={navigation}>

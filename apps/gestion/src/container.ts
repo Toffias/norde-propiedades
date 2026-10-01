@@ -4,6 +4,7 @@ import 'server-only';
 // Arma los casos de uso de @norde/core que usan los Server Components y las Server Actions.
 
 import {
+  AddFavorites,
   AddTeamMember,
   ChangeOwnPassword,
   CreateBranch,
@@ -14,6 +15,7 @@ import {
   DeleteRole,
   DeleteTeam,
   GetBranch,
+  GetFavoriteIds,
   GetRole,
   GetTeam,
   GetUserPermissions,
@@ -24,6 +26,7 @@ import {
   MakeMainBranch,
   ReactivateUser,
   ResetUserPassword,
+  RemoveFavorites,
   RemoveTeamMember,
   ResolveSessionActor,
   RestoreBranch,
@@ -37,11 +40,37 @@ import {
   UpdateUser,
 } from '@norde/core/identity';
 import {
+  BulkEditProperties,
+  CompareProperties,
+  CreateFeature,
+  CreateLocation,
   CreateProperty,
+  CreateTag,
+  CreateTagGroup,
+  DeleteFavoriteSearch,
   DeleteProperty,
+  DeleteTag,
+  DeleteTagGroup,
+  ExportProperties,
+  GetPropertyConfiguration,
+  GetPropertyMap,
+  ListFavoriteSearches,
+  ListFeatures,
   ListPanelProperties,
+  ListTagGroups,
+  RenameLocation,
+  RenameTagGroup,
   RestoreProperty,
+  SaveFavoriteSearch,
+  SearchLocations,
+  SearchTags,
+  UpdateFeature,
+  UpdateGridColumns,
+  UpdatePropertyTypeSetting,
+  UpdateTag,
+  type Producers,
   type ReferenceCodeAllocator,
+  type UserNames,
 } from '@norde/core/properties';
 import {
   AllocateReferenceCode,
@@ -89,11 +118,15 @@ import {
   DrizzleDirectory,
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
+  DrizzlePropertyCatalogQuery,
   DrizzleReferenceCodeSequenceQuery,
   DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
+  DrizzleUserFavorites,
   DrizzleUserListQuery,
+  FilePropertyExportWriter,
   LocalFileStorage,
+  NominatimGeocoder,
   ResendMailer,
   S3FileStorage,
   SharpImageWatermarker,
@@ -145,10 +178,13 @@ export interface Container {
     readonly restoreTeam: RestoreTeam;
     readonly addTeamMember: AddTeamMember;
     readonly removeTeamMember: RemoveTeamMember;
+    readonly addFavorites: AddFavorites;
+    readonly removeFavorites: RemoveFavorites;
+    readonly getFavoriteIds: GetFavoriteIds;
   };
   /** Mi empresa: configuración, códigos de referencia y gestor de archivos (#4). */
   readonly settings: SettingsUseCases;
-  /** Propiedades: buscador, alta y papelera (#5). */
+  /** Propiedades: buscador, alta, papelera, catálogos, mapa y acciones masivas (#5). */
   readonly properties: PropertiesUseCases;
 }
 
@@ -257,21 +293,71 @@ function referenceCodesFrom(settings: SettingsUseCases): ReferenceCodeAllocator 
 
 function createPropertiesUseCases(
   db: Database,
+  env: Env,
   settings: SettingsUseCases,
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
 ) {
   const { ids, clock } = deps;
   const uow = createPropertiesUnitOfWork(db, deps);
   const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const list = new DrizzlePanelPropertyListQuery(db);
+  const catalog = new DrizzlePropertyCatalogQuery(db);
+  const users: UserNames = { names: (userIds) => directory.names('user', userIds) };
+  // Captadores: usuarios activos de identity, con su sucursal.
+  const producers: Producers = {
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+  const geocoder = new NominatimGeocoder({
+    userAgent: env.GEOCODER_USER_AGENT,
+    baseUrl: env.GEOCODER_URL,
+    logger: getLogger(),
+  });
 
   return {
-    listPanelProperties: new ListPanelProperties({
-      properties: new DrizzlePanelPropertyListQuery(db),
-      users: { names: (userIds) => directory.names('user', userIds) },
+    listPanelProperties: new ListPanelProperties({ properties: list, users }),
+    getPropertyMap: new GetPropertyMap({ properties: list }),
+    compareProperties: new CompareProperties({ properties: list, users }),
+    createProperty: new CreateProperty({
+      uow,
+      codes: referenceCodesFrom(settings),
+      geocoder,
+      ids,
+      clock,
     }),
-    createProperty: new CreateProperty({ uow, codes: referenceCodesFrom(settings), ids, clock }),
     deleteProperty: new DeleteProperty({ uow, clock }),
     restoreProperty: new RestoreProperty({ uow, clock }),
+    bulkEditProperties: new BulkEditProperties({ uow, list, producers, clock }),
+    exportProperties: new ExportProperties({
+      uow,
+      list,
+      users,
+      writer: new FilePropertyExportWriter(),
+      clock,
+    }),
+    getPropertyConfiguration: new GetPropertyConfiguration({ catalog }),
+    updatePropertyTypeSetting: new UpdatePropertyTypeSetting({ uow, clock }),
+    updateGridColumns: new UpdateGridColumns({ uow, clock }),
+    searchLocations: new SearchLocations({ catalog }),
+    createLocation: new CreateLocation({ uow, ids, clock }),
+    renameLocation: new RenameLocation({ uow, clock }),
+    listFeatures: new ListFeatures({ catalog }),
+    createFeature: new CreateFeature({ uow, ids, clock }),
+    updateFeature: new UpdateFeature({ uow, clock }),
+    listTagGroups: new ListTagGroups({ catalog }),
+    searchTags: new SearchTags({ catalog }),
+    createTagGroup: new CreateTagGroup({ uow, ids, clock }),
+    renameTagGroup: new RenameTagGroup({ uow, clock }),
+    deleteTagGroup: new DeleteTagGroup({ uow }),
+    createTag: new CreateTag({ uow, ids, clock }),
+    updateTag: new UpdateTag({ uow, clock }),
+    deleteTag: new DeleteTag({ uow }),
+    listFavoriteSearches: new ListFavoriteSearches({ catalog }),
+    saveFavoriteSearch: new SaveFavoriteSearch({ uow, ids, clock }),
+    deleteFavoriteSearch: new DeleteFavoriteSearch({ uow }),
   };
 }
 
@@ -307,7 +393,7 @@ function createContainer(): Container {
     sessions: new BetterAuthSessionReader(auth),
     resolveSessionActor: new ResolveSessionActor({ users: userAccess }),
     settings,
-    properties: createPropertiesUseCases(database.db, settings, { ids, clock }),
+    properties: createPropertiesUseCases(database.db, env, settings, { ids, clock }),
     identity: {
       listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),
       listRoles: new ListRoles({ roles: roleQuery }),
@@ -339,6 +425,9 @@ function createContainer(): Container {
       restoreTeam: new RestoreTeam({ uow: identityUow, clock }),
       addTeamMember: new AddTeamMember({ uow: identityUow, clock }),
       removeTeamMember: new RemoveTeamMember({ uow: identityUow, clock }),
+      addFavorites: new AddFavorites({ uow: identityUow, clock }),
+      removeFavorites: new RemoveFavorites({ uow: identityUow }),
+      getFavoriteIds: new GetFavoriteIds({ favorites: new DrizzleUserFavorites(database.db) }),
     },
   };
 }

@@ -4,9 +4,10 @@ import {
   CreatePropertyInputSchema,
   CURRENCIES,
   OPERATIONS,
-  PROPERTY_TYPES,
   type CreatePropertyInput,
   type CreatePropertyValues,
+  type GeocodingOutcome,
+  type PropertyType,
 } from '@norde/core/properties/contracts';
 import { Button } from '@norde/ui/components/button';
 import {
@@ -36,13 +37,15 @@ import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { contractResolver } from '../../../lib/form';
 import { EntitySheet, type PanelNavigation } from '../../shared/components/entity-sheet';
 import { FormAlert } from '../../shared/components/form-alert';
-import { createPropertyAction } from '../actions';
+import { EntityPicker } from '../../identity/components/entity-picker';
+import { createPropertyAction, loadLocationOptions } from '../actions';
 import { CURRENCY_LABELS, OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../labels';
 
 type PropertyValues = CreatePropertyInput;
 
 const INITIAL_VALUES: PropertyValues = {
   propertyType: 'apartment',
+  locationId: undefined,
   operation: 'sale',
   currency: 'USD',
   price: '',
@@ -79,12 +82,26 @@ function Section({
   );
 }
 
+/** Qué se avisa al crear, según cómo quedaron las coordenadas para el mapa. */
+const GEOCODING_NOTICE: Readonly<Record<GeocodingOutcome, string | undefined>> = {
+  manual: undefined,
+  found: 'La ubicamos en el mapa a partir de la dirección.',
+  not_found: 'No encontramos la dirección en el mapa: cargá las coordenadas en la ficha.',
+  failed: 'No pudimos ubicarla en el mapa ahora: cargá las coordenadas en la ficha.',
+};
+
 /**
  * Alta corta de una propiedad en el panel lateral del buscador (`?panel=new`): tipo, operación,
  * dirección y ubicación. Queda como borrador; el resto se completa en la ficha (#6), que por su
  * tamaño va a ser una pantalla propia.
  */
-export function PropertySheet({ navigation }: { readonly navigation: PanelNavigation }) {
+export function PropertySheet({
+  navigation,
+  enabledTypes,
+}: {
+  readonly navigation: PanelNavigation;
+  readonly enabledTypes: readonly PropertyType[];
+}) {
   const { panel, close } = navigation;
   return (
     <EntitySheet
@@ -94,16 +111,24 @@ export function PropertySheet({ navigation }: { readonly navigation: PanelNaviga
       title="Nueva propiedad"
       description="Lo indispensable para tenerla en la cartera. El resto se completa en la ficha."
     >
-      {panel?.kind === 'new' && <NewPropertyForm onDone={close} />}
+      {panel?.kind === 'new' && <NewPropertyForm onDone={close} enabledTypes={enabledTypes} />}
     </EntitySheet>
   );
 }
 
-function NewPropertyForm({ onDone }: { readonly onDone: () => void }) {
+function NewPropertyForm({
+  onDone,
+  enabledTypes,
+}: {
+  readonly onDone: () => void;
+  readonly enabledTypes: readonly PropertyType[];
+}) {
   const [error, setError] = useState<string | undefined>();
+  // Por buscador (catálogo de ubicaciones) o a mano, como en Tokko.
+  const [manualPlace, setManualPlace] = useState(false);
   const form = useForm<PropertyValues, unknown, CreatePropertyValues>({
     resolver: contractResolver(CreatePropertyInputSchema),
-    defaultValues: INITIAL_VALUES,
+    defaultValues: { ...INITIAL_VALUES, propertyType: enabledTypes[0] ?? 'apartment' },
   });
 
   async function submit(values: CreatePropertyValues) {
@@ -114,7 +139,11 @@ function NewPropertyForm({ onDone }: { readonly onDone: () => void }) {
         setError(result.message);
         return;
       }
-      toast.success(`Propiedad ${result.code ?? ''} creada como borrador`);
+      const notice =
+        result.geocoding === undefined ? undefined : GEOCODING_NOTICE[result.geocoding];
+      toast.success(`Propiedad ${result.code ?? ''} creada como borrador`, {
+        ...(notice === undefined ? {} : { description: notice }),
+      });
       onDone();
     } catch {
       setError(UNEXPECTED_ERROR_MESSAGE);
@@ -210,7 +239,7 @@ function NewPropertyForm({ onDone }: { readonly onDone: () => void }) {
 
           <Section title="Propiedad" description="El código de referencia se asigna al guardar.">
             <div className="grid gap-4 sm:grid-cols-2 ">
-              {selectField('propertyType', 'Tipo', PROPERTY_TYPES, PROPERTY_TYPE_LABELS)}
+              {selectField('propertyType', 'Tipo', enabledTypes, PROPERTY_TYPE_LABELS)}
               {selectField('operation', 'Operación', OPERATIONS, OPERATION_LABELS)}
               {selectField('currency', 'Moneda', CURRENCIES, CURRENCY_LABELS)}
               {textField('price', 'Precio', {
@@ -232,10 +261,62 @@ function NewPropertyForm({ onDone }: { readonly onDone: () => void }) {
                 {textField('floor', 'Piso', { optional: true })}
                 {textField('unit', 'Unidad', { optional: true })}
               </div>
-              {textField('neighborhood', 'Barrio')}
-              {textField('city', 'Localidad')}
-              {textField('province', 'Provincia')}
             </div>
+          </Section>
+
+          <Section
+            title="Ubicación"
+            description="Buscala en el catálogo; si no está, cargala a mano o pedí que la sumen en Mi empresa."
+          >
+            {manualPlace ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {textField('neighborhood', 'Barrio')}
+                {textField('city', 'Localidad')}
+                {textField('province', 'Provincia')}
+              </div>
+            ) : (
+              <FormField
+                control={form.control}
+                name="locationId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Barrio, localidad o provincia</FormLabel>
+                    <FormControl>
+                      <EntityPicker
+                        value={field.value}
+                        initial={undefined}
+                        onChange={field.onChange}
+                        loadPage={loadLocationOptions}
+                        placeholder="Buscar ubicación"
+                        searchPlaceholder="Ej. Palermo"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Barrio, localidad y provincia salen de la ubicación elegida.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto self-start p-0"
+              onClick={() => {
+                if (manualPlace) {
+                  form.setValue('neighborhood', '');
+                  form.setValue('city', '');
+                  form.setValue('province', '');
+                } else {
+                  form.setValue('locationId', undefined);
+                }
+                setManualPlace(!manualPlace);
+              }}
+            >
+              {manualPlace ? 'Buscar en el catálogo de ubicaciones' : 'Cargar la ubicación a mano'}
+            </Button>
           </Section>
 
           <Section
@@ -256,7 +337,7 @@ function NewPropertyForm({ onDone }: { readonly onDone: () => void }) {
               {textField('latitude', 'Latitud', {
                 optional: true,
                 inputMode: 'decimal',
-                description: 'Para el mapa. Por ejemplo -34.5861.',
+                description: 'Para el mapa. Vacía: se busca con la dirección.',
               })}
               {textField('longitude', 'Longitud', {
                 optional: true,

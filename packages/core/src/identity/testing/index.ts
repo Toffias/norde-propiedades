@@ -8,13 +8,29 @@ import type {
   IdentityUnitOfWork,
   UserSessions,
 } from '../application/ports/identity-transaction';
+import type {
+  BranchListCriteria,
+  OrganizationQuery,
+  TeamListCriteria,
+} from '../application/ports/organization-query';
 import type { PasswordHasher } from '../application/ports/password-hasher';
 import type { RoleListCriteria, RoleListQuery } from '../application/ports/role-list-query';
 import type { UserAccessQuery, UserAccessRecord } from '../application/ports/user-access-query';
 import type { UserListCriteria, UserListQuery } from '../application/ports/user-list-query';
-import type { RoleDetail, RoleListItem, UserListItem } from '../contracts';
+import type {
+  BranchDetail,
+  BranchListItem,
+  RoleDetail,
+  RoleListItem,
+  TeamDetail,
+  TeamListItem,
+  UserListItem,
+} from '../contracts';
+import { Branch, type BranchId, type BranchSnapshot } from '../domain/branch';
+import type { BranchRepository, TeamRepository } from '../domain/organization.repository';
 import { Role, type RoleId, type RoleSnapshot } from '../domain/role';
 import type { RoleRepository } from '../domain/role.repository';
+import { Team, type TeamId, type TeamSnapshot } from '../domain/team';
 import { User, type UserId, type UserSnapshot } from '../domain/user';
 import type { UserRepository } from '../domain/user.repository';
 
@@ -108,6 +124,105 @@ export class InMemoryRoleRepository implements RoleRepository {
   }
 }
 
+// Como `core.search_normalize`: minúsculas y sin acentos.
+function normalizeName(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+export class InMemoryBranchRepository implements BranchRepository {
+  readonly rows = new Map<string, BranchSnapshot>();
+  readonly updatedBy = new Map<string, string>();
+
+  constructor(
+    private readonly users: InMemoryUserRepository,
+    private readonly teams: InMemoryTeamRepository,
+  ) {}
+
+  findById(id: BranchId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && Branch.restore(row));
+  }
+
+  findActiveByName(name: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.deletedAt === undefined && normalizeName(r.name) === normalizeName(name),
+    );
+    return Promise.resolve(row && Branch.restore(row));
+  }
+
+  findMain() {
+    const row = [...this.rows.values()].find((r) => r.isMain && r.deletedAt === undefined);
+    return Promise.resolve(row && Branch.restore(row));
+  }
+
+  findExistingIds(ids: readonly string[]) {
+    return Promise.resolve(
+      ids.filter((id) => {
+        const row = this.rows.get(id);
+        return row !== undefined && row.deletedAt === undefined;
+      }),
+    );
+  }
+
+  countUsers(id: BranchId) {
+    return Promise.resolve([...this.users.rows.values()].filter((u) => u.branchId === id).length);
+  }
+
+  countTeams(id: BranchId) {
+    return Promise.resolve(
+      [...this.teams.rows.values()].filter((t) => t.branchId === id && t.deletedAt === undefined)
+        .length,
+    );
+  }
+
+  save(branch: Branch, actorId: string) {
+    this.rows.set(branch.id, branch.toSnapshot());
+    this.updatedBy.set(branch.id, actorId);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryTeamRepository implements TeamRepository {
+  readonly rows = new Map<string, TeamSnapshot>();
+  /** `teamId:userId` de cada miembro. */
+  readonly members = new Set<string>();
+
+  findById(id: TeamId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && Team.restore(row));
+  }
+
+  findActiveByName(name: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.deletedAt === undefined && normalizeName(r.name) === normalizeName(name),
+    );
+    return Promise.resolve(row && Team.restore(row));
+  }
+
+  save(team: Team) {
+    this.rows.set(team.id, team.toSnapshot());
+    return Promise.resolve();
+  }
+
+  isMember(teamId: TeamId, userId: string) {
+    return Promise.resolve(this.members.has(`${teamId}:${userId}`));
+  }
+
+  addMember(teamId: TeamId, userId: string) {
+    this.members.add(`${teamId}:${userId}`);
+    return Promise.resolve();
+  }
+
+  removeMember(teamId: TeamId, userId: string) {
+    this.members.delete(`${teamId}:${userId}`);
+    return Promise.resolve();
+  }
+}
+
 export class InMemoryCredentialStore implements CredentialStore {
   readonly hashes = new Map<string, string>();
 
@@ -149,6 +264,8 @@ export class FakePasswordHasher implements PasswordHasher {
 export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
   readonly users = new InMemoryUserRepository();
   readonly roles = new InMemoryRoleRepository(this.users);
+  readonly teams = new InMemoryTeamRepository();
+  readonly branches = new InMemoryBranchRepository(this.users, this.teams);
   readonly credentials = new InMemoryCredentialStore();
   readonly sessions = new InMemoryUserSessions();
   readonly events = new InMemoryEventPublisher();
@@ -158,6 +275,9 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
     const backup = {
       users: new Map(this.users.rows),
       roles: new Map(this.roles.rows),
+      branches: new Map(this.branches.rows),
+      teams: new Map(this.teams.rows),
+      members: new Set(this.teams.members),
       hashes: new Map(this.credentials.hashes),
       sessions: new Map(this.sessions.open),
       events: this.events.published.length,
@@ -166,6 +286,10 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
     const rollback = () => {
       restore(this.users.rows, backup.users);
       restore(this.roles.rows, backup.roles);
+      restore(this.branches.rows, backup.branches);
+      restore(this.teams.rows, backup.teams);
+      this.teams.members.clear();
+      for (const member of backup.members) this.teams.members.add(member);
       restore(this.credentials.hashes, backup.hashes);
       restore(this.sessions.open, backup.sessions);
       this.events.published.splice(backup.events);
@@ -200,6 +324,14 @@ export function seedUser(
     uow.credentials.hashes.set(user.id, `hashed:${options.password}`);
   }
   if (options.openSessions !== undefined) uow.sessions.open.set(user.id, options.openSessions);
+}
+
+export function seedBranch(uow: InMemoryIdentityUnitOfWork, branch: BranchSnapshot): void {
+  uow.branches.rows.set(branch.id, branch);
+}
+
+export function seedTeam(uow: InMemoryIdentityUnitOfWork, team: TeamSnapshot): void {
+  uow.teams.rows.set(team.id, team);
 }
 
 /** Siembra un rol ya guardado (sin eventos). */
@@ -243,5 +375,37 @@ export class StubRoleListQuery implements RoleListQuery {
 
   findById(id: string) {
     return Promise.resolve(this.details.find((role) => role.id === id));
+  }
+}
+
+export class StubOrganizationQuery implements OrganizationQuery {
+  readonly branchCalls: BranchListCriteria[] = [];
+  readonly teamCalls: TeamListCriteria[] = [];
+
+  constructor(
+    private readonly data: {
+      readonly branches?: PageSlice<BranchListItem>;
+      readonly teams?: PageSlice<TeamListItem>;
+      readonly branchDetails?: readonly BranchDetail[];
+      readonly teamDetails?: readonly TeamDetail[];
+    } = {},
+  ) {}
+
+  searchBranches(criteria: BranchListCriteria) {
+    this.branchCalls.push(criteria);
+    return Promise.resolve(this.data.branches ?? { items: [], total: 0 });
+  }
+
+  findBranch(id: string) {
+    return Promise.resolve(this.data.branchDetails?.find((b) => b.id === id));
+  }
+
+  searchTeams(criteria: TeamListCriteria) {
+    this.teamCalls.push(criteria);
+    return Promise.resolve(this.data.teams ?? { items: [], total: 0 });
+  }
+
+  findTeam(id: string) {
+    return Promise.resolve(this.data.teamDetails?.find((t) => t.id === id));
   }
 }

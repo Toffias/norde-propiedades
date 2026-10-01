@@ -17,6 +17,7 @@ import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
   userTarget,
+  type BranchNotFoundError,
   type EmailTakenError,
   type InvalidInputError,
   type RoleNotFoundError,
@@ -32,6 +33,7 @@ export type UpdateUserError =
   | UserNotFoundError
   | EmailTakenError
   | RoleNotFoundError
+  | BranchNotFoundError
   | UserNeedsRoleError;
 
 /** Edita los datos de un usuario y sus roles. Sin cambios, no se guarda ni se audita nada. */
@@ -67,9 +69,16 @@ export class UpdateUser {
       }
       const existing = await tx.roles.findExistingIds(data.roleIds);
       if (data.roleIds.some((id) => !existing.includes(id))) return err({ type: 'RoleNotFound' });
+      if (data.branchId !== undefined) {
+        const branches = await tx.branches.findExistingIds([data.branchId]);
+        if (branches.length === 0) return err({ type: 'BranchNotFound' });
+      }
 
       const before = userAuditState(user);
-      user.updateProfile({ name: data.name, email: email.value, phone }, now);
+      user.updateProfile(
+        { name: data.name, email: email.value, phone, branchId: data.branchId },
+        now,
+      );
       const assigned = user.assignRoles(data.roleIds, now);
       if (assigned.isErr()) return err(assigned.error);
 

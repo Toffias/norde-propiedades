@@ -38,6 +38,7 @@ export const USER_ERROR_MESSAGES = {
   InvalidPhone: 'El teléfono no es válido. Probá con el código de área, por ejemplo 11 6689-9124.',
   EmailTaken: 'Ya hay un usuario con ese email.',
   RoleNotFound: 'Uno de los roles elegidos ya no existe. Recargá la página y elegilos de nuevo.',
+  BranchNotFound: 'La sucursal elegida ya no existe. Recargá la página y elegí otra.',
   UserNeedsRole: 'Elegí al menos un rol.',
   UserNotFound: 'No encontramos ese usuario. Puede que lo hayan eliminado.',
   CannotSuspendSelf: 'No podés suspenderte a vos mismo: pedíselo a otro administrador.',

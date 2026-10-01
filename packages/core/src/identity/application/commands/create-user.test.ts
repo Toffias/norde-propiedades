@@ -7,7 +7,10 @@ import {
   InMemoryIdentityUnitOfWork,
   ROLE_AGENT_ID,
   ROLE_MANAGER_ID,
+  branchSnapshot,
+  MAIN_BRANCH_ID,
   roleSnapshot,
+  seedBranch,
   seedRole,
   seedUser,
   TEST_ADMIN,
@@ -102,6 +105,22 @@ describe('CreateUser', () => {
 
     expect(result.isErr() && result.error).toEqual({ type: 'RoleNotFound' });
     expect(uow.users.rows.size).toBe(0);
+  });
+
+  it('assigns the branch, which has to exist', async () => {
+    const { uow, useCase } = setup();
+    seedBranch(uow, branchSnapshot());
+
+    const inBranch = await useCase.execute({ ...INPUT, branchId: MAIN_BRANCH_ID }, TEST_ADMIN);
+    const missing = await useCase.execute(
+      { ...INPUT, email: 'otra@norde.com.ar', branchId: '00000000-0000-7000-8000-0000000000ff' },
+      TEST_ADMIN,
+    );
+
+    expect(inBranch.isOk() && uow.users.rows.get(inBranch.value.userId)?.branchId).toBe(
+      MAIN_BRANCH_ID,
+    );
+    expect(missing.isErr() && missing.error).toEqual({ type: 'BranchNotFound' });
   });
 
   it('rejects an invalid phone or input', async () => {

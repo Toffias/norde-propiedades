@@ -28,11 +28,13 @@ export class ListUsers {
     if (!parsed.success) {
       return err({ type: 'InvalidSearch', issues: parsed.error.issues.map((i) => i.message) });
     }
-    const { page, pageSize, sort, status, q } = parsed.data;
+    const { page, pageSize, sort, status, q, branchId, teamId } = parsed.data;
 
     const slice = await this.deps.users.search({
       status,
       text: q,
+      branchId,
+      teamId,
       sort,
       ...toOffsetLimit({ page, pageSize }),
     });

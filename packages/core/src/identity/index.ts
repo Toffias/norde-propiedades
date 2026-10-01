@@ -22,6 +22,28 @@ export {
   type PermissionResource,
 } from './domain/permission-catalog';
 export {
+  Branch,
+  type BranchAlreadyDeletedError,
+  type BranchContact,
+  type BranchHasMembersError,
+  type BranchHasTeamsError,
+  type BranchId,
+  type BranchNotDeletedError,
+  type BranchSnapshot,
+  type MainBranchCannotBeDeletedError,
+} from './domain/branch';
+export type { BranchEvent } from './domain/branch.events';
+export {
+  Team,
+  type TeamAlreadyDeletedError,
+  type TeamDeletedError,
+  type TeamId,
+  type TeamNotDeletedError,
+  type TeamSnapshot,
+} from './domain/team';
+export type { TeamEvent } from './domain/team.events';
+export type { BranchRepository, TeamRepository } from './domain/organization.repository';
+export {
   OWNERSHIP_RULES,
   accessScope,
   canActOn,
@@ -66,13 +88,21 @@ export type {
   IdentityUnitOfWork,
   UserSessions,
 } from './application/ports/identity-transaction';
+export type {
+  BranchListCriteria,
+  OrganizationQuery,
+  TeamListCriteria,
+} from './application/ports/organization-query';
 export type { PasswordHasher } from './application/ports/password-hasher';
 export type { RoleListCriteria, RoleListQuery } from './application/ports/role-list-query';
 export type { UserAccessQuery, UserAccessRecord } from './application/ports/user-access-query';
 export type { UserListCriteria, UserListQuery } from './application/ports/user-list-query';
 export type {
+  BranchNotFoundError,
   EmailTakenError,
   InvalidInputError,
+  NameTakenError,
+  TeamNotFoundError,
   RoleNameTakenError,
   RoleNotFoundError,
   UserNotFoundError,
@@ -105,6 +135,24 @@ export {
   type GetUserPermissionsError,
 } from './application/queries/get-user-permissions';
 export { ListRoles, type ListRolesError } from './application/queries/list-roles';
+export { CreateBranch, type CreateBranchError } from './application/commands/create-branch';
+export { UpdateBranch, type UpdateBranchError } from './application/commands/update-branch';
+export { MakeMainBranch, type MakeMainBranchError } from './application/commands/make-main-branch';
+export { DeleteBranch, type DeleteBranchError } from './application/commands/delete-branch';
+export { RestoreBranch, type RestoreBranchError } from './application/commands/restore-branch';
+export { CreateTeam, type CreateTeamError } from './application/commands/create-team';
+export { UpdateTeam, type UpdateTeamError } from './application/commands/update-team';
+export { DeleteTeam, type DeleteTeamError } from './application/commands/delete-team';
+export { RestoreTeam, type RestoreTeamError } from './application/commands/restore-team';
+export { AddTeamMember, type AddTeamMemberError } from './application/commands/add-team-member';
+export {
+  RemoveTeamMember,
+  type RemoveTeamMemberError,
+} from './application/commands/remove-team-member';
+export { ListBranches, type ListBranchesError } from './application/queries/list-branches';
+export { GetBranch, type GetBranchError } from './application/queries/get-branch';
+export { ListTeams, type ListTeamsError } from './application/queries/list-teams';
+export { GetTeam, type GetTeamError } from './application/queries/get-team';
 export {
   ResolveSessionActor,
   type ResolveSessionActorError,

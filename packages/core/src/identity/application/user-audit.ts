@@ -6,12 +6,13 @@ import type { User } from '../domain/user';
  * el blanqueo y el cambio quedan como acciones sin valores.
  */
 export function userAuditState(user: User): AuditState {
-  const { name, email, phone, status, roleIds, permissions } = user.toSnapshot();
+  const { name, email, phone, status, branchId, roleIds, permissions } = user.toSnapshot();
   return {
     name,
     email: email.value,
     phone: phone?.e164,
     status,
+    branchId,
     roleIds: [...roleIds],
     // `grant:clients:export`, `deny:rentals:delete`. Sin permisos propios no se registra el campo.
     permissions:
@@ -38,6 +39,18 @@ export interface EmailTakenError {
 
 export interface RoleNotFoundError {
   readonly type: 'RoleNotFound';
+}
+
+export interface BranchNotFoundError {
+  readonly type: 'BranchNotFound';
+}
+
+export interface TeamNotFoundError {
+  readonly type: 'TeamNotFound';
+}
+
+export interface NameTakenError {
+  readonly type: 'NameTaken';
 }
 
 export interface RoleNameTakenError {

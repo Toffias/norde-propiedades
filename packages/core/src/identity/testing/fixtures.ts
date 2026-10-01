@@ -1,7 +1,9 @@
 // Datos de prueba de identity: usuarios y actores de ejemplo para los tests de casos de uso.
 
 import { Actor, Email, parseId, Phone, type Result } from '../../shared';
+import type { BranchSnapshot } from '../domain/branch';
 import type { RoleSnapshot } from '../domain/role';
+import type { TeamSnapshot } from '../domain/team';
 import type { UserSnapshot } from '../domain/user';
 
 export const TEST_NOW = new Date('2026-10-01T12:00:00Z');
@@ -10,9 +12,12 @@ export const ROLE_MANAGER_ID = '00000000-0000-7000-8000-00000000000b';
 export const ADMIN_USER_ID = '00000000-0000-7000-8000-0000000000aa';
 
 /** Administrador del panel: puede todo sobre usuarios y roles. */
-export const TEST_ADMIN = Actor.user(ADMIN_USER_ID, ['users:*', 'roles:*']).withCorrelation(
-  'req-1',
-);
+export const TEST_ADMIN = Actor.user(ADMIN_USER_ID, [
+  'users:*',
+  'roles:*',
+  'branches:*',
+  'teams:*',
+]).withCorrelation('req-1');
 /** Agente sin permisos sobre usuarios. */
 export const TEST_AGENT = Actor.user('00000000-0000-7000-8000-0000000000bb', ['clients:read']);
 
@@ -49,6 +54,44 @@ export function roleSnapshot(
   };
 }
 
+export const MAIN_BRANCH_ID = '00000000-0000-7000-8000-0000000000b1';
+export const TEAM_ID = '00000000-0000-7000-8000-0000000000c1';
+
+export function branchSnapshot(
+  overrides: Partial<Omit<BranchSnapshot, 'id'>> & { readonly id?: string } = {},
+): BranchSnapshot {
+  const { id, ...rest } = overrides;
+  return {
+    id: unwrap(parseId<'Branch'>(id ?? MAIN_BRANCH_ID)),
+    name: 'Casa central',
+    logoUrl: undefined,
+    address: 'Av. Cabildo 1234, CABA',
+    email: undefined,
+    phone: undefined,
+    whatsapp: undefined,
+    isMain: true,
+    deletedAt: undefined,
+    createdAt: new Date('2026-09-01T12:00:00Z'),
+    updatedAt: new Date('2026-09-01T12:00:00Z'),
+    ...rest,
+  };
+}
+
+export function teamSnapshot(
+  overrides: Partial<Omit<TeamSnapshot, 'id'>> & { readonly id?: string } = {},
+): TeamSnapshot {
+  const { id, ...rest } = overrides;
+  return {
+    id: unwrap(parseId<'Team'>(id ?? TEAM_ID)),
+    name: 'Alquileres',
+    branchId: undefined,
+    deletedAt: undefined,
+    createdAt: new Date('2026-09-01T12:00:00Z'),
+    updatedAt: new Date('2026-09-01T12:00:00Z'),
+    ...rest,
+  };
+}
+
 export function userSnapshot(overrides: Partial<UserSnapshot> = {}): UserSnapshot {
   return {
     id: testUserId('00000000-0000-7000-8000-000000000001'),
@@ -56,6 +99,7 @@ export function userSnapshot(overrides: Partial<UserSnapshot> = {}): UserSnapsho
     email: unwrap(Email.create('camila@norde.com.ar')),
     phone: unwrap(Phone.create('+5491166899124')),
     status: 'active',
+    branchId: undefined,
     roleIds: [ROLE_AGENT_ID],
     permissions: [],
     mustChangePassword: false,

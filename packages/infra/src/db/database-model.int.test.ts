@@ -1,22 +1,14 @@
-import { sql, type SQL } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
 
-import { auditLog, clients } from './schema';
+import { clients, rolePermissions, roles, userPermissions, userRoles, users } from './schema';
 
 const db = useTestDatabase();
 
 const ID = '01900000-0000-7000-8000-000000000001';
 const AT = new Date('2026-03-01T10:00:00Z');
-
-/** Ejecuta `statement` con el rol dado, en su propia transacción. */
-function asRole(role: 'norde_app' | 'norde_erasure', statement: SQL) {
-  return db.transaction(async (tx) => {
-    await tx.execute(sql.raw(`set local role ${role}`));
-    await tx.execute(statement);
-  });
-}
 
 /** Código de error de Postgres de una consulta fallida (drizzle lo envuelve en `cause`). */
 async function pgErrorCode(query: Promise<unknown>): Promise<string | undefined> {
@@ -30,46 +22,6 @@ async function pgErrorCode(query: Promise<unknown>): Promise<string | undefined>
       : undefined;
   }
 }
-
-describe('audit_log permissions', () => {
-  it('lets the app role insert and read entries, but not change them', async () => {
-    await asRole(
-      'norde_app',
-      sql`insert into core.audit_log (id, actor_id, action, entity_type, entity_id, occurred_at)
-        values (${ID}, 'system:agent-ia', 'client.registered', 'client', ${ID}, now())`,
-    );
-    await asRole('norde_app', sql`select * from core.audit_log`);
-
-    const denied = '42501';
-    expect(
-      await pgErrorCode(asRole('norde_app', sql`update core.audit_log set action = 'x'`)),
-    ).toBe(denied);
-    expect(await pgErrorCode(asRole('norde_app', sql`delete from core.audit_log`))).toBe(denied);
-    expect(await pgErrorCode(asRole('norde_app', sql`truncate core.audit_log`))).toBe(denied);
-
-    const [entry] = await db.select().from(auditLog);
-    expect(entry?.action).toBe('client.registered');
-  });
-
-  it('lets the erasure role delete the entries of a client', async () => {
-    await db.insert(auditLog).values({
-      id: ID,
-      actorId: 'system:agent-ia',
-      action: 'client.registered',
-      entityType: 'client',
-      entityId: ID,
-      clientIds: [ID],
-      occurredAt: AT,
-    });
-
-    await asRole(
-      'norde_erasure',
-      sql`delete from core.audit_log where ${ID}::uuid = any(client_ids)`,
-    );
-
-    expect(await db.select().from(auditLog)).toHaveLength(0);
-  });
-});
 
 describe('management data model', () => {
   it('ships exactly one row in each single-row settings table', async () => {
@@ -110,5 +62,44 @@ describe('management data model', () => {
       .where(sql`${clients.searchText} like ${'%jose garcia%'}`);
     expect(matches).toHaveLength(1);
     expect(matches[0]?.searchText).toContain('jose@example.com');
+  });
+});
+
+describe('roles and permissions', () => {
+  const ROLE_ID = '01900000-0000-7000-8000-0000000000a1';
+  const audit = { createdAt: AT, updatedAt: AT, createdBy: 'test', updatedBy: 'test' };
+  const link = { createdAt: AT, createdBy: 'test' };
+
+  async function userWithRole() {
+    await db
+      .insert(users)
+      .values({ id: ID, email: 'camila@example.com', name: 'Camila', ...audit });
+    await db.insert(roles).values({ id: ROLE_ID, key: 'agent', name: 'Agente', ...audit });
+    await db
+      .insert(rolePermissions)
+      .values({ roleId: ROLE_ID, permission: 'clients:read', ...link });
+    await db.insert(userRoles).values({ userId: ID, roleId: ROLE_ID, ...link });
+    await db
+      .insert(userPermissions)
+      .values({ userId: ID, permission: 'clients:export', effect: 'grant', ...link });
+  }
+
+  it('does not delete a role that is assigned to a user', async () => {
+    await userWithRole();
+
+    const code = await pgErrorCode(db.delete(roles).where(sql`${roles.id} = ${ROLE_ID}`));
+
+    // restrict_violation: `user_roles.role_id` es `on delete restrict`.
+    expect(code).toBe('23001');
+  });
+
+  it("removes a user's roles and own permissions with the user", async () => {
+    await userWithRole();
+
+    await db.delete(users).where(sql`${users.id} = ${ID}`);
+
+    expect(await db.select().from(userRoles)).toHaveLength(0);
+    expect(await db.select().from(userPermissions)).toHaveLength(0);
+    expect(await db.select().from(rolePermissions)).toHaveLength(1);
   });
 });

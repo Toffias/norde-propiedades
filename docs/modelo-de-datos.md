@@ -27,14 +27,14 @@ Entre paréntesis, los IDs de **otros módulos** que guarda cada tabla (sin FK).
 
 ### `identity` (`identity.ts`)
 
-| Tabla                                     | Qué es                                                                                    |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `users`                                   | Usuarios del panel. Modelo de usuario de Better Auth (D5) con los campos propios de Norde |
-| `sessions` · `accounts` · `verifications` | Tablas de Better Auth, con FK a `users` en cascada                                        |
-| `roles`                                   | Roles con `permissions text[]` (`recurso:acción`)                                         |
-| `branches`                                | Sucursales (D8: se modelan aunque haya una sola)                                          |
-| `teams` · `team_members`                  | Equipos                                                                                   |
-| `user_favorites`                          | Favoritos por usuario (`entity_id` de clientes, propiedades, emprendimientos o búsquedas) |
+| Tabla                                                            | Qué es                                                                                    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `users`                                                          | Usuarios del panel. Modelo de usuario de Better Auth (D5) con los campos propios de Norde |
+| `sessions` · `accounts` · `verifications`                        | Tablas de Better Auth, con FK a `users` en cascada                                        |
+| `roles` · `role_permissions` · `user_roles` · `user_permissions` | Roles y permisos del sistema (ver "Roles y permisos del sistema")                         |
+| `branches`                                                       | Sucursales (D8: se modelan aunque haya una sola)                                          |
+| `teams` · `team_members`                                         | Equipos                                                                                   |
+| `user_favorites`                                                 | Favoritos por usuario (`entity_id` de clientes, propiedades, emprendimientos o búsquedas) |
 
 ### `settings` (`settings.ts`)
 
@@ -125,18 +125,23 @@ Entre paréntesis, los IDs de **otros módulos** que guarda cada tabla (sin FK).
 - Lo escribe cada command en su transacción con el puerto `AuditLog` y los helpers `auditCreated`, `auditUpdated` y `auditAction` (`packages/core/src/shared/application/audit.ts`).
 - `changes` es `{ campo: { before, after } }` con valores crudos. Los `bigint` se guardan como `{ "$bigint": "…" }` (`packages/infra/src/db/json.ts`).
 - `client_ids` lleva los clientes cuyos datos aparecen en la entrada: la supresión borra por ese índice (GIN).
+- **Solo de inserción, por código**: el puerto `AuditLog` solo tiene `record()` y ningún repositorio actualiza ni borra entradas. La única excepción es el caso de uso de supresión de datos (ADR 0015).
 - Índices: por entidad (`entity_type`, `entity_id`, `occurred_at`), por tipo de entidad para Noticias (`entity_type`, `occurred_at desc`), `client_ids` y `correlation_id`.
 
-## Roles de base
+## Roles y permisos del sistema
 
-`packages/infra/src/db/roles.sql`, idempotente. Se aplica con `pnpm db:roles` después de cada migración (y lo hacen `pnpm db:setup` y los tests de integración).
+Es el modelo de ASP.NET Identity, en el módulo `identity`. No tiene nada que ver con los usuarios de Postgres: los tres procesos comparten un solo usuario de base (ADR 0015).
 
-| Rol             | Permisos                                                                                              |
-| --------------- | ----------------------------------------------------------------------------------------------------- |
-| `norde_app`     | Lectura y escritura en `core`. En `audit_log`, solo `INSERT` y `SELECT`. Sin acceso a las migraciones |
-| `norde_erasure` | Lo de `norde_app`, más `DELETE` en `audit_log`. Solo para la supresión de datos                       |
+| Tabla              | Equivale a         | Qué es                                                            |
+| ------------------ | ------------------ | ----------------------------------------------------------------- |
+| `roles`            | `AspNetRoles`      | Grupos de permisos editables desde el panel                       |
+| `role_permissions` | `AspNetRoleClaims` | Permisos de cada rol, `recurso:acción` (`recurso:*` otorga todas) |
+| `user_roles`       | `AspNetUserRoles`  | Roles de cada usuario (pueden ser varios)                         |
+| `user_permissions` | `AspNetUserClaims` | Permisos propios de un usuario: `grant` suma uno, `deny` lo quita |
 
-Cada proceso se conecta con un usuario de login propio, miembro de `norde_app`. Antes de pasar los procesos a esos usuarios hay que dar permisos equivalentes sobre los esquemas `payload` (web) y `pgboss` (agente), que hoy usan el dueño de la base.
+Permisos efectivos de un usuario: la unión de los permisos de sus roles, más sus `grant`, menos sus `deny`. Esa regla vive en el dominio de `identity` (#3), y con el resultado se arma el `Actor` al iniciar sesión. Los casos de uso deciden con `actor.can(...)`.
+
+Un rol asignado a algún usuario no se puede borrar (`user_roles.role_id` es `on delete restrict`). Al borrar un usuario se borran sus roles y permisos propios.
 
 ## Columnas a retirar en la migración contract
 

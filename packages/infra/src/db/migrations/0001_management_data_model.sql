@@ -380,12 +380,19 @@ CREATE TABLE "core"."branches" (
 	"deleted_by" text
 );
 --> statement-breakpoint
+CREATE TABLE "core"."role_permissions" (
+	"role_id" uuid NOT NULL,
+	"permission" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"created_by" text NOT NULL,
+	CONSTRAINT "role_permissions_role_id_permission_pk" PRIMARY KEY("role_id","permission")
+);
+--> statement-breakpoint
 CREATE TABLE "core"."roles" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,
 	"name" text NOT NULL,
 	"description" text,
-	"permissions" text[] DEFAULT '{}'::text[] NOT NULL,
 	"is_system" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
@@ -430,6 +437,23 @@ CREATE TABLE "core"."user_favorites" (
 	CONSTRAINT "user_favorites_user_id_entity_type_entity_id_pk" PRIMARY KEY("user_id","entity_type","entity_id")
 );
 --> statement-breakpoint
+CREATE TABLE "core"."user_permissions" (
+	"user_id" uuid NOT NULL,
+	"permission" text NOT NULL,
+	"effect" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"created_by" text NOT NULL,
+	CONSTRAINT "user_permissions_user_id_permission_pk" PRIMARY KEY("user_id","permission")
+);
+--> statement-breakpoint
+CREATE TABLE "core"."user_roles" (
+	"user_id" uuid NOT NULL,
+	"role_id" uuid NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"created_by" text NOT NULL,
+	CONSTRAINT "user_roles_user_id_role_id_pk" PRIMARY KEY("user_id","role_id")
+);
+--> statement-breakpoint
 CREATE TABLE "core"."users" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
@@ -438,7 +462,6 @@ CREATE TABLE "core"."users" (
 	"image" text,
 	"phone_e164" text,
 	"branch_id" uuid,
-	"role_id" uuid,
 	"status" text DEFAULT 'active' NOT NULL,
 	"supervision_mode" text DEFAULT 'none' NOT NULL,
 	"email_sender_name" text,
@@ -1039,13 +1062,16 @@ ALTER TABLE "core"."saved_searches" ADD CONSTRAINT "saved_searches_opportunity_i
 ALTER TABLE "core"."shared_listing_items" ADD CONSTRAINT "shared_listing_items_shared_listing_id_shared_listings_id_fk" FOREIGN KEY ("shared_listing_id") REFERENCES "core"."shared_listings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."shared_listings" ADD CONSTRAINT "shared_listings_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "core"."clients"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "core"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "core"."role_permissions" ADD CONSTRAINT "role_permissions_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "core"."roles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "core"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."team_members" ADD CONSTRAINT "team_members_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "core"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."team_members" ADD CONSTRAINT "team_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "core"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."teams" ADD CONSTRAINT "teams_branch_id_branches_id_fk" FOREIGN KEY ("branch_id") REFERENCES "core"."branches"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."user_favorites" ADD CONSTRAINT "user_favorites_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "core"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "core"."user_permissions" ADD CONSTRAINT "user_permissions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "core"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "core"."user_roles" ADD CONSTRAINT "user_roles_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "core"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "core"."user_roles" ADD CONSTRAINT "user_roles_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "core"."roles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."users" ADD CONSTRAINT "users_branch_id_branches_id_fk" FOREIGN KEY ("branch_id") REFERENCES "core"."branches"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "core"."users" ADD CONSTRAINT "users_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "core"."roles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."import_job_errors" ADD CONSTRAINT "import_job_errors_job_id_import_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "core"."import_jobs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."portal_listing_daily_stats" ADD CONSTRAINT "portal_listing_daily_stats_listing_id_portal_listings_id_fk" FOREIGN KEY ("listing_id") REFERENCES "core"."portal_listings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core"."portal_listings" ADD CONSTRAINT "portal_listings_portal_portal_accounts_portal_fk" FOREIGN KEY ("portal") REFERENCES "core"."portal_accounts"("portal") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -1121,6 +1147,7 @@ CREATE INDEX "shared_listings_client_sent_idx" ON "core"."shared_listings" USING
 CREATE INDEX "accounts_user_idx" ON "core"."accounts" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "accounts_provider_account_uq" ON "core"."accounts" USING btree ("provider_id","account_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "branches_name_uq" ON "core"."branches" USING btree ("name") WHERE deleted_at is null;--> statement-breakpoint
+CREATE INDEX "role_permissions_permission_idx" ON "core"."role_permissions" USING btree ("permission");--> statement-breakpoint
 CREATE UNIQUE INDEX "roles_key_uq" ON "core"."roles" USING btree ("key");--> statement-breakpoint
 CREATE UNIQUE INDEX "sessions_token_uq" ON "core"."sessions" USING btree ("token");--> statement-breakpoint
 CREATE INDEX "sessions_user_idx" ON "core"."sessions" USING btree ("user_id");--> statement-breakpoint
@@ -1128,6 +1155,8 @@ CREATE INDEX "team_members_user_idx" ON "core"."team_members" USING btree ("user
 CREATE INDEX "teams_branch_idx" ON "core"."teams" USING btree ("branch_id");--> statement-breakpoint
 CREATE INDEX "user_favorites_user_created_idx" ON "core"."user_favorites" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "user_favorites_entity_idx" ON "core"."user_favorites" USING btree ("entity_type","entity_id");--> statement-breakpoint
+CREATE INDEX "user_permissions_permission_idx" ON "core"."user_permissions" USING btree ("permission");--> statement-breakpoint
+CREATE INDEX "user_roles_role_idx" ON "core"."user_roles" USING btree ("role_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_email_uq" ON "core"."users" USING btree ("email");--> statement-breakpoint
 CREATE INDEX "users_status_name_idx" ON "core"."users" USING btree ("status","name");--> statement-breakpoint
 CREATE INDEX "users_branch_idx" ON "core"."users" USING btree ("branch_id");--> statement-breakpoint

@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -27,7 +26,6 @@ export const users = coreSchema.table(
     image: text('image'),
     phoneE164: text('phone_e164'),
     branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }),
-    roleId: uuid('role_id').references(() => roles.id, { onDelete: 'restrict' }),
     /** `active` / `suspended`. */
     status: text('status').notNull().default('active'),
     /** `none` / `supervised` / `supervisor`. */
@@ -106,6 +104,10 @@ export const verifications = coreSchema.table(
   (t) => [index('verifications_identifier_idx').on(t.identifier)],
 );
 
+/**
+ * Roles: grupos de permisos editables desde el panel (Administrador, Gerente, Agente…). Un
+ * usuario puede tener varios (`user_roles`). Equivale a `AspNetRoles`.
+ */
 export const roles = coreSchema.table(
   'roles',
   {
@@ -113,17 +115,69 @@ export const roles = coreSchema.table(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description'),
-    /** `recurso:acción` (`properties:update`); `recurso:*` otorga todas. */
-    permissions: text('permissions')
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
     /** Los roles del sistema no se borran ni se renombran. */
     isSystem: boolean('is_system').notNull().default(false),
     ...timestamps(),
     ...authorship(),
   },
   (t) => [uniqueIndex('roles_key_uq').on(t.key)],
+);
+
+/** Permisos de cada rol (`AspNetRoleClaims`): `recurso:acción`; `recurso:*` otorga todas. */
+export const rolePermissions = coreSchema.table(
+  'role_permissions',
+  {
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    permission: text('permission').notNull(),
+    ...linkAuthorship(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.roleId, t.permission] }),
+    // "Qué roles tienen este permiso".
+    index('role_permissions_permission_idx').on(t.permission),
+  ],
+);
+
+/** Roles de cada usuario (`AspNetUserRoles`). */
+export const userRoles = coreSchema.table(
+  'user_roles',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'restrict' }),
+    ...linkAuthorship(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.roleId] }),
+    // Usuarios de un rol, y no borrar un rol en uso.
+    index('user_roles_role_idx').on(t.roleId),
+  ],
+);
+
+/**
+ * Permisos propios de un usuario (`AspNetUserClaims`), además de los de sus roles. `grant` suma
+ * un permiso y `deny` lo quita aunque venga de un rol. La regla vive en el dominio (`identity`).
+ */
+export const userPermissions = coreSchema.table(
+  'user_permissions',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    permission: text('permission').notNull(),
+    /** `grant` / `deny`. */
+    effect: text('effect').notNull(),
+    ...linkAuthorship(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.permission] }),
+    index('user_permissions_permission_idx').on(t.permission),
+  ],
 );
 
 export const branches = coreSchema.table(

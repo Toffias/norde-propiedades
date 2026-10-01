@@ -8,7 +8,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { authorship, linkAuthorship, notDeleted, timestamps, trash } from './columns';
+import { authorship, linkAuthorship, notDeleted, searchText, timestamps, trash } from './columns';
 import { coreSchema } from './core-schema';
 
 /**
@@ -41,10 +41,17 @@ export const users = coreSchema.table(
     /** Nullable: el primer usuario lo crea el setup, sin actor. */
     createdBy: text('created_by'),
     updatedBy: text('updated_by'),
+    /** Búsqueda del listado de usuarios por nombre o email. */
+    searchText: searchText('name', 'email'),
   },
   (t) => [
     uniqueIndex('users_email_uq').on(t.email),
+    // Un índice por cada orden del listado, que siempre filtra por estado.
     index('users_status_name_idx').on(t.status, t.name),
+    index('users_status_email_idx').on(t.status, t.email),
+    index('users_status_last_login_idx').on(t.status, t.lastLoginAt),
+    index('users_status_created_idx').on(t.status, t.createdAt),
+    index('users_search_text_idx').using('gin', t.searchText.op('gin_trgm_ops')),
     index('users_branch_idx').on(t.branchId),
   ],
 );
@@ -119,8 +126,13 @@ export const roles = coreSchema.table(
     isSystem: boolean('is_system').notNull().default(false),
     ...timestamps(),
     ...authorship(),
+    searchText: searchText('name'),
   },
-  (t) => [uniqueIndex('roles_key_uq').on(t.key)],
+  (t) => [
+    uniqueIndex('roles_key_uq').on(t.key),
+    index('roles_name_idx').on(t.name),
+    index('roles_search_text_idx').using('gin', t.searchText.op('gin_trgm_ops')),
+  ],
 );
 
 /** Permisos de cada rol (`AspNetRoleClaims`): `recurso:acción`; `recurso:*` otorga todas. */

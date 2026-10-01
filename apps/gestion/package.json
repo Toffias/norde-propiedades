@@ -16,6 +16,7 @@
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",
     "@norde/ui": "workspace:*",
+    "better-auth": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "next-themes": "catalog:",

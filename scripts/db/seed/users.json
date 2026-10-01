@@ -1,0 +1,26 @@
+[
+  {
+    "email": "admin@norde.test",
+    "name": "Laura Administradora",
+    "password": "norde-dev-1234",
+    "roles": ["admin"]
+  },
+  {
+    "email": "gerente@norde.test",
+    "name": "Martín Gerente",
+    "password": "norde-dev-1234",
+    "roles": ["manager"]
+  },
+  {
+    "email": "agente@norde.test",
+    "name": "Camila Agente",
+    "password": "norde-dev-1234",
+    "roles": ["agent"]
+  },
+  {
+    "email": "alquileres@norde.test",
+    "name": "Diego Alquileres",
+    "password": "norde-dev-1234",
+    "roles": ["rentals-admin"]
+  }
+]

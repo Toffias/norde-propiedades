@@ -8,6 +8,10 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  /** Firma las cookies de sesión. Generalo con `openssl rand -base64 32`. */
+  BETTER_AUTH_SECRET: z.string().min(32),
+  /** URL pública del panel, sin barra final (`https://gestion.norde.com.ar`). */
+  BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

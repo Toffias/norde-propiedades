@@ -17,7 +17,8 @@
     "format:check": "prettier --check .",
     "prepare": "husky",
     "db:setup": "pnpm --filter @norde/scripts db:setup",
-    "db:seed": "pnpm --filter @norde/scripts db:seed"
+    "db:seed": "pnpm --filter @norde/scripts db:seed",
+    "user:create-admin": "pnpm --filter @norde/scripts user:create-admin"
   },
   "devDependencies": {
     "@commitlint/cli": "catalog:",

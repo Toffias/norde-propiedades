@@ -15,6 +15,14 @@ export { DrizzleAuditLog } from './shared/drizzle-audit-log';
 export { DrizzleOutboxPublisher } from './shared/drizzle-outbox-publisher';
 export { maskEmail, maskPhone, type InfraLogger } from './shared/logger';
 
+export {
+  BetterAuthSessionReader,
+  createAuth,
+  type Auth,
+  type AuthOptions,
+} from './identity/better-auth';
+export { DrizzleUserAccessQuery } from './identity/drizzle-user-access-query';
+
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';
 export {

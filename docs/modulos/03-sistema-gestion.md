@@ -47,6 +47,19 @@ Roles propuestos (a validar con Norde):
 - Los permisos se definen por recurso y acción (ver, crear, editar, borrar, exportar), para poder ajustar roles sin tocar código.
 - Login con email y contraseña, con sesión segura. Se puede agregar 2FA opcional para administradores.
 
+**Implementado (#2, ADR 0016):**
+
+- Los cuatro roles existen como roles de sistema (migración `0002_system_roles`), con permisos por recurso. Un usuario puede tener varios roles, más permisos propios que suman (`grant`) o quitan (`deny`).
+- Ingreso en `/ingresar` con email y contraseña:
+  - Hasta 5 intentos por minuto por IP.
+  - El error no distingue un email inexistente de una contraseña incorrecta.
+  - "Recordarme" mantiene la sesión.
+- Toda pantalla bajo `(panel)` exige sesión. Un usuario suspendido no puede entrar, aunque tenga la sesión abierta.
+- Se auditan el ingreso, el ingreso fallido (contra el usuario, sin guardar el email) y la salida.
+- Sin alta pública: hasta el ABM de #3, los usuarios se crean con `pnpm user:create-admin` (producción) o `pnpm db:seed` (desarrollo, un usuario por rol).
+- Sin recupero de contraseña por mail por ahora: la blanquea un administrador.
+- El menú lateral se contrae a íconos (la preferencia queda guardada) y en mobile se abre como panel. Los módulos que todavía no tienen pantalla figuran deshabilitados ("Próximamente").
+
 ### 2.2 Trazabilidad de cambios (auditoría)
 
 - Una tabla `audit_log` registra **quién** hizo el cambio, **cuándo**, **sobre qué** entidad e id, **qué acción** (crear, editar, borrar, exportar, iniciar sesión) y el **antes y después** de los campos cambiados.

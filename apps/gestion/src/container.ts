@@ -4,21 +4,36 @@ import 'server-only';
 // Arma los casos de uso de @norde/core que usan los Server Components y las Server Actions.
 
 import {
+  AddTeamMember,
   ChangeOwnPassword,
+  CreateBranch,
   CreateRole,
+  CreateTeam,
   CreateUser,
+  DeleteBranch,
   DeleteRole,
+  DeleteTeam,
+  GetBranch,
   GetRole,
+  GetTeam,
   GetUserPermissions,
+  ListBranches,
   ListRoles,
+  ListTeams,
   ListUsers,
+  MakeMainBranch,
   ReactivateUser,
   ResetUserPassword,
+  RemoveTeamMember,
   ResolveSessionActor,
+  RestoreBranch,
   RestoreRole,
+  RestoreTeam,
   SetUserPermissions,
   SuspendUser,
+  UpdateBranch,
   UpdateRole,
+  UpdateTeam,
   UpdateUser,
 } from '@norde/core/identity';
 import type { IdGenerator } from '@norde/core/shared';
@@ -29,6 +44,7 @@ import {
   createDatabase,
   createIdentityUnitOfWork,
   DrizzleAuditLog,
+  DrizzleOrganizationQuery,
   DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
   DrizzleUserListQuery,
@@ -64,6 +80,21 @@ export interface Container {
     readonly updateRole: UpdateRole;
     readonly deleteRole: DeleteRole;
     readonly restoreRole: RestoreRole;
+    readonly listBranches: ListBranches;
+    readonly getBranch: GetBranch;
+    readonly createBranch: CreateBranch;
+    readonly updateBranch: UpdateBranch;
+    readonly makeMainBranch: MakeMainBranch;
+    readonly deleteBranch: DeleteBranch;
+    readonly restoreBranch: RestoreBranch;
+    readonly listTeams: ListTeams;
+    readonly getTeam: GetTeam;
+    readonly createTeam: CreateTeam;
+    readonly updateTeam: UpdateTeam;
+    readonly deleteTeam: DeleteTeam;
+    readonly restoreTeam: RestoreTeam;
+    readonly addTeamMember: AddTeamMember;
+    readonly removeTeamMember: RemoveTeamMember;
   };
 }
 
@@ -91,6 +122,7 @@ function createContainer(): Container {
   const hasher = new BetterAuthPasswordHasher();
   const userAccess = new DrizzleUserAccessQuery(database.db);
   const roleQuery = new DrizzleRoleListQuery(database.db);
+  const organization = new DrizzleOrganizationQuery(database.db);
 
   return {
     database,
@@ -114,6 +146,21 @@ function createContainer(): Container {
       updateRole: new UpdateRole({ uow: identityUow, clock }),
       deleteRole: new DeleteRole({ uow: identityUow, clock }),
       restoreRole: new RestoreRole({ uow: identityUow, clock }),
+      listBranches: new ListBranches({ organization }),
+      getBranch: new GetBranch({ organization }),
+      createBranch: new CreateBranch({ uow: identityUow, ids, clock }),
+      updateBranch: new UpdateBranch({ uow: identityUow, clock }),
+      makeMainBranch: new MakeMainBranch({ uow: identityUow, clock }),
+      deleteBranch: new DeleteBranch({ uow: identityUow, clock }),
+      restoreBranch: new RestoreBranch({ uow: identityUow, clock }),
+      listTeams: new ListTeams({ organization }),
+      getTeam: new GetTeam({ organization }),
+      createTeam: new CreateTeam({ uow: identityUow, ids, clock }),
+      updateTeam: new UpdateTeam({ uow: identityUow, clock }),
+      deleteTeam: new DeleteTeam({ uow: identityUow, clock }),
+      restoreTeam: new RestoreTeam({ uow: identityUow, clock }),
+      addTeamMember: new AddTeamMember({ uow: identityUow, clock }),
+      removeTeamMember: new RemoveTeamMember({ uow: identityUow, clock }),
     },
   };
 }

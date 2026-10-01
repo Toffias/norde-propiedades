@@ -17,8 +17,8 @@ interface CompanySection {
 const SECTIONS: readonly CompanySection[] = [
   { label: 'Usuarios', href: '/mi-empresa/usuarios' },
   { label: 'Roles', href: '/mi-empresa/roles' },
-  { label: 'Sucursales' },
-  { label: 'Equipos' },
+  { label: 'Sucursales', href: '/mi-empresa/sucursales' },
+  { label: 'Equipos', href: '/mi-empresa/equipos' },
 ];
 
 const PILL =

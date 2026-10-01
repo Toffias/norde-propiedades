@@ -16,6 +16,8 @@ export interface UserSnapshot {
   readonly email: Email;
   readonly phone: Phone | undefined;
   readonly status: UserStatus;
+  /** Sucursal donde trabaja, si tiene. La usan las reglas de pertenencia. */
+  readonly branchId: string | undefined;
   /** Roles del usuario (al menos uno). IDs de `roles`, ordenados. */
   readonly roleIds: readonly string[];
   /**
@@ -73,6 +75,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
     readonly name: string;
     readonly email: Email;
     readonly phone?: Phone | undefined;
+    readonly branchId?: string | undefined;
     readonly roleIds: readonly string[];
     readonly now: Date;
   }): Result<User, UserNeedsRoleError> {
@@ -84,6 +87,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
       email: input.email,
       phone: input.phone,
       status: 'active',
+      branchId: input.branchId,
       roleIds: roleIds.value,
       permissions: [],
       mustChangePassword: true,
@@ -125,7 +129,12 @@ export class User extends AggregateRoot<UserId, UserEvent> {
   }
 
   updateProfile(
-    data: { readonly name: string; readonly email: Email; readonly phone: Phone | undefined },
+    data: {
+      readonly name: string;
+      readonly email: Email;
+      readonly phone: Phone | undefined;
+      readonly branchId: string | undefined;
+    },
     now: Date,
   ): void {
     this.#state = {
@@ -133,6 +142,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
       name: data.name.trim().slice(0, MAX_NAME_LENGTH),
       email: data.email,
       phone: data.phone,
+      branchId: data.branchId,
       updatedAt: now,
     };
   }

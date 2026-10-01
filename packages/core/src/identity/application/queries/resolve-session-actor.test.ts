@@ -12,6 +12,7 @@ const CAMILA: UserAccessRecord = {
   name: 'Camila Pérez',
   email: 'camila@norde.com.ar',
   status: 'active',
+  branchId: '00000000-0000-7000-8000-0000000000b1',
   mustChangePassword: false,
   roles: [
     { key: 'agent', name: 'Agente' },
@@ -38,6 +39,7 @@ describe('ResolveSessionActor', () => {
     expect(actor.id).toBe(CAMILA.id);
     expect(actor.kind).toBe('user');
     expect(actor.correlationId).toBe('req-1');
+    expect(actor.branchId).toBe('00000000-0000-7000-8000-0000000000b1');
     expect(actor.can('clients:export')).toBe(true);
     expect(actor.can('rentals:update')).toBe(true);
     expect(actor.can('rentals:delete')).toBe(false);

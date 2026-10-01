@@ -37,7 +37,7 @@ export class ResolveSessionActor {
     const { granted, denied } = user.mustChangePassword
       ? { granted: [], denied: [] }
       : effectivePermissions(user.rolePermissions, user.userPermissions);
-    const sessionActor = Actor.user(user.id, granted, denied);
+    const sessionActor = Actor.user(user.id, granted, denied).withBranch(user.branchId);
 
     return ok({
       actor:

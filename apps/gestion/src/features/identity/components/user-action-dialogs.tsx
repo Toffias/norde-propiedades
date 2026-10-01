@@ -33,7 +33,7 @@ import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
 import { reactivateUserAction, resetUserPasswordAction, suspendUserAction } from '../actions';
 import { generateTemporaryPassword } from '../temporary-password';
-import { FormAlert } from './form-alert';
+import { FormAlert } from '../../shared/components/form-alert';
 
 /** Suspender o reactivar: una confirmación, porque suspender cierra sus sesiones al instante. */
 export function UserStatusDialog({

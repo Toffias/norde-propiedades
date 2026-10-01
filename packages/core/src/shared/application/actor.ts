@@ -31,6 +31,11 @@ export class Actor {
     private readonly denied: ReadonlySet<Permission>,
     /** ID del request o del job: agrupa las entradas de auditoría de una misma ejecución. */
     readonly correlationId: string | undefined,
+    /**
+     * Sucursal del usuario: la usan las reglas de pertenencia ("de su sucursal"). Un usuario sin
+     * sucursal y los actores de sistema no tienen.
+     */
+    readonly branchId: string | undefined,
   ) {}
 
   static user(
@@ -38,7 +43,15 @@ export class Actor {
     permissions: Iterable<Permission>,
     denied: Iterable<Permission> = [],
   ): Actor {
-    return new Actor(userId, 'user', 'gestion', new Set(permissions), new Set(denied), undefined);
+    return new Actor(
+      userId,
+      'user',
+      'gestion',
+      new Set(permissions),
+      new Set(denied),
+      undefined,
+      undefined,
+    );
   }
 
   static system(name: SystemActorName, permissions: Iterable<Permission>): Actor {
@@ -49,12 +62,34 @@ export class Actor {
       new Set(permissions),
       new Set(),
       undefined,
+      undefined,
     );
   }
 
   /** El mismo actor, para una ejecución concreta (request, mensaje entrante, job). */
   withCorrelation(correlationId: string): Actor {
-    return new Actor(this.id, this.kind, this.source, this.permissions, this.denied, correlationId);
+    return new Actor(
+      this.id,
+      this.kind,
+      this.source,
+      this.permissions,
+      this.denied,
+      correlationId,
+      this.branchId,
+    );
+  }
+
+  /** El mismo actor, con la sucursal del usuario. */
+  withBranch(branchId: string | undefined): Actor {
+    return new Actor(
+      this.id,
+      this.kind,
+      this.source,
+      this.permissions,
+      this.denied,
+      this.correlationId,
+      branchId,
+    );
   }
 
   can(permission: Permission): boolean {

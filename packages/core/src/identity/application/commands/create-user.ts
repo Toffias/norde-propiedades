@@ -20,6 +20,7 @@ import type { PasswordHasher } from '../ports/password-hasher';
 import {
   userAuditState,
   userTarget,
+  type BranchNotFoundError,
   type EmailTakenError,
   type InvalidInputError,
   type RoleNotFoundError,
@@ -32,6 +33,7 @@ export type CreateUserError =
   | InvalidPhoneError
   | EmailTakenError
   | RoleNotFoundError
+  | BranchNotFoundError
   | UserNeedsRoleError;
 
 /** Alta de un usuario del panel con una contraseña temporal y sus roles. */
@@ -73,12 +75,17 @@ export class CreateUser {
         if (await tx.users.findByEmail(email.value)) return err({ type: 'EmailTaken' });
         const existing = await tx.roles.findExistingIds(data.roleIds);
         if (data.roleIds.some((id) => !existing.includes(id))) return err({ type: 'RoleNotFound' });
+        if (data.branchId !== undefined) {
+          const branches = await tx.branches.findExistingIds([data.branchId]);
+          if (branches.length === 0) return err({ type: 'BranchNotFound' });
+        }
 
         const created = User.create({
           id: nextId<'User'>(this.deps.ids),
           name: data.name,
           email: email.value,
           phone,
+          branchId: data.branchId,
           roleIds: data.roleIds,
           now,
         });

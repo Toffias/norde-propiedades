@@ -43,6 +43,13 @@
       "when": 1790867081036,
       "tag": "0005_catalog_permissions_for_system_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790869098735,
+      "tag": "0006_branches_and_teams_listing",
+      "breakpoints": true
     }
   ]
 }

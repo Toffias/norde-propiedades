@@ -233,6 +233,13 @@ export function UsersGrid({
         cell: (user) => user.email,
       },
       {
+        id: 'branch',
+        header: 'Sucursal',
+        showFrom: 'xl',
+        className: 'text-muted-foreground',
+        cell: (user) => user.branch?.name ?? '',
+      },
+      {
         id: 'roles',
         header: 'Roles',
         showFrom: 'lg',

@@ -6,7 +6,6 @@ import {
   MAX_PAGE_SIZE,
   bulkSelectionSchema,
   pageQuerySchema,
-  serializeSort,
 } from './pagination';
 
 const ListSchema = pageQuerySchema({
@@ -53,13 +52,6 @@ describe('pageQuerySchema', () => {
   it('rejects columns outside the sort whitelist', () => {
     expect(ListSchema.safeParse({ sort: 'password' }).success).toBe(false);
     expect(ListSchema.safeParse({ sort: '--name' }).success).toBe(false);
-  });
-});
-
-describe('serializeSort', () => {
-  it('round-trips with the sort schema', () => {
-    expect(serializeSort({ field: 'name', direction: 'asc' })).toBe('name');
-    expect(serializeSort({ field: 'name', direction: 'desc' })).toBe('-name');
   });
 });
 

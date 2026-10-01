@@ -7,7 +7,6 @@ export {
   PAGE_SIZE_OPTIONS,
   bulkSelectionSchema,
   pageQuerySchema,
-  serializeSort,
   sortSchema,
   type Sort,
   type SortDirection,

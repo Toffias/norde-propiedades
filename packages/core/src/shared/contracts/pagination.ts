@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 /** Tamaños de página que ofrece la grilla del panel. */
-export const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
-export const DEFAULT_PAGE_SIZE = 20;
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+export const DEFAULT_PAGE_SIZE = 25;
 /** Ninguna query devuelve más filas que esto: pedir más es un error de validación. */
 export const MAX_PAGE_SIZE = 100;
 export const MAX_PAGE = 10_000;
@@ -14,13 +14,9 @@ export interface Sort<TField extends string> {
   readonly direction: SortDirection;
 }
 
-/** `campo` ordena ascendente y `-campo` descendente (así viaja en la URL). */
-export function serializeSort<TField extends string>(sort: Sort<TField>): string {
-  return sort.direction === 'desc' ? `-${sort.field}` : sort.field;
-}
-
 /**
- * Orden con lista blanca de columnas. Cualquier otro valor es un error de validación;
+ * Orden con lista blanca de columnas: `campo` ordena ascendente y `-campo` descendente (así viaja
+ * en la URL). Cualquier otro valor es un error de validación;
  * sin valor, se usa `defaultSort`.
  */
 export function sortSchema<const TField extends string>(

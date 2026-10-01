@@ -10,6 +10,7 @@ import type { DataTableColumn } from '@norde/ui/components/data-table';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -19,6 +20,7 @@ import { Input } from '@norde/ui/components/input';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { toast } from '@norde/ui/components/sonner';
 import {
+  ArrowLeftIcon,
   ChevronRightIcon,
   DownloadIcon,
   FileIcon,
@@ -27,6 +29,7 @@ import {
   Loader2Icon,
   PencilIcon,
   Trash2Icon,
+  UploadIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -132,6 +135,7 @@ function NameDialog({
 }
 
 type Dialogs =
+  | { readonly kind: 'upload' }
   | { readonly kind: 'new-folder' }
   | { readonly kind: 'rename'; readonly entry: FolderEntry }
   | undefined;
@@ -188,6 +192,8 @@ export function CompanyFilesGrid({
         toast.success(uploaded === 1 ? 'Archivo subido' : `${String(uploaded)} archivos subidos`);
         router.refresh();
       }
+      // Con un error, el modal queda abierto para mostrarlo.
+      if (uploaded === files.length) setDialog(undefined);
     });
   }
 
@@ -285,40 +291,40 @@ export function CompanyFilesGrid({
     },
   ];
 
+  // La carpeta de arriba: la anterior de la ruta, o la raíz.
+  const parent = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 2] : undefined;
+
   return (
     <div className="flex flex-col gap-4">
-      <nav aria-label="Ruta de la carpeta" className="flex flex-wrap items-center gap-1 text-sm">
-        <Link href={folderHref(undefined)} className="text-muted-foreground hover:underline">
-          Archivos
-        </Link>
-        {breadcrumb.map((crumb, index) => (
-          <span key={crumb.id} className="inline-flex items-center gap-1">
-            <ChevronRightIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
-            {index === breadcrumb.length - 1 ? (
-              <span className="font-medium" aria-current="page">
-                {crumb.name}
-              </span>
-            ) : (
-              <Link href={folderHref(crumb.id)} className="text-muted-foreground hover:underline">
-                {crumb.name}
-              </Link>
-            )}
-          </span>
-        ))}
-      </nav>
-
-      {canUpload && (
-        <div className="flex flex-col gap-2">
-          <FormAlert message={uploadError} />
-          <FileDropzone
-            multiple
-            disabled={uploading}
-            title={uploading ? 'Subiendo…' : 'Subir archivos a esta carpeta'}
-            hint="PDF, documentos, planillas, imágenes o ZIP, hasta 25 MB cada uno."
-            onFiles={upload}
-          />
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        {folderId !== undefined && (
+          <Button asChild size="sm" variant="outline">
+            <Link href={folderHref(parent?.id)}>
+              <ArrowLeftIcon className="h-4 w-4" />
+              Volver
+            </Link>
+          </Button>
+        )}
+        <nav aria-label="Ruta de la carpeta" className="flex flex-wrap items-center gap-1 text-sm">
+          <Link href={folderHref(undefined)} className="text-muted-foreground hover:underline">
+            Archivos
+          </Link>
+          {breadcrumb.map((crumb, index) => (
+            <span key={crumb.id} className="inline-flex items-center gap-1">
+              <ChevronRightIcon className="h-4 w-4 text-muted-foreground" aria-hidden />
+              {index === breadcrumb.length - 1 ? (
+                <span className="font-medium" aria-current="page">
+                  {crumb.name}
+                </span>
+              ) : (
+                <Link href={folderHref(crumb.id)} className="text-muted-foreground hover:underline">
+                  {crumb.name}
+                </Link>
+              )}
+            </span>
+          ))}
+        </nav>
+      </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <ServerDataTable
@@ -327,18 +333,43 @@ export function CompanyFilesGrid({
           getRowId={getRowId}
           {...page}
           toolbar={
-            canManage ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setDialog({ kind: 'new-folder' });
-                }}
-              >
-                <FolderPlusIcon className="h-4 w-4" />
-                Nueva carpeta
-              </Button>
+            canUpload || canManage ? (
+              <>
+                {canUpload && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setUploadError(undefined);
+                      setDialog({ kind: 'upload' });
+                    }}
+                  >
+                    <UploadIcon className="h-4 w-4" />
+                    Subir archivos
+                  </Button>
+                )}
+                {canManage && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setDialog({ kind: 'new-folder' });
+                    }}
+                  >
+                    <FolderPlusIcon className="h-4 w-4" />
+                    Nueva carpeta
+                  </Button>
+                )}
+                {canManage && (
+                  <Button asChild size="sm" variant="outline" className="sm:ml-auto">
+                    <Link href={`${FILES_ROUTE}/papelera`}>
+                      <Trash2Icon className="h-4 w-4" />
+                      Papelera
+                    </Link>
+                  </Button>
+                )}
+              </>
             ) : undefined
           }
           empty={
@@ -349,6 +380,31 @@ export function CompanyFilesGrid({
         />
       </div>
 
+      <Dialog
+        open={dialog?.kind === 'upload'}
+        onOpenChange={(open) => {
+          if (!open && !uploading) setDialog(undefined);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Subir archivos</DialogTitle>
+            <DialogDescription>
+              {breadcrumb.length === 0
+                ? 'Van a la raíz de Archivos.'
+                : `Van a la carpeta ${breadcrumb[breadcrumb.length - 1]?.name ?? ''}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <FormAlert message={uploadError} />
+          <FileDropzone
+            multiple
+            disabled={uploading}
+            title={uploading ? 'Subiendo…' : 'Arrastrá los archivos o hacé click para elegirlos'}
+            hint="PDF, documentos, planillas, imágenes o ZIP, hasta 25 MB cada uno."
+            onFiles={upload}
+          />
+        </DialogContent>
+      </Dialog>
       {dialog?.kind === 'new-folder' && (
         <NameDialog
           title="Nueva carpeta"

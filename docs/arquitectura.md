@@ -137,8 +137,9 @@ packages/infra/src/
 ├── adapters/
 │   ├── whatsapp/                    # Meta Cloud API (del MVP APZ-WP-BOT)
 │   ├── openai/
-│   ├── mail/                        # Resend, Postmark o Brevo
-│   ├── storage/                     # S3 / R2
+│   ├── mail/                        # Resend (ADR 0017)
+│   ├── storage/                     # S3 / R2 y disco local para desarrollo (ADR 0017)
+│   ├── images/                      # sharp: marca de agua
 │   ├── geocoding/
 │   ├── indec/                       # Serie IPC (datos.gob.ar)
 │   └── portals/                     # mercadolibre/, zonaprop/, argenprop/
@@ -204,6 +205,8 @@ packages/infra/src/
 | `notifications` | Notificaciones a usuarios (en el panel y por mail) y sus preferencias                        | —                                                                    |
 | `audit`         | Registro de cambios (quién, qué, cuándo, antes y después)                                    | —                                                                    |
 | `reporting`     | Consultas de solo lectura para reportes (ventas, orígenes, embudo, costos)                   | —                                                                    |
+
+Puertos de `settings` que usan otros módulos: `CompanySettingsReader` (valores de la configuración, por ejemplo el pie para portales y la marca de agua), `AllocateReferenceCode` (el código al dar de alta una propiedad o un emprendimiento), `FileStorage`, `Mailer` e `ImageWatermarker`.
 
 La configuración propia de un módulo (oportunidades, consultas, reservas, propiedades) vive en una tabla de fila única **de ese módulo**, no en `settings`. Las tablas de cada módulo están en `docs/modelo-de-datos.md`.
 
@@ -418,6 +421,8 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 | 0013 | [Estados de oportunidad editables](adr/0013-estados-de-oportunidad-editables-con-categoria-fija.md), cada uno con una categoría fija del dominio     |
 | 0014 | [Atributos de propiedad en columnas tipadas](adr/0014-atributos-de-propiedad-tipados-y-eav-solo-personalizados.md); EAV solo para los personalizados |
 | 0015 | [Un solo usuario de base compartido](adr/0015-un-usuario-de-base-y-permisos-en-el-sistema.md); los permisos se deciden en el sistema                 |
+| 0016 | [Ingreso al panel con Better Auth](adr/0016-ingreso-al-panel-con-better-auth.md), sesión resuelta por el core                                        |
+| 0017 | [Archivos en un storage S3 compatible y emails con Resend](adr/0017-storage-s3-r2-y-mail-resend.md), con puertos `FileStorage` y `Mailer`            |
 
 ---
 

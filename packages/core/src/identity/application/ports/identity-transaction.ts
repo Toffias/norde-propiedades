@@ -1,11 +1,6 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
+import type { RoleRepository } from '../../domain/role.repository';
 import type { UserRepository } from '../../domain/user.repository';
-
-/** Qué roles existen, para validar los que se asignan. */
-export interface RoleDirectory {
-  /** De los IDs pedidos, los que existen. */
-  findExistingIds(ids: readonly string[]): Promise<readonly string[]>;
-}
 
 /** Contraseña del usuario (la cuenta `credential` del proveedor de autenticación), ya hasheada. */
 export interface CredentialStore {
@@ -22,7 +17,7 @@ export interface UserSessions {
 /** Lo que un command de identity usa dentro de la transacción, ligado a la misma conexión. */
 export interface IdentityTransaction {
   readonly users: UserRepository;
-  readonly roles: RoleDirectory;
+  readonly roles: RoleRepository;
   readonly credentials: CredentialStore;
   readonly sessions: UserSessions;
   readonly events: EventPublisher;

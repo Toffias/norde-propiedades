@@ -150,3 +150,50 @@ describe('User passwords', () => {
     expect(user.pullEvents().map((e) => e.type)).toEqual(['identity.user_password_reset']);
   });
 });
+
+describe('User.setOwnPermissions', () => {
+  it('keeps one entry per permission, sorted, and records the change', () => {
+    const user = newUser();
+    user.pullEvents();
+
+    const result = user.setOwnPermissions(
+      [
+        { permission: 'rentals:delete', effect: 'deny' },
+        { permission: 'clients:export', effect: 'grant' },
+      ],
+      ADMIN_ID,
+      LATER,
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(user.permissions).toEqual([
+      { permission: 'clients:export', effect: 'grant' },
+      { permission: 'rentals:delete', effect: 'deny' },
+    ]);
+    expect(user.pullEvents().map((e) => e.type)).toEqual(['identity.user_permissions_changed']);
+  });
+
+  it('rejects permissions outside the catalog, repeats and changing your own', () => {
+    const user = newUser();
+
+    const unknown = user.setOwnPermissions(
+      [{ permission: 'x:y', effect: 'grant' }],
+      ADMIN_ID,
+      LATER,
+    );
+    const repeated = user.setOwnPermissions(
+      [
+        { permission: 'clients:read', effect: 'grant' },
+        { permission: 'clients:read', effect: 'deny' },
+      ],
+      ADMIN_ID,
+      LATER,
+    );
+    const own = user.setOwnPermissions([], ID, LATER);
+
+    expect(unknown.isErr() && unknown.error.type).toBe('UnknownPermission');
+    expect(repeated.isErr() && repeated.error.type).toBe('DuplicatePermission');
+    expect(own.isErr() && own.error.type).toBe('CannotChangeOwnPermissions');
+    expect(user.permissions).toEqual([]);
+  });
+});

@@ -16,5 +16,15 @@ export type UserPasswordReset = DomainEvent<
   { readonly userId: string }
 >;
 
+export type UserPermissionsChanged = DomainEvent<
+  'identity.user_permissions_changed',
+  { readonly userId: string }
+>;
+
 export type UserEvent =
-  UserCreated | UserRolesChanged | UserSuspended | UserReactivated | UserPasswordReset;
+  | UserPermissionsChanged
+  | UserCreated
+  | UserRolesChanged
+  | UserSuspended
+  | UserReactivated
+  | UserPasswordReset;

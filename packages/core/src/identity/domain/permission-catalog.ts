@@ -4,6 +4,11 @@
 
 import type { PermissionClaim } from './access';
 
+export interface UnknownPermissionError {
+  readonly type: 'UnknownPermission';
+  readonly permission: string;
+}
+
 export interface PermissionDefinition {
   readonly permission: PermissionClaim;
   readonly label: string;
@@ -216,6 +221,7 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
           { permission: 'users:update', label: 'Editar usuarios y sus roles' },
           { permission: 'users:suspend', label: 'Suspender y reactivar usuarios' },
           { permission: 'users:reset-password', label: 'Blanquear contraseñas' },
+          { permission: 'users:permissions', label: 'Dar o quitar permisos propios a un usuario' },
         ],
       },
       { resource: 'roles', label: 'Roles', permissions: crud('roles', 'roles') },

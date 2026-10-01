@@ -8,15 +8,20 @@
     "build": "next build",
     "start": "next start --port 3001",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@hookform/resolvers": "catalog:",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",
     "@norde/ui": "workspace:*",
+    "lucide-react": "catalog:",
     "next": "catalog:",
+    "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-hook-form": "catalog:",
     "server-only": "catalog:",
     "zod": "catalog:"
   },
@@ -28,6 +33,7 @@
     "@types/react-dom": "catalog:",
     "eslint": "catalog:",
     "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

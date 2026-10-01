@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@norde/web", "dev"],
       "port": 3000
+    },
+    {
+      "name": "gestion",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@norde/gestion", "dev"],
+      "port": 3001
     }
   ]
 }

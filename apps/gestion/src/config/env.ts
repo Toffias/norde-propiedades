@@ -27,3 +27,8 @@ export function getEnv(): Env {
   cached = parsed.data;
   return cached;
 }
+
+/** Solo el entorno de ejecución, sin exigir el resto de las variables (ej. rutas de desarrollo). */
+export function getNodeEnv(): Env['NODE_ENV'] {
+  return EnvSchema.shape.NODE_ENV.parse(process.env.NODE_ENV);
+}

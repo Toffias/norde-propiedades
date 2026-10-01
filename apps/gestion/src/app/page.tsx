@@ -1,13 +1,32 @@
 import { Button } from '@norde/ui/components/button';
+import { PublicLayout } from '@norde/ui/components/public-layout';
+import { LogInIcon } from 'lucide-react';
+import Link from 'next/link';
+
+import { getNodeEnv } from '../config/env';
 
 export default function HomePage() {
+  const isDevelopment = getNodeEnv() === 'development';
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-4 p-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Norde · Gestión</h1>
-      <p className="text-muted-foreground">Panel interno en construcción.</p>
-      <div>
+    <PublicLayout>
+      <section className="flex flex-col gap-6">
+        <header className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <LogInIcon className="h-5 w-5 text-muted-foreground" aria-hidden />
+            <h1 className="font-body text-base font-semibold">Ingresar</h1>
+          </div>
+          <p className="text-sm leading-normal text-muted-foreground">
+            Panel interno en construcción. El ingreso se habilita con el módulo de usuarios.
+          </p>
+        </header>
         <Button disabled>Ingresar</Button>
-      </div>
-    </main>
+        {isDevelopment && (
+          <Button variant="link" asChild className="self-center">
+            <Link href="/dev/design-system">Ver el design system</Link>
+          </Button>
+        )}
+      </section>
+    </PublicLayout>
   );
 }

@@ -76,6 +76,7 @@ export default async function UsersPage({
             update: canPickRoles && actor.can('users:update'),
             suspend: actor.can('users:suspend'),
             resetPassword: actor.can('users:reset-password'),
+            permissions: actor.can('users:permissions'),
           }}
         />
       </Card>

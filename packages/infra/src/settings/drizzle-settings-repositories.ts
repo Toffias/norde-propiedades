@@ -24,7 +24,7 @@ import {
   type ReferenceCodeSequenceId,
   type ReferenceCodeSequenceRepository,
 } from '@norde/core/settings';
-import { and, count, eq, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -263,8 +263,11 @@ export class DrizzleFileFolderRepository implements FileFolderRepository {
   async contents(id: FileFolderId) {
     const [[folders], [files]] = await Promise.all([
       this.db.select({ total: count() }).from(fileFolders).where(eq(fileFolders.parentId, id)),
-      // Incluye los de la papelera: la carpeta no se puede borrar mientras estén.
-      this.db.select({ total: count() }).from(companyFiles).where(eq(companyFiles.folderId, id)),
+      // Sin los de la papelera: al borrar la carpeta, esos pasan a la raíz.
+      this.db
+        .select({ total: count() })
+        .from(companyFiles)
+        .where(and(eq(companyFiles.folderId, id), isNull(companyFiles.deletedAt))),
     ]);
     return { folders: folders?.total ?? 0, files: files?.total ?? 0 };
   }
@@ -320,10 +323,21 @@ export class DrizzleCompanyFileRepository implements CompanyFileRepository {
     return row && toFile(row);
   }
 
+  async findTrashedIn(folderId: FileFolderId, limit: number) {
+    const rows = await this.db
+      .select()
+      .from(companyFiles)
+      .where(and(eq(companyFiles.folderId, folderId), isNotNull(companyFiles.deletedAt)))
+      .orderBy(companyFiles.id)
+      .limit(limit);
+    return rows.map(toFile);
+  }
+
   async save(file: CompanyFile, actorId: string): Promise<void> {
     const s = file.toSnapshot();
     const now = this.clock.now();
     const changes = {
+      folderId: s.folderId ?? null,
       name: s.name.value,
       deletedAt: s.deletedAt ?? null,
       deletedBy: s.deletedBy ?? null,
@@ -334,7 +348,6 @@ export class DrizzleCompanyFileRepository implements CompanyFileRepository {
       .insert(companyFiles)
       .values({
         id: s.id,
-        folderId: s.folderId ?? null,
         storageKey: s.storageKey,
         mimeType: s.mimeType,
         sizeBytes: s.sizeBytes,

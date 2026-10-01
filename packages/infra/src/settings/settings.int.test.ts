@@ -358,7 +358,7 @@ describe('company files', () => {
     ).toEqual([expect.objectContaining({ kind: 'folder', id: root.id })]);
   });
 
-  it('builds the breadcrumb and counts the contents, including the trash', async () => {
+  it('builds the breadcrumb and counts the contents, without the trash', async () => {
     const root = await createFolder('Contratos');
     const child = await createFolder('Modelos', root);
     const file = await createFile('modelo.pdf', child);
@@ -371,7 +371,15 @@ describe('company files', () => {
       { id: child.id, name: 'Modelos' },
     ]);
     expect(await folders.contents(root.id)).toEqual({ folders: 1, files: 0 });
-    expect(await folders.contents(child.id)).toEqual({ folders: 0, files: 1 });
+    expect(await folders.contents(child.id)).toEqual({ folders: 0, files: 0 });
+    const files = new DrizzleCompanyFileRepository(db, clock);
+    const [trashed] = await files.findTrashedIn(child.id, 10);
+    expect(trashed?.id).toBe(file.id);
+    if (!trashed) throw new Error('Expected the trashed file');
+    unwrap(trashed.detachFromFolder());
+    await files.save(trashed, ACTOR);
+    expect((await files.findById(file.id))?.folderId).toBeUndefined();
+    expect(await files.findTrashedIn(child.id, 10)).toEqual([]);
     expect(await folders.nameExists(root.id, name('Modelos'))).toBe(true);
     expect(await folders.nameExists(root.id, name('Modelos'), child.id)).toBe(false);
     expect(await folders.nameExists(undefined, name('Contratos'))).toBe(true);

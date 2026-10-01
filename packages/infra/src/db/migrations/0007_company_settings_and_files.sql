@@ -5,7 +5,7 @@ CREATE INDEX "company_files_trash_deleted_idx" ON "core"."company_files" USING b
 CREATE INDEX "company_files_trash_name_idx" ON "core"."company_files" USING btree ("name") WHERE deleted_at is not null;--> statement-breakpoint
 CREATE INDEX "file_folders_parent_name_idx" ON "core"."file_folders" USING btree ("parent_id","name");--> statement-breakpoint
 CREATE INDEX "file_folders_parent_updated_idx" ON "core"."file_folders" USING btree ("parent_id","updated_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "reference_code_sequences_prefix_uq" ON "core"."reference_code_sequences" USING btree ("prefix");--> statement-breakpoint
+CREATE UNIQUE INDEX "reference_code_sequences_prefix_uq" ON "core"."reference_code_sequences" USING btree ("prefix");--> statement-breakpoint--> statement-breakpoint
 -- Gestor de archivos de la empresa (#4): permiso propio, separado de la configuración (`settings:*`).
 -- Administrador: todo. Gerente y agente: ver, descargar y subir. Idempotente.
 INSERT INTO "core"."role_permissions" ("role_id", "permission", "created_at", "created_by")

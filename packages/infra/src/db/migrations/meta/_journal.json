@@ -26,8 +26,36 @@
     {
       "idx": 3,
       "version": "7",
-      "when": 1790868155989,
-      "tag": "0003_company_settings_and_files",
+      "when": 1790865174522,
+      "tag": "0003_users_and_roles_listing",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790867079734,
+      "tag": "0004_roles_trash",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790867081036,
+      "tag": "0005_catalog_permissions_for_system_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790869098735,
+      "tag": "0006_branches_and_teams_listing",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790872054790,
+      "tag": "0007_company_settings_and_files",
       "breakpoints": true
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "id": "2e644690-84e2-491b-8670-65d37a2ba19b",
+  "id": "e4c49034-bd92-4909-b7bb-d54d0eec6b85",
   "prevId": "e92cd7ca-6bf4-4eba-a2d9-477a8fd6e7d7",
   "version": "7",
   "dialect": "postgresql",
@@ -4566,6 +4566,16 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "search_text": {
+          "name": "search_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "core.search_normalize(coalesce(\"name\", ''))",
+            "type": "stored"
+          }
         }
       },
       "indexes": {
@@ -4582,6 +4592,37 @@
           "isUnique": true,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "roles_name_idx": {
+          "name": "roles_name_idx",
+          "columns": [
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "roles_search_text_idx": {
+          "name": "roles_search_text_idx",
+          "columns": [
+            {
+              "expression": "search_text",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "gin_trgm_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
           "with": {}
         }
       },
@@ -5229,6 +5270,16 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "search_text": {
+          "name": "search_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "generated": {
+            "as": "core.search_normalize(coalesce(\"name\", '') || ' ' || coalesce(\"email\", ''))",
+            "type": "stored"
+          }
         }
       },
       "indexes": {
@@ -5266,6 +5317,85 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "users_status_email_idx": {
+          "name": "users_status_email_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "users_status_last_login_idx": {
+          "name": "users_status_last_login_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_login_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "users_status_created_idx": {
+          "name": "users_status_created_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "users_search_text_idx": {
+          "name": "users_search_text_idx",
+          "columns": [
+            {
+              "expression": "search_text",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "gin_trgm_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
           "with": {}
         },
         "users_branch_idx": {
@@ -10131,82 +10261,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "company_files_folder_updated_idx": {
-          "name": "company_files_folder_updated_idx",
-          "columns": [
-            {
-              "expression": "folder_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "deleted_at is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "company_files_folder_size_idx": {
-          "name": "company_files_folder_size_idx",
-          "columns": [
-            {
-              "expression": "folder_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "size_bytes",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "deleted_at is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "company_files_trash_deleted_idx": {
-          "name": "company_files_trash_deleted_idx",
-          "columns": [
-            {
-              "expression": "deleted_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "deleted_at is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "company_files_trash_name_idx": {
-          "name": "company_files_trash_name_idx",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "deleted_at is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -10247,12 +10301,6 @@
         },
         "logo_url": {
           "name": "logo_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "logo_storage_key": {
-          "name": "logo_storage_key",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -10441,48 +10489,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "file_folders_parent_name_idx": {
-          "name": "file_folders_parent_name_idx",
-          "columns": [
-            {
-              "expression": "parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "file_folders_parent_updated_idx": {
-          "name": "file_folders_parent_updated_idx",
-          "columns": [
-            {
-              "expression": "parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -10576,21 +10582,6 @@
             },
             {
               "expression": "scope_value",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "reference_code_sequences_prefix_uq": {
-          "name": "reference_code_sequences_prefix_uq",
-          "columns": [
-            {
-              "expression": "prefix",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

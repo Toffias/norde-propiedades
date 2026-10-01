@@ -56,9 +56,59 @@ Roles propuestos (a validar con Norde):
   - "Recordarme" mantiene la sesión.
 - Toda pantalla bajo `(panel)` exige sesión. Un usuario suspendido no puede entrar, aunque tenga la sesión abierta.
 - Se auditan el ingreso, el ingreso fallido (contra el usuario, sin guardar el email) y la salida.
-- Sin alta pública: hasta el ABM de #3, los usuarios se crean con `pnpm user:create-admin` (producción) o `pnpm db:seed` (desarrollo, un usuario por rol).
+- Sin alta pública: los usuarios los da de alta un administrador desde Mi empresa (#3). El primero se crea con `pnpm user:create-admin` (producción) o `pnpm db:seed` (desarrollo, un usuario por rol).
 - Sin recupero de contraseña por mail por ahora: la blanquea un administrador.
 - El menú lateral se contrae a íconos (la preferencia queda guardada) y en mobile se abre como panel. Los módulos que todavía no tienen pantalla figuran deshabilitados ("Próximamente").
+
+**Implementado (#3, usuarios):**
+
+- **Catálogo de permisos** (`identity/domain/permission-catalog.ts`): los permisos que se pueden asignar, `recurso:acción`, agrupados como en Tokko (Contactos, Propiedades, Emprendimientos, Gerencia, Marketing, Configuración) más Alquileres y Empresa. Incluye los globales relevados en Tokko: cambiar el agente de un contacto, ver contactos de su sucursal o de otras, exportar más de 10 propiedades, edición rápida masiva, publicar en portales, etc. Un test verifica que los permisos sembrados en `0002` existan en el catálogo.
+- **Mi empresa → Usuarios** (`/mi-empresa/usuarios`), grilla paginada en el servidor:
+  - Activos o suspendidos, búsqueda por nombre o email (sin acentos), orden por nombre, email, último ingreso o alta.
+  - **Alta** con nombre, email, teléfono, uno o más roles y una **contraseña temporal** (se puede generar).
+  - **Edición** de los datos y los roles. Sin cambios no se audita nada.
+  - **Suspender** cierra sus sesiones abiertas en la misma transacción; nadie se puede suspender a sí mismo. **Reactivar** le devuelve el acceso.
+  - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
+- **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.
+- Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
+- Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
+- Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
+- Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera y el 2FA quedan fuera por ahora (preguntas abiertas de #3).
+
+**Implementado (#3, roles y permisos):**
+
+- **Mi empresa → Roles** (`/mi-empresa/roles`): grilla paginada con búsqueda y cantidad de usuarios por rol, y su **papelera** (baja lógica, con restaurar).
+- **Editor de rol**: nombre, descripción y permisos agrupados como el catálogo. "Todo" en un recurso guarda `recurso:*`, que también cubre las acciones que se agreguen después.
+  - Los cuatro roles del sistema no se renombran ni se borran, pero sus permisos se ajustan.
+  - Un rol con usuarios no se borra: hay que asignarles otro antes.
+  - No puede haber dos roles con el mismo nombre (sin distinguir mayúsculas ni acentos), tampoco contra uno de la papelera.
+  - Un cambio de permisos alcanza a todos los usuarios del rol desde su próxima acción (la sesión se arma en cada request).
+- **Permisos propios** de un usuario (`/mi-empresa/usuarios/<id>/permisos`): para cada permiso del catálogo, "según sus roles", "permitir" o "denegar". La pantalla muestra qué le dan ya sus roles. Denegar gana siempre, también sobre un `recurso:*`. Nadie cambia sus propios permisos.
+- Permisos: `roles:read`, `roles:create`, `roles:update`, `roles:delete` (borrar, restaurar y ver la papelera) y `users:permissions` (dar o quitar permisos propios, aparte de editar usuarios).
+- Auditoría: `role.created`, `role.updated` (con los permisos antes y después), `role.deleted`, `role.restored` contra el rol, y `user.permissions-changed` contra el usuario.
+- La migración `0005` suma a los roles de sistema los recursos nuevos del catálogo (seguimientos, archivos, respuestas rápidas, etiquetas y equipos).
+
+**Implementado (#3, reglas de pertenencia, ADR 0017):**
+
+- "Lo suyo", "lo de su sucursal" y "lo de cualquiera" se deciden en el dominio (`identity/domain/ownership.ts`) con el dueño del registro, no solo con el permiso. Cada acción declara qué permiso cubre cada alcance (`OWNERSHIP_RULES`): por ejemplo, ver contactos usa `clients:read` (los suyos), `clients:read-branch` (su sucursal) y `clients:read-all` (todos).
+- Un registro sin dueño es "de otros". Un usuario sin sucursal queda en lo suyo. Un `deny` corta el alcance más amplio.
+- Los listados reciben el alcance como filtro (`visibilityFilter`) y lo resuelven en SQL.
+- La sesión lleva la sucursal del usuario (`Actor.branchId`).
+- Lo aplican los casos de uso de cada módulo a medida que se construyen (#5 a #12). El criterio "un agente sin `clients:export` no exporta" queda para la exportación de #8.
+
+**Implementado (#3, sucursales y equipos):**
+
+- **Mi empresa → Sucursales** (`/mi-empresa/sucursales`): grilla paginada con búsqueda, cantidad de usuarios y papelera.
+  - Cada sucursal tiene nombre, dirección, email, teléfono, WhatsApp y logo. Se usan en portales y PDF. El logo es una URL hasta que exista la subida de archivos.
+  - La primera sucursal es la **casa central**; desde la grilla se puede marcar otra (la anterior deja de serlo).
+  - La casa central no se borra, ni una sucursal con usuarios o equipos.
+  - "Ver usuarios" abre el listado de usuarios filtrado por esa sucursal.
+- **Sucursal del usuario**: se elige en el alta y la edición con un selector paginado con búsqueda. La usan las reglas de pertenencia.
+- **Mi empresa → Equipos** (`/mi-empresa/equipos`): grilla paginada con su sucursal, cantidad de miembros y papelera. Un equipo en la papelera conserva sus miembros.
+  - En la pantalla del equipo, los miembros se listan paginados (es el listado de usuarios filtrado por equipo). Se suman con un buscador paginado y se sacan de a uno.
+- No puede haber dos sucursales vigentes, ni dos equipos vigentes, con el mismo nombre (sin distinguir mayúsculas ni acentos).
+- Permisos: `branches:read/create/update/delete` y `teams:read/create/update/delete`. Los miembros de un equipo se cambian con `teams:update`.
+- Auditoría: `branch.created`, `branch.updated`, `branch.made-main`, `branch.deleted` y `branch.restored`; `team.created`, `team.updated`, `team.deleted`, `team.restored`, `team.member-added` y `team.member-removed` (contra el equipo, con el ID del usuario).
 
 ### 2.2 Trazabilidad de cambios (auditoría)
 
@@ -308,7 +358,7 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Tomar el control, responder y devolver al bot.
   - Filtrar por agente y por estado.
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
-- **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0017), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
+- **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
 - **Notificaciones**: un servicio único (panel, mail, WhatsApp) que usan los alquileres, los clientes asignados y las oportunidades.
 - **Tareas programadas**: cálculo de IPC, avisos de vencimiento, sincronización con portales y cruce de oportunidades. Corren como jobs de pg-boss en el proceso `apps/agent`.
 - **Backups** diarios de la base de datos.

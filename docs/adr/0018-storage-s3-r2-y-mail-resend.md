@@ -1,4 +1,4 @@
-# ADR 0017: Archivos en un storage S3 compatible y emails con Resend
+# ADR 0018: Archivos en un storage S3 compatible y emails con Resend
 
 - **Estado**: aceptada
 - **Fecha**: 2026-10-01

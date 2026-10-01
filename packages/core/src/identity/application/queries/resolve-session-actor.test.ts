@@ -12,6 +12,8 @@ const CAMILA: UserAccessRecord = {
   name: 'Camila Pérez',
   email: 'camila@norde.com.ar',
   status: 'active',
+  branchId: '00000000-0000-7000-8000-0000000000b1',
+  mustChangePassword: false,
   roles: [
     { key: 'agent', name: 'Agente' },
     { key: 'rentals-admin', name: 'Administrativo de alquileres' },
@@ -37,6 +39,7 @@ describe('ResolveSessionActor', () => {
     expect(actor.id).toBe(CAMILA.id);
     expect(actor.kind).toBe('user');
     expect(actor.correlationId).toBe('req-1');
+    expect(actor.branchId).toBe('00000000-0000-7000-8000-0000000000b1');
     expect(actor.can('clients:export')).toBe(true);
     expect(actor.can('rentals:update')).toBe(true);
     expect(actor.can('rentals:delete')).toBe(false);
@@ -46,7 +49,21 @@ describe('ResolveSessionActor', () => {
       name: 'Camila Pérez',
       email: 'camila@norde.com.ar',
       roles: CAMILA.roles,
+      mustChangePassword: false,
     });
+  });
+
+  it('gives no permissions to a user who still has a temporary password', async () => {
+    const result = await setup([{ ...CAMILA, mustChangePassword: true }]).execute(
+      { userId: CAMILA.id },
+      AUTH,
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value.actor.can('clients:read')).toBe(false);
+    expect(result.value.actor.id).toBe(CAMILA.id);
+    expect(result.value.profile.mustChangePassword).toBe(true);
   });
 
   it('fails when the user of the session no longer exists', async () => {

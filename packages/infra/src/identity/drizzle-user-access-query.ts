@@ -27,7 +27,14 @@ export class DrizzleUserAccessQuery implements UserAccessQuery {
 
   async findByUserId(userId: string): Promise<UserAccessRecord | undefined> {
     const [user] = await this.db
-      .select({ id: users.id, name: users.name, email: users.email, status: users.status })
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        status: users.status,
+        branchId: users.branchId,
+        mustChangePassword: users.mustChangePassword,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
@@ -57,6 +64,8 @@ export class DrizzleUserAccessQuery implements UserAccessQuery {
       name: user.name,
       email: user.email,
       status: Status.parse(user.status),
+      branchId: user.branchId ?? undefined,
+      mustChangePassword: user.mustChangePassword,
       roles: roleRows,
       rolePermissions: rolePermissionRows.map((row) => toPermission(row.permission)),
       userPermissions: ownRows.map((row) => ({

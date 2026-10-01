@@ -22,10 +22,10 @@ const SECTIONS: readonly CompanySection[] = [
   { label: 'Códigos', href: '/mi-empresa/codigos' },
   { label: 'Ficha y PDF', href: '/mi-empresa/ficha-pdf' },
   { label: 'Archivos', href: '/mi-empresa/archivos' },
-  { label: 'Usuarios' },
-  { label: 'Roles' },
-  { label: 'Sucursales' },
-  { label: 'Equipos' },
+  { label: 'Usuarios', href: '/mi-empresa/usuarios' },
+  { label: 'Roles', href: '/mi-empresa/roles' },
+  { label: 'Sucursales', href: '/mi-empresa/sucursales' },
+  { label: 'Equipos', href: '/mi-empresa/equipos' },
 ];
 
 const PILL =

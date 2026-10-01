@@ -38,8 +38,8 @@ export const outbox = coreSchema.table(
 
 /**
  * Trazabilidad: quién hizo qué, cuándo y sobre qué entidad, con el diff (módulo audit).
- * Solo de inserción: el rol `norde_app` no puede actualizar ni borrar (`db/roles.sql`). La única
- * excepción es la supresión de datos de un cliente, con el rol `norde_erasure`.
+ * Solo de inserción: el puerto `AuditLog` no tiene cómo actualizar ni borrar. La única excepción
+ * es la supresión de datos de un cliente (ADR 0015).
  */
 export const auditLog = coreSchema.table(
   'audit_log',

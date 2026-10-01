@@ -1,7 +1,7 @@
 // Prepara la base de datos de DESARROLLO LOCAL:
 //   1. Lee DATABASE_URL de los .env de las apps.
 //   2. Crea las bases que no existan (requiere un usuario con permiso CREATEDB).
-//   3. Aplica las migraciones del core (Drizzle), sus roles de base y las migraciones de Payload.
+//   3. Aplica las migraciones del core (Drizzle) y de Payload.
 // En producción la base y el rol se crean al aprovisionar el servidor; este script se niega a correr.
 
 import { spawnSync } from 'node:child_process';
@@ -12,7 +12,6 @@ import { parseEnv } from 'node:util';
 import pg from 'pg';
 
 import { parseDatabaseUrl } from './database-url';
-import { applyDatabaseRoles } from './roles';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APPS = ['web', 'gestion', 'agent'] as const;
@@ -87,7 +86,6 @@ async function main(): Promise<void> {
       ...process.env,
       DATABASE_URL: coreUrl,
     });
-    await applyDatabaseRoles(coreUrl);
   } else {
     console.log('\n· El core todavía no tiene migraciones: se omite.');
   }

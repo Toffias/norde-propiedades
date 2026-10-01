@@ -393,12 +393,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
   4. `turbo build`
   5. `pm2 reload` app por app
 - **Migraciones compatibles hacia atrás** (expand, después contract): primero se agrega, después se deja de usar y recién después se borra. Los tres procesos comparten la base y no se recargan en el mismo instante.
-- **Roles de base** (mínimo privilegio, `packages/infra/src/db/roles.sql`):
-  - Las migraciones corren con el dueño de la base. Ningún proceso se conecta con ese usuario.
-  - `norde_app`: lectura y escritura en `core`, salvo `audit_log`, donde solo puede insertar y leer. Cada proceso (`web`, `agent`, `gestion`) se conecta con un usuario de login propio, miembro de `norde_app`.
-  - `norde_erasure`: el único que puede borrar entradas de `audit_log`, para la supresión de datos de un cliente.
-  - Después de cada `drizzle-kit migrate` se vuelve a aplicar `roles.sql` (es idempotente).
-  - Más adelante, `web` puede tener un rol más acotado (lectura de propiedades publicadas y promociones, alta de contactos).
+- **Un solo usuario de base** con permisos totales, compartido por la web (y Payload), el agente y el panel (ADR 0015). Lo que cada persona puede hacer lo deciden los **roles y permisos del sistema** (módulo `identity`), en los casos de uso.
 - **Extensiones** de PostgreSQL: `pg_trgm` y `unaccent` (búsqueda de texto). Las crea la migración `0001`; el dueño de la base tiene que poder crearlas (son _trusted_ desde PostgreSQL 13).
 - Backups diarios de PostgreSQL con retención.
 
@@ -422,6 +417,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 | 0012 | [El panel adopta el sistema visual de Alquilo](adr/0012-identidad-visual-del-panel-y-temas-por-app.md), con un tema por app en `@norde/ui`           |
 | 0013 | [Estados de oportunidad editables](adr/0013-estados-de-oportunidad-editables-con-categoria-fija.md), cada uno con una categoría fija del dominio     |
 | 0014 | [Atributos de propiedad en columnas tipadas](adr/0014-atributos-de-propiedad-tipados-y-eav-solo-personalizados.md); EAV solo para los personalizados |
+| 0015 | [Un solo usuario de base compartido](adr/0015-un-usuario-de-base-y-permisos-en-el-sistema.md); los permisos se deciden en el sistema                 |
 
 ---
 

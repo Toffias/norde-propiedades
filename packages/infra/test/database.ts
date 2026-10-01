@@ -13,11 +13,26 @@ export function useTestDatabase() {
     maxConnections: 4,
   });
 
+  // Vacía todas las tablas de `core`, salvo las migraciones y las filas únicas de configuración
+  // (las inserta la migración y los tests las leen).
   beforeEach(async () => {
     await connection.db.execute(sql`
       drop schema if exists pgboss_test cascade;
-      truncate core.properties, core.clients, core.client_channels, core.opportunities,
-        core.conversations, core.conversation_messages, core.outbox, core.audit_log
+      do $$
+      declare
+        tables text;
+      begin
+        select string_agg(format('core.%I', t.tablename), ', ') into tables
+        from pg_tables t
+        where t.schemaname = 'core'
+          and t.tablename <> '__drizzle_migrations'
+          and not exists (
+            select 1 from pg_constraint c
+            where c.conrelid = format('core.%I', t.tablename)::regclass
+              and c.conname like '%\_singleton'
+          );
+        execute 'truncate ' || tables || ' cascade';
+      end $$;
     `);
   });
 

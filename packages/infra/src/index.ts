@@ -29,6 +29,8 @@ export { DrizzleRoleListQuery } from './identity/drizzle-role-list-query';
 export { DrizzleOrganizationQuery } from './identity/drizzle-organization-query';
 
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
+export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-property-list-query';
+export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';
 export {
   DrizzleClientRepository,

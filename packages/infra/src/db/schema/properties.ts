@@ -212,6 +212,13 @@ export const properties = coreSchema.table(
     // Grilla del panel.
     index('properties_status_updated_idx').on(t.status, t.updatedAt).where(notDeleted),
     index('properties_created_idx').on(t.createdAt).where(notDeleted),
+    // Orden por defecto del buscador del panel, sin filtro de estado.
+    index('properties_updated_idx').on(t.updatedAt).where(notDeleted),
+    // Filtro de ubicación del panel: barrio, localidad o provincia, sin acentos.
+    index('properties_location_text_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.neighborhood} || ' ' || ${t.city} || ' ' || ${t.province}) gin_trgm_ops`,
+    ),
     index('properties_type_status_idx').on(t.propertyType, t.status).where(notDeleted),
     index('properties_producer_status_idx').on(t.producerUserId, t.status),
     index('properties_branch_status_idx').on(t.branchId, t.status),
@@ -246,6 +253,8 @@ export const propertyOperations = coreSchema.table(
   (t) => [
     uniqueIndex('property_operations_property_operation_uq').on(t.propertyId, t.operation),
     index('property_operations_price_idx').on(t.operation, t.currency, t.priceCents),
+    // Precio de cada propiedad en una moneda (filtro y orden del panel sin operación elegida).
+    index('property_operations_property_currency_idx').on(t.propertyId, t.currency, t.priceCents),
   ],
 );
 

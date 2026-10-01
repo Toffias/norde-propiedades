@@ -337,10 +337,37 @@ Resumen de lo que aplica a este módulo:
 
 ## 12. Preguntas abiertas
 
-1. **Migración**: ¿Norde usa hoy algún CRM inmobiliario (Tokko, Xintel, etc.) o planillas? ¿Hay que migrar propiedades y clientes?
+1. **Migración**: ✅ Definido. Norde usa **Tokko Broker**; este sistema lo reemplaza y hay que migrar sus datos (ver §13 y la sub-issue de migración).
 2. **Cobranzas de alquileres**: ¿están en alcance?
 3. **Comisiones**: ¿se registran en el sistema para los reportes de ventas?
 4. **Cuántos usuarios** y roles reales tiene el equipo.
 5. **Portales**: ¿Norde ya tiene cuentas activas en Zonaprop y Argenprop? ¿Con qué plan o acceso?
 6. **"Oportunidades cross platform"**: ✅ Definido (sección 3.3).
 7. **Inmobiliarias socias**: ¿se registran en el sistema, con contacto y zonas? ¿Hay acuerdo de comisión por referido que convenga registrar?
+
+---
+
+## 13. Reemplazo de Tokko Broker
+
+El sistema de gestión reemplaza a **Tokko Broker**, el CRM que Norde usa hoy (4.642 contactos y 173 propiedades al 30/09/2026). La referencia funcional es el relevamiento de Tokko (documento privado en claude.ai, enlazado desde la épica). El backlog es la épica [#1](https://github.com/Toffias/norde-propiedades/issues/1), con una sub-issue por módulo:
+
+| Fase                      | Sub-issues                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| 1. Base                   | #2 base del panel · #3 usuarios, roles y sucursales · #4 configuración de la empresa |
+| 2. Cartera                | #5 propiedades · #6 ficha de propiedad · #7 emprendimientos                          |
+| 3. Clientes y comercial   | #8 contactos · #9 oportunidades · #10 consultas · #11 seguimiento comercial          |
+| 4. Operaciones y portales | #12 tasaciones · #13 reservas · #14 difusión en portales                             |
+| 5. Tablero y avisos       | #15 inicio · #16 noticias y notificaciones                                           |
+| 6. Migración y corte      | #17 migración desde Tokko (el mapeo se diseña en la fase 1; el corte va al final)    |
+
+### 13.1 Fuera de alcance
+
+Decidido el 01/10/2026: Chat, Red Tokko Broker (y el inventario de Zonaprop en el buscador, redes y asociaciones, comisión compartida con colegas), Calendario y eventos, Tareas, sincronización con Google Calendar y Outlook, Reportes (y la pestaña Performance de Inicio, que se definen al terminar el sistema), Sitios web (los reemplaza `apps/web`), Facturación y API key de Tokko, e integración Asiprop (la reemplaza el módulo `rentals`, §5).
+
+### 13.2 Reglas que surgen del reemplazo
+
+- **Mono-tenant**: Norde es la única inmobiliaria. La configuración "por tenant" de Tokko es un único registro de configuración de la empresa.
+- **Todas las grillas se paginan en el servidor** (ver `CLAUDE.md`, "Listados: siempre paginados en el servidor").
+- **Cliente y oportunidad separados** (§3). En Tokko el contacto _es_ la oportunidad; acá un cliente tiene varias oportunidades y el pipeline muestra oportunidades.
+- El modelo de datos del relevamiento (C# / EF Core, multi-tenant) es solo referencia de campos: se rediseña en Drizzle por módulo.
+- Las capturas del relevamiento tienen datos reales de clientes: no se copian al repo, ni a issues ni a PRs.

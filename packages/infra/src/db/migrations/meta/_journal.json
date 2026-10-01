@@ -15,6 +15,13 @@
       "when": 1790859230427,
       "tag": "0001_management_data_model",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790860987668,
+      "tag": "0002_system_roles",
+      "breakpoints": true
     }
   ]
 }

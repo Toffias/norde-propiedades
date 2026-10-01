@@ -1,5 +1,7 @@
-// Carga propiedades de prueba en la base de DESARROLLO LOCAL (datos del MVP APZ-WP-BOT).
-// Idempotente: actualiza por código interno. Se niega a correr con NODE_ENV=production.
+// Carga propiedades de prueba (datos del MVP APZ-WP-BOT) y un usuario del panel por rol en la base
+// de DESARROLLO LOCAL. Idempotente: actualiza las propiedades por código interno y no toca los
+// usuarios que ya existen. Se niega a correr con NODE_ENV=production.
+// Usuarios y contraseña de prueba: `seed/users.json`.
 //
 // Es herramienta de desarrollo: escribe directo en la tabla. Cuando exista el alta de
 // propiedades en el panel, el seed va a usar ese caso de uso.
@@ -13,6 +15,7 @@ import pg from 'pg';
 import { z } from 'zod';
 
 import { parseDatabaseUrl } from './database-url';
+import { createUser, NewUserSchema } from './users';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -125,9 +128,16 @@ async function main(): Promise<void> {
         ].map((value) => (typeof value === 'bigint' ? value.toString() : value)),
       );
     }
+    const users = z
+      .array(NewUserSchema)
+      .parse(JSON.parse(readFileSync(path.join(import.meta.dirname, 'seed/users.json'), 'utf8')));
+    let created = 0;
+    for (const user of users) {
+      if ((await createUser(client, user)) !== undefined) created += 1;
+    }
     await client.query('commit');
     console.log(
-      `✓ ${seed.length} propiedades de prueba cargadas en ${parseDatabaseUrl(url).redacted}`,
+      `✓ ${seed.length} propiedades y ${created} usuarios nuevos de prueba cargados en ${parseDatabaseUrl(url).redacted}`,
     );
   } catch (error) {
     await client.query('rollback');

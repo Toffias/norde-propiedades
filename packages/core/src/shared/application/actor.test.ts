@@ -31,6 +31,17 @@ describe('Actor', () => {
     expect(agent.can('clients:read')).toBe(false);
   });
 
+  it('keeps the branch and the correlation of a user when either is added', () => {
+    const agent = Actor.user('user-5', ['clients:read'])
+      .withBranch('branch-1')
+      .withCorrelation('req-1');
+
+    expect(agent.branchId).toBe('branch-1');
+    expect(agent.correlationId).toBe('req-1');
+    expect(agent.withBranch(undefined).correlationId).toBe('req-1');
+    expect(Actor.system('agent-ia', []).branchId).toBeUndefined();
+  });
+
   it('identifies system actors by name', () => {
     const bot = Actor.system('agent-ia', ['properties:search']);
 

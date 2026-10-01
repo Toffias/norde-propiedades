@@ -32,6 +32,7 @@ export class DrizzleUserAccessQuery implements UserAccessQuery {
         name: users.name,
         email: users.email,
         status: users.status,
+        branchId: users.branchId,
         mustChangePassword: users.mustChangePassword,
       })
       .from(users)
@@ -63,6 +64,7 @@ export class DrizzleUserAccessQuery implements UserAccessQuery {
       name: user.name,
       email: user.email,
       status: Status.parse(user.status),
+      branchId: user.branchId ?? undefined,
       mustChangePassword: user.mustChangePassword,
       roles: roleRows,
       rolePermissions: rolePermissionRows.map((row) => toPermission(row.permission)),

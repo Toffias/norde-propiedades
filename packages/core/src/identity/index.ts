@@ -22,6 +22,17 @@ export {
   type PermissionResource,
 } from './domain/permission-catalog';
 export {
+  OWNERSHIP_RULES,
+  accessScope,
+  canActOn,
+  visibilityFilter,
+  type AccessScope,
+  type OwnedTarget,
+  type OwnershipRule,
+  type OwnershipSubject,
+  type VisibilityFilter,
+} from './domain/ownership';
+export {
   Role,
   normalizePermissions,
   roleKeyFrom,

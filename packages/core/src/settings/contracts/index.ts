@@ -129,13 +129,16 @@ export const UpdatePdfOptionsInputSchema = z.object({
 });
 export type UpdatePdfOptionsInput = z.input<typeof UpdatePdfOptionsInputSchema>;
 
+/** Email de un formulario: sin espacios alrededor y en minúsculas, después se valida. */
+const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
+
 export const UpdateEmailSenderInputSchema = z.object({
   fromName: optionalText(120),
-  replyTo: z.email().max(254).optional(),
+  replyTo: emailSchema.optional(),
 });
 export type UpdateEmailSenderInput = z.input<typeof UpdateEmailSenderInputSchema>;
 
-export const SendTestEmailInputSchema = z.object({ to: z.email().max(254) });
+export const SendTestEmailInputSchema = z.object({ to: emailSchema });
 export type SendTestEmailInput = z.input<typeof SendTestEmailInputSchema>;
 
 export interface CompanySettingsView {

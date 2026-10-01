@@ -203,6 +203,17 @@ describe('AllocateReferenceCode', () => {
     expect(unwrap(await ctx.allocate.execute({ target: 'property' }, agent)).code).toBe('P0003');
   });
 
+  it('keeps the skipped numbers when it gives up, so the next attempt moves on', async () => {
+    const ctx = setup();
+    await withGlobal(ctx);
+    for (let n = 1; n <= 50; n += 1) ctx.uow.codeUsage.taken.add(`P${String(n).padStart(4, '0')}`);
+
+    expect(unwrapErr(await ctx.allocate.execute({ target: 'property' }, agent))).toEqual({
+      type: 'ReferenceCodeExhausted',
+    });
+    expect(unwrap(await ctx.allocate.execute({ target: 'property' }, agent)).code).toBe('P0051');
+  });
+
   it('fails without a global sequence', async () => {
     const ctx = setup();
     expect(unwrapErr(await ctx.allocate.execute({ target: 'property' }, agent))).toEqual({

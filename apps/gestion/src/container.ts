@@ -146,7 +146,7 @@ export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
 let container: Container | undefined;
 
 function createStorage(env: Env): FileStorage {
-  if (env.STORAGE_DRIVER === 'local') return new LocalFileStorage(env.STORAGE_LOCAL_DIR);
+  if (env.STORAGE_DRIVER !== 's3') return new LocalFileStorage(env.STORAGE_LOCAL_DIR);
   // `getEnv` ya exigió estas variables con STORAGE_DRIVER=s3.
   return new S3FileStorage({
     endpoint: env.S3_ENDPOINT,

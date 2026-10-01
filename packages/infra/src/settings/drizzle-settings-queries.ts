@@ -222,7 +222,9 @@ export class DrizzleCompanyFilesQuery implements CompanyFilesQuery {
     readonly limit: number;
     readonly sort: { readonly field: 'deletedAt' | 'name'; readonly direction: Direction };
   }): Promise<PageSlice<TrashedFileRow>> {
-    const inTrash = isNotNull(companyFiles.deletedAt);
+    // `deleted_by` siempre acompaña a `deleted_at`: se filtran los dos para que el total y las
+    // filas salgan del mismo criterio.
+    const inTrash = and(isNotNull(companyFiles.deletedAt), isNotNull(companyFiles.deletedBy));
     const column = params.sort.field === 'name' ? companyFiles.name : companyFiles.deletedAt;
     const [rows, totals] = await Promise.all([
       this.db
@@ -235,21 +237,19 @@ export class DrizzleCompanyFilesQuery implements CompanyFilesQuery {
       this.db.select({ total: count() }).from(companyFiles).where(inTrash),
     ]);
     return {
-      items: rows.flatMap((row) =>
-        row.deletedAt && row.deletedBy
-          ? [
-              {
-                id: row.id,
-                name: row.name,
-                folderId: row.folderId ?? undefined,
-                mimeType: row.mimeType,
-                sizeBytes: row.sizeBytes,
-                deletedAt: row.deletedAt,
-                deletedBy: row.deletedBy,
-              },
-            ]
-          : [],
-      ),
+      items: rows.map((row) => {
+        if (!row.deletedAt || !row.deletedBy)
+          throw new Error(`Trashed file ${row.id} without deletion data`);
+        return {
+          id: row.id,
+          name: row.name,
+          folderId: row.folderId ?? undefined,
+          mimeType: row.mimeType,
+          sizeBytes: row.sizeBytes,
+          deletedAt: row.deletedAt,
+          deletedBy: row.deletedBy,
+        };
+      }),
       total: totals[0]?.total ?? 0,
     };
   }

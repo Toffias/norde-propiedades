@@ -15,6 +15,9 @@ import { parseInput, type ValidationFailedError } from '../settings-input';
 /** Cuántos números se saltean, como mucho, por estar ya usados a mano. */
 const MAX_ATTEMPTS = 50;
 
+type AllocationOutcome =
+  ({ readonly kind: 'allocated' } & AllocateReferenceCodeOutput) | { readonly kind: 'exhausted' };
+
 export type AllocateReferenceCodeError =
   | ForbiddenError
   | ValidationFailedError
@@ -45,8 +48,11 @@ export class AllocateReferenceCode {
       return err({ type: 'Forbidden' });
     }
 
-    return this.deps.uow.run(
-      async (tx): Promise<Result<AllocateReferenceCodeOutput, AllocateReferenceCodeError>> => {
+    // Agotar los intentos no es un `Err` de la transacción: así se confirman los números
+    // salteados y el próximo intento sigue desde ahí (con un rollback, la numeración quedaría
+    // trabada para siempre en los mismos códigos usados).
+    const outcome = await this.deps.uow.run(
+      async (tx): Promise<Result<AllocationOutcome, AllocateReferenceCodeError>> => {
         const configured = await tx.sequences.findByScopes(referenceCodeCandidates(context));
         const sequence = resolveReferenceCodeScope(context, configured);
         if (!sequence) return err({ type: 'NoReferenceCodeSequence' });
@@ -55,11 +61,14 @@ export class AllocateReferenceCode {
           const number = await tx.sequences.takeNextNumber(sequence.id);
           const code = ReferenceCode.format(sequence.prefix, number);
           if (!(await tx.codeUsage.isTaken(code.value))) {
-            return ok({ code: code.value, sequenceId: sequence.id });
+            return ok({ kind: 'allocated', code: code.value, sequenceId: sequence.id });
           }
         }
-        return err({ type: 'ReferenceCodeExhausted' });
+        return ok({ kind: 'exhausted' });
       },
     );
+    if (outcome.isErr()) return err(outcome.error);
+    if (outcome.value.kind === 'exhausted') return err({ type: 'ReferenceCodeExhausted' });
+    return ok({ code: outcome.value.code, sequenceId: outcome.value.sequenceId });
   }
 }

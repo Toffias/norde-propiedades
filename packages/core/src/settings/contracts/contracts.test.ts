@@ -11,6 +11,8 @@ import { WATERMARK_POSITIONS } from '../domain/watermark';
 import {
   ADDRESS_DISPLAY_VALUES,
   CreateReferenceCodeSequenceInputSchema,
+  SendTestEmailInputSchema,
+  UpdateEmailSenderInputSchema,
   FOOTER_VARIABLE_VALUES,
   ListFolderContentsQuerySchema,
   MAX_COMPANY_FILE_UPLOAD_BYTES,
@@ -40,6 +42,16 @@ describe('settings contracts', () => {
     expect(
       UpdateGeneralSettingsInputSchema.safeParse({ ...base, timezone: 'Nowhere' }).success,
     ).toBe(false);
+  });
+
+  it('trims and lowercases emails before validating them', () => {
+    expect(SendTestEmailInputSchema.parse({ to: '  Camila@Norde.com.ar ' })).toEqual({
+      to: 'camila@norde.com.ar',
+    });
+    expect(UpdateEmailSenderInputSchema.parse({ replyTo: 'consultas@norde.com.ar ' })).toEqual({
+      replyTo: 'consultas@norde.com.ar',
+    });
+    expect(SendTestEmailInputSchema.safeParse({ to: 'no es un mail' }).success).toBe(false);
   });
 
   it('defaults the scope value to empty for the global sequence', () => {

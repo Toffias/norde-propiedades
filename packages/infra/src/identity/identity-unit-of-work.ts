@@ -6,11 +6,8 @@ import { DrizzleUnitOfWork } from '../db/unit-of-work';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
-import {
-  DrizzleCredentialStore,
-  DrizzleRoleDirectory,
-  DrizzleUserSessions,
-} from './drizzle-identity-ports';
+import { DrizzleCredentialStore, DrizzleUserSessions } from './drizzle-identity-ports';
+import { DrizzleRoleRepository } from './drizzle-role-repository';
 import { DrizzleUserRepository } from './drizzle-user-repository';
 
 export function createIdentityUnitOfWork(
@@ -19,7 +16,7 @@ export function createIdentityUnitOfWork(
 ): IdentityUnitOfWork {
   return new DrizzleUnitOfWork<IdentityTransaction>(db, (tx) => ({
     users: new DrizzleUserRepository(tx),
-    roles: new DrizzleRoleDirectory(tx),
+    roles: new DrizzleRoleRepository(tx),
     credentials: new DrizzleCredentialStore(tx, deps.ids, deps.clock),
     sessions: new DrizzleUserSessions(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),

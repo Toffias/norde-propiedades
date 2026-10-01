@@ -17,7 +17,10 @@ function seededPermissions(file: string): string[] {
 
 describe('system roles', () => {
   it('only seed permissions of the catalog', () => {
-    const permissions = seededPermissions('0002_system_roles.sql');
+    const permissions = [
+      ...seededPermissions('0002_system_roles.sql'),
+      ...seededPermissions('0005_catalog_permissions_for_system_roles.sql'),
+    ];
 
     expect(permissions.length).toBeGreaterThan(50);
     expect(permissions.filter((permission) => !isKnownPermission(permission))).toEqual([]);

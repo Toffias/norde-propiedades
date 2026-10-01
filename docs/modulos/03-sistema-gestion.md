@@ -283,7 +283,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) está construida; la etapa 2 e
 - Orden por última actualización (por defecto), creación, precio o código.
 - Todo paginado en el servidor, con un índice por filtro y orden (probado con 5.000 propiedades).
 
-**Alta corta** (`/propiedades/nueva`):
+**Alta corta** (panel lateral del buscador, `?panel=new`):
 
 - Tipo, operación, moneda y precio (opcional), calle, altura, piso y unidad (privados), barrio, localidad y provincia, y latitud / longitud (opcional).
 - La propiedad nace como **borrador**, con quien la carga como captador y su sucursal.

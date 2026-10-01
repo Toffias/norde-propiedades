@@ -6,7 +6,6 @@ import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { ArchiveRestoreIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
@@ -15,10 +14,12 @@ import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
 } from '../../shared/components/confirm-action-dialog';
+import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable } from '../../shared/components/server-data-table';
 import { deletePropertyAction, restorePropertyAction } from '../actions';
 import { OPERATION_LABELS, PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../labels';
 import { PropertiesToolbar, type PropertyFilterValues } from './properties-toolbar';
+import { PropertySheet } from './property-sheet';
 
 export interface PropertyPermissions {
   readonly create: boolean;
@@ -79,6 +80,7 @@ export function PropertiesGrid({
   readonly permissions: PropertyPermissions;
 }) {
   const [pending, setPending] = useState<PendingAction | undefined>();
+  const navigation = usePanel();
   const inTrash = filters.view === 'trash';
   // El orden por precio compara una sola moneda: solo se ofrece con la moneda elegida.
   const canSortByPrice = filters.currency !== '';
@@ -225,11 +227,9 @@ export function PropertiesGrid({
               canSeeTrash={permissions.delete}
             />
             {permissions.create && !inTrash && (
-              <Button asChild className="lg:ml-auto">
-                <Link href="/propiedades/nueva">
-                  <PlusIcon className="h-4 w-4" />
-                  Nueva propiedad
-                </Link>
+              <Button type="button" className="lg:ml-auto" onClick={navigation.openNew}>
+                <PlusIcon className="h-4 w-4" />
+                Nueva propiedad
               </Button>
             )}
           </div>
@@ -242,6 +242,7 @@ export function PropertiesGrid({
               : 'Todavía no hay propiedades en la cartera.'
         }
       />
+      {permissions.create && <PropertySheet navigation={navigation} />}
       <ConfirmActionDialog
         copy={pending?.copy}
         run={pending?.run ?? (() => Promise.resolve({ ok: true }))}

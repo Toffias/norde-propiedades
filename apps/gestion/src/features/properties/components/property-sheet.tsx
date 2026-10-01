@@ -9,7 +9,6 @@ import {
   type CreatePropertyValues,
 } from '@norde/core/properties/contracts';
 import { Button } from '@norde/ui/components/button';
-import { Card } from '@norde/ui/components/card';
 import {
   Form,
   FormControl,
@@ -27,15 +26,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@norde/ui/components/select';
+import { SheetBody, SheetFooter } from '@norde/ui/components/sheet';
 import { toast } from '@norde/ui/components/sonner';
 import { Loader2Icon } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { useForm, type FieldPath } from 'react-hook-form';
 
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { contractResolver } from '../../../lib/form';
+import { EntitySheet, type PanelNavigation } from '../../shared/components/entity-sheet';
 import { FormAlert } from '../../shared/components/form-alert';
 import { createPropertyAction } from '../actions';
 import { CURRENCY_LABELS, OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../labels';
@@ -70,22 +69,37 @@ function Section({
   readonly children: ReactNode;
 }) {
   return (
-    <Card className="gap-4 p-5">
+    <section className="flex flex-col gap-4 border-b border-border pb-5 last:border-b-0 last:pb-0">
       <div>
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h3 className="text-sm font-semibold">{title}</h3>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       {children}
-    </Card>
+    </section>
   );
 }
 
 /**
- * Alta corta de una propiedad: tipo, operación, dirección y ubicación. Queda como borrador y el
- * resto (características, fotos, publicación) se completa en la ficha.
+ * Alta corta de una propiedad en el panel lateral del buscador (`?panel=new`): tipo, operación,
+ * dirección y ubicación. Queda como borrador; el resto se completa en la ficha (#6), que por su
+ * tamaño va a ser una pantalla propia.
  */
-export function NewPropertyForm() {
-  const router = useRouter();
+export function PropertySheet({ navigation }: { readonly navigation: PanelNavigation }) {
+  const { panel, close } = navigation;
+  return (
+    <EntitySheet
+      open={panel?.kind === 'new'}
+      onClose={close}
+      width="wide"
+      title="Nueva propiedad"
+      description="Lo indispensable para tenerla en la cartera. El resto se completa en la ficha."
+    >
+      {panel?.kind === 'new' && <NewPropertyForm onDone={close} />}
+    </EntitySheet>
+  );
+}
+
+function NewPropertyForm({ onDone }: { readonly onDone: () => void }) {
   const [error, setError] = useState<string | undefined>();
   const form = useForm<PropertyValues, unknown, CreatePropertyValues>({
     resolver: contractResolver(CreatePropertyInputSchema),
@@ -101,7 +115,7 @@ export function NewPropertyForm() {
         return;
       }
       toast.success(`Propiedad ${result.code ?? ''} creada como borrador`);
-      router.push('/propiedades');
+      onDone();
     } catch {
       setError(UNEXPECTED_ERROR_MESSAGE);
     }
@@ -187,79 +201,80 @@ export function NewPropertyForm() {
   return (
     <Form {...form}>
       <form
-        className="flex flex-col gap-4"
+        className="flex min-h-0 flex-1 flex-col"
         noValidate
         onSubmit={(event) => void form.handleSubmit(submit)(event)}
       >
-        <FormAlert message={error} />
+        <SheetBody scroll className="flex flex-col gap-5">
+          <FormAlert message={error} />
 
-        <Section title="Propiedad" description="El código de referencia se asigna al guardar.">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {selectField('propertyType', 'Tipo', PROPERTY_TYPES, PROPERTY_TYPE_LABELS)}
-            {selectField('operation', 'Operación', OPERATIONS, OPERATION_LABELS)}
-            {selectField('currency', 'Moneda', CURRENCIES, CURRENCY_LABELS)}
-            {textField('price', 'Precio', {
-              optional: true,
-              inputMode: 'decimal',
-              description: 'Sin puntos de miles. Lo podés cargar después.',
-            })}
-          </div>
-        </Section>
-
-        <Section
-          title="Dirección"
-          description="La calle, la altura, el piso y la unidad son privados: no se publican."
-        >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {textField('street', 'Calle', { className: 'sm:col-span-2' })}
-            {textField('streetNumber', 'Altura', { optional: true })}
-            <div className="grid grid-cols-2 gap-4">
-              {textField('floor', 'Piso', { optional: true })}
-              {textField('unit', 'Unidad', { optional: true })}
+          <Section title="Propiedad" description="El código de referencia se asigna al guardar.">
+            <div className="grid gap-4 sm:grid-cols-2 ">
+              {selectField('propertyType', 'Tipo', PROPERTY_TYPES, PROPERTY_TYPE_LABELS)}
+              {selectField('operation', 'Operación', OPERATIONS, OPERATION_LABELS)}
+              {selectField('currency', 'Moneda', CURRENCIES, CURRENCY_LABELS)}
+              {textField('price', 'Precio', {
+                optional: true,
+                inputMode: 'decimal',
+                description: 'Sin puntos de miles. Lo podés cargar después.',
+              })}
             </div>
-            {textField('neighborhood', 'Barrio')}
-            {textField('city', 'Localidad')}
-            {textField('province', 'Provincia')}
-          </div>
-        </Section>
+          </Section>
 
-        <Section
-          title="Para publicar"
-          description="Lo que ven la web y los portales. Si lo dejás vacío, se arma solo."
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            {textField('publishAddress', 'Dirección para publicar', {
-              optional: true,
-              description:
-                'Vacío: la calle con la altura redondeada, por ejemplo "Gurruchaga al 1800".',
-            })}
-            {textField('portalTitle', 'Título para portales', {
-              optional: true,
-              description:
-                'Vacío: tipo, operación y barrio, por ejemplo "Departamento en venta en Palermo".',
-            })}
-            {textField('latitude', 'Latitud', {
-              optional: true,
-              inputMode: 'decimal',
-              description: 'Para el mapa. Por ejemplo -34.5861.',
-            })}
-            {textField('longitude', 'Longitud', {
-              optional: true,
-              inputMode: 'decimal',
-              description: 'Por ejemplo -58.4321.',
-            })}
-          </div>
-        </Section>
+          <Section
+            title="Dirección"
+            description="La calle, la altura, el piso y la unidad son privados: no se publican."
+          >
+            <div className="grid gap-4 sm:grid-cols-2 ">
+              {textField('street', 'Calle', { className: 'sm:col-span-2' })}
+              {textField('streetNumber', 'Altura', { optional: true })}
+              <div className="grid grid-cols-2 gap-4">
+                {textField('floor', 'Piso', { optional: true })}
+                {textField('unit', 'Unidad', { optional: true })}
+              </div>
+              {textField('neighborhood', 'Barrio')}
+              {textField('city', 'Localidad')}
+              {textField('province', 'Provincia')}
+            </div>
+          </Section>
 
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button asChild variant="outline">
-            <Link href="/propiedades">Cancelar</Link>
+          <Section
+            title="Para publicar"
+            description="Lo que ven la web y los portales. Si lo dejás vacío, se arma solo."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              {textField('publishAddress', 'Dirección para publicar', {
+                optional: true,
+                description:
+                  'Vacío: la calle con la altura redondeada, por ejemplo "Gurruchaga al 1800".',
+              })}
+              {textField('portalTitle', 'Título para portales', {
+                optional: true,
+                description:
+                  'Vacío: tipo, operación y barrio, por ejemplo "Departamento en venta en Palermo".',
+              })}
+              {textField('latitude', 'Latitud', {
+                optional: true,
+                inputMode: 'decimal',
+                description: 'Para el mapa. Por ejemplo -34.5861.',
+              })}
+              {textField('longitude', 'Longitud', {
+                optional: true,
+                inputMode: 'decimal',
+                description: 'Por ejemplo -58.4321.',
+              })}
+            </div>
+          </Section>
+        </SheetBody>
+        <SheetFooter>
+          <Button type="button" variant="outline" onClick={onDone}>
+            Cancelar
           </Button>
           <Button type="submit" disabled={pending}>
             {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
             Crear propiedad
           </Button>
-        </div>
+        </SheetFooter>
       </form>
     </Form>
   );

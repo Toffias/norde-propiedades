@@ -19,7 +19,7 @@ const PasswordSchema = z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENG
 const EmailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email());
 
 export const SignInInputSchema = z.object({
-  email: z.email().trim().toLowerCase().max(254),
+  email: EmailSchema,
   password: z.string().min(1).max(MAX_PASSWORD_LENGTH),
 });
 

@@ -251,6 +251,13 @@ export class InMemoryFileStorage implements FileStorage {
     this.objects.delete(key);
     return Promise.resolve();
   }
+
+  /** Con `signing`, firma como S3 (`signed:<clave>`); sin él, como el disco local. */
+  signing = false;
+
+  signedUrl(key: string) {
+    return Promise.resolve(this.signing ? `signed:${key}` : undefined);
+  }
 }
 
 export class RecordingMailer implements Mailer {

@@ -584,6 +584,11 @@ export const mediaItems = coreSchema.table(
     variants: jsonb('variants')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /** Tipo de la original subida (fotos y planos). */
+    contentType: text('content_type'),
+    /** `pending` / `ready` / `failed`: las variantes las genera un job (ADR 0020). */
+    processingStatus: text('processing_status').notNull().default('ready'),
+    processingError: text('processing_error'),
     uploadedBy: text('uploaded_by').notNull(),
     ...timestamps(),
     ...authorship(),
@@ -623,6 +628,10 @@ export const attachments = coreSchema.table(
   (t) => [
     check('attachments_single_owner', sql`num_nonnulls(property_id, development_id) = 1`),
     index('attachments_property_created_idx').on(t.propertyId, t.createdAt),
+    // Pestaña Archivos de la ficha, ordenada por nombre.
+    index('attachments_property_name_idx')
+      .on(t.propertyId, t.name, t.id)
+      .where(sql`deleted_at is null`),
     index('attachments_development_created_idx').on(t.developmentId, t.createdAt),
   ],
 );

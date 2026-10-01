@@ -33,6 +33,7 @@ export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-proper
 export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
 export { DrizzleUserFavorites } from './identity/drizzle-user-favorites';
 export { DrizzlePropertyCatalogQuery } from './properties/drizzle-property-catalog-query';
+export { DrizzlePropertyMediaQuery } from './properties/drizzle-property-media-query';
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';
@@ -73,6 +74,7 @@ export { S3FileStorage, type S3FileStorageOptions } from './adapters/storage/s3-
 export { LocalFileStorage } from './adapters/storage/local-file-storage';
 export { ResendMailer, type ResendMailerOptions } from './adapters/mail/resend-mailer';
 export { SharpImageWatermarker } from './adapters/images/sharp-image-watermarker';
+export { SharpImageVariantGenerator } from './adapters/images/sharp-image-variant-generator';
 
 export { OutboxRelay, type OutboxRelayOptions } from './jobs/outbox-relay';
 export {

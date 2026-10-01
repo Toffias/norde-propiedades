@@ -67,6 +67,15 @@ import {
   type PropertySnapshot,
 } from '../domain/property';
 import type { PropertyRepository } from '../domain/property.repository';
+import { MediaItem, type MediaItemId, type MediaItemSnapshot } from '../domain/media-item';
+import type { MediaItemRepository, PropertyAttachmentRepository } from '../domain/media.repository';
+import {
+  PropertyAttachment,
+  type PropertyAttachmentId,
+  type PropertyAttachmentSnapshot,
+} from '../domain/property-attachment';
+import type { ImageVariantGenerator } from '../application/ports/image-variant-generator';
+import type { PropertyMediaQuery } from '../application/ports/property-media-query';
 import {
   DEFAULT_PUBLICATION,
   EMPTY_CHARACTERISTICS,
@@ -514,6 +523,8 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly typeSettings = new InMemoryPropertyTypeSettingsRepository();
   readonly settings = new InMemoryPropertySettingsRepository();
   readonly favoriteSearches = new InMemoryFavoriteSearchRepository();
+  readonly media = new InMemoryMediaItemRepository();
+  readonly attachments = new InMemoryPropertyAttachmentRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
@@ -530,6 +541,8 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.typeSettings,
       this.settings,
       this.favoriteSearches,
+      this.media,
+      this.attachments,
     ];
   }
 
@@ -768,5 +781,144 @@ export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
 
   gridColumns() {
     return Promise.resolve(this.gridColumnRows);
+  }
+}
+
+// ---------- Multimedia y archivos ----------
+
+export class InMemoryMediaItemRepository implements MediaItemRepository {
+  readonly rows = new Map<string, MediaItemSnapshot>();
+
+  findById(id: MediaItemId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? MediaItem.restore(row) : undefined);
+  }
+
+  listForProperty(propertyId: PropertyId) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((row) => row.propertyId === propertyId)
+        .sort((a, b) => a.position - b.position)
+        .map((row) => MediaItem.restore(row)),
+    );
+  }
+
+  count(propertyId: PropertyId) {
+    return Promise.resolve(
+      [...this.rows.values()].filter((r) => r.propertyId === propertyId).length,
+    );
+  }
+
+  nextPosition(propertyId: PropertyId) {
+    const positions = [...this.rows.values()]
+      .filter((row) => row.propertyId === propertyId)
+      .map((row) => row.position);
+    return Promise.resolve(Math.max(-1, ...positions) + 1);
+  }
+
+  save(item: MediaItem) {
+    this.rows.set(item.id, item.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: MediaItemId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryPropertyAttachmentRepository implements PropertyAttachmentRepository {
+  readonly rows = new Map<string, PropertyAttachmentSnapshot>();
+
+  findById(id: PropertyAttachmentId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? PropertyAttachment.restore(row) : undefined);
+  }
+
+  save(attachment: PropertyAttachment) {
+    this.rows.set(attachment.id, attachment.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+/** Devuelve variantes de un byte con medidas fijas; con `invalid`, falla como una imagen dañada. */
+export class FakeImageVariantGenerator implements ImageVariantGenerator {
+  invalid = false;
+  readonly requests: Parameters<ImageVariantGenerator['generate']>[0][] = [];
+
+  generate(input: Parameters<ImageVariantGenerator['generate']>[0]) {
+    this.requests.push(input);
+    if (this.invalid) return Promise.resolve(err({ type: 'InvalidImage' as const }));
+    return Promise.resolve(
+      ok({
+        thumbnail: new Uint8Array([1]),
+        web: new Uint8Array([2]),
+        width: 1600,
+        height: 1200,
+      }),
+    );
+  }
+}
+
+/** Lee las filas de los repositorios en memoria, como lo haría el SQL de la galería y los archivos. */
+export class InMemoryPropertyMediaQuery implements PropertyMediaQuery {
+  constructor(
+    private readonly media: InMemoryMediaItemRepository,
+    private readonly attachments: InMemoryPropertyAttachmentRepository,
+  ) {}
+
+  listMedia(criteria: Parameters<PropertyMediaQuery['listMedia']>[0]) {
+    const rows = [...this.media.rows.values()]
+      .filter((row) => row.propertyId === criteria.propertyId)
+      .filter((row) =>
+        criteria.kind === undefined
+          ? true
+          : criteria.kind === 'images'
+            ? row.kind === 'photo' || row.kind === 'floor_plan'
+            : row.kind === 'video' || row.kind === 'tour_360',
+      )
+      .sort((a, b) => a.position - b.position);
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        position: row.position,
+        isCover: row.isCover,
+        showOnWeb: row.showOnWeb,
+        includeInPdf: row.includeInPdf,
+        rotation: row.rotation,
+        description: row.description,
+        externalUrl: row.externalUrl,
+        width: row.width,
+        height: row.height,
+        processing: row.processing,
+        hasThumbnail: row.variants.thumbnail !== undefined,
+        createdAt: row.createdAt,
+      })),
+      total: rows.length,
+    });
+  }
+
+  listAttachments(criteria: Parameters<PropertyMediaQuery['listAttachments']>[0]) {
+    const direction = criteria.sort.direction === 'asc' ? 1 : -1;
+    const rows = [...this.attachments.rows.values()]
+      .filter((row) => row.propertyId === criteria.propertyId && row.deletedAt === undefined)
+      .sort((a, b) =>
+        criteria.sort.field === 'name'
+          ? a.name.localeCompare(b.name) * direction
+          : (a.createdAt.getTime() - b.createdAt.getTime()) * direction,
+      );
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit).map((row) => ({
+        id: row.id,
+        name: row.name,
+        mimeType: row.mimeType,
+        sizeBytes: row.sizeBytes,
+        showOnWeb: row.showOnWeb,
+        uploadedBy: row.uploadedBy,
+        createdAt: row.createdAt,
+      })),
+      total: rows.length,
+    });
   }
 }

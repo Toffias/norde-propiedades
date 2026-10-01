@@ -50,6 +50,11 @@ export class LocalFileStorage implements FileStorage {
     await rm(`${path}.json`, { force: true });
   }
 
+  /** En disco no hay URLs firmadas: el panel sirve el contenido después de autorizarlo. */
+  signedUrl(): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+
   private pathOf(key: string): string {
     if (!KEY.test(key)) throw new Error(`Invalid storage key: ${key}`);
     const path = join(this.#root, ...key.split('/'));

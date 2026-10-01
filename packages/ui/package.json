@@ -8,6 +8,7 @@
   ],
   "exports": {
     "./globals.css": "./src/styles/globals.css",
+    "./themes/*": "./src/themes/*",
     "./lib/*": "./src/lib/*.ts",
     "./components/*": "./src/components/*.tsx"
   },
@@ -17,10 +18,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@radix-ui/react-slot": "catalog:",
+    "apexcharts": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
+    "lucide-react": "catalog:",
     "next-themes": "catalog:",
+    "radix-ui": "catalog:",
+    "react-apexcharts": "catalog:",
+    "react-hook-form": "catalog:",
+    "sonner": "catalog:",
     "tailwind-merge": "catalog:",
     "tw-animate-css": "catalog:"
   },

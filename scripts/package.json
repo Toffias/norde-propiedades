@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "db:setup": "tsx db/setup.ts",
+    "db:roles": "tsx db/roles.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

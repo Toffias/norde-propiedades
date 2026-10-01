@@ -64,6 +64,11 @@ export async function setup(project: TestProject): Promise<void> {
       migrationsSchema: 'core',
       migrationsTable: '__drizzle_migrations',
     });
+    // Los mismos roles que en producción; el usuario de los tests los toma con `set local role`.
+    await pool.query(
+      readFileSync(path.resolve(import.meta.dirname, '../src/db/roles.sql'), 'utf8'),
+    );
+    await pool.query('grant norde_app, norde_erasure to current_user');
   } finally {
     await pool.end();
   }

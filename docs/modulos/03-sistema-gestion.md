@@ -56,9 +56,24 @@ Roles propuestos (a validar con Norde):
   - "Recordarme" mantiene la sesión.
 - Toda pantalla bajo `(panel)` exige sesión. Un usuario suspendido no puede entrar, aunque tenga la sesión abierta.
 - Se auditan el ingreso, el ingreso fallido (contra el usuario, sin guardar el email) y la salida.
-- Sin alta pública: hasta el ABM de #3, los usuarios se crean con `pnpm user:create-admin` (producción) o `pnpm db:seed` (desarrollo, un usuario por rol).
+- Sin alta pública: los usuarios los da de alta un administrador desde Mi empresa (#3). El primero se crea con `pnpm user:create-admin` (producción) o `pnpm db:seed` (desarrollo, un usuario por rol).
 - Sin recupero de contraseña por mail por ahora: la blanquea un administrador.
 - El menú lateral se contrae a íconos (la preferencia queda guardada) y en mobile se abre como panel. Los módulos que todavía no tienen pantalla figuran deshabilitados ("Próximamente").
+
+**Implementado (#3, usuarios):**
+
+- **Catálogo de permisos** (`identity/domain/permission-catalog.ts`): los permisos que se pueden asignar, `recurso:acción`, agrupados como en Tokko (Contactos, Propiedades, Emprendimientos, Gerencia, Marketing, Configuración) más Alquileres y Empresa. Incluye los globales relevados en Tokko: cambiar el agente de un contacto, ver contactos de su sucursal o de otras, exportar más de 10 propiedades, edición rápida masiva, publicar en portales, etc. Un test verifica que los permisos sembrados en `0002` existan en el catálogo.
+- **Mi empresa → Usuarios** (`/mi-empresa/usuarios`), grilla paginada en el servidor:
+  - Activos o suspendidos, búsqueda por nombre o email (sin acentos), orden por nombre, email, último ingreso o alta.
+  - **Alta** con nombre, email, teléfono, uno o más roles y una **contraseña temporal** (se puede generar).
+  - **Edición** de los datos y los roles. Sin cambios no se audita nada.
+  - **Suspender** cierra sus sesiones abiertas en la misma transacción; nadie se puede suspender a sí mismo. **Reactivar** le devuelve el acceso.
+  - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
+- **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.
+- Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
+- Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
+- Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
+- Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera y el 2FA quedan fuera por ahora (preguntas abiertas de #3).
 
 ### 2.2 Trazabilidad de cambios (auditoría)
 

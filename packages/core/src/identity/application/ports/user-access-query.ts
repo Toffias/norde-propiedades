@@ -7,6 +7,8 @@ export interface UserAccessRecord {
   readonly name: string;
   readonly email: string;
   readonly status: UserStatus;
+  /** Entró con una contraseña temporal y todavía no la cambió. */
+  readonly mustChangePassword: boolean;
   readonly roles: readonly RoleSummary[];
   /** Permisos de todos sus roles (puede haber repetidos). */
   readonly rolePermissions: readonly PermissionClaim[];

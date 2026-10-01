@@ -84,6 +84,14 @@ export function createAuth(options: AuthOptions) {
             const status = await findStatus(session.userId);
             return status !== undefined && canSignIn(status);
           },
+          // Último ingreso, para el listado de usuarios. No es un cambio de datos: no se audita
+          // como edición (el ingreso ya queda como `user.signed-in`).
+          after: async (session) => {
+            await db
+              .update(users)
+              .set({ lastLoginAt: session.createdAt })
+              .where(eq(users.id, session.userId));
+          },
         },
       },
     },

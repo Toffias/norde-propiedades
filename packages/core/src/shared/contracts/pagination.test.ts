@@ -52,6 +52,15 @@ describe('pageQuerySchema', () => {
   it('rejects columns outside the sort whitelist', () => {
     expect(ListSchema.safeParse({ sort: 'password' }).success).toBe(false);
     expect(ListSchema.safeParse({ sort: '--name' }).success).toBe(false);
+    expect(ListSchema.safeParse({ sort: { field: 'password', direction: 'asc' } }).success).toBe(
+      false,
+    );
+  });
+
+  it('parses its own output again: the page parses the URL and the use case validates it', () => {
+    const fromUrl = ListSchema.parse({ page: '2', sort: '-name', status: 'active' });
+
+    expect(ListSchema.parse(fromUrl)).toEqual(fromUrl);
   });
 });
 

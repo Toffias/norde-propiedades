@@ -61,3 +61,4 @@ export interface RegisterContactOutput {
 
 export * from './property-interest';
 export * from './clients-panel';
+export * from './clients-tags';

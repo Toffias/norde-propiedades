@@ -1,15 +1,17 @@
 'use client';
 
-import type { ClientListRow } from '@norde/core/clients/contracts';
+import type { ClientLetterCount, ClientListRow } from '@norde/core/clients/contracts';
 import { Button } from '@norde/ui/components/button';
 import { PlusIcon } from 'lucide-react';
 
 import { usePanel } from '../../shared/components/entity-sheet';
 import { ClientCreateSheet } from './client-create-sheet';
+import { ClientsAgenda, type AgendaLetterPage } from './clients-agenda';
 import { ClientsGrid } from './clients-grid';
 import {
   ClientsToolbar,
   type ClientFilterValues,
+  type ClientLayout,
   type ClientToolbarPermissions,
 } from './clients-toolbar';
 
@@ -19,7 +21,13 @@ export interface ClientsPermissions extends ClientToolbarPermissions {
   readonly assignAgent: boolean;
 }
 
-/** La agenda: grilla con filtros, papelera y alta en el panel lateral. */
+/** La agenda alfabética: el índice con sus contadores y la letra abierta, si hay una. */
+export interface ClientsAgendaData {
+  readonly letters: readonly ClientLetterCount[];
+  readonly open: AgendaLetterPage | undefined;
+}
+
+/** La agenda: grilla o agenda A–Z con filtros, papelera y alta en el panel lateral. */
 export function ClientsView({
   rows,
   total,
@@ -27,8 +35,11 @@ export function ClientsView({
   pageSize,
   sort,
   filters,
+  layout,
+  agenda,
   permissions,
   agentLabel,
+  tagLabel,
 }: {
   readonly rows: readonly ClientListRow[];
   readonly total: number;
@@ -36,10 +47,23 @@ export function ClientsView({
   readonly pageSize: number;
   readonly sort: { readonly field: string; readonly direction: 'asc' | 'desc' };
   readonly filters: ClientFilterValues;
+  readonly layout: ClientLayout;
+  /** Solo en la vista agenda. */
+  readonly agenda: ClientsAgendaData | undefined;
   readonly permissions: ClientsPermissions;
   readonly agentLabel: string | undefined;
+  readonly tagLabel: string | undefined;
 }) {
   const navigation = usePanel();
+  const toolbar = (
+    <ClientsToolbar
+      filters={filters}
+      layout={layout}
+      permissions={permissions}
+      agentLabel={agentLabel}
+      tagLabel={tagLabel}
+    />
+  );
 
   return (
     <>
@@ -51,18 +75,20 @@ export function ClientsView({
           </Button>
         </div>
       )}
-      <ClientsGrid
-        rows={rows}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        sort={sort}
-        filters={filters}
-        canDelete={permissions.delete}
-        toolbar={
-          <ClientsToolbar filters={filters} permissions={permissions} agentLabel={agentLabel} />
-        }
-      />
+      {agenda === undefined ? (
+        <ClientsGrid
+          rows={rows}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          sort={sort}
+          filters={filters}
+          canDelete={permissions.delete}
+          toolbar={toolbar}
+        />
+      ) : (
+        <ClientsAgenda letters={agenda.letters} open={agenda.open} toolbar={toolbar} />
+      )}
       {permissions.create && (
         <ClientCreateSheet navigation={navigation} canAssignAgent={permissions.assignAgent} />
       )}

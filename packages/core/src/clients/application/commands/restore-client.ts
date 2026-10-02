@@ -9,7 +9,7 @@ import {
   type Result,
 } from '../../../shared';
 import { ClientIdInputSchema, type ClientIdInput } from '../../contracts';
-import type { ClientNotDeletedError } from '../../domain/client';
+import type { ClientMergedError, ClientNotDeletedError } from '../../domain/client';
 import {
   canDeleteClients,
   clientTarget,
@@ -21,7 +21,11 @@ import {
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
 export type RestoreClientError =
-  ForbiddenError | InvalidInputError | ClientNotFoundError | ClientNotDeletedError;
+  | ForbiddenError
+  | InvalidInputError
+  | ClientNotFoundError
+  | ClientNotDeletedError
+  | ClientMergedError;
 
 /** Saca un contacto de la papelera. Lo restaura quien podría borrarlo. */
 export class RestoreClient {

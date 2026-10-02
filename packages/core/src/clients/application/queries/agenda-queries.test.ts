@@ -13,6 +13,7 @@ import {
   OTHER_BRANCH_ID,
   seedClient,
   StubClientListQuery,
+  StubClientTagQuery,
   TEST_AGENT,
   TEST_MANAGER,
   TEST_OTHER_AGENT,
@@ -22,9 +23,11 @@ import {
 import { CheckClientDuplicates } from './check-client-duplicates';
 import { GetClientDetail } from './get-client-detail';
 import { ListClientHistory } from './list-client-history';
+import { ListClientLetters } from './list-client-letters';
 import { ListClients } from './list-clients';
 
 const agents = new InMemoryClientAgents();
+const TAG_ID = '00000000-0000-7000-8000-0000000000e1';
 
 describe('ListClients', () => {
   function setup(items = [aClientItem()]) {
@@ -119,7 +122,11 @@ describe('ListClients', () => {
 describe('GetClientDetail', () => {
   function setup() {
     const uow = new InMemoryClientsUnitOfWork();
-    return { uow, useCase: new GetClientDetail({ uow, agents }) };
+    const tags = new StubClientTagQuery(
+      [],
+      [{ id: TAG_ID, name: 'Zonaprop', groupId: undefined, groupName: 'Origen', clients: 1 }],
+    );
+    return { uow, useCase: new GetClientDetail({ uow, agents, tags }) };
   }
 
   it('returns the detail with what the actor can do', async () => {
@@ -162,6 +169,32 @@ describe('GetClientDetail', () => {
       reassign: true,
       delete: true,
       viewHistory: true,
+      merge: true,
+    });
+  });
+
+  it('includes the tags of the contact', async () => {
+    const { uow, useCase } = setup();
+    const client = await seedClient(uow);
+    client.changeTags([TAG_ID], new Date('2026-02-03T10:00:00Z'));
+    await uow.clients.save(client, AGENT_ID);
+
+    const detail = unwrap(await useCase.execute({ clientId: client.id }, TEST_AGENT));
+
+    expect(detail.tags).toEqual([{ id: TAG_ID, name: 'Zonaprop', groupName: 'Origen' }]);
+    expect(detail.can.merge).toBe(false);
+  });
+
+  it('points to the principal when the contact was merged into another', async () => {
+    const { uow, useCase } = setup();
+    const primary = await seedClient(uow, { phones: ['+541147770000'] });
+    const duplicate = await seedClient(uow);
+    primary.absorb(duplicate, AGENT_ID, new Date('2026-02-03T10:00:00Z'));
+    await uow.clients.save(duplicate, AGENT_ID);
+
+    expect(unwrapErr(await useCase.execute({ clientId: duplicate.id }, TEST_AGENT))).toEqual({
+      type: 'ClientMerged',
+      clientId: primary.id,
     });
   });
 
@@ -295,5 +328,45 @@ describe('ListClientHistory', () => {
         await useCase.execute({ clientId: '00000000-0000-7000-8000-0000000000ff' }, TEST_AGENT),
       ),
     ).toEqual({ type: 'ClientNotFound' });
+  });
+});
+
+describe('ListClientLetters', () => {
+  it('returns the 27 letters in order with the counts of the filtered contacts', async () => {
+    const list = new StubClientListQuery();
+    list.letterCounts = [
+      { letter: 'M', count: 3 },
+      { letter: 'A', count: 12 },
+      { letter: '#', count: 1 },
+    ];
+    const useCase = new ListClientLetters({ list });
+
+    const letters = unwrap(
+      await useCase.execute({ tagged: 'with', letter: 'M', kind: 'company' }, TEST_AGENT),
+    );
+
+    expect(letters).toHaveLength(27);
+    expect(letters[0]).toEqual({ letter: 'A', count: 12 });
+    expect(letters[1]).toEqual({ letter: 'B', count: 0 });
+    expect(letters[12]).toEqual({ letter: 'M', count: 3 });
+    expect(letters[26]).toEqual({ letter: '#', count: 1 });
+    // La letra elegida no filtra su propio índice.
+    expect(list.letterCriteria[0]).toMatchObject({
+      letter: undefined,
+      tagged: 'with',
+      kind: 'company',
+      visibility: { kind: 'own', ownerId: AGENT_ID },
+    });
+  });
+
+  it('rejects actors without clients:read, invalid filters and the trash without delete', async () => {
+    const useCase = new ListClientLetters({ list: new StubClientListQuery() });
+    expect(unwrapErr(await useCase.execute({}, TEST_OUTSIDER))).toEqual({ type: 'Forbidden' });
+    // @ts-expect-error: una letra que no está en el índice llega desde la URL.
+    expect(unwrapErr(await useCase.execute({ letter: 'Ñ' }, TEST_AGENT)).type).toBe('InvalidInput');
+    const reader = Actor.user(AGENT_ID, ['clients:read']);
+    expect(unwrapErr(await useCase.execute({ view: 'trash' }, reader))).toEqual({
+      type: 'Forbidden',
+    });
   });
 });

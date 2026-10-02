@@ -47,26 +47,26 @@ Entre paréntesis, los IDs de **otros módulos** que guarda cada tabla (sin FK).
 
 ### `clients` (`clients.ts`)
 
-| Tabla                                                          | Qué es (IDs de otros módulos)                                                                                                                 |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clients`                                                      | Clientes. `phone_e164` y `email` son los principales y la base de la deduplicación (`agent_id`, `branch_id`)                                  |
-| `client_channels`                                              | Canales por los que llegó (WhatsApp, portales)                                                                                                |
-| `client_phones` · `client_emails`                              | Teléfonos y emails adicionales. `client_phones.phone_match_key` deduplica contra todos                                                        |
-| `client_relations`                                             | Relaciones entre clientes (trabaja en, miembro de)                                                                                            |
-| `client_tag_groups` · `client_tags` · `client_tag_assignments` | Etiquetas                                                                                                                                     |
-| `client_activities`                                            | Actividad de la ficha (notas, envíos, reacciones). Reemplaza a `opportunities.notes`                                                          |
-| `opportunities`                                                | Oportunidades. `status` es la categoría y `stage_id` el estado editable (ADR 0013) (`property_id`, `development_id`, `agent_id`, `branch_id`) |
-| `opportunity_stages` · `opportunity_close_reasons`             | Estados editables y motivos de cierre                                                                                                         |
-| `opportunity_status_changes`                                   | Historial de estados, para vigencia y conversión                                                                                              |
-| `opportunity_settings`                                         | Estado de cada regla automática (fila única)                                                                                                  |
-| `inquiries`                                                    | Consultas entrantes, idempotentes por (`channel`, `external_id`) (`property_id`, `development_id`, `assigned_agent_id`)                       |
-| `inquiry_assignment_rules` · `inquiry_assignment_rule_agents`  | Reparto de consultas con pesos (`user_id`)                                                                                                    |
-| `inquiry_settings`                                             | Horario de atención y guardia (fila única) (`on_call_user_id`)                                                                                |
-| `saved_searches`                                               | Búsquedas guardadas (`location_ids`)                                                                                                          |
-| `featured_listings`                                            | Propiedades destacadas para un cliente (`property_id`)                                                                                        |
-| `shared_listings` · `shared_listing_items`                     | Envíos de propiedades por link, con aperturas y reacciones (`property_id`)                                                                    |
-| `quick_replies`                                                | Respuestas rápidas                                                                                                                            |
-| `follow_up_settings`                                           | Seguimiento automático (fila única)                                                                                                           |
+| Tabla                                                          | Qué es (IDs de otros módulos)                                                                                                                                        |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clients`                                                      | Clientes. `phone_e164` y `email` son los principales y la base de la deduplicación (`agent_id`, `branch_id`). Un unificado queda en la papelera con `merged_into_id` |
+| `client_channels`                                              | Canales por los que llegó (WhatsApp, portales)                                                                                                                       |
+| `client_phones` · `client_emails`                              | Teléfonos y emails adicionales. `client_phones.phone_match_key` deduplica contra todos                                                                               |
+| `client_relations`                                             | Relaciones entre clientes (trabaja en, miembro de, relacionado); las declara `client_id`                                                                             |
+| `client_tag_groups` · `client_tags` · `client_tag_assignments` | Etiquetas                                                                                                                                                            |
+| `client_activities`                                            | Actividad de la ficha (notas, envíos, reacciones). Reemplaza a `opportunities.notes`                                                                                 |
+| `opportunities`                                                | Oportunidades. `status` es la categoría y `stage_id` el estado editable (ADR 0013) (`property_id`, `development_id`, `agent_id`, `branch_id`)                        |
+| `opportunity_stages` · `opportunity_close_reasons`             | Estados editables y motivos de cierre                                                                                                                                |
+| `opportunity_status_changes`                                   | Historial de estados, para vigencia y conversión                                                                                                                     |
+| `opportunity_settings`                                         | Estado de cada regla automática (fila única)                                                                                                                         |
+| `inquiries`                                                    | Consultas entrantes, idempotentes por (`channel`, `external_id`) (`property_id`, `development_id`, `assigned_agent_id`)                                              |
+| `inquiry_assignment_rules` · `inquiry_assignment_rule_agents`  | Reparto de consultas con pesos (`user_id`)                                                                                                                           |
+| `inquiry_settings`                                             | Horario de atención y guardia (fila única) (`on_call_user_id`)                                                                                                       |
+| `saved_searches`                                               | Búsquedas guardadas (`location_ids`)                                                                                                                                 |
+| `featured_listings`                                            | Propiedades destacadas para un cliente (`property_id`)                                                                                                               |
+| `shared_listings` · `shared_listing_items`                     | Envíos de propiedades por link, con aperturas y reacciones (`property_id`)                                                                                           |
+| `quick_replies`                                                | Respuestas rápidas                                                                                                                                                   |
+| `follow_up_settings`                                           | Seguimiento automático (fila única)                                                                                                                                  |
 
 ### `properties` (`properties.ts`)
 

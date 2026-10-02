@@ -55,6 +55,7 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
           { permission: 'clients:delete', label: 'Borrar sus contactos' },
           { permission: 'clients:delete-others', label: 'Borrar contactos de otros' },
           { permission: 'clients:export', label: 'Exportar contactos' },
+          { permission: 'clients:merge', label: 'Unificar contactos' },
         ],
       },
       {

@@ -16,4 +16,14 @@ export type ClientDeleted = DomainEvent<'clients.client_deleted', { readonly cli
 
 export type ClientRestored = DomainEvent<'clients.client_restored', { readonly clientId: string }>;
 
-export type ClientEvent = ClientRegistered | ClientChannelAdded | ClientDeleted | ClientRestored;
+/**
+ * Se unificaron dos contactos: `mergedClientId` quedó vacío en la papelera y todo lo suyo pasó a
+ * `clientId`. Los otros módulos que guardan el ID de un cliente lo reapuntan.
+ */
+export type ClientsMerged = DomainEvent<
+  'clients.clients_merged',
+  { readonly clientId: string; readonly mergedClientId: string }
+>;
+
+export type ClientEvent =
+  ClientRegistered | ClientChannelAdded | ClientDeleted | ClientRestored | ClientsMerged;

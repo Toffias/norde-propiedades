@@ -6,6 +6,17 @@ import type { Phone } from '../../shared/domain/value-objects/phone';
 
 import type { ClientEvent } from './client.events';
 import {
+  cleanRelationLabel,
+  MAX_CLIENT_RELATIONS,
+  relationAllowed,
+  sameRelation,
+  type ClientRelation,
+  type ClientRelationKind,
+  type InvalidRelationError,
+  type SelfRelationError,
+  type TooManyRelationsError,
+} from './client-relation';
+import {
   CLIENT_TYPES,
   EMPTY_PROFILE,
   hasOwnerType,
@@ -46,10 +57,16 @@ export interface ClientSnapshot {
   readonly branchId: string | undefined;
   readonly profile: ClientProfile;
   readonly channels: readonly ClientChannel[];
+  /** Etiquetas de contactos (`ClientTag`), por ID. */
+  readonly tagIds: readonly string[];
+  /** Las relaciones que declara este contacto; las que otros declaran hacia él no están acá. */
+  readonly relations: readonly ClientRelation[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | undefined;
   readonly deletedBy: string | undefined;
+  /** Se unificó con otro contacto: queda en la papelera, vacío, apuntando al que lo absorbió. */
+  readonly mergedIntoId: string | undefined;
 }
 
 export interface MissingContactInfoError {
@@ -67,6 +84,14 @@ export interface ClientAlreadyDeletedError {
 }
 export interface ClientNotDeletedError {
   readonly type: 'ClientNotDeleted';
+}
+/** Se unificó con otro contacto: no se restaura ni se edita; se trabaja sobre el principal. */
+export interface ClientMergedError {
+  readonly type: 'ClientMerged';
+  readonly clientId: string;
+}
+export interface SameClientError {
+  readonly type: 'SameClient';
 }
 
 const MAX_NAME_LENGTH = 120;
@@ -180,10 +205,13 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
           lastContactAt: input.now,
         },
       ],
+      tagIds: [],
+      relations: [],
       createdAt: input.now,
       updatedAt: input.now,
       deletedAt: undefined,
       deletedBy: undefined,
+      mergedIntoId: undefined,
     });
     client.record({
       type: 'clients.client_registered',
@@ -223,10 +251,13 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
       branchId: input.branchId,
       profile: mergeProfile(EMPTY_PROFILE, input.profile),
       channels: [],
+      tagIds: [],
+      relations: [],
       createdAt: input.now,
       updatedAt: input.now,
       deletedAt: undefined,
       deletedBy: undefined,
+      mergedIntoId: undefined,
     });
     client.record({
       type: 'clients.client_registered',
@@ -266,6 +297,23 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
 
   get channels(): readonly ClientChannel[] {
     return this.#state.channels;
+  }
+
+  get kind(): ClientKind {
+    return this.#state.kind;
+  }
+
+  get tagIds(): readonly string[] {
+    return this.#state.tagIds;
+  }
+
+  get relations(): readonly ClientRelation[] {
+    return this.#state.relations;
+  }
+
+  /** El contacto que lo absorbió al unificarlos. */
+  get mergedIntoId(): string | undefined {
+    return this.#state.mergedIntoId;
   }
 
   get isDeleted(): boolean {
@@ -423,6 +471,127 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
     return ok(true);
   }
 
+  /** Reemplaza las etiquetas (sin repetir). El caso de uso verifica que existan. */
+  changeTags(tagIds: readonly string[], now: Date): Result<boolean, ClientInTrashError> {
+    if (this.isDeleted) return err({ type: 'ClientInTrash' });
+    const next = [...new Set(tagIds)];
+    const current = new Set(this.#state.tagIds);
+    if (next.length === current.size && next.every((id) => current.has(id))) return ok(false);
+    this.#state = { ...this.#state, tagIds: next, updatedAt: now };
+    return ok(true);
+  }
+
+  /**
+   * Declara una relación con otro contacto (trabaja en, es miembro de, relacionado). Si ya existe,
+   * solo cambia la etiqueta.
+   */
+  link(
+    related: { readonly id: string; readonly kind: ClientKind; readonly isDeleted: boolean },
+    kind: ClientRelationKind,
+    label: string | undefined,
+    now: Date,
+  ): Result<
+    boolean,
+    ClientInTrashError | SelfRelationError | InvalidRelationError | TooManyRelationsError
+  > {
+    if (this.isDeleted || related.isDeleted) return err({ type: 'ClientInTrash' });
+    if (related.id === this.id) return err({ type: 'SelfRelation' });
+    if (!relationAllowed(kind, this.#state.kind, related.kind)) {
+      return err({ type: 'InvalidRelation' });
+    }
+    const relation: ClientRelation = {
+      relatedClientId: related.id,
+      kind,
+      label: cleanRelationLabel(label),
+    };
+    const existing = this.#state.relations.find((r) => sameRelation(r, relation));
+    if (existing) {
+      if (existing.label === relation.label) return ok(false);
+    } else if (this.#state.relations.length >= MAX_CLIENT_RELATIONS) {
+      return err({ type: 'TooManyRelations' });
+    }
+    this.#state = {
+      ...this.#state,
+      relations: existing
+        ? this.#state.relations.map((r) => (r === existing ? relation : r))
+        : [...this.#state.relations, relation],
+      updatedAt: now,
+    };
+    return ok(true);
+  }
+
+  unlink(
+    relatedClientId: string,
+    kind: ClientRelationKind,
+    now: Date,
+  ): Result<boolean, ClientInTrashError> {
+    if (this.isDeleted) return err({ type: 'ClientInTrash' });
+    const relations = this.#state.relations.filter(
+      (r) => !sameRelation(r, { relatedClientId, kind }),
+    );
+    if (relations.length === this.#state.relations.length) return ok(false);
+    this.#state = { ...this.#state, relations, updatedAt: now };
+    return ok(true);
+  }
+
+  /**
+   * Unifica un duplicado en este contacto (el principal) sin perder nada: suma sus teléfonos,
+   * emails, canales, tipos, etiquetas y relaciones, y completa los datos que le faltan. Lo que
+   * ya tiene el principal manda (nombre, agente, datos cargados, el teléfono y el email
+   * principales). El duplicado queda vacío en la papelera, apuntando al principal.
+   *
+   * Las oportunidades, la actividad y lo demás que cuelga del duplicado las mueve el caso de uso.
+   */
+  absorb(
+    duplicate: Client,
+    by: string,
+    now: Date,
+  ): Result<void, SameClientError | ClientInTrashError> {
+    if (duplicate.id === this.id) return err({ type: 'SameClient' });
+    if (this.isDeleted || duplicate.isDeleted) return err({ type: 'ClientInTrash' });
+    const mine = this.#state;
+    const theirs = duplicate.#state;
+    const keepAgent = mine.agentId !== undefined;
+
+    this.#state = {
+      ...mine,
+      name: mine.name ?? theirs.name,
+      phones: uniquePhones([...mine.phones, ...theirs.phones]),
+      emails: uniqueEmails([...mine.emails, ...theirs.emails]),
+      clientTypes: normalizeTypes([...mine.clientTypes, ...theirs.clientTypes]),
+      agentId: keepAgent ? mine.agentId : theirs.agentId,
+      branchId: keepAgent ? mine.branchId : theirs.branchId,
+      profile: fillProfile(mine.profile, theirs.profile),
+      channels: mergeChannels(mine.channels, theirs.channels),
+      tagIds: [...new Set([...mine.tagIds, ...theirs.tagIds])],
+      relations: mergeRelations(
+        mine.relations.filter((r) => r.relatedClientId !== duplicate.id),
+        theirs.relations.filter((r) => r.relatedClientId !== this.id),
+      ),
+      createdAt: mine.createdAt < theirs.createdAt ? mine.createdAt : theirs.createdAt,
+      updatedAt: now,
+    };
+    duplicate.#state = {
+      ...theirs,
+      phones: [],
+      emails: [],
+      channels: [],
+      tagIds: [],
+      relations: [],
+      updatedAt: now,
+      deletedAt: now,
+      deletedBy: by,
+      mergedIntoId: this.id,
+    };
+    this.record({
+      type: 'clients.clients_merged',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: { clientId: this.id, mergedClientId: duplicate.id },
+    });
+    return ok(undefined);
+  }
+
   /** Baja lógica: va a la papelera con quién lo borró y cuándo. */
   delete(by: string, now: Date): Result<void, ClientAlreadyDeletedError> {
     if (this.isDeleted) return err({ type: 'ClientAlreadyDeleted' });
@@ -436,7 +605,9 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
     return ok(undefined);
   }
 
-  restoreFromTrash(now: Date): Result<void, ClientNotDeletedError> {
+  restoreFromTrash(now: Date): Result<void, ClientNotDeletedError | ClientMergedError> {
+    const { mergedIntoId } = this.#state;
+    if (mergedIntoId !== undefined) return err({ type: 'ClientMerged', clientId: mergedIntoId });
     if (!this.isDeleted) return err({ type: 'ClientNotDeleted' });
     this.#state = { ...this.#state, deletedAt: undefined, deletedBy: undefined, updatedAt: now };
     this.record({
@@ -459,4 +630,49 @@ function mergeProfile(current: ClientProfile, changes: Partial<ClientProfile>): 
     if (field in changes) merged[field] = cleanText(changes[field]);
   }
   return merged;
+}
+
+/** Los datos del principal, completados con los del duplicado donde falten. */
+function fillProfile(mine: ClientProfile, theirs: ClientProfile): ClientProfile {
+  const filled: Record<keyof ClientProfile, string | undefined> = { ...mine };
+  for (const field of PROFILE_FIELDS) filled[field] = mine[field] ?? theirs[field];
+  return filled;
+}
+
+/** Un canal por identidad: el primer contacto más viejo y el último más reciente. */
+function mergeChannels(
+  mine: readonly ClientChannel[],
+  theirs: readonly ClientChannel[],
+): ClientChannel[] {
+  const merged = [...mine];
+  for (const channel of theirs) {
+    const i = merged.findIndex(
+      (c) => c.channel === channel.channel && c.externalId === channel.externalId,
+    );
+    const current = merged[i];
+    if (current === undefined) {
+      merged.push(channel);
+      continue;
+    }
+    merged[i] = {
+      ...current,
+      firstContactAt:
+        channel.firstContactAt < current.firstContactAt
+          ? channel.firstContactAt
+          : current.firstContactAt,
+      lastContactAt:
+        channel.lastContactAt > current.lastContactAt
+          ? channel.lastContactAt
+          : current.lastContactAt,
+    };
+  }
+  return merged;
+}
+
+/** Las relaciones de los dos sin repetir; si las dos tienen la misma, queda la etiqueta propia. */
+function mergeRelations(
+  mine: readonly ClientRelation[],
+  theirs: readonly ClientRelation[],
+): ClientRelation[] {
+  return [...mine, ...theirs.filter((r) => !mine.some((m) => sameRelation(m, r)))];
 }

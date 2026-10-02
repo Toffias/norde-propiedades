@@ -14,9 +14,11 @@ import {
   UpdateClientDetailsInputSchema,
   type ClientContactInput,
   type ClientDetail,
+  type ClientRelationRow,
   type UpdateClientDetailsInput,
 } from '@norde/core/clients/contracts';
 import { SectionCard } from '@norde/ui/components/section-card';
+import type { Page } from '@norde/core/shared';
 import { Form } from '@norde/ui/components/form';
 import { LockIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -37,6 +39,8 @@ import {
 } from '../../shared/components/inline-section';
 import { updateClientDetailsAction } from '../actions';
 import { formatPhone } from '../client-format';
+import { ClientRelationsSection } from './client-relations-section';
+import { ClientTagsSection } from './client-tags-section';
 import { ContactFields } from './contact-fields';
 
 const or = (value: string | undefined) => value ?? EMPTY_VALUE;
@@ -275,7 +279,14 @@ function TypesForm({
 }
 
 /** Las secciones de la ficha: datos de contacto, datos, tipos de cliente y canales. */
-export function ClientDetailSections({ detail }: { readonly detail: ClientDetail }) {
+export function ClientDetailSections({
+  detail,
+  relations,
+}: {
+  readonly detail: ClientDetail;
+  /** La página de contactos relacionados; `undefined` si no se pudo cargar. */
+  readonly relations: Page<ClientRelationRow> | undefined;
+}) {
   const p = detail.profile;
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -300,6 +311,7 @@ export function ClientDetailSections({ detail }: { readonly detail: ClientDetail
         }
         form={(controls) => <TypesForm detail={detail} controls={controls} />}
       />
+      <ClientTagsSection detail={detail} />
       <InlineSection
         title="Datos"
         className="lg:col-span-2"
@@ -322,6 +334,7 @@ export function ClientDetailSections({ detail }: { readonly detail: ClientDetail
         }
         form={(controls) => <DetailsForm detail={detail} controls={controls} />}
       />
+      <ClientRelationsSection detail={detail} page={relations} />
       <SectionCard title="Canales de contacto" className="lg:col-span-2">
         {detail.channels.length === 0 ? (
           <p className="text-sm text-muted-foreground">

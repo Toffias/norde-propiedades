@@ -2,7 +2,10 @@ import type { VisibilityFilter } from '../../../identity';
 import type { PageSlice } from '../../../shared';
 import type {
   ClientKindValue,
+  ClientLetter,
+  ClientLetterCount,
   ClientSortField,
+  ClientTaggedValue,
   ClientTypeValue,
   ClientViewValue,
 } from '../../contracts';
@@ -15,7 +18,12 @@ export interface ClientFilterCriteria {
   readonly text: string | undefined;
   readonly agentId: string | undefined;
   readonly branchId: string | undefined;
+  readonly kind: ClientKindValue | undefined;
   readonly clientType: ClientTypeValue | undefined;
+  readonly tagged: ClientTaggedValue | undefined;
+  readonly tagId: string | undefined;
+  /** La inicial del nombre sin acentos; `#` si no empieza con una letra. */
+  readonly letter: ClientLetter | undefined;
   /** Solo los que tienen alguno de estos tipos (propietarios). */
   readonly anyOfTypes: readonly ClientTypeValue[] | undefined;
   /** `[from, to)`. */
@@ -49,4 +57,6 @@ export interface ClientListItem {
 export interface ClientListQuery {
   search(criteria: ClientListCriteria): Promise<PageSlice<ClientListItem>>;
   count(criteria: ClientFilterCriteria): Promise<number>;
+  /** Cuántos cumplen los filtros en cada letra (sin el filtro de letra). Solo las que tienen alguno. */
+  letters(criteria: ClientFilterCriteria): Promise<ClientLetterCount[]>;
 }

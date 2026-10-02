@@ -1,9 +1,6 @@
 import { accessScope, OWNERSHIP_RULES } from '../../../identity';
 import {
-  auditAction,
-  diffChanges,
   err,
-  nextId,
   ok,
   type Actor,
   type Clock,
@@ -21,10 +18,7 @@ import { findStage, type OpportunityStageNotFoundError } from '../opportunity-co
 import {
   canUpdateOpportunity,
   findOpportunity,
-  opportunityAuditState,
-  opportunityTarget,
-  saveOpportunity,
-  stagePositionOf,
+  moveOpportunity,
   type OpportunityNotFoundError,
 } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
@@ -68,23 +62,11 @@ export class ChangeOpportunityStage {
       const stage = await findStage(tx, parsed.data.stageId);
       if (!stage) return err({ type: 'StageNotFound' });
 
-      const before = opportunityAuditState(opportunity);
-      const from = stagePositionOf(opportunity);
-      const moved = opportunity.moveToStage(stage.ref(), {
-        id: nextId<'OpportunityStatusChange'>(this.deps.ids),
+      const moved = await moveOpportunity(tx, opportunity, stage.ref(), actor, {
+        ids: this.deps.ids,
         now,
       });
       if (moved.isErr()) return err(moved.error);
-      if (!moved.value) return ok(undefined);
-
-      await saveOpportunity(tx, opportunity, actor, this.deps.ids, now, from);
-      await tx.audit.record(
-        auditAction(
-          actor,
-          opportunityTarget('opportunity.status_changed', opportunity),
-          diffChanges(before, opportunityAuditState(opportunity)),
-        ),
-      );
       return ok(undefined);
     });
   }

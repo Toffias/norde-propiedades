@@ -1,13 +1,4 @@
-import {
-  auditAction,
-  diffChanges,
-  err,
-  ok,
-  type Actor,
-  type Clock,
-  type ForbiddenError,
-  type Result,
-} from '../../../shared';
+import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
 import { ReassignOpportunityInputSchema, type ReassignOpportunityInput } from '../../contracts';
 import type { OpportunityClosedError } from '../../domain/opportunity';
 import {
@@ -19,8 +10,7 @@ import {
 import {
   canReassignOpportunity,
   findOpportunity,
-  opportunityAuditState,
-  opportunityTarget,
+  reassignOpportunityTo,
   type OpportunityNotFoundError,
 } from '../opportunity-support';
 import type { ClientAgents } from '../ports/client-agents';
@@ -64,20 +54,8 @@ export class ReassignOpportunity {
       if (!canReassignOpportunity(actor, opportunity.ownership)) {
         return err({ type: 'Forbidden' });
       }
-      const before = opportunityAuditState(opportunity);
-      const changed = opportunity.assignAgent(agent.value, now);
+      const changed = await reassignOpportunityTo(tx, opportunity, agent.value, actor, now);
       if (changed.isErr()) return err(changed.error);
-      if (!changed.value) return ok(undefined);
-
-      await tx.opportunities.save(opportunity, actor.id);
-      await tx.events.publish(opportunity.pullEvents());
-      await tx.audit.record(
-        auditAction(
-          actor,
-          opportunityTarget('opportunity.reassigned', opportunity),
-          diffChanges(before, opportunityAuditState(opportunity)),
-        ),
-      );
       return ok(undefined);
     });
   }

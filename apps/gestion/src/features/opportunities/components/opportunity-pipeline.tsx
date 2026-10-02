@@ -4,19 +4,24 @@ import {
   CONTACT_CHANNEL_LABELS,
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_TYPE_LABELS,
+  REFERRAL_RESULT_LABELS,
+  type OpportunityBulkFilter,
   type OpportunityPipelineRow,
+  type OpportunityReferralView,
   type OpportunityStageCount,
   type OpportunityStageRow,
 } from '@norde/core/clients/contracts';
+import { Button } from '@norde/ui/components/button';
+import { Checkbox } from '@norde/ui/components/checkbox';
 import { SoftBadge } from '@norde/ui/components/status-pill';
 import { TablePagination } from '@norde/ui/components/table-pagination';
 import { cn } from '@norde/ui/lib/utils';
 import { ChevronDownIcon, Loader2Icon, LockIcon, MessageCircleIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { EMPTY_VALUE, formatDateTime } from '../../../lib/format';
+import { EMPTY_VALUE, formatDateOnly, formatDateTime } from '../../../lib/format';
 import { clientName, formatPhone, userName, whatsappHref } from '../../clients/client-format';
 import {
   ListNavigationProvider,
@@ -25,12 +30,14 @@ import {
 
 import { ColorDot } from './catalog-pieces';
 import { OpportunityActionsMenu, type OpportunityCatalogView } from './opportunity-actions';
+import { OpportunityBulkDialog, type OpportunityBulkPermissions } from './opportunity-bulk-dialog';
 import {
   contactHref,
   daysLabel,
   OpportunitySortSelect,
   PipelineToolbar,
   type OpportunitySort,
+  type OpportunityView,
 } from './opportunity-view-controls';
 
 /** La sección abierta: las oportunidades de un estado, en una página. */
@@ -43,19 +50,53 @@ export interface OpportunitySection {
   readonly sort: OpportunitySort;
 }
 
+/** Las acciones masivas de la sección: el filtro de la pantalla y qué se puede ofrecer. */
+export interface OpportunityBulkContext {
+  readonly filter: OpportunityBulkFilter;
+  readonly permissions: OpportunityBulkPermissions;
+}
+
+/** "Derivada a Inmobiliaria Sur · 20/02/2026 · Volvió a Norde". */
+function ReferralLine({ referral }: { readonly referral: OpportunityReferralView }) {
+  const parts = [
+    referral.partnerName === undefined ? 'Sin socia cargada' : `Derivada a ${referral.partnerName}`,
+    referral.referredAt === undefined ? undefined : formatDateOnly(referral.referredAt),
+    referral.result === undefined ? undefined : REFERRAL_RESULT_LABELS[referral.result],
+  ];
+  return (
+    <p className="text-xs text-muted-foreground">
+      {parts.filter((part) => part !== undefined).join(' · ')}
+    </p>
+  );
+}
+
 function OpportunityLine({
   row,
   catalog,
   canPickAgents,
+  selection,
 }: {
   readonly row: OpportunityPipelineRow;
   readonly catalog: OpportunityCatalogView;
   readonly canPickAgents: boolean;
+  /** Con acciones masivas: si está marcada y cómo marcarla. */
+  readonly selection:
+    { readonly checked: boolean; readonly onChange: (checked: boolean) => void } | undefined;
 }) {
   const name = clientName(row.client.name);
   const phone = row.client.phone;
   return (
     <li className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:gap-4">
+      {selection !== undefined && (
+        <Checkbox
+          className="mt-0.5"
+          checked={selection.checked}
+          aria-label={`Seleccionar la oportunidad de ${name}`}
+          onCheckedChange={(checked) => {
+            selection.onChange(checked === true);
+          }}
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <Link
@@ -93,6 +134,7 @@ function OpportunityLine({
             Act. {formatDateTime(row.updatedAt)}
           </span>
         </div>
+        {row.referral !== undefined && <ReferralLine referral={row.referral} />}
         {row.lastNote !== undefined && (
           <p className="line-clamp-2 text-xs text-muted-foreground italic">“{row.lastNote}”</p>
         )}
@@ -118,7 +160,13 @@ function OpportunityLine({
             </a>
           )}
           <OpportunityActionsMenu
-            target={{ id: row.id, clientName: name, agent: row.agent, can: row.can }}
+            target={{
+              id: row.id,
+              clientName: name,
+              agent: row.agent,
+              can: row.can,
+              referral: row.referral,
+            }}
             catalog={catalog}
             canPickAgents={canPickAgents}
           />
@@ -132,17 +180,95 @@ function SectionPanel({
   section,
   catalog,
   canPickAgents,
+  bulk,
 }: {
   readonly section: OpportunitySection;
   readonly catalog: OpportunityCatalogView;
   readonly canPickAgents: boolean;
+  readonly bulk: OpportunityBulkContext | undefined;
 }) {
   const { setParams, pending } = useListNavigation();
+  // Las marcadas de esta página, o todas las del estado con los filtros.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [allMatching, setAllMatching] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const pageIds = section.rows.map((row) => row.id);
+  const pageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const count = allMatching ? section.total : selected.size;
+
+  function toggle(id: string, checked: boolean) {
+    setAllMatching(false);
+    setSelected((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function clear() {
+    setSelected(new Set());
+    setAllMatching(false);
+  }
+
   return (
     <div className={cn('border-t border-border', pending && 'opacity-60')}>
-      <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-2">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
+        {bulk === undefined || section.rows.length === 0 ? (
+          <span />
+        ) : (
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox
+              checked={pageSelected}
+              aria-label="Seleccionar las de esta página"
+              onCheckedChange={(checked) => {
+                setAllMatching(false);
+                setSelected(checked === true ? new Set(pageIds) : new Set());
+              }}
+            />
+            Página
+          </label>
+        )}
         <OpportunitySortSelect sort={section.sort} />
       </div>
+      {bulk !== undefined && count > 0 && (
+        <div
+          role="region"
+          aria-label="Selección"
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-muted/50 px-4 py-2 text-sm"
+        >
+          <span className="font-medium tabular-nums">
+            {count.toLocaleString('es-AR')} {count === 1 ? 'seleccionada' : 'seleccionadas'}
+          </span>
+          {pageSelected && !allMatching && section.total > pageIds.length && (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={() => {
+                setAllMatching(true);
+              }}
+            >
+              Seleccionar las {section.total.toLocaleString('es-AR')} de este estado
+            </Button>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={clear}>
+              Quitar selección
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setDialogOpen(true);
+              }}
+            >
+              Cambiar…
+            </Button>
+          </div>
+        </div>
+      )}
       {section.rows.length === 0 ? (
         <p className="px-4 py-3 text-sm text-muted-foreground">
           No hay oportunidades en esta página.
@@ -155,6 +281,16 @@ function SectionPanel({
               row={row}
               catalog={catalog}
               canPickAgents={canPickAgents}
+              selection={
+                bulk === undefined
+                  ? undefined
+                  : {
+                      checked: allMatching || selected.has(row.id),
+                      onChange: (checked) => {
+                        toggle(row.id, checked);
+                      },
+                    }
+              }
             />
           ))}
         </ul>
@@ -174,6 +310,24 @@ function SectionPanel({
           />
         </div>
       )}
+      {bulk !== undefined && dialogOpen && (
+        <OpportunityBulkDialog
+          selection={
+            allMatching
+              ? { kind: 'filter', filter: { ...bulk.filter, stageId: section.stageId } }
+              : { kind: 'ids', ids: [...selected] }
+          }
+          count={count}
+          catalog={catalog}
+          permissions={bulk.permissions}
+          open
+          onOpenChange={(open) => {
+            if (open) return;
+            setDialogOpen(false);
+            clear();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -184,6 +338,8 @@ function PipelineBody({
   section,
   catalog,
   canPickAgents,
+  bulk,
+  view,
   toolbar,
 }: {
   readonly stages: readonly OpportunityStageRow[];
@@ -191,6 +347,8 @@ function PipelineBody({
   readonly section: OpportunitySection | undefined;
   readonly catalog: OpportunityCatalogView;
   readonly canPickAgents: boolean;
+  readonly bulk: OpportunityBulkContext | undefined;
+  readonly view: Exclude<OpportunityView, 'board'>;
   readonly toolbar: ReactNode;
 }) {
   const { setParams, pending } = useListNavigation();
@@ -206,7 +364,7 @@ function PipelineBody({
 
   return (
     <div className="flex flex-col">
-      <PipelineToolbar view="list">{toolbar}</PipelineToolbar>
+      <PipelineToolbar view={view}>{toolbar}</PipelineToolbar>
       <nav aria-label="Oportunidades por estado" className="border-b border-border px-3 py-3">
         <ul className="flex flex-wrap gap-2">
           {shown.map((stage) => {
@@ -279,7 +437,14 @@ function PipelineBody({
                   </span>
                 </button>
                 {expanded && (
-                  <SectionPanel section={section} catalog={catalog} canPickAgents={canPickAgents} />
+                  <SectionPanel
+                    // Otra página, otro orden u otros filtros: la selección arranca vacía.
+                    key={`${section.stageId}:${String(section.page)}:${String(section.pageSize)}:${section.sort.field}:${section.sort.direction}:${JSON.stringify(bulk?.filter ?? {})}`}
+                    section={section}
+                    catalog={catalog}
+                    canPickAgents={canPickAgents}
+                    bulk={bulk}
+                  />
                 )}
               </li>
             );
@@ -300,6 +465,9 @@ export function OpportunityPipeline(props: {
   readonly section: OpportunitySection | undefined;
   readonly catalog: OpportunityCatalogView;
   readonly canPickAgents: boolean;
+  /** Sin permiso para ninguna acción masiva, no hay selección. */
+  readonly bulk: OpportunityBulkContext | undefined;
+  readonly view: Exclude<OpportunityView, 'board'>;
   readonly toolbar: ReactNode;
 }) {
   return (

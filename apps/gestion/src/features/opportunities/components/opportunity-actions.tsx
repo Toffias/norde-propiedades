@@ -2,6 +2,11 @@
 
 import {
   CLOSE_REASON_RATING_LABELS,
+  MAX_PARTNER_NAME_LENGTH,
+  REFERRAL_RESULT_LABELS,
+  REFERRAL_RESULT_VALUES,
+  type OpportunityReferralView,
+  type ReferralResultValue,
   type ClientUserRef,
   type CloseReasonRow,
   type OpportunityActions,
@@ -24,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@norde/ui/components/dropdown-menu';
+import { Input } from '@norde/ui/components/input';
 import { Label } from '@norde/ui/components/label';
 import {
   Select,
@@ -36,6 +42,7 @@ import { toast } from '@norde/ui/components/sonner';
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
+  HandshakeIcon,
   Loader2Icon,
   MoreHorizontalIcon,
   UserCogIcon,
@@ -51,6 +58,7 @@ import {
   changeOpportunityStageAction,
   closeOpportunityAction,
   reassignOpportunityAction,
+  updateOpportunityReferralAction,
 } from '../pipeline-actions';
 
 import { ColorDot } from './catalog-pieces';
@@ -68,6 +76,128 @@ export interface OpportunityActionTarget {
   readonly clientName: string;
   readonly agent: ClientUserRef | undefined;
   readonly can: OpportunityActions;
+  /** Está en "Aplica a otra inmobiliaria": se cargan los datos de la derivación. */
+  readonly referral?: OpportunityReferralView | undefined;
+}
+
+const NO_RESULT = 'none';
+
+function ReferralDialog({
+  target,
+  referral,
+  open,
+  onOpenChange,
+}: {
+  readonly target: OpportunityActionTarget;
+  readonly referral: OpportunityReferralView;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+}) {
+  const id = useId();
+  const [partnerName, setPartnerName] = useState(referral.partnerName ?? '');
+  const [referredAt, setReferredAt] = useState(referral.referredAt ?? '');
+  const [result, setResult] = useState<ReferralResultValue | undefined>(referral.result);
+  const [error, setError] = useState<string | undefined>();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setError(undefined);
+            startTransition(async () => {
+              const message = await runAction(() =>
+                updateOpportunityReferralAction({
+                  opportunityId: target.id,
+                  partnerName: partnerName.trim() === '' ? null : partnerName,
+                  referredAt: referredAt === '' ? null : referredAt,
+                  result: result ?? null,
+                }),
+              );
+              if (message !== undefined) {
+                setError(message);
+                return;
+              }
+              toast.success('Derivación guardada');
+              onOpenChange(false);
+            });
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Derivación a otra inmobiliaria</DialogTitle>
+            <DialogDescription>
+              A qué inmobiliaria socia se derivó la oportunidad de {target.clientName}, cuándo y
+              cómo terminó.
+            </DialogDescription>
+          </DialogHeader>
+          <FormAlert message={error} />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${id}-partner`}>Inmobiliaria socia</Label>
+            <Input
+              id={`${id}-partner`}
+              value={partnerName}
+              maxLength={MAX_PARTNER_NAME_LENGTH}
+              onChange={(event) => {
+                setPartnerName(event.target.value);
+              }}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-date`}>Fecha</Label>
+              <Input
+                id={`${id}-date`}
+                type="date"
+                value={referredAt}
+                onChange={(event) => {
+                  setReferredAt(event.target.value);
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-result`}>Resultado</Label>
+              <Select
+                value={result ?? NO_RESULT}
+                onValueChange={(next) => {
+                  setResult(REFERRAL_RESULT_VALUES.find((value) => value === next));
+                }}
+              >
+                <SelectTrigger id={`${id}-result`} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_RESULT}>Sin resultado todavía</SelectItem>
+                  {REFERRAL_RESULT_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {REFERRAL_RESULT_LABELS[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onOpenChange(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 /**
@@ -113,7 +243,7 @@ export function CloseDialog({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${id}-reason`}>Motivo</Label>
           <Select value={reasonId ?? ''} onValueChange={setReasonId}>
-            <SelectTrigger id={`${id}-reason`}>
+            <SelectTrigger id={`${id}-reason`} className="w-full">
               <SelectValue placeholder="Elegí un motivo" />
             </SelectTrigger>
             <SelectContent>
@@ -263,12 +393,13 @@ export function OpportunityActionsMenu({
   /** `icon` en una fila; `button` en la ficha del contacto. */
   readonly variant?: 'icon' | 'button';
 }) {
-  const [dialog, setDialog] = useState<'close' | 'reassign' | undefined>();
+  const [dialog, setDialog] = useState<'close' | 'reassign' | 'referral' | undefined>();
   const [pending, startTransition] = useTransition();
   const stages = catalog.stages.filter((stage) => target.can.moveTo.includes(stage.id));
   const canClose = target.can.closeWith.length > 0;
   const canReassign = target.can.reassign && canPickAgents;
-  if (stages.length === 0 && !canClose && !canReassign) return null;
+  const referral = target.can.update ? target.referral : undefined;
+  if (stages.length === 0 && !canClose && !canReassign && referral === undefined) return null;
 
   function moveTo(stage: OpportunityStageRow) {
     startTransition(async () => {
@@ -319,7 +450,19 @@ export function OpportunityActionsMenu({
               <span className="truncate">{stage.name}</span>
             </DropdownMenuItem>
           ))}
-          {stages.length > 0 && (canClose || canReassign) && <DropdownMenuSeparator />}
+          {stages.length > 0 && (canClose || canReassign || referral !== undefined) && (
+            <DropdownMenuSeparator />
+          )}
+          {referral !== undefined && (
+            <DropdownMenuItem
+              onSelect={() => {
+                setDialog('referral');
+              }}
+            >
+              <HandshakeIcon className="h-4 w-4" />
+              Derivación…
+            </DropdownMenuItem>
+          )}
           {canClose && (
             <DropdownMenuItem
               onSelect={() => {
@@ -346,6 +489,16 @@ export function OpportunityActionsMenu({
         <CloseDialog
           target={target}
           catalog={catalog}
+          open
+          onOpenChange={(open) => {
+            if (!open) setDialog(undefined);
+          }}
+        />
+      )}
+      {dialog === 'referral' && referral !== undefined && (
+        <ReferralDialog
+          target={target}
+          referral={referral}
           open
           onOpenChange={(open) => {
             if (!open) setDialog(undefined);

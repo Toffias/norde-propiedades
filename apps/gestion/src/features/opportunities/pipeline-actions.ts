@@ -1,7 +1,15 @@
 'use server';
 
 import {
+  BulkUpdateOpportunitiesInputSchema,
   ChangeOpportunityStageInputSchema,
+  GetOpportunityBulkOperationInputSchema,
+  UpdateOpportunityReferralInputSchema,
+  type BulkUpdateOpportunitiesInput,
+  type BulkUpdateOpportunitiesOutput,
+  type GetOpportunityBulkOperationInput,
+  type OpportunityBulkOperationView,
+  type UpdateOpportunityReferralInput,
   CloseOpportunityInputSchema,
   ListOpportunitiesQuerySchema,
   ListOpportunityHistoryQuerySchema,
@@ -23,7 +31,10 @@ import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
 
 import {
+  BULK_UPDATE_ERROR_MESSAGES,
   CHANGE_STAGE_ERROR_MESSAGES,
+  GET_BULK_OPERATION_ERROR_MESSAGES,
+  UPDATE_REFERRAL_ERROR_MESSAGES,
   CLOSE_OPPORTUNITY_ERROR_MESSAGES,
   LIST_OPPORTUNITIES_ERROR_MESSAGES,
   LIST_OPPORTUNITY_HISTORY_ERROR_MESSAGES,
@@ -112,6 +123,56 @@ export async function reassignOpportunityAction(
   const result = await getContainer().clients.reassignOpportunity.execute(parsed.data, actor);
   if (result.isErr()) {
     return actionFailed(messageForError(result.error, REASSIGN_OPPORTUNITY_ERROR_MESSAGES));
+  }
+  revalidatePanel();
+  return ACTION_OK;
+}
+
+type Failure = Extract<ActionResult, { readonly ok: false }>;
+
+/** Cambio masivo: en el request (devuelve el resultado) o encolado (devuelve su ID para seguirlo). */
+export async function bulkUpdateOpportunitiesAction(
+  input: BulkUpdateOpportunitiesInput,
+): Promise<{ readonly ok: true; readonly value: BulkUpdateOpportunitiesOutput } | Failure> {
+  const { actor } = await requireSession();
+  const parsed = BulkUpdateOpportunitiesInputSchema.safeParse(input);
+  if (!parsed.success) return pageFailed(BULK_UPDATE_ERROR_MESSAGES.InvalidInput);
+
+  const result = await getContainer().clients.bulkUpdateOpportunities.execute(parsed.data, actor);
+  if (result.isErr()) return pageFailed(messageForError(result.error, BULK_UPDATE_ERROR_MESSAGES));
+  if (result.value.mode === 'done') revalidatePanel();
+  return { ok: true, value: result.value };
+}
+
+/** Cómo va un cambio masivo encolado (la pantalla lo consulta hasta que termina). */
+export async function getOpportunityBulkOperationAction(
+  input: GetOpportunityBulkOperationInput,
+): Promise<{ readonly ok: true; readonly value: OpportunityBulkOperationView } | Failure> {
+  const { actor } = await requireSession();
+  const parsed = GetOpportunityBulkOperationInputSchema.safeParse(input);
+  if (!parsed.success) return pageFailed(GET_BULK_OPERATION_ERROR_MESSAGES.InvalidInput);
+
+  const result = await getContainer().clients.getOpportunityBulkOperation.execute(
+    parsed.data,
+    actor,
+  );
+  if (result.isErr()) {
+    return pageFailed(messageForError(result.error, GET_BULK_OPERATION_ERROR_MESSAGES));
+  }
+  if (result.value.status === 'done') revalidatePanel();
+  return { ok: true, value: result.value };
+}
+
+export async function updateOpportunityReferralAction(
+  input: UpdateOpportunityReferralInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = UpdateOpportunityReferralInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(UPDATE_REFERRAL_ERROR_MESSAGES.InvalidInput);
+
+  const result = await getContainer().clients.updateOpportunityReferral.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, UPDATE_REFERRAL_ERROR_MESSAGES));
   }
   revalidatePanel();
   return ACTION_OK;

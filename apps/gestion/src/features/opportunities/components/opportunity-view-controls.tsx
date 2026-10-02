@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@norde/ui/components/select';
 import { cn } from '@norde/ui/lib/utils';
-import { SquareKanbanIcon, ListIcon } from 'lucide-react';
+import { HandshakeIcon, ListIcon, SquareKanbanIcon } from 'lucide-react';
 import type { Route } from 'next';
 import type { ReactNode } from 'react';
 
@@ -74,22 +74,28 @@ export function OpportunitySortSelect({
   );
 }
 
-export type OpportunityView = 'list' | 'board';
+/** Lista, tablero, o la lista de las derivadas a socias (un filtro por categoría). */
+export type OpportunityView = 'list' | 'board' | 'referred';
 
-/** Lista o tablero (`?vista=tablero`). Los filtros y el orden se mantienen. */
+const VIEW_OPTIONS = [
+  { value: 'list', label: 'Lista', icon: ListIcon },
+  { value: 'board', label: 'Tablero', icon: SquareKanbanIcon },
+  { value: 'referred', label: 'Derivadas', icon: HandshakeIcon },
+] as const;
+
+/**
+ * Lista, tablero (`?vista=tablero`) o derivadas a socias (la lista con la categoría "Aplica a otra
+ * inmobiliaria"). Los demás filtros y el orden se mantienen.
+ */
 export function OpportunityViewToggle({ view }: { readonly view: OpportunityView }) {
   const { setParams, pending } = useListNavigation();
-  const options = [
-    { value: 'list', label: 'Lista', icon: ListIcon },
-    { value: 'board', label: 'Tablero', icon: SquareKanbanIcon },
-  ] as const;
   return (
     <div
       role="group"
       aria-label="Vista"
       className="inline-flex h-8 shrink-0 items-center rounded-md border border-border bg-card p-0.5"
     >
-      {options.map(({ value, label, icon: Icon }) => {
+      {VIEW_OPTIONS.map(({ value, label, icon: Icon }) => {
         const active = value === view;
         return (
           <button
@@ -105,9 +111,15 @@ export function OpportunityViewToggle({ view }: { readonly view: OpportunityView
             )}
             onClick={() => {
               if (active) return;
-              // El tablero no tiene sección abierta ni páginas: cada columna pagina sola.
+              // Cada vista arranca sin sección abierta ni páginas (en el tablero, cada columna
+              // pagina sola). Salir de "Derivadas" quita su categoría.
               setParams({
                 vista: value === 'board' ? 'tablero' : undefined,
+                ...(value === 'referred'
+                  ? { category: 'referred_to_partner' }
+                  : view === 'referred'
+                    ? { category: undefined }
+                    : {}),
                 stageId: undefined,
                 page: undefined,
                 pageSize: undefined,
@@ -115,7 +127,7 @@ export function OpportunityViewToggle({ view }: { readonly view: OpportunityView
             }}
           >
             <Icon className="h-4 w-4" />
-            {label}
+            <span className={cn(value !== view && 'hidden sm:inline')}>{label}</span>
           </button>
         );
       })}

@@ -1,7 +1,9 @@
 import type {
+  ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
   RecordClientActivity,
   RunClientImport,
+  RunOpportunityBulkOperation,
 } from '@norde/core/clients';
 import type { EraseClientConversations } from '@norde/core/conversations';
 import type { RemoveErasedClientFavorites } from '@norde/core/identity';
@@ -45,6 +47,65 @@ const MediaDeletedPayloadSchema = z.object({ storageKeys: z.array(z.string()).ma
 const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
 const ImportPayloadSchema = z.object({ importId: z.uuid() });
 const ErasedPayloadSchema = z.object({ erasedClientIds: z.array(z.uuid()).min(1) });
+const RulePayloadSchema = z.object({
+  opportunityId: z.string(),
+  // Solo en las reasignaciones; sin agente, la dejó sin nadie a cargo.
+  toAgentId: z.string().nullish(),
+});
+const BulkPayloadSchema = z.object({ operationId: z.uuid() });
+
+/** Las reglas automáticas de estado y las acciones masivas encoladas (#9). */
+export interface OpportunityJobs {
+  readonly applyRules: Pick<ApplyOpportunityRules, 'execute'>;
+  readonly runBulk: Pick<RunOpportunityBulkOperation, 'execute'>;
+}
+
+function opportunitySubscriptions(
+  jobs: OpportunityJobs,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription[] {
+  const skipped = (event: DeliveredEvent, error: unknown) => {
+    logger.error({ eventId: event.id, type: event.type, error }, 'Opportunity job skipped');
+  };
+  const rule = (
+    eventType:
+      | 'clients.opportunity_reassigned'
+      | 'clients.opportunity_request_added'
+      | 'clients.opportunity_created',
+  ): EventSubscription => ({
+    eventType,
+    name: 'apply-rules',
+    handle: async (event) => {
+      const payload = RulePayloadSchema.parse(event.payload);
+      const trigger =
+        eventType === 'clients.opportunity_reassigned'
+          ? { kind: 'assigned' as const, toAgentId: payload.toAgentId ?? undefined }
+          : eventType === 'clients.opportunity_request_added'
+            ? { kind: 'request_added' as const }
+            : { kind: 'created' as const };
+      const result = await jobs.applyRules.execute(
+        { eventId: event.id, opportunityId: payload.opportunityId, trigger },
+        actor,
+      );
+      if (result.isErr()) skipped(event, result.error);
+    },
+  });
+  return [
+    rule('clients.opportunity_reassigned'),
+    rule('clients.opportunity_request_added'),
+    rule('clients.opportunity_created'),
+    {
+      eventType: 'clients.opportunity_bulk_requested',
+      name: 'run-bulk',
+      handle: async (event) => {
+        const { operationId } = BulkPayloadSchema.parse(event.payload);
+        const result = await jobs.runBulk.execute({ operationId }, actor);
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+  ];
+}
 
 /**
  * Cada módulo que guarda el ID de un cliente borra o desvincula lo suyo cuando se suprimen sus
@@ -181,6 +242,7 @@ export function eventSubscriptions(deps: {
   readonly properties: PropertyJobs;
   readonly erasure: ErasureJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
+  readonly opportunities: OpportunityJobs;
   readonly actor: Actor;
   /** El de las importaciones: los contactos quedan creados por `system:import`. */
   readonly importActor: Actor;
@@ -209,6 +271,7 @@ export function eventSubscriptions(deps: {
     ...propertySubscriptions(deps.properties, deps.actor, deps.logger),
     ...activitySubscriptions(deps.recordActivity, deps.actor, deps.logger),
     ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),
+    ...opportunitySubscriptions(deps.opportunities, deps.actor, deps.logger),
     {
       eventType: 'clients.import_requested',
       name: 'run-import',

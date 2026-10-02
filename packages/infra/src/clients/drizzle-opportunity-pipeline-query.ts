@@ -2,6 +2,7 @@ import {
   CLIENT_KINDS,
   CLIENT_TYPES,
   OPPORTUNITY_STATUSES,
+  type OpportunityBulkCriteria,
   type OpportunityFilterCriteria,
   type OpportunityListCriteria,
   type OpportunityPipelineItem,
@@ -17,6 +18,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   isNotNull,
@@ -67,6 +69,9 @@ const rowColumns = {
   agentId: opportunities.agentId,
   branchId: opportunities.branchId,
   statusChangedAt: opportunities.statusChangedAt,
+  partnerName: opportunities.partnerName,
+  referredAt: opportunities.referredAt,
+  referralResult: opportunities.referralResult,
   createdAt: opportunities.createdAt,
   updatedAt: opportunities.updatedAt,
 };
@@ -143,6 +148,11 @@ export class DrizzleOpportunityPipelineQuery implements OpportunityPipelineQuery
           branchId: undefinedIfNull(row.branchId),
           statusChangedAt: row.statusChangedAt ?? row.createdAt,
           lastNote: notes.get(row.clientId),
+          referral: {
+            partnerName: undefinedIfNull(row.partnerName),
+            referredAt: undefinedIfNull(row.referredAt),
+            result: undefinedIfNull(row.referralResult),
+          },
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
         };
@@ -161,6 +171,37 @@ export class DrizzleOpportunityPipelineQuery implements OpportunityPipelineQuery
     return rows.flatMap((row) =>
       row.stageId === null ? [] : [{ stageId: row.stageId, count: row.total }],
     );
+  }
+
+  async count(criteria: OpportunityBulkCriteria): Promise<number> {
+    return this.countWhere(and(...this.bulkFilters(criteria)));
+  }
+
+  async matchingIds(
+    criteria: OpportunityBulkCriteria,
+    page: { readonly afterId: string | undefined; readonly limit: number },
+  ): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: opportunities.id })
+      .from(opportunities)
+      .innerJoin(clients, eq(clients.id, opportunities.clientId))
+      .where(
+        and(
+          ...this.bulkFilters(criteria),
+          page.afterId === undefined ? undefined : gt(opportunities.id, page.afterId),
+        ),
+      )
+      .orderBy(asc(opportunities.id))
+      .limit(page.limit);
+    return rows.map((row) => row.id);
+  }
+
+  /** Los filtros de una acción masiva: los del pipeline, y el estado si es de una sección. */
+  private bulkFilters(c: OpportunityBulkCriteria): (SQL | undefined)[] {
+    return [
+      c.stageId === undefined ? undefined : eq(opportunities.stageId, c.stageId),
+      ...this.filters(c),
+    ];
   }
 
   async countAssigned(

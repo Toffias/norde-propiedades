@@ -283,7 +283,13 @@ function BoardCard({
               )}
             </div>
             <OpportunityActionsMenu
-              target={{ id: row.id, clientName: name, agent: row.agent, can: row.can }}
+              target={{
+                id: row.id,
+                clientName: name,
+                agent: row.agent,
+                can: row.can,
+                referral: row.referral,
+              }}
               catalog={catalog}
               canPickAgents={canPickAgents}
             />

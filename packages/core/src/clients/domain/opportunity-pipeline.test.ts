@@ -9,7 +9,19 @@ import {
   MAX_CLOSE_REASONS,
   OpportunityCloseReason,
 } from './opportunity-close-reason';
-import { checkRules, initialStage, isStageUsedByRules, NO_RULES } from './opportunity-settings';
+import {
+  automaticRuleFor,
+  checkRules,
+  initialStage,
+  isStageUsedByRules,
+  NO_RULES,
+} from './opportunity-settings';
+import {
+  checkBulkSize,
+  MAX_BULK_SKIPPED_DETAIL,
+  OpportunityBulkOperation,
+  runsAsJob,
+} from './opportunity-bulk-operation';
 import {
   applyOrder,
   firstActiveStageOf,
@@ -432,5 +444,92 @@ describe('reachableStages and usableCloseReasons', () => {
     ]);
     expect(usableCloseReasons('negotiating', [positive], [stages.lost.ref()])).toEqual([]);
     expect(usableCloseReasons('lost', [negative], refs)).toEqual([]);
+  });
+});
+
+describe('automatic rules', () => {
+  it('picks the rule each event triggers on an open opportunity', () => {
+    expect(automaticRuleFor({ kind: 'assigned', toAgentId: 'a' }, 'new')).toBe('onAssign');
+    expect(automaticRuleFor({ kind: 'assigned', toAgentId: undefined }, 'new')).toBeUndefined();
+    expect(automaticRuleFor({ kind: 'request_added' }, 'referred_to_partner')).toBe('onReactivate');
+    expect(automaticRuleFor({ kind: 'request_added' }, 'contacted')).toBeUndefined();
+    expect(automaticRuleFor({ kind: 'created', ownerClient: true }, 'new')).toBe('forOwners');
+    expect(automaticRuleFor({ kind: 'created', ownerClient: false }, 'new')).toBeUndefined();
+    expect(automaticRuleFor({ kind: 'assigned', toAgentId: 'a' }, 'won')).toBeUndefined();
+  });
+
+  it('keeps the event that moved it in the status history', () => {
+    const opportunity = openAt(aStage('new'));
+    opportunity.pullStatusChanges();
+    opportunity.moveToStage(aStage('contacted').ref(), { ...change(T1), sourceEventId: 'evt-1' });
+
+    expect(opportunity.pullStatusChanges()).toMatchObject([{ sourceEventId: 'evt-1' }]);
+  });
+});
+
+describe('Opportunity referral', () => {
+  it('is recorded only while referred to a partner, trimmed, and reports changes', () => {
+    const referred = openAt(aStage('referred_to_partner'));
+    const data = { partnerName: '  Sur  ', referredAt: T1, result: 'no_options' as const };
+
+    expect(referred.updateReferral(data, T2).isOk() && referred.referral).toEqual({
+      partnerName: 'Sur',
+      referredAt: T1,
+      result: 'no_options',
+    });
+    const again = referred.updateReferral(data, T2);
+    expect(again.isOk() && again.value).toBe(false);
+    const cleared = referred.updateReferral({ ...data, partnerName: '   ' }, T2);
+    expect(cleared.isOk() && referred.referral.partnerName).toBeUndefined();
+
+    const open = openAt(aStage('new'));
+    expect(open.updateReferral(data, T2).isErr()).toBe(true);
+  });
+});
+
+describe('OpportunityBulkOperation', () => {
+  const request = (total: number) =>
+    OpportunityBulkOperation.request({
+      id: id<'OpportunityBulkOperation'>(300),
+      action: { kind: 'change_stage', stageId: 'stage' },
+      selection: { kind: 'filter', filter: { category: 'new' } },
+      total,
+      requestedBy: 'user-1',
+      now: T0,
+    });
+
+  it('runs in the request up to 100 and allows up to 2000', () => {
+    expect(runsAsJob(100)).toBe(false);
+    expect(runsAsJob(101)).toBe(true);
+    expect(checkBulkSize(2000).isOk()).toBe(true);
+    expect(checkBulkSize(2001).isErr()).toBe(true);
+    expect(request(2001).isErr()).toBe(true);
+  });
+
+  it('is requested pending, adds batches with their cursor and finishes', () => {
+    const created = request(150);
+    if (created.isErr()) throw new Error('unexpected');
+    const operation = created.value;
+    expect(operation.pullEvents().map((e) => e.type)).toEqual([
+      'clients.opportunity_bulk_requested',
+    ]);
+
+    expect(operation.start(T1).isOk()).toBe(true);
+    const skipped = Array.from({ length: 30 }, (_, i) => ({
+      opportunityId: `o-${String(i)}`,
+      reason: 'forbidden' as const,
+    }));
+    operation.recordBatch(
+      { processed: 100, updated: 60, unchanged: 10, skipped, lastId: 'o-100' },
+      T1,
+    );
+    expect(operation.remaining).toBe(50);
+    expect(operation.cursor).toBe('o-100');
+    expect(operation.totals.skippedCount).toBe(30);
+    expect(operation.totals.skipped).toHaveLength(MAX_BULK_SKIPPED_DETAIL);
+
+    operation.finish(T2);
+    expect(operation.isFinished).toBe(true);
+    expect(operation.start(T2).isErr()).toBe(true);
   });
 });

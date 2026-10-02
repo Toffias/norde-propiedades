@@ -12,7 +12,7 @@ import {
   noteActivity,
 } from './client-activity';
 import { FeaturedListing, propertiesToFeature } from './featured-listing';
-import type { OpportunityId, OpportunitySnapshot } from './opportunity';
+import { NO_REFERRAL, type OpportunityId, type OpportunitySnapshot } from './opportunity';
 
 function id<T extends string>(raw: string) {
   const parsed = parseId<T>(raw);
@@ -39,6 +39,7 @@ function anOpportunity(overrides: Partial<OpportunitySnapshot> = {}): Opportunit
     statusChangedAt: NOW,
     closedAt: undefined,
     closeReasonId: undefined,
+    referral: NO_REFERRAL,
     propertyId: PROPERTY,
     search: undefined,
     notes: [

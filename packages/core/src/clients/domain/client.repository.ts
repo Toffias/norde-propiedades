@@ -5,6 +5,10 @@ import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from '.
 import type { ContactKeys } from './duplicate-check';
 import type { FeaturedListing } from './featured-listing';
 import type { Opportunity, OpportunityId } from './opportunity';
+import type {
+  OpportunityBulkOperation,
+  OpportunityBulkOperationId,
+} from './opportunity-bulk-operation';
 import type { OpportunityCloseReason, OpportunityCloseReasonId } from './opportunity-close-reason';
 import type { OpportunityRules } from './opportunity-settings';
 import type { OpportunityStage, OpportunityStageId } from './opportunity-stage';
@@ -38,6 +42,15 @@ export interface OpportunityRepository {
    * autor de la fila y de esos cambios.
    */
   save(opportunity: Opportunity, actorId: string): Promise<void>;
+  /** Si una regla automática ya aplicó un cambio de estado por este evento. */
+  hasStatusChangeFrom(sourceEventId: string): Promise<boolean>;
+}
+
+/** Las acciones masivas encoladas (`opportunity_bulk_operations`). */
+export interface OpportunityBulkOperationRepository {
+  findById(id: OpportunityBulkOperationId): Promise<OpportunityBulkOperation | undefined>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(operation: OpportunityBulkOperation, actorId: string): Promise<void>;
 }
 
 /** Catálogo de estados editables: como mucho `MAX_OPPORTUNITY_STAGES`. */

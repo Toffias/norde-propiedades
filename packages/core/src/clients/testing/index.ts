@@ -53,6 +53,7 @@ import type {
 } from '../application/ports/clients-transaction';
 import type { ClientActiveOpportunityItem } from '../application/ports/client-record-query';
 import type {
+  OpportunityBulkCriteria,
   OpportunityFilterCriteria,
   OpportunityListCriteria,
   OpportunityPipelineItem,
@@ -60,6 +61,11 @@ import type {
 } from '../application/ports/opportunity-pipeline-query';
 import type { OpportunityNotification, TeamNotifier } from '../application/ports/team-notifier';
 import { Client, type ClientId } from '../domain/client';
+import {
+  OpportunityBulkOperation,
+  type OpportunityBulkOperationId,
+  type OpportunityBulkOperationSnapshot,
+} from '../domain/opportunity-bulk-operation';
 import type { ClientActivity } from '../domain/client-activity';
 import type { ErasureRecord } from '../domain/client-erasure';
 import {
@@ -78,6 +84,7 @@ import {
   type ClientTagRepository,
   type FeaturedListingRepository,
   type OpportunityCloseReasonRepository,
+  type OpportunityBulkOperationRepository,
   type OpportunityRepository,
   type OpportunitySettingsRepository,
   type OpportunityStageRepository,
@@ -165,6 +172,24 @@ export class InMemoryOpportunityRepository implements OpportunityRepository {
     for (const change of opportunity.pullStatusChanges()) {
       this.statusChanges.push({ ...change, changedBy: actorId });
     }
+    return Promise.resolve();
+  }
+
+  hasStatusChangeFrom(sourceEventId: string) {
+    return Promise.resolve(this.statusChanges.some((c) => c.sourceEventId === sourceEventId));
+  }
+}
+
+export class InMemoryOpportunityBulkOperationRepository implements OpportunityBulkOperationRepository {
+  readonly rows = new Map<string, OpportunityBulkOperationSnapshot>();
+
+  findById(id: OpportunityBulkOperationId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && OpportunityBulkOperation.restore(row));
+  }
+
+  save(operation: OpportunityBulkOperation) {
+    this.rows.set(operation.id, operation.toSnapshot());
     return Promise.resolve();
   }
 }
@@ -544,6 +569,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly audit = new InMemoryAuditLog();
   readonly erasure = new InMemoryClientErasure(this.clients, this.activities, this.audit);
   readonly imports = new InMemoryClientImportRepository();
+  readonly bulkOperations = new InMemoryOpportunityBulkOperationRepository();
 
   async run<T>(work: (tx: ClientsTransaction) => Promise<T>): Promise<T> {
     const backup = {
@@ -559,6 +585,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       activities: new Map(this.activities.rows),
       featured: new Map(this.featured.rows),
       imports: new Map(this.imports.rows),
+      bulkOperations: new Map(this.bulkOperations.rows),
       problems: this.imports.problems.length,
       events: this.events.published.length,
       audit: this.audit.entries.length,
@@ -580,6 +607,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.activities.rows, backup.activities);
       restore(this.featured.rows, backup.featured);
       restore(this.imports.rows, backup.imports);
+      restore(this.bulkOperations.rows, backup.bulkOperations);
       this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
@@ -1084,6 +1112,7 @@ export function aPipelineItem(
     branchId: BRANCH_ID,
     statusChangedAt: new Date('2026-02-25T10:00:00Z'),
     lastNote: undefined,
+    referral: { partnerName: undefined, referredAt: undefined, result: undefined },
     createdAt: new Date('2026-02-01T10:00:00Z'),
     updatedAt: new Date('2026-02-25T10:00:00Z'),
     ...overrides,
@@ -1116,5 +1145,24 @@ export class StubOpportunityPipelineQuery implements OpportunityPipelineQuery {
   countAssigned(agentId: string, categories: readonly OpportunityStatus[]) {
     this.assigned.push({ agentId, categories });
     return Promise.resolve(this.pending);
+  }
+
+  /** Los IDs que "cumplen" la selección de una acción masiva (los carga el test). */
+  matching: readonly string[] = [];
+  readonly bulkCriteria: OpportunityBulkCriteria[] = [];
+
+  count(criteria: OpportunityBulkCriteria) {
+    this.bulkCriteria.push(criteria);
+    return Promise.resolve(this.matching.length);
+  }
+
+  matchingIds(
+    _criteria: OpportunityBulkCriteria,
+    page: { readonly afterId: string | undefined; readonly limit: number },
+  ) {
+    const { afterId } = page;
+    const sorted = [...this.matching].sort();
+    const from = afterId === undefined ? sorted : sorted.filter((id) => id > afterId);
+    return Promise.resolve(from.slice(0, page.limit));
   }
 }

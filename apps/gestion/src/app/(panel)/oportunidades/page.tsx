@@ -145,6 +145,15 @@ export default async function OpportunitiesPage({
           (row) => row.agent?.id === filter.agentId,
         )?.agent?.name;
   const canPickAgents = actor.can('users:read');
+  // Qué acciones masivas ofrecer: el caso de uso vuelve a chequear cada oportunidad.
+  const bulkPermissions = {
+    update: actor.can('opportunities:update') || actor.can('opportunities:update-others'),
+    reassign: actor.can('opportunities:reassign') && canPickAgents,
+  };
+  const bulk =
+    bulkPermissions.update || bulkPermissions.reassign
+      ? { filter, permissions: bulkPermissions }
+      : undefined;
   const toolbar = (
     <OpportunityFilters
       filters={filters}
@@ -185,6 +194,8 @@ export default async function OpportunitiesPage({
           />
         ) : (
           <OpportunityPipeline
+            view={filter.category === 'referred_to_partner' ? 'referred' : 'list'}
+            bulk={bulk}
             stages={stages}
             counts={counts.value}
             section={section}

@@ -57,4 +57,5 @@ export * from './clients-erasure';
 export * from './clients-import';
 export * from './opportunity-settings';
 export * from './opportunity-pipeline';
+export * from './opportunity-bulk';
 export * from './contact-channels';

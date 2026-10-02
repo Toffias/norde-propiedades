@@ -57,12 +57,36 @@ export interface OpportunityStatusChange {
   readonly toStageId: OpportunityStageId;
   readonly toStatus: OpportunityStatus;
   readonly changedAt: Date;
+  /** El evento que lo disparó, si fue una regla automática: no se aplica dos veces. */
+  readonly sourceEventId: string | undefined;
 }
 
 /** Agente responsable y su sucursal (IDs del módulo identity). */
 export interface OpportunityAgent {
   readonly agentId: string | undefined;
   readonly branchId: string | undefined;
+}
+
+/** Qué pasó con una oportunidad derivada a una inmobiliaria socia. */
+export const REFERRAL_RESULTS = ['referred', 'no_options', 'returned'] as const;
+export type ReferralResult = (typeof REFERRAL_RESULTS)[number];
+
+/** La derivación a una socia: a quién, cuándo y cómo terminó. */
+export interface OpportunityReferral {
+  readonly partnerName: string | undefined;
+  readonly referredAt: Date | undefined;
+  readonly result: ReferralResult | undefined;
+}
+
+export const NO_REFERRAL: OpportunityReferral = {
+  partnerName: undefined,
+  referredAt: undefined,
+  result: undefined,
+};
+
+/** Los datos de la derivación solo se cargan mientras está en "Aplica a otra inmobiliaria". */
+export interface OpportunityNotReferredError {
+  readonly type: 'OpportunityNotReferred';
 }
 
 export interface OpportunityClosedError {
@@ -115,6 +139,7 @@ export interface OpportunitySnapshot {
   readonly statusChangedAt: Date;
   readonly closedAt: Date | undefined;
   readonly closeReasonId: OpportunityCloseReasonId | undefined;
+  readonly referral: OpportunityReferral;
   readonly propertyId: string | undefined;
   readonly search: OpportunitySearch | undefined;
   readonly notes: readonly OpportunityNote[];
@@ -131,6 +156,13 @@ function note(text: string | undefined, now: Date): OpportunityNote[] {
 
 function strongestIntent(a: OpportunityIntent, b: OpportunityIntent): OpportunityIntent {
   return OPPORTUNITY_INTENTS.indexOf(a) >= OPPORTUNITY_INTENTS.indexOf(b) ? a : b;
+}
+
+/** Un cambio de estado: su ID en el historial, cuándo y, si lo disparó una regla, qué evento. */
+export interface StageChange {
+  readonly id: OpportunityStatusChangeId;
+  readonly now: Date;
+  readonly sourceEventId?: string | undefined;
 }
 
 /** Cada consulta o interés concreto de un cliente. Un cliente puede tener varias. */
@@ -171,6 +203,7 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
       statusChangedAt: input.now,
       closedAt: undefined,
       closeReasonId: undefined,
+      referral: NO_REFERRAL,
       propertyId: input.propertyId,
       search: input.search,
       notes: note(input.note, input.now),
@@ -184,6 +217,7 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
       toStageId: input.stage.id,
       toStatus: input.stage.category,
       changedAt: input.now,
+      sourceEventId: undefined,
     });
     opportunity.record({
       type: 'clients.opportunity_created',
@@ -221,6 +255,10 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
 
   get propertyId(): string | undefined {
     return this.#state.propertyId;
+  }
+
+  get referral(): OpportunityReferral {
+    return this.#state.referral;
   }
 
   /** Para las reglas de pertenencia de identity. */
@@ -274,10 +312,7 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
    * categorías, solo por las transiciones del dominio. A ganada o perdida se llega con `close`.
    * Devuelve si cambió.
    */
-  moveToStage(
-    stage: StageRef,
-    change: { readonly id: OpportunityStatusChangeId; readonly now: Date },
-  ): Result<boolean, MoveToStageError> {
+  moveToStage(stage: StageRef, change: StageChange): Result<boolean, MoveToStageError> {
     if (!this.isOpen()) return err({ type: 'OpportunityClosed' });
     if (stage.id === this.#state.stageId) return ok(false);
     if (!stage.isActive) return err({ type: 'StageInactive' });
@@ -297,7 +332,7 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
   close(
     reason: CloseReasonRef,
     stage: StageRef,
-    change: { readonly id: OpportunityStatusChangeId; readonly now: Date },
+    change: StageChange,
   ): Result<void, CloseOpportunityError> {
     if (!this.isOpen()) return err({ type: 'OpportunityClosed' });
     if (!reason.isActive) return err({ type: 'CloseReasonInactive' });
@@ -313,7 +348,7 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
 
   #applyStage(
     stage: StageRef,
-    change: { readonly id: OpportunityStatusChangeId; readonly now: Date },
+    change: StageChange,
     closeReasonId: OpportunityCloseReasonId | undefined,
   ): void {
     const from = { stageId: this.#state.stageId, status: this.#state.status };
@@ -334,6 +369,7 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
       toStageId: stage.id,
       toStatus: stage.category,
       changedAt: change.now,
+      sourceEventId: change.sourceEventId,
     });
     this.record({
       type: 'clients.opportunity_status_changed',
@@ -376,6 +412,31 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
         toAgentId: agent.agentId,
       },
     });
+    return ok(true);
+  }
+
+  /**
+   * Carga a qué socia se derivó, cuándo y cómo terminó. Solo mientras está en "Aplica a otra
+   * inmobiliaria". Devuelve si cambió.
+   */
+  updateReferral(
+    referral: OpportunityReferral,
+    now: Date,
+  ): Result<boolean, OpportunityNotReferredError> {
+    if (this.#state.status !== 'referred_to_partner')
+      return err({ type: 'OpportunityNotReferred' });
+    const trimmed = referral.partnerName?.trim();
+    const partnerName = trimmed === '' ? undefined : trimmed;
+    const next = { ...referral, partnerName };
+    const current = this.#state.referral;
+    if (
+      current.partnerName === next.partnerName &&
+      current.referredAt?.getTime() === next.referredAt?.getTime() &&
+      current.result === next.result
+    ) {
+      return ok(false);
+    }
+    this.#state = { ...this.#state, referral: next, updatedAt: now };
     return ok(true);
   }
 

@@ -94,6 +94,12 @@ import {
   UpdateCloseReason,
   UpdateOpportunitySettings,
   UpdateOpportunityStage,
+  ListOpportunities,
+  CountOpportunitiesByStage,
+  CountPendingOpportunities,
+  ChangeOpportunityStage,
+  CloseOpportunity,
+  ReassignOpportunity,
   type ClientAgents,
   type ClientListings,
   type PropertyProfiles,
@@ -217,6 +223,7 @@ import {
   DrizzleAuditHistoryQuery,
   DrizzleAuditLog,
   DrizzleClientListQuery,
+  DrizzleOpportunityPipelineQuery,
   DrizzleClientRelationQuery,
   DrizzleClientRecordQuery,
   DrizzleClientTagQuery,
@@ -568,6 +575,7 @@ function createClientsUseCases(
   const list = new DrizzleClientListQuery(db);
   const tags = new DrizzleClientTagQuery(db);
   const records = new DrizzleClientRecordQuery(db);
+  const pipeline = new DrizzleOpportunityPipelineQuery(db);
   // Las propiedades que se muestran en la ficha del contacto, por la API pública de properties.
   const listings: ClientListings = {
     async summaries(propertyIds, actor) {
@@ -658,6 +666,13 @@ function createClientsUseCases(
     deactivateCloseReason: new DeactivateCloseReason({ uow, clock }),
     reactivateCloseReason: new ReactivateCloseReason({ uow, clock }),
     updateOpportunitySettings: new UpdateOpportunitySettings({ uow, clock }),
+    // Pipeline de oportunidades (#9, etapa 2)
+    listOpportunities: new ListOpportunities({ uow, pipeline, agents, listings, clock }),
+    countOpportunitiesByStage: new CountOpportunitiesByStage({ pipeline }),
+    countPendingOpportunities: new CountPendingOpportunities({ pipeline }),
+    changeOpportunityStage: new ChangeOpportunityStage({ uow, ids, clock }),
+    closeOpportunity: new CloseOpportunity({ uow, ids, clock }),
+    reassignOpportunity: new ReassignOpportunity({ uow, agents, clock }),
   };
 }
 

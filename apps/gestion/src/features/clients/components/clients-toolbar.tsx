@@ -54,6 +54,7 @@ export interface ClientFilterValues {
   /** Solo en la agenda: la letra abierta. */
   readonly letter: string;
   readonly owners: boolean;
+  readonly opportunityStageId: string;
   readonly createdFrom: string;
   readonly createdTo: string;
   readonly updatedFrom: string;
@@ -74,6 +75,12 @@ export interface ClientToolbarPermissions {
 
 /** "Todos" en un select: sin el param en la URL. */
 const ANY = 'any';
+
+/** Un estado de oportunidad para el filtro (de Mi empresa → Oportunidades). */
+export interface OpportunityStageOption {
+  readonly id: string;
+  readonly name: string;
+}
 
 export type ClientLayout = 'grid' | 'agenda';
 
@@ -166,7 +173,15 @@ async function download(filter: ClientFilter) {
 }
 
 /** Texto libre que actualiza la URL 300 ms después de dejar de escribir. */
-function SearchInput({ value }: { readonly value: string }) {
+export function SearchInput({
+  value,
+  placeholder = 'Nombre, teléfono, email, empresa o DNI',
+  label = 'Buscar contactos',
+}: {
+  readonly value: string;
+  readonly placeholder?: string;
+  readonly label?: string;
+}) {
   const { setParams } = useListNavigation();
   const [text, setText] = useState(value);
   // Si la URL cambia desde afuera (volver atrás), el texto la sigue.
@@ -191,8 +206,8 @@ function SearchInput({ value }: { readonly value: string }) {
       <SearchIcon className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         className="pl-8"
-        placeholder="Nombre, teléfono, email, empresa o DNI"
-        aria-label="Buscar contactos"
+        placeholder={placeholder}
+        aria-label={label}
         value={text}
         onChange={(event) => {
           setText(event.target.value);
@@ -202,7 +217,7 @@ function SearchInput({ value }: { readonly value: string }) {
   );
 }
 
-function DateRange({
+export function DateRange({
   label,
   from,
   to,
@@ -247,11 +262,13 @@ function MoreFilters({
   permissions,
   agentLabel,
   tagLabel,
+  opportunityStages,
 }: {
   readonly filters: ClientFilterValues;
   readonly permissions: ClientToolbarPermissions;
   readonly agentLabel: string | undefined;
   readonly tagLabel: string | undefined;
+  readonly opportunityStages: readonly OpportunityStageOption[];
 }) {
   const id = useId();
   const { setParams } = useListNavigation();
@@ -259,6 +276,7 @@ function MoreFilters({
     filters.agentId,
     filters.branchId,
     filters.tagId,
+    filters.opportunityStageId,
     filters.createdFrom,
     filters.createdTo,
     filters.updatedFrom,
@@ -341,6 +359,31 @@ function MoreFilters({
             clearLabel="Quitar la etiqueta"
           />
         </div>
+        {opportunityStages.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${id}-stage`} className="text-xs">
+              Estado de oportunidad
+            </Label>
+            <Select
+              value={filters.opportunityStageId === '' ? ANY : filters.opportunityStageId}
+              onValueChange={(next) => {
+                setParams({ opportunityStageId: next === ANY ? undefined : next });
+              }}
+            >
+              <SelectTrigger id={`${id}-stage`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ANY}>Cualquier estado</SelectItem>
+                {opportunityStages.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.id}>
+                    {stage.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <DateRange
           label="Creación"
           from={{ param: 'createdFrom', value: filters.createdFrom }}
@@ -387,6 +430,7 @@ export function ClientsToolbar({
   permissions,
   agentLabel,
   tagLabel,
+  opportunityStages,
 }: {
   readonly filters: ClientFilterValues;
   readonly layout: ClientLayout;
@@ -395,6 +439,7 @@ export function ClientsToolbar({
   readonly agentLabel: string | undefined;
   /** El nombre de la etiqueta filtrada, si se conoce. */
   readonly tagLabel: string | undefined;
+  readonly opportunityStages: readonly OpportunityStageOption[];
 }) {
   const id = useId();
   const { setParams } = useListNavigation();
@@ -492,6 +537,7 @@ export function ClientsToolbar({
         permissions={permissions}
         agentLabel={agentLabel}
         tagLabel={tagLabel}
+        opportunityStages={opportunityStages}
       />
       <Button asChild variant="ghost" className="w-full sm:w-auto">
         <Link href="/contactos/etiquetas">

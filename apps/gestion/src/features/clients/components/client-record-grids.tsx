@@ -3,18 +3,16 @@
 import {
   CONTACT_CHANNEL_LABELS,
   OPPORTUNITY_INTENT_LABELS,
-  OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_TYPE_LABELS,
   type ClientFeaturedRow,
   type ClientOpportunityRow,
   type ClientSavedSearchRow,
-  type OpportunityStatusValue,
 } from '@norde/core/clients/contracts';
 import type { PanelPropertyRow } from '@norde/core/properties/contracts';
 import type { Page } from '@norde/core/shared';
 import type { DataTableColumn, DataTableSort } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
-import { StatusPill, type StatusTone } from '@norde/ui/components/status-pill';
+import { StatusPill } from '@norde/ui/components/status-pill';
 import { StarOffIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -26,6 +24,7 @@ import {
   PROPERTY_STATUS_DISPLAY,
   PROPERTY_TYPE_LABELS,
 } from '../../properties/labels';
+import { OpportunityStagePill } from '../../opportunities/components/opportunity-stage-pill';
 import { operationsSummary } from '../../properties/property-format';
 import {
   ConfirmActionDialog,
@@ -42,24 +41,6 @@ import { userName } from '../client-format';
 /** La ficha de una propiedad: typedRoutes no verifica un string armado. */
 function propertyHref(propertyId: string): Route {
   return `/propiedades/${propertyId}` as Route;
-}
-
-export const OPPORTUNITY_STATUS_TONES: Readonly<Record<OpportunityStatusValue, StatusTone>> = {
-  new: 'green',
-  contacted: 'amber',
-  visiting: 'amber',
-  negotiating: 'amber',
-  won: 'green',
-  lost: 'gray',
-  referred_to_partner: 'gray',
-};
-
-export function OpportunityStatusPill({ status }: { readonly status: OpportunityStatusValue }) {
-  return (
-    <StatusPill tone={OPPORTUNITY_STATUS_TONES[status]}>
-      {OPPORTUNITY_STATUS_LABELS[status]}
-    </StatusPill>
-  );
 }
 
 export function ClientOpportunitiesGrid({
@@ -92,7 +73,7 @@ export function ClientOpportunitiesGrid({
     {
       id: 'status',
       header: 'Estado',
-      cell: (row) => <OpportunityStatusPill status={row.status} />,
+      cell: (row) => <OpportunityStagePill stage={row.stage} status={row.status} />,
     },
     {
       id: 'channel',

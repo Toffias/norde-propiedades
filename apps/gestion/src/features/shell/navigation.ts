@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 
 // Módulos del panel (épica #1). Los que todavía no tienen pantalla se ven deshabilitados, así el
-// menú ya tiene su forma final. Los contadores de Oportunidades y Consultas llegan con #9 y #10.
+// menú ya tiene su forma final. El contador de Oportunidades lo pone el layout (`NavCounts`); el de
+// Consultas llega con #10.
 
 const SOON = 'Próximamente';
 
@@ -25,7 +26,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
   {
     label: 'Comercial',
     items: [
-      { href: '/oportunidades', label: 'Oportunidades', icon: TargetIcon, disabledReason: SOON },
+      { href: '/oportunidades', label: 'Oportunidades', icon: TargetIcon },
       { href: '/contactos', label: 'Contactos', icon: UsersIcon },
       { href: '/consultas', label: 'Consultas', icon: InboxIcon, disabledReason: SOON },
     ],
@@ -50,6 +51,26 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
     items: [{ href: '/mi-empresa', label: 'Mi empresa', icon: SettingsIcon }],
   },
 ];
+
+/** Contadores del menú, por ruta (ej. nuevas asignadas en `/oportunidades`). */
+export type NavCounts = Readonly<Partial<Record<string, number>>>;
+
+/** El menú con sus contadores. */
+export function navigationWithCounts(counts: NavCounts): readonly NavGroup[] {
+  return PANEL_NAVIGATION.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const count = counts[item.href];
+      return count === undefined || count <= 0
+        ? item
+        : {
+            ...item,
+            count,
+            countLabel: count === 1 ? '1 nueva asignada' : `${String(count)} nuevas asignadas`,
+          };
+    }),
+  }));
+}
 
 /** Cookie con el sidebar contraído: la lee el layout para renderizarlo igual desde el servidor. */
 export const SIDEBAR_COOKIE = 'norde-sidebar';

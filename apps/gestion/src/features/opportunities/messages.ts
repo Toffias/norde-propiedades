@@ -1,4 +1,9 @@
 import type {
+  ChangeOpportunityStageError,
+  CloseOpportunityError,
+  CountOpportunitiesByStageError,
+  ListOpportunitiesError,
+  ReassignOpportunityError,
   CreateCloseReasonError,
   CreateOpportunityStageError,
   DeactivateCloseReasonError,
@@ -93,3 +98,49 @@ export const UPDATE_RULES_ERROR_MESSAGES = {
   InvalidRuleStage:
     'Elegí un estado activo de una categoría abierta. Al crear no puede ser "Aplica a otra inmobiliaria".',
 } satisfies ErrorMessages<UpdateOpportunitySettingsError>;
+
+// ---------- Pipeline (etapa 2) ----------
+
+const NOT_VISIBLE = 'No tenés permiso para ver oportunidades.';
+const CANT_UPDATE = 'No podés cambiar esta oportunidad: es de otro agente.';
+const OPPORTUNITY_NOT_FOUND = 'No encontramos la oportunidad. Recargá la página.';
+const CLOSED = 'La oportunidad ya está cerrada.';
+
+export const LIST_OPPORTUNITIES_ERROR_MESSAGES = {
+  Forbidden: NOT_VISIBLE,
+  InvalidInput: 'Algún filtro no es válido. Revisalos y probá de nuevo.',
+} satisfies ErrorMessages<ListOpportunitiesError | CountOpportunitiesByStageError>;
+
+export const CHANGE_STAGE_ERROR_MESSAGES = {
+  Forbidden: CANT_UPDATE,
+  InvalidInput: OPPORTUNITY_NOT_FOUND,
+  OpportunityNotFound: OPPORTUNITY_NOT_FOUND,
+  StageNotFound: STAGE_NOT_FOUND,
+  OpportunityClosed: CLOSED,
+  StageInactive: 'Ese estado está desactivado. Elegí otro.',
+  CloseRequiresReason: 'Para pasarla a ganada o perdida, cerrala con un motivo.',
+  InvalidStatusTransition: ({ from, to }) =>
+    `No se puede pasar de "${OPPORTUNITY_STATUS_LABELS[from]}" a "${OPPORTUNITY_STATUS_LABELS[to]}".`,
+} satisfies ErrorMessages<ChangeOpportunityStageError>;
+
+export const CLOSE_OPPORTUNITY_ERROR_MESSAGES = {
+  Forbidden: CANT_UPDATE,
+  InvalidInput: 'Elegí un motivo de cierre.',
+  OpportunityNotFound: OPPORTUNITY_NOT_FOUND,
+  CloseReasonNotFound: REASON_NOT_FOUND,
+  StageNotFound: 'No hay un estado activo para cerrarla con ese motivo. Revisá la configuración.',
+  OpportunityClosed: CLOSED,
+  StageInactive: 'Ese estado está desactivado. Elegí otro.',
+  CloseReasonInactive: 'Ese motivo está desactivado. Elegí otro.',
+  CloseStageMismatch: 'El estado elegido no corresponde al motivo (ganada o perdida).',
+  InvalidStatusTransition: ({ from, to }) =>
+    `No se puede pasar de "${OPPORTUNITY_STATUS_LABELS[from]}" a "${OPPORTUNITY_STATUS_LABELS[to]}".`,
+} satisfies ErrorMessages<CloseOpportunityError>;
+
+export const REASSIGN_OPPORTUNITY_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para reasignar esta oportunidad.',
+  InvalidInput: OPPORTUNITY_NOT_FOUND,
+  OpportunityNotFound: OPPORTUNITY_NOT_FOUND,
+  OpportunityClosed: 'Una oportunidad cerrada no se reasigna.',
+  AgentNotFound: 'El agente elegido no existe o no está activo.',
+} satisfies ErrorMessages<ReassignOpportunityError>;

@@ -16,7 +16,13 @@ import { useState, type ReactNode } from 'react';
 
 import { authClient } from '../../../lib/auth-client';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
-import { PANEL_NAVIGATION, SIDEBAR_COLLAPSED, SIDEBAR_COOKIE } from '../navigation';
+import {
+  navigationWithCounts,
+  PANEL_NAVIGATION,
+  SIDEBAR_COLLAPSED,
+  SIDEBAR_COOKIE,
+  type NavCounts,
+} from '../navigation';
 
 const NavLink: NavLinkComponent = ({ href, className, onClick, children, ...aria }) => (
   // Rutas de `PANEL_NAVIGATION`: typedRoutes no puede verificar los strings del array.
@@ -36,10 +42,12 @@ function currentSection(pathname: string): string | undefined {
 export function PanelShell({
   profile,
   initiallyCollapsed,
+  counts,
   children,
 }: {
   readonly profile: SessionProfile;
   readonly initiallyCollapsed: boolean;
+  readonly counts: NavCounts;
   readonly children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -72,7 +80,7 @@ export function PanelShell({
       onCollapsedChange={changeCollapsed}
       renderNavigation={(onNavigate, compact) => (
         <NavList
-          groups={PANEL_NAVIGATION}
+          groups={navigationWithCounts(counts)}
           pathname={pathname}
           linkComponent={NavLink}
           collapsed={compact ?? false}

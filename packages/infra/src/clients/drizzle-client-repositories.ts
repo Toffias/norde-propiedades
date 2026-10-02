@@ -1,6 +1,7 @@
 import {
   Client,
   CLIENT_KINDS,
+  CLIENT_RELATION_KINDS,
   CLIENT_TYPES,
   CONTACT_CHANNELS,
   EMAIL_KINDS,
@@ -19,19 +20,28 @@ import {
   type OpportunitySearch,
 } from '@norde/core/clients';
 import { Email, parseId, Phone, type IdGenerator, type Result } from '@norde/core/shared';
-import { and, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, notInArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
 import { fromJsonb, toJsonb } from '../db/json';
 import { matchesSearchText } from '../db/text-search';
-import { clientChannels, clientEmails, clientPhones, clients, opportunities } from '../db/schema';
+import {
+  clientChannels,
+  clientEmails,
+  clientPhones,
+  clientRelations,
+  clients,
+  clientTagAssignments,
+  opportunities,
+} from '../db/schema';
 
 const ChannelSchema = z.enum(CONTACT_CHANNELS);
 const KindSchema = z.enum(CLIENT_KINDS);
 const PhoneKindSchema = z.enum(PHONE_KINDS);
 const EmailKindSchema = z.enum(EMAIL_KINDS);
 const ClientTypesSchema = z.array(z.enum(CLIENT_TYPES));
+const RelationKindSchema = z.enum(CLIENT_RELATION_KINDS);
 
 const OpportunityRowSchema = z.object({
   originChannel: ChannelSchema,
@@ -161,6 +171,7 @@ export class DrizzleClientRepository implements ClientRepository {
       updatedBy: actorId,
       deletedAt: s.deletedAt ?? null,
       deletedBy: s.deletedBy ?? null,
+      mergedIntoId: s.mergedIntoId ?? null,
     };
     await this.db
       .insert(clients)
@@ -169,14 +180,100 @@ export class DrizzleClientRepository implements ClientRepository {
 
     await this.savePhones(s, actorId);
     await this.saveEmails(s, actorId);
+    await this.saveChannels(s);
+    await this.saveTags(s, actorId);
+    await this.saveRelations(s, actorId);
+  }
 
+  /** Al unificar, los canales pasan al principal: los que ya no están se borran. */
+  private async saveChannels(s: ClientSnapshot): Promise<void> {
+    const stored = await this.db
+      .select({ channel: clientChannels.channel, externalId: clientChannels.externalId })
+      .from(clientChannels)
+      .where(eq(clientChannels.clientId, s.id));
+    for (const row of stored) {
+      const kept = s.channels.some(
+        (c) => c.channel === row.channel && c.externalId === row.externalId,
+      );
+      if (kept) continue;
+      await this.db
+        .delete(clientChannels)
+        .where(
+          and(
+            eq(clientChannels.clientId, s.id),
+            eq(clientChannels.channel, row.channel),
+            eq(clientChannels.externalId, row.externalId),
+          ),
+        );
+    }
     for (const channel of s.channels) {
       await this.db
         .insert(clientChannels)
         .values({ clientId: s.id, ...channel })
         .onConflictDoUpdate({
           target: [clientChannels.clientId, clientChannels.channel, clientChannels.externalId],
-          set: { lastContactAt: channel.lastContactAt },
+          set: { firstContactAt: channel.firstContactAt, lastContactAt: channel.lastContactAt },
+        });
+    }
+  }
+
+  /** Solo se tocan las etiquetas que cambiaron: las que quedan conservan su autoría. */
+  private async saveTags(s: ClientSnapshot, actorId: string): Promise<void> {
+    const where = eq(clientTagAssignments.clientId, s.id);
+    if (s.tagIds.length === 0) {
+      await this.db.delete(clientTagAssignments).where(where);
+      return;
+    }
+    await this.db
+      .delete(clientTagAssignments)
+      .where(and(where, notInArray(clientTagAssignments.tagId, [...s.tagIds])));
+    await this.db
+      .insert(clientTagAssignments)
+      .values(
+        s.tagIds.map((tagId) => ({
+          clientId: s.id,
+          tagId,
+          createdAt: s.updatedAt,
+          createdBy: actorId,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
+  private async saveRelations(s: ClientSnapshot, actorId: string): Promise<void> {
+    const stored = await this.db
+      .select({ relatedClientId: clientRelations.relatedClientId, kind: clientRelations.kind })
+      .from(clientRelations)
+      .where(eq(clientRelations.clientId, s.id));
+    for (const row of stored) {
+      const kept = s.relations.some(
+        (r) => r.relatedClientId === row.relatedClientId && r.kind === row.kind,
+      );
+      if (kept) continue;
+      await this.db
+        .delete(clientRelations)
+        .where(
+          and(
+            eq(clientRelations.clientId, s.id),
+            eq(clientRelations.relatedClientId, row.relatedClientId),
+            eq(clientRelations.kind, row.kind),
+          ),
+        );
+    }
+    for (const relation of s.relations) {
+      await this.db
+        .insert(clientRelations)
+        .values({
+          clientId: s.id,
+          relatedClientId: relation.relatedClientId,
+          kind: relation.kind,
+          label: relation.label ?? null,
+          createdAt: s.updatedAt,
+          createdBy: actorId,
+        })
+        .onConflictDoUpdate({
+          target: [clientRelations.clientId, clientRelations.relatedClientId, clientRelations.kind],
+          set: { label: relation.label ?? null },
         });
     }
   }
@@ -278,6 +375,16 @@ export class DrizzleClientRepository implements ClientRepository {
       .from(clientEmails)
       .where(eq(clientEmails.clientId, row.id))
       .orderBy(clientEmails.id);
+    const tags = await this.db
+      .select({ tagId: clientTagAssignments.tagId })
+      .from(clientTagAssignments)
+      .where(eq(clientTagAssignments.clientId, row.id))
+      .orderBy(clientTagAssignments.createdAt, clientTagAssignments.tagId);
+    const relations = await this.db
+      .select()
+      .from(clientRelations)
+      .where(eq(clientRelations.clientId, row.id))
+      .orderBy(clientRelations.createdAt, clientRelations.relatedClientId);
 
     return Client.restore({
       id: storedId<'Client'>(row.id),
@@ -305,10 +412,17 @@ export class DrizzleClientRepository implements ClientRepository {
         firstContactAt: c.firstContactAt,
         lastContactAt: c.lastContactAt,
       })),
+      tagIds: tags.map((t) => t.tagId),
+      relations: relations.map((r) => ({
+        relatedClientId: r.relatedClientId,
+        kind: RelationKindSchema.parse(r.kind),
+        label: r.label ?? undefined,
+      })),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       deletedAt: row.deletedAt ?? undefined,
       deletedBy: row.deletedBy ?? undefined,
+      mergedIntoId: row.mergedIntoId ?? undefined,
     });
   }
 }

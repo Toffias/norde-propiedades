@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, type AnyColumn, type SQL } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -26,6 +26,14 @@ import {
   NIL_UUID,
 } from './columns';
 import { coreSchema } from './core-schema';
+
+/**
+ * Inicial del nombre para la agenda A–Z: minúscula y sin acentos (la "Á" va con la "a", la "ñ"
+ * con la "n"). Lo que no es una letra de la "a" a la "z" (números, sin nombre) va en "#".
+ */
+export function clientInitial(name: SQL | AnyColumn): SQL {
+  return sql`left(core.search_normalize(coalesce(${name}, '')), 1)`;
+}
 
 export const clients = coreSchema.table(
   'clients',
@@ -65,6 +73,11 @@ export const clients = coreSchema.table(
     createdBy: text('created_by'),
     updatedBy: text('updated_by'),
     ...trash(),
+    /**
+     * Se unificó con otro contacto: queda vacío en la papelera, apuntando al que lo absorbió (sin
+     * foreign key: es el mismo módulo, pero el principal también puede unificarse después).
+     */
+    mergedIntoId: uuid('merged_into_id'),
   },
   (t) => [
     // La deduplicación también la garantiza la base (dos procesos pueden registrar a la vez).
@@ -79,6 +92,10 @@ export const clients = coreSchema.table(
     // Índice alfabético de la grilla (conteo y página por letra).
     index('clients_name_lower_idx')
       .on(sql`lower(${t.name})`)
+      .where(notDeleted),
+    // Agenda A–Z: conteo por inicial (sin acentos) y página de cada letra por nombre.
+    index('clients_initial_name_idx')
+      .on(clientInitial(t.name), sql`lower(${t.name})`, t.id)
       .where(notDeleted),
     index('clients_created_idx').on(t.createdAt).where(notDeleted),
     index('clients_updated_idx').on(t.updatedAt).where(notDeleted),
@@ -177,13 +194,24 @@ export const clientRelations = coreSchema.table(
   ],
 );
 
-export const clientTagGroups = coreSchema.table('client_tag_groups', {
-  id: uuid('id').primaryKey(),
-  name: text('name').notNull(),
-  position: integer('position').notNull().default(0),
-  ...timestamps(),
-  ...authorship(),
-});
+export const clientTagGroups = coreSchema.table(
+  'client_tag_groups',
+  {
+    id: uuid('id').primaryKey(),
+    name: text('name').notNull(),
+    position: integer('position').notNull().default(0),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    index('client_tag_groups_position_idx').on(t.position, t.id),
+    index('client_tag_groups_name_idx').on(t.name, t.id),
+    index('client_tag_groups_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
+    ),
+  ],
+);
 
 export const clientTags = coreSchema.table(
   'client_tags',
@@ -199,6 +227,13 @@ export const clientTags = coreSchema.table(
     uniqueIndex('client_tags_group_name_uq').on(
       sql`coalesce(${t.groupId}, ${NIL_UUID})`,
       sql`lower(${t.name})`,
+    ),
+    // Filtro por grupo y contador de etiquetas de cada grupo.
+    index('client_tags_group_idx').on(t.groupId, t.name),
+    index('client_tags_name_idx').on(t.name, t.id),
+    index('client_tags_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
     ),
   ],
 );

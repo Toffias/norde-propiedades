@@ -254,7 +254,11 @@ const BASE: ClientListCriteria = {
   text: undefined,
   agentId: undefined,
   branchId: undefined,
+  kind: undefined,
   clientType: undefined,
+  tagged: undefined,
+  tagId: undefined,
+  letter: undefined,
   anyOfTypes: undefined,
   created: { from: undefined, to: undefined },
   updated: { from: undefined, to: undefined },
@@ -387,6 +391,21 @@ describe('DrizzleClientListQuery', () => {
     expect(await query.count({ ...BASE, agentId: AGENT })).toBe(TOTAL / 10 - TOTAL / 50);
   });
 
+  it('counts the agenda letters and pages one letter with LIMIT', async () => {
+    await seedAgenda();
+
+    expect(await query.letters(BASE)).toEqual([{ letter: 'C', count: TOTAL - TOTAL / 50 }]);
+    const letterC = await query.search({
+      ...BASE,
+      letter: 'C',
+      sort: { field: 'name', direction: 'asc' },
+      offset: 25,
+    });
+    expect(letterC.total).toBe(TOTAL - TOTAL / 50);
+    expect(letterC.items).toHaveLength(25);
+    expect((await query.search({ ...BASE, letter: 'A' })).total).toBe(0);
+  });
+
   it.each<[string, Partial<ClientListCriteria>]>([
     ['default sort', {}],
     ['name', { sort: { field: 'name', direction: 'asc' } }],
@@ -407,6 +426,12 @@ describe('DrizzleClientListQuery', () => {
     ['own contacts', { visibility: { kind: 'own', ownerId: AGENT } }],
     ['branch contacts', { visibility: { kind: 'branch', ownerId: AGENT, branchId: BRANCH } }],
     ['trash', { view: 'trash' }],
+    ['kind', { kind: 'company' }],
+    ['letter page', { letter: 'C', sort: { field: 'name', direction: 'asc' } }],
+    ['letter #', { letter: '#', sort: { field: 'name', direction: 'asc' } }],
+    ['with tags', { tagged: 'with' }],
+    ['without tags', { tagged: 'without' }],
+    ['one tag', { tagId: '00000000-0000-7000-8000-0000000000f1' }],
   ])('resolves the %s with an index', async (_name, criteria) => {
     await seedAgenda();
     const nodes = await pagePlan({ ...BASE, ...criteria });

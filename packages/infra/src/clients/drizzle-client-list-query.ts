@@ -1,7 +1,10 @@
 import {
   CLIENT_KINDS,
+  CLIENT_LETTERS,
   CLIENT_TYPES,
   type ClientFilterCriteria,
+  type ClientLetter,
+  type ClientLetterCount,
   type ClientListCriteria,
   type ClientListItem,
   type ClientListQuery,
@@ -27,10 +30,22 @@ import {
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { clientPhones, clients } from '../db/schema';
+import { clientInitial, clientPhones, clients, clientTagAssignments } from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
 import { visibleClients } from './saved-search-matching';
+
+const LetterSchema = z.enum(CLIENT_LETTERS);
+
+/** La expresión de `clients_initial_name_idx`. */
+const initial = clientInitial(clients.name);
+
+/** Las letras de la "a" a la "z"; el resto de las iniciales va en "#". */
+function letterFilter(letter: ClientLetter): SQL {
+  return letter === '#' ? sql`${initial} !~ '^[a-z]$'` : sql`${initial} = ${letter.toLowerCase()}`;
+}
+
+const tagged = sql`exists (select 1 from ${clientTagAssignments} a where a.client_id = ${clients.id})`;
 
 const RowEnums = z.object({
   kind: z.enum(CLIENT_KINDS),
@@ -87,6 +102,20 @@ export class DrizzleClientListQuery implements ClientListQuery {
     return this.countWhere(and(...this.filters(criteria)));
   }
 
+  async letters(criteria: ClientFilterCriteria): Promise<ClientLetterCount[]> {
+    const rows = await this.db
+      .select({ initial: sql<string>`${initial}`, total: count() })
+      .from(clients)
+      .where(and(...this.filters({ ...criteria, letter: undefined })))
+      .groupBy(initial);
+    const counts = new Map<ClientLetter, number>();
+    for (const row of rows) {
+      const letter = LetterSchema.catch('#').parse(row.initial.toUpperCase());
+      counts.set(letter, (counts.get(letter) ?? 0) + row.total);
+    }
+    return [...counts].map(([letter, total]) => ({ letter, count: total }));
+  }
+
   private async countWhere(where: SQL | undefined): Promise<number> {
     const [row] = await this.db.select({ total: count() }).from(clients).where(where);
     return row?.total ?? 0;
@@ -95,10 +124,19 @@ export class DrizzleClientListQuery implements ClientListQuery {
   private filters(c: ClientFilterCriteria): (SQL | undefined)[] {
     return [
       c.view === 'trash' ? isNotNull(clients.deletedAt) : isNull(clients.deletedAt),
+      // Los unificados quedan en la papelera vacíos: no se listan ni se restauran.
+      c.view === 'trash' ? isNull(clients.mergedIntoId) : undefined,
       visibleClients(c.visibility),
       c.text === undefined ? undefined : matchesSearchText(clients.searchText, c.text),
       c.agentId === undefined ? undefined : eq(clients.agentId, c.agentId),
       c.branchId === undefined ? undefined : eq(clients.branchId, c.branchId),
+      c.kind === undefined ? undefined : eq(clients.kind, c.kind),
+      // La PK de `client_tag_assignments` empieza por `client_id`.
+      c.tagged === undefined ? undefined : c.tagged === 'with' ? tagged : sql`not ${tagged}`,
+      c.tagId === undefined
+        ? undefined
+        : sql`exists (select 1 from ${clientTagAssignments} a where a.client_id = ${clients.id} and a.tag_id = ${c.tagId})`,
+      c.letter === undefined ? undefined : letterFilter(c.letter),
       // `@>` y `&&` usan el índice GIN de `client_types`; `= any(...)` no.
       c.clientType === undefined ? undefined : arrayContains(clients.clientTypes, [c.clientType]),
       c.anyOfTypes === undefined
@@ -116,7 +154,8 @@ export class DrizzleClientListQuery implements ClientListQuery {
     const tiebreak = by(direction, clients.id);
     switch (field) {
       case 'name':
-        // La misma expresión que `clients_name_lower_idx`.
+        // La misma expresión que `clients_name_lower_idx` (y, dentro de una letra, que
+        // `clients_initial_name_idx`).
         return [by(direction, sql`lower(${clients.name})`), tiebreak];
       case 'createdAt':
         return [by(direction, clients.createdAt), tiebreak];

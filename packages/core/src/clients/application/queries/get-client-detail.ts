@@ -110,6 +110,7 @@ export class GetClientDetail {
         delete: canActOn(actor, OWNERSHIP_RULES.clientsDelete, ownership),
         viewHistory: accessScope(actor, audit) !== undefined && canActOn(actor, audit, ownership),
         merge: canEdit && !masked && actor.can('clients:merge'),
+        erase: actor.can('clients:erase'),
       },
     });
   }

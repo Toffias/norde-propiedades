@@ -29,6 +29,8 @@ describe('PERMISSION_CATALOG', () => {
     for (const permission of [
       'clients:create',
       'clients:export',
+      'clients:import',
+      'clients:erase',
       'properties:read',
       'properties:search',
       'conversations:receive',

@@ -1,6 +1,7 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
 import type {
   ClientActivityRepository,
+  ClientImportRepository,
   ClientRepository,
   ClientTagGroupRepository,
   ClientTagRepository,
@@ -8,6 +9,7 @@ import type {
   OpportunityRepository,
 } from '../../domain/client.repository';
 
+import type { ClientErasure } from './client-erasure';
 import type { ClientLinkedRecords } from './client-linked-records';
 
 /** Lo que un command de clients usa dentro de la transacción, ligado a la misma conexión. */
@@ -19,6 +21,8 @@ export interface ClientsTransaction {
   readonly records: ClientLinkedRecords;
   readonly activities: ClientActivityRepository;
   readonly featured: FeaturedListingRepository;
+  readonly erasure: ClientErasure;
+  readonly imports: ClientImportRepository;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

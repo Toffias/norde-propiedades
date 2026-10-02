@@ -56,6 +56,8 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
           { permission: 'clients:delete-others', label: 'Borrar contactos de otros' },
           { permission: 'clients:export', label: 'Exportar contactos' },
           { permission: 'clients:merge', label: 'Unificar contactos' },
+          { permission: 'clients:import', label: 'Importar contactos desde Excel' },
+          { permission: 'clients:erase', label: 'Suprimir los datos de un contacto (Ley 25.326)' },
         ],
       },
       {

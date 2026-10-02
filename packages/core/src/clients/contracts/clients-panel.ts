@@ -371,6 +371,8 @@ export interface ClientDetailPermissions {
   readonly viewHistory: boolean;
   /** Unificarlo con otro contacto. */
   readonly merge: boolean;
+  /** Suprimir sus datos (Ley 25.326). */
+  readonly erase: boolean;
 }
 
 export interface ClientDetail {

@@ -18,6 +18,11 @@ export {
   type AuditState,
   type AuditTarget,
 } from './application/audit';
+export {
+  ErasedClientsInputSchema,
+  MAX_ERASED_CLIENT_IDS,
+  type ErasedClientsInput,
+} from './application/erased-clients';
 export { nextId } from './application/next-id';
 export {
   toOffsetLimit,

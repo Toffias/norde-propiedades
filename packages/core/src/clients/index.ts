@@ -132,6 +132,17 @@ export {
 } from './application/commands/update-client-details';
 export { ReassignClient, type ReassignClientError } from './application/commands/reassign-client';
 export { DeleteClient, type DeleteClientError } from './application/commands/delete-client';
+export {
+  EraseClientData,
+  type EraseClientDataError,
+} from './application/commands/erase-client-data';
+export type { ClientErasure } from './application/ports/client-erasure';
+export type {
+  ClientErased,
+  ErasureNotConfirmedError,
+  ErasureRecord,
+  ErasureRequestInFutureError,
+} from './domain/client-erasure';
 export { RestoreClient, type RestoreClientError } from './application/commands/restore-client';
 export { ExportClients, type ExportClientsError } from './application/commands/export-clients';
 export { ListClients, type ListClientsError } from './application/queries/list-clients';
@@ -275,3 +286,60 @@ export {
   GetFeaturedPropertyIds,
   type GetFeaturedPropertyIdsError,
 } from './application/queries/get-featured-property-ids';
+
+// ---------- Importación desde Excel (#8, etapa 4) ----------
+export {
+  StartClientImport,
+  type StartClientImportError,
+} from './application/commands/start-client-import';
+export {
+  RunClientImport,
+  type ClientImportNotFoundError,
+  type RunClientImportError,
+} from './application/handlers/run-client-import';
+export {
+  PreviewClientImport,
+  type PreviewClientImportError,
+  type TooManyImportColumnsError,
+} from './application/queries/preview-client-import';
+export {
+  ListClientImports,
+  type ListClientImportsError,
+} from './application/queries/list-client-imports';
+export {
+  GetClientImport,
+  type GetClientImportError,
+} from './application/queries/get-client-import';
+export {
+  ListClientImportProblems,
+  type ListClientImportProblemsError,
+} from './application/queries/list-client-import-problems';
+export type { ClientImportItem, ClientImportQuery } from './application/ports/client-import-query';
+export type {
+  Spreadsheet,
+  SpreadsheetReader,
+  SpreadsheetRow,
+  UnreadableSpreadsheetError,
+} from './application/ports/spreadsheet-reader';
+export type { ClientImportRepository } from './domain/client.repository';
+export {
+  ClientImport,
+  CLIENT_IMPORT_FAILURES,
+  CLIENT_IMPORT_STATUSES,
+  IMPORT_FIELDS,
+  IMPORT_PROBLEM_CODES,
+  type ClientImportFailure,
+  type ClientImportId,
+  type ClientImportRequested,
+  type ClientImportSnapshot,
+  type ClientImportStatus,
+  type ClientImportTotals,
+  type EmptyImportFileError,
+  type ImportField,
+  type ImportFinishedError,
+  type ImportMapping,
+  type ImportProblemCode,
+  type ImportRowProblem,
+  type InvalidImportMappingError,
+  type TooManyImportRowsError,
+} from './domain/client-import';

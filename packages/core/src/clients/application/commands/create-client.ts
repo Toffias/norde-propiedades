@@ -1,5 +1,4 @@
 import {
-  auditCreated,
   err,
   nextId,
   ok,
@@ -16,11 +15,9 @@ import {
   type CreateClientInput,
   type CreateClientOutput,
 } from '../../contracts';
-import { Client, type MissingContactInfoError, type MissingNameError } from '../../domain/client';
-import { findExistingClient } from '../../domain/duplicate-check';
+import type { MissingContactInfoError, MissingNameError } from '../../domain/client';
+import { createClientIn } from '../client-creation';
 import {
-  clientAuditState,
-  clientTarget,
   invalidInput,
   parseEmails,
   parsePhones,
@@ -82,16 +79,7 @@ export class CreateClient {
 
     const now = this.deps.clock.now();
     return this.deps.uow.run(async (tx): Promise<Result<CreateClientOutput, CreateClientError>> => {
-      const contact = {
-        phones: phones.value.map((p) => p.phone),
-        emails: emails.value.map((e) => e.email),
-      };
-      const existing = findExistingClient(await tx.clients.findMatching(contact), contact);
-      if (existing) {
-        return err({ type: 'DuplicateClient', clientId: existing.id, trashed: existing.isDeleted });
-      }
-
-      const created = Client.create({
+      const created = await createClientIn(tx, actor, {
         id: nextId<'Client'>(this.deps.ids),
         kind: data.kind,
         name: data.name,
@@ -104,14 +92,7 @@ export class CreateClient {
         now,
       });
       if (created.isErr()) return err(created.error);
-      const client = created.value;
-
-      await tx.clients.save(client, actor.id);
-      await tx.events.publish(client.pullEvents());
-      await tx.audit.record(
-        auditCreated(actor, clientTarget('client.created', client.id), clientAuditState(client)),
-      );
-      return ok({ clientId: client.id });
+      return ok({ clientId: created.value.id });
     });
   }
 }

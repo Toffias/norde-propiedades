@@ -144,6 +144,8 @@ const ClientFilterFields = {
   letter: z.enum(CLIENT_LETTERS).optional(),
   /** Solo propietarios (vendedores o que alquilan). */
   owners: BooleanParam,
+  /** Con una oportunidad en este estado. */
+  opportunityStageId: z.uuid().optional(),
   /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
   createdFrom: z.iso.date().optional(),
   createdTo: z.iso.date().optional(),

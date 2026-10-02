@@ -351,6 +351,34 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
     });
   }
 
+  /**
+   * Pasa a otro agente (o a ninguno) y a su sucursal. Una cerrada no se reasigna. Devuelve si
+   * cambió.
+   */
+  assignAgent(agent: OpportunityAgent, now: Date): Result<boolean, OpportunityClosedError> {
+    if (!this.isOpen()) return err({ type: 'OpportunityClosed' });
+    const from = this.#state.agentId;
+    if (from === agent.agentId && this.#state.branchId === agent.branchId) return ok(false);
+    this.#state = {
+      ...this.#state,
+      agentId: agent.agentId,
+      branchId: agent.branchId,
+      updatedAt: now,
+    };
+    this.record({
+      type: 'clients.opportunity_reassigned',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: {
+        opportunityId: this.id,
+        clientId: this.#state.clientId,
+        fromAgentId: from,
+        toAgentId: agent.agentId,
+      },
+    });
+    return ok(true);
+  }
+
   /** Los cambios de estado que todavía no se guardaron en el historial. */
   pullStatusChanges(): readonly OpportunityStatusChange[] {
     return this.#changes.splice(0, this.#changes.length);

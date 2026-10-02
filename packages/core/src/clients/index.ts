@@ -73,6 +73,7 @@ export type { ClientEvent, ClientsMerged } from './domain/client.events';
 export type {
   OpportunityCreated,
   OpportunityEvent,
+  OpportunityReassigned,
   OpportunityRequestAdded,
   OpportunityStatusChanged,
 } from './domain/opportunity.events';
@@ -254,6 +255,7 @@ export type {
   ClientActivityItem,
   ClientFeaturedItem,
   ClientListings,
+  ClientActiveOpportunityItem,
   ClientOpportunityItem,
   ClientRecordQuery,
 } from './application/ports/client-record-query';
@@ -418,3 +420,30 @@ export {
   type UpdateOpportunitySettingsError,
 } from './application/commands/update-opportunity-settings';
 export { GetOpportunityConfiguration } from './application/queries/get-opportunity-configuration';
+export type {
+  OpportunityFilterCriteria,
+  OpportunityListCriteria,
+  OpportunityPipelineItem,
+  OpportunityPipelineQuery,
+} from './application/ports/opportunity-pipeline-query';
+export {
+  ListOpportunities,
+  type ListOpportunitiesError,
+} from './application/queries/list-opportunities';
+export {
+  CountOpportunitiesByStage,
+  type CountOpportunitiesByStageError,
+} from './application/queries/count-opportunities-by-stage';
+export { CountPendingOpportunities } from './application/queries/count-pending-opportunities';
+export {
+  ChangeOpportunityStage,
+  type ChangeOpportunityStageError,
+} from './application/commands/change-opportunity-stage';
+export {
+  CloseOpportunity,
+  type CloseOpportunityError,
+} from './application/commands/close-opportunity';
+export {
+  ReassignOpportunity,
+  type ReassignOpportunityError,
+} from './application/commands/reassign-opportunity';

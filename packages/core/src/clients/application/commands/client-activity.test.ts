@@ -451,6 +451,7 @@ describe('client detail tabs', () => {
         type: 'sale',
         intent: 'visit',
         status: 'contacted',
+        stage: undefined,
         originChannel: 'whatsapp',
         propertyId: undefined,
         agentId: OTHER_AGENT_ID,

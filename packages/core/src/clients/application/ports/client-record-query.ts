@@ -26,6 +26,12 @@ export interface ClientActivityItem {
   readonly occurredAt: Date;
 }
 
+/** Lo que decide qué puede hacer el actor (`can`) va por ID: lo resuelve el caso de uso. */
+export type ClientActiveOpportunityItem = Omit<ClientActiveOpportunity, 'can' | 'agent'> & {
+  readonly agentId: string | undefined;
+  readonly branchId: string | undefined;
+};
+
 /** Si está abierta lo decide el dominio por su estado, no el SQL. */
 export type ClientOpportunityItem = Omit<ClientOpportunityRow, 'agent' | 'open'> & {
   readonly agentId: string | undefined;
@@ -61,7 +67,7 @@ export interface ClientRecordQuery {
   activeOpportunity(
     clientId: string,
     openStatuses: readonly OpportunityStatusValue[],
-  ): Promise<ClientActiveOpportunity | undefined>;
+  ): Promise<ClientActiveOpportunityItem | undefined>;
 
   featured(
     criteria: Paging & { readonly clientId: string; readonly direction: Direction },

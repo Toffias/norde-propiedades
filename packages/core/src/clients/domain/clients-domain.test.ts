@@ -15,6 +15,17 @@ const PROPERTY_ID = '00000000-0000-7000-8000-0000000000aa';
 let opportunitySequence = 0;
 const nextOpportunityId = () =>
   `00000000-0000-7000-8000-1${(opportunitySequence++).toString().padStart(11, '0')}` as Id<'Opportunity'>;
+const CHANGE_ID = '00000000-0000-7000-8000-0000000000c1' as Id<'OpportunityStatusChange'>;
+const NEW_STAGE = {
+  id: '00000000-0000-7000-8000-0000000000b1' as Id<'OpportunityStage'>,
+  category: 'new',
+  isActive: true,
+} as const;
+const REFERRED_STAGE = {
+  id: '00000000-0000-7000-8000-0000000000b7' as Id<'OpportunityStage'>,
+  category: 'referred_to_partner',
+  isActive: true,
+} as const;
 
 const phone = Phone.create('+5491166899124').unwrapOr(undefined as never);
 const email = Email.create('ana@mail.com').unwrapOr(undefined as never);
@@ -39,7 +50,9 @@ function openOpportunity(overrides: Partial<Parameters<typeof Opportunity.open>[
     originChannel: 'whatsapp',
     type: 'rent',
     intent: 'info',
-    noMatchingStock: false,
+    stage: NEW_STAGE,
+    agent: { agentId: undefined, branchId: undefined },
+    statusChangeId: CHANGE_ID,
     now: T0,
     ...overrides,
   });
@@ -100,9 +113,11 @@ describe('Client', () => {
 });
 
 describe('Opportunity', () => {
-  it('opens as new, or as referred to a partner when there is no matching stock', () => {
+  it('opens in the given stage and keeps its category as the status', () => {
     expect(openOpportunity().status).toBe('new');
-    expect(openOpportunity({ noMatchingStock: true }).status).toBe('referred_to_partner');
+    const referred = openOpportunity({ stage: REFERRED_STAGE });
+    expect(referred.status).toBe('referred_to_partner');
+    expect(referred.stageId).toBe(REFERRED_STAGE.id);
   });
 
   it('emits OpportunityCreated and keeps the first note', () => {
@@ -122,20 +137,6 @@ describe('Opportunity', () => {
     expect(opportunity.pullEvents().map((e) => e.type)).toContain(
       'clients.opportunity_request_added',
     );
-  });
-
-  it('changes status through valid transitions only', () => {
-    const opportunity = openOpportunity();
-
-    expect(opportunity.changeStatus('contacted', T1).isOk()).toBe(true);
-    const invalid = opportunity.changeStatus('new', T1);
-
-    expect(invalid.isErr() && invalid.error).toEqual({
-      type: 'InvalidStatusTransition',
-      from: 'contacted',
-      to: 'new',
-    });
-    expect(opportunity.status).toBe('contacted');
   });
 
   it('treats won and lost as closed', () => {

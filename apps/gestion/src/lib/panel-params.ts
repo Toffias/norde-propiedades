@@ -15,7 +15,8 @@ export const PANEL_PAGE_PARAM = 'panelPage';
 export const PANEL_PARAMS = [PANEL_PARAM, PANEL_TAB_PARAM, PANEL_PAGE_PARAM] as const;
 
 export type PanelState =
-  | { readonly kind: 'new' }
+  /** `tab`: en una pantalla con más de un catálogo, cuál se da de alta. */
+  | { readonly kind: 'new'; readonly tab?: string | undefined }
   | { readonly kind: 'edit'; readonly id: string; readonly tab: string | undefined };
 
 const PanelSchema = z.union([z.literal('new'), z.uuid()]);
@@ -29,8 +30,8 @@ const PageSchema = z.coerce.number().int().min(1).max(10_000).catch(1);
 export function readPanel(get: (key: string) => string | null | undefined): PanelState | undefined {
   const panel = PanelSchema.safeParse(get(PANEL_PARAM));
   if (!panel.success) return undefined;
-  if (panel.data === 'new') return { kind: 'new' };
   const tab = TabSchema.safeParse(get(PANEL_TAB_PARAM) ?? undefined);
+  if (panel.data === 'new') return { kind: 'new', tab: tab.success ? tab.data : undefined };
   return { kind: 'edit', id: panel.data, tab: tab.success ? tab.data : undefined };
 }
 

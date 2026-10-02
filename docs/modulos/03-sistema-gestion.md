@@ -286,6 +286,30 @@ Al confirmar se guarda el archivo y un job de `apps/agent` (`clients.import_requ
 - `clients.client_erased` hace que cada módulo borre lo suyo en el agente: las conversaciones del agente de IA con sus mensajes, los vínculos como propietario de una propiedad y como contacto comercial de un emprendimiento (las propiedades quedan) y los favoritos de todos los usuarios. Las reservas y las tasaciones todavía no tienen módulo: cuando lo tengan (#13 y #12), reaccionan al mismo evento.
 - Los eventos del outbox solo llevan IDs. Los datos siguen en los backups hasta que rotan: falta documentar el plazo de retención.
 
+### 3.3.5 Estados, motivos de cierre y reglas de oportunidades (#9, etapa 1)
+
+Configuración en **Mi empresa → Oportunidades** (`/mi-empresa/oportunidades`). Cualquiera que puede ver la configuración la ve; para cambiarla hace falta `settings:update`. Alta y edición van en el panel lateral, y el orden se cambia arrastrando (o con el teclado).
+
+**Estados** (ADR 0013): cada estado editable tiene nombre, color y orden, y pertenece a una **categoría fija del dominio**: nueva, contactado, visitando, negociando, ganada, perdida o aplica a otra inmobiliaria. La oportunidad guarda el estado (`stage_id`) y su categoría (`status`); las reglas y los reportes usan la categoría.
+
+- De fábrica hay un estado por categoría (Nuevo, Contactado, Visitando, Negociando, Ganada, Perdida, Aplica a otra inmobiliaria). Norde los renombra, recolorea, ordena o agrega. El orden es el de las secciones de la lista y las columnas del tablero.
+- La categoría de un estado no cambia después de crearlo. Hay hasta 30 estados.
+- Un estado no se borra: se desactiva y deja de ofrecerse, pero las oportunidades que lo tienen lo conservan. No se puede desactivar el último estado activo de una categoría ni uno que use una regla automática.
+- Entre estados de la misma categoría se pasa libremente. Entre categorías valen las transiciones del dominio (`InvalidStatusTransition`).
+- A ganada o perdida solo se llega **cerrando con un motivo**. Ganada y perdida son finales.
+
+**Motivos de cierre**: nombre, orden y calificación. Si es **positiva**, la oportunidad queda _ganada_; si es negativa o neutral, _perdida_. Cambiar la calificación no cambia las oportunidades ya cerradas. Hay hasta 50 motivos y tiene que quedar al menos uno activo. De fábrica: Compró o alquiló con Norde (positivo), Compró o alquiló con otra inmobiliaria, Dejó de buscar, No respondió (negativos) y Datos incorrectos o duplicado (neutral).
+
+**Reglas automáticas**: el estado que aplica cada una. Solo se pueden elegir estados activos de categorías abiertas.
+
+- **Al crear**: el estado de una oportunidad nueva (de fábrica, "Nuevo"). Si Norde no tiene stock para ofrecerle, nace en el primer estado de "Aplica a otra inmobiliaria".
+- **Al asignar a un agente**, **al reactivar** (una derivada que vuelve a consultar) y **para propietarios**: se configuran acá y se aplican desde la etapa 4.
+- Las reglas "tras enviar email o WhatsApp" y "tras me gusta / no me gusta" llegan con los envíos de fichas (#11).
+
+**Historial y agente**: cada cambio de estado queda en `opportunity_status_changes` (estado y categoría de origen y destino, quién y cuándo). De ahí sale la **vigencia**, el tiempo en el estado actual. La oportunidad tiene agente y sucursal propios: al crearse hereda los del contacto. La migración pasó cada oportunidad al primer estado de su categoría, le copió el agente y la sucursal del contacto y le dejó su estado actual como primera entrada del historial.
+
+Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucursal o las de todas (`opportunities:read-branch` / `read-all`), editar las de otros (`opportunities:update-others`) y cambiar el agente (`opportunities:reassign`).
+
 ### 3.4 Cruce de búsquedas con stock
 
 Da soporte a las "Oportunidades por mail" del módulo 2.

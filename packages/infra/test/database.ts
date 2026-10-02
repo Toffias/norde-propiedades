@@ -3,7 +3,33 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeEach, inject } from 'vitest';
 
-import { createDatabase } from '../src/db/client';
+import { createDatabase, type Database } from '../src/db/client';
+
+/** Los estados de fábrica de la migración `0016`: sin ellos no nace ninguna oportunidad. */
+export const SEEDED_STAGES = {
+  new: '01920000-0000-7000-8000-000000000101',
+  contacted: '01920000-0000-7000-8000-000000000102',
+  visiting: '01920000-0000-7000-8000-000000000103',
+  negotiating: '01920000-0000-7000-8000-000000000104',
+  won: '01920000-0000-7000-8000-000000000105',
+  lost: '01920000-0000-7000-8000-000000000106',
+  referred_to_partner: '01920000-0000-7000-8000-000000000107',
+} as const;
+
+async function seedOpportunityStages(db: Database) {
+  const rows = Object.entries(SEEDED_STAGES).map(
+    ([category, id], position) =>
+      sql`(${id}, ${category}, '#64748b', ${position}, ${category}, true, now(), now(), 'system:import', 'system:import')`,
+  );
+  await db.execute(sql`
+    insert into core.opportunity_stages
+      (id, name, color, position, category, is_active, created_at, updated_at, created_by, updated_by)
+    values ${sql.join(rows, sql`, `)}
+  `);
+  await db.execute(
+    sql`update core.opportunity_settings set stage_on_create_id = ${SEEDED_STAGES.new}`,
+  );
+}
 
 /** Abre la base de tests y la vacía antes de cada test. */
 export function useTestDatabase() {
@@ -40,6 +66,7 @@ export function useTestDatabase() {
         end loop;
       end $$;
     `);
+    await seedOpportunityStages(connection.db);
   });
 
   afterAll(() => connection.close());

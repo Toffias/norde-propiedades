@@ -102,6 +102,12 @@ export const OWNERSHIP_RULES = {
   clientsRead: { own: 'clients:read', branch: 'clients:read-branch', all: 'clients:read-all' },
   clientsUpdate: { own: 'clients:update', all: 'clients:update-others' },
   clientsDelete: { own: 'clients:delete', all: 'clients:delete-others' },
+  opportunitiesRead: {
+    own: 'opportunities:read',
+    branch: 'opportunities:read-branch',
+    all: 'opportunities:read-all',
+  },
+  opportunitiesUpdate: { own: 'opportunities:update', all: 'opportunities:update-others' },
   propertiesUpdate: {
     own: 'properties:update',
     branch: 'properties:update-branch',

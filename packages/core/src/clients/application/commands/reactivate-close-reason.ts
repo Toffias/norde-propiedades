@@ -1,0 +1,55 @@
+import {
+  auditAction,
+  err,
+  ok,
+  type Actor,
+  type Clock,
+  type ForbiddenError,
+  type Result,
+} from '../../../shared';
+import { CloseReasonIdInputSchema, type CloseReasonIdInput } from '../../contracts';
+import { invalidInput, type InvalidInputError } from '../client-support';
+import {
+  configTarget,
+  findCloseReason,
+  type CloseReasonNotFoundError,
+} from '../opportunity-config-support';
+import type { ClientsUnitOfWork } from '../ports/clients-transaction';
+
+export type ReactivateCloseReasonError =
+  ForbiddenError | InvalidInputError | CloseReasonNotFoundError;
+
+/** Vuelve a ofrecer un motivo de cierre desactivado. */
+export class ReactivateCloseReason {
+  constructor(private readonly deps: { readonly uow: ClientsUnitOfWork; readonly clock: Clock }) {}
+
+  async execute(
+    input: CloseReasonIdInput,
+    actor: Actor,
+  ): Promise<Result<void, ReactivateCloseReasonError>> {
+    if (!actor.can('settings:update')) return err({ type: 'Forbidden' });
+
+    const parsed = CloseReasonIdInputSchema.safeParse(input);
+    if (!parsed.success) return err(invalidInput(parsed.error));
+    const now = this.deps.clock.now();
+
+    return this.deps.uow.run(async (tx): Promise<Result<void, ReactivateCloseReasonError>> => {
+      const reason = await findCloseReason(tx, parsed.data.reasonId);
+      if (!reason) return err({ type: 'CloseReasonNotFound' });
+      if (!reason.reactivate(now)) return ok(undefined);
+
+      await tx.closeReasons.save(reason, actor.id);
+      await tx.audit.record(
+        auditAction(
+          actor,
+          configTarget(
+            'opportunity_close_reason',
+            'opportunity_close_reason.reactivated',
+            reason.id,
+          ),
+        ),
+      );
+      return ok(undefined);
+    });
+  }
+}

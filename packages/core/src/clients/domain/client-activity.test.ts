@@ -33,6 +33,12 @@ function anOpportunity(overrides: Partial<OpportunitySnapshot> = {}): Opportunit
     type: 'sale',
     intent: 'visit',
     status: 'new',
+    stageId: undefined,
+    agentId: undefined,
+    branchId: undefined,
+    statusChangedAt: NOW,
+    closedAt: undefined,
+    closeReasonId: undefined,
     propertyId: PROPERTY,
     search: undefined,
     notes: [

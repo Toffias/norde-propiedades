@@ -14,6 +14,7 @@ import {
   OTHER_PROPERTY_ID,
   PROPERTY_ID,
   seedClient,
+  stageFixtureId,
   StubClientRecordQuery,
   TEST_AGENT,
   TEST_MANAGER,
@@ -247,11 +248,16 @@ describe('RecordClientActivity', () => {
         originChannel: 'whatsapp',
         type: 'rent',
         intent: 'info',
-        noMatchingStock: false,
+        stage: { id: stageFixtureId(0), category: 'new', isActive: true },
+        agent: { agentId: undefined, branchId: undefined },
+        statusChangeId: unwrap(
+          parseId<'OpportunityStatusChange'>('00000000-0000-7000-8000-0000000000f2'),
+        ),
         propertyId: PROPERTY_ID,
         note: 'Busca 2 ambientes en Palermo',
         now: clock.now(),
       }),
+      'user-1',
     );
     return { uow, client, opportunityId: opportunityId.value };
   }

@@ -63,7 +63,19 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
       {
         resource: 'opportunities',
         label: 'Oportunidades',
-        permissions: crud('opportunities', 'oportunidades'),
+        permissions: [
+          { permission: 'opportunities:read', label: 'Ver sus oportunidades' },
+          { permission: 'opportunities:read-branch', label: 'Ver oportunidades de su sucursal' },
+          { permission: 'opportunities:read-all', label: 'Ver oportunidades de otras sucursales' },
+          { permission: 'opportunities:create', label: 'Crear oportunidades' },
+          { permission: 'opportunities:update', label: 'Editar sus oportunidades' },
+          { permission: 'opportunities:update-others', label: 'Editar oportunidades de otros' },
+          {
+            permission: 'opportunities:reassign',
+            label: 'Cambiar el agente de una oportunidad',
+          },
+          { permission: 'opportunities:delete', label: 'Borrar oportunidades' },
+        ],
       },
       {
         resource: 'conversations',

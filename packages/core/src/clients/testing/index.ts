@@ -70,7 +70,10 @@ import {
   type ClientTagGroupRepository,
   type ClientTagRepository,
   type FeaturedListingRepository,
+  type OpportunityCloseReasonRepository,
   type OpportunityRepository,
+  type OpportunitySettingsRepository,
+  type OpportunityStageRepository,
 } from '../domain/client.repository';
 import {
   ClientTag,
@@ -79,7 +82,18 @@ import {
   type ClientTagId,
 } from '../domain/client-tag';
 import { normalizeName, type ContactKeys } from '../domain/duplicate-check';
-import { Opportunity, type OpportunityId } from '../domain/opportunity';
+import {
+  Opportunity,
+  type OpportunityId,
+  type OpportunityStatusChange,
+} from '../domain/opportunity';
+import {
+  OpportunityCloseReason,
+  type OpportunityCloseReasonId,
+} from '../domain/opportunity-close-reason';
+import { NO_RULES, type OpportunityRules } from '../domain/opportunity-settings';
+import { OpportunityStage, type OpportunityStageId } from '../domain/opportunity-stage';
+import type { OpportunityStatus } from '../domain/opportunity-status';
 
 /** Guarda snapshots (no instancias), igual que una base: cada lectura devuelve un aggregate nuevo. */
 export class InMemoryClientRepository implements ClientRepository {
@@ -136,8 +150,137 @@ export class InMemoryOpportunityRepository implements OpportunityRepository {
     );
   }
 
-  save(opportunity: Opportunity) {
+  /** Historial de cambios de estado guardados, por oportunidad. */
+  readonly statusChanges: (OpportunityStatusChange & { readonly changedBy: string })[] = [];
+
+  save(opportunity: Opportunity, actorId: string) {
     this.rows.set(opportunity.id, opportunity.toSnapshot());
+    for (const change of opportunity.pullStatusChanges()) {
+      this.statusChanges.push({ ...change, changedBy: actorId });
+    }
+    return Promise.resolve();
+  }
+}
+
+/** Un ID fijo para los estados y motivos de prueba. */
+function fixtureId<Brand extends string>(prefix: string, index: number) {
+  const id = parseId<Brand>(
+    `00000000-0000-7000-8000-${prefix}${index.toString().padStart(12 - prefix.length, '0')}`,
+  );
+  if (id.isErr()) throw new Error('invalid fixture id');
+  return id.value;
+}
+
+const FIXTURE_TIME = new Date('2026-01-01T00:00:00Z');
+
+/** Los estados de fábrica (uno por categoría, como el seed de la migración). */
+export const DEFAULT_STAGES: readonly {
+  readonly name: string;
+  readonly category: OpportunityStatus;
+  readonly color: string;
+}[] = [
+  { name: 'Nuevo', category: 'new', color: '#3b82f6' },
+  { name: 'Contactado', category: 'contacted', color: '#06b6d4' },
+  { name: 'Visitando', category: 'visiting', color: '#8b5cf6' },
+  { name: 'Negociando', category: 'negotiating', color: '#f59e0b' },
+  { name: 'Ganada', category: 'won', color: '#22c55e' },
+  { name: 'Perdida', category: 'lost', color: '#ef4444' },
+  { name: 'Aplica a otra inmobiliaria', category: 'referred_to_partner', color: '#64748b' },
+];
+
+export function stageFixtureId(index: number): OpportunityStageId {
+  return fixtureId<'OpportunityStage'>('5', index);
+}
+
+export function closeReasonFixtureId(index: number): OpportunityCloseReasonId {
+  return fixtureId<'OpportunityCloseReason'>('6', index);
+}
+
+export class InMemoryOpportunityStageRepository implements OpportunityStageRepository {
+  readonly rows = new Map<string, ReturnType<OpportunityStage['toSnapshot']>>();
+
+  /** Arranca con los estados de fábrica (`stageFixtureId(0)` es "Nuevo"). */
+  constructor() {
+    for (const [index, stage] of DEFAULT_STAGES.entries()) {
+      this.rows.set(stageFixtureId(index), {
+        id: stageFixtureId(index),
+        ...stage,
+        position: index,
+        isActive: true,
+        createdAt: FIXTURE_TIME,
+        updatedAt: FIXTURE_TIME,
+      });
+    }
+  }
+
+  findById(id: OpportunityStageId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && OpportunityStage.restore(row));
+  }
+
+  findAll() {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .sort((a, b) => a.position - b.position)
+        .map((row) => OpportunityStage.restore(row)),
+    );
+  }
+
+  save(stage: OpportunityStage) {
+    this.rows.set(stage.id, stage.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryOpportunityCloseReasonRepository implements OpportunityCloseReasonRepository {
+  readonly rows = new Map<string, ReturnType<OpportunityCloseReason['toSnapshot']>>();
+
+  /** Arranca con un motivo positivo (`closeReasonFixtureId(0)`) y uno negativo (`(1)`). */
+  constructor() {
+    const reasons = [
+      { name: 'Compró o alquiló con Norde', rating: 'positive' },
+      { name: 'Dejó de buscar', rating: 'negative' },
+    ] as const;
+    for (const [index, reason] of reasons.entries()) {
+      this.rows.set(closeReasonFixtureId(index), {
+        id: closeReasonFixtureId(index),
+        ...reason,
+        position: index,
+        isActive: true,
+        createdAt: FIXTURE_TIME,
+        updatedAt: FIXTURE_TIME,
+      });
+    }
+  }
+
+  findById(id: OpportunityCloseReasonId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && OpportunityCloseReason.restore(row));
+  }
+
+  findAll() {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .sort((a, b) => a.position - b.position)
+        .map((row) => OpportunityCloseReason.restore(row)),
+    );
+  }
+
+  save(reason: OpportunityCloseReason) {
+    this.rows.set(reason.id, reason.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryOpportunitySettingsRepository implements OpportunitySettingsRepository {
+  rules: OpportunityRules = NO_RULES;
+
+  get() {
+    return Promise.resolve(this.rules);
+  }
+
+  save(rules: OpportunityRules) {
+    this.rules = rules;
     return Promise.resolve();
   }
 }
@@ -382,6 +525,9 @@ export class InMemoryClientErasure implements ClientErasure {
 export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly clients = new InMemoryClientRepository();
   readonly opportunities = new InMemoryOpportunityRepository();
+  readonly stages = new InMemoryOpportunityStageRepository();
+  readonly closeReasons = new InMemoryOpportunityCloseReasonRepository();
+  readonly opportunitySettings = new InMemoryOpportunitySettingsRepository();
   readonly tags = new InMemoryClientTagRepository(this.clients);
   readonly tagGroups = new InMemoryClientTagGroupRepository(this.tags);
   readonly records = new InMemoryClientLinkedRecords();
@@ -396,6 +542,10 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
     const backup = {
       clients: new Map(this.clients.rows),
       opportunities: new Map(this.opportunities.rows),
+      statusChanges: this.opportunities.statusChanges.length,
+      stages: new Map(this.stages.rows),
+      closeReasons: new Map(this.closeReasons.rows),
+      rules: this.opportunitySettings.rules,
       tags: new Map(this.tags.rows),
       tagGroups: new Map(this.tagGroups.rows),
       records: new Map(this.records.counts),
@@ -413,6 +563,10 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
     const rollback = () => {
       restore(this.clients.rows, backup.clients);
       restore(this.opportunities.rows, backup.opportunities);
+      this.opportunities.statusChanges.splice(backup.statusChanges);
+      restore(this.stages.rows, backup.stages);
+      restore(this.closeReasons.rows, backup.closeReasons);
+      this.opportunitySettings.rules = backup.rules;
       restore(this.tags.rows, backup.tags);
       restore(this.tagGroups.rows, backup.tagGroups);
       restore(this.records.counts, backup.records);

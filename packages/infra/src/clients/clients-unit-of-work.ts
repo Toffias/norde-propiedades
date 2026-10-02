@@ -18,6 +18,11 @@ import {
   DrizzleOpportunityRepository,
 } from './drizzle-client-repositories';
 import {
+  DrizzleOpportunityCloseReasonRepository,
+  DrizzleOpportunitySettingsRepository,
+  DrizzleOpportunityStageRepository,
+} from './drizzle-opportunity-config-repositories';
+import {
   DrizzleClientTagGroupRepository,
   DrizzleClientTagRepository,
 } from './drizzle-client-tag-repositories';
@@ -29,6 +34,9 @@ export function createClientsUnitOfWork(
   return new DrizzleUnitOfWork<ClientsTransaction>(db, (tx) => ({
     clients: new DrizzleClientRepository(tx, deps.ids),
     opportunities: new DrizzleOpportunityRepository(tx),
+    stages: new DrizzleOpportunityStageRepository(tx),
+    closeReasons: new DrizzleOpportunityCloseReasonRepository(tx),
+    opportunitySettings: new DrizzleOpportunitySettingsRepository(tx),
     tagGroups: new DrizzleClientTagGroupRepository(tx),
     tags: new DrizzleClientTagRepository(tx),
     records: new DrizzleClientLinkedRecords(tx),

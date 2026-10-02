@@ -5,7 +5,7 @@ import {
   type OpportunityStage,
   type OpportunityStageId,
 } from './opportunity-stage';
-import { isOpenStatus } from './opportunity-status';
+import { isOpenStatus, type OpportunityStatus } from './opportunity-status';
 
 /**
  * Reglas automáticas de estado que se configuran en Mi empresa. Las de envíos y reacciones
@@ -69,4 +69,30 @@ export function initialStage(
   if (noMatchingStock) return firstActiveStageOf(stages, 'referred_to_partner');
   const configured = stages.find((s) => s.id === rules.onCreate && s.isActive);
   return configured ?? firstActiveStageOf(stages, 'new');
+}
+
+/** Lo que pasó con una oportunidad que puede disparar una regla automática. */
+export type OpportunityRuleTrigger =
+  | { readonly kind: 'assigned'; readonly toAgentId: string | undefined }
+  | { readonly kind: 'request_added' }
+  | { readonly kind: 'created'; readonly ownerClient: boolean };
+
+/**
+ * Qué regla aplica: "al asignar" cuando pasa a un agente (no al quedar sin agente), "al reactivar"
+ * cuando una derivada a socia vuelve a consultar, y "para propietarios" cuando nace la de un
+ * contacto propietario. Una cerrada no cambia.
+ */
+export function automaticRuleFor(
+  trigger: OpportunityRuleTrigger,
+  status: OpportunityStatus,
+): OpportunityRule | undefined {
+  if (!isOpenStatus(status)) return undefined;
+  switch (trigger.kind) {
+    case 'assigned':
+      return trigger.toAgentId === undefined ? undefined : 'onAssign';
+    case 'request_added':
+      return status === 'referred_to_partner' ? 'onReactivate' : undefined;
+    case 'created':
+      return trigger.ownerClient ? 'forOwners' : undefined;
+  }
 }

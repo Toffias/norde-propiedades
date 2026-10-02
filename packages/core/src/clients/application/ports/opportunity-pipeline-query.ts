@@ -24,6 +24,11 @@ export interface OpportunityFilterCriteria {
   readonly updated: { readonly from: Date | undefined; readonly to: Date | undefined };
 }
 
+/** Los filtros, en un estado o en todos: lo que abarca "todas las que cumplen" de una acción masiva. */
+export interface OpportunityBulkCriteria extends OpportunityFilterCriteria {
+  readonly stageId: string | undefined;
+}
+
 export interface OpportunityListCriteria extends OpportunityFilterCriteria {
   readonly stageId: string;
   readonly sort: { readonly field: OpportunitySortField; readonly direction: 'asc' | 'desc' };
@@ -51,6 +56,11 @@ export interface OpportunityPipelineItem {
   readonly statusChangedAt: Date;
   /** La última nota del contacto. */
   readonly lastNote: string | undefined;
+  readonly referral: {
+    readonly partnerName: string | undefined;
+    readonly referredAt: Date | undefined;
+    readonly result: string | undefined;
+  };
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -60,6 +70,16 @@ export interface OpportunityPipelineQuery {
   search(criteria: OpportunityListCriteria): Promise<PageSlice<OpportunityPipelineItem>>;
   /** Cuántas cumplen los filtros en cada estado (un `GROUP BY`). Solo los que tienen alguna. */
   countByStage(criteria: OpportunityFilterCriteria): Promise<OpportunityStageCount[]>;
+  /** Cuántas cumplen los filtros (en un estado, o en todos). */
+  count(criteria: OpportunityBulkCriteria): Promise<number>;
+  /**
+   * Los IDs que cumplen los filtros, por ID y desde `afterId`: una acción masiva los recorre por
+   * clave, así un cambio que saca una del filtro no hace saltear otra.
+   */
+  matchingIds(
+    criteria: OpportunityBulkCriteria,
+    page: { readonly afterId: string | undefined; readonly limit: number },
+  ): Promise<string[]>;
   /** Cuántas de estas categorías tiene asignadas el agente (el contador del menú). */
   countAssigned(agentId: string, categories: readonly OpportunityStatusValue[]): Promise<number>;
 }

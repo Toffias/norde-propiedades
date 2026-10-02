@@ -6,22 +6,36 @@ import {
   type OwnedTarget,
 } from '../../identity';
 import {
+  auditAction,
+  diffChanges,
+  err,
+  nextId,
+  ok,
   toAuditValue,
   type Actor,
   type AuditState,
   type AuditTarget,
   type IdGenerator,
+  type Result,
 } from '../../shared';
 import type {
   ClientTypeValue,
   ContactChannelValue,
   OpportunityActions,
   OpportunityPipelineRow,
+  OpportunityReferralView,
   OpportunityStatusValue,
 } from '../contracts';
 import { statusChangeActivity } from '../domain/client-activity';
 import { maskPhone } from '../domain/contact-masking';
-import type { Opportunity } from '../domain/opportunity';
+import {
+  REFERRAL_RESULTS,
+  type CloseOpportunityError,
+  type MoveToStageError,
+  type Opportunity,
+  type OpportunityAgent,
+  type OpportunityClosedError,
+} from '../domain/opportunity';
 import type { CloseReasonRef } from '../domain/opportunity-close-reason';
 import {
   reachableStages,
@@ -73,6 +87,9 @@ export function opportunityAuditState(opportunity: Opportunity): AuditState {
     branchId: s.branchId,
     closeReasonId: s.closeReasonId,
     closedAt: s.closedAt?.toISOString(),
+    partnerName: s.referral.partnerName,
+    referredAt: s.referral.referredAt?.toISOString().slice(0, 10),
+    referralResult: s.referral.result,
     propertyId: s.propertyId,
     search: toAuditValue(s.search),
   };
@@ -173,6 +190,95 @@ export async function saveOpportunity(
   }
 }
 
+/** Con qué se registra un cambio: IDs, el instante y, si lo disparó una regla, el evento. */
+export interface OpportunityChangeContext {
+  readonly ids: IdGenerator;
+  readonly now: Date;
+  readonly sourceEventId?: string | undefined;
+}
+
+/**
+ * Pasa la oportunidad a otro estado abierto y lo guarda: historial, eventos, actividad del cliente
+ * y auditoría. Lo usan el cambio individual, el masivo y las reglas automáticas. Devuelve si
+ * cambió.
+ */
+export async function moveOpportunity(
+  tx: ClientsTransaction,
+  opportunity: Opportunity,
+  stage: StageRef,
+  actor: Actor,
+  context: OpportunityChangeContext,
+): Promise<Result<boolean, MoveToStageError>> {
+  const before = opportunityAuditState(opportunity);
+  const from = stagePositionOf(opportunity);
+  const moved = opportunity.moveToStage(stage, {
+    id: nextId<'OpportunityStatusChange'>(context.ids),
+    now: context.now,
+    sourceEventId: context.sourceEventId,
+  });
+  if (moved.isErr()) return err(moved.error);
+  if (!moved.value) return ok(false);
+  await saveOpportunity(tx, opportunity, actor, context.ids, context.now, from);
+  await tx.audit.record(
+    auditAction(
+      actor,
+      opportunityTarget('opportunity.status_changed', opportunity),
+      diffChanges(before, opportunityAuditState(opportunity)),
+    ),
+  );
+  return ok(true);
+}
+
+/** Cierra con un motivo, en un estado de la categoría que le corresponde, y lo guarda. */
+export async function closeOpportunityWith(
+  tx: ClientsTransaction,
+  opportunity: Opportunity,
+  closing: { readonly reason: CloseReasonRef; readonly stage: StageRef },
+  actor: Actor,
+  context: OpportunityChangeContext,
+): Promise<Result<void, CloseOpportunityError>> {
+  const before = opportunityAuditState(opportunity);
+  const from = stagePositionOf(opportunity);
+  const closed = opportunity.close(closing.reason, closing.stage, {
+    id: nextId<'OpportunityStatusChange'>(context.ids),
+    now: context.now,
+  });
+  if (closed.isErr()) return err(closed.error);
+  await saveOpportunity(tx, opportunity, actor, context.ids, context.now, from);
+  await tx.audit.record(
+    auditAction(
+      actor,
+      opportunityTarget('opportunity.closed', opportunity),
+      diffChanges(before, opportunityAuditState(opportunity)),
+    ),
+  );
+  return ok(undefined);
+}
+
+/** La pasa a otro agente (o a ninguno) y a su sucursal, y lo guarda. Devuelve si cambió. */
+export async function reassignOpportunityTo(
+  tx: ClientsTransaction,
+  opportunity: Opportunity,
+  agent: OpportunityAgent,
+  actor: Actor,
+  now: Date,
+): Promise<Result<boolean, OpportunityClosedError>> {
+  const before = opportunityAuditState(opportunity);
+  const changed = opportunity.assignAgent(agent, now);
+  if (changed.isErr()) return err(changed.error);
+  if (!changed.value) return ok(false);
+  await tx.opportunities.save(opportunity, actor.id);
+  await tx.events.publish(opportunity.pullEvents());
+  await tx.audit.record(
+    auditAction(
+      actor,
+      opportunityTarget('opportunity.reassigned', opportunity),
+      diffChanges(before, opportunityAuditState(opportunity)),
+    ),
+  );
+  return ok(true);
+}
+
 /** Los filtros del pipeline ya validados por el contract. */
 export interface ParsedOpportunityFilter {
   readonly q?: string | undefined;
@@ -202,6 +308,14 @@ export function resolveOpportunityFilter(
     category: filter.category,
     created: dayRange(filter.createdFrom, filter.createdTo),
     updated: dayRange(filter.updatedFrom, filter.updatedTo),
+  };
+}
+
+function referralView(referral: OpportunityPipelineItem['referral']): OpportunityReferralView {
+  return {
+    partnerName: referral.partnerName,
+    referredAt: referral.referredAt?.toISOString().slice(0, 10),
+    result: REFERRAL_RESULTS.find((value) => value === referral.result),
   };
 }
 
@@ -264,6 +378,7 @@ export async function toPipelineRows(
       daysInStage: stageTenure([{ changedAt: item.statusChangedAt }], item.createdAt, context.now)
         .days,
       lastNote: item.lastNote,
+      referral: item.status === 'referred_to_partner' ? referralView(item.referral) : undefined,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       can: opportunityActions(

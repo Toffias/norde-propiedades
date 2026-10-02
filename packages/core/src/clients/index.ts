@@ -55,16 +55,31 @@ export {
   type OpportunityAgent,
   type OpportunityId,
   type OpportunityNote,
+  type OpportunityNotReferredError,
+  type OpportunityReferral,
   type OpportunitySnapshot,
   type OpportunityStatusChange,
   type OpportunityStatusChangeId,
+  REFERRAL_RESULTS,
+  type ReferralResult,
 } from './domain/opportunity';
+export {
+  BULK_SYNC_LIMIT,
+  MAX_BULK_OPPORTUNITIES,
+  OpportunityBulkOperation,
+  type OpportunityBulkAction,
+  type OpportunityBulkOperationId,
+  type OpportunityBulkOperationSnapshot,
+  type OpportunityBulkSelection,
+  type OpportunityBulkStatus,
+} from './domain/opportunity-bulk-operation';
 export {
   MAX_DUPLICATE_CANDIDATES,
   type ClientRepository,
   type ClientTagGroupRepository,
   type ClientTagRepository,
   type OpportunityCloseReasonRepository,
+  type OpportunityBulkOperationRepository,
   type OpportunityRepository,
   type OpportunitySettingsRepository,
   type OpportunityStageRepository,
@@ -422,6 +437,7 @@ export {
 export { GetOpportunityConfiguration } from './application/queries/get-opportunity-configuration';
 export type {
   OpportunityFilterCriteria,
+  OpportunityBulkCriteria,
   OpportunityListCriteria,
   OpportunityPipelineItem,
   OpportunityPipelineQuery,
@@ -434,6 +450,28 @@ export {
   ListOpportunityHistory,
   type ListOpportunityHistoryError,
 } from './application/queries/list-opportunity-history';
+export {
+  BulkUpdateOpportunities,
+  type BulkUpdateOpportunitiesError,
+} from './application/commands/bulk-update-opportunities';
+export {
+  UpdateOpportunityReferral,
+  type UpdateOpportunityReferralError,
+} from './application/commands/update-opportunity-referral';
+export {
+  GetOpportunityBulkOperation,
+  type GetOpportunityBulkOperationError,
+} from './application/queries/get-opportunity-bulk-operation';
+export {
+  RunOpportunityBulkOperation,
+  type RunOpportunityBulkOperationError,
+} from './application/handlers/run-opportunity-bulk-operation';
+export {
+  ApplyOpportunityRules,
+  type OpportunityRuleEvent,
+  type OpportunityRuleOutcome,
+} from './application/handlers/apply-opportunity-rules';
+export type { OpportunityRequesters } from './application/ports/opportunity-requesters';
 export {
   CountOpportunitiesByStage,
   type CountOpportunitiesByStageError,

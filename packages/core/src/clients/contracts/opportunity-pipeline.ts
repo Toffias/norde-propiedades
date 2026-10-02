@@ -7,6 +7,7 @@ import { pageQuerySchema } from '../../shared/contracts';
 import { OPPORTUNITY_STATUS_VALUES, type OpportunityStatusValue } from './clients-activity';
 import type { ClientKindValue, ClientUserRef } from './clients-panel';
 import { CONTACT_CHANNEL_VALUES } from './contact-channels';
+import type { OpportunityReferralView } from './opportunity-bulk';
 
 export const OPPORTUNITY_SORT_FIELDS = [
   'updatedAt',
@@ -24,7 +25,7 @@ export const OPPORTUNITY_SORT_LABELS: Readonly<Record<OpportunitySortField, stri
 };
 
 /** Filtros del pipeline: los comparten las secciones y los contadores. */
-const OpportunityFilterFields = {
+export const OpportunityFilterFields = {
   /** Nombre, teléfono, email o documento del contacto, sin distinguir mayúsculas ni acentos. */
   q: z.string().trim().min(1).max(100).optional(),
   /** Agente de la oportunidad (no el del contacto). */
@@ -41,7 +42,7 @@ const OpportunityFilterFields = {
   updatedTo: z.iso.date().optional(),
 };
 
-function checkDateRanges(
+export function checkDateRanges(
   query: {
     readonly createdFrom?: string | undefined;
     readonly createdTo?: string | undefined;
@@ -134,6 +135,8 @@ export interface OpportunityPipelineRow {
   readonly daysInStage: number;
   /** La última nota del contacto, recortada. */
   readonly lastNote: string | undefined;
+  /** Solo en "Aplica a otra inmobiliaria": a qué socia se derivó y cómo terminó. */
+  readonly referral: OpportunityReferralView | undefined;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly can: OpportunityActions;

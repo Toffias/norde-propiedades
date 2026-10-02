@@ -1,9 +1,6 @@
 import { accessScope, OWNERSHIP_RULES } from '../../../identity';
 import {
-  auditAction,
-  diffChanges,
   err,
-  nextId,
   ok,
   type Actor,
   type Clock,
@@ -24,11 +21,8 @@ import {
 } from '../opportunity-config-support';
 import {
   canUpdateOpportunity,
+  closeOpportunityWith,
   findOpportunity,
-  opportunityAuditState,
-  opportunityTarget,
-  saveOpportunity,
-  stagePositionOf,
   type OpportunityNotFoundError,
 } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
@@ -79,22 +73,14 @@ export class CloseOpportunity {
           : await findStage(tx, stageId);
       if (!stage) return err({ type: 'StageNotFound' });
 
-      const before = opportunityAuditState(opportunity);
-      const from = stagePositionOf(opportunity);
-      const closed = opportunity.close(reason.ref(), stage.ref(), {
-        id: nextId<'OpportunityStatusChange'>(this.deps.ids),
-        now,
-      });
-      if (closed.isErr()) return err(closed.error);
-
-      await saveOpportunity(tx, opportunity, actor, this.deps.ids, now, from);
-      await tx.audit.record(
-        auditAction(
-          actor,
-          opportunityTarget('opportunity.closed', opportunity),
-          diffChanges(before, opportunityAuditState(opportunity)),
-        ),
+      const closed = await closeOpportunityWith(
+        tx,
+        opportunity,
+        { reason: reason.ref(), stage: stage.ref() },
+        actor,
+        { ids: this.deps.ids, now },
       );
+      if (closed.isErr()) return err(closed.error);
       return ok(undefined);
     });
   }

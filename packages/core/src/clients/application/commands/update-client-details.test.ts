@@ -168,6 +168,29 @@ describe('UpdateClientDetails', () => {
     expect(error).toEqual({ type: 'Forbidden' });
   });
 
+  it('keeps the document of an owner that the actor sees masked', async () => {
+    const { uow, useCase } = setup();
+    const owner = await seedClient(uow, { clientTypes: ['owner_seller'] });
+    unwrap(
+      await useCase.execute(
+        { clientId: owner.id, profile: { documentNumber: '20123456' } },
+        TEST_MANAGER,
+      ),
+    );
+
+    unwrap(
+      await useCase.execute(
+        { clientId: owner.id, profile: { jobTitle: 'Médica', documentNumber: '•••' } },
+        TEST_AGENT,
+      ),
+    );
+
+    expect(uow.clients.rows.get(owner.id)?.profile).toMatchObject({
+      jobTitle: 'Médica',
+      documentNumber: '20123456',
+    });
+  });
+
   it('does not edit a contact in the trash', async () => {
     const { uow, useCase } = setup();
     const client = await seedClient(uow, { deleted: true });

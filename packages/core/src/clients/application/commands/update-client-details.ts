@@ -114,8 +114,16 @@ export class UpdateClientDetails {
       }
 
       if (data.kind !== undefined || data.profile !== undefined) {
+        const profile = data.profile === undefined ? {} : toProfile(data.profile);
+        // Quien no ve el documento de un propietario (lo recibe enmascarado) no lo cambia.
+        const keepDocument = masksOwnerContact(actor, client.toSnapshot().clientTypes);
         const changed = client.updateDetails(
-          { kind: data.kind, profile: data.profile === undefined ? {} : toProfile(data.profile) },
+          {
+            kind: data.kind,
+            profile: keepDocument
+              ? { ...profile, documentNumber: client.toSnapshot().profile.documentNumber }
+              : profile,
+          },
           now,
         );
         if (changed.isErr()) return err(changed.error);

@@ -4,7 +4,7 @@ import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import { PageHeader } from '@norde/ui/components/page-header';
 import { InboxIcon, WorkflowIcon } from 'lucide-react';
-import type { Metadata, Route } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { getContainer } from '../../../container';
@@ -53,7 +53,7 @@ export default async function InquiriesPage({
         actions={
           actor.can('inquiries:manage') && (
             <Button asChild variant="outline" size="sm">
-              <Link href={'/consultas/reglas' as Route}>
+              <Link href="/consultas/reglas">
                 <WorkflowIcon className="h-4 w-4" />
                 Reglas de asignación
               </Link>

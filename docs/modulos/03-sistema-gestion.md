@@ -188,7 +188,7 @@ Se **persisten los clientes junto con el canal por el que se contactaron**, veng
 
 ### 3.3.1 Agenda de contactos en el panel (#8, etapa 1)
 
-La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A–Z, empresas y grupos y unificar contactos, (3) actividad, notas, pestañas con contador, oportunidad en la ficha y buscador de propiedades embebido, (4) importación desde Excel y supresión de datos. Esta sección describe la etapa 1.
+La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A–Z, empresas y grupos y unificar contactos, (3) actividad, notas, pestañas con contador, oportunidad en la ficha y buscador de propiedades embebido, (4) importación desde Excel y supresión de datos. Esta sección describe la etapa 1; la 3.3.2, la etapa 2.
 
 **Grilla** (`/contactos`): Nombre (con tipo de registro y tipos de cliente), Empresa, Teléfono, Celular, Email, Agente, Creación y Última actualización, paginada en el servidor y ordenable por nombre, creación y actualización.
 
@@ -211,6 +211,31 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 **Papelera** (`?view=trash`, con permiso de borrar): quién borró y cuándo, con restaurar. Los propios con `clients:delete`, los de otros con `clients:delete-others`.
 
 **Exportar a Excel** (`clients:export`): los contactos que cumplen los filtros aplicados, hasta 10.000, armado por lotes. Queda en la auditoría con el actor, los filtros y la cantidad.
+
+### 3.3.2 Etiquetas, agenda A–Z, contactos relacionados y unificar (#8, etapa 2)
+
+**Etiquetas** (`/contactos/etiquetas` y `/contactos/etiquetas/grupos`, con "Editar etiquetas" `tags:update`):
+
+- Grupos de etiquetas (Origen, Alquileres, Colegas) con cuántas etiquetas y cuántos contactos activos tienen. Etiquetas sueltas o dentro de un grupo, con su contador de contactos.
+- Crear, renombrar, mover de grupo, borrar y **unificar**: los contactos de una etiqueta pasan a otra (quien tenía las dos queda con una) y la primera se borra. Una etiqueta en uso no se borra; se unifica con otra o se quita de los contactos. Un grupo con etiquetas no se borra.
+- En la ficha, la sección Etiquetas se edita con un selector paginado (hasta 50 por contacto). La edita quien puede editar el contacto y queda en su historial.
+- Filtros de la agenda: con o sin etiquetas y una etiqueta puntual (en "Más filtros").
+
+**Agenda A–Z** (`/contactos?layout=agenda`): índice alfabético con cuántos contactos hay en cada letra, con los filtros aplicados, y un acordeón. Solo la letra abierta trae sus contactos, paginados en el servidor (nunca la agenda completa). La inicial se toma sin acentos ("Álvaro" va en la A, "Ñandú" en la N) y lo que no empieza con una letra va en "#". La papelera se ve siempre en la grilla. Se suma el filtro por tipo de registro (persona, empresa o grupo).
+
+**Contactos relacionados** (sección de la ficha, paginada):
+
+- Una persona **trabaja en** una empresa; una persona o una empresa **es miembro de** un grupo; cualquier par puede estar **relacionado**, con un detalle libre ("esposa", "contador", "socio").
+- La relación la declara un contacto y se ve desde los dos: en la ficha de la empresa aparece "Trabaja en esta empresa: Juan".
+- Agregarla pide poder editar el contacto y ver el otro; quitarla, poder editar cualquiera de los dos. Se audita contra el contacto que la declara, con los dos IDs.
+
+**Unificar contactos** (`clients:merge`, desde la tarjeta de la ficha):
+
+- Se elige el otro contacto, se ven los dos lado a lado (datos, agente y lo que cuelga de cada uno) y se elige cuál queda.
+- El principal se queda con todo: teléfonos, emails, canales, tipos de cliente, etiquetas, relaciones (las suyas y las que otros declaran hacia el duplicado), oportunidades, actividad, búsquedas guardadas, destacadas, envíos y consultas. Lo que ya tiene el principal manda (nombre, agente, teléfono y email principales, datos cargados); los datos vacíos se completan con los del duplicado. Si los dos tenían destacada la misma propiedad, la del duplicado pasa como quitada.
+- El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
+- Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
+- Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. Se publica `clients.clients_merged` para que los otros módulos que guardan el ID del cliente lo reapunten.
 
 ### 3.4 Cruce de búsquedas con stock
 

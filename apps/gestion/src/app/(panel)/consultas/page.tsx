@@ -1,9 +1,11 @@
 import { ListInquiriesQuerySchema } from '@norde/core/clients/contracts';
+import { Button } from '@norde/ui/components/button';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import { PageHeader } from '@norde/ui/components/page-header';
-import { InboxIcon } from 'lucide-react';
-import type { Metadata } from 'next';
+import { InboxIcon, WorkflowIcon } from 'lucide-react';
+import type { Metadata, Route } from 'next';
+import Link from 'next/link';
 
 import { getContainer } from '../../../container';
 import {
@@ -48,6 +50,16 @@ export default async function InquiriesPage({
         icon={InboxIcon}
         title="Consultas"
         subtitle="Lo que llega de los portales y de la web, hasta que se asigna a un contacto"
+        actions={
+          actor.can('inquiries:manage') && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={'/consultas/reglas' as Route}>
+                <WorkflowIcon className="h-4 w-4" />
+                Reglas de asignación
+              </Link>
+            </Button>
+          )
+        }
       />
 
       {invalidKeys.length > 0 && (

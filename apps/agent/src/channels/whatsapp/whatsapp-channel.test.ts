@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { signBody, verifySignature } from '../../http/signature';
+
 import { FailureBreaker } from './failure-breaker';
 import { parseInbound } from './inbound';
 import { KeyedQueue } from './keyed-queue';
 import { MessageBatcher } from './message-batcher';
 import { NoticeThrottle } from './notices';
 import { buildWhatsAppReply, cleanForWhatsApp, FALLBACK_TEXT } from './reply-builder';
-import { signBody, verifySignature } from '../../http/signature';
 
 const payload = (messages: unknown[], contacts: unknown[] = []) => ({
   object: 'whatsapp_business_account',

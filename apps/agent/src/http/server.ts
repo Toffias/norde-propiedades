@@ -6,6 +6,11 @@ import {
   type WhatsAppWebhookOptions,
 } from '../channels/whatsapp/webhook-routes';
 
+import {
+  registerWebInquiryWebhook,
+  type WebInquiryWebhookOptions,
+} from '../webhooks/web-inquiry-routes';
+
 import { registerHealthRoutes, type HealthCheck } from './routes/health';
 import type { AppInstance } from './types';
 
@@ -14,6 +19,8 @@ export interface ServerDependencies {
   readonly healthCheck: HealthCheck;
   /** Sin configuración de WhatsApp, el webhook no se expone. */
   readonly whatsapp?: WhatsAppWebhookOptions | undefined;
+  /** Sin secreto configurado, el webhook de consultas de la web no se expone. */
+  readonly webInquiries?: WebInquiryWebhookOptions | undefined;
 }
 
 export function buildServer(deps: ServerDependencies): AppInstance {
@@ -25,6 +32,7 @@ export function buildServer(deps: ServerDependencies): AppInstance {
 
   registerHealthRoutes(app, deps.healthCheck);
   if (deps.whatsapp) registerWhatsAppWebhook(app, deps.whatsapp);
+  if (deps.webInquiries) registerWebInquiryWebhook(app, deps.webInquiries);
 
   return app;
 }

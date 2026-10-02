@@ -62,6 +62,12 @@ const EnvSchema = z
     TEAM_WEBHOOK_URL: z.url().optional(),
     TEAM_WEBHOOK_TOKEN: z.string().min(1).optional(),
 
+    // Consultas del formulario web (#10). Sin secreto, el webhook no se expone.
+    /** Secreto compartido con apps/web para firmar cada consulta (HMAC-SHA256 del body). */
+    INQUIRY_WEBHOOK_SECRET: z.string().min(32).optional(),
+    /** Pedidos por minuto por IP al webhook de consultas. */
+    INQUIRY_WEBHOOK_RATE_PER_MINUTE: positiveInt(60),
+
     /** Relay del outbox y workers de pg-boss. */
     JOBS_ENABLED: z.stringbool().default(true),
 

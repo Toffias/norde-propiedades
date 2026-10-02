@@ -36,6 +36,8 @@ export interface PanelNavigation {
   readonly panel: PanelState | undefined;
   readonly pending: boolean;
   readonly openNew: () => void;
+  /** Alta en una pantalla con más de un catálogo: `tab` dice cuál (`?panel=new&tab=...`). */
+  readonly openNewIn: (tab: string) => void;
   readonly openEdit: (id: string, tab?: string) => void;
   readonly setTab: (tab: string) => void;
   /** Página de la grilla dentro del panel. */
@@ -81,6 +83,12 @@ export function usePanel(): PanelNavigation {
       pending,
       openNew: () => {
         navigate({ kind: 'new' }, { ...cleared, [PANEL_PARAM]: 'new' });
+      },
+      openNewIn: (tab) => {
+        navigate(
+          { kind: 'new', tab },
+          { ...cleared, [PANEL_PARAM]: 'new', [PANEL_TAB_PARAM]: tab },
+        );
       },
       openEdit: (id, tab) => {
         navigate(

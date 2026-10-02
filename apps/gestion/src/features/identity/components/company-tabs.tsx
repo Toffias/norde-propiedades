@@ -26,6 +26,7 @@ const SECTIONS: readonly CompanySection[] = [
   { label: 'Ubicaciones', href: '/mi-empresa/ubicaciones' },
   { label: 'Servicios y ambientes', href: '/mi-empresa/caracteristicas' },
   { label: 'Etiquetas', href: '/mi-empresa/etiquetas' },
+  { label: 'Oportunidades', href: '/mi-empresa/oportunidades' },
   { label: 'Usuarios', href: '/mi-empresa/usuarios' },
   { label: 'Roles', href: '/mi-empresa/roles' },
   { label: 'Sucursales', href: '/mi-empresa/sucursales' },

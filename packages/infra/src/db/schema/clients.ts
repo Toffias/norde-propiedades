@@ -570,6 +570,8 @@ export const inquiryAssignmentRuleAgents = coreSchema.table(
     /** Usuario del módulo identity: solo el ID, sin foreign key entre módulos. */
     userId: uuid('user_id').notNull(),
     weight: integer('weight').notNull().default(1),
+    /** Orden de los agentes en la regla: el reparto ponderado depende de él. */
+    position: integer('position').notNull().default(0),
     ...linkAuthorship(),
   },
   (t) => [

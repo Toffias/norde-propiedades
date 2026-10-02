@@ -148,6 +148,13 @@
       "when": 1790970829249,
       "tag": "0020_inquiry_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790982708094,
+      "tag": "0021_inquiry_rule_agent_order",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import { DrizzleClientErasure } from './drizzle-client-erasure';
 import { DrizzleClientImportRepository } from './drizzle-client-imports';
 import { DrizzleClientLinkedRecords } from './drizzle-client-linked-records';
 import { DrizzleInquiryRepository } from './drizzle-inquiry-repository';
+import { DrizzleInquiryRuleRepository } from './drizzle-inquiry-rule-repository';
 import { DrizzleOpportunityBulkOperationRepository } from './drizzle-opportunity-bulk-operations';
 import {
   DrizzleClientRepository,
@@ -48,6 +49,7 @@ export function createClientsUnitOfWork(
     imports: new DrizzleClientImportRepository(tx, deps.ids),
     bulkOperations: new DrizzleOpportunityBulkOperationRepository(tx),
     inquiries: new DrizzleInquiryRepository(tx),
+    inquiryRules: new DrizzleInquiryRuleRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

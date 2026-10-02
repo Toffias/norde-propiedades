@@ -53,6 +53,8 @@ export { DrizzleOpportunityPipelineQuery } from './clients/drizzle-opportunity-p
 export { DrizzleInquiryInboxQuery } from './clients/drizzle-inquiry-inbox-query';
 export { DrizzleInquiryMatchQuery } from './clients/drizzle-inquiry-match-query';
 export { DrizzleInquiryRepository } from './clients/drizzle-inquiry-repository';
+export { DrizzleInquiryRuleQuery } from './clients/drizzle-inquiry-rule-query';
+export { DrizzleInquiryRuleRepository } from './clients/drizzle-inquiry-rule-repository';
 export { DrizzleClientTagQuery } from './clients/drizzle-client-tag-query';
 export { DrizzleClientRelationQuery } from './clients/drizzle-client-relation-query';
 export { DrizzleClientRecordQuery } from './clients/drizzle-client-record-query';

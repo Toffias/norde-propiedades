@@ -34,6 +34,7 @@ import {
   clients,
   clientTagAssignments,
   opportunities,
+  opportunityStatusChanges,
 } from '../db/schema';
 
 const ChannelSchema = z.enum(CONTACT_CHANNELS);
@@ -488,34 +489,51 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
     return rows.map(toOpportunity).filter((o) => o.isOpen());
   }
 
-  async save(opportunity: Opportunity): Promise<void> {
+  async save(opportunity: Opportunity, actorId: string): Promise<void> {
     const s = opportunity.toSnapshot();
-    const row = {
-      id: s.id,
-      clientId: s.clientId,
-      originChannel: s.originChannel,
-      type: s.type,
+    const values = {
       intent: s.intent,
       status: s.status,
-      propertyId: s.propertyId ?? null,
+      stageId: s.stageId ?? null,
+      agentId: s.agentId ?? null,
+      branchId: s.branchId ?? null,
       search: s.search === undefined ? null : toJsonb(s.search),
       notes: toJsonb(s.notes),
-      createdAt: s.createdAt,
+      statusChangedAt: s.statusChangedAt,
+      closedAt: s.closedAt ?? null,
+      closeReasonId: s.closeReasonId ?? null,
       updatedAt: s.updatedAt,
+      updatedBy: actorId,
     };
     await this.db
       .insert(opportunities)
-      .values(row)
-      .onConflictDoUpdate({
-        target: opportunities.id,
-        set: {
-          intent: row.intent,
-          status: row.status,
-          search: row.search,
-          notes: row.notes,
-          updatedAt: row.updatedAt,
-        },
-      });
+      .values({
+        id: s.id,
+        clientId: s.clientId,
+        originChannel: s.originChannel,
+        type: s.type,
+        propertyId: s.propertyId ?? null,
+        createdAt: s.createdAt,
+        createdBy: actorId,
+        ...values,
+      })
+      .onConflictDoUpdate({ target: opportunities.id, set: values });
+
+    const changes = opportunity.pullStatusChanges();
+    if (changes.length > 0) {
+      await this.db.insert(opportunityStatusChanges).values(
+        changes.map((change) => ({
+          id: change.id,
+          opportunityId: s.id,
+          fromStageId: change.fromStageId ?? null,
+          toStageId: change.toStageId,
+          fromStatus: change.fromStatus ?? null,
+          toStatus: change.toStatus,
+          changedBy: actorId,
+          changedAt: change.changedAt,
+        })),
+      );
+    }
   }
 }
 
@@ -527,6 +545,16 @@ function toOpportunity(row: typeof opportunities.$inferSelect): Opportunity {
     id: storedId<'Opportunity'>(row.id),
     clientId: storedId<'Client'>(row.clientId),
     ...enums,
+    stageId: row.stageId === null ? undefined : storedId<'OpportunityStage'>(row.stageId),
+    agentId: row.agentId ?? undefined,
+    branchId: row.branchId ?? undefined,
+    // Las anteriores al backfill no la tenían: cuenta desde la última actualización.
+    statusChangedAt: row.statusChangedAt ?? row.updatedAt,
+    closedAt: row.closedAt ?? undefined,
+    closeReasonId:
+      row.closeReasonId === null
+        ? undefined
+        : storedId<'OpportunityCloseReason'>(row.closeReasonId),
     propertyId: row.propertyId ?? undefined,
     search,
     notes: NotesSchema.parse(row.notes).map((n) => ({

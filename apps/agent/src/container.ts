@@ -5,8 +5,10 @@ import {
   NotifyTeamOfOpportunity,
   RecordClientActivity,
   RegisterContact,
+  RunClientImport,
 } from '@norde/core/clients';
 import {
+  EraseClientConversations,
   ReceiveInboundMessages,
   SendReply,
   type ChannelMessenger,
@@ -20,8 +22,10 @@ import {
   GetPropertyInterestProfile,
   RenderPropertyDocument,
   SearchProperties,
+  UnlinkErasedClients,
   type OwnerReports,
 } from '@norde/core/properties';
+import { RemoveErasedClientFavorites } from '@norde/core/identity';
 import { GetOwnerReport, type ReportingPropertyProfiles } from '@norde/core/reporting';
 import type { FileStorage } from '@norde/core/settings';
 import { Actor } from '@norde/core/shared';
@@ -30,8 +34,11 @@ import {
   createConversationsUnitOfWork,
   createDatabase,
   createPropertiesUnitOfWork,
+  DrizzleClientConversationErasure,
+  DrizzleClientFavoriteErasure,
   DrizzleCompanySettingsRepository,
   DrizzleDirectory,
+  DrizzlePropertyClientErasure,
   DrizzlePropertyDetailLookups,
   DrizzlePropertyStatisticsQuery,
   LocalFileStorage,
@@ -49,6 +56,7 @@ import {
   SystemClock,
   UuidV7IdGenerator,
   WebhookTeamNotifier,
+  XlsxSpreadsheetReader,
   type Database,
 } from '@norde/infra';
 import type { Logger } from 'pino';
@@ -80,7 +88,12 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'properties:read',
   'properties:process-media',
   'properties:render-documents',
+  'conversations:erase-client-data',
+  'properties:erase-client-data',
+  'identity:erase-client-data',
 ]);
+/** Las importaciones desde Excel: los contactos quedan creados y auditados por `system:import`. */
+const IMPORT_ACTOR = Actor.system('import', ['clients:run-imports']);
 
 function createStorage(env: Env): FileStorage {
   if (env.STORAGE_DRIVER !== 's3') return new LocalFileStorage(env.STORAGE_LOCAL_DIR);
@@ -294,7 +307,24 @@ export function createContainer(
     notifyTeam,
     recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, { ids, clock }) }),
     properties: createPropertyJobs(db, env, { ids, clock }),
+    erasure: {
+      conversations: new EraseClientConversations({
+        erasure: new DrizzleClientConversationErasure(db),
+      }),
+      properties: new UnlinkErasedClients({ erasure: new DrizzlePropertyClientErasure(db) }),
+      favorites: new RemoveErasedClientFavorites({
+        favorites: new DrizzleClientFavoriteErasure(db),
+      }),
+    },
+    runImport: new RunClientImport({
+      uow: createClientsUnitOfWork(db, { ids, clock }),
+      reader: new XlsxSpreadsheetReader(),
+      storage: createStorage(env),
+      ids,
+      clock,
+    }),
     actor: SCHEDULER_ACTOR,
+    importActor: IMPORT_ACTOR,
     logger,
   })) {
     bus.subscribe(subscription);

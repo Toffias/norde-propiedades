@@ -4,6 +4,7 @@ import {
   CheckClientDuplicatesInputSchema,
   ClientIdInputSchema,
   CreateClientInputSchema,
+  EraseClientDataInputSchema,
   LinkClientsInputSchema,
   MergeClientsInputSchema,
   PreviewClientMergeInputSchema,
@@ -16,6 +17,7 @@ import {
   type ClientKindValue,
   type ClientMergePreview,
   type CreateClientInput,
+  type EraseClientDataInput,
   type LinkClientsInput,
   type MergeClientsInput,
   type PreviewClientMergeInput,
@@ -35,6 +37,7 @@ import {
   CHECK_DUPLICATES_ERROR_MESSAGES,
   CREATE_CLIENT_ERROR_MESSAGES,
   DELETE_CLIENT_ERROR_MESSAGES,
+  ERASE_CLIENT_ERROR_MESSAGES,
   LINK_CLIENTS_ERROR_MESSAGES,
   MERGE_CLIENTS_ERROR_MESSAGES,
   PREVIEW_MERGE_ERROR_MESSAGES,
@@ -132,6 +135,23 @@ export async function restoreClientAction(input: ClientIdInput): Promise<ActionR
   const result = await getContainer().clients.restoreClient.execute(parsed.data, actor);
   if (result.isErr()) {
     return actionFailed(messageForError(result.error, RESTORE_CLIENT_ERROR_MESSAGES));
+  }
+  revalidatePath(CONTACTS_PATH, 'layout');
+  return ACTION_OK;
+}
+
+/**
+ * Supresión de datos (Ley 25.326): borra el contacto y todo lo suyo, sin papelera. La ficha deja
+ * de existir, así que se refresca toda la agenda.
+ */
+export async function eraseClientDataAction(input: EraseClientDataInput): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = EraseClientDataInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(ERASE_CLIENT_ERROR_MESSAGES.InvalidInput);
+
+  const result = await getContainer().clients.eraseClientData.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, ERASE_CLIENT_ERROR_MESSAGES));
   }
   revalidatePath(CONTACTS_PATH, 'layout');
   return ACTION_OK;

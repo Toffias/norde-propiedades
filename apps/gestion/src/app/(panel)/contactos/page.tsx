@@ -130,6 +130,7 @@ export default async function ContactsPage({
               delete: canDelete,
               seeTrash: canDelete,
               export: actor.can('clients:export'),
+              import: actor.can('clients:import'),
               pickAgents: actor.can('users:read'),
               pickBranches: actor.can('branches:read'),
               assignAgent: actor.can('clients:reassign') && actor.can('users:read'),

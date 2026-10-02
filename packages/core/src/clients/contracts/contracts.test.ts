@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { MAX_ERASED_CLIENT_IDS } from '../../shared';
 import { CLIENT_ACTIVITY_KINDS, MAX_NOTE_LENGTH } from '../domain/client-activity';
+import { ERASURE_CONFIRMATION_WORD, MAX_ERASED_MERGED_CLIENTS } from '../domain/client-erasure';
 import { CLIENT_RELATION_KINDS } from '../domain/client-relation';
 import { MAX_CLIENT_TAGS } from '../domain/client-tag';
 import { CLIENT_KINDS, CLIENT_TYPES, EMAIL_KINDS, PHONE_KINDS } from '../domain/client-values';
@@ -16,6 +18,7 @@ import {
   ClientFilterSchema,
   CONTACT_CHANNEL_VALUES,
   EMAIL_KIND_VALUES,
+  ERASURE_CONFIRMATION_WORD as CONTRACT_ERASURE_WORD,
   ListClientActivityQuerySchema,
   ListClientsQuerySchema,
   MAX_CLIENT_NOTE_LENGTH,
@@ -41,6 +44,9 @@ describe('clients contracts', () => {
     expect(OPPORTUNITY_STATUS_VALUES).toEqual(OPPORTUNITY_STATUSES);
     expect(CLIENT_ACTIVITY_KIND_VALUES).toEqual(CLIENT_ACTIVITY_KINDS);
     expect(MAX_CLIENT_NOTE_LENGTH).toBe(MAX_NOTE_LENGTH);
+    expect(CONTRACT_ERASURE_WORD).toBe(ERASURE_CONFIRMATION_WORD);
+    // El contacto suprimido más sus duplicados unificados.
+    expect(MAX_ERASED_CLIENT_IDS).toBe(MAX_ERASED_MERGED_CLIENTS + 1);
   });
 
   it('reads the activity filters from the URL', () => {

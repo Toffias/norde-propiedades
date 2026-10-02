@@ -114,12 +114,12 @@ Entre paréntesis, los IDs de **otros módulos** que guarda cada tabla (sin FK).
 
 ### `audit` y plataforma (`platform.ts`)
 
-| Tabla                                                   | Qué es                                                                                                    |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `outbox`                                                | Eventos de dominio pendientes de publicar en pg-boss                                                      |
-| `audit_log`                                             | Historial de cambios con el diff, `source`, `correlation_id` y `client_ids`. Solo de inserción            |
-| `erasure_records`                                       | Constancia de una supresión de datos, sin datos personales                                                |
-| `import_jobs` · `import_job_errors` · `import_mappings` | Importación de Tokko: corridas, errores por fila y equivalencia de IDs (`erased_at` marca los suprimidos) |
+| Tabla                                                   | Qué es                                                                                                                                                                                                                      |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `outbox`                                                | Eventos de dominio pendientes de publicar en pg-boss                                                                                                                                                                        |
+| `audit_log`                                             | Historial de cambios con el diff, `source`, `correlation_id` y `client_ids`. Solo de inserción                                                                                                                              |
+| `erasure_records`                                       | Constancia de una supresión de datos, sin datos personales                                                                                                                                                                  |
+| `import_jobs` · `import_job_errors` · `import_mappings` | Importaciones (Tokko y planillas de contactos, `kind = clients_xlsx`): corridas con su archivo, mapeo y totales, filas que no se importaron (sin datos personales) y equivalencia de IDs (`erased_at` marca los suprimidos) |
 
 ## Historial de cambios (`audit_log`)
 

@@ -63,3 +63,5 @@ export * from './property-interest';
 export * from './clients-panel';
 export * from './clients-tags';
 export * from './clients-activity';
+export * from './clients-erasure';
+export * from './clients-import';

@@ -188,7 +188,7 @@ Se **persisten los clientes junto con el canal por el que se contactaron**, veng
 
 ### 3.3.1 Agenda de contactos en el panel (#8, etapa 1)
 
-La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A–Z, empresas y grupos y unificar contactos, (3) actividad, notas, pestañas con contador, oportunidad en la ficha y buscador de propiedades embebido, (4) importación desde Excel y supresión de datos. Esta sección describe la etapa 1; la 3.3.2, la etapa 2, y la 3.3.3, la etapa 3.
+La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A–Z, empresas y grupos y unificar contactos, (3) actividad, notas, pestañas con contador, oportunidad en la ficha y buscador de propiedades embebido, (4) importación desde Excel y supresión de datos. Esta sección describe la etapa 1; la 3.3.2, la etapa 2; la 3.3.3, la etapa 3, y la 3.3.4, la etapa 4.
 
 **Grilla** (`/contactos`): Nombre (con tipo de registro y tipos de cliente), Empresa, Teléfono, Celular, Email, Agente, Creación y Última actualización, paginada en el servidor y ordenable por nombre, creación y actualización.
 
@@ -261,6 +261,30 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 **Propiedades**: las de la cartera de las que es propietario (`property_owners`), desde el módulo properties.
 
 **Ofrecer**: el buscador de la cartera de Norde (texto, operación y tipo) con "Destacar" por fila; la que ya está destacada lo dice. Destacar pide poder editar el contacto y ver la propiedad, y queda en el historial del contacto.
+
+### 3.3.4 Importación desde Excel y supresión de datos (#8, etapa 4)
+
+**Importar** (`/contactos/importaciones`, permiso `clients:import`): el historial de importaciones, paginado y con su estado (En proceso, Listo, Error). "Importar desde Excel" abre el panel lateral:
+
+1. Se sube un `.xlsx` de hasta 10 MB y 10.000 filas, con los encabezados en la primera fila. Se lee en el momento (no se guarda) y se muestran las filas con datos.
+2. Se elige qué columna va con cada dato: nombre, tipo de registro, empresa, teléfono, celular, teléfono laboral, email, otro email, tipos de cliente (separados por coma), cargo, web, dirección, país, número de documento y fecha de nacimiento. Los encabezados conocidos (los de la exportación de contactos y los habituales de una planilla) se proponen solos, con dos valores de ejemplo de cada columna. Hace falta el nombre (o la empresa) y al menos un teléfono o email.
+3. Los contactos quedan a cargo de quien importa; elegir otro agente pide `clients:reassign`.
+
+Al confirmar se guarda el archivo y un job de `apps/agent` (`clients.import_requested`) da de alta cada fila con **la misma regla de duplicados que el alta manual**: si el teléfono o el email ya existe (aunque esté en la papelera), la fila no se importa y el reporte enlaza al contacto que ya estaba. Cada fila va en su propia transacción junto con el avance: si el job se corta, retoma donde quedó, y si el evento llega dos veces no se importa de nuevo.
+
+- Sin nombre ni empresa, sin teléfono ni email, o con un teléfono, email, tipo, fecha o largo inválido, la fila queda en el reporte con el dato que falló. El reporte no guarda datos personales: el número de fila, el motivo, la columna y, si era un duplicado, el ID del contacto.
+- Sin nombre pero con empresa, el contacto se crea como empresa.
+- Los contactos importados quedan auditados como `system:import`, agrupados por la importación (`correlation_id`). El pedido, el final y el fallo de la importación también se auditan.
+- Al terminar se borra el archivo subido, que tiene datos personales.
+- La pantalla se refresca sola mientras hay una importación en proceso.
+
+**Suprimir datos** (Ley 25.326, permiso `clients:erase`): en la ficha del contacto, para cuando el cliente pide que se borren sus datos. Pide dos confirmaciones: primero se explica qué se borra y se carga la fecha del pedido; después hay que escribir el nombre del contacto (o `suprimir` si no tiene nombre).
+
+- Se borra físicamente, sin papelera: la ficha con sus teléfonos, emails, canales, relaciones (en los dos sentidos) y etiquetas, las oportunidades, consultas, búsquedas, destacadas, envíos y actividad, y **sus entradas de `audit_log`** (las que lo tienen en `client_ids`). También se suprimen los duplicados que se le habían unificado, porque sus lápidas guardan nombre y datos de la ficha.
+- Queda una constancia en `erasure_records` (fecha del pedido, quién la ejecutó, cuándo y el ID suprimido) y una entrada `client.erased` en la auditoría, sin datos personales.
+- Los IDs externos del contacto (`import_mappings`) quedan marcados como suprimidos, para que una importación de Tokko no lo vuelva a crear.
+- `clients.client_erased` hace que cada módulo borre lo suyo en el agente: las conversaciones del agente de IA con sus mensajes, los vínculos como propietario de una propiedad y como contacto comercial de un emprendimiento (las propiedades quedan) y los favoritos de todos los usuarios. Las reservas y las tasaciones todavía no tienen módulo: cuando lo tengan (#13 y #12), reaccionan al mismo evento.
+- Los eventos del outbox solo llevan IDs. Los datos siguen en los backups hasta que rotan: falta documentar el plazo de retención.
 
 ### 3.4 Cruce de búsquedas con stock
 

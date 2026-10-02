@@ -7,6 +7,7 @@ import {
 import { RecordingMessenger } from '@norde/core/conversations/testing';
 import { Actor } from '@norde/core/shared';
 import { FixedClock } from '@norde/core/shared/testing';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
@@ -14,6 +15,7 @@ import { conversationMessages, conversations } from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { createConversationsUnitOfWork } from './conversations-unit-of-work';
+import { DrizzleClientConversationErasure } from './drizzle-client-conversation-erasure';
 
 const HOUR = 3_600_000;
 const db = useTestDatabase();
@@ -125,5 +127,29 @@ describe('conversations persistence', () => {
 
     expect(later.memoryReset).toBe(true);
     expect(later.agentMemory).toEqual([]);
+  });
+
+  it('erases the conversations of an erased client with their messages', async () => {
+    const clientId = '00000000-0000-7000-8000-00000000c0de';
+    const { conversationId } = await receiveFrom([message('Hola, busco un depto')]);
+    await db.update(conversations).set({ clientId }).where(eq(conversations.id, conversationId));
+    await receive.execute(
+      {
+        channel: 'whatsapp',
+        externalId: '5491155550000',
+        contactName: 'Otro',
+        messages: [message('Hola')],
+      },
+      agent,
+    );
+
+    const erasure = new DrizzleClientConversationErasure(db);
+    expect(await erasure.eraseForClients([clientId])).toBe(1);
+    expect(await erasure.eraseForClients([clientId])).toBe(0);
+
+    const left = await db.select().from(conversations);
+    expect(left.map((c) => c.externalId)).toEqual(['5491155550000']);
+    const messages = await db.select().from(conversationMessages);
+    expect(messages.every((m) => m.conversationId === left[0]?.id)).toBe(true);
   });
 });

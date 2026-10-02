@@ -31,7 +31,11 @@ export { DrizzleOrganizationQuery } from './identity/drizzle-organization-query'
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
 export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-property-list-query';
 export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
-export { DrizzleUserFavorites } from './identity/drizzle-user-favorites';
+export {
+  DrizzleClientFavoriteErasure,
+  DrizzleUserFavorites,
+} from './identity/drizzle-user-favorites';
+export { DrizzlePropertyClientErasure } from './properties/drizzle-property-client-erasure';
 export { DrizzlePropertyCatalogQuery } from './properties/drizzle-property-catalog-query';
 export { DrizzlePropertyMediaQuery } from './properties/drizzle-property-media-query';
 export { DrizzlePropertyDocumentQuery } from './properties/drizzle-property-documents';
@@ -43,6 +47,7 @@ export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-docu
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
+export { XlsxSpreadsheetReader } from './adapters/imports/xlsx-spreadsheet-reader';
 export { DrizzleClientListQuery } from './clients/drizzle-client-list-query';
 export { DrizzleClientTagQuery } from './clients/drizzle-client-tag-query';
 export { DrizzleClientRelationQuery } from './clients/drizzle-client-relation-query';
@@ -52,6 +57,7 @@ export {
   DrizzleFeaturedListingRepository,
 } from './clients/drizzle-client-activity-repositories';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';
+export { DrizzleClientImportQuery } from './clients/drizzle-client-imports';
 export {
   DrizzleClientRepository,
   DrizzleOpportunityRepository,
@@ -70,6 +76,7 @@ export {
   DrizzleReferenceCodeUsage,
 } from './settings/drizzle-settings-queries';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
+export { DrizzleClientConversationErasure } from './conversations/drizzle-client-conversation-erasure';
 export {
   DrizzleConversationRepository,
   DrizzleMessageLog,

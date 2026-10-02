@@ -1,6 +1,6 @@
 // Fakes del módulo clients para tests (`@norde/core/clients/testing`).
 
-import { Actor, Email, parseId, Phone } from '../../shared';
+import { Actor, Email, err, ok, parseId, Phone, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
   ClientActiveOpportunity,
@@ -14,6 +14,13 @@ import type {
   ClientTagRow,
 } from '../contracts';
 import type { ClientAgents } from '../application/ports/client-agents';
+import type { ClientErasure } from '../application/ports/client-erasure';
+import type { ClientImportItem, ClientImportQuery } from '../application/ports/client-import-query';
+import type {
+  Spreadsheet,
+  SpreadsheetReader,
+  UnreadableSpreadsheetError,
+} from '../application/ports/spreadsheet-reader';
 import type {
   ClientLinkedRecords,
   ClientRecordCounts,
@@ -47,10 +54,18 @@ import type {
 import type { OpportunityNotification, TeamNotifier } from '../application/ports/team-notifier';
 import { Client, type ClientId } from '../domain/client';
 import type { ClientActivity } from '../domain/client-activity';
+import type { ErasureRecord } from '../domain/client-erasure';
+import {
+  ClientImport,
+  type ClientImportId,
+  type ClientImportSnapshot,
+  type ImportRowProblem,
+} from '../domain/client-import';
 import { FeaturedListing } from '../domain/featured-listing';
 import {
   MAX_DUPLICATE_CANDIDATES,
   type ClientActivityRepository,
+  type ClientImportRepository,
   type ClientRepository,
   type ClientTagGroupRepository,
   type ClientTagRepository,
@@ -295,6 +310,71 @@ export class InMemoryFeaturedListingRepository implements FeaturedListingReposit
   }
 }
 
+/** Las importaciones y sus filas con problemas. */
+export class InMemoryClientImportRepository implements ClientImportRepository {
+  readonly rows = new Map<string, ClientImportSnapshot>();
+  readonly problems: (ImportRowProblem & { readonly importId: string })[] = [];
+  readonly savedBy = new Map<string, string>();
+
+  findById(id: ClientImportId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && ClientImport.restore(row));
+  }
+
+  save(job: ClientImport, actorId: string) {
+    this.rows.set(job.id, job.toSnapshot());
+    this.savedBy.set(job.id, actorId);
+    return Promise.resolve();
+  }
+
+  addProblem(importId: ClientImportId, problem: ImportRowProblem) {
+    this.problems.push({ importId, ...problem });
+    return Promise.resolve();
+  }
+}
+
+/**
+ * La supresión en memoria: borra las filas del cliente y las entradas de auditoría que lo
+ * incluyen, como el adaptador real.
+ */
+export class InMemoryClientErasure implements ClientErasure {
+  readonly records: ErasureRecord[] = [];
+  readonly erased: string[] = [];
+
+  constructor(
+    private readonly clients: InMemoryClientRepository,
+    private readonly activities: InMemoryClientActivityRepository,
+    private readonly audit: InMemoryAuditLog,
+  ) {}
+
+  mergedInto(clientId: string, limit: number) {
+    return Promise.resolve(
+      [...this.clients.rows.values()]
+        .filter((r) => r.mergedIntoId === clientId)
+        .map((r) => r.id)
+        .slice(0, limit),
+    );
+  }
+
+  erase(clientIds: readonly string[]) {
+    for (const id of clientIds) this.clients.rows.delete(id);
+    for (const [id, activity] of this.activities.rows) {
+      if (clientIds.includes(activity.clientId)) this.activities.rows.delete(id);
+    }
+    const kept = this.audit.entries.filter(
+      (entry) => !entry.clientIds.some((id) => clientIds.includes(id)),
+    );
+    this.audit.entries.splice(0, this.audit.entries.length, ...kept);
+    this.erased.push(...clientIds);
+    return Promise.resolve();
+  }
+
+  record(record: ErasureRecord) {
+    this.records.push(record);
+    return Promise.resolve();
+  }
+}
+
 /**
  * Unidad de trabajo en memoria. Si el trabajo devuelve un `Err` o lanza, descarta lo escrito
  * (como el rollback de la implementación real).
@@ -309,6 +389,8 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly featured = new InMemoryFeaturedListingRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
+  readonly erasure = new InMemoryClientErasure(this.clients, this.activities, this.audit);
+  readonly imports = new InMemoryClientImportRepository();
 
   async run<T>(work: (tx: ClientsTransaction) => Promise<T>): Promise<T> {
     const backup = {
@@ -319,6 +401,8 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       records: new Map(this.records.counts),
       activities: new Map(this.activities.rows),
       featured: new Map(this.featured.rows),
+      imports: new Map(this.imports.rows),
+      problems: this.imports.problems.length,
       events: this.events.published.length,
       audit: this.audit.entries.length,
     };
@@ -334,6 +418,8 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.records.counts, backup.records);
       restore(this.activities.rows, backup.activities);
       restore(this.featured.rows, backup.featured);
+      restore(this.imports.rows, backup.imports);
+      this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
     };
@@ -681,4 +767,86 @@ export class InMemoryClientListings implements ClientListings {
       new Map(visible.filter((l) => propertyIds.includes(l.id)).map((l) => [l.id, l] as const)),
     );
   }
+}
+
+// ---------- Importación desde Excel ----------
+
+/**
+ * Lee "planillas" de prueba: los bytes son una clave registrada con `register` (no hace falta
+ * armar un Excel de verdad). Una clave desconocida es un archivo que no se puede leer.
+ */
+export class FakeSpreadsheetReader implements SpreadsheetReader {
+  readonly #sheets = new Map<string, readonly (readonly (string | undefined)[])[]>();
+
+  /** La primera fila son los encabezados. Devuelve los bytes que la representan. */
+  register(
+    name: string,
+    rows: readonly (readonly (string | undefined)[])[],
+  ): Uint8Array<ArrayBuffer> {
+    this.#sheets.set(name, rows);
+    return new TextEncoder().encode(name);
+  }
+
+  open(bytes: Uint8Array): Promise<Result<Spreadsheet, UnreadableSpreadsheetError>> {
+    const rows = this.#sheets.get(new TextDecoder().decode(bytes));
+    if (rows === undefined) return Promise.resolve(err({ type: 'UnreadableSpreadsheet' }));
+    const [headers = [], ...data] = rows;
+    const sheet: Spreadsheet = {
+      headers: headers.map((h) => h ?? ''),
+      rowCount: data.length,
+      async *rows() {
+        for (const [index, cells] of data.entries()) {
+          await Promise.resolve();
+          yield { rowNumber: index + 2, cells };
+        }
+      },
+    };
+    return Promise.resolve(ok(sheet));
+  }
+}
+
+/** El historial de importaciones sobre el repositorio en memoria. */
+export class InMemoryClientImportQuery implements ClientImportQuery {
+  constructor(private readonly imports: InMemoryClientImportRepository) {}
+
+  list(query: {
+    readonly direction: 'asc' | 'desc';
+    readonly offset: number;
+    readonly limit: number;
+  }) {
+    const sorted = [...this.imports.rows.values()].sort(
+      (a, b) =>
+        (a.createdAt.getTime() - b.createdAt.getTime()) * (query.direction === 'asc' ? 1 : -1),
+    );
+    return Promise.resolve({
+      items: sorted.slice(query.offset, query.offset + query.limit).map(toImportItem),
+      total: sorted.length,
+    });
+  }
+
+  find(importId: string) {
+    const row = this.imports.rows.get(importId);
+    return Promise.resolve(row && toImportItem(row));
+  }
+
+  problems(query: {
+    readonly importId: string;
+    readonly direction: 'asc' | 'desc';
+    readonly offset: number;
+    readonly limit: number;
+  }) {
+    const rows = this.imports.problems
+      .filter((p) => p.importId === query.importId)
+      .sort((a, b) => (a.rowNumber - b.rowNumber) * (query.direction === 'asc' ? 1 : -1))
+      .map(({ importId: _importId, ...problem }) => problem);
+    return Promise.resolve({
+      items: rows.slice(query.offset, query.offset + query.limit),
+      total: rows.length,
+    });
+  }
+}
+
+function toImportItem(row: ClientImportSnapshot): ClientImportItem {
+  const { storageKey: _key, mapping: _mapping, updatedAt: _updatedAt, ...item } = row;
+  return item;
 }

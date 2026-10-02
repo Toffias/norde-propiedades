@@ -167,3 +167,8 @@ export {
   type ResolveSessionActorInput,
   type SessionActor,
 } from './application/queries/resolve-session-actor';
+export {
+  RemoveErasedClientFavorites,
+  type RemoveErasedClientFavoritesError,
+} from './application/handlers/remove-erased-client-favorites';
+export type { ClientFavoriteErasure } from './application/ports/client-favorite-erasure';

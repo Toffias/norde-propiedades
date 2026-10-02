@@ -195,6 +195,7 @@ describe('GetClientDetail', () => {
       delete: true,
       viewHistory: true,
       merge: true,
+      erase: true,
     });
   });
 

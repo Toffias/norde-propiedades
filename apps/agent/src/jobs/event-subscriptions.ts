@@ -1,6 +1,13 @@
-import type { NotifyTeamOfOpportunity, RecordClientActivity } from '@norde/core/clients';
+import type {
+  NotifyTeamOfOpportunity,
+  RecordClientActivity,
+  RunClientImport,
+} from '@norde/core/clients';
+import type { EraseClientConversations } from '@norde/core/conversations';
+import type { RemoveErasedClientFavorites } from '@norde/core/identity';
 import type {
   DeleteStoredMediaFiles,
+  UnlinkErasedClients,
   GeneratePropertyMediaVariants,
   RenderPropertyDocument,
 } from '@norde/core/properties';
@@ -36,6 +43,18 @@ const ConversationLinkedPayloadSchema = z.object({
 const MediaPayloadSchema = z.object({ mediaId: z.uuid() });
 const MediaDeletedPayloadSchema = z.object({ storageKeys: z.array(z.string()).max(10) });
 const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
+const ImportPayloadSchema = z.object({ importId: z.uuid() });
+const ErasedPayloadSchema = z.object({ erasedClientIds: z.array(z.uuid()).min(1) });
+
+/**
+ * Cada módulo que guarda el ID de un cliente borra o desvincula lo suyo cuando se suprimen sus
+ * datos (Ley 25.326). Lo de clients ya se borró en la misma transacción que la constancia.
+ */
+export interface ErasureJobs {
+  readonly conversations: Pick<EraseClientConversations, 'execute'>;
+  readonly properties: Pick<UnlinkErasedClients, 'execute'>;
+  readonly favorites: Pick<RemoveErasedClientFavorites, 'execute'>;
+}
 
 /** Los jobs de la ficha de propiedad (#6): variantes de fotos, limpieza del storage y PDF. */
 export interface PropertyJobs {
@@ -129,11 +148,42 @@ function activitySubscriptions(
   ];
 }
 
+/** La supresión de datos de un cliente (#8): cada módulo borra lo suyo. */
+function erasureSubscriptions(
+  jobs: ErasureJobs,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription[] {
+  const erase = (
+    name: string,
+    useCase: {
+      execute(input: { clientIds: string[] }, actor: Actor): Promise<{ isErr(): boolean }>;
+    },
+  ): EventSubscription => ({
+    eventType: 'clients.client_erased',
+    name,
+    handle: async (event) => {
+      const { erasedClientIds } = ErasedPayloadSchema.parse(event.payload);
+      const result = await useCase.execute({ clientIds: erasedClientIds }, actor);
+      if (result.isErr()) logger.error({ eventId: event.id, name }, 'Client erasure skipped');
+    },
+  });
+  return [
+    erase('erase-conversations', jobs.conversations),
+    erase('unlink-properties', jobs.properties),
+    erase('remove-favorites', jobs.favorites),
+  ];
+}
+
 export function eventSubscriptions(deps: {
   readonly notifyTeam: Pick<NotifyTeamOfOpportunity, 'execute'>;
   readonly recordActivity: Pick<RecordClientActivity, 'execute'>;
   readonly properties: PropertyJobs;
+  readonly erasure: ErasureJobs;
+  readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly actor: Actor;
+  /** El de las importaciones: los contactos quedan creados por `system:import`. */
+  readonly importActor: Actor;
   readonly logger: Logger;
 }): EventSubscription[] {
   const notifyTeam = (
@@ -158,5 +208,17 @@ export function eventSubscriptions(deps: {
     notifyTeam('clients.opportunity_request_added'),
     ...propertySubscriptions(deps.properties, deps.actor, deps.logger),
     ...activitySubscriptions(deps.recordActivity, deps.actor, deps.logger),
+    ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),
+    {
+      eventType: 'clients.import_requested',
+      name: 'run-import',
+      handle: async (event) => {
+        const { importId } = ImportPayloadSchema.parse(event.payload);
+        const result = await deps.runImport.execute({ importId }, deps.importActor);
+        if (result.isErr()) {
+          deps.logger.error({ eventId: event.id, error: result.error }, 'Client import skipped');
+        }
+      },
+    },
   ];
 }

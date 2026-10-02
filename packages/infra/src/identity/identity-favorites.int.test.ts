@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../test/database';
 import { users } from '../db/schema';
 
-import { DrizzleUserFavorites } from './drizzle-user-favorites';
+import { DrizzleClientFavoriteErasure, DrizzleUserFavorites } from './drizzle-user-favorites';
 
 const db = useTestDatabase();
 const favorites = new DrizzleUserFavorites(db);
@@ -40,5 +40,22 @@ describe('DrizzleUserFavorites', () => {
 
     await favorites.remove(USER, 'property', [A]);
     expect(await favorites.existing(USER, 'property', [A, B])).toEqual([B]);
+  });
+
+  it('removes an erased client from everyone favorites, and only that client', async () => {
+    await aUser(USER, 'uno@example.com');
+    await aUser(OTHER, 'dos@example.com');
+    await favorites.add(USER, 'client', [A, B], NOW);
+    await favorites.add(OTHER, 'client', [A], NOW);
+    // Una propiedad con el mismo ID no es el cliente.
+    await favorites.add(OTHER, 'property', [A], NOW);
+
+    const erasure = new DrizzleClientFavoriteErasure(db);
+    expect(await erasure.removeClients([A])).toBe(2);
+    expect(await erasure.removeClients([A])).toBe(0);
+
+    expect(await favorites.existing(USER, 'client', [A, B])).toEqual([B]);
+    expect(await favorites.existing(OTHER, 'client', [A])).toEqual([]);
+    expect(await favorites.existing(OTHER, 'property', [A])).toEqual([A]);
   });
 });

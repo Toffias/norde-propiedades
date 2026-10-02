@@ -1,5 +1,6 @@
 import type { Client, ClientId } from './client';
 import type { ClientActivity } from './client-activity';
+import type { ClientImport, ClientImportId, ImportRowProblem } from './client-import';
 import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from './client-tag';
 import type { ContactKeys } from './duplicate-check';
 import type { FeaturedListing } from './featured-listing';
@@ -79,4 +80,12 @@ export interface FeaturedListingRepository {
   /** Las destacadas vigentes del cliente entre estas propiedades. */
   findActive(clientId: ClientId, propertyIds: readonly string[]): Promise<FeaturedListing[]>;
   save(listing: FeaturedListing, actorId: string): Promise<void>;
+}
+
+export interface ClientImportRepository {
+  findById(id: ClientImportId): Promise<ClientImport | undefined>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(job: ClientImport, actorId: string): Promise<void>;
+  /** Una fila que no se importó. */
+  addProblem(importId: ClientImportId, problem: ImportRowProblem, now: Date): Promise<void>;
 }

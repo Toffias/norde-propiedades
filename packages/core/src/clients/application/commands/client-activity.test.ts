@@ -81,7 +81,6 @@ describe('AddClientNote', () => {
         entityId: client.id,
         clientIds: [client.id],
         changes: {
-          noteId: { before: null, after: noteId },
           note: { before: null, after: 'Vuelve a llamar el lunes' },
         },
       }),

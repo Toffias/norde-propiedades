@@ -76,7 +76,6 @@ export class AddClientNote {
         await tx.activities.add(note.value, actor.id);
         await tx.audit.record(
           auditAction(actor, clientTarget('client.note_added', client.id), {
-            noteId: { before: null, after: note.value.id },
             note: { before: null, after: note.value.body.text },
           }),
         );

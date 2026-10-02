@@ -36,6 +36,8 @@ export async function addClientNoteAction(input: AddClientNoteInput): Promise<Ac
   const result = await getContainer().clients.addClientNote.execute(parsed.data, actor);
   if (result.isErr()) return actionFailed(messageForError(result.error, ADD_NOTE_ERROR_MESSAGES));
   revalidatePath(contactPath(parsed.data.clientId));
+  // La nota de una oportunidad es la última nota de su tarjeta en el pipeline.
+  if (parsed.data.opportunityId !== undefined) revalidatePath('/oportunidades');
   return ACTION_OK;
 }
 

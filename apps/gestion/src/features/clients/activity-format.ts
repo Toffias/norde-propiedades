@@ -46,7 +46,7 @@ export function activityTitle(entry: ClientActivityRow): string {
     case 'note':
       return 'Nota';
     case 'status_change':
-      return `Cambió el estado a ${OPPORTUNITY_STATUS_LABELS[entry.to]}`;
+      return `Pasó a "${entry.toStage?.name ?? OPPORTUNITY_STATUS_LABELS[entry.to]}"`;
     case 'listing_sent': {
       const channel = channelLabel(entry.channel);
       const count = entry.propertyIds.length;

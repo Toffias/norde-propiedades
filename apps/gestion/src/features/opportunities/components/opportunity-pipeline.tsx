@@ -5,17 +5,9 @@ import {
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_TYPE_LABELS,
   type OpportunityPipelineRow,
-  type OpportunitySortField,
   type OpportunityStageCount,
   type OpportunityStageRow,
 } from '@norde/core/clients/contracts';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@norde/ui/components/select';
 import { SoftBadge } from '@norde/ui/components/status-pill';
 import { TablePagination } from '@norde/ui/components/table-pagination';
 import { cn } from '@norde/ui/lib/utils';
@@ -25,7 +17,6 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { EMPTY_VALUE, formatDateTime } from '../../../lib/format';
-import { sortParam } from '../../../lib/list-params';
 import { clientName, formatPhone, userName, whatsappHref } from '../../clients/client-format';
 import {
   ListNavigationProvider,
@@ -34,6 +25,13 @@ import {
 
 import { ColorDot } from './catalog-pieces';
 import { OpportunityActionsMenu, type OpportunityCatalogView } from './opportunity-actions';
+import {
+  contactHref,
+  daysLabel,
+  OpportunitySortSelect,
+  PipelineToolbar,
+  type OpportunitySort,
+} from './opportunity-view-controls';
 
 /** La sección abierta: las oportunidades de un estado, en una página. */
 export interface OpportunitySection {
@@ -42,30 +40,7 @@ export interface OpportunitySection {
   readonly total: number;
   readonly page: number;
   readonly pageSize: number;
-  readonly sort: { readonly field: OpportunitySortField; readonly direction: 'asc' | 'desc' };
-}
-
-/** Los órdenes que se ofrecen, ya con su dirección (así viajan en la URL). */
-const SORT_OPTIONS: readonly {
-  readonly field: OpportunitySortField;
-  readonly direction: 'asc' | 'desc';
-  readonly label: string;
-}[] = [
-  { field: 'updatedAt', direction: 'desc', label: 'Actualizadas recientemente' },
-  { field: 'statusChangedAt', direction: 'asc', label: 'Más tiempo en el estado' },
-  { field: 'createdAt', direction: 'desc', label: 'Creadas recientemente' },
-  { field: 'createdAt', direction: 'asc', label: 'Más antiguas' },
-  { field: 'clientName', direction: 'asc', label: 'Contacto (A–Z)' },
-];
-
-function daysLabel(days: number): string {
-  if (days === 0) return 'Hoy';
-  return days === 1 ? '1 día' : `${days.toLocaleString('es-AR')} días`;
-}
-
-function contactHref(clientId: string): Route {
-  // La ficha del contacto en su pestaña de oportunidades: typedRoutes no verifica un string armado.
-  return `/contactos/${clientId}?tab=oportunidades` as Route;
+  readonly sort: OpportunitySort;
 }
 
 function OpportunityLine({
@@ -163,30 +138,10 @@ function SectionPanel({
   readonly canPickAgents: boolean;
 }) {
   const { setParams, pending } = useListNavigation();
-  const current = sortParam(section.sort);
   return (
     <div className={cn('border-t border-border', pending && 'opacity-60')}>
       <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-2">
-        <Select
-          value={current}
-          onValueChange={(sort) => {
-            setParams({ sort });
-          }}
-        >
-          <SelectTrigger className="h-8 w-full sm:w-[240px]" aria-label="Ordenar">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((option) => {
-              const value = sortParam(option);
-              return (
-                <SelectItem key={value} value={value}>
-                  {option.label}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
+        <OpportunitySortSelect sort={section.sort} />
       </div>
       {section.rows.length === 0 ? (
         <p className="px-4 py-3 text-sm text-muted-foreground">
@@ -251,7 +206,7 @@ function PipelineBody({
 
   return (
     <div className="flex flex-col">
-      <div className="flex flex-col gap-3 border-b border-border px-4 py-3">{toolbar}</div>
+      <PipelineToolbar view="list">{toolbar}</PipelineToolbar>
       <nav aria-label="Oportunidades por estado" className="border-b border-border px-3 py-3">
         <ul className="flex flex-wrap gap-2">
           {shown.map((stage) => {

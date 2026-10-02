@@ -6,6 +6,7 @@ import type {
   ClientTagGroupRepository,
   ClientTagRepository,
   FeaturedListingRepository,
+  InquiryRepository,
   OpportunityBulkOperationRepository,
   OpportunityCloseReasonRepository,
   OpportunityRepository,
@@ -31,6 +32,7 @@ export interface ClientsTransaction {
   readonly erasure: ClientErasure;
   readonly imports: ClientImportRepository;
   readonly bulkOperations: OpportunityBulkOperationRepository;
+  readonly inquiries: InquiryRepository;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

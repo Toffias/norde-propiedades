@@ -257,6 +257,8 @@ export interface ClientListingSummary {
   readonly status: string;
   readonly operations: readonly ClientListingOperation[];
   readonly coverImageUrl: string | undefined;
+  /** Captador. */
+  readonly producer: ClientUserRef | undefined;
 }
 
 export interface ClientFeaturedRow {

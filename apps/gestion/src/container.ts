@@ -596,6 +596,7 @@ function createClientsUseCases(
             status: row.status,
             operations: row.operations,
             coverImageUrl: row.coverImageUrl,
+            producer: row.producer,
           },
         ]),
       );

@@ -3,7 +3,12 @@ import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { eventSubscriptions, type ErasureJobs, type PropertyJobs } from './event-subscriptions';
+import {
+  eventSubscriptions,
+  type ErasureJobs,
+  type OpportunityJobs,
+  type PropertyJobs,
+} from './event-subscriptions';
 
 const actor = Actor.system('scheduler', ['clients:read']);
 const event = {
@@ -55,6 +60,7 @@ const importActor = Actor.system('import', ['clients:run-imports']);
 function clientJobs(calls: unknown[] = []): {
   readonly erasure: ErasureJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
+  readonly opportunities: OpportunityJobs;
   readonly importActor: Actor;
 } {
   const erase = (name: string) => ({
@@ -73,6 +79,20 @@ function clientJobs(calls: unknown[] = []): {
       execute: (input, by) => {
         calls.push(['import', input, by.id]);
         return Promise.resolve(ok({ status: 'done' as const }));
+      },
+    },
+    opportunities: {
+      applyRules: {
+        execute: (input, by) => {
+          calls.push(['rules', input, by.id]);
+          return Promise.resolve(ok({ applied: false as const, reason: 'no_rule' as const }));
+        },
+      },
+      runBulk: {
+        execute: (input, by) => {
+          calls.push(['bulk', input, by.id]);
+          return Promise.resolve(ok({ status: 'done' as const }));
+        },
       },
     },
     importActor,
@@ -108,6 +128,10 @@ describe('eventSubscriptions', () => {
       'clients.client_erased.erase-conversations',
       'clients.client_erased.unlink-properties',
       'clients.client_erased.remove-favorites',
+      'clients.opportunity_reassigned.apply-rules',
+      'clients.opportunity_request_added.apply-rules',
+      'clients.opportunity_created.apply-rules',
+      'clients.opportunity_bulk_requested.run-bulk',
       'clients.import_requested.run-import',
     ]);
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
@@ -236,5 +260,49 @@ describe('eventSubscriptions', () => {
     await expect(
       byType('clients.client_erased')[0]?.handle({ ...event, payload: { erasedClientIds: [] } }),
     ).rejects.toThrow();
+  });
+
+  it('applies the automatic rules with the event id and runs the queued bulk actions', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(calls),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const named = (type: string, name: string) =>
+      subscriptions.find((s) => s.eventType === type && s.name === name);
+    const OPERATION_ID = '00000000-0000-7000-8000-0000000000b1';
+
+    await named('clients.opportunity_reassigned', 'apply-rules')?.handle({
+      ...event,
+      type: 'clients.opportunity_reassigned',
+      payload: { opportunityId: 'opp-1', clientId: 'client-1', fromAgentId: 'a', toAgentId: null },
+    });
+    await named('clients.opportunity_created', 'apply-rules')?.handle(event);
+    await named('clients.opportunity_bulk_requested', 'run-bulk')?.handle({
+      ...event,
+      payload: { operationId: OPERATION_ID },
+    });
+
+    expect(calls).toEqual([
+      [
+        'rules',
+        {
+          eventId: event.id,
+          opportunityId: 'opp-1',
+          trigger: { kind: 'assigned', toAgentId: undefined },
+        },
+        'system:scheduler',
+      ],
+      [
+        'rules',
+        { eventId: event.id, opportunityId: 'opp-1', trigger: { kind: 'created' } },
+        'system:scheduler',
+      ],
+      ['bulk', { operationId: OPERATION_ID }, 'system:scheduler'],
+    ]);
   });
 });

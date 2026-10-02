@@ -2,10 +2,14 @@
 // Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app.
 
 import {
+  ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
   RecordClientActivity,
   RegisterContact,
   RunClientImport,
+  RunOpportunityBulkOperation,
+  type ClientAgents,
+  type OpportunityRequesters,
 } from '@norde/core/clients';
 import {
   EraseClientConversations,
@@ -25,7 +29,7 @@ import {
   UnlinkErasedClients,
   type OwnerReports,
 } from '@norde/core/properties';
-import { RemoveErasedClientFavorites } from '@norde/core/identity';
+import { RemoveErasedClientFavorites, ResolveSessionActor } from '@norde/core/identity';
 import { GetOwnerReport, type ReportingPropertyProfiles } from '@norde/core/reporting';
 import type { FileStorage } from '@norde/core/settings';
 import { Actor } from '@norde/core/shared';
@@ -47,8 +51,10 @@ import {
   SharpImageVariantGenerator,
   SharpImageWatermarker,
   DrizzleClientRepository,
+  DrizzleOpportunityPipelineQuery,
   DrizzleOpportunityRepository,
   DrizzlePropertySearchQuery,
+  DrizzleUserAccessQuery,
   LogTeamNotifier,
   MetaWhatsAppMessenger,
   OutboxRelay,
@@ -91,7 +97,11 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'conversations:erase-client-data',
   'properties:erase-client-data',
   'identity:erase-client-data',
+  'opportunities:apply-rules',
+  'opportunities:run-bulk',
 ]);
+/** Arma el actor de quien pidió una acción masiva, con sus permisos de ahora. */
+const AUTH_ACTOR = Actor.system('auth', ['sessions:resolve']);
 /** Las importaciones desde Excel: los contactos quedan creados y auditados por `system:import`. */
 const IMPORT_ACTOR = Actor.system('import', ['clients:run-imports']);
 
@@ -105,6 +115,43 @@ function createStorage(env: Env): FileStorage {
     accessKeyId: env.S3_ACCESS_KEY_ID ?? '',
     secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
   });
+}
+
+/** Las reglas automáticas de estado y las acciones masivas encoladas de oportunidades (#9). */
+function createOpportunityJobs(
+  db: Database,
+  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
+) {
+  const { ids, clock } = deps;
+  const uow = createClientsUnitOfWork(db, { ids, clock });
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const agents: ClientAgents = {
+    names: (userIds) => directory.names('user', userIds),
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+  const resolveActor = new ResolveSessionActor({ users: userAccess });
+  // El job procesa como quien la pidió: si ya no está activo, no hay actor y la operación falla.
+  const requesters: OpportunityRequesters = {
+    async actorFor(userId) {
+      const result = await resolveActor.execute({ userId }, AUTH_ACTOR);
+      return result.isOk() ? result.value.actor : undefined;
+    },
+  };
+  return {
+    applyRules: new ApplyOpportunityRules({ uow, ids, clock }),
+    runBulk: new RunOpportunityBulkOperation({
+      uow,
+      pipeline: new DrizzleOpportunityPipelineQuery(db),
+      agents,
+      requesters,
+      ids,
+      clock,
+    }),
+  };
 }
 
 /** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
@@ -323,6 +370,7 @@ export function createContainer(
       ids,
       clock,
     }),
+    opportunities: createOpportunityJobs(db, { ids, clock }),
     actor: SCHEDULER_ACTOR,
     importActor: IMPORT_ACTOR,
     logger,

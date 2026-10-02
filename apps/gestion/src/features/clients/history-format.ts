@@ -20,6 +20,12 @@ export const CLIENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'client.reassigned': 'cambió el agente',
   'client.deleted': 'mandó el contacto a la papelera',
   'client.restored': 'restauró el contacto',
+  'client.tags_changed': 'cambió las etiquetas',
+  'client.linked': 'agregó un contacto relacionado',
+  'client.relation_updated': 'cambió una relación',
+  'client.unlinked': 'quitó un contacto relacionado',
+  'client.merged': 'unificó otro contacto en este',
+  'client.merged_into': 'unificó este contacto en otro',
 };
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
@@ -39,7 +45,31 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   language: 'Idioma',
   documentType: 'Tipo de documento',
   documentNumber: 'Número de documento',
+  tagIds: 'Etiquetas',
+  relations: 'Contactos relacionados',
+  relatedClientId: 'Contacto',
+  relationKind: 'Relación',
+  relationLabel: 'Detalle',
+  mergedClientId: 'Contacto unificado',
+  mergedIntoId: 'Unificado en',
+  'moved.opportunities': 'Oportunidades que pasaron',
+  'moved.activities': 'Actividades que pasaron',
+  'moved.savedSearches': 'Búsquedas que pasaron',
+  'moved.featuredListings': 'Destacadas que pasaron',
+  'moved.sharedListings': 'Envíos que pasaron',
+  'moved.inquiries': 'Consultas que pasaron',
+  'moved.incomingRelations': 'Relaciones que pasaron',
 };
+
+const RELATION_KIND_LABELS: Readonly<Record<string, string>> = {
+  works_at: 'Trabaja en',
+  member_of: 'Es miembro de',
+  related: 'Relacionado',
+};
+
+function count(total: number, one: string, many: string): string {
+  return `${total.toLocaleString('es-AR')} ${total === 1 ? one : many}`;
+}
 
 export function clientHistoryFieldLabel(field: string): string {
   return FIELD_LABELS[field] ?? field;
@@ -107,6 +137,21 @@ export function formatClientHistoryValue(field: string, value: HistoryValue): st
       return 'un agente';
     case 'branchId':
       return 'una sucursal';
+    // Otros contactos y las etiquetas también van por ID.
+    case 'relatedClientId':
+    case 'mergedClientId':
+    case 'mergedIntoId':
+      return 'otro contacto';
+    case 'tagIds':
+      return isList(value) ? count(value.length, 'etiqueta', 'etiquetas') : EMPTY_VALUE;
+    case 'relations':
+      return isList(value)
+        ? value
+            .map((item) => entry(item, (relation) => label(RELATION_KIND_LABELS, relation.kind)))
+            .join(', ')
+        : EMPTY_VALUE;
+    case 'relationKind':
+      return label(RELATION_KIND_LABELS, value);
     default:
       return typeof value === 'string' || typeof value === 'number' ? String(value) : EMPTY_VALUE;
   }

@@ -1,11 +1,14 @@
-import { ListClientHistoryQuerySchema } from '@norde/core/clients/contracts';
+import {
+  ListClientHistoryQuerySchema,
+  ListClientRelationsQuerySchema,
+} from '@norde/core/clients/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import { cn } from '@norde/ui/lib/utils';
 import { ArrowLeftIcon } from 'lucide-react';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { getContainer } from '../../../../container';
@@ -95,10 +98,31 @@ export default async function ContactDetailPage({
     if (result.error.type === 'ClientNotFound' || result.error.type === 'InvalidInput') {
       notFound();
     }
+    // Se unificó con otro: los datos (y el historial de los dos) están en el principal.
+    if (result.error.type === 'ClientMerged') {
+      redirect(`/contactos/${result.error.clientId}` as Route);
+    }
     return <DataTableError message={messageForError(result.error, CLIENT_DETAIL_ERROR_MESSAGES)} />;
   }
   const detail = result.value;
   const tab = detail.can.viewHistory ? tabFrom(query) : 'detalles';
+
+  let relations: ReactNode = null;
+  if (tab === 'detalles') {
+    const page = query.relPage;
+    const { value: relationsQuery } = parseListParams(ListClientRelationsQuerySchema, {
+      clientId: detail.id,
+      pageSize: '10',
+      ...(page === undefined ? {} : { page }),
+    });
+    const relationsPage = await clients.listClientRelations.execute(relationsQuery, actor);
+    relations = (
+      <ClientDetailSections
+        detail={detail}
+        relations={relationsPage.isOk() ? relationsPage.value : undefined}
+      />
+    );
+  }
 
   let history: ReactNode = null;
   if (tab === 'historial') {
@@ -131,7 +155,7 @@ export default async function ContactDetailPage({
       <ClientDetailHeader detail={detail} canPickAgents={actor.can('users:read')} />
       <Tabs clientId={detail.id} active={tab} showHistory={detail.can.viewHistory} />
 
-      {tab === 'historial' ? history : <ClientDetailSections detail={detail} />}
+      {tab === 'historial' ? history : relations}
     </div>
   );
 }

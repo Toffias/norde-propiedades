@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  CLIENT_KIND_LABELS,
+  CLIENT_KIND_VALUES,
   CLIENT_TYPE_LABELS,
   CLIENT_TYPE_VALUES,
   type ClientFilter,
@@ -19,20 +21,37 @@ import {
 } from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
 import { Switch } from '@norde/ui/components/switch';
-import { DownloadIcon, Loader2Icon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { cn } from '@norde/ui/lib/utils';
+import {
+  BookUserIcon,
+  DownloadIcon,
+  Loader2Icon,
+  SearchIcon,
+  SlidersHorizontalIcon,
+  TableIcon,
+  TagsIcon,
+  type LucideIcon,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useId, useState, useTransition } from 'react';
 
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { loadBranchOptions, loadUserOptions } from '../../identity/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
 import { useListNavigation } from '../../shared/components/server-data-table';
+import { loadClientTagOptions } from '../tag-actions';
 
 /** Filtros del listado tal como están en la URL (texto, sin parsear). */
 export interface ClientFilterValues {
   readonly q: string;
   readonly agentId: string;
   readonly branchId: string;
+  readonly kind: string;
   readonly clientType: string;
+  readonly tagged: string;
+  readonly tagId: string;
+  /** Solo en la agenda: la letra abierta. */
+  readonly letter: string;
   readonly owners: boolean;
   readonly createdFrom: string;
   readonly createdTo: string;
@@ -52,6 +71,58 @@ export interface ClientToolbarPermissions {
 
 /** "Todos" en un select: sin el param en la URL. */
 const ANY = 'any';
+
+export type ClientLayout = 'grid' | 'agenda';
+
+const LAYOUTS: readonly {
+  readonly value: ClientLayout;
+  readonly label: string;
+  readonly icon: LucideIcon;
+}[] = [
+  { value: 'grid', label: 'Grilla', icon: TableIcon },
+  { value: 'agenda', label: 'Agenda A–Z', icon: BookUserIcon },
+];
+
+/** Grilla o agenda alfabética: la vista va en la URL (?layout=agenda), con los mismos filtros. */
+function LayoutSwitcher({ layout }: { readonly layout: ClientLayout }) {
+  const { setParams } = useListNavigation();
+  return (
+    <div
+      role="group"
+      aria-label="Cómo ver los contactos"
+      className="inline-flex shrink-0 self-start rounded-md border border-border bg-card p-0.5"
+    >
+      {LAYOUTS.map(({ value, label, icon: Icon }) => {
+        const active = value === layout;
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={active}
+            title={label}
+            className={cn(
+              'inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              active
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+            onClick={() => {
+              // La agenda ordena por nombre; la letra abierta no tiene sentido en la grilla.
+              setParams(
+                value === 'agenda'
+                  ? { layout: 'agenda', sort: undefined, letter: undefined }
+                  : { layout: undefined, letter: undefined },
+              );
+            }}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+            <span>{label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /** Los filtros aplicados, para exportar: viaja el filtro, nunca la lista de contactos. */
 export function toClientFilter(filters: ClientFilterValues): ClientFilter {
@@ -172,16 +243,19 @@ function MoreFilters({
   filters,
   permissions,
   agentLabel,
+  tagLabel,
 }: {
   readonly filters: ClientFilterValues;
   readonly permissions: ClientToolbarPermissions;
   readonly agentLabel: string | undefined;
+  readonly tagLabel: string | undefined;
 }) {
   const id = useId();
   const { setParams } = useListNavigation();
   const active = [
     filters.agentId,
     filters.branchId,
+    filters.tagId,
     filters.createdFrom,
     filters.createdTo,
     filters.updatedFrom,
@@ -243,6 +317,27 @@ function MoreFilters({
             />
           </div>
         )}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-tag`} className="text-xs">
+            Etiqueta
+          </Label>
+          <EntityPicker
+            id={`${id}-tag`}
+            value={filters.tagId === '' ? undefined : filters.tagId}
+            initial={
+              filters.tagId === ''
+                ? undefined
+                : { value: filters.tagId, label: tagLabel ?? 'Etiqueta elegida' }
+            }
+            onChange={(tagId) => {
+              setParams({ tagId });
+            }}
+            loadPage={loadClientTagOptions}
+            placeholder="Cualquier etiqueta"
+            searchPlaceholder="Buscar etiqueta"
+            clearLabel="Quitar la etiqueta"
+          />
+        </div>
         <DateRange
           label="Creación"
           from={{ param: 'createdFrom', value: filters.createdFrom }}
@@ -279,16 +374,24 @@ function MoreFilters({
   );
 }
 
-/** Búsqueda, tipo de cliente, solo propietarios, más filtros y exportar. */
+/**
+ * Vista (grilla o agenda), búsqueda, tipo de registro, tipo de cliente, con o sin etiquetas, solo
+ * propietarios, más filtros, etiquetas y exportar.
+ */
 export function ClientsToolbar({
   filters,
+  layout,
   permissions,
   agentLabel,
+  tagLabel,
 }: {
   readonly filters: ClientFilterValues;
+  readonly layout: ClientLayout;
   readonly permissions: ClientToolbarPermissions;
   /** El nombre del agente filtrado, si se conoce (para el selector). */
   readonly agentLabel: string | undefined;
+  /** El nombre de la etiqueta filtrada, si se conoce. */
+  readonly tagLabel: string | undefined;
 }) {
   const id = useId();
   const { setParams } = useListNavigation();
@@ -310,9 +413,32 @@ export function ClientsToolbar({
 
   return (
     <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
+      {filters.view === 'active' && (
+        <div className="col-span-2 sm:contents">
+          <LayoutSwitcher layout={layout} />
+        </div>
+      )}
       <div className="col-span-2 sm:contents">
         <SearchInput value={filters.q} />
       </div>
+      <Select
+        value={filters.kind === '' ? ANY : filters.kind}
+        onValueChange={(next) => {
+          setParams({ kind: next === ANY ? undefined : next });
+        }}
+      >
+        <SelectTrigger className="w-full sm:w-[170px]" aria-label="Tipo de registro">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ANY}>Todos los registros</SelectItem>
+          {CLIENT_KIND_VALUES.map((value) => (
+            <SelectItem key={value} value={value}>
+              {CLIENT_KIND_LABELS[value]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Select
         value={filters.clientType === '' ? ANY : filters.clientType}
         onValueChange={(next) => {
@@ -331,6 +457,21 @@ export function ClientsToolbar({
           ))}
         </SelectContent>
       </Select>
+      <Select
+        value={filters.tagged === '' ? ANY : filters.tagged}
+        onValueChange={(next) => {
+          setParams({ tagged: next === ANY ? undefined : next });
+        }}
+      >
+        <SelectTrigger className="w-full sm:w-[170px]" aria-label="Etiquetas">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ANY}>Con y sin etiquetas</SelectItem>
+          <SelectItem value="with">Con etiquetas</SelectItem>
+          <SelectItem value="without">Sin etiquetas</SelectItem>
+        </SelectContent>
+      </Select>
       <div className="flex items-center gap-2 px-1">
         <Switch
           id={`${id}-owners`}
@@ -343,7 +484,18 @@ export function ClientsToolbar({
           Solo propietarios
         </Label>
       </div>
-      <MoreFilters filters={filters} permissions={permissions} agentLabel={agentLabel} />
+      <MoreFilters
+        filters={filters}
+        permissions={permissions}
+        agentLabel={agentLabel}
+        tagLabel={tagLabel}
+      />
+      <Button asChild variant="ghost" className="w-full sm:w-auto">
+        <Link href="/contactos/etiquetas">
+          <TagsIcon className="h-4 w-4" />
+          Etiquetas
+        </Link>
+      </Button>
       {permissions.export && (
         <Button
           type="button"

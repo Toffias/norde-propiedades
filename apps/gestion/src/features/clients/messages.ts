@@ -1,14 +1,30 @@
 import type {
+  ChangeClientTagsError,
   CheckClientDuplicatesError,
   CreateClientError,
+  CreateClientTagError,
+  CreateClientTagGroupError,
   DeleteClientError,
+  DeleteClientTagError,
+  DeleteClientTagGroupError,
   ExportClientsError,
   GetClientDetailError,
+  LinkClientsError,
   ListClientHistoryError,
+  ListClientLettersError,
+  ListClientRelationsError,
   ListClientsError,
+  ListClientTagGroupsError,
+  MergeClientsError,
+  MergeClientTagsError,
+  PreviewClientMergeError,
   ReassignClientError,
+  RenameClientTagGroupError,
   RestoreClientError,
+  SearchClientTagsError,
+  UnlinkClientsError,
   UpdateClientDetailsError,
+  UpdateClientTagError,
 } from '@norde/core/clients';
 
 import type { ErrorMessages } from '../../lib/errors';
@@ -18,6 +34,8 @@ import type { ErrorMessages } from '../../lib/errors';
 const FORBIDDEN = 'No tenés permiso para hacer esto con este contacto.';
 const INVALID = 'Revisá los datos marcados y probá de nuevo.';
 const NOT_FOUND = 'No encontramos el contacto. Puede que lo hayan borrado.';
+const MERGED = 'Este contacto se unificó con otro: los datos están en el contacto principal.';
+const IN_TRASH = 'El contacto está en la papelera: restauralo para editarlo.';
 const DUPLICATE = (error: { readonly trashed: boolean }) =>
   error.trashed
     ? 'Ya hay un contacto en la papelera con ese teléfono o email. Restauralo en vez de crear otro.'
@@ -32,6 +50,7 @@ export const CLIENT_DETAIL_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver este contacto.',
   InvalidInput: NOT_FOUND,
   ClientNotFound: NOT_FOUND,
+  ClientMerged: MERGED,
 } satisfies ErrorMessages<GetClientDetailError>;
 
 export const CLIENT_HISTORY_ERROR_MESSAGES = {
@@ -91,6 +110,7 @@ export const RESTORE_CLIENT_ERROR_MESSAGES = {
   InvalidInput: NOT_FOUND,
   ClientNotFound: NOT_FOUND,
   ClientNotDeleted: 'El contacto ya no estaba en la papelera.',
+  ClientMerged: MERGED,
 } satisfies ErrorMessages<RestoreClientError>;
 
 export const EXPORT_CLIENTS_ERROR_MESSAGES = {
@@ -100,3 +120,123 @@ export const EXPORT_CLIENTS_ERROR_MESSAGES = {
   TooManyToExport: (error) =>
     `Son ${error.total.toLocaleString('es-AR')} contactos y el máximo es ${error.max.toLocaleString('es-AR')}. Filtrá un poco más.`,
 } satisfies ErrorMessages<ExportClientsError>;
+
+export const CLIENT_LETTERS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver estos contactos.',
+  InvalidInput: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
+} satisfies ErrorMessages<ListClientLettersError>;
+
+// ---------- Etiquetas ----------
+
+const TAG_FORBIDDEN = 'No tenés permiso para editar etiquetas.';
+const TAG_NOT_FOUND = 'No encontramos la etiqueta. Puede que la hayan borrado o unificado.';
+const GROUP_NOT_FOUND = 'No encontramos el grupo. Puede que lo hayan borrado.';
+
+export const CLIENT_TAG_GROUPS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver las etiquetas de contactos.',
+  InvalidInput: 'Los filtros no son válidos.',
+} satisfies ErrorMessages<ListClientTagGroupsError>;
+
+export const CLIENT_TAGS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver las etiquetas de contactos.',
+  InvalidInput: 'Los filtros no son válidos.',
+} satisfies ErrorMessages<SearchClientTagsError>;
+
+export const CREATE_CLIENT_TAG_GROUP_ERROR_MESSAGES = {
+  Forbidden: TAG_FORBIDDEN,
+  InvalidInput: INVALID,
+  TagGroupNameTaken: 'Ya hay un grupo con ese nombre.',
+} satisfies ErrorMessages<CreateClientTagGroupError>;
+
+export const RENAME_CLIENT_TAG_GROUP_ERROR_MESSAGES = {
+  Forbidden: TAG_FORBIDDEN,
+  InvalidInput: INVALID,
+  TagGroupNotFound: GROUP_NOT_FOUND,
+  TagGroupNameTaken: 'Ya hay un grupo con ese nombre.',
+} satisfies ErrorMessages<RenameClientTagGroupError>;
+
+export const DELETE_CLIENT_TAG_GROUP_ERROR_MESSAGES = {
+  Forbidden: TAG_FORBIDDEN,
+  InvalidInput: GROUP_NOT_FOUND,
+  TagGroupNotFound: GROUP_NOT_FOUND,
+  TagGroupNotEmpty: 'El grupo tiene etiquetas: movelas a otro grupo o borralas primero.',
+} satisfies ErrorMessages<DeleteClientTagGroupError>;
+
+export const CREATE_CLIENT_TAG_ERROR_MESSAGES = {
+  Forbidden: TAG_FORBIDDEN,
+  InvalidInput: INVALID,
+  TagGroupNotFound: GROUP_NOT_FOUND,
+  TagNameTaken: 'Ya hay una etiqueta con ese nombre en el grupo.',
+} satisfies ErrorMessages<CreateClientTagError>;
+
+export const UPDATE_CLIENT_TAG_ERROR_MESSAGES = {
+  Forbidden: TAG_FORBIDDEN,
+  InvalidInput: INVALID,
+  TagNotFound: TAG_NOT_FOUND,
+  TagGroupNotFound: GROUP_NOT_FOUND,
+  TagNameTaken: 'Ya hay una etiqueta con ese nombre en el grupo.',
+} satisfies ErrorMessages<UpdateClientTagError>;
+
+export const DELETE_CLIENT_TAG_ERROR_MESSAGES = {
+  Forbidden: TAG_FORBIDDEN,
+  InvalidInput: TAG_NOT_FOUND,
+  TagNotFound: TAG_NOT_FOUND,
+  TagInUse: (error) =>
+    `La tienen ${error.uses.toLocaleString('es-AR')} contactos: unificala con otra etiqueta o quitásela primero.`,
+} satisfies ErrorMessages<DeleteClientTagError>;
+
+export const MERGE_CLIENT_TAGS_ERROR_MESSAGES = {
+  Forbidden: TAG_FORBIDDEN,
+  InvalidInput: 'Elegí otra etiqueta para unificar.',
+  TagNotFound: TAG_NOT_FOUND,
+} satisfies ErrorMessages<MergeClientTagsError>;
+
+export const CHANGE_CLIENT_TAGS_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN,
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  TagNotFound: TAG_NOT_FOUND,
+} satisfies ErrorMessages<ChangeClientTagsError>;
+
+// ---------- Contactos relacionados ----------
+
+export const CLIENT_RELATIONS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver los contactos relacionados.',
+  InvalidInput: 'Los filtros no son válidos.',
+  ClientNotFound: NOT_FOUND,
+} satisfies ErrorMessages<ListClientRelationsError>;
+
+export const LINK_CLIENTS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para editar este contacto o para ver el otro.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: 'Uno de los dos contactos está en la papelera.',
+  SelfRelation: 'Un contacto no se puede relacionar consigo mismo.',
+  InvalidRelation:
+    'Esa relación no corresponde: una persona trabaja en una empresa y es miembro de un grupo.',
+  TooManyRelations: 'El contacto ya tiene demasiadas relaciones.',
+} satisfies ErrorMessages<LinkClientsError>;
+
+export const UNLINK_CLIENTS_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN,
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+} satisfies ErrorMessages<UnlinkClientsError>;
+
+// ---------- Unificar ----------
+
+export const PREVIEW_MERGE_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para unificar estos contactos.',
+  InvalidInput: 'Elegí otro contacto para unificar.',
+  ClientNotFound: 'No encontramos uno de los contactos (o está en la papelera).',
+} satisfies ErrorMessages<PreviewClientMergeError>;
+
+export const MERGE_CLIENTS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para unificar estos contactos.',
+  InvalidInput: 'Elegí otro contacto para unificar.',
+  ClientNotFound: 'No encontramos uno de los contactos. Puede que lo hayan borrado.',
+  ClientInTrash: 'Uno de los dos contactos está en la papelera: restauralo primero.',
+  SameClient: 'Elegí otro contacto para unificar.',
+} satisfies ErrorMessages<MergeClientsError>;

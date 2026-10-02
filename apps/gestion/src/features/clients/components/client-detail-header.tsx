@@ -19,6 +19,7 @@ import { toast } from '@norde/ui/components/sonner';
 import { SoftBadge, StatusPill } from '@norde/ui/components/status-pill';
 import {
   ArchiveRestoreIcon,
+  CombineIcon,
   Loader2Icon,
   LockIcon,
   MailIcon,
@@ -41,6 +42,7 @@ import {
 import { FormAlert } from '../../shared/components/form-alert';
 import { deleteClientAction, reassignClientAction, restoreClientAction } from '../actions';
 import { clientName, formatPhone, userName, whatsappHref } from '../client-format';
+import { ClientMergeDialog } from './client-merge-dialog';
 
 interface PendingAction {
   readonly copy: ConfirmActionCopy;
@@ -123,7 +125,8 @@ function ReassignDialog({
 
 /**
  * La tarjeta de la ficha: nombre, tipos, agente y los datos de contacto principales, con las
- * acciones rápidas (WhatsApp, llamar, email) y las de la ficha (cambiar agente, borrar, restaurar).
+ * acciones rápidas (WhatsApp, llamar, email) y las de la ficha (cambiar agente, unificar, borrar,
+ * restaurar).
  */
 export function ClientDetailHeader({
   detail,
@@ -135,6 +138,7 @@ export function ClientDetailHeader({
 }) {
   const [pending, setPending] = useState<PendingAction | undefined>();
   const [reassigning, setReassigning] = useState(false);
+  const [merging, setMerging] = useState(false);
   const inTrash = detail.deletedAt !== undefined;
   const phone = detail.phones[0];
   const email = detail.emails[0];
@@ -235,6 +239,19 @@ export function ClientDetailHeader({
               Cambiar agente
             </Button>
           )}
+          {detail.can.merge && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setMerging(true);
+              }}
+            >
+              <CombineIcon className="h-4 w-4" />
+              Unificar
+            </Button>
+          )}
           {detail.can.delete &&
             (inTrash ? (
               <Button
@@ -290,6 +307,9 @@ export function ClientDetailHeader({
       />
       {reassigning && (
         <ReassignDialog detail={detail} open={reassigning} onOpenChange={setReassigning} />
+      )}
+      {detail.can.merge && (
+        <ClientMergeDialog detail={detail} open={merging} onOpenChange={setMerging} />
       )}
     </Card>
   );

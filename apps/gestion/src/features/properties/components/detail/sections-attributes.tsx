@@ -52,7 +52,12 @@ import {
   TextField,
   submitWith,
 } from './form-fields';
-import { Facts, InlineFormActions, InlineSection, type InlineFormControls } from './inline-section';
+import {
+  Facts,
+  InlineFormActions,
+  InlineSection,
+  type InlineFormControls,
+} from '../../../shared/components/inline-section';
 import { centsToAmount } from './sections-listing';
 
 const numberFormat = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });

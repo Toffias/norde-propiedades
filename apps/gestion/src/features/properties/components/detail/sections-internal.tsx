@@ -31,7 +31,12 @@ import {
   updatePropertyInternalInfoAction,
 } from '../../detail-actions';
 import { TextareaField, TextField, submitWith } from './form-fields';
-import { Facts, InlineFormActions, InlineSection, type InlineFormControls } from './inline-section';
+import {
+  Facts,
+  InlineFormActions,
+  InlineSection,
+  type InlineFormControls,
+} from '../../../shared/components/inline-section';
 
 function name(user: PanelUserRef | undefined): string {
   if (user === undefined) return EMPTY_VALUE;

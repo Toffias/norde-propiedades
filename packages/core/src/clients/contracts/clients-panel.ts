@@ -1,9 +1,12 @@
-// Agenda de contactos del panel (#8): listado, alta, ficha, papelera y exportación.
+// Agenda de contactos del panel (#8): listado, agenda A–Z, alta, ficha, relaciones, unificación,
+// papelera y exportación.
 
 import { z } from 'zod';
 
 import { historyQuerySchema } from '../../audit/contracts';
 import { pageQuerySchema } from '../../shared/contracts';
+
+import type { ClientTagRef } from './clients-tags';
 
 export const CLIENT_KIND_VALUES = ['person', 'company', 'group'] as const;
 export type ClientKindValue = (typeof CLIENT_KIND_VALUES)[number];
@@ -77,6 +80,42 @@ export const DOCUMENT_TYPE_LABELS: Readonly<Record<DocumentTypeValue, string>> =
 export const CLIENT_SORT_FIELDS = ['name', 'createdAt', 'updatedAt'] as const;
 export type ClientSortField = (typeof CLIENT_SORT_FIELDS)[number];
 
+/** Las letras de la agenda; `#` agrupa los nombres que no empiezan con una letra (y los sin nombre). */
+export const CLIENT_LETTERS = [
+  'A',
+  'B',
+  'C',
+  'D',
+  'E',
+  'F',
+  'G',
+  'H',
+  'I',
+  'J',
+  'K',
+  'L',
+  'M',
+  'N',
+  'O',
+  'P',
+  'Q',
+  'R',
+  'S',
+  'T',
+  'U',
+  'V',
+  'W',
+  'X',
+  'Y',
+  'Z',
+  '#',
+] as const;
+export type ClientLetter = (typeof CLIENT_LETTERS)[number];
+
+/** Con o sin etiquetas. */
+export const CLIENT_TAGGED_VALUES = ['with', 'without'] as const;
+export type ClientTaggedValue = (typeof CLIENT_TAGGED_VALUES)[number];
+
 /** `trash`: la papelera. */
 export const CLIENT_VIEW_VALUES = ['active', 'trash'] as const;
 export type ClientViewValue = (typeof CLIENT_VIEW_VALUES)[number];
@@ -96,7 +135,12 @@ const ClientFilterFields = {
   q: z.string().trim().min(1).max(100).optional(),
   agentId: z.uuid().optional(),
   branchId: z.uuid().optional(),
+  kind: z.enum(CLIENT_KIND_VALUES).optional(),
   clientType: z.enum(CLIENT_TYPE_VALUES).optional(),
+  tagged: z.enum(CLIENT_TAGGED_VALUES).optional(),
+  tagId: z.uuid().optional(),
+  /** Una letra de la agenda alfabética. */
+  letter: z.enum(CLIENT_LETTERS).optional(),
   /** Solo propietarios (vendedores o que alquilan). */
   owners: BooleanParam,
   /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
@@ -144,6 +188,12 @@ export type ListClientsQuery = z.input<typeof ListClientsQuerySchema>;
 /** Los filtros sin página ni orden (exportación de "todos los que cumplen"). */
 export const ClientFilterSchema = z.object(ClientFilterFields).superRefine(checkDateRanges);
 export type ClientFilter = z.input<typeof ClientFilterSchema>;
+
+/** Cuántos contactos hay en cada letra con los filtros aplicados (la letra elegida no cuenta). */
+export interface ClientLetterCount {
+  readonly letter: ClientLetter;
+  readonly count: number;
+}
 
 export interface ClientUserRef {
   readonly id: string;
@@ -317,6 +367,8 @@ export interface ClientDetailPermissions {
   readonly reassign: boolean;
   readonly delete: boolean;
   readonly viewHistory: boolean;
+  /** Unificarlo con otro contacto. */
+  readonly merge: boolean;
 }
 
 export interface ClientDetail {
@@ -330,6 +382,7 @@ export interface ClientDetail {
   readonly branchId: string | undefined;
   readonly profile: ClientDetailProfile;
   readonly channels: readonly ClientDetailChannel[];
+  readonly tags: readonly ClientTagRef[];
   /** Teléfonos, emails y documento enmascarados: es propietario y el actor no puede verlos. */
   readonly contactMasked: boolean;
   readonly createdAt: Date;
@@ -337,6 +390,108 @@ export interface ClientDetail {
   readonly deletedAt: Date | undefined;
   readonly deletedBy: ClientUserRef | undefined;
   readonly can: ClientDetailPermissions;
+}
+
+// ---------- Contactos relacionados ----------
+
+export const CLIENT_RELATION_KIND_VALUES = ['works_at', 'member_of', 'related'] as const;
+export type ClientRelationKindValue = (typeof CLIENT_RELATION_KIND_VALUES)[number];
+
+export const LinkClientsInputSchema = z.object({
+  /** El contacto que declara la relación (la persona que trabaja en la empresa). */
+  clientId: z.uuid(),
+  relatedClientId: z.uuid(),
+  kind: z.enum(CLIENT_RELATION_KIND_VALUES),
+  /** "Esposa", "Contador", "Socio". */
+  label: z.string().trim().max(60).optional(),
+});
+export type LinkClientsInput = z.input<typeof LinkClientsInputSchema>;
+
+export const UnlinkClientsInputSchema = z.object({
+  clientId: z.uuid(),
+  relatedClientId: z.uuid(),
+  kind: z.enum(CLIENT_RELATION_KIND_VALUES),
+});
+export type UnlinkClientsInput = z.input<typeof UnlinkClientsInputSchema>;
+
+export const ListClientRelationsQuerySchema = pageQuerySchema({
+  sortable: ['name'],
+  defaultSort: { field: 'name', direction: 'asc' },
+}).extend({ clientId: z.uuid() });
+export type ListClientRelationsQuery = z.input<typeof ListClientRelationsQuerySchema>;
+
+/**
+ * Una relación vista desde la ficha: `outgoing` la declara este contacto ("trabaja en Acme");
+ * `incoming`, el otro ("Juan trabaja acá").
+ */
+export interface ClientRelationRow {
+  readonly direction: 'outgoing' | 'incoming';
+  readonly kind: ClientRelationKindValue;
+  readonly label: string | undefined;
+  readonly other: {
+    readonly id: string;
+    readonly name: string | undefined;
+    readonly kind: ClientKindValue;
+  };
+  /** El actor puede abrir la ficha del otro contacto. */
+  readonly canOpen: boolean;
+  /** El actor puede quitar la relación (edita alguno de los dos). */
+  readonly canUnlink: boolean;
+}
+
+// ---------- Unificar contactos ----------
+
+const MergePairSchema = z
+  .object({
+    /** El que queda. */
+    primaryId: z.uuid(),
+    /** El que se absorbe: queda vacío en la papelera. */
+    duplicateId: z.uuid(),
+  })
+  .refine((input) => input.primaryId !== input.duplicateId, {
+    message: 'Elegí otro contacto.',
+    path: ['duplicateId'],
+  });
+
+export const MergeClientsInputSchema = MergePairSchema;
+export type MergeClientsInput = z.input<typeof MergeClientsInputSchema>;
+
+export const PreviewClientMergeInputSchema = MergePairSchema;
+export type PreviewClientMergeInput = z.input<typeof PreviewClientMergeInputSchema>;
+
+/** Lo que cuelga de un contacto y se mueve al unificar. */
+export interface ClientRecordCountsDto {
+  readonly opportunities: number;
+  readonly activities: number;
+  readonly savedSearches: number;
+  readonly featuredListings: number;
+  readonly sharedListings: number;
+  readonly inquiries: number;
+  readonly incomingRelations: number;
+}
+
+export interface ClientMergeSide {
+  readonly id: string;
+  readonly kind: ClientKindValue;
+  readonly name: string | undefined;
+  readonly phones: readonly string[];
+  readonly emails: readonly string[];
+  readonly clientTypes: readonly ClientTypeValue[];
+  readonly agent: ClientUserRef | undefined;
+  readonly tagCount: number;
+  readonly relationCount: number;
+  readonly createdAt: Date;
+  readonly records: ClientRecordCountsDto;
+}
+
+export interface ClientMergePreview {
+  readonly primary: ClientMergeSide;
+  readonly duplicate: ClientMergeSide;
+}
+
+export interface MergeClientsOutput {
+  readonly clientId: string;
+  readonly moved: ClientRecordCountsDto;
 }
 
 // ---------- Historial ----------

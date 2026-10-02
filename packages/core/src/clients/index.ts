@@ -18,9 +18,25 @@ export {
   Client,
   type ClientEmail,
   type ClientId,
+  type ClientMergedError,
   type ClientPhone,
   type ClientSnapshot,
 } from './domain/client';
+export {
+  CLIENT_RELATION_KINDS,
+  MAX_CLIENT_RELATIONS,
+  type ClientRelation,
+  type ClientRelationKind,
+} from './domain/client-relation';
+export {
+  ClientTag,
+  ClientTagGroup,
+  MAX_CLIENT_TAGS,
+  type ClientTagGroupId,
+  type ClientTagGroupSnapshot,
+  type ClientTagId,
+  type ClientTagSnapshot,
+} from './domain/client-tag';
 export {
   CLIENT_KINDS,
   CLIENT_TYPES,
@@ -43,9 +59,11 @@ export {
 export {
   MAX_DUPLICATE_CANDIDATES,
   type ClientRepository,
+  type ClientTagGroupRepository,
+  type ClientTagRepository,
   type OpportunityRepository,
 } from './domain/client.repository';
-export type { ClientEvent } from './domain/client.events';
+export type { ClientEvent, ClientsMerged } from './domain/client.events';
 export type {
   OpportunityCreated,
   OpportunityEvent,
@@ -129,3 +147,70 @@ export {
   ListClientHistory,
   type ListClientHistoryError,
 } from './application/queries/list-client-history';
+
+// ---------- Etiquetas, agenda A–Z, relaciones y unificar (#8, etapa 2) ----------
+
+export type {
+  ClientLinkedRecords,
+  ClientRecordCounts,
+} from './application/ports/client-linked-records';
+export type { ClientTagQuery } from './application/ports/client-tag-query';
+export type {
+  ClientRelationItem,
+  ClientRelationQuery,
+} from './application/ports/client-relation-query';
+export {
+  CreateClientTagGroup,
+  type CreateClientTagGroupError,
+} from './application/commands/create-client-tag-group';
+export {
+  RenameClientTagGroup,
+  type RenameClientTagGroupError,
+} from './application/commands/rename-client-tag-group';
+export {
+  DeleteClientTagGroup,
+  type DeleteClientTagGroupError,
+} from './application/commands/delete-client-tag-group';
+export {
+  CreateClientTag,
+  type CreateClientTagError,
+} from './application/commands/create-client-tag';
+export {
+  UpdateClientTag,
+  type UpdateClientTagError,
+} from './application/commands/update-client-tag';
+export {
+  DeleteClientTag,
+  type DeleteClientTagError,
+} from './application/commands/delete-client-tag';
+export {
+  MergeClientTags,
+  type MergeClientTagsError,
+} from './application/commands/merge-client-tags';
+export {
+  ChangeClientTags,
+  type ChangeClientTagsError,
+} from './application/commands/change-client-tags';
+export { LinkClients, type LinkClientsError } from './application/commands/link-clients';
+export { UnlinkClients, type UnlinkClientsError } from './application/commands/unlink-clients';
+export { MergeClients, type MergeClientsError } from './application/commands/merge-clients';
+export {
+  ListClientTagGroups,
+  type ListClientTagGroupsError,
+} from './application/queries/list-client-tag-groups';
+export {
+  SearchClientTags,
+  type SearchClientTagsError,
+} from './application/queries/search-client-tags';
+export {
+  ListClientLetters,
+  type ListClientLettersError,
+} from './application/queries/list-client-letters';
+export {
+  ListClientRelations,
+  type ListClientRelationsError,
+} from './application/queries/list-client-relations';
+export {
+  PreviewClientMerge,
+  type PreviewClientMergeError,
+} from './application/queries/preview-client-merge';

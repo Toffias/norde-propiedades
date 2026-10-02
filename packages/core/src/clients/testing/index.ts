@@ -2,8 +2,23 @@
 
 import { Actor, Email, parseId, Phone } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
-import type { ClientListRow } from '../contracts';
+import type {
+  ClientLetterCount,
+  ClientListRow,
+  ClientTagGroupRow,
+  ClientTagRef,
+  ClientTagRow,
+} from '../contracts';
 import type { ClientAgents } from '../application/ports/client-agents';
+import type {
+  ClientLinkedRecords,
+  ClientRecordCounts,
+} from '../application/ports/client-linked-records';
+import type {
+  ClientRelationItem,
+  ClientRelationQuery,
+} from '../application/ports/client-relation-query';
+import type { ClientTagQuery } from '../application/ports/client-tag-query';
 import type {
   ClientExportFile,
   ClientExportWriter,
@@ -23,8 +38,16 @@ import { Client, type ClientId } from '../domain/client';
 import {
   MAX_DUPLICATE_CANDIDATES,
   type ClientRepository,
+  type ClientTagGroupRepository,
+  type ClientTagRepository,
   type OpportunityRepository,
 } from '../domain/client.repository';
+import {
+  ClientTag,
+  ClientTagGroup,
+  type ClientTagGroupId,
+  type ClientTagId,
+} from '../domain/client-tag';
 import { normalizeName, type ContactKeys } from '../domain/duplicate-check';
 import { Opportunity, type OpportunityId } from '../domain/opportunity';
 
@@ -89,6 +112,123 @@ export class InMemoryOpportunityRepository implements OpportunityRepository {
   }
 }
 
+export class InMemoryClientTagGroupRepository implements ClientTagGroupRepository {
+  readonly rows = new Map<string, ReturnType<ClientTagGroup['toSnapshot']>>();
+
+  constructor(private readonly tags: InMemoryClientTagRepository) {}
+
+  findById(id: ClientTagGroupId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && ClientTagGroup.restore(row));
+  }
+
+  findByName(name: string) {
+    const row = [...this.rows.values()].find((r) => r.name.toLowerCase() === name.toLowerCase());
+    return Promise.resolve(row && ClientTagGroup.restore(row));
+  }
+
+  nextPosition() {
+    return Promise.resolve(Math.max(-1, ...[...this.rows.values()].map((r) => r.position)) + 1);
+  }
+
+  countTags(id: ClientTagGroupId) {
+    return Promise.resolve([...this.tags.rows.values()].filter((t) => t.groupId === id).length);
+  }
+
+  save(group: ClientTagGroup) {
+    this.rows.set(group.id, group.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: ClientTagGroupId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+/** Las asignaciones viven en los snapshots de los clientes (en la base, en otra tabla). */
+export class InMemoryClientTagRepository implements ClientTagRepository {
+  readonly rows = new Map<string, ReturnType<ClientTag['toSnapshot']>>();
+
+  constructor(private readonly clients: InMemoryClientRepository) {}
+
+  findById(id: ClientTagId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && ClientTag.restore(row));
+  }
+
+  findInGroup(groupId: ClientTagGroupId | undefined, name: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.groupId === groupId && r.name.toLowerCase() === name.toLowerCase(),
+    );
+    return Promise.resolve(row && ClientTag.restore(row));
+  }
+
+  findExistingIds(ids: readonly string[]) {
+    return Promise.resolve(ids.filter((id) => this.rows.has(id)));
+  }
+
+  countUses(id: ClientTagId) {
+    return Promise.resolve(
+      [...this.clients.rows.values()].filter((c) => c.tagIds.includes(id)).length,
+    );
+  }
+
+  moveAssignments(source: ClientTagId, target: ClientTagId) {
+    let moved = 0;
+    for (const [id, row] of this.clients.rows) {
+      if (!row.tagIds.includes(source)) continue;
+      moved += 1;
+      const tagIds = [...new Set(row.tagIds.map((tag) => (tag === source ? target : tag)))];
+      this.clients.rows.set(id, { ...row, tagIds });
+    }
+    return Promise.resolve(moved);
+  }
+
+  save(tag: ClientTag) {
+    this.rows.set(tag.id, tag.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: ClientTagId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+export const NO_RECORDS: ClientRecordCounts = {
+  opportunities: 0,
+  activities: 0,
+  savedSearches: 0,
+  featuredListings: 0,
+  sharedListings: 0,
+  inquiries: 0,
+  incomingRelations: 0,
+};
+
+/** Cuántos registros cuelgan de cada cliente; moveAll los pasa de uno a otro. */
+export class InMemoryClientLinkedRecords implements ClientLinkedRecords {
+  readonly counts = new Map<string, ClientRecordCounts>();
+  readonly moves: { readonly fromId: string; readonly toId: string }[] = [];
+
+  countFor(clientId: string) {
+    return Promise.resolve(this.counts.get(clientId) ?? NO_RECORDS);
+  }
+
+  moveAll(fromId: string, toId: string) {
+    const moved = this.counts.get(fromId) ?? NO_RECORDS;
+    const target = this.counts.get(toId) ?? NO_RECORDS;
+    const sum: Record<keyof ClientRecordCounts, number> = { ...target };
+    for (const field of Object.keys(NO_RECORDS) as (keyof ClientRecordCounts)[]) {
+      sum[field] = target[field] + moved[field];
+    }
+    this.counts.set(toId, sum);
+    this.counts.delete(fromId);
+    this.moves.push({ fromId, toId });
+    return Promise.resolve(moved);
+  }
+}
+
 /**
  * Unidad de trabajo en memoria. Si el trabajo devuelve un `Err` o lanza, descarta lo escrito
  * (como el rollback de la implementación real).
@@ -96,6 +236,9 @@ export class InMemoryOpportunityRepository implements OpportunityRepository {
 export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly clients = new InMemoryClientRepository();
   readonly opportunities = new InMemoryOpportunityRepository();
+  readonly tags = new InMemoryClientTagRepository(this.clients);
+  readonly tagGroups = new InMemoryClientTagGroupRepository(this.tags);
+  readonly records = new InMemoryClientLinkedRecords();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
 
@@ -103,14 +246,22 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
     const backup = {
       clients: new Map(this.clients.rows),
       opportunities: new Map(this.opportunities.rows),
+      tags: new Map(this.tags.rows),
+      tagGroups: new Map(this.tagGroups.rows),
+      records: new Map(this.records.counts),
       events: this.events.published.length,
       audit: this.audit.entries.length,
     };
+    const restore = <K, V>(target: Map<K, V>, saved: Map<K, V>) => {
+      target.clear();
+      for (const [k, v] of saved) target.set(k, v);
+    };
     const rollback = () => {
-      this.clients.rows.clear();
-      for (const [k, v] of backup.clients) this.clients.rows.set(k, v);
-      this.opportunities.rows.clear();
-      for (const [k, v] of backup.opportunities) this.opportunities.rows.set(k, v);
+      restore(this.clients.rows, backup.clients);
+      restore(this.opportunities.rows, backup.opportunities);
+      restore(this.tags.rows, backup.tags);
+      restore(this.tagGroups.rows, backup.tagGroups);
+      restore(this.records.counts, backup.records);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
     };
@@ -221,6 +372,54 @@ export class StubClientListQuery implements ClientListQuery {
     this.counts.push(criteria);
     return Promise.resolve(this.items.length);
   }
+
+  readonly letterCriteria: ClientFilterCriteria[] = [];
+  letterCounts: ClientLetterCount[] = [];
+
+  letters(criteria: ClientFilterCriteria) {
+    this.letterCriteria.push(criteria);
+    return Promise.resolve(this.letterCounts);
+  }
+}
+
+/** Devuelve las filas cargadas y registra los criterios. */
+export class StubClientTagQuery implements ClientTagQuery {
+  readonly groupCriteria: Parameters<ClientTagQuery['listGroups']>[0][] = [];
+  readonly tagCriteria: Parameters<ClientTagQuery['searchTags']>[0][] = [];
+
+  constructor(
+    public groups: readonly ClientTagGroupRow[] = [],
+    public tags: readonly ClientTagRow[] = [],
+  ) {}
+
+  listGroups(criteria: Parameters<ClientTagQuery['listGroups']>[0]) {
+    this.groupCriteria.push(criteria);
+    return Promise.resolve({ items: this.groups, total: this.groups.length });
+  }
+
+  searchTags(criteria: Parameters<ClientTagQuery['searchTags']>[0]) {
+    this.tagCriteria.push(criteria);
+    return Promise.resolve({ items: this.tags, total: this.tags.length });
+  }
+
+  refs(ids: readonly string[]) {
+    return Promise.resolve(
+      this.tags
+        .filter((tag) => ids.includes(tag.id))
+        .map((tag): ClientTagRef => ({ id: tag.id, name: tag.name, groupName: tag.groupName })),
+    );
+  }
+}
+
+export class StubClientRelationQuery implements ClientRelationQuery {
+  readonly criteria: Parameters<ClientRelationQuery['list']>[0][] = [];
+
+  constructor(public items: readonly ClientRelationItem[] = []) {}
+
+  list(criteria: Parameters<ClientRelationQuery['list']>[0]) {
+    this.criteria.push(criteria);
+    return Promise.resolve({ items: this.items, total: this.items.length });
+  }
 }
 
 export function aClientItem(overrides: Partial<ClientListItem> = {}): ClientListItem {
@@ -269,6 +468,7 @@ export async function seedClient(
     readonly name?: string;
     readonly phones?: readonly string[];
     readonly emails?: readonly string[];
+    readonly kind?: Parameters<typeof Client.create>[0]['kind'];
     readonly clientTypes?: Parameters<typeof Client.create>[0]['clientTypes'];
     readonly agentId?: string | undefined;
     readonly branchId?: string | undefined;
@@ -292,7 +492,7 @@ export async function seedClient(
   });
   const created = Client.create({
     id: id.value,
-    kind: 'person',
+    kind: overrides.kind ?? 'person',
     name: overrides.name ?? 'Ana Pérez',
     phones,
     emails,

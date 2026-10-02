@@ -17,9 +17,12 @@ import {
 import type {
   ClientDuplicateRef,
   ClientEmailInput,
+  ClientKindValue,
+  ClientLetter,
   ClientListRow,
   ClientPhoneInput,
   ClientProfileInput,
+  ClientTaggedValue,
   ClientTypeValue,
   ClientUserRef,
   ClientViewValue,
@@ -195,7 +198,11 @@ export interface ParsedClientFilter {
   readonly q?: string | undefined;
   readonly agentId?: string | undefined;
   readonly branchId?: string | undefined;
+  readonly kind?: ClientKindValue | undefined;
   readonly clientType?: ClientTypeValue | undefined;
+  readonly tagged?: ClientTaggedValue | undefined;
+  readonly tagId?: string | undefined;
+  readonly letter?: ClientLetter | undefined;
   readonly owners: boolean;
   readonly createdFrom?: string | undefined;
   readonly createdTo?: string | undefined;
@@ -219,7 +226,11 @@ export function resolveClientFilter(
     text: filter.q,
     agentId: filter.agentId,
     branchId: filter.branchId,
+    kind: filter.kind,
     clientType: filter.clientType,
+    tagged: filter.tagged,
+    tagId: filter.tagId,
+    letter: filter.letter,
     anyOfTypes: filter.owners ? OWNER_CLIENT_TYPES : undefined,
     created: dayRange(filter.createdFrom, filter.createdTo),
     updated: dayRange(filter.updatedFrom, filter.updatedTo),

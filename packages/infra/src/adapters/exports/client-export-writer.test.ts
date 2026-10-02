@@ -37,6 +37,13 @@ async function* batches(...lists: ClientListRow[][]) {
 }
 
 describe('XlsxClientExportWriter', () => {
+  it('names the file with the day in Buenos Aires', () => {
+    const file = new XlsxClientExportWriter().write(batches(), {
+      generatedAt: new Date('2026-10-02T01:00:00Z'),
+    });
+    expect(file.filename).toBe('contactos-2026-10-01.xlsx');
+  });
+
   it('writes one row per contact, batch after batch, with Spanish labels and local dates', async () => {
     const file = new XlsxClientExportWriter().write(
       batches([row()], [row({ name: 'Bruno', clientTypes: [], agent: undefined })]),

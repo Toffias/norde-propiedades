@@ -13,6 +13,8 @@ import ExcelJS from 'exceljs';
 // tiene la exportación entera en memoria.
 
 const TIME_ZONE = 'America/Argentina/Buenos_Aires';
+/** `AAAA-MM-DD` de Buenos Aires, para el nombre del archivo. */
+const isoDay = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE });
 const dateFormat = new Intl.DateTimeFormat('es-AR', {
   timeZone: TIME_ZONE,
   day: '2-digit',
@@ -51,7 +53,7 @@ export class XlsxClientExportWriter implements ClientExportWriter {
     batches: AsyncIterable<readonly ClientListRow[]>,
     meta: { readonly generatedAt: Date },
   ): ClientExportFile {
-    const day = meta.generatedAt.toISOString().slice(0, 10);
+    const day = isoDay.format(meta.generatedAt);
     return {
       filename: `contactos-${day}.xlsx`,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

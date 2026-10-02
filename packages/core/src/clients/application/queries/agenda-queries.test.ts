@@ -13,6 +13,7 @@ import {
   OTHER_BRANCH_ID,
   seedClient,
   StubClientListQuery,
+  StubClientRecordQuery,
   StubClientTagQuery,
   TEST_AGENT,
   TEST_MANAGER,
@@ -126,7 +127,8 @@ describe('GetClientDetail', () => {
       [],
       [{ id: TAG_ID, name: 'Zonaprop', groupId: undefined, groupName: 'Origen', clients: 1 }],
     );
-    return { uow, useCase: new GetClientDetail({ uow, agents, tags }) };
+    const records = new StubClientRecordQuery();
+    return { uow, records, useCase: new GetClientDetail({ uow, agents, tags, records }) };
   }
 
   it('returns the detail with what the actor can do', async () => {
@@ -144,6 +146,29 @@ describe('GetClientDetail', () => {
       contactMasked: false,
       can: { edit: true, rename: false, reassign: false, delete: true, viewHistory: true },
     });
+  });
+
+  it('brings the active opportunity and the tab counters', async () => {
+    const { uow, records, useCase } = setup();
+    const client = await seedClient(uow);
+    const counts = { activity: 7, opportunities: 2, featured: 3, savedSearches: 1, relations: 4 };
+    const active = {
+      id: 'o1',
+      type: 'sale',
+      status: 'contacted' as const,
+      createdAt: new Date('2026-03-01T10:00:00Z'),
+      openCount: 2,
+    };
+    records.counts = counts;
+    records.active = active;
+
+    const detail = unwrap(await useCase.execute({ clientId: client.id }, TEST_AGENT));
+
+    expect(detail.counts).toEqual(counts);
+    expect(detail.activeOpportunity).toEqual(active);
+    expect(records.openStatuses).toEqual([
+      ['new', 'contacted', 'visiting', 'negotiating', 'referred_to_partner'],
+    ]);
   });
 
   it('masks the contact data and document of an owner', async () => {

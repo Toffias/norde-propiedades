@@ -188,7 +188,7 @@ Se **persisten los clientes junto con el canal por el que se contactaron**, veng
 
 ### 3.3.1 Agenda de contactos en el panel (#8, etapa 1)
 
-La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A–Z, empresas y grupos y unificar contactos, (3) actividad, notas, pestañas con contador, oportunidad en la ficha y buscador de propiedades embebido, (4) importación desde Excel y supresión de datos. Esta sección describe la etapa 1; la 3.3.2, la etapa 2.
+La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A–Z, empresas y grupos y unificar contactos, (3) actividad, notas, pestañas con contador, oportunidad en la ficha y buscador de propiedades embebido, (4) importación desde Excel y supresión de datos. Esta sección describe la etapa 1; la 3.3.2, la etapa 2, y la 3.3.3, la etapa 3.
 
 **Grilla** (`/contactos`): Nombre (con tipo de registro y tipos de cliente), Empresa, Teléfono, Celular, Email, Agente, Creación y Última actualización, paginada en el servidor y ordenable por nombre, creación y actualización.
 
@@ -236,6 +236,31 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
 - Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
 - Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. Se publica `clients.clients_merged` para que los otros módulos que guardan el ID del cliente lo reapunten.
+
+### 3.3.3 Actividad, notas, oportunidades, destacadas y ofrecer (#8, etapa 3)
+
+La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una paginada en el servidor y con su contador: Detalles, Actividad, Oportunidades, Destacadas, Búsquedas, Propiedades, Ofrecer e Historial.
+
+**Tarjeta**: además de los datos de contacto, la oportunidad abierta más reciente con su estado (solo lectura; cambiarlo y cerrarla va con #9) y cuántas abiertas tiene. La estrella marca el contacto como favorito de quien lo mira (`user_favorites`, como las propiedades). "Agregar nota" lleva a la Actividad con el foco en la nota.
+
+**Actividad** (`client_activities`), lo más reciente primero y con filtro por tipo:
+
+- **Notas**: las agrega quien puede editar el contacto; quedan también en su historial.
+- **Consultas**: cada oportunidad nueva, o una consulta repetida sobre una abierta, con lo que pidió. Las registra una reacción a `clients.opportunity_created` y `clients.opportunity_request_added`.
+- **Conversaciones del agente de IA**: una entrada cuando la conversación queda vinculada al cliente (`conversations.conversation_linked_to_client`).
+- **Unificaciones**: queda en el principal, con quién la hizo. La actividad del duplicado pasa al principal.
+- Cambios de estado, envíos, propiedades vistas y reacciones ya se muestran; los van a registrar #9 y #11.
+- Las entradas que salen de un evento usan el ID del evento (una reentrega no las duplica) y no se auditan aparte: son la proyección de algo que ya quedó registrado.
+
+**Oportunidades**: todas las del contacto (abiertas y cerradas), con su estado, origen y agente.
+
+**Destacadas**: las propiedades destacadas vigentes, con su reacción. Quitar una la deja como quitada (no se borra) y se puede volver a destacar. Una propiedad que ya no está en la cartera queda sin datos.
+
+**Búsquedas**: las búsquedas guardadas, en solo lectura (crearlas va con #11).
+
+**Propiedades**: las de la cartera de las que es propietario (`property_owners`), desde el módulo properties.
+
+**Ofrecer**: el buscador de la cartera de Norde (texto, operación y tipo) con "Destacar" por fila; la que ya está destacada lo dice. Destacar pide poder editar el contacto y ver la propiedad, y queda en el historial del contacto.
 
 ### 3.4 Cruce de búsquedas con stock
 

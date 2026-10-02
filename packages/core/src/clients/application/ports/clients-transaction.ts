@@ -1,8 +1,10 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
 import type {
+  ClientActivityRepository,
   ClientRepository,
   ClientTagGroupRepository,
   ClientTagRepository,
+  FeaturedListingRepository,
   OpportunityRepository,
 } from '../../domain/client.repository';
 
@@ -15,6 +17,8 @@ export interface ClientsTransaction {
   readonly tagGroups: ClientTagGroupRepository;
   readonly tags: ClientTagRepository;
   readonly records: ClientLinkedRecords;
+  readonly activities: ClientActivityRepository;
+  readonly featured: FeaturedListingRepository;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

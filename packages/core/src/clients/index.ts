@@ -214,3 +214,64 @@ export {
   PreviewClientMerge,
   type PreviewClientMergeError,
 } from './application/queries/preview-client-merge';
+
+// ---------- Ficha completa: actividad, notas, oportunidades, destacadas (#8, etapa 3) ----------
+
+export {
+  CLIENT_ACTIVITY_KINDS,
+  MAX_NOTE_LENGTH,
+  type ClientActivity,
+  type ClientActivityBody,
+  type ClientActivityKind,
+} from './domain/client-activity';
+export {
+  FeaturedListing,
+  type FeaturedListingId,
+  type FeaturedListingSnapshot,
+} from './domain/featured-listing';
+export type {
+  ClientActivityRepository,
+  FeaturedListingRepository,
+} from './domain/client.repository';
+export type {
+  ClientActivityItem,
+  ClientFeaturedItem,
+  ClientListings,
+  ClientOpportunityItem,
+  ClientRecordQuery,
+} from './application/ports/client-record-query';
+export { AddClientNote, type AddClientNoteError } from './application/commands/add-client-note';
+export {
+  FeatureProperties,
+  type FeaturePropertiesError,
+  type ListingNotFoundError,
+} from './application/commands/feature-properties';
+export {
+  UnfeatureProperty,
+  type UnfeaturePropertyError,
+} from './application/commands/unfeature-property';
+export {
+  RecordClientActivity,
+  type ClientActivityEvent,
+  type RecordClientActivityError,
+} from './application/handlers/on-client-activity-event';
+export {
+  ListClientActivity,
+  type ListClientActivityError,
+} from './application/queries/list-client-activity';
+export {
+  ListClientOpportunities,
+  type ListClientOpportunitiesError,
+} from './application/queries/list-client-opportunities';
+export {
+  ListClientFeatured,
+  type ListClientFeaturedError,
+} from './application/queries/list-client-featured';
+export {
+  ListClientSavedSearches,
+  type ListClientSavedSearchesError,
+} from './application/queries/list-client-saved-searches';
+export {
+  GetFeaturedPropertyIds,
+  type GetFeaturedPropertyIdsError,
+} from './application/queries/get-featured-property-ids';

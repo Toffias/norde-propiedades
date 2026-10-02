@@ -37,6 +37,8 @@ export interface PanelPropertyFilterCriteria {
     | undefined;
   /** Solo estas propiedades (selección de una acción masiva, comparador). */
   readonly ids: readonly string[] | undefined;
+  /** Solo las de este propietario (cliente del módulo clients, por ID). */
+  readonly ownerClientId?: string | undefined;
 }
 
 export interface PanelPropertyListCriteria extends PanelPropertyFilterCriteria {

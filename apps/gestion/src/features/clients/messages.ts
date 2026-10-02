@@ -1,4 +1,5 @@
 import type {
+  AddClientNoteError,
   ChangeClientTagsError,
   CheckClientDuplicatesError,
   CreateClientError,
@@ -8,11 +9,17 @@ import type {
   DeleteClientTagError,
   DeleteClientTagGroupError,
   ExportClientsError,
+  FeaturePropertiesError,
   GetClientDetailError,
+  GetFeaturedPropertyIdsError,
   LinkClientsError,
+  ListClientActivityError,
+  ListClientFeaturedError,
   ListClientHistoryError,
   ListClientLettersError,
+  ListClientOpportunitiesError,
   ListClientRelationsError,
+  ListClientSavedSearchesError,
   ListClientsError,
   ListClientTagGroupsError,
   MergeClientsError,
@@ -22,10 +29,12 @@ import type {
   RenameClientTagGroupError,
   RestoreClientError,
   SearchClientTagsError,
+  UnfeaturePropertyError,
   UnlinkClientsError,
   UpdateClientDetailsError,
   UpdateClientTagError,
 } from '@norde/core/clients';
+import type { ChangeFavoritesError } from '@norde/core/identity';
 
 import type { ErrorMessages } from '../../lib/errors';
 
@@ -240,3 +249,52 @@ export const MERGE_CLIENTS_ERROR_MESSAGES = {
   ClientInTrash: 'Uno de los dos contactos está en la papelera: restauralo primero.',
   SameClient: 'Elegí otro contacto para unificar.',
 } satisfies ErrorMessages<MergeClientsError>;
+
+// ---------- Ficha completa: actividad, notas, oportunidades, destacadas ----------
+
+const TAB_ERRORS = {
+  Forbidden: 'No tenés permiso para ver esto de este contacto.',
+  InvalidInput: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
+  ClientNotFound: NOT_FOUND,
+} as const;
+
+export const CLIENT_ACTIVITY_ERROR_MESSAGES =
+  TAB_ERRORS satisfies ErrorMessages<ListClientActivityError>;
+export const CLIENT_OPPORTUNITIES_ERROR_MESSAGES =
+  TAB_ERRORS satisfies ErrorMessages<ListClientOpportunitiesError>;
+export const CLIENT_FEATURED_ERROR_MESSAGES =
+  TAB_ERRORS satisfies ErrorMessages<ListClientFeaturedError>;
+export const CLIENT_SAVED_SEARCHES_ERROR_MESSAGES =
+  TAB_ERRORS satisfies ErrorMessages<ListClientSavedSearchesError>;
+export const FEATURED_IDS_ERROR_MESSAGES =
+  TAB_ERRORS satisfies ErrorMessages<GetFeaturedPropertyIdsError>;
+
+export const ADD_NOTE_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para agregar notas a este contacto.',
+  InvalidInput: 'Escribí la nota (hasta 5.000 caracteres).',
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  EmptyNote: 'Escribí la nota.',
+  NoteTooLong: (error) =>
+    `La nota puede tener hasta ${error.max.toLocaleString('es-AR')} caracteres.`,
+} satisfies ErrorMessages<AddClientNoteError>;
+
+export const FEATURE_PROPERTIES_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para destacarle propiedades a este contacto.',
+  InvalidInput: 'Elegí al menos una propiedad (hasta 50).',
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  ListingNotFound: 'Alguna de las propiedades ya no está en la cartera.',
+} satisfies ErrorMessages<FeaturePropertiesError>;
+
+export const UNFEATURE_PROPERTY_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para quitarle destacadas a este contacto.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+} satisfies ErrorMessages<UnfeaturePropertyError>;
+
+export const CLIENT_FAVORITE_ERROR_MESSAGES = {
+  Forbidden: 'Solo un usuario del panel tiene favoritos.',
+  InvalidInput: INVALID,
+} satisfies ErrorMessages<ChangeFavoritesError>;

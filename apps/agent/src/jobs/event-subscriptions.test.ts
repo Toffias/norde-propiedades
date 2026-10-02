@@ -1,3 +1,4 @@
+import type { RecordClientActivity } from '@norde/core/clients';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -37,6 +38,15 @@ function propertyJobs(calls: unknown[] = []): PropertyJobs {
   };
 }
 
+function recordActivity(calls: unknown[] = []): Pick<RecordClientActivity, 'execute'> {
+  return {
+    execute: (input) => {
+      calls.push(input);
+      return Promise.resolve(ok({ recorded: true }));
+    },
+  };
+}
+
 describe('eventSubscriptions', () => {
   it('notifies the team for new opportunities and follow-ups', async () => {
     const calls: unknown[] = [];
@@ -47,6 +57,7 @@ describe('eventSubscriptions', () => {
           return Promise.resolve(ok(undefined));
         },
       },
+      recordActivity: recordActivity(),
       properties: propertyJobs(),
       actor,
       logger: pino({ level: 'silent' }),
@@ -58,6 +69,9 @@ describe('eventSubscriptions', () => {
       'properties.media_variants_requested.generate-variants',
       'properties.media_deleted.delete-files',
       'properties.document_requested.render-document',
+      'clients.opportunity_created.record-activity',
+      'clients.opportunity_request_added.record-activity',
+      'conversations.conversation_linked_to_client.record-activity',
     ]);
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
     expect(calls).toEqual([
@@ -72,6 +86,7 @@ describe('eventSubscriptions', () => {
   it('does not retry expected errors, and rejects malformed payloads', async () => {
     const [subscription] = eventSubscriptions({
       notifyTeam: { execute: () => Promise.resolve(err({ type: 'OpportunityNotFound' as const })) },
+      recordActivity: recordActivity(),
       properties: propertyJobs(),
       actor,
       logger: pino({ level: 'silent' }),
@@ -85,6 +100,7 @@ describe('eventSubscriptions', () => {
     const calls: unknown[] = [];
     const subscriptions = eventSubscriptions({
       notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
       properties: propertyJobs(calls),
       actor,
       logger: pino({ level: 'silent' }),
@@ -114,5 +130,33 @@ describe('eventSubscriptions', () => {
     await expect(
       byType('properties.document_requested')?.handle({ ...event, payload: { documentId: 'x' } }),
     ).rejects.toThrow();
+  });
+
+  it('records the inquiries and the conversations of the agent in the client activity', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(calls),
+      properties: propertyJobs(),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const activity = subscriptions.filter((s) => s.name === 'record-activity');
+
+    await activity[0]?.handle(event);
+    await activity[2]?.handle({
+      ...event,
+      type: 'conversations.conversation_linked_to_client',
+      payload: { conversationId: 'conv-1', clientId: 'client-1' },
+    });
+
+    expect(calls).toEqual([
+      { ...event, type: 'clients.opportunity_created' },
+      {
+        ...event,
+        type: 'conversations.conversation_linked_to_client',
+        payload: { conversationId: 'conv-1', clientId: 'client-1', channel: 'unknown' },
+      },
+    ]);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../../shared';
-import { FixedClock, unwrap, unwrapErr } from '../../../shared/testing';
+import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
 import {
   AGENT_ID,
   BRANCH_ID,
@@ -50,7 +50,12 @@ async function setup() {
     inquiries: 3,
   });
   uow.records.counts.set(primary.id, { ...NO_RECORDS, opportunities: 1 });
-  return { uow, primary, duplicate, useCase: new MergeClients({ uow, clock }) };
+  return {
+    uow,
+    primary,
+    duplicate,
+    useCase: new MergeClients({ uow, ids: new SequentialIdGenerator(), clock }),
+  };
 }
 
 describe('MergeClients', () => {
@@ -83,6 +88,13 @@ describe('MergeClients', () => {
     });
     expect(uow.records.moves).toEqual([{ fromId: duplicate.id, toId: primary.id }]);
     expect(uow.events.published.map((e) => e.type)).toEqual(['clients.clients_merged']);
+    // La unificación queda en la actividad del principal, con quién la hizo.
+    expect(uow.activities.of(primary.id)).toEqual([
+      expect.objectContaining({
+        actorId: MERGER.id,
+        body: { kind: 'merge', mergedClientId: duplicate.id },
+      }),
+    ]);
   });
 
   it('audits the merge on both contacts with the diff and what moved', async () => {

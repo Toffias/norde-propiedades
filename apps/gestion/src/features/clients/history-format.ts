@@ -24,6 +24,9 @@ export const CLIENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'client.linked': 'agregó un contacto relacionado',
   'client.relation_updated': 'cambió una relación',
   'client.unlinked': 'quitó un contacto relacionado',
+  'client.note_added': 'agregó una nota',
+  'client.listings_featured': 'le destacó propiedades',
+  'client.listing_unfeatured': 'le quitó una propiedad destacada',
   'client.merged': 'unificó otro contacto en este',
   'client.merged_into': 'unificó este contacto en otro',
 };
@@ -52,6 +55,9 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   relationLabel: 'Detalle',
   mergedClientId: 'Contacto unificado',
   mergedIntoId: 'Unificado en',
+  note: 'Nota',
+  propertyIds: 'Propiedades',
+  propertyId: 'Propiedad',
   'moved.opportunities': 'Oportunidades que pasaron',
   'moved.activities': 'Actividades que pasaron',
   'moved.savedSearches': 'Búsquedas que pasaron',
@@ -152,6 +158,11 @@ export function formatClientHistoryValue(field: string, value: HistoryValue): st
         : EMPTY_VALUE;
     case 'relationKind':
       return label(RELATION_KIND_LABELS, value);
+    // Las propiedades son de otro módulo: van por ID.
+    case 'propertyIds':
+      return isList(value) ? count(value.length, 'propiedad', 'propiedades') : EMPTY_VALUE;
+    case 'propertyId':
+      return 'una propiedad';
     default:
       return typeof value === 'string' || typeof value === 'number' ? String(value) : EMPTY_VALUE;
   }

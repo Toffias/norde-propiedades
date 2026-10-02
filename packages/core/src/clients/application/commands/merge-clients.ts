@@ -8,6 +8,7 @@ import {
   type AuditChanges,
   type Clock,
   type ForbiddenError,
+  type IdGenerator,
   type Result,
 } from '../../../shared';
 import {
@@ -16,6 +17,7 @@ import {
   type MergeClientsOutput,
 } from '../../contracts';
 import type { Client, ClientInTrashError, SameClientError } from '../../domain/client';
+import { mergeActivity } from '../../domain/client-activity';
 import {
   clientAuditState,
   findClient,
@@ -74,7 +76,13 @@ function countChanges(moved: ClientRecordCounts): AuditChanges {
  * datos, no puede unificarlo: movería datos que no ve.
  */
 export class MergeClients {
-  constructor(private readonly deps: { readonly uow: ClientsUnitOfWork; readonly clock: Clock }) {}
+  constructor(
+    private readonly deps: {
+      readonly uow: ClientsUnitOfWork;
+      readonly ids: IdGenerator;
+      readonly clock: Clock;
+    },
+  ) {}
 
   async execute(
     input: MergeClientsInput,
@@ -111,6 +119,16 @@ export class MergeClients {
       await tx.clients.save(duplicate, actor.id);
       await tx.clients.save(primary, actor.id);
       const moved = await tx.records.moveAll(duplicate.id, primary.id, now);
+      await tx.activities.add(
+        mergeActivity({
+          id: this.deps.ids.next(),
+          clientId: primary.id,
+          mergedClientId: duplicate.id,
+          actorId: actor.id,
+          now,
+        }),
+        actor.id,
+      );
       await tx.events.publish([...primary.pullEvents(), ...duplicate.pullEvents()]);
 
       const clientIds = [primary.id, duplicate.id];

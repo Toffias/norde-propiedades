@@ -6,6 +6,10 @@ import { DrizzleUnitOfWork } from '../db/unit-of-work';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
+import {
+  DrizzleClientActivityRepository,
+  DrizzleFeaturedListingRepository,
+} from './drizzle-client-activity-repositories';
 import { DrizzleClientLinkedRecords } from './drizzle-client-linked-records';
 import {
   DrizzleClientRepository,
@@ -26,6 +30,8 @@ export function createClientsUnitOfWork(
     tagGroups: new DrizzleClientTagGroupRepository(tx),
     tags: new DrizzleClientTagRepository(tx),
     records: new DrizzleClientLinkedRecords(tx),
+    activities: new DrizzleClientActivityRepository(tx),
+    featured: new DrizzleFeaturedListingRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

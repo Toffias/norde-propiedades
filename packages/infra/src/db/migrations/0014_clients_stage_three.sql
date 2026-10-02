@@ -1,0 +1,4 @@
+CREATE INDEX "client_activities_client_kind_occurred_idx" ON "core"."client_activities" USING btree ("client_id","kind","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "featured_listings_client_active_idx" ON "core"."featured_listings" USING btree ("client_id","featured_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE removed_at is null;--> statement-breakpoint
+CREATE INDEX "opportunities_client_created_idx" ON "core"."opportunities" USING btree ("client_id","created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "saved_searches_client_updated_idx" ON "core"."saved_searches" USING btree ("client_id","updated_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE deleted_at is null;

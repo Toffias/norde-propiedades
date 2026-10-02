@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { historyQuerySchema } from '../../audit/contracts';
 import { pageQuerySchema } from '../../shared/contracts';
 
+import type { ClientActiveOpportunity, ClientTabCounts } from './clients-activity';
 import type { ClientTagRef } from './clients-tags';
 
 export const CLIENT_KIND_VALUES = ['person', 'company', 'group'] as const;
@@ -362,6 +363,7 @@ export interface ClientDetailProfile {
 
 /** Qué puede hacer el actor en la ficha. La UI lo usa para mostrar u ocultar; el caso de uso decide. */
 export interface ClientDetailPermissions {
+  /** Editarlo, agregarle notas y destacarle propiedades. */
   readonly edit: boolean;
   readonly rename: boolean;
   readonly reassign: boolean;
@@ -389,6 +391,9 @@ export interface ClientDetail {
   readonly updatedAt: Date;
   readonly deletedAt: Date | undefined;
   readonly deletedBy: ClientUserRef | undefined;
+  /** La oportunidad abierta más reciente (la tarjeta la muestra en solo lectura). */
+  readonly activeOpportunity: ClientActiveOpportunity | undefined;
+  readonly counts: ClientTabCounts;
   readonly can: ClientDetailPermissions;
 }
 

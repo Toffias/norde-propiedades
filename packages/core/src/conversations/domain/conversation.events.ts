@@ -7,7 +7,7 @@ export type ConversationStarted = DomainEvent<
 
 export type ConversationLinkedToClient = DomainEvent<
   'conversations.conversation_linked_to_client',
-  { readonly conversationId: string; readonly clientId: string }
+  { readonly conversationId: string; readonly clientId: string; readonly channel: string }
 >;
 
 export type ConversationHandedOff = DomainEvent<

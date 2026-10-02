@@ -337,6 +337,23 @@ export const ComparePropertiesQuerySchema = z.object({
 });
 export type ComparePropertiesQuery = z.input<typeof ComparePropertiesQuerySchema>;
 
+// ---------- Propiedades en la ficha de un contacto (#8) ----------
+
+/** Las propiedades de las que un contacto es propietario (`property_owners`). */
+export const ListOwnedPropertiesQuerySchema = pageQuerySchema({
+  sortable: ['updatedAt', 'createdAt', 'code'],
+  defaultSort: { field: 'updatedAt', direction: 'desc' },
+}).extend({ clientId: z.uuid() });
+export type ListOwnedPropertiesQuery = z.input<typeof ListOwnedPropertiesQuerySchema>;
+
+/** Cuántas propiedades se resumen de una vez (las de una página de otro listado). */
+export const MAX_PROPERTY_SUMMARIES = 100;
+
+export const GetPropertySummariesInputSchema = z.object({
+  ids: z.array(z.uuid()).max(MAX_PROPERTY_SUMMARIES),
+});
+export type GetPropertySummariesInput = z.input<typeof GetPropertySummariesInputSchema>;
+
 // ---------- Exportar ----------
 
 export const PROPERTY_EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'] as const;

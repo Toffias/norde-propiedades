@@ -1,10 +1,18 @@
 import {
+  ListClientActivityQuerySchema,
+  ListClientFeaturedQuerySchema,
   ListClientHistoryQuerySchema,
+  ListClientOpportunitiesQuerySchema,
   ListClientRelationsQuerySchema,
+  ListClientSavedSearchesQuerySchema,
+  type ClientDetail,
 } from '@norde/core/clients/contracts';
+import {
+  ListOwnedPropertiesQuerySchema,
+  ListPanelPropertiesQuerySchema,
+} from '@norde/core/properties/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
-import { cn } from '@norde/ui/lib/utils';
 import { ArrowLeftIcon } from 'lucide-react';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
@@ -12,29 +20,48 @@ import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { getContainer } from '../../../../container';
+import { ClientActivityTimeline } from '../../../../features/clients/components/client-activity-timeline';
 import { ClientDetailHeader } from '../../../../features/clients/components/client-detail-header';
 import { ClientDetailSections } from '../../../../features/clients/components/client-detail-sections';
+import {
+  ClientDetailTabs,
+  type ClientDetailTab,
+  type ClientDetailTabItem,
+} from '../../../../features/clients/components/client-detail-tabs';
 import { ClientHistoryGrid } from '../../../../features/clients/components/client-history-grid';
+import { ClientNoteComposer } from '../../../../features/clients/components/client-note-composer';
+import { ClientOfferProperties } from '../../../../features/clients/components/client-offer-properties';
+import {
+  ClientFeaturedGrid,
+  ClientOpportunitiesGrid,
+  ClientOwnedPropertiesGrid,
+  ClientSavedSearchesGrid,
+} from '../../../../features/clients/components/client-record-grids';
 import { clientName } from '../../../../features/clients/client-format';
 import {
+  CLIENT_ACTIVITY_ERROR_MESSAGES,
   CLIENT_DETAIL_ERROR_MESSAGES,
+  CLIENT_FEATURED_ERROR_MESSAGES,
   CLIENT_HISTORY_ERROR_MESSAGES,
+  CLIENT_OPPORTUNITIES_ERROR_MESSAGES,
+  CLIENT_SAVED_SEARCHES_ERROR_MESSAGES,
 } from '../../../../features/clients/messages';
 import { messageForError } from '../../../../lib/errors';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
 import { requireSession } from '../../../../lib/session';
 
-const TABS = [
-  { id: 'detalles', label: 'Detalles' },
-  { id: 'historial', label: 'Historial' },
-] as const;
-type Tab = (typeof TABS)[number]['id'];
-
-function tabFrom(params: SearchParams): Tab {
+function tabFrom(params: SearchParams, available: readonly ClientDetailTab[]): ClientDetailTab {
   const raw = params.tab;
   const value = Array.isArray(raw) ? raw[0] : raw;
-  return TABS.find((tab) => tab.id === value)?.id ?? 'detalles';
+  return available.find((tab) => tab === value) ?? 'detalles';
 }
+
+/** Solo los params de una pestaña: los de la ficha (`tab`) no llegan al contract de la query. */
+function pick(params: SearchParams, keys: readonly string[]): SearchParams {
+  return Object.fromEntries(keys.map((key) => [key, params[key]]));
+}
+
+const PAGING = ['page', 'pageSize', 'sort'] as const;
 
 export async function generateMetadata({
   params,
@@ -47,42 +74,6 @@ export async function generateMetadata({
   return { title: detail.isOk() ? `${clientName(detail.value.name)} · Contactos` : 'Contacto' };
 }
 
-/** Pestañas de la ficha. Viven en la URL (`?tab=historial`): se pueden compartir y recargar. */
-function Tabs({
-  clientId,
-  active,
-  showHistory,
-}: {
-  readonly clientId: string;
-  readonly active: Tab;
-  readonly showHistory: boolean;
-}) {
-  return (
-    <nav aria-label="Secciones de la ficha" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      <ul className="inline-flex min-w-full gap-1 rounded-xl bg-muted p-1 sm:min-w-0">
-        {TABS.filter((tab) => tab.id !== 'historial' || showHistory).map((tab) => (
-          <li key={tab.id}>
-            <Link
-              // Misma ficha con otra pestaña: typedRoutes no verifica un string armado.
-              href={
-                `/contactos/${clientId}${tab.id === 'detalles' ? '' : `?tab=${tab.id}`}` as Route
-              }
-              aria-current={tab.id === active ? 'page' : undefined}
-              scroll={false}
-              className={cn(
-                'inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground',
-                tab.id === active && 'bg-background text-foreground shadow-sm dark:bg-card',
-              )}
-            >
-              {tab.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
-
 export default async function ContactDetailPage({
   params,
   searchParams,
@@ -92,7 +83,7 @@ export default async function ContactDetailPage({
 }) {
   const { actor } = await requireSession();
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const { clients } = getContainer();
+  const { clients, properties, identity } = getContainer();
   const result = await clients.getClientDetail.execute({ clientId: id }, actor);
   if (result.isErr()) {
     if (result.error.type === 'ClientNotFound' || result.error.type === 'InvalidInput') {
@@ -105,42 +96,34 @@ export default async function ContactDetailPage({
     return <DataTableError message={messageForError(result.error, CLIENT_DETAIL_ERROR_MESSAGES)} />;
   }
   const detail = result.value;
-  const tab = detail.can.viewHistory ? tabFrom(query) : 'detalles';
+  const seesProperties = actor.can('properties:read');
 
-  let relations: ReactNode = null;
-  if (tab === 'detalles') {
-    const page = query.relPage;
-    const { value: relationsQuery } = parseListParams(ListClientRelationsQuerySchema, {
-      clientId: detail.id,
-      pageSize: '10',
-      ...(page === undefined ? {} : { page }),
-    });
-    const relationsPage = await clients.listClientRelations.execute(relationsQuery, actor);
-    relations = (
-      <ClientDetailSections
-        detail={detail}
-        relations={relationsPage.isOk() ? relationsPage.value : undefined}
-      />
-    );
-  }
-
-  let history: ReactNode = null;
-  if (tab === 'historial') {
-    const { value: historyQuery } = parseListParams(ListClientHistoryQuerySchema, {
-      ...query,
-      clientId: detail.id,
-    });
-    const page = await clients.listClientHistory.execute(historyQuery, actor);
-    history = (
-      <Card className="gap-0 overflow-hidden p-0">
-        {page.isErr() ? (
-          <DataTableError message={messageForError(page.error, CLIENT_HISTORY_ERROR_MESSAGES)} />
-        ) : (
-          <ClientHistoryGrid page={page.value} from={historyQuery.from} to={historyQuery.to} />
-        )}
-      </Card>
-    );
-  }
+  // El contador de "Propiedades" sale del módulo properties: una página de una fila.
+  const [owned, favorites] = await Promise.all([
+    seesProperties
+      ? properties.listOwnedProperties.execute({ clientId: detail.id, pageSize: 1 }, actor)
+      : undefined,
+    identity.getFavoriteIds.execute({ entityType: 'client', ids: [detail.id] }, actor),
+  ]);
+  const { counts } = detail;
+  const tabs: readonly ClientDetailTabItem[] = [
+    { id: 'detalles' },
+    { id: 'actividad', count: counts.activity },
+    { id: 'oportunidades', count: counts.opportunities },
+    { id: 'destacadas', count: counts.featured },
+    { id: 'busquedas', count: counts.savedSearches },
+    ...(seesProperties
+      ? [
+          { id: 'propiedades' as const, count: owned?.isOk() ? owned.value.total : undefined },
+          ...(detail.can.edit ? [{ id: 'ofrecer' as const }] : []),
+        ]
+      : []),
+    ...(detail.can.viewHistory ? [{ id: 'historial' as const }] : []),
+  ];
+  const tab = tabFrom(
+    query,
+    tabs.map((item) => item.id),
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -152,10 +135,170 @@ export default async function ContactDetailPage({
         Volver a contactos
       </Link>
 
-      <ClientDetailHeader detail={detail} canPickAgents={actor.can('users:read')} />
-      <Tabs clientId={detail.id} active={tab} showHistory={detail.can.viewHistory} />
+      <ClientDetailHeader
+        detail={detail}
+        canPickAgents={actor.can('users:read')}
+        favorite={favorites.isOk() && favorites.value.has(detail.id)}
+      />
+      <ClientDetailTabs clientId={detail.id} active={tab} tabs={tabs} />
 
-      {tab === 'historial' ? history : relations}
+      <TabContent tab={tab} detail={detail} query={query} />
     </div>
   );
+}
+
+/** La pestaña activa: solo se consulta lo que se muestra. */
+async function TabContent({
+  tab,
+  detail,
+  query,
+}: {
+  readonly tab: ClientDetailTab;
+  readonly detail: ClientDetail;
+  readonly query: SearchParams;
+}) {
+  const { actor } = await requireSession();
+  const { clients, properties } = getContainer();
+  const clientId = detail.id;
+  const card = (body: ReactNode) => <Card className="gap-0 overflow-hidden p-0">{body}</Card>;
+
+  switch (tab) {
+    case 'detalles': {
+      const page = query.relPage;
+      const { value: relationsQuery } = parseListParams(ListClientRelationsQuerySchema, {
+        clientId,
+        pageSize: '10',
+        ...(page === undefined ? {} : { page }),
+      });
+      const relations = await clients.listClientRelations.execute(relationsQuery, actor);
+      return (
+        <ClientDetailSections
+          detail={detail}
+          relations={relations.isOk() ? relations.value : undefined}
+        />
+      );
+    }
+    case 'actividad': {
+      const { value: activityQuery } = parseListParams(ListClientActivityQuerySchema, {
+        ...pick(query, [...PAGING, 'kind']),
+        clientId,
+      });
+      const page = await clients.listClientActivity.execute(activityQuery, actor);
+      return (
+        <div className="flex flex-col gap-4">
+          {detail.can.edit && <ClientNoteComposer clientId={clientId} />}
+          {card(
+            page.isErr() ? (
+              <DataTableError
+                message={messageForError(page.error, CLIENT_ACTIVITY_ERROR_MESSAGES)}
+              />
+            ) : (
+              <ClientActivityTimeline page={page.value} kind={activityQuery.kind} />
+            ),
+          )}
+        </div>
+      );
+    }
+    case 'oportunidades': {
+      const { value: opportunitiesQuery } = parseListParams(ListClientOpportunitiesQuerySchema, {
+        ...pick(query, PAGING),
+        clientId,
+      });
+      const page = await clients.listClientOpportunities.execute(opportunitiesQuery, actor);
+      return card(
+        page.isErr() ? (
+          <DataTableError
+            message={messageForError(page.error, CLIENT_OPPORTUNITIES_ERROR_MESSAGES)}
+          />
+        ) : (
+          <ClientOpportunitiesGrid page={page.value} sort={opportunitiesQuery.sort} />
+        ),
+      );
+    }
+    case 'destacadas': {
+      const { value: featuredQuery } = parseListParams(ListClientFeaturedQuerySchema, {
+        ...pick(query, PAGING),
+        clientId,
+      });
+      const page = await clients.listClientFeatured.execute(featuredQuery, actor);
+      return card(
+        page.isErr() ? (
+          <DataTableError message={messageForError(page.error, CLIENT_FEATURED_ERROR_MESSAGES)} />
+        ) : (
+          <ClientFeaturedGrid clientId={clientId} page={page.value} canEdit={detail.can.edit} />
+        ),
+      );
+    }
+    case 'busquedas': {
+      const { value: searchesQuery } = parseListParams(ListClientSavedSearchesQuerySchema, {
+        ...pick(query, PAGING),
+        clientId,
+      });
+      const page = await clients.listClientSavedSearches.execute(searchesQuery, actor);
+      return card(
+        page.isErr() ? (
+          <DataTableError
+            message={messageForError(page.error, CLIENT_SAVED_SEARCHES_ERROR_MESSAGES)}
+          />
+        ) : (
+          <ClientSavedSearchesGrid page={page.value} sort={searchesQuery.sort} />
+        ),
+      );
+    }
+    case 'propiedades': {
+      const { value: ownedQuery } = parseListParams(ListOwnedPropertiesQuerySchema, {
+        ...pick(query, PAGING),
+        clientId,
+      });
+      const page = await properties.listOwnedProperties.execute(ownedQuery, actor);
+      return card(
+        page.isErr() ? (
+          <DataTableError message={messageForError(page.error)} />
+        ) : (
+          <ClientOwnedPropertiesGrid page={page.value} sort={ownedQuery.sort} />
+        ),
+      );
+    }
+    case 'ofrecer': {
+      // La cartera activa de Norde, con los filtros básicos del buscador.
+      const { value: offerQuery } = parseListParams(
+        ListPanelPropertiesQuerySchema,
+        pick(query, [...PAGING, 'q', 'operation', 'propertyType']),
+      );
+      const page = await properties.listPanelProperties.execute(offerQuery, actor);
+      if (page.isErr()) return card(<DataTableError message={messageForError(page.error)} />);
+      const featured = await clients.getFeaturedPropertyIds.execute(
+        { clientId, propertyIds: page.value.items.map((row) => row.id) },
+        actor,
+      );
+      return card(
+        <ClientOfferProperties
+          clientId={clientId}
+          page={page.value}
+          sort={offerQuery.sort}
+          filters={{
+            q: offerQuery.q,
+            operation: offerQuery.operation,
+            propertyType: offerQuery.propertyType,
+          }}
+          featuredIds={featured.isOk() ? [...featured.value] : []}
+          canFeature={detail.can.edit}
+        />,
+      );
+    }
+    case 'historial': {
+      const { value: historyQuery } = parseListParams(ListClientHistoryQuerySchema, {
+        ...pick(query, [...PAGING, 'from', 'to']),
+        clientId,
+      });
+      const page = await clients.listClientHistory.execute(historyQuery, actor);
+      return card(
+        page.isErr() ? (
+          <DataTableError message={messageForError(page.error, CLIENT_HISTORY_ERROR_MESSAGES)} />
+        ) : (
+          <ClientHistoryGrid page={page.value} from={historyQuery.from} to={historyQuery.to} />
+        ),
+      );
+    }
+  }
 }

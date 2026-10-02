@@ -186,6 +186,32 @@ Se **persisten los clientes junto con el canal por el que se contactaron**, veng
 
 **Ficha del cliente:** una **línea de tiempo** con todo lo que pasó en todos los canales. Por ejemplo: "consultó en Zonaprop por la propiedad X → escribió al WhatsApp → chateó en la web".
 
+### 3.3.1 Agenda de contactos en el panel (#8, etapa 1)
+
+La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A–Z, empresas y grupos y unificar contactos, (3) actividad, notas, pestañas con contador, oportunidad en la ficha y buscador de propiedades embebido, (4) importación desde Excel y supresión de datos. Esta sección describe la etapa 1.
+
+**Grilla** (`/contactos`): Nombre (con tipo de registro y tipos de cliente), Empresa, Teléfono, Celular, Email, Agente, Creación y Última actualización, paginada en el servidor y ordenable por nombre, creación y actualización.
+
+- Cada usuario ve sus contactos, los de su sucursal o todos, según sus permisos (`clients:read`, `clients:read-branch`, `clients:read-all`). Se resuelve en SQL.
+- Filtros: texto libre (nombre, teléfono, email, empresa o documento, sin acentos), tipo de cliente, "solo propietarios", agente, sucursal y rangos de creación y actualización. Los filtros por agente y sucursal se ofrecen a quien puede ver los usuarios y las sucursales.
+- "Solo propietarios" filtra por tipo de cliente (propietario vendedor o que alquila) hasta que exista el propietario de cada propiedad.
+
+**Alta** (panel lateral, `clients:create`): nombre, tipo de registro (persona, empresa o grupo), teléfonos con tipo y horario de contacto, emails, empresa, tipos de cliente y agente (otro agente pide `clients:reassign`). Antes de crear se buscan duplicados con la misma regla que usan el agente de IA y los portales:
+
+- Mismo teléfono (con o sin el 9) o mismo email, en cualquiera de los teléfonos y emails del contacto: no se crea otro. Se ofrece abrir su ficha o, si está en la papelera, restaurarlo. Si es de un agente que el usuario no ve, se avisa a cargo de quién está.
+- Mismo nombre (sin acentos ni mayúsculas) con otros datos: "posible duplicado", que se puede crear igual.
+- Si un contacto de la papelera vuelve a escribir por un canal (agente de IA, portal), se restaura solo.
+
+**Ficha** (`/contactos/[id]`): tarjeta con nombre, tipos, agente, teléfono y email principales, y las acciones WhatsApp, llamar, email, cambiar agente (`clients:reassign`) y borrar o restaurar. Secciones editables en línea: teléfonos y emails (el primero de cada lista es el principal), tipos de cliente, datos (tipo de registro, empresa, cargo, web, nacimiento, dirección, país, idioma y documento) y los canales por los que se contactó. Pestaña Historial con quién cambió qué y cuándo.
+
+- Editar los propios pide `clients:update`; los de otros, `clients:update-others`. Cambiar el nombre pide además `clients:rename`.
+- Un teléfono o email que ya usa otro contacto no se acepta en la edición.
+- **Datos de propietarios**: sin `clients:read-owners`, los teléfonos, emails y documento de un propietario se ven enmascarados (`+54 •••• 9124`) en la grilla, la ficha y la exportación, y no se pueden editar.
+
+**Papelera** (`?view=trash`, con permiso de borrar): quién borró y cuándo, con restaurar. Los propios con `clients:delete`, los de otros con `clients:delete-others`.
+
+**Exportar a Excel** (`clients:export`): los contactos que cumplen los filtros aplicados, hasta 10.000, armado por lotes. Queda en la auditoría con el actor, los filtros y la cantidad.
+
 ### 3.4 Cruce de búsquedas con stock
 
 Da soporte a las "Oportunidades por mail" del módulo 2.

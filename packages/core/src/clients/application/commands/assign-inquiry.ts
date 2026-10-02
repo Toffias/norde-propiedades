@@ -1,10 +1,6 @@
 import {
-  auditAction,
-  diffChanges,
-  Email,
   err,
   ok,
-  Phone,
   type Actor,
   type Clock,
   type ForbiddenError,
@@ -18,30 +14,22 @@ import {
 } from '../../contracts';
 import type { Client } from '../../domain/client';
 import { findExistingClient } from '../../domain/duplicate-check';
-import type {
-  Inquiry,
-  InquiryAlreadyAssignedError,
-  InquiryInTrashError,
-} from '../../domain/inquiry';
+import type { InquiryAlreadyAssignedError, InquiryInTrashError } from '../../domain/inquiry';
 import {
-  clientAuditState,
-  clientTarget,
   invalidInput,
   resolveAgent,
   type AgentNotFoundError,
   type DuplicateClientError,
   type InvalidInputError,
 } from '../client-support';
-import { recordIncomingContact } from '../incoming-contact';
+import { assignInquiryIn, senderKeys, type AgentRef } from '../inquiry-assignment';
 import {
   canManageInquiries,
   findInquiryForUpdate,
-  inquiryTarget,
   type InquiryNotFoundError,
 } from '../inquiry-support';
-import { reassignOpportunityTo } from '../opportunity-support';
 import type { ClientAgents } from '../ports/client-agents';
-import type { ClientsTransaction, ClientsUnitOfWork } from '../ports/clients-transaction';
+import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
 /** El cliente elegido no comparte el teléfono ni el email de la consulta. */
 export interface InquiryClientMismatchError {
@@ -57,24 +45,6 @@ export type AssignInquiryError =
   | InquiryClientMismatchError
   | DuplicateClientError
   | AgentNotFoundError;
-
-/** El agente a cargo y su sucursal; sin agente, nadie. */
-interface AgentRef {
-  readonly agentId: string | undefined;
-  readonly branchId: string | undefined;
-}
-
-/** Lo que se audita de la asignación: a quién quedó, sin los datos del remitente. */
-function assignmentState(inquiry: Inquiry) {
-  const s = inquiry.toSnapshot();
-  return {
-    status: s.status,
-    clientId: s.clientId,
-    opportunityId: s.opportunityId,
-    assignedAgentId: s.assignedAgentId,
-    branchId: s.branchId,
-  };
-}
 
 /**
  * "Asignar a este cliente" o "Crear cliente nuevo" desde la bandeja (`inquiries:manage`). Registra
@@ -119,11 +89,7 @@ export class AssignInquiry {
         if (inquiry.isDeleted) return err({ type: 'InquiryInTrash' });
         if (inquiry.status === 'assigned') return err({ type: 'InquiryAlreadyAssigned' });
 
-        const contact = senderContact(inquiry);
-        const keys = {
-          phones: contact.phone ? [contact.phone] : [],
-          emails: contact.email ? [contact.email] : [],
-        };
+        const keys = senderKeys(inquiry);
         const matches = await tx.clients.findMatching(keys);
         let existing: Client | undefined;
         if (data.target.kind === 'client') {
@@ -141,68 +107,23 @@ export class AssignInquiry {
           }
         }
 
-        const recorded = await recordIncomingContact(
+        const output = await assignInquiryIn(
           tx,
           actor,
           { ids: this.deps.ids, now },
           {
+            inquiry,
             existing,
-            contact,
-            channel: inquiry.channel,
-            channelExternalId: inquiry.senderChannelId,
-            opportunity: {
-              type: data.type ?? inquiry.suggestedOpportunityType,
-              intent: 'contact',
-              propertyId: inquiry.propertyId,
-              note: inquiry.opportunityNote,
-              noMatchingStock: false,
-            },
+            type: data.type ?? inquiry.suggestedOpportunityType,
+            // Sin elegir: el que ya tiene la oportunidad o, si nadie la tiene, quien asigna.
+            chooseAgent: async (current) =>
+              chosen ??
+              (current.agentId === undefined && actor.kind === 'user'
+                ? await this.actorAsAgent(actor)
+                : current),
           },
         );
-        // `receive` exige un teléfono o un email: el registro no puede quedar sin datos de contacto.
-        if (recorded.isErr()) throw new Error(`Inquiry ${inquiry.id} has no contact info`);
-        const { client, opportunity, clientCreated, opportunityCreated } = recorded.value;
-
-        // Sin elegir: el que ya tiene la oportunidad o, si nadie la tiene, quien asigna.
-        const current = opportunity.toSnapshot();
-        const agent =
-          chosen ??
-          (current.agentId === undefined && actor.kind === 'user'
-            ? await this.actorAsAgent(actor)
-            : { agentId: current.agentId, branchId: current.branchId });
-
-        if (client.ownership.ownerId === undefined && agent.agentId !== undefined) {
-          await this.takeCharge(tx, client, agent, actor, now);
-        }
-        const reassigned = await reassignOpportunityTo(tx, opportunity, agent, actor, now);
-        // Recién abierta o actualizada por una consulta: está abierta.
-        if (reassigned.isErr()) throw new Error(`Opportunity ${opportunity.id} is closed`);
-
-        const before = assignmentState(inquiry);
-        const assigned = inquiry.assign({
-          clientId: client.id,
-          opportunityId: opportunity.id,
-          agent,
-          by: actor.id,
-          now,
-        });
-        if (assigned.isErr()) return err(assigned.error);
-        await tx.inquiries.save(inquiry, actor.id);
-        await tx.events.publish(inquiry.pullEvents());
-        await tx.audit.record(
-          auditAction(
-            actor,
-            inquiryTarget('inquiry.assigned', inquiry),
-            diffChanges(before, assignmentState(inquiry)),
-          ),
-        );
-
-        return ok({
-          clientId: client.id,
-          opportunityId: opportunity.id,
-          clientCreated,
-          opportunityCreated,
-        });
+        return ok(output);
       },
     );
   }
@@ -212,50 +133,4 @@ export class AssignInquiry {
     const resolved = await resolveAgent(this.deps.agents, actor.id);
     return resolved.isOk() ? resolved.value : { agentId: undefined, branchId: undefined };
   }
-
-  /** Un cliente sin agente queda a cargo del de la oportunidad. */
-  private async takeCharge(
-    tx: ClientsTransaction,
-    client: Client,
-    agent: AgentRef,
-    actor: Actor,
-    now: Date,
-  ): Promise<void> {
-    const before = clientAuditState(client);
-    const changed = client.assignAgent(agent, now);
-    // `recordIncomingContact` lo restaura si estaba en la papelera.
-    if (changed.isErr()) throw new Error(`Client ${client.id} is in the trash`);
-    if (!changed.value) return;
-    await tx.clients.save(client, actor.id);
-    await tx.events.publish(client.pullEvents());
-    await tx.audit.record(
-      auditAction(
-        actor,
-        clientTarget('client.reassigned', client.id),
-        diffChanges(before, clientAuditState(client)),
-      ),
-    );
-  }
-}
-
-/** El remitente con los value objects del dominio: se normalizaron al entrar. */
-function senderContact(inquiry: Inquiry): {
-  readonly name: string | undefined;
-  readonly phone: Phone | undefined;
-  readonly email: Email | undefined;
-} {
-  const { name, phoneE164, email } = inquiry.sender;
-  let phone: Phone | undefined;
-  if (phoneE164 !== undefined) {
-    const created = Phone.create(phoneE164);
-    if (created.isErr()) throw new Error(`Inquiry ${inquiry.id} has an invalid phone`);
-    phone = created.value;
-  }
-  let parsedEmail: Email | undefined;
-  if (email !== undefined) {
-    const created = Email.create(email);
-    if (created.isErr()) throw new Error(`Inquiry ${inquiry.id} has an invalid email`);
-    parsedEmail = created.value;
-  }
-  return { name, phone, email: parsedEmail };
 }

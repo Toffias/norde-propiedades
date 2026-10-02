@@ -165,7 +165,7 @@ export class Conversation extends AggregateRoot<ConversationId, ConversationEven
       type: 'conversations.conversation_linked_to_client',
       aggregateId: this.id,
       occurredAt: now,
-      payload: { conversationId: this.id, clientId },
+      payload: { conversationId: this.id, clientId, channel: this.#state.channel },
     });
   }
 

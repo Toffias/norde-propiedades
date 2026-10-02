@@ -104,9 +104,11 @@ import {
   ChangeOpportunityStage,
   CloseOpportunity,
   ReassignOpportunity,
+  AssignInquiry,
   CountPendingInquiries,
   DeleteInquiry,
   ListInquiries,
+  ListInquiryMatches,
   RestoreInquiry,
   type ClientAgents,
   type ClientListings,
@@ -233,6 +235,7 @@ import {
   DrizzleClientListQuery,
   DrizzleOpportunityPipelineQuery,
   DrizzleInquiryInboxQuery,
+  DrizzleInquiryMatchQuery,
   DrizzleClientRelationQuery,
   DrizzleClientRecordQuery,
   DrizzleClientTagQuery,
@@ -596,7 +599,7 @@ function createInquiriesUseCases(
   properties: PropertiesUseCases,
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
 ) {
-  const { clock } = deps;
+  const { ids, clock } = deps;
   const uow = createClientsUnitOfWork(db, deps);
   const inbox = new DrizzleInquiryInboxQuery(db);
   const directory = new DrizzleDirectory(db);
@@ -618,6 +621,12 @@ function createInquiriesUseCases(
     countPendingInquiries: new CountPendingInquiries({ inbox }),
     deleteInquiry: new DeleteInquiry({ uow, clock }),
     restoreInquiry: new RestoreInquiry({ uow, clock }),
+    listInquiryMatches: new ListInquiryMatches({
+      uow,
+      matches: new DrizzleInquiryMatchQuery(db),
+      agents,
+    }),
+    assignInquiry: new AssignInquiry({ uow, agents, ids, clock }),
   };
 }
 

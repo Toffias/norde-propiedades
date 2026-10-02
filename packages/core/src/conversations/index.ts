@@ -34,3 +34,8 @@ export {
   type ReceiveInboundMessagesError,
 } from './application/commands/receive-inbound-messages';
 export { SendReply, type SendReplyError } from './application/commands/send-reply';
+export {
+  EraseClientConversations,
+  type EraseClientConversationsError,
+} from './application/handlers/erase-client-conversations';
+export type { ClientConversationErasure } from './application/ports/client-conversation-erasure';

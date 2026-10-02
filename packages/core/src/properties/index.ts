@@ -506,3 +506,8 @@ export {
   GetPropertySummaries,
   type GetPropertySummariesError,
 } from './application/queries/get-property-summaries';
+export {
+  UnlinkErasedClients,
+  type UnlinkErasedClientsError,
+} from './application/handlers/unlink-erased-clients';
+export type { PropertyClientErasure } from './application/ports/property-client-erasure';

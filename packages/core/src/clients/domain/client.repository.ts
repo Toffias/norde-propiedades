@@ -1,6 +1,8 @@
 import type { Client, ClientId } from './client';
+import type { ClientActivity } from './client-activity';
 import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from './client-tag';
 import type { ContactKeys } from './duplicate-check';
+import type { FeaturedListing } from './featured-listing';
 import type { Opportunity, OpportunityId } from './opportunity';
 
 /** Tope de coincidencias que devuelve una búsqueda de duplicados. */
@@ -60,4 +62,21 @@ export interface ClientTagRepository {
   ): Promise<number>;
   save(tag: ClientTag, actorId: string): Promise<void>;
   delete(id: ClientTagId): Promise<void>;
+}
+
+/** El timeline de la ficha: solo inserción. */
+export interface ClientActivityRepository {
+  /** `actorId` queda como autor de la fila. */
+  add(activity: ClientActivity, actorId: string): Promise<void>;
+  /**
+   * Inserta si no existe otra con el mismo ID y devuelve si la insertó: las reacciones a eventos
+   * usan el ID del evento, así una reentrega no la duplica.
+   */
+  record(activity: ClientActivity): Promise<boolean>;
+}
+
+export interface FeaturedListingRepository {
+  /** Las destacadas vigentes del cliente entre estas propiedades. */
+  findActive(clientId: ClientId, propertyIds: readonly string[]): Promise<FeaturedListing[]>;
+  save(listing: FeaturedListing, actorId: string): Promise<void>;
 }

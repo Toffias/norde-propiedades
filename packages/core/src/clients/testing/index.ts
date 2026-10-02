@@ -3,10 +3,14 @@
 import { Actor, Email, parseId, Phone } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
+  ClientActiveOpportunity,
   ClientLetterCount,
+  ClientListingSummary,
   ClientListRow,
   ClientTagGroupRow,
   ClientTagRef,
+  ClientSavedSearchRow,
+  ClientTabCounts,
   ClientTagRow,
 } from '../contracts';
 import type { ClientAgents } from '../application/ports/client-agents';
@@ -18,6 +22,13 @@ import type {
   ClientRelationItem,
   ClientRelationQuery,
 } from '../application/ports/client-relation-query';
+import type {
+  ClientActivityItem,
+  ClientFeaturedItem,
+  ClientListings,
+  ClientOpportunityItem,
+  ClientRecordQuery,
+} from '../application/ports/client-record-query';
 import type { ClientTagQuery } from '../application/ports/client-tag-query';
 import type {
   ClientExportFile,
@@ -35,11 +46,15 @@ import type {
 } from '../application/ports/clients-transaction';
 import type { OpportunityNotification, TeamNotifier } from '../application/ports/team-notifier';
 import { Client, type ClientId } from '../domain/client';
+import type { ClientActivity } from '../domain/client-activity';
+import { FeaturedListing } from '../domain/featured-listing';
 import {
   MAX_DUPLICATE_CANDIDATES,
+  type ClientActivityRepository,
   type ClientRepository,
   type ClientTagGroupRepository,
   type ClientTagRepository,
+  type FeaturedListingRepository,
   type OpportunityRepository,
 } from '../domain/client.repository';
 import {
@@ -229,6 +244,57 @@ export class InMemoryClientLinkedRecords implements ClientLinkedRecords {
   }
 }
 
+/** El timeline, con quién insertó cada entrada. */
+export class InMemoryClientActivityRepository implements ClientActivityRepository {
+  readonly rows = new Map<string, ClientActivity>();
+  readonly addedBy = new Map<string, string>();
+
+  add(activity: ClientActivity, actorId: string) {
+    if (this.rows.has(activity.id)) throw new Error(`Duplicate activity ${activity.id}`);
+    this.rows.set(activity.id, activity);
+    this.addedBy.set(activity.id, actorId);
+    return Promise.resolve();
+  }
+
+  record(activity: ClientActivity) {
+    if (this.rows.has(activity.id)) return Promise.resolve(false);
+    this.rows.set(activity.id, activity);
+    return Promise.resolve(true);
+  }
+
+  of(clientId: string): ClientActivity[] {
+    return [...this.rows.values()].filter((a) => a.clientId === clientId);
+  }
+}
+
+export class InMemoryFeaturedListingRepository implements FeaturedListingRepository {
+  readonly rows = new Map<string, ReturnType<FeaturedListing['toSnapshot']>>();
+
+  findActive(clientId: ClientId, propertyIds: readonly string[]) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(
+          (r) =>
+            r.clientId === clientId &&
+            r.removedAt === undefined &&
+            propertyIds.includes(r.propertyId),
+        )
+        .map((r) => FeaturedListing.restore(r)),
+    );
+  }
+
+  save(listing: FeaturedListing) {
+    this.rows.set(listing.id, listing.toSnapshot());
+    return Promise.resolve();
+  }
+
+  activeFor(clientId: string): string[] {
+    return [...this.rows.values()]
+      .filter((r) => r.clientId === clientId && r.removedAt === undefined)
+      .map((r) => r.propertyId);
+  }
+}
+
 /**
  * Unidad de trabajo en memoria. Si el trabajo devuelve un `Err` o lanza, descarta lo escrito
  * (como el rollback de la implementación real).
@@ -239,6 +305,8 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly tags = new InMemoryClientTagRepository(this.clients);
   readonly tagGroups = new InMemoryClientTagGroupRepository(this.tags);
   readonly records = new InMemoryClientLinkedRecords();
+  readonly activities = new InMemoryClientActivityRepository();
+  readonly featured = new InMemoryFeaturedListingRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
 
@@ -249,6 +317,8 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       tags: new Map(this.tags.rows),
       tagGroups: new Map(this.tagGroups.rows),
       records: new Map(this.records.counts),
+      activities: new Map(this.activities.rows),
+      featured: new Map(this.featured.rows),
       events: this.events.published.length,
       audit: this.audit.entries.length,
     };
@@ -262,6 +332,8 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.tags.rows, backup.tags);
       restore(this.tagGroups.rows, backup.tagGroups);
       restore(this.records.counts, backup.records);
+      restore(this.activities.rows, backup.activities);
+      restore(this.featured.rows, backup.featured);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
     };
@@ -509,4 +581,104 @@ export async function seedClient(
   client.pullEvents();
   await uow.clients.save(client, AGENT_ID);
   return client;
+}
+
+// ---------- Ficha completa (etapa 3) ----------
+
+export const NO_TAB_COUNTS: ClientTabCounts = {
+  activity: 0,
+  opportunities: 0,
+  featured: 0,
+  savedSearches: 0,
+  relations: 0,
+};
+
+/**
+ * Devuelve lo que se le carga y registra los criterios. La actividad y las destacadas pueden
+ * venir de los repositorios en memoria (lo que escribieron los commands).
+ */
+export class StubClientRecordQuery implements ClientRecordQuery {
+  readonly activityCriteria: Parameters<ClientRecordQuery['activity']>[0][] = [];
+  readonly opportunityCriteria: Parameters<ClientRecordQuery['opportunities']>[0][] = [];
+  readonly featuredCriteria: Parameters<ClientRecordQuery['featured']>[0][] = [];
+  readonly searchCriteria: Parameters<ClientRecordQuery['savedSearches']>[0][] = [];
+
+  activityItems: readonly ClientActivityItem[] = [];
+  opportunityItems: readonly ClientOpportunityItem[] = [];
+  featuredItems: readonly ClientFeaturedItem[] = [];
+  savedSearchRows: readonly ClientSavedSearchRow[] = [];
+  counts: ClientTabCounts = NO_TAB_COUNTS;
+  active: ClientActiveOpportunity | undefined = undefined;
+  featuredIds: readonly string[] = [];
+
+  activity(criteria: Parameters<ClientRecordQuery['activity']>[0]) {
+    this.activityCriteria.push(criteria);
+    return Promise.resolve({ items: this.activityItems, total: this.activityItems.length });
+  }
+
+  opportunities(criteria: Parameters<ClientRecordQuery['opportunities']>[0]) {
+    this.opportunityCriteria.push(criteria);
+    return Promise.resolve({ items: this.opportunityItems, total: this.opportunityItems.length });
+  }
+
+  readonly openStatuses: (readonly string[])[] = [];
+
+  activeOpportunity(_clientId: string, openStatuses: readonly string[]) {
+    this.openStatuses.push(openStatuses);
+    return Promise.resolve(this.active);
+  }
+
+  featured(criteria: Parameters<ClientRecordQuery['featured']>[0]) {
+    this.featuredCriteria.push(criteria);
+    return Promise.resolve({ items: this.featuredItems, total: this.featuredItems.length });
+  }
+
+  featuredPropertyIds(_clientId: string, propertyIds: readonly string[]) {
+    return Promise.resolve(this.featuredIds.filter((id) => propertyIds.includes(id)));
+  }
+
+  savedSearches(criteria: Parameters<ClientRecordQuery['savedSearches']>[0]) {
+    this.searchCriteria.push(criteria);
+    return Promise.resolve({ items: this.savedSearchRows, total: this.savedSearchRows.length });
+  }
+
+  tabCounts() {
+    return Promise.resolve(this.counts);
+  }
+}
+
+export const PROPERTY_ID = '00000000-0000-7000-8000-0000000000e1';
+export const OTHER_PROPERTY_ID = '00000000-0000-7000-8000-0000000000e2';
+
+export function aListing(overrides: Partial<ClientListingSummary> = {}): ClientListingSummary {
+  return {
+    id: PROPERTY_ID,
+    code: 'NOR-001',
+    title: 'Departamento 3 ambientes en Palermo',
+    address: 'Gorriti 4500',
+    status: 'available',
+    operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
+    coverImageUrl: undefined,
+    ...overrides,
+  };
+}
+
+/** Las propiedades de la cartera que ve cualquier actor con `properties:read`. */
+export class InMemoryClientListings implements ClientListings {
+  readonly requests: { readonly ids: readonly string[]; readonly actor: Actor }[] = [];
+
+  constructor(
+    public listings: readonly ClientListingSummary[] = [
+      aListing(),
+      aListing({ id: OTHER_PROPERTY_ID, code: 'NOR-002' }),
+    ],
+  ) {}
+
+  summaries(propertyIds: readonly string[], actor: Actor) {
+    this.requests.push({ ids: propertyIds, actor });
+    const visible = actor.can('properties:read') ? this.listings : [];
+    return Promise.resolve(
+      new Map(visible.filter((l) => propertyIds.includes(l.id)).map((l) => [l.id, l] as const)),
+    );
+  }
 }

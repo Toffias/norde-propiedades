@@ -3,6 +3,7 @@ import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../
 import { ClientIdInputSchema, type ClientDetail, type ClientIdInput } from '../../contracts';
 import type { ClientMergedError } from '../../domain/client';
 import { maskEmail, maskPhone } from '../../domain/contact-masking';
+import { isOpenStatus, OPPORTUNITY_STATUSES } from '../../domain/opportunity-status';
 import {
   canReadClients,
   findClient,
@@ -12,8 +13,11 @@ import {
   type InvalidInputError,
 } from '../client-support';
 import type { ClientAgents } from '../ports/client-agents';
+import type { ClientRecordQuery } from '../ports/client-record-query';
 import type { ClientTagQuery } from '../ports/client-tag-query';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
+
+const OPEN_STATUSES = OPPORTUNITY_STATUSES.filter(isOpenStatus);
 
 export type GetClientDetailError =
   ForbiddenError | InvalidInputError | ClientNotFoundError | ClientMergedError;
@@ -22,7 +26,7 @@ export type GetClientDetailError =
  * La ficha de un contacto que el actor puede ver, con lo que puede hacer en ella. Si es
  * propietario y el actor no tiene "Ver datos de propietarios", teléfonos, emails y documento van
  * enmascarados. Uno que se unificó con otro devuelve `ClientMerged` con el principal, para abrir
- * ese.
+ * ese. Trae la oportunidad abierta más reciente y los contadores de las pestañas.
  */
 export class GetClientDetail {
   constructor(
@@ -30,6 +34,7 @@ export class GetClientDetail {
       readonly uow: ClientsUnitOfWork;
       readonly agents: ClientAgents;
       readonly tags: ClientTagQuery;
+      readonly records: ClientRecordQuery;
     },
   ) {}
 
@@ -52,8 +57,12 @@ export class GetClientDetail {
 
     const s = client.toSnapshot();
     const userIds = [s.agentId, s.deletedBy].filter((id) => id !== undefined);
-    const names = await this.deps.agents.names(userIds);
-    const tags = await this.deps.tags.refs(s.tagIds);
+    const [names, tags, counts, activeOpportunity] = await Promise.all([
+      this.deps.agents.names(userIds),
+      this.deps.tags.refs(s.tagIds),
+      this.deps.records.tabCounts(client.id),
+      this.deps.records.activeOpportunity(client.id, OPEN_STATUSES),
+    ]);
     const ref = (id: string | undefined) =>
       id === undefined ? undefined : { id, name: names.get(id) };
     const masked = masksOwnerContact(actor, s.clientTypes);
@@ -92,6 +101,8 @@ export class GetClientDetail {
       updatedAt: s.updatedAt,
       deletedAt: s.deletedAt,
       deletedBy: ref(s.deletedBy),
+      activeOpportunity,
+      counts,
       can: {
         edit: canEdit,
         rename: canEdit && actor.can('clients:rename'),

@@ -120,6 +120,13 @@
       "when": 1790954577710,
       "tag": "0016_opportunity_stages",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790957251848,
+      "tag": "0017_opportunity_pipeline_indexes",
+      "breakpoints": true
     }
   ]
 }

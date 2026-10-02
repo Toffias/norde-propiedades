@@ -30,7 +30,13 @@ import {
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { clientInitial, clientPhones, clients, clientTagAssignments } from '../db/schema';
+import {
+  clientInitial,
+  clientPhones,
+  clients,
+  clientTagAssignments,
+  opportunities,
+} from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
 import { visibleClients } from './saved-search-matching';
@@ -142,6 +148,10 @@ export class DrizzleClientListQuery implements ClientListQuery {
       c.anyOfTypes === undefined
         ? undefined
         : arrayOverlaps(clients.clientTypes, [...c.anyOfTypes]),
+      // `opportunities_stage_updated_idx` (por estado) o `opportunities_client_status_idx`.
+      c.opportunityStageId === undefined
+        ? undefined
+        : sql`exists (select 1 from ${opportunities} o where o.client_id = ${clients.id} and o.stage_id = ${c.opportunityStageId})`,
       c.created.from === undefined ? undefined : gte(clients.createdAt, c.created.from),
       c.created.to === undefined ? undefined : lt(clients.createdAt, c.created.to),
       c.updated.from === undefined ? undefined : gte(clients.updatedAt, c.updated.from),

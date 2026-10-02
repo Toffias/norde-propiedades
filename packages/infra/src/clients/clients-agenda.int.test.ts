@@ -260,6 +260,7 @@ const BASE: ClientListCriteria = {
   tagId: undefined,
   letter: undefined,
   anyOfTypes: undefined,
+  opportunityStageId: undefined,
   created: { from: undefined, to: undefined },
   updated: { from: undefined, to: undefined },
   sort: { field: 'updatedAt', direction: 'desc' },

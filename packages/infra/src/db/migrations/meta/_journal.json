@@ -141,6 +141,13 @@
       "when": 1790964602978,
       "tag": "0019_opportunity_bulk_and_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790970829249,
+      "tag": "0020_inquiry_inbox",
+      "breakpoints": true
     }
   ]
 }

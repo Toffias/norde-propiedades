@@ -348,6 +348,26 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 
 **Cambios de estado**: desde esta etapa guardan el estado editable de origen y de destino. La actividad (en el historial y en la ficha del contacto) muestra "Pasó a "Visitando"" con el nombre de hoy del estado y "Estaba en…". Las entradas anteriores muestran la categoría.
 
+### 3.3.8 Acciones masivas, reglas automáticas y derivadas (#9, etapa 4)
+
+**Acciones masivas** (en la lista, por sección): se marcan oportunidades de la página, o se eligen **todas las del estado** con los filtros aplicados. "Cambiar…" ofrece:
+
+- **Pasar a otro estado** (abierto y activo) y **cerrar con un motivo**: piden poder editar al menos las suyas.
+- **Reasignar** (o dejarlas sin agente): pide `opportunities:reassign`.
+- Cada oportunidad se chequea por separado: la que el actor no ve, no puede cambiar, está cerrada o no puede pasar a ese estado desde el que tiene, se saltea. Al terminar se informa cuántas cambiaron, cuántas ya estaban así y cuántas no se pudieron cambiar, por motivo.
+- Hasta **100** se hacen al confirmar. Más, y hasta **2.000**, quedan encoladas (`opportunity.bulk_requested` en la auditoría) y las procesa un job, por lotes de 100, **con los permisos de ahora de quien la pidió**. El diálogo muestra el avance; si se cierra, sigue igual. Si el usuario ya no está activo o perdió el permiso, la operación falla sin cambiar nada más.
+- Cada cambio queda en el historial, la actividad y la auditoría de su oportunidad, agrupado por la operación (`correlation_id`).
+- El email masivo pasa a #11.
+
+**Reglas automáticas** (las de Mi empresa → Oportunidades). Las aplica el sistema al recibir el evento:
+
+- **Al asignar**: cuando una oportunidad pasa a un agente (no cuando queda sin agente).
+- **Al reactivar**: cuando una en "Aplica a otra inmobiliaria" vuelve a consultar.
+- **Para propietarios**: cuando nace la oportunidad de un contacto propietario.
+- Mueven al estado configurado solo si el dominio lo permite y la oportunidad está abierta; si no, no hacen nada. Cada evento aplica una sola vez, aunque llegue repetido. El cambio queda como hecho por el sistema.
+
+**Derivadas** (selector Lista / Tablero / Derivadas): la lista con la categoría "Aplica a otra inmobiliaria". Cada fila muestra a qué socia se derivó, la fecha y el resultado (derivada, sin opciones, volvió a Norde). "Derivación…" en el menú los carga; solo mientras la oportunidad está en esa categoría, y queda auditado (`opportunity.referral_updated`).
+
 ### 3.4 Cruce de búsquedas con stock
 
 Da soporte a las "Oportunidades por mail" del módulo 2.

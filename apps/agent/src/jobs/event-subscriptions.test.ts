@@ -1,9 +1,9 @@
-import type { RecordClientActivity } from '@norde/core/clients';
+import type { RecordClientActivity, RunClientImport } from '@norde/core/clients';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { eventSubscriptions, type PropertyJobs } from './event-subscriptions';
+import { eventSubscriptions, type ErasureJobs, type PropertyJobs } from './event-subscriptions';
 
 const actor = Actor.system('scheduler', ['clients:read']);
 const event = {
@@ -47,6 +47,38 @@ function recordActivity(calls: unknown[] = []): Pick<RecordClientActivity, 'exec
   };
 }
 
+const CLIENT_ID = '00000000-0000-7000-8000-0000000000c1';
+const IMPORT_ID = '00000000-0000-7000-8000-0000000000e1';
+const importActor = Actor.system('import', ['clients:run-imports']);
+
+/** La importación y la supresión, con lo que recibe cada una. */
+function clientJobs(calls: unknown[] = []): {
+  readonly erasure: ErasureJobs;
+  readonly runImport: Pick<RunClientImport, 'execute'>;
+  readonly importActor: Actor;
+} {
+  const erase = (name: string) => ({
+    execute: (input: { readonly clientIds: readonly string[] }, by: Actor) => {
+      calls.push([name, input, by.id]);
+      return Promise.resolve(ok({ erased: 1, unlinked: 1, removed: 1 }));
+    },
+  });
+  return {
+    erasure: {
+      conversations: erase('conversations'),
+      properties: erase('properties'),
+      favorites: erase('favorites'),
+    },
+    runImport: {
+      execute: (input, by) => {
+        calls.push(['import', input, by.id]);
+        return Promise.resolve(ok({ status: 'done' as const }));
+      },
+    },
+    importActor,
+  };
+}
+
 describe('eventSubscriptions', () => {
   it('notifies the team for new opportunities and follow-ups', async () => {
     const calls: unknown[] = [];
@@ -59,6 +91,7 @@ describe('eventSubscriptions', () => {
       },
       recordActivity: recordActivity(),
       properties: propertyJobs(),
+      ...clientJobs(),
       actor,
       logger: pino({ level: 'silent' }),
     });
@@ -72,6 +105,10 @@ describe('eventSubscriptions', () => {
       'clients.opportunity_created.record-activity',
       'clients.opportunity_request_added.record-activity',
       'conversations.conversation_linked_to_client.record-activity',
+      'clients.client_erased.erase-conversations',
+      'clients.client_erased.unlink-properties',
+      'clients.client_erased.remove-favorites',
+      'clients.import_requested.run-import',
     ]);
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
     expect(calls).toEqual([
@@ -88,6 +125,7 @@ describe('eventSubscriptions', () => {
       notifyTeam: { execute: () => Promise.resolve(err({ type: 'OpportunityNotFound' as const })) },
       recordActivity: recordActivity(),
       properties: propertyJobs(),
+      ...clientJobs(),
       actor,
       logger: pino({ level: 'silent' }),
     });
@@ -102,6 +140,7 @@ describe('eventSubscriptions', () => {
       notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
       recordActivity: recordActivity(),
       properties: propertyJobs(calls),
+      ...clientJobs(),
       actor,
       logger: pino({ level: 'silent' }),
     });
@@ -138,6 +177,7 @@ describe('eventSubscriptions', () => {
       notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
       recordActivity: recordActivity(calls),
       properties: propertyJobs(),
+      ...clientJobs(),
       actor,
       logger: pino({ level: 'silent' }),
     });
@@ -158,5 +198,43 @@ describe('eventSubscriptions', () => {
         payload: { conversationId: 'conv-1', clientId: 'client-1', channel: 'unknown' },
       },
     ]);
+  });
+
+  it('runs the import job as system:import and erases the client data in each module', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(calls),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const byType = (type: string) => subscriptions.filter((s) => s.eventType === type);
+
+    for (const subscription of byType('clients.import_requested')) {
+      await subscription.handle({ ...event, payload: { importId: IMPORT_ID } });
+    }
+    for (const subscription of byType('clients.client_erased')) {
+      await subscription.handle({
+        ...event,
+        payload: { clientId: CLIENT_ID, erasedClientIds: [CLIENT_ID] },
+      });
+    }
+
+    expect(byType('clients.client_erased').map((s) => s.name)).toEqual([
+      'erase-conversations',
+      'unlink-properties',
+      'remove-favorites',
+    ]);
+    expect(calls).toEqual([
+      ['import', { importId: IMPORT_ID }, 'system:import'],
+      ['conversations', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
+      ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
+      ['favorites', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
+    ]);
+    await expect(
+      byType('clients.client_erased')[0]?.handle({ ...event, payload: { erasedClientIds: [] } }),
+    ).rejects.toThrow();
   });
 });

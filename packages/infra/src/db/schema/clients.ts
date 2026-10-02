@@ -373,11 +373,42 @@ export const opportunityStatusChanges = coreSchema.table(
     toStatus: text('to_status').notNull(),
     changedBy: text('changed_by').notNull(),
     changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+    /** El evento que disparó una regla automática: un cambio por evento (idempotencia). */
+    sourceEventId: uuid('source_event_id'),
   },
   (t) => [
     index('opportunity_status_changes_opportunity_idx').on(t.opportunityId, t.changedAt),
     index('opportunity_status_changes_to_status_idx').on(t.toStatus, t.changedAt),
+    uniqueIndex('opportunity_status_changes_source_event_uq')
+      .on(t.sourceEventId)
+      .where(sql`${t.sourceEventId} is not null`),
   ],
+);
+
+/**
+ * Acciones masivas sobre oportunidades encoladas como job (más de 100): qué se pidió, quién, y
+ * hasta dónde llegó (`cursor`, por ID) para retomar si el job se corta.
+ */
+export const opportunityBulkOperations = coreSchema.table(
+  'opportunity_bulk_operations',
+  {
+    id: uuid('id').primaryKey(),
+    /** `change_stage` / `close` / `reassign`, con su estado, motivo o agente. */
+    action: jsonb('action').notNull(),
+    /** El filtro del pipeline tal como llegó: se vuelve a validar al procesar. */
+    selection: jsonb('selection').notNull(),
+    /** `pending` / `running` / `done` / `failed`. */
+    status: text('status').notNull(),
+    totals: jsonb('totals').notNull(),
+    cursor: uuid('cursor'),
+    failure: text('failure'),
+    requestedBy: text('requested_by').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [index('opportunity_bulk_operations_requested_idx').on(t.requestedBy, t.createdAt)],
 );
 
 /** Estado a aplicar en cada regla automática de oportunidades (fila única). */

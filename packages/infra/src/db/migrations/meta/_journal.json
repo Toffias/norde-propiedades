@@ -134,6 +134,13 @@
       "when": 1790961268443,
       "tag": "0018_opportunity_history_index",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790964602978,
+      "tag": "0019_opportunity_bulk_and_rules",
+      "breakpoints": true
     }
   ]
 }

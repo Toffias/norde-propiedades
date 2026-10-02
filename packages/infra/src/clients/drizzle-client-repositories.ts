@@ -15,6 +15,7 @@ import {
   type ClientRepository,
   type ClientSnapshot,
   type ContactKeys,
+  REFERRAL_RESULTS,
   type OpportunityId,
   type OpportunityRepository,
   type OpportunitySearch,
@@ -502,6 +503,9 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
       statusChangedAt: s.statusChangedAt,
       closedAt: s.closedAt ?? null,
       closeReasonId: s.closeReasonId ?? null,
+      partnerName: s.referral.partnerName ?? null,
+      referredAt: s.referral.referredAt ?? null,
+      referralResult: s.referral.result ?? null,
       updatedAt: s.updatedAt,
       updatedBy: actorId,
     };
@@ -531,11 +535,23 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
           toStatus: change.toStatus,
           changedBy: actorId,
           changedAt: change.changedAt,
+          sourceEventId: change.sourceEventId ?? null,
         })),
       );
     }
   }
+
+  async hasStatusChangeFrom(sourceEventId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: opportunityStatusChanges.id })
+      .from(opportunityStatusChanges)
+      .where(eq(opportunityStatusChanges.sourceEventId, sourceEventId))
+      .limit(1);
+    return row !== undefined;
+  }
 }
+
+const ReferralResultSchema = z.enum(REFERRAL_RESULTS);
 
 function toOpportunity(row: typeof opportunities.$inferSelect): Opportunity {
   const enums = OpportunityRowSchema.parse(row);
@@ -555,6 +571,12 @@ function toOpportunity(row: typeof opportunities.$inferSelect): Opportunity {
       row.closeReasonId === null
         ? undefined
         : storedId<'OpportunityCloseReason'>(row.closeReasonId),
+    referral: {
+      partnerName: row.partnerName ?? undefined,
+      referredAt: row.referredAt ?? undefined,
+      result:
+        row.referralResult === null ? undefined : ReferralResultSchema.parse(row.referralResult),
+    },
     propertyId: row.propertyId ?? undefined,
     search,
     notes: NotesSchema.parse(row.notes).map((n) => ({

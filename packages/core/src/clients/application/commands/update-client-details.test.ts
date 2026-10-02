@@ -57,6 +57,23 @@ describe('UpdateClientDetails', () => {
     ]);
   });
 
+  it('saves the profile section whole: a missing field is cleared', async () => {
+    const { uow, useCase } = setup();
+    const client = await seedClient(uow);
+    unwrap(
+      await useCase.execute({ clientId: client.id, profile: { companyName: 'Acme' } }, TEST_AGENT),
+    );
+
+    unwrap(
+      await useCase.execute({ clientId: client.id, profile: { jobTitle: 'Gerente' } }, TEST_AGENT),
+    );
+
+    expect(uow.clients.rows.get(client.id)?.profile).toMatchObject({
+      companyName: undefined,
+      jobTitle: 'Gerente',
+    });
+  });
+
   it('does not audit nor save when nothing changed', async () => {
     const { uow, useCase } = setup();
     const client = await seedClient(uow);

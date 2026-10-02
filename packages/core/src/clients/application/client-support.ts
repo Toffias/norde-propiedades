@@ -27,6 +27,7 @@ import type {
 import type { Client, ClientEmail, ClientPhone } from '../domain/client';
 import type { ClientRepository } from '../domain/client.repository';
 import {
+  EMPTY_PROFILE,
   hasOwnerType,
   OWNER_CLIENT_TYPES,
   PROFILE_FIELDS,
@@ -141,13 +142,13 @@ export function parseEmails(
   return ok(emails);
 }
 
-/** Los datos de la ficha tal como los recibe el dominio: lo que no viene, no cambia. */
-export function toProfile(input: ClientProfileInput): Partial<ClientProfile> {
-  const profile: Partial<Record<keyof ClientProfile, string>> = {};
-  for (const field of PROFILE_FIELDS) {
-    const value = input[field];
-    if (value !== undefined) profile[field] = value;
-  }
+/**
+ * Los datos de la ficha tal como los recibe el dominio. La sección se guarda entera: un campo que
+ * no viene (el formulario lo dejó vacío) se borra.
+ */
+export function toProfile(input: ClientProfileInput): ClientProfile {
+  const profile: Record<keyof ClientProfile, string | undefined> = { ...EMPTY_PROFILE };
+  for (const field of PROFILE_FIELDS) profile[field] = input[field];
   return profile;
 }
 

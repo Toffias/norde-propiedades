@@ -215,7 +215,10 @@ export interface CreateClientOutput {
   readonly clientId: string;
 }
 
-/** Cada sección de la ficha se guarda por separado: lo que no viene, no cambia. */
+/**
+ * Cada sección de la ficha se guarda por separado: una sección que no viene no cambia. Los datos
+ * (`profile`) se guardan enteros: un campo ausente se borra.
+ */
 export const UpdateClientDetailsInputSchema = z.object({
   clientId: z.uuid(),
   name: z.string().trim().min(1, 'Ingresá el nombre.').max(120).optional(),

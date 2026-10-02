@@ -2,6 +2,7 @@ import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { ClientId } from './client';
 import type { OpportunitySnapshot } from './opportunity';
+import type { StagePosition } from './opportunity-moves';
 import type { OpportunityStatus } from './opportunity-status';
 
 /**
@@ -30,6 +31,9 @@ export type ClientActivityBody =
       readonly kind: 'status_change';
       readonly from: OpportunityStatus | undefined;
       readonly to: OpportunityStatus;
+      /** El estado editable de origen y de destino (las entradas anteriores a #9 no los tienen). */
+      readonly fromStageId: string | undefined;
+      readonly toStageId: string | undefined;
     }
   | {
       readonly kind: 'listing_sent';
@@ -81,10 +85,14 @@ export interface NoteTooLongError {
   readonly max: number;
 }
 
-/** Nota de un usuario: sin espacios de más al principio ni al final, y con algo escrito. */
+/**
+ * Nota de un usuario: sin espacios de más al principio ni al final, y con algo escrito. La que se
+ * escribe sobre una oportunidad (desde el tablero) queda también en su historial.
+ */
 export function noteActivity(input: {
   readonly id: string;
   readonly clientId: ClientId;
+  readonly opportunityId?: string | undefined;
   readonly text: string;
   readonly actorId: string;
   readonly now: Date;
@@ -95,7 +103,7 @@ export function noteActivity(input: {
   return ok({
     id: input.id,
     clientId: input.clientId,
-    opportunityId: undefined,
+    opportunityId: input.opportunityId,
     actorId: input.actorId,
     body: { kind: 'note', text },
     occurredAt: input.now,
@@ -125,8 +133,8 @@ export function statusChangeActivity(input: {
   readonly id: string;
   readonly clientId: ClientId;
   readonly opportunityId: string;
-  readonly from: OpportunityStatus | undefined;
-  readonly to: OpportunityStatus;
+  readonly from: StagePosition | undefined;
+  readonly to: StagePosition;
   readonly actorId: string;
   readonly now: Date;
 }): ClientActivity {
@@ -135,7 +143,13 @@ export function statusChangeActivity(input: {
     clientId: input.clientId,
     opportunityId: input.opportunityId,
     actorId: input.actorId,
-    body: { kind: 'status_change', from: input.from, to: input.to },
+    body: {
+      kind: 'status_change',
+      from: input.from?.status,
+      to: input.to.status,
+      fromStageId: input.from?.stageId,
+      toStageId: input.to.stageId,
+    },
     occurredAt: input.now,
   };
 }

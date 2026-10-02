@@ -20,7 +20,13 @@ const Status = z.enum(OPPORTUNITY_STATUSES);
 /** El `body` de cada tipo, tal como se guarda (el tipo va en su columna). */
 const ActivityBodySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('note'), text: z.string() }),
-  z.object({ kind: z.literal('status_change'), from: Status.optional(), to: Status }),
+  z.object({
+    kind: z.literal('status_change'),
+    from: Status.optional(),
+    to: Status,
+    fromStageId: z.string().optional(),
+    toStageId: z.string().optional(),
+  }),
   z.object({
     kind: z.literal('listing_sent'),
     channel: z.string(),
@@ -52,7 +58,13 @@ export function storedActivityBody(kind: string, body: unknown): ClientActivityB
   const parsed = ActivityBodySchema.parse({ ...fields, kind });
   switch (parsed.kind) {
     case 'status_change':
-      return { kind: parsed.kind, from: parsed.from, to: parsed.to };
+      return {
+        kind: parsed.kind,
+        from: parsed.from,
+        to: parsed.to,
+        fromStageId: parsed.fromStageId,
+        toStageId: parsed.toStageId,
+      };
     case 'listing_viewed':
       return { kind: parsed.kind, propertyId: parsed.propertyId };
     case 'inquiry':

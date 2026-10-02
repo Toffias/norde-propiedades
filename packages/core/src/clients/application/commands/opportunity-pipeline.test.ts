@@ -80,7 +80,13 @@ describe('ChangeOpportunityStage', () => {
       {
         opportunityId: opportunity.id,
         actorId: AGENT_ID,
-        body: { kind: 'status_change', from: 'new', to: 'contacted' },
+        body: {
+          kind: 'status_change',
+          from: 'new',
+          to: 'contacted',
+          fromStageId: NEW,
+          toStageId: CONTACTED,
+        },
       },
     ]);
     expect(uow.events.published.map((e) => e.type)).toEqual(['clients.opportunity_status_changed']);

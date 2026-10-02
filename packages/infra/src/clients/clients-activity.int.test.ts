@@ -249,6 +249,77 @@ describe('client activity', () => {
   });
 });
 
+describe('opportunity history', () => {
+  it('pages the activity of one opportunity by kind, with an index', async () => {
+    const clientId = await seedClient('Ana', '+5491166899124');
+    const [opportunityId, otherId] = [ids.next(), ids.next()];
+    await db.insert(opportunities).values(
+      [opportunityId, otherId].map((id) => ({
+        id,
+        clientId,
+        originChannel: 'whatsapp',
+        type: 'sale',
+        intent: 'visit',
+        status: 'new',
+        createdAt: NOW,
+        updatedAt: NOW,
+        ...authored,
+      })),
+    );
+    // 600 de la oportunidad (una de cada tres, nota) y 1.500 del mismo contacto en otra.
+    const rows = Array.from({ length: 2_100 }, (_, i) => ({
+      id: `00000000-0000-7000-a000-${(i + 1).toString().padStart(12, '0')}`,
+      clientId,
+      opportunityId: i < 600 ? opportunityId : otherId,
+      kind: i % 3 === 0 ? 'note' : 'status_change',
+      actorId: AGENT,
+      body: i % 3 === 0 ? { text: `Nota ${i}` } : { from: 'new', to: 'contacted' },
+      occurredAt: new Date(Date.UTC(2026, 0, 1) + Math.floor(i / 2) * 60_000),
+      createdAt: NOW,
+      updatedAt: NOW,
+      ...authored,
+    }));
+    for (let start = 0; start < rows.length; start += 500) {
+      await db.insert(clientActivities).values(rows.slice(start, start + 500));
+    }
+    await db.execute(sql`analyze core.client_activities`);
+
+    const seen: string[] = [];
+    for (let offset = 0; offset < 600; offset += 100) {
+      const page = await records.opportunityActivity({
+        opportunityId,
+        kind: undefined,
+        direction: 'desc',
+        offset,
+        limit: 100,
+      });
+      expect(page.total).toBe(600);
+      expect(page.items.every((item) => item.opportunityId === opportunityId)).toBe(true);
+      seen.push(...page.items.map((item) => item.id));
+    }
+    expect(new Set(seen).size).toBe(600);
+
+    const notes = await records.opportunityActivity({
+      opportunityId,
+      kind: 'note',
+      direction: 'desc',
+      offset: 0,
+      limit: 5,
+    });
+    expect(notes.total).toBe(200);
+    expect(notes.items.every((item) => item.body.kind === 'note')).toBe(true);
+    const times = notes.items.map((item) => item.occurredAt.getTime());
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+
+    for (const kind of [undefined, 'note' as const]) {
+      const plan = await pagePlan((q) =>
+        q.opportunityActivity({ opportunityId, kind, direction: 'desc', offset: 0, limit: 25 }),
+      );
+      expect(scansWithIndex(plan, 'client_activities')).toBe(true);
+    }
+  });
+});
+
 describe('featured listings', () => {
   it('features, lists and removes properties of a client', async () => {
     const clientId = await seedClient('Ana', '+5491166899124');

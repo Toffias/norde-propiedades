@@ -326,11 +326,27 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 - **Pasar a otro estado**: los activos de la misma categoría y los de las categorías a las que se puede pasar. Pide `opportunities:update` sobre la suya, o `opportunities:update-others`.
 - **Cerrar**: con un motivo. Solo se ofrecen los motivos que llevan a una categoría alcanzable. Por ejemplo, desde "nueva" no se puede ganar: solo perder. La oportunidad va al primer estado activo de ganada o perdida.
 - **Reasignar** (`opportunities:reassign`): cambia el agente de la oportunidad y la pasa a su sucursal, sin tocar el agente del contacto. Se puede dejar sin agente. Una oportunidad cerrada no se reasigna.
-- Cada cambio de estado o cierre queda en el historial de estados, en la **actividad del contacto** ("Cambió el estado a…", con quién lo hizo) y en la auditoría con el diff (`opportunity.status_changed`, `opportunity.closed`, `opportunity.reassigned`). Reasignar emite `clients.opportunity_reassigned`, del que sale la regla "al asignar" en la etapa 4.
+- Cada cambio de estado o cierre queda en el historial de estados, en la **actividad del contacto** ("Pasó a…", con el estado anterior y quién lo hizo) y en la auditoría con el diff (`opportunity.status_changed`, `opportunity.closed`, `opportunity.reassigned`). Reasignar emite `clients.opportunity_reassigned`, del que sale la regla "al asignar" en la etapa 4.
 
 **Menú**: Oportunidades muestra cuántas oportunidades **nuevas** (categoría nueva) tiene asignadas quien entra.
 
 **Ficha del contacto**: la tarjeta y la pestaña Oportunidades muestran el nombre y el color del estado (la categoría queda en el tooltip). La agenda de contactos suma el filtro **Estado de oportunidad** en Más filtros: los contactos con alguna oportunidad en ese estado.
+
+### 3.3.7 Tablero de oportunidades e historial (#9, etapa 3)
+
+**Tablero** (`/oportunidades?vista=tablero`): el mismo pipeline, con los mismos filtros y el mismo orden, en columnas. "Lista" y "Tablero" se alternan arriba a la derecha; los filtros se mantienen.
+
+- **Columnas**: una por estado, en el orden de Mi empresa (los activos y los desactivados que todavía tienen oportunidades), con su contador. Cada columna trae su primera página (20) y pide la siguiente al llegar al final de su scroll. Ninguna trae más que su página.
+- **Tarjeta**: el contacto (con link a su ficha), qué busca, la propiedad por la que consultó, la última nota, los días en el estado y la última actualización. Accesos a **nota**, **historial**, WhatsApp y el menú de acciones de la lista (pasar a otro estado, cerrar, reasignar).
+- **Arrastrar** (con el mouse, el dedo o el teclado, desde el ícono de la tarjeta) a otra columna cambia el estado. Mientras se arrastra, las columnas a las que el dominio no deja pasar se ven atenuadas. Si igual se suelta ahí, el servidor lo rechaza (`InvalidStatusTransition`), la tarjeta vuelve a su lugar y se avisa por qué.
+- **Soltar en ganada o perdida** abre el diálogo de cierre: solo con los motivos que cierran en esa categoría (positivo gana; negativo o neutral pierde), y la oportunidad queda en ese estado. Si no hay ninguno posible (desde "nueva" no se gana), se avisa y no pasa nada.
+- Solo se arrastran las que el actor puede cambiar (las suyas, o todas con `opportunities:update-others`) y que están abiertas.
+
+**Nota de la oportunidad**: se escribe desde la tarjeta. La agrega quien puede cambiar la oportunidad, aunque el contacto sea de otro agente. Queda en el historial de la oportunidad, en la actividad del contacto y en su auditoría (`client.note_added`, con el ID de la oportunidad).
+
+**Historial** (modal, desde la tarjeta): lo que quedó atado a la oportunidad, lo más reciente primero, paginado en el servidor y filtrable por tipo: notas, cambios de estado, consultas, envíos, propiedades vistas, reacciones y conversaciones del agente de IA. Lo ve quien ve la oportunidad. Las notas del contacto que no se escribieron sobre la oportunidad quedan solo en la actividad del contacto.
+
+**Cambios de estado**: desde esta etapa guardan el estado editable de origen y de destino. La actividad (en el historial y en la ficha del contacto) muestra "Pasó a "Visitando"" con el nombre de hoy del estado y "Estaba en…". Las entradas anteriores muestran la categoría.
 
 ### 3.4 Cruce de búsquedas con stock
 

@@ -431,6 +431,10 @@ export {
   type ListOpportunitiesError,
 } from './application/queries/list-opportunities';
 export {
+  ListOpportunityHistory,
+  type ListOpportunityHistoryError,
+} from './application/queries/list-opportunity-history';
+export {
   CountOpportunitiesByStage,
   type CountOpportunitiesByStageError,
 } from './application/queries/count-opportunities-by-stage';

@@ -95,6 +95,7 @@ import {
   UpdateOpportunitySettings,
   UpdateOpportunityStage,
   ListOpportunities,
+  ListOpportunityHistory,
   CountOpportunitiesByStage,
   CountPendingOpportunities,
   ChangeOpportunityStage,
@@ -668,6 +669,7 @@ function createClientsUseCases(
     updateOpportunitySettings: new UpdateOpportunitySettings({ uow, clock }),
     // Pipeline de oportunidades (#9, etapa 2)
     listOpportunities: new ListOpportunities({ uow, pipeline, agents, listings, clock }),
+    listOpportunityHistory: new ListOpportunityHistory({ uow, records, agents }),
     countOpportunitiesByStage: new CountOpportunitiesByStage({ pipeline }),
     countPendingOpportunities: new CountPendingOpportunities({ pipeline }),
     changeOpportunityStage: new ChangeOpportunityStage({ uow, ids, clock }),

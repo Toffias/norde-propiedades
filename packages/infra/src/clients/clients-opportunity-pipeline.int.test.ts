@@ -1,6 +1,8 @@
 import {
+  AddClientNote,
   ChangeOpportunityStage,
   CloseOpportunity,
+  ListOpportunityHistory,
   ReassignOpportunity,
   RegisterContact,
   type OpportunityFilterCriteria,
@@ -485,8 +487,18 @@ describe('opportunity actions persistence', () => {
       .where(eq(clientActivities.opportunityId, opportunityId))
       .orderBy(clientActivities.id);
     expect(activity.filter((a) => a.kind === 'status_change').map((a) => a.body)).toEqual([
-      { from: 'new', to: 'contacted' },
-      { from: 'contacted', to: 'lost' },
+      {
+        from: 'new',
+        to: 'contacted',
+        fromStageId: SEEDED_STAGES.new,
+        toStageId: SEEDED_STAGES.contacted,
+      },
+      {
+        from: 'contacted',
+        to: 'lost',
+        fromStageId: SEEDED_STAGES.contacted,
+        toStageId: SEEDED_STAGES.lost,
+      },
     ]);
     const audit = await db
       .select({ action: auditLog.action, clientIds: auditLog.clientIds })
@@ -500,6 +512,60 @@ describe('opportunity actions persistence', () => {
       'opportunity.closed',
     ]);
     expect(audit.every((a) => a.clientIds.includes(anaId))).toBe(true);
+  });
+
+  it('keeps the history of an opportunity: its notes and stage changes, by kind', async () => {
+    const { opportunityId, clientId: anaId } = await registerAna();
+    const records = new DrizzleClientRecordQuery(db);
+    const agents = {
+      names: () => Promise.resolve(new Map([[AGENT, 'Camila']])),
+      find: () => Promise.resolve(undefined),
+    };
+    const writer = Actor.user(AGENT, ['opportunities:*', 'clients:*']).withBranch(BRANCH);
+
+    unwrap(
+      await new ChangeOpportunityStage({ uow, ids, clock }).execute(
+        { opportunityId, stageId: SEEDED_STAGES.contacted },
+        manager,
+      ),
+    );
+    const notes = new AddClientNote({ uow, ids, clock });
+    unwrap(
+      await notes.execute(
+        { clientId: anaId, opportunityId, text: 'Pidió visita el sábado' },
+        writer,
+      ),
+    );
+    // Una nota del contacto, sin oportunidad: no va al historial de la oportunidad.
+    unwrap(await notes.execute({ clientId: anaId, text: 'Cambió de número' }, writer));
+
+    const history = new ListOpportunityHistory({ uow, records, agents });
+    const page = unwrap(await history.execute({ opportunityId }, manager));
+    expect(page.items.map((item) => item.kind)).toEqual(['note', 'status_change']);
+    expect(page.items[0]).toMatchObject({
+      text: 'Pidió visita el sábado',
+      actor: { kind: 'user', name: 'Camila' },
+    });
+    expect(page.items[1]).toMatchObject({
+      from: 'new',
+      to: 'contacted',
+      fromStage: { id: SEEDED_STAGES.new, name: 'new' },
+      toStage: { id: SEEDED_STAGES.contacted, name: 'contacted' },
+    });
+
+    const changes = unwrap(
+      await history.execute({ opportunityId, kind: 'status_change' }, manager),
+    );
+    expect(changes.total).toBe(1);
+    // La nota del contacto sigue en su timeline.
+    const timeline = await records.activity({
+      clientId: anaId,
+      kind: 'note',
+      direction: 'desc',
+      offset: 0,
+      limit: 10,
+    });
+    expect(timeline.total).toBe(2);
   });
 
   it('filters contacts by the stage of their opportunities', async () => {

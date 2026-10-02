@@ -70,19 +70,29 @@ export interface OpportunityActionTarget {
   readonly can: OpportunityActions;
 }
 
-function CloseDialog({
+/**
+ * Cerrar con un motivo. Desde el tablero llega el estado en el que se soltó la tarjeta: solo se
+ * ofrecen los motivos que cierran en su categoría, y la oportunidad queda en ese estado.
+ */
+export function CloseDialog({
   target,
   catalog,
+  stage,
   open,
   onOpenChange,
 }: {
   readonly target: OpportunityActionTarget;
   readonly catalog: OpportunityCatalogView;
+  readonly stage?: OpportunityStageRow | undefined;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
   const id = useId();
-  const reasons = catalog.closeReasons.filter((reason) => target.can.closeWith.includes(reason.id));
+  const reasons = catalog.closeReasons.filter(
+    (reason) =>
+      target.can.closeWith.includes(reason.id) &&
+      (stage === undefined || reason.closesAs === stage.category),
+  );
   const [reasonId, setReasonId] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
@@ -93,8 +103,10 @@ function CloseDialog({
         <DialogHeader>
           <DialogTitle>Cerrar la oportunidad</DialogTitle>
           <DialogDescription>
-            La oportunidad de {target.clientName} queda ganada o perdida según el motivo. Después no
-            se puede volver a abrir.
+            {stage === undefined
+              ? `La oportunidad de ${target.clientName} queda ganada o perdida según el motivo.`
+              : `La oportunidad de ${target.clientName} pasa a "${stage.name}".`}{' '}
+            Después no se puede volver a abrir.
           </DialogDescription>
         </DialogHeader>
         <FormAlert message={error} />
@@ -135,7 +147,11 @@ function CloseDialog({
               setError(undefined);
               startTransition(async () => {
                 const message = await runAction(() =>
-                  closeOpportunityAction({ opportunityId: target.id, closeReasonId: reasonId }),
+                  closeOpportunityAction({
+                    opportunityId: target.id,
+                    closeReasonId: reasonId,
+                    ...(stage === undefined ? {} : { stageId: stage.id }),
+                  }),
                 );
                 if (message !== undefined) {
                   setError(message);

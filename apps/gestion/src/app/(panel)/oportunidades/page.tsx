@@ -11,6 +11,10 @@ import type { Metadata } from 'next';
 
 import { getContainer } from '../../../container';
 import {
+  OpportunityBoard,
+  type OpportunityBoardColumn,
+} from '../../../features/opportunities/components/opportunity-board';
+import {
   OpportunityFilters,
   type OpportunityFilterValues,
 } from '../../../features/opportunities/components/opportunity-filters';
@@ -24,6 +28,9 @@ import { parseListParams, type SearchParams } from '../../../lib/list-params';
 import { requireSession } from '../../../lib/session';
 
 export const metadata: Metadata = { title: 'Oportunidades' };
+
+/** Lo que trae cada columna del tablero de una vez (la siguiente página, al hacer scroll). */
+const BOARD_PAGE_SIZE = 20;
 
 export default async function OpportunitiesPage({
   searchParams,
@@ -49,6 +56,8 @@ export default async function OpportunitiesPage({
   const filter = parsedFilter.value;
   const invalidKeys = new Set(parsedFilter.invalidKeys);
   const counts = await clients.countOpportunitiesByStage.execute(filter, actor);
+  const board = params.vista === 'tablero';
+  if (params.vista !== undefined && !board) invalidKeys.add('vista');
 
   // La sección abierta: la de la URL, o el primer estado (por posición) que tiene oportunidades.
   const requested = typeof params.stageId === 'string' ? params.stageId : undefined;
@@ -60,7 +69,41 @@ export default async function OpportunitiesPage({
 
   let section: OpportunitySection | undefined;
   let listError: string | undefined;
-  if (counts.isOk() && stageId !== undefined) {
+  let columns: OpportunityBoardColumn[] = [];
+  const boardSort = parseListParams(ListOpportunitiesQuerySchema, {
+    ...params,
+    stageId: stages[0]?.id,
+  });
+  if (board && counts.isOk()) {
+    for (const key of boardSort.invalidKeys)
+      if (key !== 'page' && key !== 'pageSize') invalidKeys.add(key);
+    // Los activos siempre; los desactivados, solo si todavía tienen oportunidades.
+    const countOf = new Map(counts.value.map((item) => [item.stageId, item.count]));
+    const shown = stages.filter((stage) => stage.isActive || (countOf.get(stage.id) ?? 0) > 0);
+    // Cada columna es su propia consulta (con su propia conexión): van en paralelo.
+    columns = await Promise.all(
+      shown.map(async (stage): Promise<OpportunityBoardColumn> => {
+        const result = await clients.listOpportunities.execute(
+          {
+            ...filter,
+            stageId: stage.id,
+            sort: boardSort.value.sort,
+            page: 1,
+            pageSize: BOARD_PAGE_SIZE,
+          },
+          actor,
+        );
+        return result.isErr()
+          ? {
+              stage,
+              total: countOf.get(stage.id) ?? 0,
+              rows: [],
+              error: messageForError(result.error, LIST_OPPORTUNITIES_ERROR_MESSAGES),
+            }
+          : { stage, total: result.value.total, rows: result.value.items, error: undefined };
+      }),
+    );
+  } else if (counts.isOk() && stageId !== undefined) {
     const { value: query, invalidKeys: listInvalid } = parseListParams(
       ListOpportunitiesQuerySchema,
       { ...params, stageId },
@@ -80,7 +123,7 @@ export default async function OpportunitiesPage({
       };
     }
   }
-  if (requested !== undefined && !known) invalidKeys.add('stageId');
+  if (!board && requested !== undefined && !known) invalidKeys.add('stageId');
 
   const filters: OpportunityFilterValues = {
     q: filter.q ?? '',
@@ -98,8 +141,17 @@ export default async function OpportunitiesPage({
   const agentLabel =
     filter.agentId === undefined
       ? undefined
-      : section?.rows.find((row) => row.agent?.id === filter.agentId)?.agent?.name;
+      : [...(section?.rows ?? []), ...columns.flatMap((column) => column.rows)].find(
+          (row) => row.agent?.id === filter.agentId,
+        )?.agent?.name;
   const canPickAgents = actor.can('users:read');
+  const toolbar = (
+    <OpportunityFilters
+      filters={filters}
+      permissions={{ pickAgents: canPickAgents, pickBranches: actor.can('branches:read') }}
+      agentLabel={agentLabel}
+    />
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -123,6 +175,14 @@ export default async function OpportunitiesPage({
           />
         ) : listError !== undefined ? (
           <DataTableError message={listError} />
+        ) : board ? (
+          <OpportunityBoard
+            columns={columns}
+            query={{ ...filter, sort: boardSort.value.sort, pageSize: BOARD_PAGE_SIZE }}
+            catalog={{ stages, closeReasons }}
+            canPickAgents={canPickAgents}
+            toolbar={toolbar}
+          />
         ) : (
           <OpportunityPipeline
             stages={stages}
@@ -130,16 +190,7 @@ export default async function OpportunitiesPage({
             section={section}
             catalog={{ stages, closeReasons }}
             canPickAgents={canPickAgents}
-            toolbar={
-              <OpportunityFilters
-                filters={filters}
-                permissions={{
-                  pickAgents: canPickAgents,
-                  pickBranches: actor.can('branches:read'),
-                }}
-                agentLabel={agentLabel}
-              />
-            }
+            toolbar={toolbar}
           />
         )}
       </Card>

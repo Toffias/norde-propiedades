@@ -117,6 +117,26 @@ export const CLIENT_ACTIVITY_KIND_LABELS: Readonly<Record<ClientActivityKindValu
 /** Largo máximo de una nota. */
 export const MAX_CLIENT_NOTE_LENGTH = 5000;
 
+/** Lo que se filtra en el historial de una oportunidad: todo menos las unificaciones del contacto. */
+export const OPPORTUNITY_HISTORY_KIND_VALUES = [
+  'note',
+  'status_change',
+  'inquiry',
+  'listing_sent',
+  'listing_viewed',
+  'listing_reaction',
+  'message',
+] as const satisfies readonly ClientActivityKindValue[];
+
+export const ListOpportunityHistoryQuerySchema = pageQuerySchema({
+  sortable: ['occurredAt'],
+  defaultSort: { field: 'occurredAt', direction: 'desc' },
+}).extend({
+  opportunityId: z.uuid(),
+  kind: z.enum(OPPORTUNITY_HISTORY_KIND_VALUES).optional(),
+});
+export type ListOpportunityHistoryQuery = z.input<typeof ListOpportunityHistoryQuerySchema>;
+
 export const ListClientActivityQuerySchema = pageQuerySchema({
   sortable: ['occurredAt'],
   defaultSort: { field: 'occurredAt', direction: 'desc' },
@@ -128,6 +148,8 @@ export type ListClientActivityQuery = z.input<typeof ListClientActivityQuerySche
 
 export const AddClientNoteInputSchema = z.object({
   clientId: z.uuid(),
+  /** La nota se escribe sobre una oportunidad del contacto (desde el tablero). */
+  opportunityId: z.uuid().optional(),
   text: z
     .string()
     .trim()
@@ -143,6 +165,9 @@ export type ClientActivityBody =
       readonly kind: 'status_change';
       readonly from: OpportunityStatusValue | undefined;
       readonly to: OpportunityStatusValue;
+      /** El estado editable, con su nombre de hoy (las entradas anteriores a #9 no lo tienen). */
+      readonly fromStage: OpportunityStageRef | undefined;
+      readonly toStage: OpportunityStageRef | undefined;
     }
   | {
       readonly kind: 'listing_sent';

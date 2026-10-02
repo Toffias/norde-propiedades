@@ -1,5 +1,6 @@
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
 import type { OpportunityConfiguration } from '../../contracts';
+import { closingStatusFor } from '../../domain/opportunity-close-reason';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
 /**
@@ -27,7 +28,7 @@ export class GetOpportunityConfiguration {
         }),
         closeReasons: reasons.map((reason) => {
           const { id, name, rating, position, isActive } = reason.toSnapshot();
-          return { id, name, rating, position, isActive };
+          return { id, name, rating, closesAs: closingStatusFor(rating), position, isActive };
         }),
         rules: {
           onCreate: rules.onCreate ?? null,

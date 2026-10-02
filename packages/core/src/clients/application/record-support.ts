@@ -1,10 +1,16 @@
 import { canActOn, OWNERSHIP_RULES } from '../../identity';
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../shared';
-import type { ClientActivityActor, ClientUserRef } from '../contracts';
+import type {
+  ClientActivityActor,
+  ClientActivityRow,
+  ClientUserRef,
+  OpportunityStageRef,
+} from '../contracts';
 import type { Client } from '../domain/client';
 
 import { findClient, type ClientNotFoundError } from './client-support';
 import type { ClientAgents } from './ports/client-agents';
+import type { ClientActivityItem } from './ports/client-record-query';
 import type { ClientsUnitOfWork } from './ports/clients-transaction';
 
 // Lo que comparten las pestañas de la ficha: actividad, oportunidades, destacadas y búsquedas.
@@ -56,4 +62,43 @@ export function userRef(
 ): ClientUserRef | undefined {
   if (id === undefined || id.startsWith('system:')) return undefined;
   return { id, name: names.get(id) };
+}
+
+/** Los estados por ID, con su nombre y color de hoy: solo si la página tiene cambios de estado. */
+async function stageRefs(
+  uow: ClientsUnitOfWork,
+  items: readonly ClientActivityItem[],
+): Promise<ReadonlyMap<string, OpportunityStageRef>> {
+  if (!items.some((item) => item.body.kind === 'status_change')) return new Map();
+  const stages = await uow.run((tx) => tx.stages.findAll());
+  return new Map(
+    stages.map((stage) => {
+      const { id, name, color } = stage.toSnapshot();
+      return [id, { id, name, color }];
+    }),
+  );
+}
+
+/** Una página de actividad lista para mostrar: quién la hizo y, en los cambios, qué estados. */
+export async function toActivityRows(
+  items: readonly ClientActivityItem[],
+  deps: { readonly uow: ClientsUnitOfWork; readonly agents: ClientAgents },
+): Promise<ClientActivityRow[]> {
+  const names = await userNames(
+    deps.agents,
+    items.map((item) => item.actorId),
+  );
+  const stages = await stageRefs(deps.uow, items);
+  const stage = (id: string | undefined) => (id === undefined ? undefined : stages.get(id));
+  return items.map((item): ClientActivityRow => {
+    const common = {
+      id: item.id,
+      occurredAt: item.occurredAt,
+      opportunityId: item.opportunityId,
+      actor: activityActor(item.actorId, names),
+    };
+    if (item.body.kind !== 'status_change') return { ...common, ...item.body };
+    const { fromStageId, toStageId, ...body } = item.body;
+    return { ...common, ...body, fromStage: stage(fromStageId), toStage: stage(toStageId) };
+  });
 }

@@ -280,6 +280,7 @@ export const ADD_NOTE_ERROR_MESSAGES = {
   InvalidInput: 'Escribí la nota (hasta 5.000 caracteres).',
   ClientNotFound: NOT_FOUND,
   ClientInTrash: IN_TRASH,
+  OpportunityNotFound: 'No encontramos la oportunidad. Recargá la página.',
   EmptyNote: 'Escribí la nota.',
   NoteTooLong: (error) =>
     `La nota puede tener hasta ${error.max.toLocaleString('es-AR')} caracteres.`,

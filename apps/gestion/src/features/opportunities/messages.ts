@@ -3,6 +3,7 @@ import type {
   CloseOpportunityError,
   CountOpportunitiesByStageError,
   ListOpportunitiesError,
+  ListOpportunityHistoryError,
   ReassignOpportunityError,
   CreateCloseReasonError,
   CreateOpportunityStageError,
@@ -110,6 +111,12 @@ export const LIST_OPPORTUNITIES_ERROR_MESSAGES = {
   Forbidden: NOT_VISIBLE,
   InvalidInput: 'Algún filtro no es válido. Revisalos y probá de nuevo.',
 } satisfies ErrorMessages<ListOpportunitiesError | CountOpportunitiesByStageError>;
+
+export const LIST_OPPORTUNITY_HISTORY_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver esta oportunidad.',
+  InvalidInput: OPPORTUNITY_NOT_FOUND,
+  OpportunityNotFound: OPPORTUNITY_NOT_FOUND,
+} satisfies ErrorMessages<ListOpportunityHistoryError>;
 
 export const CHANGE_STAGE_ERROR_MESSAGES = {
   Forbidden: CANT_UPDATE,

@@ -26,6 +26,7 @@ import {
   MailIcon,
   MessageCircleIcon,
   PhoneIcon,
+  ShieldAlertIcon,
   StickyNoteIcon,
   Trash2Icon,
   UserCogIcon,
@@ -46,6 +47,7 @@ import {
 import { FormAlert } from '../../shared/components/form-alert';
 import { deleteClientAction, reassignClientAction, restoreClientAction } from '../actions';
 import { clientName, formatPhone, userName, whatsappHref } from '../client-format';
+import { ClientEraseDialog } from './client-erase-dialog';
 import { ClientFavoriteToggle } from './client-favorite-toggle';
 import { ClientMergeDialog } from './client-merge-dialog';
 import { NOTE_FIELD_ID } from './client-note-composer';
@@ -133,7 +135,7 @@ function ReassignDialog({
 /**
  * La tarjeta de la ficha: nombre, tipos, agente y los datos de contacto principales, con las
  * acciones rápidas (WhatsApp, llamar, email) y las de la ficha (cambiar agente, unificar, borrar,
- * restaurar).
+ * restaurar y suprimir los datos).
  */
 export function ClientDetailHeader({
   detail,
@@ -149,6 +151,7 @@ export function ClientDetailHeader({
   const [pending, setPending] = useState<PendingAction | undefined>();
   const [reassigning, setReassigning] = useState(false);
   const [merging, setMerging] = useState(false);
+  const [erasing, setErasing] = useState(false);
   const inTrash = detail.deletedAt !== undefined;
   const phone = detail.phones[0];
   const email = detail.emails[0];
@@ -342,6 +345,20 @@ export function ClientDetailHeader({
                 Borrar
               </Button>
             ))}
+          {detail.can.erase && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              onClick={() => {
+                setErasing(true);
+              }}
+            >
+              <ShieldAlertIcon className="h-4 w-4" />
+              Suprimir datos
+            </Button>
+          )}
         </div>
       </div>
 
@@ -357,6 +374,9 @@ export function ClientDetailHeader({
       )}
       {detail.can.merge && (
         <ClientMergeDialog detail={detail} open={merging} onOpenChange={setMerging} />
+      )}
+      {detail.can.erase && (
+        <ClientEraseDialog detail={detail} open={erasing} onOpenChange={setErasing} />
       )}
     </Card>
   );

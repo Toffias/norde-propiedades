@@ -48,7 +48,13 @@ import {
   DeleteClient,
   DeleteClientTag,
   DeleteClientTagGroup,
+  EraseClientData,
   ExportClients,
+  GetClientImport,
+  ListClientImportProblems,
+  ListClientImports,
+  PreviewClientImport,
+  StartClientImport,
   GetClientDetail,
   LinkClients,
   ListClientHistory,
@@ -228,6 +234,8 @@ import {
   SystemClock,
   UuidV7IdGenerator,
   XlsxClientExportWriter,
+  XlsxSpreadsheetReader,
+  DrizzleClientImportQuery,
   type Database,
   type DatabaseConnection,
 } from '@norde/infra';
@@ -529,10 +537,12 @@ function createPropertiesUseCases(
 function createClientsUseCases(
   db: Database,
   properties: PropertiesUseCases,
-  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+  deps: { readonly ids: IdGenerator; readonly clock: Clock; readonly storage: FileStorage },
 ) {
-  const { ids, clock } = deps;
-  const uow = createClientsUnitOfWork(db, deps);
+  const { ids, clock, storage } = deps;
+  const uow = createClientsUnitOfWork(db, { ids, clock });
+  const reader = new XlsxSpreadsheetReader();
+  const imports = new DrizzleClientImportQuery(db);
   const directory = new DrizzleDirectory(db);
   const userAccess = new DrizzleUserAccessQuery(db);
   // Agentes: usuarios activos de identity, con su sucursal.
@@ -616,6 +626,13 @@ function createClientsUseCases(
       writer: new XlsxClientExportWriter(),
       clock,
     }),
+    // Importación y supresión (etapa 4)
+    previewClientImport: new PreviewClientImport({ reader }),
+    startClientImport: new StartClientImport({ uow, reader, storage, agents, ids, clock }),
+    listClientImports: new ListClientImports({ imports, agents }),
+    getClientImport: new GetClientImport({ imports, agents }),
+    listClientImportProblems: new ListClientImportProblems({ imports }),
+    eraseClientData: new EraseClientData({ uow, ids, clock }),
   };
 }
 
@@ -690,7 +707,7 @@ function createContainer(): Container {
     properties,
     ...withClients(
       createDetailReadModels(database.db, properties, { clock }),
-      createClientsUseCases(database.db, properties, { ids, clock }),
+      createClientsUseCases(database.db, properties, { ids, clock, storage: createStorage(env) }),
     ),
     identity: {
       listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),

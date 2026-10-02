@@ -8,7 +8,9 @@ import type {
   DeleteClientError,
   DeleteClientTagError,
   DeleteClientTagGroupError,
+  EraseClientDataError,
   ExportClientsError,
+  GetClientImportError,
   FeaturePropertiesError,
   GetClientDetailError,
   GetFeaturedPropertyIdsError,
@@ -16,6 +18,8 @@ import type {
   ListClientActivityError,
   ListClientFeaturedError,
   ListClientHistoryError,
+  ListClientImportProblemsError,
+  ListClientImportsError,
   ListClientLettersError,
   ListClientOpportunitiesError,
   ListClientRelationsError,
@@ -24,11 +28,13 @@ import type {
   ListClientTagGroupsError,
   MergeClientsError,
   MergeClientTagsError,
+  PreviewClientImportError,
   PreviewClientMergeError,
   ReassignClientError,
   RenameClientTagGroupError,
   RestoreClientError,
   SearchClientTagsError,
+  StartClientImportError,
   UnfeaturePropertyError,
   UnlinkClientsError,
   UpdateClientDetailsError,
@@ -298,3 +304,63 @@ export const CLIENT_FAVORITE_ERROR_MESSAGES = {
   Forbidden: 'Solo un usuario del panel tiene favoritos.',
   InvalidInput: INVALID,
 } satisfies ErrorMessages<ChangeFavoritesError>;
+
+// ---------- Supresión de datos ----------
+
+export const ERASE_CLIENT_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para suprimir los datos de este contacto.',
+  InvalidInput: 'Revisá la fecha del pedido y el nombre, y probá de nuevo.',
+  ClientNotFound: NOT_FOUND,
+  ErasureNotConfirmed: 'El nombre no coincide. Escribilo tal como aparece en la ficha.',
+  ErasureRequestInFuture: 'La fecha del pedido no puede ser posterior a hoy.',
+} satisfies ErrorMessages<EraseClientDataError>;
+
+// ---------- Importación desde Excel ----------
+
+const IMPORT_FORBIDDEN = 'No tenés permiso para importar contactos.';
+const UNREADABLE =
+  'No pudimos leer el archivo. Subí un Excel (.xlsx) con los encabezados en la primera fila.';
+const EMPTY_FILE = 'El archivo no tiene filas con datos debajo de los encabezados.';
+const TOO_MANY_ROWS = (error: { readonly max: number }) =>
+  `El archivo tiene más de ${error.max.toLocaleString('es-AR')} filas. Partilo en varios archivos.`;
+
+export const PREVIEW_IMPORT_ERROR_MESSAGES = {
+  Forbidden: IMPORT_FORBIDDEN,
+  InvalidInput: 'Subí un Excel (.xlsx) de hasta 10 MB.',
+  UnreadableSpreadsheet: UNREADABLE,
+  EmptyImportFile: EMPTY_FILE,
+  TooManyImportRows: TOO_MANY_ROWS,
+  TooManyImportColumns: (error) => `El archivo tiene más de ${String(error.max)} columnas.`,
+} satisfies ErrorMessages<PreviewClientImportError>;
+
+export const START_IMPORT_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para importar contactos o asignarlos a otro agente.',
+  InvalidInput: 'Revisá el archivo y el mapeo de columnas, y probá de nuevo.',
+  UnreadableSpreadsheet: UNREADABLE,
+  EmptyImportFile: EMPTY_FILE,
+  TooManyImportRows: TOO_MANY_ROWS,
+  InvalidImportMapping: (error) =>
+    ({
+      missing_name: 'Elegí la columna del nombre o de la empresa.',
+      missing_contact: 'Elegí al menos una columna de teléfono o de email.',
+      unknown_column: 'Una de las columnas elegidas no está en el archivo.',
+      repeated_column: 'Usaste la misma columna para dos datos.',
+    })[error.reason],
+  AgentNotFound: 'El agente elegido ya no está activo.',
+} satisfies ErrorMessages<StartClientImportError>;
+
+export const CLIENT_IMPORTS_ERROR_MESSAGES = {
+  Forbidden: IMPORT_FORBIDDEN,
+  InvalidInput: 'Los filtros no son válidos.',
+} satisfies ErrorMessages<ListClientImportsError>;
+
+export const CLIENT_IMPORT_ERROR_MESSAGES = {
+  Forbidden: IMPORT_FORBIDDEN,
+  InvalidInput: 'No encontramos la importación.',
+  ClientImportNotFound: 'No encontramos la importación.',
+} satisfies ErrorMessages<GetClientImportError>;
+
+export const CLIENT_IMPORT_PROBLEMS_ERROR_MESSAGES = {
+  Forbidden: IMPORT_FORBIDDEN,
+  InvalidInput: 'No encontramos la importación.',
+} satisfies ErrorMessages<ListClientImportProblemsError>;

@@ -30,6 +30,7 @@ import {
   SlidersHorizontalIcon,
   TableIcon,
   TagsIcon,
+  UploadIcon,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -63,6 +64,8 @@ export interface ClientFilterValues {
 export interface ClientToolbarPermissions {
   readonly seeTrash: boolean;
   readonly export: boolean;
+  /** Importar desde Excel (`clients:import`). */
+  readonly import: boolean;
   /** Filtrar por agente: elegir entre los usuarios (`users:read`). */
   readonly pickAgents: boolean;
   /** Filtrar por sucursal (`branches:read`). */
@@ -496,11 +499,19 @@ export function ClientsToolbar({
           Etiquetas
         </Link>
       </Button>
+      {permissions.import && (
+        <Button asChild variant="outline" className="w-full sm:ml-auto sm:w-auto">
+          <Link href="/contactos/importaciones">
+            <UploadIcon className="h-4 w-4" />
+            Importar
+          </Link>
+        </Button>
+      )}
       {permissions.export && (
         <Button
           type="button"
           variant="outline"
-          className="w-full sm:ml-auto sm:w-auto"
+          className={cn('w-full sm:w-auto', !permissions.import && 'sm:ml-auto')}
           disabled={exporting}
           onClick={exportAll}
         >

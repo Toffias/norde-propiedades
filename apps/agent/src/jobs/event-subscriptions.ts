@@ -1,4 +1,4 @@
-import type { NotifyTeamOfOpportunity } from '@norde/core/clients';
+import type { NotifyTeamOfOpportunity, RecordClientActivity } from '@norde/core/clients';
 import type {
   DeleteStoredMediaFiles,
   GeneratePropertyMediaVariants,
@@ -27,6 +27,12 @@ export interface EventSubscription {
 }
 
 const OpportunityPayloadSchema = z.object({ opportunityId: z.string(), clientId: z.string() });
+const ConversationLinkedPayloadSchema = z.object({
+  conversationId: z.string(),
+  clientId: z.string(),
+  // Los eventos anteriores a que el payload trajera el canal no lo tienen.
+  channel: z.string().default('unknown'),
+});
 const MediaPayloadSchema = z.object({ mediaId: z.uuid() });
 const MediaDeletedPayloadSchema = z.object({ storageKeys: z.array(z.string()).max(10) });
 const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
@@ -77,8 +83,55 @@ function propertySubscriptions(
   ];
 }
 
+/** La actividad de la ficha del cliente (#8): consultas y conversaciones del agente de IA. */
+function activitySubscriptions(
+  recordActivity: Pick<RecordClientActivity, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription[] {
+  const skipped = (event: DeliveredEvent, error: unknown) => {
+    logger.error({ eventId: event.id, type: event.type, error }, 'Client activity skipped');
+  };
+  const opportunity = (
+    eventType: 'clients.opportunity_created' | 'clients.opportunity_request_added',
+  ): EventSubscription => ({
+    eventType,
+    name: 'record-activity',
+    handle: async (event) => {
+      const payload = OpportunityPayloadSchema.parse(event.payload);
+      const result = await recordActivity.execute(
+        { id: event.id, type: eventType, occurredAt: event.occurredAt, payload },
+        actor,
+      );
+      if (result.isErr()) skipped(event, result.error);
+    },
+  });
+  return [
+    opportunity('clients.opportunity_created'),
+    opportunity('clients.opportunity_request_added'),
+    {
+      eventType: 'conversations.conversation_linked_to_client',
+      name: 'record-activity',
+      handle: async (event) => {
+        const payload = ConversationLinkedPayloadSchema.parse(event.payload);
+        const result = await recordActivity.execute(
+          {
+            id: event.id,
+            type: 'conversations.conversation_linked_to_client',
+            occurredAt: event.occurredAt,
+            payload,
+          },
+          actor,
+        );
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+  ];
+}
+
 export function eventSubscriptions(deps: {
   readonly notifyTeam: Pick<NotifyTeamOfOpportunity, 'execute'>;
+  readonly recordActivity: Pick<RecordClientActivity, 'execute'>;
   readonly properties: PropertyJobs;
   readonly actor: Actor;
   readonly logger: Logger;
@@ -104,5 +157,6 @@ export function eventSubscriptions(deps: {
     notifyTeam('clients.opportunity_created'),
     notifyTeam('clients.opportunity_request_added'),
     ...propertySubscriptions(deps.properties, deps.actor, deps.logger),
+    ...activitySubscriptions(deps.recordActivity, deps.actor, deps.logger),
   ];
 }

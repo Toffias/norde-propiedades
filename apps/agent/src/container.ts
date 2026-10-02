@@ -1,7 +1,11 @@
 // Composition root: único archivo de la app que importa @norde/infra.
 // Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app.
 
-import { NotifyTeamOfOpportunity, RegisterContact } from '@norde/core/clients';
+import {
+  NotifyTeamOfOpportunity,
+  RecordClientActivity,
+  RegisterContact,
+} from '@norde/core/clients';
 import {
   ReceiveInboundMessages,
   SendReply,
@@ -72,6 +76,7 @@ const AGENT_ACTOR = Actor.system('agent-ia', [
 ]);
 const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'clients:read',
+  'clients:record-activity',
   'properties:read',
   'properties:process-media',
   'properties:render-documents',
@@ -287,6 +292,7 @@ export function createContainer(
   });
   for (const subscription of eventSubscriptions({
     notifyTeam,
+    recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, { ids, clock }) }),
     properties: createPropertyJobs(db, env, { ids, clock }),
     actor: SCHEDULER_ACTOR,
     logger,

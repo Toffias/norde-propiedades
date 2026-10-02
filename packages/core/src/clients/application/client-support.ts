@@ -183,7 +183,7 @@ function startOfDay(date: string): Date {
   return new Date(`${date}T03:00:00.000Z`);
 }
 
-function dayRange(
+export function dayRange(
   from: string | undefined,
   to: string | undefined,
 ): { readonly from: Date | undefined; readonly to: Date | undefined } {
@@ -204,6 +204,7 @@ export interface ParsedClientFilter {
   readonly tagId?: string | undefined;
   readonly letter?: ClientLetter | undefined;
   readonly owners: boolean;
+  readonly opportunityStageId?: string | undefined;
   readonly createdFrom?: string | undefined;
   readonly createdTo?: string | undefined;
   readonly updatedFrom?: string | undefined;
@@ -232,6 +233,7 @@ export function resolveClientFilter(
     tagId: filter.tagId,
     letter: filter.letter,
     anyOfTypes: filter.owners ? OWNER_CLIENT_TYPES : undefined,
+    opportunityStageId: filter.opportunityStageId,
     created: dayRange(filter.createdFrom, filter.createdTo),
     updated: dayRange(filter.updatedFrom, filter.updatedTo),
   });

@@ -51,7 +51,11 @@ import { ClientEraseDialog } from './client-erase-dialog';
 import { ClientFavoriteToggle } from './client-favorite-toggle';
 import { ClientMergeDialog } from './client-merge-dialog';
 import { NOTE_FIELD_ID } from './client-note-composer';
-import { OpportunityStatusPill } from './client-record-grids';
+import {
+  OpportunityActionsMenu,
+  type OpportunityCatalogView,
+} from '../../opportunities/components/opportunity-actions';
+import { OpportunityStagePill } from '../../opportunities/components/opportunity-stage-pill';
 
 interface PendingAction {
   readonly copy: ConfirmActionCopy;
@@ -141,12 +145,15 @@ export function ClientDetailHeader({
   detail,
   canPickAgents,
   favorite,
+  opportunityCatalog,
 }: {
   readonly detail: ClientDetail;
   /** Elegir agente pide ver los usuarios (`users:read`). */
   readonly canPickAgents: boolean;
   /** Es favorito de quien mira la ficha. */
   readonly favorite: boolean;
+  /** Para cambiar el estado o cerrar la oportunidad abierta; sin él, la tarjeta solo la muestra. */
+  readonly opportunityCatalog: OpportunityCatalogView | undefined;
 }) {
   const [pending, setPending] = useState<PendingAction | undefined>();
   const [reassigning, setReassigning] = useState(false);
@@ -216,7 +223,10 @@ export function ClientDetailHeader({
                     {OPPORTUNITY_TYPE_LABELS[detail.activeOpportunity.type] ??
                       detail.activeOpportunity.type}
                   </span>
-                  <OpportunityStatusPill status={detail.activeOpportunity.status} />
+                  <OpportunityStagePill
+                    stage={detail.activeOpportunity.stage}
+                    status={detail.activeOpportunity.status}
+                  />
                   {detail.activeOpportunity.openCount > 1 && (
                     <Link
                       // Misma ficha con otra pestaña: typedRoutes no verifica un string armado.
@@ -226,6 +236,19 @@ export function ClientDetailHeader({
                     >
                       {detail.activeOpportunity.openCount.toLocaleString('es-AR')} abiertas
                     </Link>
+                  )}
+                  {opportunityCatalog !== undefined && (
+                    <OpportunityActionsMenu
+                      target={{
+                        id: detail.activeOpportunity.id,
+                        clientName: name,
+                        agent: detail.activeOpportunity.agent,
+                        can: detail.activeOpportunity.can,
+                      }}
+                      catalog={opportunityCatalog}
+                      canPickAgents={canPickAgents}
+                      variant="button"
+                    />
                   )}
                 </span>
               )}

@@ -80,6 +80,7 @@ export default async function ContactsPage({
     tagId: query.tagId ?? '',
     letter: layout === 'agenda' ? (query.letter ?? '') : '',
     owners: query.owners,
+    opportunityStageId: query.opportunityStageId ?? '',
     createdFrom: query.createdFrom ?? '',
     createdTo: query.createdTo ?? '',
     updatedFrom: query.updatedFrom ?? '',
@@ -92,6 +93,11 @@ export default async function ContactsPage({
       ? result.value.items.find((row) => row.agent?.id === query.agentId)?.agent?.name
       : undefined;
   const canDelete = actor.can('clients:delete') || actor.can('clients:delete-others');
+  // Los estados de oportunidad para el filtro: los ve quien ve oportunidades o la configuración.
+  const config = await clients.getOpportunityConfiguration.execute(actor);
+  const opportunityStages = config.isOk()
+    ? config.value.stages.map((stage) => ({ id: stage.id, name: stage.name }))
+    : [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -125,6 +131,7 @@ export default async function ContactsPage({
             agenda={agenda}
             agentLabel={agentLabel}
             tagLabel={undefined}
+            opportunityStages={opportunityStages}
             permissions={{
               create: actor.can('clients:create'),
               delete: canDelete,

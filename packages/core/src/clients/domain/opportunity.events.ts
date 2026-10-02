@@ -27,5 +27,14 @@ export type OpportunityStatusChanged = DomainEvent<
   }
 >;
 
+/** Pasó a otro agente (o quedó sin agente). Dispara la regla "al asignar" (#9, etapa 4). */
+export type OpportunityReassigned = DomainEvent<
+  'clients.opportunity_reassigned',
+  OpportunityPayload & {
+    readonly fromAgentId: string | undefined;
+    readonly toAgentId: string | undefined;
+  }
+>;
+
 export type OpportunityEvent =
-  OpportunityCreated | OpportunityRequestAdded | OpportunityStatusChanged;
+  OpportunityCreated | OpportunityRequestAdded | OpportunityStatusChanged | OpportunityReassigned;

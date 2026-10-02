@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { pageQuerySchema } from '../../shared/contracts';
 
 import type { ClientUserRef } from './clients-panel';
+import type { OpportunityActions } from './opportunity-pipeline';
 
 // ---------- Oportunidades ----------
 
@@ -49,11 +50,20 @@ export const ListClientOpportunitiesQuerySchema = pageQuerySchema({
 }).extend({ clientId: z.uuid() });
 export type ListClientOpportunitiesQuery = z.input<typeof ListClientOpportunitiesQuerySchema>;
 
+/** El estado editable de una oportunidad, para su etiqueta (nombre y color). */
+export interface OpportunityStageRef {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
+}
+
 export interface ClientOpportunityRow {
   readonly id: string;
   readonly type: string;
   readonly intent: string;
   readonly status: OpportunityStatusValue;
+  /** `undefined` solo en las anteriores al backfill de estados. */
+  readonly stage: OpportunityStageRef | undefined;
   readonly open: boolean;
   readonly originChannel: string;
   /** Propiedad por la que consultó (módulo properties, por ID). */
@@ -69,9 +79,13 @@ export interface ClientActiveOpportunity {
   readonly id: string;
   readonly type: string;
   readonly status: OpportunityStatusValue;
+  readonly stage: OpportunityStageRef | undefined;
+  /** El de la oportunidad, que puede no ser el del contacto. */
+  readonly agent: ClientUserRef | undefined;
   readonly createdAt: Date;
   /** Cuántas abiertas tiene en total (la tarjeta muestra la más reciente). */
   readonly openCount: number;
+  readonly can: OpportunityActions;
 }
 
 // ---------- Actividad ----------

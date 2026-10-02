@@ -26,6 +26,8 @@ export interface ClientFilterCriteria {
   readonly letter: ClientLetter | undefined;
   /** Solo los que tienen alguno de estos tipos (propietarios). */
   readonly anyOfTypes: readonly ClientTypeValue[] | undefined;
+  /** Solo los que tienen una oportunidad en este estado. */
+  readonly opportunityStageId: string | undefined;
   /** `[from, to)`. */
   readonly created: { readonly from: Date | undefined; readonly to: Date | undefined };
   readonly updated: { readonly from: Date | undefined; readonly to: Date | undefined };

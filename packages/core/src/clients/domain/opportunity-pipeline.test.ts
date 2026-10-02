@@ -16,6 +16,7 @@ import {
   MAX_OPPORTUNITY_STAGES,
   OpportunityStage,
 } from './opportunity-stage';
+import { reachableStages, usableCloseReasons } from './opportunity-moves';
 import type { OpportunityStatus } from './opportunity-status';
 import { stageTenure } from './opportunity-tenure';
 
@@ -351,5 +352,85 @@ describe('Opportunity rules', () => {
 
     expect(isStageUsedByRules(rules, sinContactar.id)).toBe(true);
     expect(isStageUsedByRules(rules, nuevo.id)).toBe(false);
+  });
+});
+
+describe('Opportunity.assignAgent', () => {
+  it('moves it to another agent and branch, and records it', () => {
+    const opportunity = openAt(aStage('new'));
+
+    const changed = opportunity.assignAgent({ agentId: 'agent-2', branchId: 'branch-2' }, T1);
+
+    expect(changed.isOk() && changed.value).toBe(true);
+
+    expect(opportunity.ownership).toEqual({ ownerId: 'agent-2', ownerBranchId: 'branch-2' });
+    expect(opportunity.toSnapshot().updatedAt).toEqual(T1);
+    expect(opportunity.pullEvents()).toMatchObject([
+      {
+        type: 'clients.opportunity_reassigned',
+        payload: { fromAgentId: 'agent-1', toAgentId: 'agent-2' },
+      },
+    ]);
+  });
+
+  it('does nothing with the same agent and branch', () => {
+    const opportunity = openAt(aStage('new'));
+
+    const changed = opportunity.assignAgent({ agentId: 'agent-1', branchId: 'branch-1' }, T1);
+
+    expect(changed.isOk() && !changed.value).toBe(true);
+    expect(opportunity.pullEvents()).toEqual([]);
+  });
+
+  it('does not reassign a closed one', () => {
+    const opportunity = openAt(aStage('visiting'));
+    opportunity.close(aReason('positive').ref(), aStage('won').ref(), change(T1));
+
+    const result = opportunity.assignAgent({ agentId: 'agent-2', branchId: undefined }, T2);
+
+    expect(result.isErr() && result.error).toEqual({ type: 'OpportunityClosed' });
+  });
+});
+
+describe('reachableStages and usableCloseReasons', () => {
+  const stages = {
+    new: aStage('new'),
+    newer: aStage('new', { name: 'Sin seguimiento' }),
+    contacted: aStage('contacted'),
+    negotiating: aStage('negotiating'),
+    won: aStage('won'),
+    lost: aStage('lost'),
+  };
+  const refs = Object.values(stages).map((stage) => stage.ref());
+
+  it('offers the same category and the categories the domain allows, never closing ones', () => {
+    const reachable = reachableStages({ stageId: stages.new.id, status: 'new' }, refs);
+
+    expect(reachable.map((s) => s.id)).toEqual([stages.newer.id, stages.contacted.id]);
+  });
+
+  it('skips inactive stages and offers nothing for a closed opportunity', () => {
+    stages.contacted.deactivate({ activeInCategory: 2, usedByRule: false }, T1);
+    const reachable = reachableStages({ stageId: stages.new.id, status: 'new' }, [
+      stages.contacted.ref(),
+      stages.newer.ref(),
+    ]);
+
+    expect(reachable.map((s) => s.id)).toEqual([stages.newer.id]);
+    expect(reachableStages({ stageId: stages.won.id, status: 'won' }, refs)).toEqual([]);
+  });
+
+  it('closes only with reasons that lead to a reachable category with an active stage', () => {
+    const positive = aReason('positive').ref();
+    const negative = aReason('negative').ref();
+
+    // Desde "nuevo" no se gana: solo se pierde.
+    expect(usableCloseReasons('new', [positive, negative], refs)).toEqual([negative]);
+    expect(usableCloseReasons('negotiating', [positive, negative], refs)).toEqual([
+      positive,
+      negative,
+    ]);
+    expect(usableCloseReasons('negotiating', [positive], [stages.lost.ref()])).toEqual([]);
+    expect(usableCloseReasons('lost', [negative], refs)).toEqual([]);
   });
 });

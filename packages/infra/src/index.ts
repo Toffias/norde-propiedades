@@ -49,6 +49,7 @@ export { FilePropertyExportWriter } from './adapters/exports/property-export-wri
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
 export { XlsxSpreadsheetReader } from './adapters/imports/xlsx-spreadsheet-reader';
 export { DrizzleClientListQuery } from './clients/drizzle-client-list-query';
+export { DrizzleOpportunityPipelineQuery } from './clients/drizzle-opportunity-pipeline-query';
 export { DrizzleClientTagQuery } from './clients/drizzle-client-tag-query';
 export { DrizzleClientRelationQuery } from './clients/drizzle-client-relation-query';
 export { DrizzleClientRecordQuery } from './clients/drizzle-client-record-query';

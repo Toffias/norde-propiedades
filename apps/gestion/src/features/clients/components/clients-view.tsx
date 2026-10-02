@@ -10,6 +10,7 @@ import { ClientsAgenda, type AgendaLetterPage } from './clients-agenda';
 import { ClientsGrid } from './clients-grid';
 import {
   ClientsToolbar,
+  type OpportunityStageOption,
   type ClientFilterValues,
   type ClientLayout,
   type ClientToolbarPermissions,
@@ -40,6 +41,7 @@ export function ClientsView({
   permissions,
   agentLabel,
   tagLabel,
+  opportunityStages,
 }: {
   readonly rows: readonly ClientListRow[];
   readonly total: number;
@@ -53,6 +55,8 @@ export function ClientsView({
   readonly permissions: ClientsPermissions;
   readonly agentLabel: string | undefined;
   readonly tagLabel: string | undefined;
+  /** Para filtrar por estado de oportunidad; vacío si el actor no ve oportunidades. */
+  readonly opportunityStages: readonly OpportunityStageOption[];
 }) {
   const navigation = usePanel();
   const toolbar = (
@@ -62,6 +66,7 @@ export function ClientsView({
       permissions={permissions}
       agentLabel={agentLabel}
       tagLabel={tagLabel}
+      opportunityStages={opportunityStages}
     />
   );
 

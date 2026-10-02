@@ -12,6 +12,7 @@ import {
   type ClientNotFoundError,
   type InvalidInputError,
 } from '../client-support';
+import { loadOpportunityCatalog, opportunityActions } from '../opportunity-support';
 import type { ClientAgents } from '../ports/client-agents';
 import type { ClientRecordQuery } from '../ports/client-record-query';
 import type { ClientTagQuery } from '../ports/client-tag-query';
@@ -57,7 +58,7 @@ export class GetClientDetail {
 
     const s = client.toSnapshot();
     const userIds = [s.agentId, s.deletedBy].filter((id) => id !== undefined);
-    const [names, tags, counts, activeOpportunity] = await Promise.all([
+    const [names, tags, counts, active] = await Promise.all([
       this.deps.agents.names(userIds),
       this.deps.tags.refs(s.tagIds),
       this.deps.records.tabCounts(client.id),
@@ -68,6 +69,27 @@ export class GetClientDetail {
     const masked = masksOwnerContact(actor, s.clientTypes);
     const canEdit = canActOn(actor, OWNERSHIP_RULES.clientsUpdate, ownership) && !client.isDeleted;
     const audit = OWNERSHIP_RULES.auditRead;
+    let activeOpportunity: ClientDetail['activeOpportunity'];
+    if (active !== undefined) {
+      const { agentId, branchId, ...opportunity } = active;
+      const agentNames =
+        agentId === undefined || names.has(agentId)
+          ? names
+          : await this.deps.agents.names([agentId]);
+      activeOpportunity = {
+        ...opportunity,
+        agent: agentId === undefined ? undefined : { id: agentId, name: agentNames.get(agentId) },
+        can: opportunityActions(
+          actor,
+          {
+            stageId: opportunity.stage?.id,
+            status: opportunity.status,
+            ownership: { ownerId: agentId, ownerBranchId: branchId },
+          },
+          await loadOpportunityCatalog(this.deps.uow),
+        ),
+      };
+    }
 
     return ok({
       id: s.id,

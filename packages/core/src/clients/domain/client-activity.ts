@@ -120,6 +120,26 @@ export function mergeActivity(input: {
   };
 }
 
+/** Una oportunidad cambió de estado (también al cerrarse): queda en el timeline del cliente. */
+export function statusChangeActivity(input: {
+  readonly id: string;
+  readonly clientId: ClientId;
+  readonly opportunityId: string;
+  readonly from: OpportunityStatus | undefined;
+  readonly to: OpportunityStatus;
+  readonly actorId: string;
+  readonly now: Date;
+}): ClientActivity {
+  return {
+    id: input.id,
+    clientId: input.clientId,
+    opportunityId: input.opportunityId,
+    actorId: input.actorId,
+    body: { kind: 'status_change', from: input.from, to: input.to },
+    occurredAt: input.now,
+  };
+}
+
 /** Los canales en los que atiende el agente de IA: lo que entra por ahí lo registró él. */
 const AGENT_CHANNELS: readonly string[] = ['whatsapp', 'web_chat'];
 

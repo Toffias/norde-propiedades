@@ -347,6 +347,15 @@ export const opportunities = coreSchema.table(
     index('opportunities_origin_channel_created_idx').on(t.originChannel, t.createdAt),
     // Oportunidades de la ficha del cliente, las más nuevas primero.
     index('opportunities_client_created_idx').on(t.clientId, t.createdAt.desc(), t.id.desc()),
+    // Pipeline (#9): cada sección es un estado, ordenada por actualización o creación.
+    index('opportunities_stage_updated_idx').on(t.stageId, t.updatedAt, t.id),
+    index('opportunities_stage_created_idx').on(t.stageId, t.createdAt, t.id),
+    // Contadores por estado con la visibilidad del actor y los filtros de agente, sucursal y canal.
+    index('opportunities_agent_stage_idx').on(t.agentId, t.stageId),
+    index('opportunities_branch_stage_idx').on(t.branchId, t.stageId),
+    index('opportunities_origin_channel_stage_idx').on(t.originChannel, t.stageId),
+    // Filtro por categoría.
+    index('opportunities_status_updated_idx').on(t.status, t.updatedAt),
   ],
 );
 

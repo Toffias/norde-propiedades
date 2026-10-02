@@ -7,9 +7,7 @@ import {
   nextId,
   ok,
   Phone,
-  toAuditValue,
   type Actor,
-  type AuditState,
   type Clock,
   type ForbiddenError,
   type IdGenerator,
@@ -28,24 +26,8 @@ import { findOpenOpportunityAbout, Opportunity } from '../../domain/opportunity'
 import { initialStage } from '../../domain/opportunity-settings';
 import { firstActiveStageOf } from '../../domain/opportunity-stage';
 import { clientAuditState, clientTarget } from '../client-support';
+import { opportunityAuditState } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
-
-/** Lo que se audita de una oportunidad. Las notas quedan en la actividad del cliente. */
-function opportunityAuditState(opportunity: Opportunity): AuditState {
-  const { clientId, originChannel, type, intent, status, stageId, agentId, propertyId, search } =
-    opportunity.toSnapshot();
-  return {
-    clientId,
-    originChannel,
-    type,
-    intent,
-    status,
-    stageId,
-    agentId,
-    propertyId,
-    search: toAuditValue(search),
-  };
-}
 
 export type RegisterContactError =
   | ForbiddenError

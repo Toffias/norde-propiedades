@@ -241,7 +241,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 
 La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una paginada en el servidor y con su contador: Detalles, Actividad, Oportunidades, Destacadas, Búsquedas, Propiedades, Ofrecer e Historial.
 
-**Tarjeta**: además de los datos de contacto, la oportunidad abierta más reciente con su estado (solo lectura; cambiarlo y cerrarla va con #9) y cuántas abiertas tiene. La estrella marca el contacto como favorito de quien lo mira (`user_favorites`, como las propiedades). "Agregar nota" lleva a la Actividad con el foco en la nota.
+**Tarjeta**: además de los datos de contacto, la oportunidad abierta más reciente con su estado y cuántas abiertas tiene; desde ahí se le cambia el estado, se cierra o se reasigna (§3.3.6). La estrella marca el contacto como favorito de quien lo mira (`user_favorites`, como las propiedades). "Agregar nota" lleva a la Actividad con el foco en la nota.
 
 **Actividad** (`client_activities`), lo más reciente primero y con filtro por tipo:
 
@@ -249,7 +249,8 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 - **Consultas**: cada oportunidad nueva, o una consulta repetida sobre una abierta, con lo que pidió. Las registra una reacción a `clients.opportunity_created` y `clients.opportunity_request_added`.
 - **Conversaciones del agente de IA**: una entrada cuando la conversación queda vinculada al cliente (`conversations.conversation_linked_to_client`).
 - **Unificaciones**: queda en el principal, con quién la hizo. La actividad del duplicado pasa al principal.
-- Cambios de estado, envíos, propiedades vistas y reacciones ya se muestran; los van a registrar #9 y #11.
+- **Cambios de estado**: cada cambio de estado o cierre de una oportunidad, con quién lo hizo (§3.3.6).
+- Envíos, propiedades vistas y reacciones ya se muestran; los va a registrar #11.
 - Las entradas que salen de un evento usan el ID del evento (una reentrega no las duplica) y no se auditan aparte: son la proyección de algo que ya quedó registrado.
 
 **Oportunidades**: todas las del contacto (abiertas y cerradas), con su estado, origen y agente.
@@ -309,6 +310,27 @@ Configuración en **Mi empresa → Oportunidades** (`/mi-empresa/oportunidades`)
 **Historial y agente**: cada cambio de estado queda en `opportunity_status_changes` (estado y categoría de origen y destino, quién y cuándo). De ahí sale la **vigencia**, el tiempo en el estado actual. La oportunidad tiene agente y sucursal propios: al crearse hereda los del contacto. La migración pasó cada oportunidad al primer estado de su categoría, le copió el agente y la sucursal del contacto y le dejó su estado actual como primera entrada del historial.
 
 Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucursal o las de todas (`opportunities:read-branch` / `read-all`), editar las de otros (`opportunities:update-others`) y cambiar el agente (`opportunities:reassign`).
+
+### 3.3.6 Pipeline de oportunidades en lista (#9, etapa 2)
+
+**Oportunidades** (`/oportunidades`) muestra las oportunidades que el actor puede ver: las suyas, las de su sucursal (`opportunities:read-branch`) o todas (`opportunities:read-all`). La visibilidad usa el **agente y la sucursal de la oportunidad**, no los del contacto. Las de contactos en la papelera no aparecen.
+
+- **Contadores**: arriba, un contador por estado con los filtros aplicados. Se muestran los estados activos y los desactivados que todavía tienen oportunidades. Tocar uno abre su sección.
+- **Secciones**: un acordeón con una sección por estado, en el orden de Mi empresa. Hay una sola abierta a la vez (`?stageId=`), con sus oportunidades paginadas en el servidor. Sin estado en la URL se abre el primero que tiene oportunidades.
+- **Orden**: actualizadas recientemente, más tiempo en el estado (vigencia), creadas recientemente, más antiguas o por contacto (A–Z).
+- **Filtros**: texto del contacto (nombre, teléfono, email o documento), categoría, canal de origen, agente de la oportunidad, sucursal, etiqueta del contacto y rangos de creación y de última actualización.
+- **Cada fila**: el contacto (con link a su ficha), qué busca, la propiedad por la que consultó, teléfono (enmascarado si es propietario y no se tiene "Ver datos de propietarios"), canal, agente, última actualización, la última nota del contacto y los días en el estado. Atajo a WhatsApp.
+
+**Acciones** (en cada fila y en la tarjeta de la ficha del contacto). El menú ofrece solo lo que el dominio permite desde el estado actual:
+
+- **Pasar a otro estado**: los activos de la misma categoría y los de las categorías a las que se puede pasar. Pide `opportunities:update` sobre la suya, o `opportunities:update-others`.
+- **Cerrar**: con un motivo. Solo se ofrecen los motivos que llevan a una categoría alcanzable. Por ejemplo, desde "nueva" no se puede ganar: solo perder. La oportunidad va al primer estado activo de ganada o perdida.
+- **Reasignar** (`opportunities:reassign`): cambia el agente de la oportunidad y la pasa a su sucursal, sin tocar el agente del contacto. Se puede dejar sin agente. Una oportunidad cerrada no se reasigna.
+- Cada cambio de estado o cierre queda en el historial de estados, en la **actividad del contacto** ("Cambió el estado a…", con quién lo hizo) y en la auditoría con el diff (`opportunity.status_changed`, `opportunity.closed`, `opportunity.reassigned`). Reasignar emite `clients.opportunity_reassigned`, del que sale la regla "al asignar" en la etapa 4.
+
+**Menú**: Oportunidades muestra cuántas oportunidades **nuevas** (categoría nueva) tiene asignadas quien entra.
+
+**Ficha del contacto**: la tarjeta y la pestaña Oportunidades muestran el nombre y el color del estado (la categoría queda en el tooltip). La agenda de contactos suma el filtro **Estado de oportunidad** en Más filtros: los contactos con alguna oportunidad en ese estado.
 
 ### 3.4 Cruce de búsquedas con stock
 

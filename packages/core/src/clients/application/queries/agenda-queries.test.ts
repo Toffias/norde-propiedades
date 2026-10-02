@@ -156,16 +156,22 @@ describe('GetClientDetail', () => {
       id: 'o1',
       type: 'sale',
       status: 'contacted' as const,
+      stage: { id: 's1', name: 'Contactado', color: '#06b6d4' },
       createdAt: new Date('2026-03-01T10:00:00Z'),
       openCount: 2,
     };
     records.counts = counts;
-    records.active = active;
+    records.active = { ...active, agentId: AGENT_ID, branchId: BRANCH_ID };
 
     const detail = unwrap(await useCase.execute({ clientId: client.id }, TEST_AGENT));
 
     expect(detail.counts).toEqual(counts);
-    expect(detail.activeOpportunity).toEqual(active);
+    // Sin permisos de oportunidades, la tarjeta no ofrece cambiar el estado ni reasignar.
+    expect(detail.activeOpportunity).toEqual({
+      ...active,
+      agent: { id: AGENT_ID, name: 'Camila' },
+      can: { update: false, reassign: false, moveTo: [], closeWith: [] },
+    });
     expect(records.openStatuses).toEqual([
       ['new', 'contacted', 'visiting', 'negotiating', 'referred_to_partner'],
     ]);

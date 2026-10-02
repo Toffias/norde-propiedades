@@ -99,11 +99,16 @@ export default async function ContactDetailPage({
   const seesProperties = actor.can('properties:read');
 
   // El contador de "Propiedades" sale del módulo properties: una página de una fila.
-  const [owned, favorites] = await Promise.all([
+  // Los estados y motivos, para cambiar el estado o cerrar la oportunidad desde la tarjeta.
+  const opportunityActions = detail.activeOpportunity?.can;
+  const actsOnOpportunity =
+    opportunityActions !== undefined && (opportunityActions.update || opportunityActions.reassign);
+  const [owned, favorites, opportunityConfig] = await Promise.all([
     seesProperties
       ? properties.listOwnedProperties.execute({ clientId: detail.id, pageSize: 1 }, actor)
       : undefined,
     identity.getFavoriteIds.execute({ entityType: 'client', ids: [detail.id] }, actor),
+    actsOnOpportunity ? clients.getOpportunityConfiguration.execute(actor) : undefined,
   ]);
   const { counts } = detail;
   const tabs: readonly ClientDetailTabItem[] = [
@@ -139,6 +144,9 @@ export default async function ContactDetailPage({
         detail={detail}
         canPickAgents={actor.can('users:read')}
         favorite={favorites.isOk() && favorites.value.has(detail.id)}
+        opportunityCatalog={
+          opportunityConfig?.isOk() === true ? opportunityConfig.value : undefined
+        }
       />
       <ClientDetailTabs clientId={detail.id} active={tab} tabs={tabs} />
 

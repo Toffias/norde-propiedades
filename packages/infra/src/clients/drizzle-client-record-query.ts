@@ -1,16 +1,28 @@
 import {
   OPPORTUNITY_STATUSES,
-  type ClientActiveOpportunity,
+  type ClientActiveOpportunityItem,
   type ClientActivityItem,
   type ClientFeaturedItem,
   type ClientOpportunityItem,
   type ClientRecordQuery,
   type ClientSavedSearchRow,
   type ClientTabCounts,
+  type OpportunityStageRef,
   type OpportunityStatusValue,
 } from '@norde/core/clients';
 import type { PageSlice } from '@norde/core/shared';
-import { and, asc, count, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNull,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -20,6 +32,7 @@ import {
   clients,
   featuredListings,
   opportunities,
+  opportunityStages,
   savedSearches,
 } from '../db/schema';
 
@@ -28,6 +41,23 @@ import { storedActivityBody } from './drizzle-client-activity-repositories';
 const Status = z.enum(OPPORTUNITY_STATUSES);
 const Reaction = z.enum(['liked', 'disliked']).nullable();
 const CountRow = z.object({ total: z.coerce.number() });
+
+const stageColumns = {
+  stageRefId: opportunityStages.id,
+  stageName: opportunityStages.name,
+  stageColor: opportunityStages.color,
+};
+
+/** El estado editable de la fila (`left join`: las anteriores al backfill no tienen). */
+function stageRef(row: {
+  readonly stageRefId: string | null;
+  readonly stageName: string | null;
+  readonly stageColor: string | null;
+}): OpportunityStageRef | undefined {
+  return row.stageRefId === null || row.stageName === null || row.stageColor === null
+    ? undefined
+    : { id: row.stageRefId, name: row.stageName, color: row.stageColor };
+}
 
 type Criteria<K extends keyof ClientRecordQuery> = Parameters<ClientRecordQuery[K]>[0];
 
@@ -81,8 +111,9 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
     const where = eq(opportunities.clientId, criteria.clientId);
     const [rows, count_] = await Promise.all([
       this.db
-        .select()
+        .select({ ...getTableColumns(opportunities), ...stageColumns })
         .from(opportunities)
+        .leftJoin(opportunityStages, eq(opportunityStages.id, opportunities.stageId))
         .where(where)
         .orderBy(order(opportunities.createdAt), order(opportunities.id))
         .limit(criteria.limit)
@@ -95,6 +126,7 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
         type: row.type,
         intent: row.intent,
         status: Status.parse(row.status),
+        stage: stageRef(row),
         originChannel: row.originChannel,
         propertyId: row.propertyId ?? undefined,
         agentId: row.agentId ?? undefined,
@@ -109,7 +141,7 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
   async activeOpportunity(
     clientId: string,
     openStatuses: readonly OpportunityStatusValue[],
-  ): Promise<ClientActiveOpportunity | undefined> {
+  ): Promise<ClientActiveOpportunityItem | undefined> {
     if (openStatuses.length === 0) return undefined;
     const where = and(
       eq(opportunities.clientId, clientId),
@@ -121,9 +153,13 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
           id: opportunities.id,
           type: opportunities.type,
           status: opportunities.status,
+          agentId: opportunities.agentId,
+          branchId: opportunities.branchId,
           createdAt: opportunities.createdAt,
+          ...stageColumns,
         })
         .from(opportunities)
+        .leftJoin(opportunityStages, eq(opportunityStages.id, opportunities.stageId))
         .where(where)
         .orderBy(desc(opportunities.createdAt), desc(opportunities.id))
         .limit(1),
@@ -135,6 +171,9 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
         id: row.id,
         type: row.type,
         status: Status.parse(row.status),
+        stage: stageRef(row),
+        agentId: row.agentId ?? undefined,
+        branchId: row.branchId ?? undefined,
         createdAt: row.createdAt,
         openCount,
       }

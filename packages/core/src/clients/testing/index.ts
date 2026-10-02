@@ -3,7 +3,6 @@
 import { Actor, Email, err, ok, parseId, Phone, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
-  ClientActiveOpportunity,
   ClientLetterCount,
   ClientListingSummary,
   ClientListRow,
@@ -12,6 +11,7 @@ import type {
   ClientSavedSearchRow,
   ClientTabCounts,
   ClientTagRow,
+  OpportunityStageCount,
 } from '../contracts';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
@@ -51,6 +51,13 @@ import type {
   ClientsTransaction,
   ClientsUnitOfWork,
 } from '../application/ports/clients-transaction';
+import type { ClientActiveOpportunityItem } from '../application/ports/client-record-query';
+import type {
+  OpportunityFilterCriteria,
+  OpportunityListCriteria,
+  OpportunityPipelineItem,
+  OpportunityPipelineQuery,
+} from '../application/ports/opportunity-pipeline-query';
 import type { OpportunityNotification, TeamNotifier } from '../application/ports/team-notifier';
 import { Client, type ClientId } from '../domain/client';
 import type { ClientActivity } from '../domain/client-activity';
@@ -848,7 +855,7 @@ export class StubClientRecordQuery implements ClientRecordQuery {
   featuredItems: readonly ClientFeaturedItem[] = [];
   savedSearchRows: readonly ClientSavedSearchRow[] = [];
   counts: ClientTabCounts = NO_TAB_COUNTS;
-  active: ClientActiveOpportunity | undefined = undefined;
+  active: ClientActiveOpportunityItem | undefined = undefined;
   featuredIds: readonly string[] = [];
 
   activity(criteria: Parameters<ClientRecordQuery['activity']>[0]) {
@@ -1003,4 +1010,105 @@ export class InMemoryClientImportQuery implements ClientImportQuery {
 function toImportItem(row: ClientImportSnapshot): ClientImportItem {
   const { storageKey: _key, mapping: _mapping, updatedAt: _updatedAt, ...item } = row;
   return item;
+}
+
+// ---------- Pipeline de oportunidades (#9, etapa 2) ----------
+
+let opportunitySequence = 0;
+
+/** Una oportunidad del contacto en uno de los estados de fábrica (`stageIndex`, 0 = Nuevo). */
+export async function seedOpportunity(
+  uow: InMemoryClientsUnitOfWork,
+  client: Client,
+  overrides: {
+    readonly stageIndex?: number;
+    readonly agentId?: string | undefined;
+    readonly branchId?: string | undefined;
+  } = {},
+): Promise<Opportunity> {
+  opportunitySequence += 1;
+  const id = parseId<'Opportunity'>(
+    `00000000-0000-7000-8000-7${opportunitySequence.toString().padStart(11, '0')}`,
+  );
+  const changeId = parseId<'OpportunityStatusChange'>(
+    `00000000-0000-7000-8000-8${opportunitySequence.toString().padStart(11, '0')}`,
+  );
+  if (id.isErr() || changeId.isErr()) throw new Error('Invalid test fixture');
+  const stage = await uow.stages.findById(stageFixtureId(overrides.stageIndex ?? 0));
+  if (!stage) throw new Error('Unknown test stage');
+  const { ownerId, ownerBranchId } = client.ownership;
+  const opportunity = Opportunity.open({
+    id: id.value,
+    clientId: client.id,
+    originChannel: 'whatsapp',
+    type: 'sale',
+    intent: 'visit',
+    stage: stage.ref(),
+    agent: {
+      agentId: 'agentId' in overrides ? overrides.agentId : ownerId,
+      branchId: 'branchId' in overrides ? overrides.branchId : ownerBranchId,
+    },
+    statusChangeId: changeId.value,
+    propertyId: PROPERTY_ID,
+    now: new Date('2026-02-01T10:00:00Z'),
+  });
+  opportunity.pullEvents();
+  await uow.opportunities.save(opportunity, AGENT_ID);
+  uow.opportunities.statusChanges.length = 0;
+  return opportunity;
+}
+
+export function aPipelineItem(
+  overrides: Partial<OpportunityPipelineItem> = {},
+): OpportunityPipelineItem {
+  return {
+    id: '00000000-0000-7000-8000-0000000000f1',
+    clientId: '00000000-0000-7000-8000-0000000000f2',
+    clientKind: 'person',
+    clientName: 'Ana Pérez',
+    clientTypes: [],
+    clientPhone: '+5491166899124',
+    type: 'sale',
+    intent: 'visit',
+    originChannel: 'whatsapp',
+    status: 'new',
+    stageId: stageFixtureId(0),
+    propertyId: PROPERTY_ID,
+    agentId: AGENT_ID,
+    branchId: BRANCH_ID,
+    statusChangedAt: new Date('2026-02-25T10:00:00Z'),
+    lastNote: undefined,
+    createdAt: new Date('2026-02-01T10:00:00Z'),
+    updatedAt: new Date('2026-02-25T10:00:00Z'),
+    ...overrides,
+  };
+}
+
+/** Devuelve las filas cargadas y registra los criterios: el filtrado real es SQL en infra. */
+export class StubOpportunityPipelineQuery implements OpportunityPipelineQuery {
+  readonly searches: OpportunityListCriteria[] = [];
+  readonly counts: OpportunityFilterCriteria[] = [];
+  readonly assigned: { readonly agentId: string; readonly categories: readonly string[] }[] = [];
+  stageCounts: OpportunityStageCount[] = [];
+  pending = 0;
+
+  constructor(public items: readonly OpportunityPipelineItem[] = []) {}
+
+  search(criteria: OpportunityListCriteria) {
+    this.searches.push(criteria);
+    return Promise.resolve({
+      items: this.items.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: this.items.length,
+    });
+  }
+
+  countByStage(criteria: OpportunityFilterCriteria) {
+    this.counts.push(criteria);
+    return Promise.resolve(this.stageCounts);
+  }
+
+  countAssigned(agentId: string, categories: readonly OpportunityStatus[]) {
+    this.assigned.push({ agentId, categories });
+    return Promise.resolve(this.pending);
+  }
 }

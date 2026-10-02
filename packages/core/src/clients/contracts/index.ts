@@ -3,17 +3,7 @@
 
 import { z } from 'zod';
 
-export const CONTACT_CHANNEL_VALUES = [
-  'whatsapp',
-  'web_chat',
-  'web_form',
-  'mercadolibre',
-  'zonaprop',
-  'argenprop',
-  'referral',
-  'phone_call',
-  'office',
-] as const;
+import { CONTACT_CHANNEL_VALUES } from './contact-channels';
 
 export const OPPORTUNITY_TYPE_VALUES = ['sale', 'rent', 'appraisal'] as const;
 export const OPPORTUNITY_INTENT_VALUES = ['info', 'contact', 'visit'] as const;
@@ -66,3 +56,5 @@ export * from './clients-activity';
 export * from './clients-erasure';
 export * from './clients-import';
 export * from './opportunity-settings';
+export * from './opportunity-pipeline';
+export * from './contact-channels';

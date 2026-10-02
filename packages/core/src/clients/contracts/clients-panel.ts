@@ -54,6 +54,18 @@ export const EMAIL_KIND_LABELS: Readonly<Record<EmailKindValue, string>> = {
   other: 'Otro',
 };
 
+export const CONTACT_CHANNEL_LABELS: Readonly<Record<string, string>> = {
+  whatsapp: 'WhatsApp',
+  web_chat: 'Chat de la web',
+  web_form: 'Formulario de la web',
+  mercadolibre: 'MercadoLibre',
+  zonaprop: 'Zonaprop',
+  argenprop: 'Argenprop',
+  referral: 'Referido',
+  phone_call: 'Llamada',
+  office: 'Oficina',
+};
+
 export const DOCUMENT_TYPE_LABELS: Readonly<Record<DocumentTypeValue, string>> = {
   dni: 'DNI',
   cuit: 'CUIT',
@@ -219,11 +231,15 @@ export interface CreateClientOutput {
  * Cada sección de la ficha se guarda por separado: una sección que no viene no cambia. Los datos
  * (`profile`) se guardan enteros: un campo ausente se borra.
  */
+/** Los teléfonos y emails de la ficha, que se guardan juntos: el primero de cada lista es el principal. */
+export const ClientContactInputSchema = z.object({ phones: PhonesSchema, emails: EmailsSchema });
+export type ClientContactInput = z.input<typeof ClientContactInputSchema>;
+
 export const UpdateClientDetailsInputSchema = z.object({
   clientId: z.uuid(),
   name: z.string().trim().min(1, 'Ingresá el nombre.').max(120).optional(),
   kind: z.enum(CLIENT_KIND_VALUES).optional(),
-  contact: z.object({ phones: PhonesSchema, emails: EmailsSchema }).optional(),
+  contact: ClientContactInputSchema.optional(),
   clientTypes: ClientTypesSchema.optional(),
   profile: ClientProfileInputSchema.optional(),
 });

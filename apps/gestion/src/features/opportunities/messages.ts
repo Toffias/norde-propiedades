@@ -4,6 +4,9 @@ import type {
   CountOpportunitiesByStageError,
   ListOpportunitiesError,
   ListOpportunityHistoryError,
+  BulkUpdateOpportunitiesError,
+  GetOpportunityBulkOperationError,
+  UpdateOpportunityReferralError,
   ReassignOpportunityError,
   CreateCloseReasonError,
   CreateOpportunityStageError,
@@ -151,3 +154,29 @@ export const REASSIGN_OPPORTUNITY_ERROR_MESSAGES = {
   OpportunityClosed: 'Una oportunidad cerrada no se reasigna.',
   AgentNotFound: 'El agente elegido no existe o no está activo.',
 } satisfies ErrorMessages<ReassignOpportunityError>;
+
+export const BULK_UPDATE_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para hacer este cambio masivo.',
+  InvalidInput: 'Revisá la acción elegida y probá de nuevo.',
+  StageNotFound: STAGE_NOT_FOUND,
+  StageInactive: 'Ese estado está desactivado. Elegí otro.',
+  CloseRequiresReason: 'Para pasarlas a ganada o perdida, cerralas con un motivo.',
+  CloseReasonNotFound: REASON_NOT_FOUND,
+  CloseReasonInactive: 'Ese motivo está desactivado. Elegí otro.',
+  AgentNotFound: 'El agente elegido no existe o no está activo.',
+  TooManyOpportunities: (error) =>
+    `Son ${error.total.toLocaleString('es-AR')} oportunidades: se cambian hasta ${error.max.toLocaleString('es-AR')} a la vez. Filtrá un poco más.`,
+} satisfies ErrorMessages<BulkUpdateOpportunitiesError>;
+
+export const GET_BULK_OPERATION_ERROR_MESSAGES = {
+  Forbidden: NOT_VISIBLE,
+  InvalidInput: 'No encontramos el cambio masivo.',
+  BulkOperationNotFound: 'No encontramos el cambio masivo.',
+} satisfies ErrorMessages<GetOpportunityBulkOperationError>;
+
+export const UPDATE_REFERRAL_ERROR_MESSAGES = {
+  Forbidden: CANT_UPDATE,
+  InvalidInput: 'Revisá los datos de la derivación.',
+  OpportunityNotFound: OPPORTUNITY_NOT_FOUND,
+  OpportunityNotReferred: 'Solo se cargan mientras está en "Aplica a otra inmobiliaria".',
+} satisfies ErrorMessages<UpdateOpportunityReferralError>;

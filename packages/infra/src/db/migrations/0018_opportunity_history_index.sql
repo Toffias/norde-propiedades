@@ -1,0 +1,1 @@
+CREATE INDEX "client_activities_opportunity_kind_occurred_idx" ON "core"."client_activities" USING btree ("opportunity_id","kind","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);

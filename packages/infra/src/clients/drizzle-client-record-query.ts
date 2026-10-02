@@ -77,9 +77,22 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
   constructor(private readonly db: DbExecutor) {}
 
   async activity(criteria: Criteria<'activity'>): Promise<PageSlice<ClientActivityItem>> {
+    return this.activityPage(eq(clientActivities.clientId, criteria.clientId), criteria);
+  }
+
+  async opportunityActivity(
+    criteria: Criteria<'opportunityActivity'>,
+  ): Promise<PageSlice<ClientActivityItem>> {
+    return this.activityPage(eq(clientActivities.opportunityId, criteria.opportunityId), criteria);
+  }
+
+  private async activityPage(
+    scope: SQL,
+    criteria: Criteria<'activity'> | Criteria<'opportunityActivity'>,
+  ): Promise<PageSlice<ClientActivityItem>> {
     const order = direction(criteria.direction);
     const where = and(
-      eq(clientActivities.clientId, criteria.clientId),
+      scope,
       criteria.kind === undefined ? undefined : eq(clientActivities.kind, criteria.kind),
     );
     const [rows, count_] = await Promise.all([

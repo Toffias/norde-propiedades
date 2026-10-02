@@ -433,6 +433,13 @@ export const clientActivities = coreSchema.table(
       t.occurredAt.desc(),
       t.id.desc(),
     ),
+    // Historial de una oportunidad filtrado por tipo (el modal del tablero).
+    index('client_activities_opportunity_kind_occurred_idx').on(
+      t.opportunityId,
+      t.kind,
+      t.occurredAt.desc(),
+      t.id.desc(),
+    ),
   ],
 );
 

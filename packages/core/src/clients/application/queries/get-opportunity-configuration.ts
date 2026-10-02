@@ -16,11 +16,10 @@ export class GetOpportunityConfiguration {
     }
 
     return this.deps.uow.run(async (tx) => {
-      const [stages, reasons, rules] = await Promise.all([
-        tx.stages.findAll(),
-        tx.closeReasons.findAll(),
-        tx.opportunitySettings.get(),
-      ]);
+      // Una transacción es una sola conexión: las consultas van de a una.
+      const stages = await tx.stages.findAll();
+      const reasons = await tx.closeReasons.findAll();
+      const rules = await tx.opportunitySettings.get();
       return ok({
         stages: stages.map((stage) => {
           const { id, name, color, position, category, isActive } = stage.toSnapshot();

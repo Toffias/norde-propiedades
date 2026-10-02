@@ -57,6 +57,14 @@ import {
   ListClients,
   ListClientTagGroups,
   MergeClients,
+  AddClientNote,
+  FeatureProperties,
+  GetFeaturedPropertyIds,
+  ListClientActivity,
+  ListClientFeatured,
+  ListClientOpportunities,
+  ListClientSavedSearches,
+  UnfeatureProperty,
   MergeClientTags,
   PreviewClientMerge,
   ListPropertyInterestedClients,
@@ -69,6 +77,7 @@ import {
   UpdateClientDetails,
   UpdateClientTag,
   type ClientAgents,
+  type ClientListings,
   type PropertyProfiles,
 } from '@norde/core/clients';
 import {
@@ -79,6 +88,8 @@ import {
   ChangePropertyStatus,
   ChangePropertyTags,
   CompareProperties,
+  GetPropertySummaries,
+  ListOwnedProperties,
   CreateCustomAttribute,
   DeletePropertyAttachment,
   DeletePropertyMedia,
@@ -189,6 +200,7 @@ import {
   DrizzleAuditLog,
   DrizzleClientListQuery,
   DrizzleClientRelationQuery,
+  DrizzleClientRecordQuery,
   DrizzleClientTagQuery,
   DrizzleCompanyFileRepository,
   DrizzleCompanyFilesQuery,
@@ -415,6 +427,8 @@ function createPropertiesUseCases(
     listPanelProperties: new ListPanelProperties({ properties: list, users }),
     getPropertyMap: new GetPropertyMap({ properties: list }),
     compareProperties: new CompareProperties({ properties: list, users }),
+    listOwnedProperties: new ListOwnedProperties({ properties: list, users }),
+    getPropertySummaries: new GetPropertySummaries({ properties: list, users }),
     createProperty: new CreateProperty({
       uow,
       codes: referenceCodesFrom(settings),
@@ -514,6 +528,7 @@ function createPropertiesUseCases(
 /** Agenda de contactos: grilla, ficha, alta, edición, papelera y exportación (#8). */
 function createClientsUseCases(
   db: Database,
+  properties: PropertiesUseCases,
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
 ) {
   const { ids, clock } = deps;
@@ -530,10 +545,32 @@ function createClientsUseCases(
   };
   const list = new DrizzleClientListQuery(db);
   const tags = new DrizzleClientTagQuery(db);
+  const records = new DrizzleClientRecordQuery(db);
+  // Las propiedades que se muestran en la ficha del contacto, por la API pública de properties.
+  const listings: ClientListings = {
+    async summaries(propertyIds, actor) {
+      const rows = await properties.getPropertySummaries.execute({ ids: [...propertyIds] }, actor);
+      if (rows.isErr()) return new Map();
+      return new Map(
+        rows.value.map((row) => [
+          row.id,
+          {
+            id: row.id,
+            code: row.code,
+            title: row.portalTitle,
+            address: row.publishAddress,
+            status: row.status,
+            operations: row.operations,
+            coverImageUrl: row.coverImageUrl,
+          },
+        ]),
+      );
+    },
+  };
   return {
     listClients: new ListClients({ list, agents }),
     listClientLetters: new ListClientLetters({ list }),
-    getClientDetail: new GetClientDetail({ uow, agents, tags }),
+    getClientDetail: new GetClientDetail({ uow, agents, tags, records }),
     listClientHistory: new ListClientHistory({
       uow,
       history: new DrizzleAuditHistoryQuery(db),
@@ -562,7 +599,16 @@ function createClientsUseCases(
     linkClients: new LinkClients({ uow, clock }),
     unlinkClients: new UnlinkClients({ uow, clock }),
     previewClientMerge: new PreviewClientMerge({ uow, agents }),
-    mergeClients: new MergeClients({ uow, clock }),
+    mergeClients: new MergeClients({ uow, ids, clock }),
+    // Ficha completa (etapa 3)
+    listClientActivity: new ListClientActivity({ uow, records, agents }),
+    addClientNote: new AddClientNote({ uow, ids, clock }),
+    listClientOpportunities: new ListClientOpportunities({ uow, records, agents }),
+    listClientFeatured: new ListClientFeatured({ uow, records, listings, agents }),
+    listClientSavedSearches: new ListClientSavedSearches({ uow, records }),
+    getFeaturedPropertyIds: new GetFeaturedPropertyIds({ uow, records }),
+    featureProperties: new FeatureProperties({ uow, listings, ids, clock }),
+    unfeatureProperty: new UnfeatureProperty({ uow, clock }),
     exportClients: new ExportClients({
       uow,
       list,
@@ -644,7 +690,7 @@ function createContainer(): Container {
     properties,
     ...withClients(
       createDetailReadModels(database.db, properties, { clock }),
-      createClientsUseCases(database.db, { ids, clock }),
+      createClientsUseCases(database.db, properties, { ids, clock }),
     ),
     identity: {
       listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),

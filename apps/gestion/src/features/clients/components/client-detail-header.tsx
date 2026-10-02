@@ -3,6 +3,7 @@
 import {
   CLIENT_KIND_LABELS,
   CLIENT_TYPE_LABELS,
+  OPPORTUNITY_TYPE_LABELS,
   type ClientDetail,
 } from '@norde/core/clients/contracts';
 import { Button } from '@norde/ui/components/button';
@@ -25,9 +26,12 @@ import {
   MailIcon,
   MessageCircleIcon,
   PhoneIcon,
+  StickyNoteIcon,
   Trash2Icon,
   UserCogIcon,
 } from 'lucide-react';
+import type { Route } from 'next';
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
@@ -42,7 +46,10 @@ import {
 import { FormAlert } from '../../shared/components/form-alert';
 import { deleteClientAction, reassignClientAction, restoreClientAction } from '../actions';
 import { clientName, formatPhone, userName, whatsappHref } from '../client-format';
+import { ClientFavoriteToggle } from './client-favorite-toggle';
 import { ClientMergeDialog } from './client-merge-dialog';
+import { NOTE_FIELD_ID } from './client-note-composer';
+import { OpportunityStatusPill } from './client-record-grids';
 
 interface PendingAction {
   readonly copy: ConfirmActionCopy;
@@ -131,10 +138,13 @@ function ReassignDialog({
 export function ClientDetailHeader({
   detail,
   canPickAgents,
+  favorite,
 }: {
   readonly detail: ClientDetail;
   /** Elegir agente pide ver los usuarios (`users:read`). */
   readonly canPickAgents: boolean;
+  /** Es favorito de quien mira la ficha. */
+  readonly favorite: boolean;
 }) {
   const [pending, setPending] = useState<PendingAction | undefined>();
   const [reassigning, setReassigning] = useState(false);
@@ -160,6 +170,7 @@ export function ClientDetailHeader({
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-2xl font-bold">{name}</h1>
+            <ClientFavoriteToggle clientId={detail.id} favorite={favorite} />
             {detail.kind !== 'person' && <SoftBadge>{CLIENT_KIND_LABELS[detail.kind]}</SoftBadge>}
             {inTrash && <StatusPill tone="gray">En la papelera</StatusPill>}
           </div>
@@ -192,6 +203,30 @@ export function ClientDetailHeader({
                 <dd className="truncate">{email.address}</dd>
               </>
             )}
+            <dt className="text-muted-foreground">Oportunidad</dt>
+            <dd>
+              {detail.activeOpportunity === undefined ? (
+                <span className="text-muted-foreground">Sin oportunidades abiertas</span>
+              ) : (
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <span className="font-medium">
+                    {OPPORTUNITY_TYPE_LABELS[detail.activeOpportunity.type] ??
+                      detail.activeOpportunity.type}
+                  </span>
+                  <OpportunityStatusPill status={detail.activeOpportunity.status} />
+                  {detail.activeOpportunity.openCount > 1 && (
+                    <Link
+                      // Misma ficha con otra pestaña: typedRoutes no verifica un string armado.
+                      href={`/contactos/${detail.id}?tab=oportunidades` as Route}
+                      scroll={false}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {detail.activeOpportunity.openCount.toLocaleString('es-AR')} abiertas
+                    </Link>
+                  )}
+                </span>
+              )}
+            </dd>
           </dl>
           {detail.contactMasked && (
             <p className="text-xs text-muted-foreground">
@@ -202,6 +237,18 @@ export function ClientDetailHeader({
         </div>
 
         <div className="flex flex-wrap gap-2 lg:justify-end">
+          {detail.can.edit && (
+            <Button asChild variant="outline" size="sm">
+              <Link
+                // La pestaña Actividad, con el foco en la nota: typedRoutes no verifica un string armado.
+                href={`/contactos/${detail.id}?tab=actividad#${NOTE_FIELD_ID}` as Route}
+                scroll={false}
+              >
+                <StickyNoteIcon className="h-4 w-4" />
+                Agregar nota
+              </Link>
+            </Button>
+          )}
           {!detail.contactMasked && mobile !== undefined && (
             <Button asChild variant="outline" size="sm">
               <a href={whatsappHref(mobile.number)} target="_blank" rel="noreferrer">

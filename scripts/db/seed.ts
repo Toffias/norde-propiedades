@@ -1,6 +1,7 @@
-// Carga propiedades de prueba (datos del MVP APZ-WP-BOT) y un usuario del panel por rol en la base
-// de DESARROLLO LOCAL. Idempotente: actualiza las propiedades por código interno y no toca los
-// usuarios que ya existen. Se niega a correr con NODE_ENV=production.
+// Carga propiedades de prueba (datos del MVP APZ-WP-BOT), un usuario del panel por rol y consultas
+// de portales y de la web en la base de DESARROLLO LOCAL. Idempotente: actualiza las propiedades
+// por código interno, y no toca los usuarios ni las consultas que ya existen. Se niega a correr con
+// NODE_ENV=production.
 // Usuarios y contraseña de prueba: `seed/users.json`.
 //
 // Es herramienta de desarrollo: escribe directo en la tabla. Cuando exista el alta de
@@ -55,6 +56,70 @@ const SeedPropertySchema = z.object({
   amenities: z.array(z.string()),
   imageUrls: z.array(z.url()),
 });
+
+const SeedInquirySchema = z.object({
+  channel: z.enum(['web_form', 'mercadolibre', 'zonaprop', 'argenprop']),
+  externalId: z.string().min(1),
+  hoursAgo: z.number().int().nonnegative(),
+  name: z.string().min(1),
+  email: z.email().nullable(),
+  /** E.164. */
+  phone: z
+    .string()
+    .regex(/^\+\d{8,15}$/)
+    .nullable(),
+  message: z.string().min(1),
+  propertyCode: z.string().nullable(),
+  deleted: z.boolean(),
+});
+
+/**
+ * Las consultas de prueba, pendientes (o borradas), con las etiquetas automáticas de la propiedad
+ * consultada como las arma el dominio (`inquiryAutoTags`).
+ */
+async function seedInquiries(client: pg.Client): Promise<number> {
+  const inquiries = z
+    .array(SeedInquirySchema)
+    .parse(JSON.parse(readFileSync(path.join(import.meta.dirname, 'seed/inquiries.json'), 'utf8')));
+  let created = 0;
+  for (const inquiry of inquiries) {
+    const saved = await client.query(
+      `insert into core.inquiries (
+         id, channel, external_id, received_at, sender_name, sender_email, sender_phone_e164,
+         sender_phone_match_key, message, property_id, branch_id, status, auto_tags, created_at,
+         updated_at, created_by, updated_by, deleted_at, deleted_by)
+       select $1, $2::text, $3, now() - make_interval(hours => $4), $5, $6, $7::text,
+         -- La clave de deduplicación de Phone: el celular argentino sin el 9.
+         case when $7 like '+549%' then '+54' || substr($7, 5) else $7 end, $8,
+         p.id, p.branch_id, case when $9 then 'deleted' else 'pending' end,
+         array_remove(array[
+           'channel:' || $2::text,
+           'operation:' || p.operation,
+           'type:' || p.property_type,
+           'neighborhood:' || nullif(p.neighborhood, '')
+         ], null),
+         now(), now(), 'system:import', 'system:import',
+         case when $9 then now() end, case when $9 then 'system:import' end
+       from (select 1) one
+       left join core.properties p on p.code = $10
+       on conflict (channel, external_id) where external_id is not null do nothing`,
+      [
+        randomUUID(),
+        inquiry.channel,
+        inquiry.externalId,
+        inquiry.hoursAgo,
+        inquiry.name,
+        inquiry.email,
+        inquiry.phone,
+        inquiry.message,
+        inquiry.deleted,
+        inquiry.propertyCode,
+      ],
+    );
+    created += saved.rowCount ?? 0;
+  }
+  return created;
+}
 
 function databaseUrl(): string {
   const file = path.join(ROOT, 'apps/agent/.env');
@@ -154,9 +219,10 @@ async function main(): Promise<void> {
     for (const user of users) {
       if ((await createUser(client, user)) !== undefined) created += 1;
     }
+    const inquiries = await seedInquiries(client);
     await client.query('commit');
     console.log(
-      `✓ ${seed.length} propiedades y ${created} usuarios nuevos de prueba cargados en ${parseDatabaseUrl(url).redacted}`,
+      `✓ ${seed.length} propiedades, ${created} usuarios y ${inquiries} consultas nuevos de prueba cargados en ${parseDatabaseUrl(url).redacted}`,
     );
   } catch (error) {
     await client.query('rollback');

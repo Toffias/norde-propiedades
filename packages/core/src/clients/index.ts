@@ -477,6 +477,39 @@ export {
   type CountOpportunitiesByStageError,
 } from './application/queries/count-opportunities-by-stage';
 export { CountPendingOpportunities } from './application/queries/count-pending-opportunities';
+
+// Consultas (#10)
+export {
+  Inquiry,
+  INQUIRY_STATUSES,
+  type InquiryAlreadyDeletedError,
+  type InquiryId,
+  type InquiryNotDeletedError,
+  type InquirySender,
+  type InquirySnapshot,
+  type InquiryStatus,
+} from './domain/inquiry';
+export type { InquiryEvent } from './domain/inquiry.events';
+export {
+  INQUIRY_TAG_KINDS,
+  inquiryAutoTags,
+  type InquiryPropertyFacts,
+  type InquiryTagKind,
+} from './domain/inquiry-tags';
+export type { InquiryRepository } from './domain/client.repository';
+export type { BranchNames } from './application/ports/branch-names';
+export type {
+  InquiryInboxCriteria,
+  InquiryInboxItem,
+  InquiryInboxQuery,
+} from './application/ports/inquiry-inbox-query';
+export type { InquiryPropertyLookup } from './application/ports/inquiry-property-lookup';
+export type { InquiryNotFoundError } from './application/inquiry-support';
+export { ReceiveInquiry, type ReceiveInquiryError } from './application/commands/receive-inquiry';
+export { DeleteInquiry, type DeleteInquiryError } from './application/commands/delete-inquiry';
+export { RestoreInquiry, type RestoreInquiryError } from './application/commands/restore-inquiry';
+export { ListInquiries, type ListInquiriesError } from './application/queries/list-inquiries';
+export { CountPendingInquiries } from './application/queries/count-pending-inquiries';
 export {
   ChangeOpportunityStage,
   type ChangeOpportunityStageError,

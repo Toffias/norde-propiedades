@@ -2,11 +2,11 @@ import { pino } from 'pino';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import type { WhatsAppInbound } from '../channels/whatsapp/inbound';
-import { signBody } from '../channels/whatsapp/signature';
 import { WHATSAPP_WEBHOOK_PATH } from '../channels/whatsapp/webhook-routes';
 
 import type { HealthStatus } from './routes/health';
 import { buildServer } from './server';
+import { signBody } from './signature';
 
 const silent = pino({ level: 'silent' });
 

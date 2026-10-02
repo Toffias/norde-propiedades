@@ -7,6 +7,8 @@ import { CLIENT_RELATION_KINDS } from '../domain/client-relation';
 import { MAX_CLIENT_TAGS } from '../domain/client-tag';
 import { CLIENT_KINDS, CLIENT_TYPES, EMAIL_KINDS, PHONE_KINDS } from '../domain/client-values';
 import { CONTACT_CHANNELS } from '../domain/contact-channel';
+import { INQUIRY_STATUSES } from '../domain/inquiry';
+import { INQUIRY_TAG_KINDS } from '../domain/inquiry-tags';
 import { OPPORTUNITY_INTENTS, OPPORTUNITY_TYPES } from '../domain/opportunity';
 import { CLOSE_REASON_RATINGS, MAX_CLOSE_REASONS } from '../domain/opportunity-close-reason';
 import { OPPORTUNITY_RULES } from '../domain/opportunity-settings';
@@ -25,6 +27,8 @@ import {
   ClientFilterSchema,
   CONTACT_CHANNEL_VALUES,
   EMAIL_KIND_VALUES,
+  INQUIRY_TAB_VALUES,
+  INQUIRY_TAG_KIND_VALUES,
   ERASURE_CONFIRMATION_WORD as CONTRACT_ERASURE_WORD,
   ListClientActivityQuerySchema,
   ListClientsQuerySchema,
@@ -40,6 +44,8 @@ import {
 describe('clients contracts', () => {
   it('mirror the domain enums', () => {
     expect(CONTACT_CHANNEL_VALUES).toEqual(CONTACT_CHANNELS);
+    expect(INQUIRY_TAB_VALUES).toEqual(INQUIRY_STATUSES);
+    expect(INQUIRY_TAG_KIND_VALUES).toEqual(INQUIRY_TAG_KINDS);
     expect(OPPORTUNITY_TYPE_VALUES).toEqual(OPPORTUNITY_TYPES);
     expect(OPPORTUNITY_INTENT_VALUES).toEqual(OPPORTUNITY_INTENTS);
     expect(CLIENT_KIND_VALUES).toEqual(CLIENT_KINDS);

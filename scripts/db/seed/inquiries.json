@@ -1,0 +1,79 @@
+[
+  {
+    "channel": "zonaprop",
+    "externalId": "seed-zp-001",
+    "hoursAgo": 1,
+    "name": "Lucía Fernández",
+    "email": "lucia.fernandez@example.com",
+    "phone": "+5491150000001",
+    "message": "Hola, ¿el departamento sigue disponible? Me interesa visitarlo esta semana.",
+    "propertyCode": "P-001",
+    "deleted": false
+  },
+  {
+    "channel": "argenprop",
+    "externalId": "seed-ap-001",
+    "hoursAgo": 5,
+    "name": "Martín Gómez",
+    "email": "martin.gomez@example.com",
+    "phone": null,
+    "message": "¿Aceptan mascotas?",
+    "propertyCode": "P-003",
+    "deleted": false
+  },
+  {
+    "channel": "web_form",
+    "externalId": "seed-web-001",
+    "hoursAgo": 20,
+    "name": "Sofía Díaz",
+    "email": null,
+    "phone": "+5491150000003",
+    "message": "Quisiera saber las expensas y si se puede entrar en marzo.",
+    "propertyCode": "P-006",
+    "deleted": false
+  },
+  {
+    "channel": "mercadolibre",
+    "externalId": "seed-ml-001",
+    "hoursAgo": 30,
+    "name": "Juan Pérez",
+    "email": "juan.perez@example.com",
+    "phone": "+5491150000004",
+    "message": "¿Cuál es el precio final?",
+    "propertyCode": "P-004",
+    "deleted": false
+  },
+  {
+    "channel": "web_form",
+    "externalId": "seed-web-002",
+    "hoursAgo": 50,
+    "name": "Valentina Ruiz",
+    "email": "valentina.ruiz@example.com",
+    "phone": null,
+    "message": "Busco algo parecido en Palermo, ¿tienen otras opciones?",
+    "propertyCode": null,
+    "deleted": false
+  },
+  {
+    "channel": "zonaprop",
+    "externalId": "seed-zp-002",
+    "hoursAgo": 72,
+    "name": "Diego Sosa",
+    "email": "diego.sosa@example.com",
+    "phone": "+5491150000006",
+    "message": "¿Está apto crédito?",
+    "propertyCode": "P-005",
+    "deleted": false
+  },
+  {
+    "channel": "zonaprop",
+    "externalId": "seed-zp-003",
+    "hoursAgo": 96,
+    "name": "Prueba spam",
+    "email": "spam@example.com",
+    "phone": null,
+    "message": "Consulta de prueba",
+    "propertyCode": "P-002",
+    "deleted": true
+  }
+]

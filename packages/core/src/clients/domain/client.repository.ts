@@ -4,6 +4,7 @@ import type { ClientImport, ClientImportId, ImportRowProblem } from './client-im
 import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from './client-tag';
 import type { ContactKeys } from './duplicate-check';
 import type { FeaturedListing } from './featured-listing';
+import type { Inquiry, InquiryId } from './inquiry';
 import type { Opportunity, OpportunityId } from './opportunity';
 import type {
   OpportunityBulkOperation,
@@ -44,6 +45,21 @@ export interface OpportunityRepository {
   save(opportunity: Opportunity, actorId: string): Promise<void>;
   /** Si una regla automática ya aplicó un cambio de estado por este evento. */
   hasStatusChangeFrom(sourceEventId: string): Promise<boolean>;
+}
+
+/** Las consultas entrantes (`inquiries`). */
+export interface InquiryRepository {
+  /** Incluye las borradas. */
+  findById(id: InquiryId): Promise<Inquiry | undefined>;
+  /** La consulta con ese ID externo en ese canal, si ya entró (incluye las borradas). */
+  findByExternal(channel: string, externalId: string): Promise<Inquiry | undefined>;
+  /**
+   * Inserta una consulta nueva. Devuelve `false` si ya había una con el mismo canal e ID externo
+   * (otra entrega del mismo envío que llegó antes): no escribe nada.
+   */
+  insert(inquiry: Inquiry, actorId: string): Promise<boolean>;
+  /** Guarda los cambios de una consulta existente. */
+  save(inquiry: Inquiry, actorId: string): Promise<void>;
 }
 
 /** Las acciones masivas encoladas (`opportunity_bulk_operations`). */

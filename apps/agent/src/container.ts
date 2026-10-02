@@ -4,11 +4,13 @@
 import {
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
+  ReceiveInquiry,
   RecordClientActivity,
   RegisterContact,
   RunClientImport,
   RunOpportunityBulkOperation,
   type ClientAgents,
+  type InquiryPropertyLookup,
   type OpportunityRequesters,
 } from '@norde/core/clients';
 import {
@@ -24,6 +26,7 @@ import {
   GeneratePropertyMediaVariants,
   GetPropertyDetail,
   GetPropertyInterestProfile,
+  GetPropertySummaries,
   RenderPropertyDocument,
   SearchProperties,
   UnlinkErasedClients,
@@ -53,6 +56,7 @@ import {
   DrizzleClientRepository,
   DrizzleOpportunityPipelineQuery,
   DrizzleOpportunityRepository,
+  DrizzlePanelPropertyListQuery,
   DrizzlePropertySearchQuery,
   DrizzleUserAccessQuery,
   LogTeamNotifier,
@@ -78,6 +82,7 @@ import { WhatsAppTurnHandler } from './channels/whatsapp/whatsapp-turn-handler';
 import { whatsAppConfig, type Env } from './config/env';
 import type { HealthCheck } from './http/routes/health';
 import { eventSubscriptions } from './jobs/event-subscriptions';
+import type { WebInquiryWebhookOptions } from './webhooks/web-inquiry-routes';
 
 const HOUR_MS = 3_600_000;
 
@@ -100,6 +105,8 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'opportunities:apply-rules',
   'opportunities:run-bulk',
 ]);
+/** Las consultas del formulario web: quedan creadas y auditadas por `system:web`. */
+const WEB_ACTOR = Actor.system('web', ['inquiries:receive', 'properties:read']);
 /** Arma el actor de quien pidió una acción masiva, con sus permisos de ahora. */
 const AUTH_ACTOR = Actor.system('auth', ['sessions:resolve']);
 /** Las importaciones desde Excel: los contactos quedan creados y auditados por `system:import`. */
@@ -152,6 +159,35 @@ function createOpportunityJobs(
       clock,
     }),
   };
+}
+
+/** La entrada de consultas (#10): `ReceiveInquiry` con los datos de la propiedad consultada. */
+function createInquiryIntake(
+  db: Database,
+  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
+) {
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const summaries = new GetPropertySummaries({
+    properties: new DrizzlePanelPropertyListQuery(db),
+    users: { names: (userIds) => directory.names('user', userIds) },
+  });
+  // Por la API pública de properties; la sucursal de la propiedad es la de su captador.
+  const properties: InquiryPropertyLookup = {
+    async facts(propertyId) {
+      const rows = await summaries.execute({ ids: [propertyId] }, WEB_ACTOR);
+      const row = rows.isOk() ? rows.value[0] : undefined;
+      if (!row) return undefined;
+      const producer = row.producer && (await userAccess.findByUserId(row.producer.id));
+      return {
+        branchId: producer?.branchId,
+        propertyType: row.propertyType,
+        operations: row.operations.map((o) => o.operation),
+        neighborhood: row.neighborhood,
+      };
+    },
+  };
+  return new ReceiveInquiry({ uow: createClientsUnitOfWork(db, deps), properties, ...deps });
 }
 
 /** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
@@ -220,6 +256,8 @@ export interface Container {
         readonly handler: WhatsAppTurnHandler;
       }
     | undefined;
+  /** `undefined` si no hay `INQUIRY_WEBHOOK_SECRET`. */
+  readonly webInquiries: WebInquiryWebhookOptions | undefined;
   /** Arranca el relay del outbox y los workers (si `JOBS_ENABLED`). */
   startJobs(): Promise<void>;
   close(): Promise<void>;
@@ -344,6 +382,17 @@ export function createContainer(
     logger.warn('WhatsApp channel disabled: set the WHATSAPP_* variables and OPENAI_API_KEY');
   }
 
+  // Consultas del formulario web
+  const receiveInquiry = createInquiryIntake(db, { ids, clock });
+  const webInquiries: WebInquiryWebhookOptions | undefined = env.INQUIRY_WEBHOOK_SECRET
+    ? {
+        secret: env.INQUIRY_WEBHOOK_SECRET,
+        ratePerMinute: env.INQUIRY_WEBHOOK_RATE_PER_MINUTE,
+        receive: (input) => receiveInquiry.execute(input, WEB_ACTOR),
+      }
+    : undefined;
+  if (!webInquiries) logger.warn('Web inquiry webhook disabled: set INQUIRY_WEBHOOK_SECRET');
+
   // Jobs: outbox → pg-boss → handlers
   const bus = new PgBossEventBus({
     connectionString: env.DATABASE_URL,
@@ -391,6 +440,7 @@ export function createContainer(
       }
     },
     whatsapp,
+    webInquiries,
     startJobs: async () => {
       if (!env.JOBS_ENABLED) {
         logger.warn('Jobs disabled (JOBS_ENABLED=false): outbox events will wait');

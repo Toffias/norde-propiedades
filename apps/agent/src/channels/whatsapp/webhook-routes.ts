@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
+import { verifySignature } from '../../http/signature';
 import type { AppInstance } from '../../http/types';
 
 import { parseInbound, type WhatsAppInbound } from './inbound';
-import { verifySignature } from './signature';
 
 export const WHATSAPP_WEBHOOK_PATH = '/webhooks/whatsapp';
 

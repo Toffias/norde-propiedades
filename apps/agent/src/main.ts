@@ -10,6 +10,7 @@ const server = buildServer({
   logger,
   healthCheck: container.healthCheck,
   whatsapp: container.whatsapp?.webhook,
+  webInquiries: container.webInquiries,
 });
 
 await container.startJobs();

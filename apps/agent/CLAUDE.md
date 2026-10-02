@@ -22,6 +22,7 @@ src/
 ├── http/
 │   ├── server.ts             # buildServer(deps): Fastify sin efectos (testeable con inject)
 │   ├── types.ts              # AppInstance
+│   ├── signature.ts          # Firma HMAC `sha256=` sobre el body crudo (Meta y webhooks propios)
 │   └── routes/               # Rutas HTTP (health, …)
 ├── assistant/                # Agente de clientes (igual en todos los canales)
 │   ├── customer-assistant.ts # Arma el AgentRunner de @norde/agent-kit con instrucciones y tools
@@ -32,7 +33,7 @@ src/
 ├── channels/
 │   └── whatsapp/             # Webhook (firma, parser), batcher, cola por contacto, breaker,
 │                             # avisos, armado de la respuesta y WhatsAppTurnHandler
-├── webhooks/                 # (a crear) MercadoLibre, portales
+├── webhooks/                 # Consultas del formulario web (firma + rate limit); MercadoLibre y portales, a crear
 └── jobs/
     └── event-subscriptions.ts # Evento de dominio → caso de uso (ej. avisar al equipo)
 scripts/

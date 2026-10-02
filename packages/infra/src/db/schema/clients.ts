@@ -492,6 +492,11 @@ export const inquiries = coreSchema.table(
     propertyId: uuid('property_id'),
     /** Emprendimiento del módulo properties: solo el ID, sin foreign key entre módulos. */
     developmentId: uuid('development_id'),
+    /**
+     * Sucursal del módulo identity que la atiende (la de la propiedad hasta que se asigna): solo el
+     * ID, sin foreign key entre módulos.
+     */
+    branchId: uuid('branch_id'),
     /** `pending` / `assigned` / `deleted`. */
     status: text('status').notNull().default('pending'),
     clientId: uuid('client_id').references(() => clients.id, { onDelete: 'cascade' }),
@@ -517,6 +522,14 @@ export const inquiries = coreSchema.table(
       .on(t.channel, t.externalId)
       .where(sql`external_id is not null`),
     index('inquiries_status_received_idx').on(t.status, t.receivedAt).where(notDeleted),
+    // Bandeja: filtro por sucursal dentro de una pestaña.
+    index('inquiries_status_branch_received_idx')
+      .on(t.status, t.branchId, t.receivedAt)
+      .where(notDeleted),
+    // Pestaña "Borradas".
+    index('inquiries_deleted_received_idx')
+      .on(t.receivedAt)
+      .where(sql`deleted_at is not null`),
     index('inquiries_agent_received_idx').on(t.assignedAgentId, t.receivedAt).where(notDeleted),
     index('inquiries_channel_received_idx').on(t.channel, t.receivedAt).where(notDeleted),
     index('inquiries_sender_phone_idx').on(t.senderPhoneMatchKey),

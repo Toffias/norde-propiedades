@@ -60,6 +60,13 @@ import type {
   OpportunityPipelineQuery,
 } from '../application/ports/opportunity-pipeline-query';
 import type { OpportunityNotification, TeamNotifier } from '../application/ports/team-notifier';
+import type { BranchNames } from '../application/ports/branch-names';
+import type {
+  InquiryInboxCriteria,
+  InquiryInboxItem,
+  InquiryInboxQuery,
+} from '../application/ports/inquiry-inbox-query';
+import type { InquiryPropertyLookup } from '../application/ports/inquiry-property-lookup';
 import { Client, type ClientId } from '../domain/client';
 import {
   OpportunityBulkOperation,
@@ -75,6 +82,8 @@ import {
   type ImportRowProblem,
 } from '../domain/client-import';
 import { FeaturedListing } from '../domain/featured-listing';
+import { Inquiry, type InquiryId, type InquirySnapshot } from '../domain/inquiry';
+import type { InquiryPropertyFacts } from '../domain/inquiry-tags';
 import {
   MAX_DUPLICATE_CANDIDATES,
   type ClientActivityRepository,
@@ -83,6 +92,7 @@ import {
   type ClientTagGroupRepository,
   type ClientTagRepository,
   type FeaturedListingRepository,
+  type InquiryRepository,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
   type OpportunityRepository,
@@ -550,6 +560,48 @@ export class InMemoryClientErasure implements ClientErasure {
   }
 }
 
+/** Con el índice único por canal e ID externo de la base. */
+export class InMemoryInquiryRepository implements InquiryRepository {
+  readonly rows = new Map<string, InquirySnapshot>();
+  readonly savedBy = new Map<string, string>();
+
+  findById(id: InquiryId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && Inquiry.restore(row));
+  }
+
+  findByExternal(channel: string, externalId: string) {
+    const row = [...this.rows.values()].find(
+      (r) => r.channel === channel && r.externalId === externalId,
+    );
+    return Promise.resolve(row && Inquiry.restore(row));
+  }
+
+  /** Simula otra entrega que entró entre la búsqueda y el insert (la carrera que cubre la base). */
+  racedBy: InquirySnapshot | undefined;
+
+  insert(inquiry: Inquiry, actorId: string) {
+    if (this.racedBy) {
+      this.rows.set(this.racedBy.id, this.racedBy);
+      this.racedBy = undefined;
+    }
+    const s = inquiry.toSnapshot();
+    const taken = [...this.rows.values()].some(
+      (r) => r.channel === s.channel && r.externalId === s.externalId,
+    );
+    if (taken) return Promise.resolve(false);
+    this.rows.set(s.id, s);
+    this.savedBy.set(s.id, actorId);
+    return Promise.resolve(true);
+  }
+
+  save(inquiry: Inquiry, actorId: string) {
+    this.rows.set(inquiry.id, inquiry.toSnapshot());
+    this.savedBy.set(inquiry.id, actorId);
+    return Promise.resolve();
+  }
+}
+
 /**
  * Unidad de trabajo en memoria. Si el trabajo devuelve un `Err` o lanza, descarta lo escrito
  * (como el rollback de la implementación real).
@@ -570,6 +622,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly erasure = new InMemoryClientErasure(this.clients, this.activities, this.audit);
   readonly imports = new InMemoryClientImportRepository();
   readonly bulkOperations = new InMemoryOpportunityBulkOperationRepository();
+  readonly inquiries = new InMemoryInquiryRepository();
 
   async run<T>(work: (tx: ClientsTransaction) => Promise<T>): Promise<T> {
     const backup = {
@@ -586,6 +639,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       featured: new Map(this.featured.rows),
       imports: new Map(this.imports.rows),
       bulkOperations: new Map(this.bulkOperations.rows),
+      inquiries: new Map(this.inquiries.rows),
       problems: this.imports.problems.length,
       events: this.events.published.length,
       audit: this.audit.entries.length,
@@ -608,6 +662,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.featured.rows, backup.featured);
       restore(this.imports.rows, backup.imports);
       restore(this.bulkOperations.rows, backup.bulkOperations);
+      restore(this.inquiries.rows, backup.inquiries);
       this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
@@ -940,6 +995,7 @@ export function aListing(overrides: Partial<ClientListingSummary> = {}): ClientL
     status: 'available',
     operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
     coverImageUrl: undefined,
+    producer: undefined,
     ...overrides,
   };
 }
@@ -1164,5 +1220,73 @@ export class StubOpportunityPipelineQuery implements OpportunityPipelineQuery {
     const sorted = [...this.matching].sort();
     const from = afterId === undefined ? sorted : sorted.filter((id) => id > afterId);
     return Promise.resolve(from.slice(0, page.limit));
+  }
+}
+
+// ---------- Consultas ----------
+
+/** Las propiedades que conoce el lookup de consultas (las carga el test). */
+export class InMemoryInquiryPropertyLookup implements InquiryPropertyLookup {
+  readonly known = new Map<string, InquiryPropertyFacts>();
+
+  facts(propertyId: string) {
+    return Promise.resolve(this.known.get(propertyId.toLowerCase()));
+  }
+}
+
+export class InMemoryBranchNames implements BranchNames {
+  constructor(readonly entries: ReadonlyMap<string, string> = new Map()) {}
+
+  names(ids: readonly string[]) {
+    return Promise.resolve(
+      new Map(
+        ids.flatMap((id) => {
+          const name = this.entries.get(id);
+          return name === undefined ? [] : [[id, name] as const];
+        }),
+      ),
+    );
+  }
+}
+
+export function anInquiryItem(overrides: Partial<InquiryInboxItem> = {}): InquiryInboxItem {
+  return {
+    id: '00000000-0000-7000-8000-0000000000f1',
+    channel: 'zonaprop',
+    status: 'pending',
+    receivedAt: new Date('2026-03-01T09:00:00Z'),
+    senderName: 'Ana Pérez',
+    senderEmail: 'ana@example.com',
+    senderPhoneE164: '+5491166899124',
+    message: 'Hola, ¿sigue disponible?',
+    autoTags: ['channel:zonaprop'],
+    propertyId: undefined,
+    branchId: undefined,
+    clientId: undefined,
+    assignedAgentId: undefined,
+    assignedAt: undefined,
+    deletedAt: undefined,
+    deletedBy: undefined,
+    ...overrides,
+  };
+}
+
+/** Devuelve las filas cargadas y registra los criterios: el filtrado real es SQL en infra. */
+export class StubInquiryInboxQuery implements InquiryInboxQuery {
+  readonly searches: InquiryInboxCriteria[] = [];
+  pending = 0;
+
+  constructor(public items: readonly InquiryInboxItem[] = []) {}
+
+  search(criteria: InquiryInboxCriteria) {
+    this.searches.push(criteria);
+    return Promise.resolve({
+      items: this.items.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: this.items.length,
+    });
+  }
+
+  countPending() {
+    return Promise.resolve(this.pending);
   }
 }

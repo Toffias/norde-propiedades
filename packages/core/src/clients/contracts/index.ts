@@ -59,3 +59,4 @@ export * from './opportunity-settings';
 export * from './opportunity-pipeline';
 export * from './opportunity-bulk';
 export * from './contact-channels';
+export * from './inquiries';

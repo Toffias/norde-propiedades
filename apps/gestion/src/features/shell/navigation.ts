@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 
 // Módulos del panel (épica #1). Los que todavía no tienen pantalla se ven deshabilitados, así el
-// menú ya tiene su forma final. El contador de Oportunidades lo pone el layout (`NavCounts`); el de
-// Consultas llega con #10.
+// menú ya tiene su forma final. Los contadores de Oportunidades y Consultas los pone el layout
+// (`NavCounts`).
 
 const SOON = 'Próximamente';
 
@@ -28,7 +28,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
     items: [
       { href: '/oportunidades', label: 'Oportunidades', icon: TargetIcon },
       { href: '/contactos', label: 'Contactos', icon: UsersIcon },
-      { href: '/consultas', label: 'Consultas', icon: InboxIcon, disabledReason: SOON },
+      { href: '/consultas', label: 'Consultas', icon: InboxIcon },
     ],
   },
   {
@@ -55,6 +55,13 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
 /** Contadores del menú, por ruta (ej. nuevas asignadas en `/oportunidades`). */
 export type NavCounts = Readonly<Partial<Record<string, number>>>;
 
+/** Qué cuenta cada contador, para lectores de pantalla y el tooltip. */
+const COUNT_LABELS: Readonly<Record<string, (count: number) => string>> = {
+  '/oportunidades': (count) =>
+    count === 1 ? '1 nueva asignada' : `${String(count)} nuevas asignadas`,
+  '/consultas': (count) => (count === 1 ? '1 sin asignar' : `${String(count)} sin asignar`),
+};
+
 /** El menú con sus contadores. */
 export function navigationWithCounts(counts: NavCounts): readonly NavGroup[] {
   return PANEL_NAVIGATION.map((group) => ({
@@ -66,7 +73,7 @@ export function navigationWithCounts(counts: NavCounts): readonly NavGroup[] {
         : {
             ...item,
             count,
-            countLabel: count === 1 ? '1 nueva asignada' : `${String(count)} nuevas asignadas`,
+            countLabel: COUNT_LABELS[item.href]?.(count) ?? String(count),
           };
     }),
   }));

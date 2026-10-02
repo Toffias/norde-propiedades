@@ -42,6 +42,8 @@ export { DrizzlePropertyStatisticsQuery } from './reporting/drizzle-property-sta
 export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-document-renderer';
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
+export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
+export { DrizzleClientListQuery } from './clients/drizzle-client-list-query';
 export { createClientsUnitOfWork } from './clients/clients-unit-of-work';
 export {
   DrizzleClientRepository,

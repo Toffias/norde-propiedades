@@ -1,4 +1,4 @@
-import type { RecordClientActivity, RunClientImport } from '@norde/core/clients';
+import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -61,6 +61,7 @@ function clientJobs(calls: unknown[] = []): {
   readonly erasure: ErasureJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
+  readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
   readonly importActor: Actor;
 } {
   const erase = (name: string) => ({
@@ -93,6 +94,12 @@ function clientJobs(calls: unknown[] = []): {
           calls.push(['bulk', input, by.id]);
           return Promise.resolve(ok({ status: 'done' as const }));
         },
+      },
+    },
+    routeInquiry: {
+      execute: (input, by) => {
+        calls.push(['route', input, by.id]);
+        return Promise.resolve(ok({ routed: false as const, reason: 'no_rule' as const }));
       },
     },
     importActor,
@@ -133,6 +140,7 @@ describe('eventSubscriptions', () => {
       'clients.opportunity_created.apply-rules',
       'clients.opportunity_bulk_requested.run-bulk',
       'clients.import_requested.run-import',
+      'clients.inquiry_received.route-inquiry',
     ]);
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
     expect(calls).toEqual([
@@ -259,6 +267,31 @@ describe('eventSubscriptions', () => {
     ]);
     await expect(
       byType('clients.client_erased')[0]?.handle({ ...event, payload: { erasedClientIds: [] } }),
+    ).rejects.toThrow();
+  });
+
+  it('routes a received inquiry as the scheduler and rejects a malformed payload', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(calls),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const routing = subscriptions.find((s) => s.eventType === 'clients.inquiry_received');
+    const INQUIRY_ID = '00000000-0000-7000-8000-0000000000f2';
+
+    await routing?.handle({
+      ...event,
+      type: 'clients.inquiry_received',
+      payload: { inquiryId: INQUIRY_ID, channel: 'zonaprop', propertyId: null },
+    });
+
+    expect(calls).toEqual([['route', { inquiryId: INQUIRY_ID }, 'system:scheduler']]);
+    await expect(
+      routing?.handle({ ...event, type: 'clients.inquiry_received', payload: { inquiryId: 'x' } }),
     ).rejects.toThrow();
   });
 

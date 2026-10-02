@@ -2,6 +2,7 @@ import type {
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
   RecordClientActivity,
+  RouteInquiry,
   RunClientImport,
   RunOpportunityBulkOperation,
 } from '@norde/core/clients';
@@ -53,6 +54,7 @@ const RulePayloadSchema = z.object({
   toAgentId: z.string().nullish(),
 });
 const BulkPayloadSchema = z.object({ operationId: z.uuid() });
+const InquiryPayloadSchema = z.object({ inquiryId: z.uuid() });
 
 /** Las reglas automáticas de estado y las acciones masivas encoladas (#9). */
 export interface OpportunityJobs {
@@ -243,6 +245,8 @@ export function eventSubscriptions(deps: {
   readonly erasure: ErasureJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
+  /** El reparto automático de las consultas que entran (#10). */
+  readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
   readonly actor: Actor;
   /** El de las importaciones: los contactos quedan creados por `system:import`. */
   readonly importActor: Actor;
@@ -280,6 +284,23 @@ export function eventSubscriptions(deps: {
         const result = await deps.runImport.execute({ importId }, deps.importActor);
         if (result.isErr()) {
           deps.logger.error({ eventId: event.id, error: result.error }, 'Client import skipped');
+        }
+      },
+    },
+    {
+      eventType: 'clients.inquiry_received',
+      name: 'route-inquiry',
+      handle: async (event) => {
+        const { inquiryId } = InquiryPayloadSchema.parse(event.payload);
+        const result = await deps.routeInquiry.execute({ inquiryId }, deps.actor);
+        if (result.isErr()) {
+          deps.logger.error({ eventId: event.id, error: result.error }, 'Inquiry routing skipped');
+        } else if (!result.value.routed) {
+          // Queda pendiente en la bandeja: no es un error.
+          deps.logger.info(
+            { eventId: event.id, reason: result.value.reason },
+            'Inquiry left pending',
+          );
         }
       },
     },

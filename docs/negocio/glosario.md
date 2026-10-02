@@ -21,19 +21,20 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 
 ## Comercial
 
-| Término                               | En el código                | En Tokko               | Significado                                                                                              |
-| ------------------------------------- | --------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| Oportunidad                           | `Opportunity`               | Estado del contacto    | Interés concreto de un cliente ("alquilar 2 ambientes en Palermo"). Un cliente puede tener varias        |
-| Estado de oportunidad                 | `OpportunityStatus`         | Estado de oportunidad  | Nuevo, contactado, visitando, negociando, ganada, perdida, aplica a otra inmobiliaria                    |
-| Aplica a otra inmobiliaria            | `referred_to_partner`       | —                      | Norde no tiene qué ofrecerle; se revisa si una inmobiliaria socia puede                                  |
-| Canal de origen                       | `ContactChannel`            | Origen (etiqueta)      | Por dónde llegó el cliente: WhatsApp, web chat, formulario web, portal, referido, llamada, oficina       |
-| Consulta                              | `Inquiry`                   | Consulta               | Mensaje entrante de un portal o de la web. Se asigna a un cliente existente o crea uno                   |
-| Búsqueda guardada                     | `SavedSearch`               | Búsqueda               | Criterios de lo que busca un cliente; se cruzan con el stock para avisos                                 |
-| Propiedad destacada (para un cliente) | `FeaturedListing`           | Propiedad destacada    | Propiedad que un agente le marcó a un cliente puntual para ofrecérsela. **No** es la destacada de la web |
-| Envío de ficha                        | `SharedListing` (a definir) | Envío                  | Ficha mandada por email o WhatsApp con un link que mide aperturas y "me gusta"                           |
-| Seguimiento automático                | —                           | Seguimiento automático | Envío automático de novedades que coinciden con búsquedas guardadas o destacadas                         |
-| Respuesta rápida                      | —                           | Respuesta rápida       | Plantilla de email con variables                                                                         |
-| Reserva                               | `Reservation` (a definir)   | Reserva                | Seña sobre una propiedad. Activa, caída o firmada. Una sola activa por propiedad                         |
+| Término                               | En el código                | En Tokko                         | Significado                                                                                              |
+| ------------------------------------- | --------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Oportunidad                           | `Opportunity`               | Estado del contacto              | Interés concreto de un cliente ("alquilar 2 ambientes en Palermo"). Un cliente puede tener varias        |
+| Estado de oportunidad                 | `OpportunityStatus`         | Estado de oportunidad            | Nuevo, contactado, visitando, negociando, ganada, perdida, aplica a otra inmobiliaria                    |
+| Aplica a otra inmobiliaria            | `referred_to_partner`       | —                                | Norde no tiene qué ofrecerle; se revisa si una inmobiliaria socia puede                                  |
+| Canal de origen                       | `ContactChannel`            | Origen (etiqueta)                | Por dónde llegó el cliente: WhatsApp, web chat, formulario web, portal, referido, llamada, oficina       |
+| Consulta                              | `Inquiry`                   | Consulta                         | Mensaje entrante de un portal o de la web. Se asigna a un cliente existente o crea uno                   |
+| Regla de asignación                   | `InquiryAssignmentRule`     | Regla de asignación de consultas | Qué consultas toma (canal, operación, tipo, zona, propiedad) y entre qué agentes las reparte, con peso   |
+| Búsqueda guardada                     | `SavedSearch`               | Búsqueda                         | Criterios de lo que busca un cliente; se cruzan con el stock para avisos                                 |
+| Propiedad destacada (para un cliente) | `FeaturedListing`           | Propiedad destacada              | Propiedad que un agente le marcó a un cliente puntual para ofrecérsela. **No** es la destacada de la web |
+| Envío de ficha                        | `SharedListing` (a definir) | Envío                            | Ficha mandada por email o WhatsApp con un link que mide aperturas y "me gusta"                           |
+| Seguimiento automático                | —                           | Seguimiento automático           | Envío automático de novedades que coinciden con búsquedas guardadas o destacadas                         |
+| Respuesta rápida                      | —                           | Respuesta rápida                 | Plantilla de email con variables                                                                         |
+| Reserva                               | `Reservation` (a definir)   | Reserva                          | Seña sobre una propiedad. Activa, caída o firmada. Una sola activa por propiedad                         |
 
 ## Cartera
 

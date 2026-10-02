@@ -368,7 +368,7 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 
 **Derivadas** (selector Lista / Tablero / Derivadas): la lista con la categoría "Aplica a otra inmobiliaria". Cada fila muestra a qué socia se derivó, la fecha y el resultado (derivada, sin opciones, volvió a Norde). "Derivación…" en el menú los carga; solo mientras la oportunidad está en esa categoría, y queda auditado (`opportunity.referral_updated`).
 
-### 3.3.9 Bandeja de consultas (#10, etapas 1 y 2)
+### 3.3.9 Bandeja de consultas (#10, etapas 1 a 3)
 
 Las **consultas** son los mensajes que llegan de los portales y del formulario de la web. Entran **pendientes** a una bandeja y terminan asignadas a un contacto (existente o nuevo) o en "Borradas". Las del agente de IA (WhatsApp, web chat) no pasan por la bandeja: ya entran por `RegisterContact`.
 
@@ -435,6 +435,29 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - Se audita como `inquiry.assigned` (estado, contacto, oportunidad, agente y sucursal) con el ID del contacto, además de la auditoría del contacto y de la oportunidad. Emite `clients.inquiry_assigned`.
 - **Supresión de datos**: al suprimir un contacto se borran también las consultas sin asignar que tienen alguno de sus teléfonos o emails. Las asignadas a él caen con el contacto.
 
+**Reglas de asignación automática** (`/consultas/reglas`, con "Administrar consultas"):
+
+- **Regla**: nombre, condiciones y agentes con su peso (de 1 a 10). Hasta 100 reglas y 20 agentes por regla.
+- **Condiciones**: canal, operación de la propiedad, tipo de propiedad, zona (barrios), propiedad y emprendimiento.
+  - Una condición vacía es "cualquiera"; sin ninguna, la regla toma cualquier consulta.
+  - Con varias, la consulta tiene que cumplir todas. Dentro de cada una alcanza con un valor.
+  - Se comparan con las etiquetas automáticas de la consulta y sus IDs. La zona, sin mayúsculas ni acentos.
+  - Emprendimiento ya está en el modelo, pero el asistente no lo ofrece hasta que exista el módulo (#7).
+- **Prioridad**: cada consulta va a la **primera regla activa que cumple**, en orden. Se sube o baja de a un lugar dentro de su pestaña.
+- **Activas e inactivas**: una inactiva no toma consultas, pero conserva su lugar y su reparto.
+- **Asistente por pasos**: nombre, condiciones, agentes con su peso (con el % que recibe cada uno) y revisión.
+- **Reparto ponderado**: un round robin "suave" y determinístico.
+  - En cada vuelta de "suma de pesos" consultas, cada agente recibe tantas como su peso, intercaladas. Con A en 2 y B en 1: A, B, A, A, B, A…
+  - La regla guarda cuántas repartió (`cursor`), y la fila se bloquea al tomar el turno: dos consultas a la vez no reciben el mismo.
+  - Los agentes inactivos se saltean. Si cambian los agentes o sus pesos, el reparto arranca de cero.
+- **Al entrar una consulta** (`RouteInquiry`, reacción a `clients.inquiry_received` en `apps/agent`, como `system:scheduler`):
+  - Se asigna como con "Asignar", sin una persona: al contacto que coincide por teléfono o email o, si no hay ninguno, a uno nuevo.
+  - **Si el contacto ya tiene agente**, la oportunidad sigue con él y la regla no avanza su reparto. Si no, va al agente que toca.
+  - **Queda pendiente** si no cumple ninguna regla, si coinciden varios contactos distintos (decide una persona) o si la regla no tiene ningún agente activo.
+  - Es idempotente: una consulta que ya no está pendiente no se toca.
+  - La auditoría de `inquiry.assigned` suma la regla que la repartió.
+- **Auditoría** de las reglas: `inquiry_rule.created`, `.updated` (con el diff), `.activated`, `.deactivated`, `.moved` y `.deleted` (con todos sus valores).
+
 **Diferencias con Tokko**:
 
 - Las consultas de visitas sin contacto no existen: Calendario está fuera de alcance.
@@ -442,6 +465,8 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - Las grillas son paginadas en el servidor, también las coincidencias.
 - "Crear cliente nuevo" no está disponible si el teléfono o el email ya son de un contacto.
 - Cliente y oportunidad están separados: asignar una consulta abre o actualiza una oportunidad del contacto.
+- No se conocen las reglas que Norde usa en Tokko: el asistente es genérico y arranca sin reglas.
+- El reparto automático respeta al agente que ya tiene el contacto.
 
 ### 3.4 Cruce de búsquedas con stock
 

@@ -10,8 +10,9 @@ export interface ClientErasure {
   /**
    * Borra los clientes y todo lo suyo dentro del módulo (teléfonos, emails, canales, relaciones
    * en los dos sentidos, etiquetas, oportunidades, actividad, consultas, búsquedas, destacadas y
-   * envíos), las entradas de auditoría que los incluyen y marca como suprimidos sus IDs externos
-   * para que una importación no los vuelva a crear.
+   * envíos), las consultas sin asignar con alguno de sus teléfonos o emails, las entradas de
+   * auditoría que los incluyen y marca como suprimidos sus IDs externos para que una importación
+   * no los vuelva a crear.
    */
   erase(clientIds: readonly string[], now: Date): Promise<void>;
   /** Guarda la constancia, sin datos personales. */

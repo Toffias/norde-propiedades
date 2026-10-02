@@ -54,3 +54,12 @@ export async function findInquiry(
   const parsed = parseId<'Inquiry'>(id);
   return parsed.isOk() ? repository.findById(parsed.value) : undefined;
 }
+
+/** La misma búsqueda, bloqueando la fila: para asignarla. */
+export async function findInquiryForUpdate(
+  repository: InquiryRepository,
+  id: string,
+): Promise<Inquiry | undefined> {
+  const parsed = parseId<'Inquiry'>(id);
+  return parsed.isOk() ? repository.findForUpdate(parsed.value) : undefined;
+}

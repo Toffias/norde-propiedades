@@ -20,4 +20,15 @@ export type InquiryRestored = DomainEvent<
   { readonly inquiryId: string }
 >;
 
-export type InquiryEvent = InquiryReceived | InquiryDeleted | InquiryRestored;
+/** Quedó asignada a un cliente: la oportunidad y su agente ya tienen sus propios eventos. */
+export type InquiryAssigned = DomainEvent<
+  'clients.inquiry_assigned',
+  {
+    readonly inquiryId: string;
+    readonly clientId: string;
+    readonly opportunityId: string;
+    readonly agentId: string | undefined;
+  }
+>;
+
+export type InquiryEvent = InquiryReceived | InquiryDeleted | InquiryRestored | InquiryAssigned;

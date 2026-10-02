@@ -368,13 +368,13 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 
 **Derivadas** (selector Lista / Tablero / Derivadas): la lista con la categoría "Aplica a otra inmobiliaria". Cada fila muestra a qué socia se derivó, la fecha y el resultado (derivada, sin opciones, volvió a Norde). "Derivación…" en el menú los carga; solo mientras la oportunidad está en esa categoría, y queda auditado (`opportunity.referral_updated`).
 
-### 3.3.9 Bandeja de consultas (#10, etapa 1)
+### 3.3.9 Bandeja de consultas (#10, etapas 1 y 2)
 
 Las **consultas** son los mensajes que llegan de los portales y del formulario de la web. Entran **pendientes** a una bandeja y terminan asignadas a un contacto (existente o nuevo) o en "Borradas". Las del agente de IA (WhatsApp, web chat) no pasan por la bandeja: ya entran por `RegisterContact`.
 
 #10 se construye en cuatro etapas:
 
-1. Ingesta idempotente, bandeja y contador del menú (esta sección).
+1. Ingesta idempotente, bandeja y contador del menú.
 2. Deduplicación y asignación manual: coincidencias por teléfono o email, "Asignar a este cliente" o "Crear cliente nuevo", la oportunidad, el aviso al agente y las reglas de estado.
 3. Reparto ponderado y reglas de asignación automática.
 4. Horario laboral y política fuera de horario.
@@ -406,7 +406,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 
 **Bandeja** (`/consultas`):
 
-- **Quién**: la ve quien tiene "Ver consultas" (`inquiries:read`): todas las consultas, no solo las suyas. Borrar y restaurar piden "Administrar consultas" (`inquiries:manage`).
+- **Quién**: la ve quien tiene "Ver consultas" (`inquiries:read`): todas las consultas, no solo las suyas. Asignar, borrar y restaurar piden "Administrar consultas" (`inquiries:manage`).
 - **Pestañas**: Pendientes, Asignadas y Borradas, paginadas en el servidor. La más nueva va primero.
 - **Filtros**: canal, propiedad (selector paginado de la cartera), sucursal y fecha de recepción (días de Buenos Aires, inclusive).
 - **Cada tarjeta** muestra:
@@ -418,11 +418,30 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Borrar** la manda a Borradas (`inquiry.deleted`). **Restaurar** la devuelve a pendiente, o a asignada si ya tenía contacto (`inquiry.restored`).
 - **Menú**: "Consultas" muestra cuántas hay sin asignar (pendientes, sin las borradas) a quien puede verlas.
 
+**Asignación** (`AssignInquiry`, botón "Asignar" de las pendientes):
+
+- **Coincidencias** (`ListInquiryMatches`): los contactos que comparten el teléfono o el email de la consulta, en cualquiera de los suyos, también los de otros agentes y los de la papelera. Paginadas en el servidor: primero los que coinciden por teléfono, después los activos. Cada una muestra el nombre, el agente, el alta, el último contacto y si coincide por teléfono, por email o por los dos. La ficha se puede abrir solo si el actor puede ver ese contacto.
+- **"Asignar a este cliente"**: solo a uno de los que coinciden. Si estaba en la papelera, vuelve a la agenda.
+- **"Crear cliente nuevo"**: solo si no coincide ninguno. Es la misma regla del alta manual: no se crean dos contactos con el mismo teléfono o email.
+- **Contacto**: se registra con la misma regla que `RegisterContact`. Se suma el canal de la consulta (identificado por el email o, sin él, el teléfono) y se completan los datos que faltan, sin pisar los que tiene.
+- **Oportunidad**: se abre una por la propiedad consultada, con el mensaje como nota (hasta 2.000 caracteres), o se suma el pedido a la abierta por lo mismo. Nace en el estado de la regla "al crear".
+- **Tipo**: se propone alquiler si la propiedad solo se alquila (también temporario) y compra en el resto de los casos, también sin propiedad. Quien asigna lo puede cambiar.
+- **Agente a cargo**: se elige en el diálogo (con `users:read`). Sin elegir, queda el de la oportunidad (el del contacto) o, si nadie la tiene, quien asigna.
+  - Si el elegido es otro, la oportunidad se reasigna y corre la regla "al asignar". Por eso un contacto nuevo nace sin agente y pasa al elegido.
+  - Un contacto sin agente queda también a su cargo. El agente de un contacto que ya tiene uno no cambia.
+  - La consulta pasa a la sucursal del agente; sin agente, conserva la de la propiedad.
+- **Aviso al agente y actividad**: los mismos que con cualquier oportunidad nueva o que vuelve a consultar. Los disparan `clients.opportunity_created` y `clients.opportunity_request_added`.
+- **Una sola vez**: la fila se bloquea mientras se asigna. Dos asignaciones a la vez, o la misma dos veces, dejan un solo contacto y una sola oportunidad; la segunda recibe "La consulta ya estaba asignada".
+- Se audita como `inquiry.assigned` (estado, contacto, oportunidad, agente y sucursal) con el ID del contacto, además de la auditoría del contacto y de la oportunidad. Emite `clients.inquiry_assigned`.
+- **Supresión de datos**: al suprimir un contacto se borran también las consultas sin asignar que tienen alguno de sus teléfonos o emails. Las asignadas a él caen con el contacto.
+
 **Diferencias con Tokko**:
 
 - Las consultas de visitas sin contacto no existen: Calendario está fuera de alcance.
-- La bandeja no muestra las conversaciones del agente de IA, que ya son contactos.
-- Las grillas son paginadas en el servidor.
+- La bandeja no muestra las conversaciones del agente de IA, que ya son contactos. Que el agente mande a la bandeja lo que no pudo registrar queda para otra issue.
+- Las grillas son paginadas en el servidor, también las coincidencias.
+- "Crear cliente nuevo" no está disponible si el teléfono o el email ya son de un contacto.
+- Cliente y oportunidad están separados: asignar una consulta abre o actualiza una oportunidad del contacto.
 
 ### 3.4 Cruce de búsquedas con stock
 

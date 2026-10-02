@@ -28,6 +28,7 @@ import {
   PhoneIcon,
   SlidersHorizontalIcon,
   Trash2Icon,
+  UserCheckIcon,
   UserIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
@@ -52,6 +53,8 @@ import {
 import { deleteInquiryAction, restoreInquiryAction } from '../actions';
 import { formatAge, INQUIRY_TAB_LABELS, tagLabel } from '../inquiry-format';
 
+import { AssignInquiryDialog } from './assign-inquiry-dialog';
+
 /** Filtros de la bandeja tal como están en la URL (texto, sin parsear). */
 export interface InquiryFilterValues {
   readonly tab: InquiryTabValue;
@@ -63,8 +66,10 @@ export interface InquiryFilterValues {
 }
 
 export interface InquiryPermissions {
-  /** Borrar y restaurar ("Administrar consultas"). */
+  /** Asignar, borrar y restaurar ("Administrar consultas"). */
   readonly manage: boolean;
+  /** Elegir el agente al asignar (`users:read`). */
+  readonly pickAgents: boolean;
   /** Filtrar por sucursal (`branches:read`). */
   readonly pickBranches: boolean;
   /** Filtrar por propiedad (`properties:read`). */
@@ -228,11 +233,13 @@ function InquiryCard({
   now,
   canManage,
   onAction,
+  onAssign,
 }: {
   readonly row: InquiryInboxRow;
   readonly now: Date;
   readonly canManage: boolean;
   readonly onAction: (action: PendingAction) => void;
+  readonly onAssign: (row: InquiryInboxRow) => void;
 }) {
   const { property } = row;
   return (
@@ -325,7 +332,19 @@ function InquiryCard({
           </div>
         )}
         {canManage && (
-          <div className="pt-1">
+          <div className="flex flex-wrap gap-2 pt-1">
+            {row.status === 'pending' && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  onAssign(row);
+                }}
+              >
+                <UserCheckIcon className="h-4 w-4" />
+                Asignar
+              </Button>
+            )}
             {row.deletedAt === undefined ? (
               <Button
                 type="button"
@@ -388,6 +407,7 @@ function InboxBody({
 }: InquiriesViewProps & { readonly now: Date }) {
   const { setParams, pending } = useListNavigation();
   const [action, setAction] = useState<PendingAction | undefined>();
+  const [assigning, setAssigning] = useState<InquiryInboxRow | undefined>();
   const filtered = [
     filters.branchId,
     filters.channel,
@@ -422,6 +442,7 @@ function InboxBody({
               now={now}
               canManage={permissions.manage}
               onAction={setAction}
+              onAssign={setAssigning}
             />
           ))}
         </ul>
@@ -437,6 +458,16 @@ function InboxBody({
           setParams({ pageSize: next });
         }}
       />
+      {assigning && (
+        <AssignInquiryDialog
+          key={assigning.id}
+          row={assigning}
+          pickAgents={permissions.pickAgents}
+          onOpenChange={(open) => {
+            if (!open) setAssigning(undefined);
+          }}
+        />
+      )}
       <ConfirmActionDialog
         copy={action?.copy}
         run={action?.run ?? (() => Promise.resolve({ ok: true }))}

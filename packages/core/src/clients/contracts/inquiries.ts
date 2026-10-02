@@ -5,6 +5,7 @@ import { pageQuerySchema } from '../../shared/contracts/pagination';
 import type { ClientListingSummary } from './clients-activity';
 import type { ClientUserRef } from './clients-panel';
 import { CONTACT_CHANNEL_VALUES, type ContactChannelValue } from './contact-channels';
+import { OPPORTUNITY_TYPE_VALUES, type OpportunityTypeValue } from './opportunity-values';
 
 // ---------- Ingesta ----------
 
@@ -100,8 +101,65 @@ export interface InquiryInboxRow {
   readonly clientId: string | undefined;
   readonly assignedAgent: ClientUserRef | undefined;
   readonly assignedAt: Date | undefined;
+  /** Qué tipo de oportunidad se propone al asignarla (por las operaciones de la propiedad). */
+  readonly suggestedType: OpportunityTypeValue;
   /** Solo en "Borradas". */
   readonly deletedAt: Date | undefined;
   /** `undefined` si la borró un proceso del sistema. */
   readonly deletedBy: ClientUserRef | undefined;
+}
+
+// ---------- Asignación ----------
+
+export const AssignInquiryInputSchema = z.object({
+  inquiryId: z.uuid(),
+  /**
+   * A uno de los clientes que coinciden por teléfono o email, o a uno nuevo (solo si no coincide
+   * ninguno: no se crean dos clientes con los mismos datos).
+   */
+  target: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('client'), clientId: z.uuid() }),
+    z.object({ kind: z.literal('new') }),
+  ]),
+  /**
+   * El agente a cargo de la oportunidad. Sin elegir, el que ya tiene (el del cliente) o, si el
+   * cliente es nuevo, quien asigna.
+   */
+  agentId: z.uuid().optional(),
+  /** Sin elegir, el que se propone por la propiedad consultada. */
+  type: z.enum(OPPORTUNITY_TYPE_VALUES).optional(),
+});
+export type AssignInquiryInput = z.input<typeof AssignInquiryInputSchema>;
+
+export interface AssignInquiryOutput {
+  readonly clientId: string;
+  readonly opportunityId: string;
+  readonly clientCreated: boolean;
+  readonly opportunityCreated: boolean;
+}
+
+/** Las coincidencias van por relevancia (teléfono primero, activos primero): no se ordenan. */
+export const INQUIRY_MATCH_SORT_FIELDS = ['relevance'] as const;
+
+export const ListInquiryMatchesQuerySchema = pageQuerySchema({
+  sortable: INQUIRY_MATCH_SORT_FIELDS,
+  defaultSort: { field: 'relevance', direction: 'desc' },
+}).extend({ inquiryId: z.uuid() });
+export type ListInquiryMatchesQuery = z.input<typeof ListInquiryMatchesQuerySchema>;
+
+/** Un cliente que comparte el teléfono o el email de la consulta. */
+export interface InquiryClientMatch {
+  readonly id: string;
+  /** El nombre o, si es una empresa sin nombre de contacto, la razón social. */
+  readonly name: string | undefined;
+  readonly agent: ClientUserRef | undefined;
+  readonly matchedByPhone: boolean;
+  readonly matchedByEmail: boolean;
+  readonly createdAt: Date;
+  /** La última vez que se comunicó por algún canal. */
+  readonly lastContactAt: Date | undefined;
+  /** Está en la papelera: asignarle la consulta lo restaura. */
+  readonly deleted: boolean;
+  /** Si el actor puede abrir su ficha. */
+  readonly viewable: boolean;
 }

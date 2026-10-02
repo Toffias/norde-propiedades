@@ -1,6 +1,8 @@
 import type {
+  AssignInquiryError,
   DeleteInquiryError,
   ListInquiriesError,
+  ListInquiryMatchesError,
   RestoreInquiryError,
 } from '@norde/core/clients';
 
@@ -29,3 +31,20 @@ export const RESTORE_INQUIRY_ERROR_MESSAGES = {
   InquiryNotFound: NOT_FOUND,
   InquiryNotDeleted: 'La consulta ya no está en Borradas.',
 } satisfies ErrorMessages<RestoreInquiryError>;
+
+export const INQUIRY_MATCHES_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para asignar consultas.',
+  InvalidInput: INVALID,
+  InquiryNotFound: NOT_FOUND,
+} satisfies ErrorMessages<ListInquiryMatchesError>;
+
+export const ASSIGN_INQUIRY_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para asignar consultas.',
+  InvalidInput: INVALID,
+  InquiryNotFound: NOT_FOUND,
+  InquiryAlreadyAssigned: 'La consulta ya estaba asignada.',
+  InquiryInTrash: 'La consulta está en Borradas: restaurala para asignarla.',
+  InquiryClientMismatch: 'Ese contacto ya no comparte el teléfono ni el email de la consulta.',
+  DuplicateClient: 'Ya hay un contacto con este teléfono o email: asignale la consulta a él.',
+  AgentNotFound: 'El agente elegido no existe o no está activo.',
+} satisfies ErrorMessages<AssignInquiryError>;

@@ -51,6 +51,11 @@ export interface OpportunityRepository {
 export interface InquiryRepository {
   /** Incluye las borradas. */
   findById(id: InquiryId): Promise<Inquiry | undefined>;
+  /**
+   * La misma lectura, bloqueando la fila hasta el fin de la transacción: dos asignaciones a la vez
+   * no la asignan dos veces.
+   */
+  findForUpdate(id: InquiryId): Promise<Inquiry | undefined>;
   /** La consulta con ese ID externo en ese canal, si ya entró (incluye las borradas). */
   findByExternal(channel: string, externalId: string): Promise<Inquiry | undefined>;
   /**

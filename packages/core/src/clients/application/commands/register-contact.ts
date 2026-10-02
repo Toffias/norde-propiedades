@@ -1,10 +1,6 @@
 import {
-  auditAction,
-  auditCreated,
-  diffChanges,
   Email,
   err,
-  nextId,
   ok,
   Phone,
   type Actor,
@@ -20,13 +16,9 @@ import {
   type RegisterContactInput,
   type RegisterContactOutput,
 } from '../../contracts';
-import { Client, type MissingContactInfoError } from '../../domain/client';
+import type { MissingContactInfoError } from '../../domain/client';
 import { findExistingClient } from '../../domain/duplicate-check';
-import { findOpenOpportunityAbout, Opportunity } from '../../domain/opportunity';
-import { initialStage } from '../../domain/opportunity-settings';
-import { firstActiveStageOf } from '../../domain/opportunity-stage';
-import { clientAuditState, clientTarget } from '../client-support';
-import { opportunityAuditState } from '../opportunity-support';
+import { recordIncomingContact } from '../incoming-contact';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
 export type RegisterContactError =
@@ -85,113 +77,25 @@ export class RegisterContact {
           phones: contact.phone ? [contact.phone] : [],
           emails: contact.email ? [contact.email] : [],
         };
-        const existing = findExistingClient(await tx.clients.findMatching(keys), keys);
-
-        const clientBefore = existing ? clientAuditState(existing) : undefined;
-        let restored = false;
-        let client: Client;
-        if (existing) {
-          client = existing;
-          // Estaba en la papelera y volvió a escribir: vuelve a la agenda.
-          restored = client.restoreFromTrash(now).isOk();
-          client.recordContact(data.channel, data.channelExternalId, now);
-          client.completeProfile(contact);
-        } else {
-          const registered = Client.register({
-            id: nextId<'Client'>(this.deps.ids),
-            ...contact,
+        const recorded = await recordIncomingContact(
+          tx,
+          actor,
+          { ids: this.deps.ids, now },
+          {
+            existing: findExistingClient(await tx.clients.findMatching(keys), keys),
+            contact,
             channel: data.channel,
             channelExternalId: data.channelExternalId,
-            now,
-          });
-          if (registered.isErr()) return err(registered.error);
-          client = registered.value;
-        }
-
-        const { type, intent, propertyId, search, note, noMatchingStock } = data.opportunity;
-        const open = findOpenOpportunityAbout(await tx.opportunities.findOpenByClient(client.id), {
-          type,
-          propertyId,
-        });
-
-        const stages = await tx.stages.findAll();
-        const opportunityBefore = open ? opportunityAuditState(open) : undefined;
-        let opportunity: Opportunity;
-        if (open) {
-          opportunity = open;
-          opportunity.addRequest({ intent, note, search, now });
-          // Si antes tenía stock para ofrecerle y ahora no, pasa a "Aplica a otra inmobiliaria".
-          const referred = firstActiveStageOf(stages, 'referred_to_partner');
-          if (noMatchingStock && opportunity.status === 'new' && referred) {
-            const moved = opportunity.moveToStage(referred.ref(), {
-              id: nextId<'OpportunityStatusChange'>(this.deps.ids),
-              now,
-            });
-            if (moved.isErr()) throw new Error(`Unexpected referral failure: ${moved.error.type}`);
-          }
-        } else {
-          const stage = initialStage(stages, await tx.opportunitySettings.get(), noMatchingStock);
-          // Cada categoría conserva un estado activo (regla de OpportunityStage).
-          if (!stage) throw new Error('No active opportunity stage for a new opportunity');
-          const { ownerId, ownerBranchId } = client.ownership;
-          opportunity = Opportunity.open({
-            id: nextId<'Opportunity'>(this.deps.ids),
-            clientId: client.id,
-            originChannel: data.channel,
-            type,
-            intent,
-            stage: stage.ref(),
-            agent: { agentId: ownerId, branchId: ownerBranchId },
-            statusChangeId: nextId<'OpportunityStatusChange'>(this.deps.ids),
-            propertyId,
-            search,
-            note,
-            now,
-          });
-        }
-
-        await tx.clients.save(client, actor.id);
-        await tx.opportunities.save(opportunity, actor.id);
-        await tx.events.publish([...client.pullEvents(), ...opportunity.pullEvents()]);
-        if (restored)
-          await tx.audit.record(auditAction(actor, clientTarget('client.restored', client.id)));
-        await tx.audit.record(
-          clientBefore
-            ? auditAction(
-                actor,
-                clientTarget('client.contact_recorded', client.id),
-                diffChanges(clientBefore, clientAuditState(client)),
-              )
-            : auditCreated(
-                actor,
-                clientTarget('client.registered', client.id),
-                clientAuditState(client),
-              ),
+            opportunity: data.opportunity,
+          },
         );
-        const opportunityTarget = {
-          entityType: 'opportunity',
-          entityId: opportunity.id,
-          clientIds: [client.id],
-        };
-        await tx.audit.record(
-          opportunityBefore
-            ? auditAction(
-                actor,
-                { ...opportunityTarget, action: 'opportunity.request_added' },
-                diffChanges(opportunityBefore, opportunityAuditState(opportunity)),
-              )
-            : auditCreated(
-                actor,
-                { ...opportunityTarget, action: 'opportunity.opened' },
-                opportunityAuditState(opportunity),
-              ),
-        );
-
+        if (recorded.isErr()) return err(recorded.error);
+        const { client, opportunity, clientCreated, opportunityCreated } = recorded.value;
         return ok({
           clientId: client.id,
           opportunityId: opportunity.id,
-          clientCreated: !existing,
-          opportunityCreated: !open,
+          clientCreated,
+          opportunityCreated,
         });
       },
     );

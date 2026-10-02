@@ -67,6 +67,11 @@ import type {
   InquiryInboxQuery,
 } from '../application/ports/inquiry-inbox-query';
 import type { InquiryPropertyLookup } from '../application/ports/inquiry-property-lookup';
+import type {
+  InquiryMatchCriteria,
+  InquiryMatchItem,
+  InquiryMatchQuery,
+} from '../application/ports/inquiry-match-query';
 import { Client, type ClientId } from '../domain/client';
 import {
   OpportunityBulkOperation,
@@ -568,6 +573,10 @@ export class InMemoryInquiryRepository implements InquiryRepository {
   findById(id: InquiryId) {
     const row = this.rows.get(id);
     return Promise.resolve(row && Inquiry.restore(row));
+  }
+
+  findForUpdate(id: InquiryId) {
+    return this.findById(id);
   }
 
   findByExternal(channel: string, externalId: string) {
@@ -1288,5 +1297,36 @@ export class StubInquiryInboxQuery implements InquiryInboxQuery {
 
   countPending() {
     return Promise.resolve(this.pending);
+  }
+}
+
+export function anInquiryMatch(overrides: Partial<InquiryMatchItem> = {}): InquiryMatchItem {
+  return {
+    id: '00000000-0000-7000-8000-0000000000a1',
+    name: 'Ana Pérez',
+    companyName: undefined,
+    agentId: undefined,
+    branchId: undefined,
+    matchedByPhone: true,
+    matchedByEmail: false,
+    createdAt: new Date('2026-01-10T12:00:00Z'),
+    lastContactAt: undefined,
+    deletedAt: undefined,
+    ...overrides,
+  };
+}
+
+/** Devuelve las filas cargadas y registra los criterios: la búsqueda real es SQL en infra. */
+export class StubInquiryMatchQuery implements InquiryMatchQuery {
+  readonly searches: InquiryMatchCriteria[] = [];
+
+  constructor(public items: readonly InquiryMatchItem[] = []) {}
+
+  search(criteria: InquiryMatchCriteria) {
+    this.searches.push(criteria);
+    return Promise.resolve({
+      items: this.items.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: this.items.length,
+    });
   }
 }

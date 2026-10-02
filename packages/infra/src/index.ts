@@ -51,6 +51,7 @@ export { XlsxSpreadsheetReader } from './adapters/imports/xlsx-spreadsheet-reade
 export { DrizzleClientListQuery } from './clients/drizzle-client-list-query';
 export { DrizzleOpportunityPipelineQuery } from './clients/drizzle-opportunity-pipeline-query';
 export { DrizzleInquiryInboxQuery } from './clients/drizzle-inquiry-inbox-query';
+export { DrizzleInquiryMatchQuery } from './clients/drizzle-inquiry-match-query';
 export { DrizzleInquiryRepository } from './clients/drizzle-inquiry-repository';
 export { DrizzleClientTagQuery } from './clients/drizzle-client-tag-query';
 export { DrizzleClientRelationQuery } from './clients/drizzle-client-relation-query';

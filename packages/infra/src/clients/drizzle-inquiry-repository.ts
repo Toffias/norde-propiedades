@@ -82,6 +82,16 @@ export class DrizzleInquiryRepository implements InquiryRepository {
     return row && Inquiry.restore(toSnapshot(row));
   }
 
+  async findForUpdate(id: InquiryId): Promise<Inquiry | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(inquiries)
+      .where(eq(inquiries.id, id))
+      .limit(1)
+      .for('update');
+    return row && Inquiry.restore(toSnapshot(row));
+  }
+
   async findByExternal(channel: string, externalId: string): Promise<Inquiry | undefined> {
     const [row] = await this.db
       .select()

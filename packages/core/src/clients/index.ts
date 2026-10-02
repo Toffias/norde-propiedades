@@ -482,8 +482,11 @@ export { CountPendingOpportunities } from './application/queries/count-pending-o
 export {
   Inquiry,
   INQUIRY_STATUSES,
+  suggestedOpportunityType,
+  type InquiryAlreadyAssignedError,
   type InquiryAlreadyDeletedError,
   type InquiryId,
+  type InquiryInTrashError,
   type InquiryNotDeletedError,
   type InquirySender,
   type InquirySnapshot,
@@ -504,12 +507,26 @@ export type {
   InquiryInboxQuery,
 } from './application/ports/inquiry-inbox-query';
 export type { InquiryPropertyLookup } from './application/ports/inquiry-property-lookup';
+export type {
+  InquiryMatchCriteria,
+  InquiryMatchItem,
+  InquiryMatchQuery,
+} from './application/ports/inquiry-match-query';
 export type { InquiryNotFoundError } from './application/inquiry-support';
 export { ReceiveInquiry, type ReceiveInquiryError } from './application/commands/receive-inquiry';
 export { DeleteInquiry, type DeleteInquiryError } from './application/commands/delete-inquiry';
 export { RestoreInquiry, type RestoreInquiryError } from './application/commands/restore-inquiry';
 export { ListInquiries, type ListInquiriesError } from './application/queries/list-inquiries';
 export { CountPendingInquiries } from './application/queries/count-pending-inquiries';
+export {
+  AssignInquiry,
+  type AssignInquiryError,
+  type InquiryClientMismatchError,
+} from './application/commands/assign-inquiry';
+export {
+  ListInquiryMatches,
+  type ListInquiryMatchesError,
+} from './application/queries/list-inquiry-matches';
 export {
   ChangeOpportunityStage,
   type ChangeOpportunityStageError,

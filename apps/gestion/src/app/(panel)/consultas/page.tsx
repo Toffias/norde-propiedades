@@ -74,6 +74,7 @@ export default async function InquiriesPage({
             branchLabel={branchLabel}
             permissions={{
               manage: actor.can('inquiries:manage'),
+              pickAgents: actor.can('users:read'),
               pickBranches: actor.can('branches:read'),
               pickProperties: actor.can('properties:read'),
             }}

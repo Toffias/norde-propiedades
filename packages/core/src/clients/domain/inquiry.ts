@@ -7,6 +7,7 @@ import type { Phone } from '../../shared/domain/value-objects/phone';
 import type { MissingContactInfoError } from './client';
 import type { ContactChannel } from './contact-channel';
 import type { InquiryEvent } from './inquiry.events';
+import type { OpportunityType } from './opportunity';
 
 export type InquiryId = Id<'Inquiry'>;
 
@@ -58,6 +59,17 @@ export interface InquiryAlreadyDeletedError {
 export interface InquiryNotDeletedError {
   readonly type: 'InquiryNotDeleted';
 }
+
+export interface InquiryAlreadyAssignedError {
+  readonly type: 'InquiryAlreadyAssigned';
+}
+
+export interface InquiryInTrashError {
+  readonly type: 'InquiryInTrash';
+}
+
+/** Largo máximo de la nota de una oportunidad: lo que exceda del mensaje no entra en ella. */
+const MAX_OPPORTUNITY_NOTE_LENGTH = 2000;
 
 /**
  * Una consulta entrante de un portal o de la web. Entra pendiente y termina asignada a un cliente
@@ -151,6 +163,86 @@ export class Inquiry extends AggregateRoot<InquiryId, InquiryEvent> {
     return this.#state.status === 'deleted';
   }
 
+  get channel(): ContactChannel {
+    return this.#state.channel;
+  }
+
+  get sender(): InquirySender {
+    return this.#state.sender;
+  }
+
+  get propertyId(): string | undefined {
+    return this.#state.propertyId;
+  }
+
+  get branchId(): string | undefined {
+    return this.#state.branchId;
+  }
+
+  /**
+   * Con qué identidad queda el canal en el cliente: el email o, si no tiene, el teléfono. Así las
+   * consultas de la misma persona por el mismo portal suman una sola entrada.
+   */
+  get senderChannelId(): string {
+    const { email, phoneE164 } = this.#state.sender;
+    const id = email ?? phoneE164;
+    // `receive` exige uno de los dos.
+    if (id === undefined) throw new Error(`Inquiry ${this.id} has no contact info`);
+    return id;
+  }
+
+  /** El mensaje como nota de la oportunidad, cortado al largo que admite. */
+  get opportunityNote(): string | undefined {
+    return this.#state.message?.slice(0, MAX_OPPORTUNITY_NOTE_LENGTH);
+  }
+
+  /**
+   * Qué busca, por las operaciones de la propiedad consultada: alquiler si solo se alquila
+   * (también temporario); si no, venta. Sin propiedad, venta. Quien asigna puede cambiarlo.
+   */
+  get suggestedOpportunityType(): OpportunityType {
+    return suggestedOpportunityType(this.#state.autoTags);
+  }
+
+  /**
+   * Queda asignada a un cliente y a la oportunidad que se abrió o actualizó por ella. Pasa a la
+   * sucursal del agente a cargo (si no tiene, conserva la de la propiedad). Solo una pendiente.
+   */
+  assign(input: {
+    readonly clientId: string;
+    readonly opportunityId: string;
+    readonly agent: { readonly agentId: string | undefined; readonly branchId: string | undefined };
+    readonly by: string;
+    readonly now: Date;
+  }): Result<void, InquiryAlreadyAssignedError | InquiryInTrashError> {
+    if (this.isDeleted) return err({ type: 'InquiryInTrash' });
+    if (this.#state.status === 'assigned') return err({ type: 'InquiryAlreadyAssigned' });
+    const { agentId, branchId } = input.agent;
+    this.#state = {
+      ...this.#state,
+      status: 'assigned',
+      clientId: input.clientId,
+      opportunityId: input.opportunityId,
+      assignedAgentId: agentId,
+      branchId: branchId ?? this.#state.branchId,
+      assignedAt: input.now,
+      assignedBy: input.by,
+      updatedAt: input.now,
+    };
+    this.record({
+      type: 'clients.inquiry_assigned',
+      aggregateId: this.id,
+      occurredAt: input.now,
+      payload: {
+        inquiryId: this.id,
+        clientId: input.clientId,
+        opportunityId: input.opportunityId,
+        agentId,
+      },
+    });
+    return ok(undefined);
+  }
+
   /** La manda a "Borradas": no se borra, se restaura desde ahí. */
   delete(by: string, now: Date): Result<void, InquiryAlreadyDeletedError> {
     if (this.isDeleted) return err({ type: 'InquiryAlreadyDeleted' });
@@ -192,4 +284,14 @@ export class Inquiry extends AggregateRoot<InquiryId, InquiryEvent> {
   toSnapshot(): InquirySnapshot {
     return { ...this.#state, autoTags: [...this.#state.autoTags] };
   }
+}
+
+const RENT_OPERATIONS: readonly string[] = ['operation:rent', 'operation:temporary_rent'];
+
+/** Ver `Inquiry.suggestedOpportunityType`: se calcula con las etiquetas, también en la bandeja. */
+export function suggestedOpportunityType(autoTags: readonly string[]): OpportunityType {
+  const operations = autoTags.filter((tag) => tag.startsWith('operation:'));
+  const onlyRent =
+    operations.length > 0 && operations.every((tag) => RENT_OPERATIONS.includes(tag));
+  return onlyRent ? 'rent' : 'sale';
 }

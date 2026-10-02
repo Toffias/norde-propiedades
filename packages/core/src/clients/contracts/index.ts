@@ -5,8 +5,9 @@ import { z } from 'zod';
 
 import { CONTACT_CHANNEL_VALUES } from './contact-channels';
 
-export const OPPORTUNITY_TYPE_VALUES = ['sale', 'rent', 'appraisal'] as const;
-export const OPPORTUNITY_INTENT_VALUES = ['info', 'contact', 'visit'] as const;
+import { OPPORTUNITY_INTENT_VALUES, OPPORTUNITY_TYPE_VALUES } from './opportunity-values';
+
+export * from './opportunity-values';
 
 export const OpportunitySearchSchema = z.object({
   operation: z.string().trim().min(1).max(40).optional(),

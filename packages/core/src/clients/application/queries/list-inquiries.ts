@@ -15,6 +15,7 @@ import {
   type InquiryTag,
   type ListInquiriesQuery,
 } from '../../contracts';
+import { suggestedOpportunityType } from '../../domain/inquiry';
 import { dayRange, invalidInput, type InvalidInputError } from '../client-support';
 import { canReadInquiries } from '../inquiry-support';
 import type { BranchNames } from '../ports/branch-names';
@@ -115,6 +116,7 @@ export class ListInquiries {
         clientId: item.clientId,
         assignedAgent: userRef(item.assignedAgentId, users),
         assignedAt: item.assignedAt,
+        suggestedType: suggestedOpportunityType(item.autoTags),
         deletedAt: item.deletedAt,
         // Un proceso (`system:...`) no es un usuario del panel: no se muestra quién.
         deletedBy: item.deletedBy?.startsWith('system:')

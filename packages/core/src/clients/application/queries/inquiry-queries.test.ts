@@ -133,6 +133,17 @@ describe('ListInquiries', () => {
     ]);
   });
 
+  it('suggests the opportunity type by the operations of the property', async () => {
+    const { list } = setup([
+      anInquiryItem({ autoTags: ['channel:zonaprop', 'operation:rent'] }),
+      anInquiryItem({ id: '00000000-0000-7000-8000-0000000000f2' }),
+    ]);
+
+    const page = unwrap(await list.execute({}, READER));
+
+    expect(page.items.map((row) => row.suggestedType)).toEqual(['rent', 'sale']);
+  });
+
   it('needs "Ver consultas" and validates the query', async () => {
     const { list } = setup();
 

@@ -113,6 +113,26 @@ describe('ListInquiries', () => {
     });
   });
 
+  it('shows who deleted it, unless it was a system process', async () => {
+    const deletedAt = new Date('2026-03-02T10:00:00Z');
+    const { list } = setup([
+      anInquiryItem({ status: 'deleted', deletedAt, deletedBy: AGENT_ID }),
+      anInquiryItem({
+        id: '00000000-0000-7000-8000-0000000000f2',
+        status: 'deleted',
+        deletedAt,
+        deletedBy: 'system:import',
+      }),
+    ]);
+
+    const page = unwrap(await list.execute({ tab: 'deleted' }, READER));
+
+    expect(page.items.map((row) => row.deletedBy)).toEqual([
+      { id: AGENT_ID, name: 'Camila' },
+      undefined,
+    ]);
+  });
+
   it('needs "Ver consultas" and validates the query', async () => {
     const { list } = setup();
 

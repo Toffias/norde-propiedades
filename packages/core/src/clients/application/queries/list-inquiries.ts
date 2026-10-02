@@ -116,7 +116,10 @@ export class ListInquiries {
         assignedAgent: userRef(item.assignedAgentId, users),
         assignedAt: item.assignedAt,
         deletedAt: item.deletedAt,
-        deletedBy: userRef(item.deletedBy, users),
+        // Un proceso (`system:...`) no es un usuario del panel: no se muestra quién.
+        deletedBy: item.deletedBy?.startsWith('system:')
+          ? undefined
+          : userRef(item.deletedBy, users),
       };
     });
   }

@@ -102,5 +102,6 @@ export interface InquiryInboxRow {
   readonly assignedAt: Date | undefined;
   /** Solo en "Borradas". */
   readonly deletedAt: Date | undefined;
+  /** `undefined` si la borró un proceso del sistema. */
   readonly deletedBy: ClientUserRef | undefined;
 }

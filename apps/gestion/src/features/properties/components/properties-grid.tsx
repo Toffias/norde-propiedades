@@ -2,6 +2,7 @@
 
 import type { Route } from 'next';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import type { GridColumnValue, PanelPropertyRow } from '@norde/core/properties/contracts';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
@@ -42,6 +43,11 @@ interface PendingAction {
 
 function getRowId(row: PanelPropertyRow): string {
   return row.id;
+}
+
+function detailHref(row: PanelPropertyRow): Route {
+  // La ficha de la fila: typedRoutes no verifica un segmento dinámico armado.
+  return `/propiedades/${row.id}` as Route;
 }
 
 function OperationsCell({ row }: { readonly row: PanelPropertyRow }) {
@@ -90,6 +96,7 @@ export function PropertiesGrid({
   readonly favoriteIds: ReadonlySet<string>;
   readonly toolbar: ReactNode;
 }) {
+  const router = useRouter();
   const [pending, setPending] = useState<PendingAction | undefined>();
   const inTrash = filters.view === 'trash';
   // El orden por precio compara una sola moneda: solo se ofrece con la moneda elegida.
@@ -134,8 +141,7 @@ export function PropertiesGrid({
         className: 'w-[110px] font-medium tabular-nums',
         cell: (row) => (
           <Link
-            // La ficha de la fila: typedRoutes no verifica un segmento dinámico armado.
-            href={`/propiedades/${row.id}` as Route}
+            href={detailHref(row)}
             className="text-primary-700 hover:underline dark:text-primary-400"
           >
             {row.code}
@@ -251,6 +257,14 @@ export function PropertiesGrid({
         sort={sort}
         getRowId={getRowId}
         selectable={!inTrash}
+        onRowClick={(row, event) => {
+          // Como un link: con Ctrl o Cmd, la ficha se abre en otra pestaña.
+          if (event.ctrlKey || event.metaKey) {
+            window.open(detailHref(row), '_blank', 'noopener');
+            return;
+          }
+          router.push(detailHref(row));
+        }}
         bulkActions={(selection, count) => (
           <PropertyBulkActions
             selection={selection}

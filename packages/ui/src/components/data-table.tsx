@@ -13,7 +13,7 @@ import {
   type Updater,
 } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, type MouseEvent, type ReactNode } from 'react';
 
 import {
   EMPTY_SELECTION,
@@ -93,6 +93,25 @@ export interface DataTableProps<T extends DataTableRow> {
   readonly onSelectionChange?: (selection: DataTableSelection) => void;
   /** Acciones masivas sobre la selección; se muestran cuando hay algo marcado. */
   readonly bulkActions?: (selection: DataTableSelection, count: number) => ReactNode;
+  /**
+   * Clic en la fila (ej. abrir la ficha). No se dispara desde los controles de la fila (links,
+   * botones, casillas, menús) ni al seleccionar texto. Con teclado, la fila necesita igual un link.
+   */
+  readonly onRowClick?: (row: T, event: MouseEvent<HTMLTableRowElement>) => void;
+}
+
+/** Controles de la fila que tienen su propio clic. */
+const INTERACTIVE =
+  'a, button, input, select, textarea, label, [role="checkbox"], [role="menuitem"]';
+
+function isRowClick(event: MouseEvent<HTMLTableRowElement>): boolean {
+  const target = event.target;
+  // Los menús y diálogos de una celda se renderizan en un portal: el evento llega por React, pero
+  // el elemento no está dentro de la fila.
+  if (!(target instanceof Element) || !event.currentTarget.contains(target)) return false;
+  if (target.closest(INTERACTIVE) !== null) return false;
+  const selected = window.getSelection()?.toString() ?? '';
+  return selected === '';
 }
 
 export function DataTable<T extends DataTableRow>({
@@ -114,6 +133,7 @@ export function DataTable<T extends DataTableRow>({
   selection = EMPTY_SELECTION,
   onSelectionChange,
   bulkActions,
+  onRowClick,
 }: DataTableProps<T>) {
   const selectable = onSelectionChange !== undefined;
   const pageRowIds = useMemo(() => rows.map(getRowId), [rows, getRowId]);
@@ -293,9 +313,26 @@ export function DataTable<T extends DataTableRow>({
                 {table.getRowModel().rows.map((row) => {
                   const selected = rowSelection[row.id] === true;
                   return (
-                    <TableRow key={row.id} data-state={selected ? 'selected' : undefined}>
+                    <TableRow
+                      key={row.id}
+                      data-state={selected ? 'selected' : undefined}
+                      className={cn(onRowClick && 'cursor-pointer')}
+                      {...(onRowClick
+                        ? {
+                            onClick: (event: MouseEvent<HTMLTableRowElement>) => {
+                              if (isRowClick(event)) onRowClick(row.original, event);
+                            },
+                          }
+                        : {})}
+                    >
                       {selectable && (
-                        <TableCell className="w-10 pl-4">
+                        <TableCell
+                          className="w-10 pl-4"
+                          // Errarle por poco a la casilla no abre la fila.
+                          onClick={(event) => {
+                            event.stopPropagation();
+                          }}
+                        >
                           <Checkbox
                             aria-label="Seleccionar fila"
                             checked={selected}

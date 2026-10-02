@@ -156,7 +156,7 @@ Se separan dos conceptos:
 ### 3.2 Asignado a un agente
 
 - Cada oportunidad (y por defecto el cliente) tiene un **agente responsable**.
-- La asignación automática al entrar por el bot o por un portal puede ser por round-robin, por zona o por tipo de operación (a definir). Siempre se puede reasignar a mano.
+- La asignación automática de las consultas de portales y de la web va por reglas (canal, operación, tipo, zona, propiedad, emprendimiento) con reparto ponderado entre agentes (#10, etapa 3). Siempre se puede reasignar a mano.
 - El agente asignado recibe un aviso cuando entra una oportunidad nueva o cuando el cliente vuelve a escribir.
 
 ### 3.3 Oportunidades cross platform
@@ -367,6 +367,62 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 - Mueven al estado configurado solo si el dominio lo permite y la oportunidad está abierta; si no, no hacen nada. Cada evento aplica una sola vez, aunque llegue repetido. El cambio queda como hecho por el sistema.
 
 **Derivadas** (selector Lista / Tablero / Derivadas): la lista con la categoría "Aplica a otra inmobiliaria". Cada fila muestra a qué socia se derivó, la fecha y el resultado (derivada, sin opciones, volvió a Norde). "Derivación…" en el menú los carga; solo mientras la oportunidad está en esa categoría, y queda auditado (`opportunity.referral_updated`).
+
+### 3.3.9 Bandeja de consultas (#10, etapa 1)
+
+Las **consultas** son los mensajes que llegan de los portales y del formulario de la web. Entran **pendientes** a una bandeja y terminan asignadas a un contacto (existente o nuevo) o en "Borradas". Las del agente de IA (WhatsApp, web chat) no pasan por la bandeja: ya entran por `RegisterContact`.
+
+#10 se construye en cuatro etapas:
+
+1. Ingesta idempotente, bandeja y contador del menú (esta sección).
+2. Deduplicación y asignación manual: coincidencias por teléfono o email, "Asignar a este cliente" o "Crear cliente nuevo", la oportunidad, el aviso al agente y las reglas de estado.
+3. Reparto ponderado y reglas de asignación automática.
+4. Horario laboral y política fuera de horario.
+
+**Ingesta** (`ReceiveInquiry`):
+
+- La ejecutan solo los procesos que reciben consultas (`system:web`, `system:portal-sync`, `system:agent-ia`), con `inquiries:receive`.
+- Es **idempotente por canal e ID externo**. Si la misma consulta llega dos veces (un reintento del portal, un doble envío del formulario), se devuelve la que ya estaba y no se escribe nada. También vale con dos entregas simultáneas: el índice único `(channel, external_id)` deja entrar una sola.
+- Pide teléfono o email: sin ninguno no hay a quién responder ni con qué deduplicar. El teléfono se normaliza a E.164. Una fecha de recepción futura se toma como ahora.
+- **Sucursal**: la de la propiedad consultada, que es la de su captador, hasta que la consulta se asigna. Sin propiedad, queda sin sucursal.
+- **Etiquetas automáticas**: el canal y, de la propiedad consultada, sus operaciones, el tipo y el barrio. Se guardan como códigos (`channel:zonaprop`, `operation:sale`, `type:apartment`, `neighborhood:Palermo`) y la bandeja los muestra en palabras.
+- Emite `clients.inquiry_received`, que van a tomar el reparto automático y los avisos.
+- Se audita como `inquiry.received` **sin los datos del remitente** (canal, ID externo, fecha, propiedad, sucursal, estado y etiquetas). Mientras no se asigna, la consulta no tiene un contacto con el que suprimirlos.
+
+**Formulario de la web** → `POST /webhooks/inquiries/web` en `apps/agent`:
+
+- **Body**: JSON con `externalId` (un UUID que la web genera por envío; si reintenta, manda el mismo), `name`, `email`, `phone`, `message` y `propertyId`. Hasta 16 KB.
+- **Firma**: header `x-norde-signature: sha256=<HMAC-SHA256 del body crudo>`, con el secreto compartido `INQUIRY_WEBHOOK_SECRET`. Sin esa variable el webhook no se expone.
+- **Rate limit**: `INQUIRY_WEBHOOK_RATE_PER_MINUTE` pedidos por minuto por IP (60 por defecto). Como el que llama es el servidor de la web, el límite por visitante va en `apps/web`.
+- **Respuestas**:
+  - 201 si la consulta es nueva, 200 si era un reintento (`{ inquiryId, duplicate }`).
+  - 400 si el body no valida.
+  - 401 si la firma no es válida.
+  - 413 si el body es demasiado grande.
+  - 422 si el caso de uso la rechaza (sin teléfono ni email, teléfono o email inválido).
+  - 429 si se pasa del límite.
+- Se procesa en el momento, no en segundo plano: guardar la consulta es una inserción y la web necesita saber si entró.
+- Los conectores de portales (#14) van a llamar al mismo caso de uso con `system:portal-sync`.
+
+**Bandeja** (`/consultas`):
+
+- **Quién**: la ve quien tiene "Ver consultas" (`inquiries:read`): todas las consultas, no solo las suyas. Borrar y restaurar piden "Administrar consultas" (`inquiries:manage`).
+- **Pestañas**: Pendientes, Asignadas y Borradas, paginadas en el servidor. La más nueva va primero.
+- **Filtros**: canal, propiedad (selector paginado de la cartera), sucursal y fecha de recepción (días de Buenos Aires, inclusive).
+- **Cada tarjeta** muestra:
+  - el remitente y la antigüedad;
+  - el email y el celular;
+  - el mensaje y las etiquetas;
+  - la propiedad con su captador, y la sucursal.
+  - En Asignadas suma el agente y el link al contacto; en Borradas, quién la borró y cuándo.
+- **Borrar** la manda a Borradas (`inquiry.deleted`). **Restaurar** la devuelve a pendiente, o a asignada si ya tenía contacto (`inquiry.restored`).
+- **Menú**: "Consultas" muestra cuántas hay sin asignar (pendientes, sin las borradas) a quien puede verlas.
+
+**Diferencias con Tokko**:
+
+- Las consultas de visitas sin contacto no existen: Calendario está fuera de alcance.
+- La bandeja no muestra las conversaciones del agente de IA, que ya son contactos.
+- Las grillas son paginadas en el servidor.
 
 ### 3.4 Cruce de búsquedas con stock
 

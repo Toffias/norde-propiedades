@@ -28,6 +28,7 @@ import {
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzlePanelPropertyListQuery } from './drizzle-panel-property-list-query';
+import { DrizzlePropertyClientErasure } from './drizzle-property-client-erasure';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 
 const db = useTestDatabase();
@@ -647,6 +648,29 @@ describe('DrizzlePanelPropertyListQuery', () => {
     expect(page.total).toBe(3);
     expect(page.items.map((item) => item.code)).toEqual(['P00002', 'P00004']);
     expect(scansWithIndex(await pagePlan({ ...BASE, ownerClientId: owner }))).toBe(true);
+  });
+
+  it('unlinks an erased client from its properties and keeps the properties (#8)', async () => {
+    await seedPortfolio();
+    const erased = '00000000-0000-7000-8000-00000000c0de';
+    const other = '00000000-0000-7000-8000-00000000beef';
+    const property = (n: number) => `00000000-0000-7000-8000-${n.toString().padStart(12, '0')}`;
+    await db.insert(propertyOwners).values(
+      [
+        { propertyId: property(2), clientId: erased },
+        { propertyId: property(4), clientId: erased },
+        { propertyId: property(4), clientId: other },
+      ].map((owner) => ({ ...owner, createdAt: NOW, createdBy: 'system:import' })),
+    );
+
+    const erasure = new DrizzlePropertyClientErasure(db);
+    expect(await erasure.unlinkClients([erased])).toBe(2);
+    expect(await erasure.unlinkClients([erased])).toBe(0);
+
+    const owners = await db.select().from(propertyOwners);
+    expect(owners.map((o) => [o.propertyId, o.clientId])).toEqual([[property(4), other]]);
+    const kept = await db.select({ id: properties.id }).from(properties);
+    expect(kept.map((p) => p.id)).toContain(property(2));
   });
 
   it('returns the pins inside the map area, newest first, up to the limit', async () => {

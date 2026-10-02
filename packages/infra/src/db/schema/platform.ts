@@ -106,9 +106,17 @@ export const importJobs = coreSchema.table(
     dryRun: boolean('dry_run').notNull().default(false),
     /** Archivo subido (planillas). */
     storageKey: text('storage_key'),
+    /** Nombre del archivo tal como se subió, para el historial. */
+    fileName: text('file_name'),
+    /** Cómo se lee el archivo: el mapeo de columnas y el agente a cargo (`clients_xlsx`). */
+    options: jsonb('options')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     totals: jsonb('totals')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /** Por qué falló entera (`unreadable_file`, `file_missing`…). */
+    failure: text('failure'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
@@ -128,6 +136,7 @@ export const importJobErrors = coreSchema.table(
       .references(() => importJobs.id, { onDelete: 'cascade' }),
     rowNumber: integer('row_number'),
     entityType: text('entity_type'),
+    /** Qué pasó con la fila (`duplicate`, `invalid_phone`…), sin datos personales. */
     message: text('message').notNull(),
     /** Fila original, sin datos personales en claro. */
     raw: jsonb('raw'),

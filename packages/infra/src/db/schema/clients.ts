@@ -106,6 +106,10 @@ export const clients = coreSchema.table(
     index('clients_deleted_idx')
       .on(t.deletedAt)
       .where(sql`deleted_at is not null`),
+    // Supresión: los duplicados unificados en un contacto se suprimen con él.
+    index('clients_merged_into_idx')
+      .on(t.mergedIntoId)
+      .where(sql`merged_into_id is not null`),
   ],
 );
 

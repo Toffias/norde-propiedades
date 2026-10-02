@@ -65,3 +65,4 @@ export * from './clients-tags';
 export * from './clients-activity';
 export * from './clients-erasure';
 export * from './clients-import';
+export * from './opportunity-settings';

@@ -8,9 +8,16 @@ import { MAX_CLIENT_TAGS } from '../domain/client-tag';
 import { CLIENT_KINDS, CLIENT_TYPES, EMAIL_KINDS, PHONE_KINDS } from '../domain/client-values';
 import { CONTACT_CHANNELS } from '../domain/contact-channel';
 import { OPPORTUNITY_INTENTS, OPPORTUNITY_TYPES } from '../domain/opportunity';
+import { CLOSE_REASON_RATINGS, MAX_CLOSE_REASONS } from '../domain/opportunity-close-reason';
+import { OPPORTUNITY_RULES } from '../domain/opportunity-settings';
+import { MAX_OPPORTUNITY_STAGES } from '../domain/opportunity-stage';
 import { OPPORTUNITY_STATUSES } from '../domain/opportunity-status';
 
 import {
+  CLOSE_REASON_RATING_VALUES,
+  MAX_CLOSE_REASON_COUNT,
+  MAX_OPPORTUNITY_STAGE_COUNT,
+  OPPORTUNITY_RULE_VALUES,
   CLIENT_ACTIVITY_KIND_VALUES,
   CLIENT_KIND_VALUES,
   CLIENT_RELATION_KIND_VALUES,
@@ -45,6 +52,10 @@ describe('clients contracts', () => {
     expect(CLIENT_ACTIVITY_KIND_VALUES).toEqual(CLIENT_ACTIVITY_KINDS);
     expect(MAX_CLIENT_NOTE_LENGTH).toBe(MAX_NOTE_LENGTH);
     expect(CONTRACT_ERASURE_WORD).toBe(ERASURE_CONFIRMATION_WORD);
+    expect(CLOSE_REASON_RATING_VALUES).toEqual(CLOSE_REASON_RATINGS);
+    expect(OPPORTUNITY_RULE_VALUES).toEqual(OPPORTUNITY_RULES);
+    expect(MAX_OPPORTUNITY_STAGE_COUNT).toBe(MAX_OPPORTUNITY_STAGES);
+    expect(MAX_CLOSE_REASON_COUNT).toBe(MAX_CLOSE_REASONS);
     // El contacto suprimido más sus duplicados unificados.
     expect(MAX_ERASED_CLIENT_IDS).toBe(MAX_ERASED_MERGED_CLIENTS + 1);
   });

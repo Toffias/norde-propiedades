@@ -6,7 +6,10 @@ import type {
   ClientTagGroupRepository,
   ClientTagRepository,
   FeaturedListingRepository,
+  OpportunityCloseReasonRepository,
   OpportunityRepository,
+  OpportunitySettingsRepository,
+  OpportunityStageRepository,
 } from '../../domain/client.repository';
 
 import type { ClientErasure } from './client-erasure';
@@ -16,6 +19,9 @@ import type { ClientLinkedRecords } from './client-linked-records';
 export interface ClientsTransaction {
   readonly clients: ClientRepository;
   readonly opportunities: OpportunityRepository;
+  readonly stages: OpportunityStageRepository;
+  readonly closeReasons: OpportunityCloseReasonRepository;
+  readonly opportunitySettings: OpportunitySettingsRepository;
   readonly tagGroups: ClientTagGroupRepository;
   readonly tags: ClientTagRepository;
   readonly records: ClientLinkedRecords;

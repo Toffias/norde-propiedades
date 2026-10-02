@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Actor } from '../../../shared';
 import { FixedClock, SequentialIdGenerator } from '../../../shared/testing';
 import type { RegisterContactInput } from '../../contracts';
-import { InMemoryClientsUnitOfWork, seedClient } from '../../testing';
+import { InMemoryClientsUnitOfWork, seedClient, stageFixtureId } from '../../testing';
 
 import { RegisterContact } from './register-contact';
 
@@ -80,6 +80,40 @@ describe('RegisterContact', () => {
         status: { before: null, after: 'new' },
         propertyId: { before: null, after: PROPERTY_ID },
       },
+    });
+  });
+
+  it('opens the opportunity in its editable stage and records it in the history', async () => {
+    const { uow, useCase } = setup();
+
+    await useCase.execute(whatsappContact(), agent);
+
+    const [opportunity] = [...uow.opportunities.rows.values()];
+    expect(opportunity).toMatchObject({ status: 'new', stageId: stageFixtureId(0) });
+    expect(uow.opportunities.statusChanges).toEqual([
+      expect.objectContaining({
+        fromStatus: undefined,
+        toStageId: stageFixtureId(0),
+        toStatus: 'new',
+        changedBy: 'system:agent-ia',
+      }),
+    ]);
+  });
+
+  it('uses the stage of the "on create" rule and inherits the agent of the client', async () => {
+    const { uow, useCase } = setup();
+    const contacted = stageFixtureId(1);
+    uow.opportunitySettings.rules = { ...uow.opportunitySettings.rules, onCreate: contacted };
+    await seedClient(uow, { agentId: 'agent-7', branchId: 'branch-7' });
+
+    await useCase.execute(whatsappContact(), agent);
+
+    const [opportunity] = [...uow.opportunities.rows.values()];
+    expect(opportunity).toMatchObject({
+      status: 'contacted',
+      stageId: contacted,
+      agentId: 'agent-7',
+      branchId: 'branch-7',
     });
   });
 

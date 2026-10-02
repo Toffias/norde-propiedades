@@ -5,6 +5,9 @@ import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from '.
 import type { ContactKeys } from './duplicate-check';
 import type { FeaturedListing } from './featured-listing';
 import type { Opportunity, OpportunityId } from './opportunity';
+import type { OpportunityCloseReason, OpportunityCloseReasonId } from './opportunity-close-reason';
+import type { OpportunityRules } from './opportunity-settings';
+import type { OpportunityStage, OpportunityStageId } from './opportunity-stage';
 
 /** Tope de coincidencias que devuelve una búsqueda de duplicados. */
 export const MAX_DUPLICATE_CANDIDATES = 10;
@@ -30,7 +33,33 @@ export interface ClientRepository {
 export interface OpportunityRepository {
   findById(id: OpportunityId): Promise<Opportunity | undefined>;
   findOpenByClient(clientId: ClientId): Promise<Opportunity[]>;
-  save(opportunity: Opportunity): Promise<void>;
+  /**
+   * Guarda la oportunidad y los cambios de estado pendientes en el historial. `actorId` queda como
+   * autor de la fila y de esos cambios.
+   */
+  save(opportunity: Opportunity, actorId: string): Promise<void>;
+}
+
+/** Catálogo de estados editables: como mucho `MAX_OPPORTUNITY_STAGES`. */
+export interface OpportunityStageRepository {
+  findById(id: OpportunityStageId): Promise<OpportunityStage | undefined>;
+  /** Todos (activos e inactivos), por posición. */
+  findAll(): Promise<OpportunityStage[]>;
+  save(stage: OpportunityStage, actorId: string): Promise<void>;
+}
+
+/** Catálogo de motivos de cierre: como mucho `MAX_CLOSE_REASONS`. */
+export interface OpportunityCloseReasonRepository {
+  findById(id: OpportunityCloseReasonId): Promise<OpportunityCloseReason | undefined>;
+  /** Todos (activos e inactivos), por posición. */
+  findAll(): Promise<OpportunityCloseReason[]>;
+  save(reason: OpportunityCloseReason, actorId: string): Promise<void>;
+}
+
+/** Las reglas automáticas de estado (fila única). */
+export interface OpportunitySettingsRepository {
+  get(): Promise<OpportunityRules>;
+  save(rules: OpportunityRules, actorId: string, now: Date): Promise<void>;
 }
 
 export interface ClientTagGroupRepository {

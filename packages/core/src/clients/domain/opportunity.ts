@@ -1,10 +1,16 @@
 import { AggregateRoot } from '../../shared/domain/aggregate-root';
 import type { Id } from '../../shared/domain/id';
-import type { Result } from '../../shared/domain/result';
+import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { ClientId } from './client';
 import type { ContactChannel } from './contact-channel';
 import type { OpportunityEvent } from './opportunity.events';
+import {
+  closingStatusFor,
+  type CloseReasonRef,
+  type OpportunityCloseReasonId,
+} from './opportunity-close-reason';
+import type { OpportunityStageId, StageRef } from './opportunity-stage';
 import {
   checkTransition,
   isOpenStatus,
@@ -13,6 +19,7 @@ import {
 } from './opportunity-status';
 
 export type OpportunityId = Id<'Opportunity'>;
+export type OpportunityStatusChangeId = Id<'OpportunityStatusChange'>;
 
 /** Catalogación del diagrama: qué busca el cliente. */
 export const OPPORTUNITY_TYPES = ['sale', 'rent', 'appraisal'] as const;
@@ -41,13 +48,73 @@ export interface OpportunityNote {
   readonly createdAt: Date;
 }
 
+/** Un cambio de estado del historial: de él sale la vigencia. */
+export interface OpportunityStatusChange {
+  readonly id: OpportunityStatusChangeId;
+  /** Sin origen: el estado con el que nació. */
+  readonly fromStageId: OpportunityStageId | undefined;
+  readonly fromStatus: OpportunityStatus | undefined;
+  readonly toStageId: OpportunityStageId;
+  readonly toStatus: OpportunityStatus;
+  readonly changedAt: Date;
+}
+
+/** Agente responsable y su sucursal (IDs del módulo identity). */
+export interface OpportunityAgent {
+  readonly agentId: string | undefined;
+  readonly branchId: string | undefined;
+}
+
+export interface OpportunityClosedError {
+  readonly type: 'OpportunityClosed';
+}
+
+export interface StageInactiveError {
+  readonly type: 'StageInactive';
+}
+
+/** A ganada o perdida solo se llega cerrando, con un motivo. */
+export interface CloseRequiresReasonError {
+  readonly type: 'CloseRequiresReason';
+}
+
+export interface CloseReasonInactiveError {
+  readonly type: 'CloseReasonInactive';
+}
+
+/** El estado elegido para cerrar no es de la categoría que corresponde al motivo. */
+export interface CloseStageMismatchError {
+  readonly type: 'CloseStageMismatch';
+}
+
+export type MoveToStageError =
+  | InvalidStatusTransitionError
+  | OpportunityClosedError
+  | StageInactiveError
+  | CloseRequiresReasonError;
+
+export type CloseOpportunityError =
+  | InvalidStatusTransitionError
+  | OpportunityClosedError
+  | StageInactiveError
+  | CloseReasonInactiveError
+  | CloseStageMismatchError;
+
 export interface OpportunitySnapshot {
   readonly id: OpportunityId;
   readonly clientId: ClientId;
   readonly originChannel: ContactChannel;
   readonly type: OpportunityType;
   readonly intent: OpportunityIntent;
+  /** Categoría del estado (ADR 0013): las reglas y los reportes usan esto. */
   readonly status: OpportunityStatus;
+  /** El estado editable. Sin estado, solo las anteriores al backfill. */
+  readonly stageId: OpportunityStageId | undefined;
+  readonly agentId: string | undefined;
+  readonly branchId: string | undefined;
+  readonly statusChangedAt: Date;
+  readonly closedAt: Date | undefined;
+  readonly closeReasonId: OpportunityCloseReasonId | undefined;
   readonly propertyId: string | undefined;
   readonly search: OpportunitySearch | undefined;
   readonly notes: readonly OpportunityNote[];
@@ -69,6 +136,7 @@ function strongestIntent(a: OpportunityIntent, b: OpportunityIntent): Opportunit
 /** Cada consulta o interés concreto de un cliente. Un cliente puede tener varias. */
 export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> {
   #state: Omit<OpportunitySnapshot, 'id'>;
+  readonly #changes: OpportunityStatusChange[] = [];
 
   private constructor(id: OpportunityId, state: Omit<OpportunitySnapshot, 'id'>) {
     super(id);
@@ -81,8 +149,11 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
     readonly originChannel: ContactChannel;
     readonly type: OpportunityType;
     readonly intent: OpportunityIntent;
-    /** Si Norde no tiene stock para ofrecerle, nace en "Aplica a otra inmobiliaria". */
-    readonly noMatchingStock: boolean;
+    /** Lo resuelve `initialStage`: el de la regla "al crear", o derivada si no hay stock. */
+    readonly stage: StageRef;
+    /** Hereda el agente y la sucursal del contacto. */
+    readonly agent: OpportunityAgent;
+    readonly statusChangeId: OpportunityStatusChangeId;
     readonly propertyId?: string | undefined;
     readonly search?: OpportunitySearch | undefined;
     readonly note?: string | undefined;
@@ -93,12 +164,26 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
       originChannel: input.originChannel,
       type: input.type,
       intent: input.intent,
-      status: input.noMatchingStock ? 'referred_to_partner' : 'new',
+      status: input.stage.category,
+      stageId: input.stage.id,
+      agentId: input.agent.agentId,
+      branchId: input.agent.branchId,
+      statusChangedAt: input.now,
+      closedAt: undefined,
+      closeReasonId: undefined,
       propertyId: input.propertyId,
       search: input.search,
       notes: note(input.note, input.now),
       createdAt: input.now,
       updatedAt: input.now,
+    });
+    opportunity.#changes.push({
+      id: input.statusChangeId,
+      fromStageId: undefined,
+      fromStatus: undefined,
+      toStageId: input.stage.id,
+      toStatus: input.stage.category,
+      changedAt: input.now,
     });
     opportunity.record({
       type: 'clients.opportunity_created',
@@ -130,8 +215,20 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
     return this.#state.status;
   }
 
+  get stageId(): OpportunityStageId | undefined {
+    return this.#state.stageId;
+  }
+
   get propertyId(): string | undefined {
     return this.#state.propertyId;
+  }
+
+  /** Para las reglas de pertenencia de identity. */
+  get ownership(): {
+    readonly ownerId: string | undefined;
+    readonly ownerBranchId: string | undefined;
+  } {
+    return { ownerId: this.#state.agentId, ownerBranchId: this.#state.branchId };
   }
 
   get notes(): readonly OpportunityNote[] {
@@ -172,19 +269,91 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
     });
   }
 
-  changeStatus(to: OpportunityStatus, now: Date): Result<void, InvalidStatusTransitionError> {
-    const from = this.#state.status;
-    const check = checkTransition(from, to);
-    if (check.isErr()) return check;
+  /**
+   * Pasa a otro estado abierto. Entre estados de la misma categoría siempre se puede; entre
+   * categorías, solo por las transiciones del dominio. A ganada o perdida se llega con `close`.
+   * Devuelve si cambió.
+   */
+  moveToStage(
+    stage: StageRef,
+    change: { readonly id: OpportunityStatusChangeId; readonly now: Date },
+  ): Result<boolean, MoveToStageError> {
+    if (!this.isOpen()) return err({ type: 'OpportunityClosed' });
+    if (stage.id === this.#state.stageId) return ok(false);
+    if (!stage.isActive) return err({ type: 'StageInactive' });
+    if (!isOpenStatus(stage.category)) return err({ type: 'CloseRequiresReason' });
+    if (stage.category !== this.#state.status) {
+      const check = checkTransition(this.#state.status, stage.category);
+      if (check.isErr()) return err(check.error);
+    }
+    this.#applyStage(stage, change, undefined);
+    return ok(true);
+  }
 
-    this.#state = { ...this.#state, status: to, updatedAt: now };
+  /**
+   * Cierra con un motivo: su calificación decide si queda ganada o perdida, y `stage` tiene que
+   * ser de esa categoría. Ganada y perdida son finales.
+   */
+  close(
+    reason: CloseReasonRef,
+    stage: StageRef,
+    change: { readonly id: OpportunityStatusChangeId; readonly now: Date },
+  ): Result<void, CloseOpportunityError> {
+    if (!this.isOpen()) return err({ type: 'OpportunityClosed' });
+    if (!reason.isActive) return err({ type: 'CloseReasonInactive' });
+    if (stage.category !== closingStatusFor(reason.rating)) {
+      return err({ type: 'CloseStageMismatch' });
+    }
+    if (!stage.isActive) return err({ type: 'StageInactive' });
+    const check = checkTransition(this.#state.status, stage.category);
+    if (check.isErr()) return err(check.error);
+    this.#applyStage(stage, change, reason.id);
+    return ok(undefined);
+  }
+
+  #applyStage(
+    stage: StageRef,
+    change: { readonly id: OpportunityStatusChangeId; readonly now: Date },
+    closeReasonId: OpportunityCloseReasonId | undefined,
+  ): void {
+    const from = { stageId: this.#state.stageId, status: this.#state.status };
+    const closing = closeReasonId !== undefined;
+    this.#state = {
+      ...this.#state,
+      stageId: stage.id,
+      status: stage.category,
+      statusChangedAt: change.now,
+      closedAt: closing ? change.now : this.#state.closedAt,
+      closeReasonId: closing ? closeReasonId : this.#state.closeReasonId,
+      updatedAt: change.now,
+    };
+    this.#changes.push({
+      id: change.id,
+      fromStageId: from.stageId,
+      fromStatus: from.status,
+      toStageId: stage.id,
+      toStatus: stage.category,
+      changedAt: change.now,
+    });
     this.record({
       type: 'clients.opportunity_status_changed',
       aggregateId: this.id,
-      occurredAt: now,
-      payload: { opportunityId: this.id, clientId: this.#state.clientId, from, to },
+      occurredAt: change.now,
+      payload: {
+        opportunityId: this.id,
+        clientId: this.#state.clientId,
+        from: from.status,
+        to: stage.category,
+        fromStageId: from.stageId,
+        toStageId: stage.id,
+        closeReasonId,
+      },
     });
-    return check;
+  }
+
+  /** Los cambios de estado que todavía no se guardaron en el historial. */
+  pullStatusChanges(): readonly OpportunityStatusChange[] {
+    return this.#changes.splice(0, this.#changes.length);
   }
 
   toSnapshot(): OpportunitySnapshot {

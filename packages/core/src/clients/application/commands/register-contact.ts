@@ -25,12 +25,14 @@ import {
 import { Client, type MissingContactInfoError } from '../../domain/client';
 import { findExistingClient } from '../../domain/duplicate-check';
 import { findOpenOpportunityAbout, Opportunity } from '../../domain/opportunity';
+import { initialStage } from '../../domain/opportunity-settings';
+import { firstActiveStageOf } from '../../domain/opportunity-stage';
 import { clientAuditState, clientTarget } from '../client-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
 /** Lo que se audita de una oportunidad. Las notas quedan en la actividad del cliente. */
 function opportunityAuditState(opportunity: Opportunity): AuditState {
-  const { clientId, originChannel, type, intent, status, propertyId, search } =
+  const { clientId, originChannel, type, intent, status, stageId, agentId, propertyId, search } =
     opportunity.toSnapshot();
   return {
     clientId,
@@ -38,6 +40,8 @@ function opportunityAuditState(opportunity: Opportunity): AuditState {
     type,
     intent,
     status,
+    stageId,
+    agentId,
     propertyId,
     search: toAuditValue(search),
   };
@@ -128,23 +132,35 @@ export class RegisterContact {
           propertyId,
         });
 
+        const stages = await tx.stages.findAll();
         const opportunityBefore = open ? opportunityAuditState(open) : undefined;
         let opportunity: Opportunity;
         if (open) {
           opportunity = open;
           opportunity.addRequest({ intent, note, search, now });
           // Si antes tenía stock para ofrecerle y ahora no, pasa a "Aplica a otra inmobiliaria".
-          if (noMatchingStock && opportunity.status === 'new') {
-            opportunity.changeStatus('referred_to_partner', now);
+          const referred = firstActiveStageOf(stages, 'referred_to_partner');
+          if (noMatchingStock && opportunity.status === 'new' && referred) {
+            const moved = opportunity.moveToStage(referred.ref(), {
+              id: nextId<'OpportunityStatusChange'>(this.deps.ids),
+              now,
+            });
+            if (moved.isErr()) throw new Error(`Unexpected referral failure: ${moved.error.type}`);
           }
         } else {
+          const stage = initialStage(stages, await tx.opportunitySettings.get(), noMatchingStock);
+          // Cada categoría conserva un estado activo (regla de OpportunityStage).
+          if (!stage) throw new Error('No active opportunity stage for a new opportunity');
+          const { ownerId, ownerBranchId } = client.ownership;
           opportunity = Opportunity.open({
             id: nextId<'Opportunity'>(this.deps.ids),
             clientId: client.id,
             originChannel: data.channel,
             type,
             intent,
-            noMatchingStock,
+            stage: stage.ref(),
+            agent: { agentId: ownerId, branchId: ownerBranchId },
+            statusChangeId: nextId<'OpportunityStatusChange'>(this.deps.ids),
             propertyId,
             search,
             note,
@@ -153,7 +169,7 @@ export class RegisterContact {
         }
 
         await tx.clients.save(client, actor.id);
-        await tx.opportunities.save(opportunity);
+        await tx.opportunities.save(opportunity, actor.id);
         await tx.events.publish([...client.pullEvents(), ...opportunity.pullEvents()]);
         if (restored)
           await tx.audit.record(auditAction(actor, clientTarget('client.restored', client.id)));

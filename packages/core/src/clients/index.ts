@@ -52,16 +52,22 @@ export {
 export type { ContactKeys } from './domain/duplicate-check';
 export {
   Opportunity,
+  type OpportunityAgent,
   type OpportunityId,
   type OpportunityNote,
   type OpportunitySnapshot,
+  type OpportunityStatusChange,
+  type OpportunityStatusChangeId,
 } from './domain/opportunity';
 export {
   MAX_DUPLICATE_CANDIDATES,
   type ClientRepository,
   type ClientTagGroupRepository,
   type ClientTagRepository,
+  type OpportunityCloseReasonRepository,
   type OpportunityRepository,
+  type OpportunitySettingsRepository,
+  type OpportunityStageRepository,
 } from './domain/client.repository';
 export type { ClientEvent, ClientsMerged } from './domain/client.events';
 export type {
@@ -343,3 +349,72 @@ export {
   type InvalidImportMappingError,
   type TooManyImportRowsError,
 } from './domain/client-import';
+
+// ---------- Oportunidades (#9) ----------
+
+export {
+  MAX_OPPORTUNITY_STAGES,
+  OpportunityStage,
+  type OpportunityStageId,
+  type OpportunityStageSnapshot,
+} from './domain/opportunity-stage';
+export {
+  CLOSE_REASON_RATINGS,
+  MAX_CLOSE_REASONS,
+  OpportunityCloseReason,
+  type CloseReasonRating,
+  type OpportunityCloseReasonId,
+  type OpportunityCloseReasonSnapshot,
+} from './domain/opportunity-close-reason';
+export {
+  NO_RULES,
+  OPPORTUNITY_RULES,
+  type OpportunityRule,
+  type OpportunityRules,
+} from './domain/opportunity-settings';
+export { stageTenure, type StageTenure } from './domain/opportunity-tenure';
+export {
+  CreateOpportunityStage,
+  type CreateOpportunityStageError,
+} from './application/commands/create-opportunity-stage';
+export {
+  UpdateOpportunityStage,
+  type UpdateOpportunityStageError,
+} from './application/commands/update-opportunity-stage';
+export {
+  ReorderOpportunityStages,
+  type ReorderOpportunityStagesError,
+} from './application/commands/reorder-opportunity-stages';
+export {
+  DeactivateOpportunityStage,
+  type DeactivateOpportunityStageError,
+} from './application/commands/deactivate-opportunity-stage';
+export {
+  ReactivateOpportunityStage,
+  type ReactivateOpportunityStageError,
+} from './application/commands/reactivate-opportunity-stage';
+export {
+  CreateCloseReason,
+  type CreateCloseReasonError,
+} from './application/commands/create-close-reason';
+export {
+  UpdateCloseReason,
+  type UpdateCloseReasonError,
+} from './application/commands/update-close-reason';
+export {
+  ReorderCloseReasons,
+  type ReorderCloseReasonsError,
+} from './application/commands/reorder-close-reasons';
+export {
+  DeactivateCloseReason,
+  type DeactivateCloseReasonError,
+} from './application/commands/deactivate-close-reason';
+export {
+  ReactivateCloseReason,
+  type ReactivateCloseReasonError,
+} from './application/commands/reactivate-close-reason';
+export {
+  UpdateOpportunitySettings,
+  type UpdateOpportunitySettingsError,
+} from './application/commands/update-opportunity-settings';
+export { GetOpportunityConfiguration } from './application/queries/get-opportunity-configuration';

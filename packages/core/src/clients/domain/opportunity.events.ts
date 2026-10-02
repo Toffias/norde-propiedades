@@ -15,9 +15,16 @@ export type OpportunityRequestAdded = DomainEvent<
   OpportunityPayload
 >;
 
+/** Cambió de estado. Si se cerró, trae el motivo. */
 export type OpportunityStatusChanged = DomainEvent<
   'clients.opportunity_status_changed',
-  OpportunityPayload & { readonly from: OpportunityStatus; readonly to: OpportunityStatus }
+  OpportunityPayload & {
+    readonly from: OpportunityStatus;
+    readonly to: OpportunityStatus;
+    readonly fromStageId: string | undefined;
+    readonly toStageId: string;
+    readonly closeReasonId: string | undefined;
+  }
 >;
 
 export type OpportunityEvent =

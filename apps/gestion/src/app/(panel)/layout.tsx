@@ -13,14 +13,22 @@ export default async function PanelLayout({ children }: { readonly children: Rea
   // Con una contraseña temporal la sesión no tiene permisos: lo único que puede hacer es cambiarla.
   if (profile.mustChangePassword) redirect('/cambiar-contrasena');
   const collapsed = (await cookies()).get(SIDEBAR_COOKIE)?.value === SIDEBAR_COLLAPSED;
-  // Las oportunidades nuevas asignadas a quien entra: lo que tiene pendiente de atender.
-  const pending = await getContainer().clients.countPendingOpportunities.execute(actor);
+  const { clients, inquiries } = getContainer();
+  // Las oportunidades nuevas asignadas a quien entra (lo que tiene pendiente de atender) y las
+  // consultas sin asignar.
+  const [pending, unassigned] = await Promise.all([
+    clients.countPendingOpportunities.execute(actor),
+    inquiries.countPendingInquiries.execute(actor),
+  ]);
 
   return (
     <PanelShell
       profile={profile}
       initiallyCollapsed={collapsed}
-      counts={{ '/oportunidades': pending.isOk() ? pending.value : 0 }}
+      counts={{
+        '/oportunidades': pending.isOk() ? pending.value : 0,
+        '/consultas': unassigned.isOk() ? unassigned.value : 0,
+      }}
     >
       {children}
     </PanelShell>

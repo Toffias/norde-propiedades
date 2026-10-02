@@ -124,6 +124,28 @@ export async function loadLocationOptions(search: string, page: number): Promise
   };
 }
 
+/**
+ * Selector de propiedad (filtros de otros módulos, como la bandeja de consultas): una página de la
+ * cartera que coincide por código, título o dirección.
+ */
+export async function loadPropertyOptions(search: string, page: number): Promise<ComboboxPage> {
+  const { actor } = await requireSession();
+  const result = await getContainer().properties.listPanelProperties.execute(
+    { page, pageSize: PICKER_PAGE_SIZE, ...(search.trim() === '' ? {} : { q: search }) },
+    actor,
+  );
+  if (result.isErr()) throw new Error(`Could not load the properties: ${result.error.type}`);
+  const { items, total } = result.value;
+  return {
+    options: items.map((property) => ({
+      value: property.id,
+      label: `${property.code} · ${property.portalTitle}`,
+      ...(property.publishAddress === undefined ? {} : { hint: property.publishAddress }),
+    })),
+    hasMore: page * PICKER_PAGE_SIZE < total,
+  };
+}
+
 /** Selector de etiquetas de la edición rápida. */
 export async function loadTagOptions(search: string, page: number): Promise<ComboboxPage> {
   const { actor } = await requireSession();

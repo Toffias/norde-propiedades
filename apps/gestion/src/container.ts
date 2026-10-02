@@ -104,6 +104,10 @@ import {
   ChangeOpportunityStage,
   CloseOpportunity,
   ReassignOpportunity,
+  CountPendingInquiries,
+  DeleteInquiry,
+  ListInquiries,
+  RestoreInquiry,
   type ClientAgents,
   type ClientListings,
   type PropertyProfiles,
@@ -228,6 +232,7 @@ import {
   DrizzleAuditLog,
   DrizzleClientListQuery,
   DrizzleOpportunityPipelineQuery,
+  DrizzleInquiryInboxQuery,
   DrizzleClientRelationQuery,
   DrizzleClientRecordQuery,
   DrizzleClientTagQuery,
@@ -317,6 +322,8 @@ export interface Container {
   readonly clients: ClientsUseCases;
   /** Estadísticas y reporte al propietario de la ficha (#6). */
   readonly reporting: ReportingUseCases;
+  /** Bandeja de consultas de portales y de la web (#10). */
+  readonly inquiries: InquiriesUseCases;
 }
 
 export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
@@ -324,6 +331,7 @@ export type PropertiesUseCases = ReturnType<typeof createPropertiesUseCases>;
 export type ClientsUseCases = ReturnType<typeof createDetailReadModels>['clients'] &
   ReturnType<typeof createClientsUseCases>;
 export type ReportingUseCases = ReturnType<typeof createDetailReadModels>['reporting'];
+export type InquiriesUseCases = ReturnType<typeof createInquiriesUseCases>;
 
 let container: Container | undefined;
 
@@ -557,6 +565,62 @@ function createPropertiesUseCases(
 }
 
 /** Agenda de contactos: grilla, ficha, alta, edición, papelera y exportación (#8). */
+/** Las propiedades que muestran la ficha del contacto y la bandeja, por la API pública de properties. */
+function clientListings(properties: PropertiesUseCases): ClientListings {
+  return {
+    async summaries(propertyIds, actor) {
+      const rows = await properties.getPropertySummaries.execute({ ids: [...propertyIds] }, actor);
+      if (rows.isErr()) return new Map();
+      return new Map(
+        rows.value.map((row) => [
+          row.id,
+          {
+            id: row.id,
+            code: row.code,
+            title: row.portalTitle,
+            address: row.publishAddress,
+            status: row.status,
+            operations: row.operations,
+            coverImageUrl: row.coverImageUrl,
+            producer: row.producer,
+          },
+        ]),
+      );
+    },
+  };
+}
+
+/** La bandeja de consultas (#10): las de portales y de la web, pendientes, asignadas y borradas. */
+function createInquiriesUseCases(
+  db: Database,
+  properties: PropertiesUseCases,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+) {
+  const { clock } = deps;
+  const uow = createClientsUnitOfWork(db, deps);
+  const inbox = new DrizzleInquiryInboxQuery(db);
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const agents: ClientAgents = {
+    names: (userIds) => directory.names('user', userIds),
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+  return {
+    listInquiries: new ListInquiries({
+      inbox,
+      listings: clientListings(properties),
+      agents,
+      branches: { names: (branchIds) => directory.names('branch', branchIds) },
+    }),
+    countPendingInquiries: new CountPendingInquiries({ inbox }),
+    deleteInquiry: new DeleteInquiry({ uow, clock }),
+    restoreInquiry: new RestoreInquiry({ uow, clock }),
+  };
+}
+
 function createClientsUseCases(
   db: Database,
   properties: PropertiesUseCases,
@@ -580,28 +644,7 @@ function createClientsUseCases(
   const tags = new DrizzleClientTagQuery(db);
   const records = new DrizzleClientRecordQuery(db);
   const pipeline = new DrizzleOpportunityPipelineQuery(db);
-  // Las propiedades que se muestran en la ficha del contacto, por la API pública de properties.
-  const listings: ClientListings = {
-    async summaries(propertyIds, actor) {
-      const rows = await properties.getPropertySummaries.execute({ ids: [...propertyIds] }, actor);
-      if (rows.isErr()) return new Map();
-      return new Map(
-        rows.value.map((row) => [
-          row.id,
-          {
-            id: row.id,
-            code: row.code,
-            title: row.portalTitle,
-            address: row.publishAddress,
-            status: row.status,
-            operations: row.operations,
-            coverImageUrl: row.coverImageUrl,
-            producer: row.producer,
-          },
-        ]),
-      );
-    },
-  };
+  const listings = clientListings(properties);
   return {
     listClients: new ListClients({ list, agents }),
     listClientLetters: new ListClientLetters({ list }),
@@ -754,6 +797,7 @@ function createContainer(): Container {
     resolveSessionActor: new ResolveSessionActor({ users: userAccess }),
     settings,
     properties,
+    inquiries: createInquiriesUseCases(database.db, properties, { ids, clock }),
     ...withClients(
       createDetailReadModels(database.db, properties, { clock }),
       createClientsUseCases(database.db, properties, { ids, clock, storage: createStorage(env) }),

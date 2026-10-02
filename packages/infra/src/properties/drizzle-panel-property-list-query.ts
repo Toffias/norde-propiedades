@@ -29,7 +29,7 @@ import {
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { mediaItems, properties, propertyOperations } from '../db/schema';
+import { mediaItems, properties, propertyOperations, propertyOwners } from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
 const RowEnums = z.object({
@@ -181,6 +181,10 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
         : c.ids.length === 0
           ? sql`false`
           : inArray(properties.id, [...c.ids]),
+      // Propiedades de un propietario: `property_owners_client_idx`.
+      c.ownerClientId === undefined
+        ? undefined
+        : sql`exists (select 1 from ${propertyOwners} po where po.property_id = ${properties.id} and po.client_id = ${c.ownerClientId})`,
       c.owner.kind === 'producer' ? eq(properties.producerUserId, c.owner.userId) : undefined,
       c.owner.kind === 'branch' ? eq(properties.branchId, c.owner.branchId) : undefined,
       c.text === undefined ? undefined : matchesSearchText(properties.searchText, c.text),

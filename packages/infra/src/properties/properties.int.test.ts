@@ -20,6 +20,7 @@ import {
   properties,
   propertyCustomAttributes,
   propertyOperations,
+  propertyOwners,
   propertyPriceChanges,
   propertyTagAssignments,
   propertyTags,
@@ -611,6 +612,41 @@ describe('DrizzlePanelPropertyListQuery', () => {
     expect(seen).toHaveLength(total);
     expect(seen).toEqual([...seen].sort());
     expect(new Set(seen).size).toBe(total);
+  });
+
+  it('lists the active properties of an owner with an index (contact detail, #8)', async () => {
+    await seedPortfolio();
+    const owner = '00000000-0000-7000-8000-00000000c0de';
+    // La 1 está en la papelera; la 3 es de otro propietario.
+    const owned = [1, 2, 4, 5].map(
+      (n) => `00000000-0000-7000-8000-${n.toString().padStart(12, '0')}`,
+    );
+    await db.insert(propertyOwners).values([
+      ...owned.map((propertyId) => ({
+        propertyId,
+        clientId: owner,
+        createdAt: NOW,
+        createdBy: 'system:import',
+      })),
+      {
+        propertyId: '00000000-0000-7000-8000-000000000003',
+        clientId: '00000000-0000-7000-8000-00000000beef',
+        createdAt: NOW,
+        createdBy: 'system:import',
+      },
+    ]);
+    await db.execute(sql`analyze core.property_owners`);
+
+    const page = await query.search({
+      ...BASE,
+      ownerClientId: owner,
+      sort: { field: 'code', direction: 'asc' },
+      limit: 2,
+    });
+
+    expect(page.total).toBe(3);
+    expect(page.items.map((item) => item.code)).toEqual(['P00002', 'P00004']);
+    expect(scansWithIndex(await pagePlan({ ...BASE, ownerClientId: owner }))).toBe(true);
   });
 
   it('returns the pins inside the map area, newest first, up to the limit', async () => {

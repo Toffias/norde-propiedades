@@ -338,7 +338,7 @@ describe('MergeClients (Postgres)', () => {
       ...authored,
     });
 
-    const result = await new MergeClients({ uow, clock }).execute(
+    const result = await new MergeClients({ uow, ids, clock }).execute(
       { primaryId: primary, duplicateId: duplicate },
       manager,
     );

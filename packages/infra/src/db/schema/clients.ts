@@ -341,6 +341,8 @@ export const opportunities = coreSchema.table(
     index('opportunities_development_idx').on(t.developmentId),
     index('opportunities_branch_status_idx').on(t.branchId, t.status),
     index('opportunities_origin_channel_created_idx').on(t.originChannel, t.createdAt),
+    // Oportunidades de la ficha del cliente, las más nuevas primero.
+    index('opportunities_client_created_idx').on(t.clientId, t.createdAt.desc(), t.id.desc()),
   ],
 );
 
@@ -411,6 +413,13 @@ export const clientActivities = coreSchema.table(
   (t) => [
     index('client_activities_client_occurred_idx').on(t.clientId, t.occurredAt.desc()),
     index('client_activities_opportunity_occurred_idx').on(t.opportunityId, t.occurredAt.desc()),
+    // Timeline de la ficha filtrado por tipo ("solo notas").
+    index('client_activities_client_kind_occurred_idx').on(
+      t.clientId,
+      t.kind,
+      t.occurredAt.desc(),
+      t.id.desc(),
+    ),
   ],
 );
 
@@ -560,6 +569,10 @@ export const savedSearches = coreSchema.table(
   },
   (t) => [
     index('saved_searches_client_idx').on(t.clientId),
+    // Búsquedas de la ficha del cliente, las actualizadas último primero.
+    index('saved_searches_client_updated_idx')
+      .on(t.clientId, t.updatedAt.desc(), t.id.desc())
+      .where(notDeleted),
     // Prefiltro del cruce con el stock.
     index('saved_searches_matching_idx')
       .on(t.operation, t.currency)
@@ -604,6 +617,10 @@ export const featuredListings = coreSchema.table(
       .where(sql`removed_at is null`),
     index('featured_listings_property_idx').on(t.propertyId),
     index('featured_listings_client_featured_idx').on(t.clientId, t.featuredAt),
+    // Destacadas vigentes de la ficha del cliente, las últimas primero.
+    index('featured_listings_client_active_idx')
+      .on(t.clientId, t.featuredAt.desc(), t.id.desc())
+      .where(sql`removed_at is null`),
   ],
 );
 

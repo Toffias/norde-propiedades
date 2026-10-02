@@ -99,6 +99,13 @@
       "when": 1790915406461,
       "tag": "0013_clients_stage_two",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790944047340,
+      "tag": "0014_clients_stage_three",
+      "breakpoints": true
     }
   ]
 }

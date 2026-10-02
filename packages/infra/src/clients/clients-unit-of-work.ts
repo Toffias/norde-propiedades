@@ -16,7 +16,7 @@ export function createClientsUnitOfWork(
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
 ): ClientsUnitOfWork {
   return new DrizzleUnitOfWork<ClientsTransaction>(db, (tx) => ({
-    clients: new DrizzleClientRepository(tx),
+    clients: new DrizzleClientRepository(tx, deps.ids),
     opportunities: new DrizzleOpportunityRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),

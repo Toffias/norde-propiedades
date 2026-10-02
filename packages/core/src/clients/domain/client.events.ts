@@ -12,4 +12,8 @@ export type ClientChannelAdded = DomainEvent<
   { readonly clientId: string; readonly channel: ContactChannel }
 >;
 
-export type ClientEvent = ClientRegistered | ClientChannelAdded;
+export type ClientDeleted = DomainEvent<'clients.client_deleted', { readonly clientId: string }>;
+
+export type ClientRestored = DomainEvent<'clients.client_restored', { readonly clientId: string }>;
+
+export type ClientEvent = ClientRegistered | ClientChannelAdded | ClientDeleted | ClientRestored;

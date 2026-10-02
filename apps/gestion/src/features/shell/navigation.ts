@@ -26,7 +26,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
     label: 'Comercial',
     items: [
       { href: '/oportunidades', label: 'Oportunidades', icon: TargetIcon, disabledReason: SOON },
-      { href: '/contactos', label: 'Contactos', icon: UsersIcon, disabledReason: SOON },
+      { href: '/contactos', label: 'Contactos', icon: UsersIcon },
       { href: '/consultas', label: 'Consultas', icon: InboxIcon, disabledReason: SOON },
     ],
   },

@@ -180,7 +180,7 @@ export function createContainer(
     clock,
   });
   const notifyTeam = new NotifyTeamOfOpportunity({
-    clients: new DrizzleClientRepository(db),
+    clients: new DrizzleClientRepository(db, ids),
     opportunities: new DrizzleOpportunityRepository(db),
     notifier: env.TEAM_WEBHOOK_URL
       ? new WebhookTeamNotifier({ url: env.TEAM_WEBHOOK_URL, token: env.TEAM_WEBHOOK_TOKEN })

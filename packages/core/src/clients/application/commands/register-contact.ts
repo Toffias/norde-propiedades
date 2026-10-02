@@ -23,14 +23,10 @@ import {
   type RegisterContactOutput,
 } from '../../contracts';
 import { Client, type MissingContactInfoError } from '../../domain/client';
+import { findExistingClient } from '../../domain/duplicate-check';
 import { findOpenOpportunityAbout, Opportunity } from '../../domain/opportunity';
+import { clientAuditState, clientTarget } from '../client-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
-
-/** Lo que se audita de un cliente: sus datos de contacto, crudos. */
-function clientAuditState(client: Client): AuditState {
-  const { name, phone, email } = client.toSnapshot();
-  return { name, phone: phone?.e164, email: email?.value };
-}
 
 /** Lo que se audita de una oportunidad. Las notas quedan en la actividad del cliente. */
 function opportunityAuditState(opportunity: Opportunity): AuditState {
@@ -56,8 +52,9 @@ export type RegisterContactError =
 
 /**
  * Registra un contacto entrante (agente de IA, formulario, portal): deduplica el cliente por
- * teléfono o email, agrega el canal y abre una oportunidad, o suma el pedido a la oportunidad
- * abierta por lo mismo.
+ * teléfono o email (con la misma regla que el alta manual), agrega el canal y abre una
+ * oportunidad, o suma el pedido a la oportunidad abierta por lo mismo. Si el cliente estaba en la
+ * papelera, lo restaura: volvió a contactarse.
  */
 export class RegisterContact {
   constructor(
@@ -98,14 +95,19 @@ export class RegisterContact {
 
     return this.deps.uow.run(
       async (tx): Promise<Result<RegisterContactOutput, RegisterContactError>> => {
-        const byPhone = contact.phone ? await tx.clients.findByPhone(contact.phone) : undefined;
-        const existing =
-          byPhone ?? (contact.email ? await tx.clients.findByEmail(contact.email) : undefined);
+        const keys = {
+          phones: contact.phone ? [contact.phone] : [],
+          emails: contact.email ? [contact.email] : [],
+        };
+        const existing = findExistingClient(await tx.clients.findMatching(keys), keys);
 
         const clientBefore = existing ? clientAuditState(existing) : undefined;
+        let restored = false;
         let client: Client;
         if (existing) {
           client = existing;
+          // Estaba en la papelera y volvió a escribir: vuelve a la agenda.
+          restored = client.restoreFromTrash(now).isOk();
           client.recordContact(data.channel, data.channelExternalId, now);
           client.completeProfile(contact);
         } else {
@@ -150,20 +152,21 @@ export class RegisterContact {
           });
         }
 
-        await tx.clients.save(client);
+        await tx.clients.save(client, actor.id);
         await tx.opportunities.save(opportunity);
         await tx.events.publish([...client.pullEvents(), ...opportunity.pullEvents()]);
-        const clientTarget = { entityType: 'client', entityId: client.id, clientIds: [client.id] };
+        if (restored)
+          await tx.audit.record(auditAction(actor, clientTarget('client.restored', client.id)));
         await tx.audit.record(
           clientBefore
             ? auditAction(
                 actor,
-                { ...clientTarget, action: 'client.contact_recorded' },
+                clientTarget('client.contact_recorded', client.id),
                 diffChanges(clientBefore, clientAuditState(client)),
               )
             : auditCreated(
                 actor,
-                { ...clientTarget, action: 'client.registered' },
+                clientTarget('client.registered', client.id),
                 clientAuditState(client),
               ),
         );

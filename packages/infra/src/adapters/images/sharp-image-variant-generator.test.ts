@@ -9,7 +9,8 @@ async function photo(width: number, height: number) {
   return new Uint8Array(await image.jpeg().toBuffer());
 }
 
-describe('SharpImageVariantGenerator', () => {
+// Procesar una foto de 4000 × 3000 (y cargar sharp la primera vez) lleva varios segundos en el CI.
+describe('SharpImageVariantGenerator', { timeout: 20_000 }, () => {
   const generator = new SharpImageVariantGenerator();
 
   it('shrinks to a thumbnail and a web version, both JPEG', async () => {

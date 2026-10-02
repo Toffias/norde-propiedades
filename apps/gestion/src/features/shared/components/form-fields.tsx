@@ -22,7 +22,7 @@ import { Textarea } from '@norde/ui/components/textarea';
 import type { ComponentProps, SyntheticEvent } from 'react';
 import type { Control, FieldPath, FieldValues } from 'react-hook-form';
 
-// Campos de los formularios de la ficha, ligados a react-hook-form. Los valores vacíos viajan como
+// Campos de los formularios del panel, ligados a react-hook-form. Los valores vacíos viajan como
 // `''` y `contractResolver` los convierte en `undefined` antes de validar con el contract.
 
 interface FieldProps<T extends FieldValues> {

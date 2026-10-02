@@ -66,7 +66,9 @@ describe('clients persistence', () => {
         source: 'agent',
         correlationId: 'wamid.1',
         clientIds: [result.value.clientId],
-        changes: { phone: { before: null, after: '+5491166899124' } },
+        changes: {
+          phones: { before: null, after: [{ kind: 'mobile', number: '+5491166899124' }] },
+        },
       },
       {
         action: 'opportunity.opened',
@@ -90,11 +92,12 @@ describe('clients persistence', () => {
 
   it('finds the same client by phone with or without the mobile 9, and by email', async () => {
     await registerContact.execute({ ...whatsapp, email: 'ana@mail.com' }, agent);
-    const repository = new DrizzleClientRepository(db);
+    const repository = new DrizzleClientRepository(db, ids);
 
-    const byLandlineFormat = await repository.findByPhone(
-      Phone.create('11 6689-9124').unwrapOr(undefined as never),
-    );
+    const [byLandlineFormat] = await repository.findMatching({
+      phones: [Phone.create('11 6689-9124').unwrapOr(undefined as never)],
+      emails: [],
+    });
 
     expect(byLandlineFormat?.name).toBe('Ana');
     expect(byLandlineFormat?.phone?.e164).toBe('+5491166899124');

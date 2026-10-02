@@ -36,8 +36,14 @@ import {
   updatePropertyOperationsAction,
 } from '../../detail-actions';
 import { CURRENCY_LABELS, OPERATION_LABELS } from '../../labels';
-import { SelectField, SwitchField, TextareaField, TextField, submitWith } from './form-fields';
-import { Facts, InlineFormActions, InlineSection } from './inline-section';
+import {
+  SelectField,
+  SwitchField,
+  TextareaField,
+  TextField,
+  submitWith,
+} from '../../../shared/components/form-fields';
+import { Facts, InlineFormActions, InlineSection } from '../../../shared/components/inline-section';
 
 /** Centavos → lo que se escribe en el formulario ("120000", "1500,50"). */
 export function centsToAmount(cents: bigint | undefined): string {

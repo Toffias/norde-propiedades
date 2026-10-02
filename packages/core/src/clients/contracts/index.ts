@@ -60,3 +60,4 @@ export interface RegisterContactOutput {
 }
 
 export * from './property-interest';
+export * from './clients-panel';

@@ -6,9 +6,9 @@ import { toast } from '@norde/ui/components/sonner';
 import { Loader2Icon, PencilIcon } from 'lucide-react';
 import { useState, useTransition, type ReactNode } from 'react';
 
-import type { ActionResult } from '../../../../lib/action-result';
-import { UNEXPECTED_ERROR_MESSAGE } from '../../../../lib/errors';
-import { FormAlert } from '../../../shared/components/form-alert';
+import type { ActionResult } from '../../../lib/action-result';
+import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
+import { FormAlert } from './form-alert';
 
 /**
  * Una sección de la ficha que se edita en el lugar: muestra los datos y, con "Editar", el formulario

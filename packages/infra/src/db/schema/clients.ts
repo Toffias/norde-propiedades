@@ -109,7 +109,10 @@ export const clientChannels = coreSchema.table(
   ],
 );
 
-/** Teléfonos adicionales. El principal sigue en `clients.phone_e164`. */
+/**
+ * Todos los teléfonos del cliente, en orden. El primero (el principal) se copia en
+ * `clients.phone_e164`, que tiene el índice único de la deduplicación.
+ */
 export const clientPhones = coreSchema.table(
   'client_phones',
   {
@@ -133,6 +136,7 @@ export const clientPhones = coreSchema.table(
   ],
 );
 
+/** Todos los emails del cliente; el primero se copia en `clients.email`. */
 export const clientEmails = coreSchema.table(
   'client_emails',
   {

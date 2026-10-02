@@ -197,7 +197,7 @@ describe('WhatsAppTurnHandler', () => {
     const [client] = [...ctx.clients.clients.rows.values()];
     const [opportunity] = [...ctx.clients.opportunities.rows.values()];
     expect(client).toMatchObject({ name: 'Ana' });
-    expect(client?.phone?.e164).toBe('+5491166899124');
+    expect(client?.phones[0]?.phone.e164).toBe('+5491166899124');
     expect(client?.channels).toMatchObject([{ channel: 'whatsapp', externalId: PHONE }]);
     expect(opportunity).toMatchObject({
       type: 'rent',

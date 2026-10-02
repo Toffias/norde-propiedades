@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Actor } from '../../../shared';
 import { FixedClock, SequentialIdGenerator } from '../../../shared/testing';
 import type { RegisterContactInput } from '../../contracts';
-import { InMemoryClientsUnitOfWork } from '../../testing';
+import { InMemoryClientsUnitOfWork, seedClient } from '../../testing';
 
 import { RegisterContact } from './register-contact';
 
@@ -66,8 +66,9 @@ describe('RegisterContact', () => {
       entityId: clientId,
       clientIds: [clientId],
       changes: {
+        kind: { before: null, after: 'person' },
         name: { before: null, after: 'Ana' },
-        phone: { before: null, after: '+5491166899124' },
+        phones: { before: null, after: [{ kind: 'mobile', number: '+5491166899124' }] },
       },
     });
     expect(opportunityEntry).toMatchObject({
@@ -101,7 +102,7 @@ describe('RegisterContact', () => {
     expect(uow.clients.rows.size).toBe(1);
     const [client] = [...uow.clients.rows.values()];
     expect(client?.channels.map((c) => c.channel)).toEqual(['whatsapp', 'web_form']);
-    expect(client?.email?.value).toBe('ana@mail.com');
+    expect(client?.emails[0]?.email.value).toBe('ana@mail.com');
     expect(uow.opportunities.rows.size).toBe(2);
   });
 
@@ -120,7 +121,7 @@ describe('RegisterContact', () => {
     await useCase.execute(whatsappContact({ email: 'ana@mail.com' }), agent);
 
     expect(uow.clients.rows.size).toBe(1);
-    expect([...uow.clients.rows.values()][0]?.phone?.e164).toBe('+5491166899124');
+    expect([...uow.clients.rows.values()][0]?.phones[0]?.phone.e164).toBe('+5491166899124');
   });
 
   it('adds the request to the open opportunity about the same property', async () => {
@@ -204,5 +205,23 @@ describe('RegisterContact', () => {
 
     expect(result.isErr() && result.error).toEqual({ type: 'Forbidden' });
     expect(uow.clients.rows.size).toBe(0);
+  });
+
+  it('restores a client in the trash that writes again, instead of duplicating it', async () => {
+    const { uow, useCase } = setup();
+    const trashed = await seedClient(uow, { phones: ['+541166899124'], deleted: true });
+
+    const result = await useCase.execute(whatsappContact(), agent);
+
+    expect(result.isOk() && result.value).toMatchObject({
+      clientId: trashed.id,
+      clientCreated: false,
+    });
+    expect(uow.clients.rows.get(trashed.id)?.deletedAt).toBeUndefined();
+    expect(uow.audit.entries.map((e) => e.action)).toEqual([
+      'client.restored',
+      'client.contact_recorded',
+      'opportunity.opened',
+    ]);
   });
 });

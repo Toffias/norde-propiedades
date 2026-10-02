@@ -40,8 +40,19 @@ import {
   UpdateUser,
 } from '@norde/core/identity';
 import {
+  CheckClientDuplicates,
+  CreateClient,
+  DeleteClient,
+  ExportClients,
+  GetClientDetail,
+  ListClientHistory,
+  ListClients,
   ListPropertyInterestedClients,
   ListPropertySends,
+  ReassignClient,
+  RestoreClient,
+  UpdateClientDetails,
+  type ClientAgents,
   type PropertyProfiles,
 } from '@norde/core/clients';
 import {
@@ -153,12 +164,14 @@ import {
   BetterAuthPasswordHasher,
   BetterAuthSessionReader,
   createAuth,
+  createClientsUnitOfWork,
   createDatabase,
   createIdentityUnitOfWork,
   createPropertiesUnitOfWork,
   createSettingsUnitOfWork,
   DrizzleAuditHistoryQuery,
   DrizzleAuditLog,
+  DrizzleClientListQuery,
   DrizzleCompanyFileRepository,
   DrizzleCompanyFilesQuery,
   DrizzleCompanySettingsRepository,
@@ -184,6 +197,7 @@ import {
   SharpImageWatermarker,
   SystemClock,
   UuidV7IdGenerator,
+  XlsxClientExportWriter,
   type Database,
   type DatabaseConnection,
 } from '@norde/infra';
@@ -238,7 +252,7 @@ export interface Container {
   readonly settings: SettingsUseCases;
   /** Propiedades: buscador, alta, papelera, catálogos, mapa y acciones masivas (#5). */
   readonly properties: PropertiesUseCases;
-  /** Lo que la ficha de propiedad muestra de los clientes: interesados y envíos (#6). */
+  /** Agenda de contactos (#8) y lo que la ficha de propiedad muestra de ellos (#6). */
   readonly clients: ClientsUseCases;
   /** Estadísticas y reporte al propietario de la ficha (#6). */
   readonly reporting: ReportingUseCases;
@@ -246,7 +260,8 @@ export interface Container {
 
 export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
 export type PropertiesUseCases = ReturnType<typeof createPropertiesUseCases>;
-export type ClientsUseCases = ReturnType<typeof createDetailReadModels>['clients'];
+export type ClientsUseCases = ReturnType<typeof createDetailReadModels>['clients'] &
+  ReturnType<typeof createClientsUseCases>;
 export type ReportingUseCases = ReturnType<typeof createDetailReadModels>['reporting'];
 
 let container: Container | undefined;
@@ -478,6 +493,48 @@ function createPropertiesUseCases(
   };
 }
 
+/** Agenda de contactos: grilla, ficha, alta, edición, papelera y exportación (#8). */
+function createClientsUseCases(
+  db: Database,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+) {
+  const { ids, clock } = deps;
+  const uow = createClientsUnitOfWork(db, deps);
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  // Agentes: usuarios activos de identity, con su sucursal.
+  const agents: ClientAgents = {
+    names: (userIds) => directory.names('user', userIds),
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+  const list = new DrizzleClientListQuery(db);
+  return {
+    listClients: new ListClients({ list, agents }),
+    getClientDetail: new GetClientDetail({ uow, agents }),
+    listClientHistory: new ListClientHistory({
+      uow,
+      history: new DrizzleAuditHistoryQuery(db),
+      agents,
+    }),
+    checkClientDuplicates: new CheckClientDuplicates({ uow, agents }),
+    createClient: new CreateClient({ uow, agents, ids, clock }),
+    updateClientDetails: new UpdateClientDetails({ uow, clock }),
+    reassignClient: new ReassignClient({ uow, agents, clock }),
+    deleteClient: new DeleteClient({ uow, clock }),
+    restoreClient: new RestoreClient({ uow, clock }),
+    exportClients: new ExportClients({
+      uow,
+      list,
+      agents,
+      writer: new XlsxClientExportWriter(),
+      clock,
+    }),
+  };
+}
+
 /**
  * Interesados, envíos y estadísticas de la ficha. Cruzan la propiedad con los clientes: el perfil
  * de la propiedad (tipo, operaciones, ubicación) lo da el caso de uso de propiedades.
@@ -547,7 +604,10 @@ function createContainer(): Container {
     resolveSessionActor: new ResolveSessionActor({ users: userAccess }),
     settings,
     properties,
-    ...createDetailReadModels(database.db, properties, { clock }),
+    ...withClients(
+      createDetailReadModels(database.db, properties, { clock }),
+      createClientsUseCases(database.db, { ids, clock }),
+    ),
     identity: {
       listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),
       listRoles: new ListRoles({ roles: roleQuery }),
@@ -584,6 +644,14 @@ function createContainer(): Container {
       getFavoriteIds: new GetFavoriteIds({ favorites: new DrizzleUserFavorites(database.db) }),
     },
   };
+}
+
+/** Suma la agenda de contactos a los read models de clientes de la ficha de propiedad. */
+function withClients(
+  readModels: ReturnType<typeof createDetailReadModels>,
+  agenda: ReturnType<typeof createClientsUseCases>,
+) {
+  return { ...readModels, clients: { ...readModels.clients, ...agenda } };
 }
 
 /** Se crea al primer uso y se reutiliza durante toda la vida del proceso. */

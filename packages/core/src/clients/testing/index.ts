@@ -68,6 +68,20 @@ import type {
 } from '../application/ports/inquiry-inbox-query';
 import type { InquiryPropertyLookup } from '../application/ports/inquiry-property-lookup';
 import type {
+  InquiryRuleCriteria,
+  InquiryRuleItem,
+  InquiryRuleQuery,
+} from '../application/ports/inquiry-rule-query';
+import {
+  ANY_INQUIRY,
+  InquiryAssignmentRule,
+  MAX_INQUIRY_RULES,
+  type InquiryRuleConditions,
+  type InquiryRuleId,
+  type InquiryRuleSnapshot,
+} from '../domain/inquiry-assignment-rule';
+import type { WeightedAgent } from '../domain/weighted-distribution';
+import type {
   InquiryMatchCriteria,
   InquiryMatchItem,
   InquiryMatchQuery,
@@ -98,6 +112,7 @@ import {
   type ClientTagRepository,
   type FeaturedListingRepository,
   type InquiryRepository,
+  type InquiryRuleRepository,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
   type OpportunityRepository,
@@ -611,6 +626,39 @@ export class InMemoryInquiryRepository implements InquiryRepository {
   }
 }
 
+export class InMemoryInquiryRuleRepository implements InquiryRuleRepository {
+  readonly rows = new Map<string, InquiryRuleSnapshot>();
+  readonly locked: string[] = [];
+
+  findById(id: InquiryRuleId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && InquiryAssignmentRule.restore(row));
+  }
+
+  findForUpdate(id: InquiryRuleId) {
+    this.locked.push(id);
+    return this.findById(id);
+  }
+
+  findAll() {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .slice(0, MAX_INQUIRY_RULES)
+        .map((row) => InquiryAssignmentRule.restore(row)),
+    );
+  }
+
+  save(rule: InquiryAssignmentRule) {
+    this.rows.set(rule.id, rule.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: InquiryRuleId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
 /**
  * Unidad de trabajo en memoria. Si el trabajo devuelve un `Err` o lanza, descarta lo escrito
  * (como el rollback de la implementación real).
@@ -632,6 +680,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly imports = new InMemoryClientImportRepository();
   readonly bulkOperations = new InMemoryOpportunityBulkOperationRepository();
   readonly inquiries = new InMemoryInquiryRepository();
+  readonly inquiryRules = new InMemoryInquiryRuleRepository();
 
   async run<T>(work: (tx: ClientsTransaction) => Promise<T>): Promise<T> {
     const backup = {
@@ -649,6 +698,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       imports: new Map(this.imports.rows),
       bulkOperations: new Map(this.bulkOperations.rows),
       inquiries: new Map(this.inquiries.rows),
+      inquiryRules: new Map(this.inquiryRules.rows),
       problems: this.imports.problems.length,
       events: this.events.published.length,
       audit: this.audit.entries.length,
@@ -672,6 +722,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.imports.rows, backup.imports);
       restore(this.bulkOperations.rows, backup.bulkOperations);
       restore(this.inquiries.rows, backup.inquiries);
+      restore(this.inquiryRules.rows, backup.inquiryRules);
       this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
@@ -1323,6 +1374,57 @@ export class StubInquiryMatchQuery implements InquiryMatchQuery {
   constructor(public items: readonly InquiryMatchItem[] = []) {}
 
   search(criteria: InquiryMatchCriteria) {
+    this.searches.push(criteria);
+    return Promise.resolve({
+      items: this.items.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: this.items.length,
+    });
+  }
+}
+
+let ruleSequence = 0;
+
+/** Una regla guardada, activa y última en la prioridad, con A (Camila) 2 y B (Martín) 1. */
+export async function seedInquiryRule(
+  uow: InMemoryClientsUnitOfWork,
+  overrides: {
+    readonly name?: string;
+    readonly conditions?: Partial<InquiryRuleConditions>;
+    readonly agents?: readonly WeightedAgent[];
+    readonly active?: boolean;
+    readonly position?: number;
+  } = {},
+): Promise<InquiryAssignmentRule> {
+  ruleSequence += 1;
+  const id = parseId<'InquiryAssignmentRule'>(
+    `00000000-0000-7000-8000-6${ruleSequence.toString().padStart(11, '0')}`,
+  );
+  if (id.isErr()) throw new Error('Invalid test fixture');
+  const created = InquiryAssignmentRule.create({
+    id: id.value,
+    name: overrides.name ?? `Regla ${String(ruleSequence)}`,
+    conditions: { ...ANY_INQUIRY, ...overrides.conditions },
+    agents: overrides.agents ?? [
+      { userId: AGENT_ID, weight: 2 },
+      { userId: OTHER_AGENT_ID, weight: 1 },
+    ],
+    existingCount: 0,
+    nextPosition: overrides.position ?? uow.inquiryRules.rows.size,
+    now: new Date('2026-02-01T10:00:00Z'),
+  });
+  if (created.isErr()) throw new Error(`Invalid test rule: ${created.error.type}`);
+  if (overrides.active === false) created.value.setActive(false, new Date('2026-02-01T10:00:00Z'));
+  await uow.inquiryRules.save(created.value);
+  return created.value;
+}
+
+/** Devuelve las reglas cargadas y registra los criterios: el orden real es SQL en infra. */
+export class StubInquiryRuleQuery implements InquiryRuleQuery {
+  readonly searches: InquiryRuleCriteria[] = [];
+
+  constructor(public items: readonly InquiryRuleItem[] = []) {}
+
+  search(criteria: InquiryRuleCriteria) {
     this.searches.push(criteria);
     return Promise.resolve({
       items: this.items.slice(criteria.offset, criteria.offset + criteria.limit),

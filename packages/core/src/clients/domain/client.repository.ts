@@ -5,6 +5,7 @@ import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from '.
 import type { ContactKeys } from './duplicate-check';
 import type { FeaturedListing } from './featured-listing';
 import type { Inquiry, InquiryId } from './inquiry';
+import type { InquiryAssignmentRule, InquiryRuleId } from './inquiry-assignment-rule';
 import type { Opportunity, OpportunityId } from './opportunity';
 import type {
   OpportunityBulkOperation,
@@ -65,6 +66,17 @@ export interface InquiryRepository {
   insert(inquiry: Inquiry, actorId: string): Promise<boolean>;
   /** Guarda los cambios de una consulta existente. */
   save(inquiry: Inquiry, actorId: string): Promise<void>;
+}
+
+/** Las reglas de asignación automática de consultas (`inquiry_assignment_rules` y sus agentes). */
+export interface InquiryRuleRepository {
+  findById(id: InquiryRuleId): Promise<InquiryAssignmentRule | undefined>;
+  /** Bloquea la regla hasta el fin de la transacción: dos consultas a la vez no toman el mismo turno. */
+  findForUpdate(id: InquiryRuleId): Promise<InquiryAssignmentRule | undefined>;
+  /** Todas, activas e inactivas: como mucho `MAX_INQUIRY_RULES`. */
+  findAll(): Promise<InquiryAssignmentRule[]>;
+  save(rule: InquiryAssignmentRule, actorId: string): Promise<void>;
+  delete(id: InquiryRuleId): Promise<void>;
 }
 
 /** Las acciones masivas encoladas (`opportunity_bulk_operations`). */

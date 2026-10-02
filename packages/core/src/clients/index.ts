@@ -528,6 +528,61 @@ export {
   type ListInquiryMatchesError,
 } from './application/queries/list-inquiry-matches';
 export {
+  ANY_INQUIRY,
+  byPriority,
+  findRuleFor,
+  InquiryAssignmentRule,
+  inquiryRoutingFacts,
+  MAX_CONDITION_VALUES,
+  MAX_INQUIRY_RULES,
+  MAX_RULE_AGENTS,
+  type InquiryRoutingFacts,
+  type InquiryRuleConditions,
+  type InquiryRuleId,
+  type InquiryRuleSnapshot,
+  type InvalidInquiryRuleError,
+  type TooManyInquiryRulesError,
+} from './domain/inquiry-assignment-rule';
+export {
+  MAX_AGENT_WEIGHT,
+  MIN_AGENT_WEIGHT,
+  pickWeighted,
+  type WeightedAgent,
+} from './domain/weighted-distribution';
+export type { InquiryRuleRepository } from './domain/client.repository';
+export type {
+  InquiryRuleCriteria,
+  InquiryRuleItem,
+  InquiryRuleQuery,
+} from './application/ports/inquiry-rule-query';
+export type { InquiryRuleNotFoundError } from './application/inquiry-rule-support';
+export {
+  CreateInquiryRule,
+  type CreateInquiryRuleError,
+} from './application/commands/create-inquiry-rule';
+export {
+  UpdateInquiryRule,
+  type UpdateInquiryRuleError,
+} from './application/commands/update-inquiry-rule';
+export {
+  SetInquiryRuleActive,
+  type SetInquiryRuleActiveError,
+} from './application/commands/set-inquiry-rule-active';
+export {
+  MoveInquiryRule,
+  type MoveInquiryRuleError,
+} from './application/commands/move-inquiry-rule';
+export {
+  DeleteInquiryRule,
+  type DeleteInquiryRuleError,
+} from './application/commands/delete-inquiry-rule';
+export {
+  ListInquiryRules,
+  type ListInquiryRulesError,
+} from './application/queries/list-inquiry-rules';
+export { GetInquiryRule, type GetInquiryRuleError } from './application/queries/get-inquiry-rule';
+export { RouteInquiry, type InquiryRouteOutcome } from './application/handlers/route-inquiry';
+export {
   ChangeOpportunityStage,
   type ChangeOpportunityStageError,
 } from './application/commands/change-opportunity-stage';

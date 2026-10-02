@@ -22,7 +22,7 @@ import {
 import type { ClientAgents } from '../ports/client-agents';
 import type { ClientRecordQuery } from '../ports/client-record-query';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
-import { activityActor, findReadableClient, userNames } from '../record-support';
+import { findReadableClient, toActivityRows } from '../record-support';
 
 export type ListClientActivityError = ForbiddenError | InvalidInputError | ClientNotFoundError;
 
@@ -59,17 +59,7 @@ export class ListClientActivity {
       direction: query.sort.direction,
       ...toOffsetLimit({ page, pageSize }),
     });
-    const names = await userNames(
-      this.deps.agents,
-      slice.items.map((item) => item.actorId),
-    );
-    const items = slice.items.map((item): ClientActivityRow => ({
-      id: item.id,
-      occurredAt: item.occurredAt,
-      opportunityId: item.opportunityId,
-      actor: activityActor(item.actorId, names),
-      ...item.body,
-    }));
+    const items = await toActivityRows(slice.items, this.deps);
     return ok(toPage({ items, total: slice.total }, { page, pageSize }));
   }
 }

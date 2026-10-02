@@ -120,6 +120,8 @@ export interface CloseReasonRow {
   readonly id: string;
   readonly name: string;
   readonly rating: CloseReasonRatingValue;
+  /** La categoría en la que cierra: positivo gana; negativo o neutral pierde (lo decide el dominio). */
+  readonly closesAs: OpportunityStatusValue;
   readonly position: number;
   readonly isActive: boolean;
 }

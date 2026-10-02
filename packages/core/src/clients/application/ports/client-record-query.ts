@@ -59,6 +59,15 @@ export interface ClientRecordQuery {
     },
   ): Promise<PageSlice<ClientActivityItem>>;
 
+  /** El historial de una oportunidad: la actividad que quedó atada a ella. */
+  opportunityActivity(
+    criteria: Paging & {
+      readonly opportunityId: string;
+      readonly kind: ClientActivityKindValue | undefined;
+      readonly direction: Direction;
+    },
+  ): Promise<PageSlice<ClientActivityItem>>;
+
   opportunities(
     criteria: Paging & { readonly clientId: string; readonly direction: Direction },
   ): Promise<PageSlice<ClientOpportunityItem>>;

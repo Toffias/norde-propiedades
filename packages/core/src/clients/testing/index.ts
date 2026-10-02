@@ -846,6 +846,7 @@ export const NO_TAB_COUNTS: ClientTabCounts = {
  */
 export class StubClientRecordQuery implements ClientRecordQuery {
   readonly activityCriteria: Parameters<ClientRecordQuery['activity']>[0][] = [];
+  readonly historyCriteria: Parameters<ClientRecordQuery['opportunityActivity']>[0][] = [];
   readonly opportunityCriteria: Parameters<ClientRecordQuery['opportunities']>[0][] = [];
   readonly featuredCriteria: Parameters<ClientRecordQuery['featured']>[0][] = [];
   readonly searchCriteria: Parameters<ClientRecordQuery['savedSearches']>[0][] = [];
@@ -860,6 +861,11 @@ export class StubClientRecordQuery implements ClientRecordQuery {
 
   activity(criteria: Parameters<ClientRecordQuery['activity']>[0]) {
     this.activityCriteria.push(criteria);
+    return Promise.resolve({ items: this.activityItems, total: this.activityItems.length });
+  }
+
+  opportunityActivity(criteria: Parameters<ClientRecordQuery['opportunityActivity']>[0]) {
+    this.historyCriteria.push(criteria);
     return Promise.resolve({ items: this.activityItems, total: this.activityItems.length });
   }
 

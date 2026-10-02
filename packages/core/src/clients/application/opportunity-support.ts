@@ -137,6 +137,11 @@ export function opportunityActions(
   };
 }
 
+/** Dónde está la oportunidad ahora: antes de moverla, para la actividad del cliente. */
+export function stagePositionOf(opportunity: Opportunity): StagePosition {
+  return { stageId: opportunity.stageId, status: opportunity.status };
+}
+
 /**
  * Guarda la oportunidad con sus cambios de estado, sus eventos y, por cada cambio, la entrada en
  * la actividad del cliente.
@@ -147,7 +152,7 @@ export async function saveOpportunity(
   actor: Actor,
   ids: IdGenerator,
   now: Date,
-  from: OpportunityStatusValue | undefined,
+  from: StagePosition,
 ): Promise<void> {
   const events = opportunity.pullEvents();
   await tx.opportunities.save(opportunity, actor.id);
@@ -159,7 +164,7 @@ export async function saveOpportunity(
         clientId: opportunity.clientId,
         opportunityId: opportunity.id,
         from,
-        to: opportunity.status,
+        to: { stageId: opportunity.stageId, status: opportunity.status },
         actorId: actor.id,
         now,
       }),

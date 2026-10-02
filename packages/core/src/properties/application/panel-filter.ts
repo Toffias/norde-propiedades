@@ -81,8 +81,11 @@ export function resolvePanelFilter(
   });
 }
 
-/** Criterios de "estas propiedades" (selección por IDs, comparador): solo las de la cartera. */
-export function idsCriteria(ids: readonly string[]): PanelPropertyFilterCriteria {
+/**
+ * Criterios de "estas propiedades" (selección por IDs, comparador): solo las de la cartera. Sin
+ * IDs, toda la cartera activa (para sumarle otro criterio, como el propietario).
+ */
+export function idsCriteria(ids: readonly string[] | undefined): PanelPropertyFilterCriteria {
   return {
     view: 'active',
     owner: { kind: 'all' },

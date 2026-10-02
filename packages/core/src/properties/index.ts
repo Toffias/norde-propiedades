@@ -495,3 +495,14 @@ export {
   ListCustomAttributes,
   type ListCustomAttributesError,
 } from './application/queries/list-custom-attributes';
+
+// ---------- Propiedades en la ficha de un contacto (#8) ----------
+
+export {
+  ListOwnedProperties,
+  type ListOwnedPropertiesError,
+} from './application/queries/list-owned-properties';
+export {
+  GetPropertySummaries,
+  type GetPropertySummariesError,
+} from './application/queries/get-property-summaries';

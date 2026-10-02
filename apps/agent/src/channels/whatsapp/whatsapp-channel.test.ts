@@ -6,7 +6,7 @@ import { KeyedQueue } from './keyed-queue';
 import { MessageBatcher } from './message-batcher';
 import { NoticeThrottle } from './notices';
 import { buildWhatsAppReply, cleanForWhatsApp, FALLBACK_TEXT } from './reply-builder';
-import { signBody, verifySignature } from './signature';
+import { signBody, verifySignature } from '../../http/signature';
 
 const payload = (messages: unknown[], contacts: unknown[] = []) => ({
   object: 'whatsapp_business_account',

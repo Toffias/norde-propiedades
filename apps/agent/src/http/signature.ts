@@ -1,8 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 /**
- * Valida el header `X-Hub-Signature-256` de Meta: `sha256=` + HMAC-SHA256(appSecret, body).
- * Se calcula sobre el body **crudo**, no sobre el JSON re-serializado.
+ * Valida una firma `sha256=` + HMAC-SHA256(secret, body) en hexadecimal: la del header
+ * `X-Hub-Signature-256` de Meta y la de los webhooks propios. Se calcula sobre el body **crudo**,
+ * no sobre el JSON re-serializado.
  */
 export function verifySignature(
   rawBody: Buffer,

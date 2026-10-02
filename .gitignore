@@ -24,3 +24,4 @@ Thumbs.db
 
 # Storage local de desarrollo (apps/gestion)
 .storage/
+/.claude/worktrees

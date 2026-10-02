@@ -3,6 +3,7 @@
 
 import {
   ApplyOpportunityRules,
+  RouteInquiry,
   NotifyTeamOfOpportunity,
   ReceiveInquiry,
   RecordClientActivity,
@@ -104,6 +105,7 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'identity:erase-client-data',
   'opportunities:apply-rules',
   'opportunities:run-bulk',
+  'inquiries:route',
 ]);
 /** Las consultas del formulario web: quedan creadas y auditadas por `system:web`. */
 const WEB_ACTOR = Actor.system('web', ['inquiries:receive', 'properties:read']);
@@ -159,6 +161,23 @@ function createOpportunityJobs(
       clock,
     }),
   };
+}
+
+/** El reparto automático de consultas por reglas (#10): `RouteInquiry` con los agentes activos. */
+function createInquiryRouting(
+  db: Database,
+  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
+) {
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const agents: ClientAgents = {
+    names: (userIds) => directory.names('user', userIds),
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+  return new RouteInquiry({ uow: createClientsUnitOfWork(db, deps), agents, ...deps });
 }
 
 /** La entrada de consultas (#10): `ReceiveInquiry` con los datos de la propiedad consultada. */
@@ -420,6 +439,7 @@ export function createContainer(
       clock,
     }),
     opportunities: createOpportunityJobs(db, { ids, clock }),
+    routeInquiry: createInquiryRouting(db, { ids, clock }),
     actor: SCHEDULER_ACTOR,
     importActor: IMPORT_ACTOR,
     logger,

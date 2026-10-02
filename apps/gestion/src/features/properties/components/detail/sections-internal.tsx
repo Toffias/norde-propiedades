@@ -30,7 +30,7 @@ import {
   changePropertyProducerAction,
   updatePropertyInternalInfoAction,
 } from '../../detail-actions';
-import { TextareaField, TextField, submitWith } from './form-fields';
+import { TextareaField, TextField, submitWith } from '../../../shared/components/form-fields';
 import {
   Facts,
   InlineFormActions,

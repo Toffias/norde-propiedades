@@ -51,7 +51,7 @@ import {
   SwitchField,
   TextField,
   submitWith,
-} from './form-fields';
+} from '../../../shared/components/form-fields';
 import {
   Facts,
   InlineFormActions,

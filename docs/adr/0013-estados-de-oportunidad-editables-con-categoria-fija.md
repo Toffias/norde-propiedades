@@ -24,3 +24,9 @@ Si los estados fueran texto libre, ninguna regla de dominio podría preguntar "�
 - El agente de IA y la web siguen leyendo `status` sin cambios: la columna `stage_id` es nullable hasta el backfill.
 - Agregar una **categoría** nueva sigue siendo un cambio de código y de dominio, a propósito.
 - El cambio de estado se registra en `opportunity_status_changes` con estado y categoría, de origen y de destino, para medir vigencia y tiempo de conversión.
+
+## Nota de implementación (#9, etapa 1)
+
+- **Transiciones**: entre estados de la misma categoría el paso es libre. Entre categorías valen las transiciones del dominio (`checkTransition`).
+- **Cierre**: a ganada o perdida solo se llega cerrando con un motivo, y la calificación del motivo decide cuál de las dos.
+- **Catálogo**: la categoría de un estado no cambia después de crearlo, y cada categoría conserva al menos un estado activo.

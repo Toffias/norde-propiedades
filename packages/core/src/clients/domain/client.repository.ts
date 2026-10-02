@@ -14,7 +14,10 @@ export interface ClientRepository {
    * Como mucho `MAX_DUPLICATE_CANDIDATES`.
    */
   findMatching(contact: ContactKeys): Promise<Client[]>;
-  /** Los activos con este nombre (sin distinguir mayúsculas), como mucho `MAX_DUPLICATE_CANDIDATES`. */
+  /**
+   * Los activos cuyo nombre contiene este (sin distinguir mayúsculas ni acentos), como mucho
+   * `MAX_DUPLICATE_CANDIDATES`. El caso de uso confirma cuáles tienen el mismo nombre.
+   */
   findByName(name: string): Promise<Client[]>;
   /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
   save(client: Client, actorId: string): Promise<void>;

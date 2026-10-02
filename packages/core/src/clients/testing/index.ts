@@ -25,7 +25,7 @@ import {
   type ClientRepository,
   type OpportunityRepository,
 } from '../domain/client.repository';
-import type { ContactKeys } from '../domain/duplicate-check';
+import { normalizeName, type ContactKeys } from '../domain/duplicate-check';
 import { Opportunity, type OpportunityId } from '../domain/opportunity';
 
 /** Guarda snapshots (no instancias), igual que una base: cada lectura devuelve un aggregate nuevo. */
@@ -47,10 +47,10 @@ export class InMemoryClientRepository implements ClientRepository {
   }
 
   findByName(name: string) {
-    const key = name.trim().toLowerCase();
+    const key = normalizeName(name);
     return Promise.resolve(
       [...this.rows.values()]
-        .filter((r) => r.deletedAt === undefined && r.name?.toLowerCase() === key)
+        .filter((r) => r.deletedAt === undefined && normalizeName(r.name ?? '').includes(key))
         .map((r) => Client.restore(r))
         .slice(0, MAX_DUPLICATE_CANDIDATES),
     );

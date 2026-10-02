@@ -145,7 +145,8 @@ describe('DrizzleClientRepository (agenda)', () => {
     });
 
     await new RestoreClient({ uow, clock }).execute({ clientId: result.value.clientId }, manager);
-    expect((await repository.findByName('ana')).map((c) => c.id)).toEqual([result.value.clientId]);
+    // Sin distinguir mayúsculas ni acentos.
+    expect((await repository.findByName('ÁNA')).map((c) => c.id)).toEqual([result.value.clientId]);
   });
 
   it('writes the edition of phones and emails with its diff in the same transaction', async () => {

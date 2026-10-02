@@ -24,6 +24,7 @@ import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
 import { fromJsonb, toJsonb } from '../db/json';
+import { matchesSearchText } from '../db/text-search';
 import { clientChannels, clientEmails, clientPhones, clients, opportunities } from '../db/schema';
 
 const ChannelSchema = z.enum(CONTACT_CHANNELS);
@@ -127,7 +128,9 @@ export class DrizzleClientRepository implements ClientRepository {
     const rows = await this.db
       .select({ id: clients.id })
       .from(clients)
-      .where(and(sql`lower(${clients.name}) = lower(${name.trim()})`, isNull(clients.deletedAt)))
+      // Sin acentos ni mayúsculas, con el índice trigram de `search_text`; la coincidencia exacta del
+      // nombre la confirma el dominio (`possibleDuplicates`).
+      .where(and(matchesSearchText(clients.searchText, name.trim()), isNull(clients.deletedAt)))
       .limit(MAX_DUPLICATE_CANDIDATES);
     return this.loadAll(rows.map((row) => row.id));
   }

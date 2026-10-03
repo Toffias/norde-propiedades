@@ -575,12 +575,6 @@ export {
   type InvalidInquiryRuleError,
   type TooManyInquiryRulesError,
 } from './domain/inquiry-assignment-rule';
-export {
-  MAX_AGENT_WEIGHT,
-  MIN_AGENT_WEIGHT,
-  pickWeighted,
-  type WeightedAgent,
-} from './domain/weighted-distribution';
 export type { InquiryRuleRepository } from './domain/client.repository';
 export type {
   InquiryRuleCriteria,

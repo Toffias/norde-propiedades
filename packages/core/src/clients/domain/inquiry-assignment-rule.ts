@@ -10,7 +10,7 @@ import {
   MIN_AGENT_WEIGHT,
   pickWeighted,
   type WeightedAgent,
-} from './weighted-distribution';
+} from '../../shared/domain/weighted-distribution';
 
 export type InquiryRuleId = Id<'InquiryAssignmentRule'>;
 

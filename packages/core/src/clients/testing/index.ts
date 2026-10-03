@@ -1,6 +1,6 @@
 // Fakes del módulo clients para tests (`@norde/core/clients/testing`).
 
-import { Actor, Email, parseId, Phone } from '../../shared';
+import { Actor, Email, parseId, Phone, type WeightedAgent } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
   ClientLetterCount,
@@ -76,7 +76,6 @@ import {
   type InquiryRuleId,
   type InquiryRuleSnapshot,
 } from '../domain/inquiry-assignment-rule';
-import type { WeightedAgent } from '../domain/weighted-distribution';
 import type {
   InquiryMatchCriteria,
   InquiryMatchItem,

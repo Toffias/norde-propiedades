@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MAX_ERASED_CLIENT_IDS } from '../../shared';
+import { MAX_AGENT_WEIGHT, MAX_ERASED_CLIENT_IDS, MIN_AGENT_WEIGHT } from '../../shared';
 import { CLIENT_ACTIVITY_KINDS, MAX_NOTE_LENGTH } from '../domain/client-activity';
 import { ERASURE_CONFIRMATION_WORD, MAX_ERASED_MERGED_CLIENTS } from '../domain/client-erasure';
 import { CLIENT_RELATION_KINDS } from '../domain/client-relation';
@@ -25,7 +25,6 @@ import {
   MAX_SAVED_SEARCH_ROOMS,
   MAX_SAVED_SEARCHES_PER_CLIENT,
 } from '../domain/saved-search';
-import { MAX_AGENT_WEIGHT, MIN_AGENT_WEIGHT } from '../domain/weighted-distribution';
 
 import {
   CLOSE_REASON_RATING_VALUES,

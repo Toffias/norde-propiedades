@@ -53,7 +53,7 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 | Apto crédito            | —                              | Apto crédito            | Se puede comprar con crédito hipotecario                                                                        |
 | Permuta                 | —                              | Permuta                 | El dueño acepta otra propiedad como parte de pago                                                               |
 | Escritura inmediata     | —                              | Escritura inmediata     | Se puede escriturar sin esperas (sin trámites pendientes)                                                       |
-| Emprendimiento          | `Development` (a definir)      | Emprendimiento          | Desarrollo en pozo o en construcción que agrupa unidades                                                        |
+| Emprendimiento          | `Development`                  | Emprendimiento          | Desarrollo en pozo o en construcción que agrupa unidades                                                        |
 | Unidad                  | `Property` con `developmentId` | Unidad                  | Propiedad que pertenece a un emprendimiento                                                                     |
 | Desarrollista           | —                              | Desarrollista           | Empresa que construye el emprendimiento                                                                         |
 | Tasación                | `Appraisal`                    | Tasación                | Estimación del valor de una propiedad. "Ingresada" en Tokko = convertida en captación                           |

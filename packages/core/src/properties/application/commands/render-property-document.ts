@@ -67,16 +67,24 @@ export class RenderPropertyDocument {
       const document = await tx.documents.findById(id);
       if (document?.status !== 'pending') return undefined;
       const property = await findProperty(tx.properties, document.propertyId);
-      const gallery = property
-        ? await tx.media.listForOwner({ kind: 'property', id: property.id })
-        : [];
-      return property ? { document, property, gallery } : undefined;
+      if (!property) return undefined;
+      const gallery = await tx.media.listForOwner({ kind: 'property', id: property.id });
+      // Una unidad puede sumar las fotos de su emprendimiento: se leen, no se copian.
+      const developmentId =
+        property.developmentId === undefined
+          ? undefined
+          : idOf<'Development'>(property.developmentId);
+      const developmentGallery =
+        developmentId === undefined
+          ? []
+          : await tx.media.listForOwner({ kind: 'development', id: developmentId });
+      return { document, property, gallery, developmentGallery };
     });
     if (!loaded) return ok('gone');
-    const { document, property, gallery } = loaded;
+    const { document, property, gallery, developmentGallery } = loaded;
 
     try {
-      const bytes = await this.render(document, property, gallery, actor);
+      const bytes = await this.render(document, property, gallery, developmentGallery, actor);
       if (bytes === undefined) {
         await this.finish(document.id, actor, {
           failed: 'No se pudo armar el reporte del período.',
@@ -97,13 +105,15 @@ export class RenderPropertyDocument {
     document: PropertyDocument,
     property: Parameters<typeof buildPanelPropertyDetail>[0],
     gallery: readonly MediaItem[],
+    developmentGallery: readonly MediaItem[],
     actor: Actor,
   ): Promise<Uint8Array | undefined> {
     const detail = await buildPanelPropertyDetail(property, this.deps);
     const settings = (await this.deps.settings.get()).toSnapshot();
     const options = settings.pdfOptions;
 
-    const keys = gallery
+    // Primero las de la unidad; después, si Mi empresa lo pide, las del emprendimiento.
+    const keys = (options.developmentPhotosInUnits ? [...gallery, ...developmentGallery] : gallery)
       .filter((item) => item.kind === 'photo' && item.toSnapshot().includeInPdf)
       .slice(0, PHOTOS_PER_KIND[document.kind])
       .flatMap((item) => {

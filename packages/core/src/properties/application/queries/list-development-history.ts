@@ -28,6 +28,16 @@ const CATEGORIES: Readonly<Record<DevelopmentHistoryCategory, readonly string[]>
   fields: ['development.created', 'development.updated'],
   status: ['development.status_changed', 'development.deleted', 'development.restored'],
   units: ['development.unit_added'],
+  media: [
+    'development.media_added',
+    'development.media_updated',
+    'development.media_reordered',
+    'development.cover_changed',
+    'development.media_deleted',
+    'development.attachment_added',
+    'development.attachment_updated',
+    'development.attachment_deleted',
+  ],
   assignments: ['development.tags_changed'],
 };
 

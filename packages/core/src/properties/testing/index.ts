@@ -3,6 +3,7 @@
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
+  DevelopmentMapPin,
   DevelopmentRef,
   PanelPropertyCustomAttribute,
   PanelPropertyRow,
@@ -10,6 +11,7 @@ import type {
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
 import type {
+  DevelopmentFilterCriteria,
   DevelopmentListCriteria,
   DevelopmentListItem,
   DevelopmentListQuery,
@@ -1160,6 +1162,16 @@ export class InMemoryDevelopmentRepository implements DevelopmentRepository {
     return Promise.resolve(units.length);
   }
 
+  countAvailableUnits(id: DevelopmentId) {
+    const units = [...this.properties.rows.values()].filter(
+      (property) =>
+        property.developmentId === id &&
+        property.deletedAt === undefined &&
+        property.status === 'available',
+    );
+    return Promise.resolve(units.length);
+  }
+
   save(development: Development, actorId: string) {
     this.rows.set(development.id, development.toSnapshot());
     this.savedBy.set(development.id, actorId);
@@ -1216,5 +1228,17 @@ export class StubDevelopmentListQuery implements DevelopmentListQuery {
   search(criteria: DevelopmentListCriteria) {
     this.calls.push(criteria);
     return Promise.resolve(this.slice);
+  }
+
+  readonly mapCalls: {
+    readonly criteria: DevelopmentFilterCriteria;
+    readonly area: BoundingBox;
+    readonly limit: number;
+  }[] = [];
+  pins: PageSlice<DevelopmentMapPin> = { items: [], total: 0 };
+
+  mapPins(criteria: DevelopmentFilterCriteria, area: BoundingBox, limit: number) {
+    this.mapCalls.push({ criteria, area, limit });
+    return Promise.resolve(this.pins);
   }
 }

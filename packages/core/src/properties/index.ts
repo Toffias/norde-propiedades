@@ -523,6 +523,7 @@ export type { DevelopmentRepository } from './domain/development.repository';
 export type { DevelopmentNotFoundError } from './application/development-support';
 export type { DevelopmentCodeAllocator } from './application/ports/development-code-allocator';
 export type {
+  DevelopmentFilterCriteria,
   DevelopmentListCriteria,
   DevelopmentListItem,
   DevelopmentListQuery,
@@ -578,6 +579,10 @@ export {
   GetDevelopmentDetail,
   type GetDevelopmentDetailError,
 } from './application/queries/get-development-detail';
+export {
+  GetDevelopmentMap,
+  type GetDevelopmentMapError,
+} from './application/queries/get-development-map';
 export {
   ListDevelopmentHistory,
   type ListDevelopmentHistoryError,

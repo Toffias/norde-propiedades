@@ -21,6 +21,7 @@ import {
   TEST_OUTSIDER,
 } from '../../testing';
 import { GetDevelopmentDetail } from './get-development-detail';
+import { GetDevelopmentMap } from './get-development-map';
 import { ListDevelopmentHistory } from './list-development-history';
 import { ListDevelopments } from './list-developments';
 
@@ -94,13 +95,18 @@ describe('GetDevelopmentDetail', () => {
       commercialContactClientId: CLIENT,
     });
     uow.developments.rows.set(snapshot.id, snapshot);
-    const active = propertySnapshot({ developmentId: DEVELOPMENT_ID });
+    const active = propertySnapshot({ developmentId: DEVELOPMENT_ID, status: 'available' });
+    const reserved = propertySnapshot({
+      id: '00000000-0000-7000-8000-0000000000c3',
+      developmentId: DEVELOPMENT_ID,
+      status: 'reserved',
+    });
     const trashed = propertySnapshot({
       id: '00000000-0000-7000-8000-0000000000c2',
       developmentId: DEVELOPMENT_ID,
       deletedAt: TEST_NOW,
     });
-    uow.properties.rows.set(active.id, active).set(trashed.id, trashed);
+    uow.properties.rows.set(active.id, active).set(reserved.id, reserved).set(trashed.id, trashed);
     const lookups = new StubPropertyDetailLookups();
     lookups.clients_.set(CLIENT, 'Ana Pérez');
 
@@ -118,7 +124,8 @@ describe('GetDevelopmentDetail', () => {
       tags: [{ id: 't1' }],
       commercialContact: { id: CLIENT, name: 'Ana Pérez' },
       producer: { id: PRODUCER_ID, name: 'Camila Ruiz' },
-      unitCount: 1,
+      unitCount: 2,
+      availableUnitCount: 1,
     });
   });
 
@@ -134,6 +141,53 @@ describe('GetDevelopmentDetail', () => {
     expect(
       unwrapErr(await query.execute({ developmentId: DEVELOPMENT_ID }, TEST_OUTSIDER)),
     ).toEqual({ type: 'Forbidden' });
+  });
+});
+
+describe('GetDevelopmentMap', () => {
+  const AREA = { south: -34.7, west: -58.5, north: -34.5, east: -58.3 };
+
+  it('passes the filters and the visible area, and says when there are more pins', async () => {
+    const developments = new StubDevelopmentListQuery();
+    const pin = {
+      id: DEVELOPMENT_ID,
+      code: 'EMP0001',
+      name: 'Torre Gurruchaga',
+      status: 'marketing' as const,
+      publishAddress: 'Gurruchaga al 1800',
+      unitCount: 4,
+      latitude: -34.58,
+      longitude: -58.43,
+    };
+    developments.pins = { items: [pin], total: 3 };
+    const query = new GetDevelopmentMap({ developments });
+
+    const result = unwrap(
+      await query.execute({ ...AREA, q: 'torre', status: 'marketing' }, TEST_DEVELOPER),
+    );
+
+    expect(developments.mapCalls).toEqual([
+      {
+        criteria: {
+          text: 'torre',
+          status: 'marketing',
+          developmentType: undefined,
+          constructionStatus: undefined,
+          tagId: undefined,
+        },
+        area: AREA,
+        limit: 500,
+      },
+    ]);
+    expect(result).toEqual({ pins: [pin], total: 3, truncated: true });
+  });
+
+  it('rejects an inverted area and needs developments:read', async () => {
+    const query = new GetDevelopmentMap({ developments: new StubDevelopmentListQuery() });
+    expect(unwrapErr(await query.execute({ ...AREA, north: -35 }, TEST_DEVELOPER))).toMatchObject({
+      type: 'InvalidSearch',
+    });
+    expect(unwrapErr(await query.execute(AREA, TEST_OUTSIDER))).toEqual({ type: 'Forbidden' });
   });
 });
 
@@ -156,6 +210,7 @@ describe('ListDevelopmentHistory', () => {
       entry('a1', 'development.created', 1),
       entry('a2', 'development.unit_added', 3),
       entry('a3', 'development.status_changed', 5),
+      entry('a4', 'development.media_added', 6),
     ]);
     return new ListDevelopmentHistory({ uow, history, users });
   }
@@ -163,12 +218,16 @@ describe('ListDevelopmentHistory', () => {
   it('pages the history newest first and filters by kind of change', async () => {
     const query = setup();
     const all = unwrap(await query.execute({ developmentId: DEVELOPMENT_ID }, TEST_DEVELOPER));
-    expect(all.items.map((item) => item.id)).toEqual(['a3', 'a2', 'a1']);
+    expect(all.items.map((item) => item.id)).toEqual(['a4', 'a3', 'a2', 'a1']);
     expect(all.items[0]?.actor).toEqual({ id: PRODUCER_ID, name: 'Camila Ruiz' });
     const units = unwrap(
       await query.execute({ developmentId: DEVELOPMENT_ID, category: 'units' }, TEST_DEVELOPER),
     );
     expect(units.items.map((item) => item.id)).toEqual(['a2']);
+    const media = unwrap(
+      await query.execute({ developmentId: DEVELOPMENT_ID, category: 'media' }, TEST_DEVELOPER),
+    );
+    expect(media.items.map((item) => item.id)).toEqual(['a4']);
   });
 
   it('shows the history of others only with "ver el historial de otros"', async () => {

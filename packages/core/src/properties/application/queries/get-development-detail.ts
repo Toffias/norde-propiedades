@@ -34,7 +34,11 @@ export class GetDevelopmentDetail {
     const loaded = await this.deps.uow.run(async (tx) => {
       const development = await findDevelopment(tx.developments, parsed.data.developmentId);
       if (!development) return undefined;
-      return { development, unitCount: await tx.developments.countActiveUnits(development.id) };
+      const [unitCount, availableUnitCount] = await Promise.all([
+        tx.developments.countActiveUnits(development.id),
+        tx.developments.countAvailableUnits(development.id),
+      ]);
+      return { development, unitCount, availableUnitCount };
     });
     if (!loaded) return err({ type: 'DevelopmentNotFound' });
     const s = loaded.development.toSnapshot();
@@ -85,6 +89,7 @@ export class GetDevelopmentDetail {
           : { id: s.producerUserId, name: names.get(s.producerUserId) },
       branchId: s.branchId,
       unitCount: loaded.unitCount,
+      availableUnitCount: loaded.availableUnitCount,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
       deletedAt: s.deletedAt,

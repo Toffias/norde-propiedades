@@ -190,6 +190,7 @@ export type {
   ClientLinkedRecords,
   ClientRecordCounts,
 } from './application/ports/client-linked-records';
+export type { DevelopmentChances } from './application/ports/development-chances';
 export type { ClientTagQuery } from './application/ports/client-tag-query';
 export type {
   ClientRelationItem,

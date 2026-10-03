@@ -25,7 +25,10 @@ const UNKNOWN_USER = '00000000-0000-7000-8000-0000000000c9';
 
 let externalSequence = 0;
 
-function setup() {
+const DEVELOPMENT_ID = '00000000-0000-7000-8000-0000000000e1';
+const UNIT_ID = '00000000-0000-7000-8000-0000000000e2';
+
+function setup(options: { readonly rulesEnabled?: boolean } = {}) {
   const uow = new InMemoryClientsUnitOfWork();
   const clock = new FixedClock('2026-03-01T10:00:00Z');
   const ids = new SequentialIdGenerator();
@@ -36,10 +39,24 @@ function setup() {
     operations: ['sale'],
     neighborhood: 'Palermo',
   });
+  // Una unidad del emprendimiento.
+  properties.known.set(UNIT_ID, {
+    branchId: OTHER_BRANCH_ID,
+    propertyType: 'apartment',
+    operations: ['sale'],
+    neighborhood: 'Palermo',
+    developmentId: DEVELOPMENT_ID,
+  });
   const receive = new ReceiveInquiry({ uow, properties, ids, clock });
   return {
     uow,
-    route: new RouteInquiry({ uow, agents: new InMemoryClientAgents(), ids, clock }),
+    route: new RouteInquiry({
+      uow,
+      agents: new InMemoryClientAgents(),
+      ids,
+      clock,
+      ...(options.rulesEnabled !== undefined && { rulesEnabled: options.rulesEnabled }),
+    }),
     async inquiry(overrides: Partial<ReceiveInquiryInput> = {}) {
       externalSequence += 1;
       const { inquiryId } = unwrap(
@@ -78,7 +95,11 @@ describe('RouteInquiry', () => {
 
     const outcome = unwrap(await route.execute({ inquiryId }, SCHEDULER));
 
-    expect(outcome).toMatchObject({ routed: true, ruleId: rule.id, agentId: AGENT_ID });
+    expect(outcome).toMatchObject({
+      routed: true,
+      by: { kind: 'rule', ruleId: rule.id },
+      agentId: AGENT_ID,
+    });
     const row = uow.inquiries.rows.get(inquiryId);
     expect(row).toMatchObject({
       status: 'assigned',
@@ -196,7 +217,11 @@ describe('RouteInquiry', () => {
 
     const outcome = unwrap(await route.execute({ inquiryId: await inquiry() }, SCHEDULER));
 
-    expect(outcome).toMatchObject({ routed: true, ruleId: palermo.id, agentId: OTHER_AGENT_ID });
+    expect(outcome).toMatchObject({
+      routed: true,
+      by: { kind: 'rule', ruleId: palermo.id },
+      agentId: OTHER_AGENT_ID,
+    });
   });
 
   it('leaves it pending without a matching rule', async () => {
@@ -253,5 +278,125 @@ describe('RouteInquiry', () => {
     expect(
       unwrapErr(await route.execute({ inquiryId }, Actor.system('scheduler', ['inquiries:read']))),
     ).toEqual({ type: 'Forbidden' });
+  });
+
+  describe('by the chances of a development', () => {
+    const CHANCES = [
+      { userId: AGENT_ID, weight: 2 },
+      { userId: OTHER_AGENT_ID, weight: 1 },
+    ];
+
+    it('gives the inquiry about a unit to the agents of its development, by weight', async () => {
+      const { uow, route, inquiry } = setup();
+      uow.developmentChances.set(DEVELOPMENT_ID, CHANCES);
+      // Una regla que también la tomaría: las chances van primero.
+      const rule = await seedInquiryRule(uow, { agents: [{ userId: OTHER_AGENT_ID, weight: 1 }] });
+
+      const agents = [];
+      for (const n of [1, 2, 3, 4, 5, 6]) {
+        const inquiryId = await inquiry({ ...person(n), propertyId: UNIT_ID });
+        const outcome = unwrap(await route.execute({ inquiryId }, SCHEDULER));
+        expect(outcome).toMatchObject({
+          routed: true,
+          by: { kind: 'development_chances', developmentId: DEVELOPMENT_ID },
+        });
+        agents.push(outcome.routed ? outcome.agentId : undefined);
+      }
+
+      const [a, b] = [AGENT_ID, OTHER_AGENT_ID];
+      expect(agents).toEqual([a, b, a, a, b, a]);
+      expect(uow.developmentChances.rows.get(DEVELOPMENT_ID)?.cursor).toBe(6n);
+      expect(uow.inquiryRules.rows.get(rule.id)?.cursor).toBe(0n);
+    });
+
+    it('works with the rules turned off and audits the development, as the system', async () => {
+      const { uow, route, inquiry } = setup({ rulesEnabled: false });
+      uow.developmentChances.set(DEVELOPMENT_ID, CHANCES);
+      const inquiryId = await inquiry({ propertyId: undefined, developmentId: DEVELOPMENT_ID });
+
+      unwrap(await route.execute({ inquiryId }, SCHEDULER));
+
+      expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
+        status: 'assigned',
+        assignedAgentId: AGENT_ID,
+        branchId: BRANCH_ID,
+        assignedBy: 'system:scheduler',
+      });
+      expect(uow.audit.entries.at(-1)).toMatchObject({
+        action: 'inquiry.assigned',
+        actorId: 'system:scheduler',
+        changes: {
+          assignedAgentId: { before: null, after: AGENT_ID },
+          developmentChances: { before: null, after: DEVELOPMENT_ID },
+        },
+      });
+    });
+
+    it('keeps the agent a matching contact already has, without moving the chances', async () => {
+      const { uow, route, inquiry } = setup();
+      uow.developmentChances.set(DEVELOPMENT_ID, CHANCES);
+      await seedClient(uow, { agentId: OTHER_AGENT_ID, branchId: OTHER_BRANCH_ID });
+
+      const outcome = unwrap(
+        await route.execute({ inquiryId: await inquiry({ propertyId: UNIT_ID }) }, SCHEDULER),
+      );
+
+      expect(outcome).toMatchObject({
+        routed: true,
+        by: { kind: 'development_chances' },
+        agentId: OTHER_AGENT_ID,
+      });
+      expect(uow.developmentChances.rows.get(DEVELOPMENT_ID)?.cursor).toBe(0n);
+    });
+
+    it('leaves it to the rules when no agent of the development is active', async () => {
+      const { uow, route, inquiry } = setup();
+      uow.developmentChances.set(DEVELOPMENT_ID, [{ userId: UNKNOWN_USER, weight: 1 }]);
+      const rule = await seedInquiryRule(uow, { agents: [{ userId: OTHER_AGENT_ID, weight: 1 }] });
+
+      const outcome = unwrap(
+        await route.execute({ inquiryId: await inquiry({ propertyId: UNIT_ID }) }, SCHEDULER),
+      );
+
+      expect(outcome).toMatchObject({
+        routed: true,
+        by: { kind: 'rule', ruleId: rule.id },
+        agentId: OTHER_AGENT_ID,
+      });
+      expect(uow.developmentChances.rows.get(DEVELOPMENT_ID)?.cursor).toBe(0n);
+    });
+
+    it('leaves it pending without active agents and with the rules turned off', async () => {
+      const { uow, route, inquiry } = setup({ rulesEnabled: false });
+      await seedInquiryRule(uow);
+      const plain = await inquiry();
+      expect(unwrap(await route.execute({ inquiryId: plain }, SCHEDULER))).toEqual({
+        routed: false,
+        reason: 'no_rule',
+      });
+
+      uow.developmentChances.set(DEVELOPMENT_ID, [{ userId: UNKNOWN_USER, weight: 1 }]);
+      const unit = await inquiry({ ...person(7), propertyId: UNIT_ID });
+      expect(unwrap(await route.execute({ inquiryId: unit }, SCHEDULER))).toEqual({
+        routed: false,
+        reason: 'no_active_agent',
+      });
+      expect(uow.inquiries.rows.get(unit)?.status).toBe('pending');
+      expect(uow.clients.rows.size).toBe(0);
+    });
+
+    it('leaves it pending when several contacts match', async () => {
+      const { uow, route, inquiry } = setup();
+      uow.developmentChances.set(DEVELOPMENT_ID, CHANCES);
+      await seedClient(uow, { phones: ['+5491166899124'] });
+      await seedClient(uow, { phones: ['+5491155550000'], emails: ['ana@example.com'] });
+
+      expect(
+        unwrap(
+          await route.execute({ inquiryId: await inquiry({ propertyId: UNIT_ID }) }, SCHEDULER),
+        ),
+      ).toEqual({ routed: false, reason: 'ambiguous_client' });
+      expect(uow.developmentChances.rows.get(DEVELOPMENT_ID)?.cursor).toBe(0n);
+    });
   });
 });

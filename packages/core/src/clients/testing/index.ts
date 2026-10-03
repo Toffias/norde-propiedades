@@ -1,6 +1,6 @@
 // Fakes del módulo clients para tests (`@norde/core/clients/testing`).
 
-import { Actor, Email, parseId, Phone, type WeightedAgent } from '../../shared';
+import { Actor, Email, parseId, Phone, pickWeighted, type WeightedAgent } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
   ClientLetterCount,
@@ -16,6 +16,7 @@ import type {
 } from '../contracts';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
+import type { DevelopmentChances } from '../application/ports/development-chances';
 import type { ClientImportItem, ClientImportQuery } from '../application/ports/client-import-query';
 import type {
   ClientLinkedRecords,
@@ -743,6 +744,31 @@ export class InMemoryInquiryRepository implements InquiryRepository {
   }
 }
 
+/** Las chances de los emprendimientos (properties), con el mismo reparto ponderado. */
+export class InMemoryDevelopmentChances implements DevelopmentChances {
+  readonly rows = new Map<string, { agents: readonly WeightedAgent[]; cursor: bigint }>();
+
+  set(developmentId: string, agents: readonly WeightedAgent[]): this {
+    this.rows.set(developmentId, { agents, cursor: 0n });
+    return this;
+  }
+
+  agentsOf(developmentId: string) {
+    return Promise.resolve(this.rows.get(developmentId)?.agents.map((a) => a.userId) ?? []);
+  }
+
+  takeTurn(developmentId: string, activeUserIds: ReadonlySet<string>) {
+    const row = this.rows.get(developmentId);
+    if (!row) return Promise.resolve(undefined);
+    const picked = pickWeighted(
+      row.agents.filter((a) => activeUserIds.has(a.userId)),
+      row.cursor,
+    );
+    if (picked) this.rows.set(developmentId, { ...row, cursor: row.cursor + 1n });
+    return Promise.resolve(picked?.userId);
+  }
+}
+
 export class InMemoryInquiryRuleRepository implements InquiryRuleRepository {
   readonly rows = new Map<string, InquiryRuleSnapshot>();
   readonly locked: string[] = [];
@@ -799,6 +825,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly bulkOperations = new InMemoryOpportunityBulkOperationRepository();
   readonly inquiries = new InMemoryInquiryRepository();
   readonly inquiryRules = new InMemoryInquiryRuleRepository();
+  readonly developmentChances = new InMemoryDevelopmentChances();
 
   async run<T>(work: (tx: ClientsTransaction) => Promise<T>): Promise<T> {
     const backup = {
@@ -818,6 +845,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       bulkOperations: new Map(this.bulkOperations.rows),
       inquiries: new Map(this.inquiries.rows),
       inquiryRules: new Map(this.inquiryRules.rows),
+      developmentChances: new Map(this.developmentChances.rows),
       problems: this.imports.problems.length,
       events: this.events.published.length,
       audit: this.audit.entries.length,
@@ -843,6 +871,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.bulkOperations.rows, backup.bulkOperations);
       restore(this.inquiries.rows, backup.inquiries);
       restore(this.inquiryRules.rows, backup.inquiryRules);
+      restore(this.developmentChances.rows, backup.developmentChances);
       this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);

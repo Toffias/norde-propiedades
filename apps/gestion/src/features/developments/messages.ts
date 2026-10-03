@@ -1,0 +1,76 @@
+import type {
+  ChangeDevelopmentStatusError,
+  ChangeDevelopmentTagsError,
+  CreateDevelopmentError,
+  CreateDevelopmentUnitError,
+  DeleteDevelopmentError,
+  GetDevelopmentDetailError,
+  ListDevelopmentHistoryError,
+  ListDevelopmentsError,
+  RestoreDevelopmentError,
+  UpdateDevelopmentDetailsError,
+  UpdateDevelopmentFeaturesError,
+  UpdateDevelopmentGeneralError,
+  UpdateDevelopmentLocationError,
+} from '@norde/core/properties';
+
+import type { ErrorMessages } from '../../lib/errors';
+
+// Errores esperados de los casos de uso de emprendimientos → mensajes para la UI.
+
+const COMMON = {
+  Forbidden: 'No tenés permiso para hacer esto con este emprendimiento.',
+  InvalidInput: 'Revisá los datos marcados y probá de nuevo.',
+  DevelopmentNotFound:
+    'No encontramos ese emprendimiento. Puede que lo hayan borrado definitivamente.',
+  DevelopmentInTrash: 'El emprendimiento está en la papelera: restauralo para editarlo.',
+} as const;
+
+export const DEVELOPMENT_ERROR_MESSAGES = {
+  ...COMMON,
+  InvalidCoordinates: 'La latitud o la longitud no son válidas.',
+  LocationNotFound: 'No encontramos esa ubicación. Elegila de nuevo en el buscador.',
+  ReferenceCodeUnavailable:
+    'No pudimos asignarle un código de referencia. Revisá la numeración en Mi empresa → Códigos.',
+  DevelopmentAlreadyDeleted: 'El emprendimiento ya estaba en la papelera.',
+  DevelopmentNotDeleted: 'El emprendimiento no está en la papelera.',
+  DevelopmentHasUnits: (error) =>
+    error.units === 1
+      ? 'Tiene 1 unidad activa: borrala antes de borrar el emprendimiento.'
+      : `Tiene ${String(error.units)} unidades activas: borralas antes de borrar el emprendimiento.`,
+  InvalidDevelopmentStatusTransition: 'No se puede pasar a ese estado.',
+  FeatureNotFound: 'Uno de los ítems ya no está en el catálogo. Recargá la página.',
+  TagNotFound: 'Una de las etiquetas ya no existe. Recargá la página.',
+} satisfies ErrorMessages<
+  | CreateDevelopmentError
+  | DeleteDevelopmentError
+  | RestoreDevelopmentError
+  | UpdateDevelopmentGeneralError
+  | UpdateDevelopmentLocationError
+  | UpdateDevelopmentDetailsError
+  | ChangeDevelopmentStatusError
+  | UpdateDevelopmentFeaturesError
+  | ChangeDevelopmentTagsError
+>;
+
+export const DEVELOPMENT_UNIT_ERROR_MESSAGES = {
+  ...COMMON,
+  Forbidden: 'Para sumar unidades necesitás poder crear propiedades y editar este emprendimiento.',
+  PropertyTypeDisabled:
+    'Ese tipo de propiedad está deshabilitado en Mi empresa → Propiedades. Elegí otro o habilitalo.',
+  ReferenceCodeUnavailable:
+    'No pudimos asignarle un código de referencia. Revisá la numeración en Mi empresa → Códigos.',
+  NegativePrice: 'El precio no puede ser negativo.',
+  NegativeCharacteristic: 'Las superficies y los ambientes no pueden ser negativos.',
+  CoveredExceedsTotal: 'La superficie cubierta no puede ser mayor que la total.',
+} satisfies ErrorMessages<CreateDevelopmentUnitError>;
+
+export const DEVELOPMENT_LIST_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver estos emprendimientos.',
+  InvalidSearch: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
+} satisfies ErrorMessages<ListDevelopmentsError>;
+
+export const DEVELOPMENT_READ_ERROR_MESSAGES = {
+  ...COMMON,
+  Forbidden: 'No tenés permiso para ver este emprendimiento.',
+} satisfies ErrorMessages<GetDevelopmentDetailError | ListDevelopmentHistoryError>;

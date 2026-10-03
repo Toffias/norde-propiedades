@@ -26,6 +26,7 @@ export interface PropertyCatalogQuery {
       readonly text: string | undefined;
       readonly parentId: string | undefined;
       readonly kind: LocationKindValue | undefined;
+      readonly ids: readonly string[] | undefined;
       readonly direction: Direction;
     },
   ): Promise<PageSlice<LocationRow>>;

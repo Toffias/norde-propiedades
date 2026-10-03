@@ -49,6 +49,7 @@ export function PropertiesView(props: PropertiesViewProps) {
       sortsByPrice={props.sort.field === 'price'}
       canSeeTrash={permissions.delete}
       canCreate={permissions.create}
+      canSaveForClient={permissions.featureToClient}
       favoriteSearches={props.favoriteSearches}
       onCreate={navigation.openNew}
     />

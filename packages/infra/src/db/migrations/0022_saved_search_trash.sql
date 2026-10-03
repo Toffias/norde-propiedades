@@ -1,0 +1,1 @@
+CREATE INDEX "saved_searches_client_deleted_idx" ON "core"."saved_searches" USING btree ("client_id","deleted_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE deleted_at is not null;

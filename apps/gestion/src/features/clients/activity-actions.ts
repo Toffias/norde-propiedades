@@ -3,9 +3,11 @@
 import {
   AddClientNoteInputSchema,
   FeaturePropertiesInputSchema,
+  SetFeaturedAutoSendInputSchema,
   UnfeaturePropertyInputSchema,
   type AddClientNoteInput,
   type FeaturePropertiesInput,
+  type SetFeaturedAutoSendInput,
   type UnfeaturePropertyInput,
 } from '@norde/core/clients/contracts';
 import { FavoritesInputSchema } from '@norde/core/identity/contracts';
@@ -19,6 +21,7 @@ import {
   ADD_NOTE_ERROR_MESSAGES,
   CLIENT_FAVORITE_ERROR_MESSAGES,
   FEATURE_PROPERTIES_ERROR_MESSAGES,
+  SET_FEATURED_AUTO_SEND_ERROR_MESSAGES,
   UNFEATURE_PROPERTY_ERROR_MESSAGES,
 } from './messages';
 
@@ -54,6 +57,22 @@ export async function featurePropertiesAction(
   }
   revalidatePath(contactPath(parsed.data.clientId));
   return { ...ACTION_OK, featured: result.value.featured };
+}
+
+/** Prende o apaga el auto-envío de novedades de una destacada. */
+export async function setFeaturedAutoSendAction(
+  input: SetFeaturedAutoSendInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = SetFeaturedAutoSendInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(SET_FEATURED_AUTO_SEND_ERROR_MESSAGES.InvalidInput);
+
+  const result = await getContainer().clients.setFeaturedAutoSend.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, SET_FEATURED_AUTO_SEND_ERROR_MESSAGES));
+  }
+  revalidatePath(contactPath(parsed.data.clientId));
+  return ACTION_OK;
 }
 
 export async function unfeaturePropertyAction(

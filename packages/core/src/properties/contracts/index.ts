@@ -147,6 +147,14 @@ export type GeocodingOutcome = (typeof GEOCODING_OUTCOMES)[number];
 export const PropertyIdInputSchema = z.object({ propertyId: z.uuid() });
 export type PropertyIdInput = z.input<typeof PropertyIdInputSchema>;
 
+/** Tope de propiedades que se leen juntas por ID. */
+export const MAX_PROPERTIES_PER_BATCH = 50;
+
+export const PropertyIdsInputSchema = z.object({
+  propertyIds: z.array(z.uuid()).max(MAX_PROPERTIES_PER_BATCH),
+});
+export type PropertyIdsInput = z.input<typeof PropertyIdsInputSchema>;
+
 export const PANEL_PROPERTY_SORT_FIELDS = ['updatedAt', 'createdAt', 'price', 'code'] as const;
 export type PanelPropertySortField = (typeof PANEL_PROPERTY_SORT_FIELDS)[number];
 

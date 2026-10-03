@@ -41,7 +41,7 @@ export const OPPORTUNITY_RULE_LABELS: Readonly<
   },
   onReactivate: {
     label: 'Al reactivar',
-    hint: 'Cuando una oportunidad derivada a una socia vuelve a consultar.',
+    hint: 'Cuando una oportunidad derivada a una socia vuelve a consultar o le destacás una propiedad.',
   },
   forOwners: {
     label: 'Para propietarios',

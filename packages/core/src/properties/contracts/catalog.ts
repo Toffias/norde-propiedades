@@ -28,6 +28,8 @@ export const SearchLocationsQuerySchema = pageQuerySchema({
   /** Solo los hijos directos de esta ubicación. */
   parentId: z.uuid().optional(),
   kind: z.enum(LOCATION_KIND_VALUES).optional(),
+  /** Solo estas ubicaciones (para mostrar las elegidas en un formulario). */
+  ids: z.array(z.uuid()).max(50).optional(),
 });
 export type SearchLocationsQuery = z.input<typeof SearchLocationsQuerySchema>;
 

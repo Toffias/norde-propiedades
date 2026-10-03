@@ -453,6 +453,10 @@ describe('automatic rules', () => {
     expect(automaticRuleFor({ kind: 'assigned', toAgentId: undefined }, 'new')).toBeUndefined();
     expect(automaticRuleFor({ kind: 'request_added' }, 'referred_to_partner')).toBe('onReactivate');
     expect(automaticRuleFor({ kind: 'request_added' }, 'contacted')).toBeUndefined();
+    expect(automaticRuleFor({ kind: 'listings_featured' }, 'referred_to_partner')).toBe(
+      'onReactivate',
+    );
+    expect(automaticRuleFor({ kind: 'listings_featured' }, 'visiting')).toBeUndefined();
     expect(automaticRuleFor({ kind: 'created', ownerClient: true }, 'new')).toBe('forOwners');
     expect(automaticRuleFor({ kind: 'created', ownerClient: false }, 'new')).toBeUndefined();
     expect(automaticRuleFor({ kind: 'assigned', toAgentId: 'a' }, 'won')).toBeUndefined();

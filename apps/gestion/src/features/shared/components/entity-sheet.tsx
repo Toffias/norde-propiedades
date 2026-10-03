@@ -48,8 +48,12 @@ export interface PanelNavigation {
 /**
  * Abre y cierra el panel lateral cambiando los query params de la URL (`lib/panel-params.ts`). Los
  * params de la grilla (página, orden, filtros) quedan como están.
+ *
+ * `keepTab`: la pantalla ya usa `tab` para lo suyo (la pestaña de una ficha): el panel no lo toca.
+ * Sus paneles no tienen pestañas.
  */
-export function usePanel(): PanelNavigation {
+export function usePanel(options: { readonly keepTab?: boolean } = {}): PanelNavigation {
+  const keepTab = options.keepTab === true;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -77,7 +81,13 @@ export function usePanel(): PanelNavigation {
   );
 
   return useMemo((): PanelNavigation => {
-    const cleared = Object.fromEntries(PANEL_PARAMS.map((key) => [key, undefined]));
+    const cleared = Object.fromEntries(
+      PANEL_PARAMS.filter((key) => !keepTab || key !== PANEL_TAB_PARAM).map((key) => [
+        key,
+        undefined,
+      ]),
+    );
+    const tabParam = (tab: string | undefined) => (keepTab ? {} : { [PANEL_TAB_PARAM]: tab });
     return {
       panel,
       pending,
@@ -85,19 +95,13 @@ export function usePanel(): PanelNavigation {
         navigate({ kind: 'new' }, { ...cleared, [PANEL_PARAM]: 'new' });
       },
       openNewIn: (tab) => {
-        navigate(
-          { kind: 'new', tab },
-          { ...cleared, [PANEL_PARAM]: 'new', [PANEL_TAB_PARAM]: tab },
-        );
+        navigate({ kind: 'new', tab }, { ...cleared, [PANEL_PARAM]: 'new', ...tabParam(tab) });
       },
       openEdit: (id, tab) => {
-        navigate(
-          { kind: 'edit', id, tab },
-          { ...cleared, [PANEL_PARAM]: id, [PANEL_TAB_PARAM]: tab },
-        );
+        navigate({ kind: 'edit', id, tab }, { ...cleared, [PANEL_PARAM]: id, ...tabParam(tab) });
       },
       setTab: (tab) => {
-        if (panel?.kind !== 'edit') return;
+        if (panel?.kind !== 'edit' || keepTab) return;
         navigate({ ...panel, tab }, { [PANEL_TAB_PARAM]: tab, [PANEL_PAGE_PARAM]: undefined });
       },
       setPanelPage: (page) => {
@@ -107,7 +111,7 @@ export function usePanel(): PanelNavigation {
         navigate(undefined, cleared);
       },
     };
-  }, [navigate, panel, pending]);
+  }, [keepTab, navigate, panel, pending]);
 }
 
 /**

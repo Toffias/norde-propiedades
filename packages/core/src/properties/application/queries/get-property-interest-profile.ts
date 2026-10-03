@@ -1,8 +1,9 @@
 import type { PropertyInterestProfile } from '../../../clients';
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
 import { PropertyIdInputSchema, type PropertyIdInput } from '../../contracts';
+import type { Property } from '../../domain/property';
 import { idOf } from '../catalog-support';
-import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
+import type { PropertiesTransaction, PropertiesUnitOfWork } from '../ports/properties-transaction';
 import {
   findProperty,
   invalidInput,
@@ -30,22 +31,29 @@ export class GetPropertyInterestProfile {
 
     const profile = await this.deps.uow.run(async (tx) => {
       const property = await findProperty(tx.properties, parsed.data.propertyId);
-      if (!property) return undefined;
-      const s = property.toSnapshot();
-      const locationId = s.locationId === undefined ? undefined : idOf<'Location'>(s.locationId);
-      const lineage = locationId === undefined ? [] : await tx.locations.findLineage(locationId);
-      return {
-        propertyId: s.id,
-        propertyType: s.kind,
-        operations: s.operations.map((o) => ({
-          operation: o.operation,
-          currency: o.currency,
-          priceCents: o.priceOnRequest ? undefined : o.priceCents,
-        })),
-        locationIds: lineage.map((location) => location.id),
-        rooms: s.characteristics.rooms,
-      };
+      return property ? interestProfileOf(tx, property) : undefined;
     });
     return profile ? ok(profile) : err({ type: 'PropertyNotFound' });
   }
+}
+
+/** El perfil de una propiedad para el cruce: su ubicación, con los ancestros. */
+export async function interestProfileOf(
+  tx: PropertiesTransaction,
+  property: Property,
+): Promise<PropertyInterestProfile> {
+  const s = property.toSnapshot();
+  const locationId = s.locationId === undefined ? undefined : idOf<'Location'>(s.locationId);
+  const lineage = locationId === undefined ? [] : await tx.locations.findLineage(locationId);
+  return {
+    propertyId: s.id,
+    propertyType: s.kind,
+    operations: s.operations.map((o) => ({
+      operation: o.operation,
+      currency: o.currency,
+      priceCents: o.priceOnRequest ? undefined : o.priceCents,
+    })),
+    locationIds: lineage.map((location) => location.id),
+    rooms: s.characteristics.rooms,
+  };
 }

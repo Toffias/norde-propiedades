@@ -41,6 +41,7 @@ export interface ClientFeaturedItem {
   readonly id: string;
   readonly propertyId: string;
   readonly matchScore: number | undefined;
+  readonly autoSendUpdates: boolean;
   readonly reaction: 'liked' | 'disliked' | undefined;
   readonly featuredBy: string;
   readonly featuredAt: Date;
@@ -85,8 +86,13 @@ export interface ClientRecordQuery {
   /** Cuáles de estas propiedades (las de una página del buscador) ya le destacaron. */
   featuredPropertyIds(clientId: string, propertyIds: readonly string[]): Promise<readonly string[]>;
 
+  /** `trash`: las borradas, por fecha de baja. */
   savedSearches(
-    criteria: Paging & { readonly clientId: string; readonly direction: Direction },
+    criteria: Paging & {
+      readonly clientId: string;
+      readonly view: 'active' | 'trash';
+      readonly direction: Direction;
+    },
   ): Promise<PageSlice<ClientSavedSearchRow>>;
 
   tabCounts(clientId: string): Promise<ClientTabCounts>;

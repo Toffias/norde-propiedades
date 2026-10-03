@@ -8,11 +8,12 @@ import type { GridColumnValue, PanelPropertyRow } from '@norde/core/properties/c
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { ArchiveRestoreIcon, Trash2Icon } from 'lucide-react';
+import { ArchiveRestoreIcon, Trash2Icon, UserPlusIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
 import { EMPTY_VALUE, formatDateTime } from '../../../lib/format';
+import { FeatureToClientDialog } from '../../clients/components/feature-to-client-dialog';
 import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
@@ -98,6 +99,7 @@ export function PropertiesGrid({
 }) {
   const router = useRouter();
   const [pending, setPending] = useState<PendingAction | undefined>();
+  const [featuring, setFeaturing] = useState<PanelPropertyRow | undefined>();
   const inTrash = filters.view === 'trash';
   // El orden por precio compara una sola moneda: solo se ofrece con la moneda elegida.
   const canSortByPrice = filters.currency !== '';
@@ -202,9 +204,18 @@ export function PropertiesGrid({
         hideHeader: true,
         className: 'w-[60px] text-right',
         cell: (row) =>
-          permissions.delete && (
+          (permissions.delete || (permissions.featureToClient && !inTrash)) && (
             <RowActions>
-              {inTrash ? (
+              {permissions.featureToClient && !inTrash && (
+                <RowAction
+                  icon={UserPlusIcon}
+                  label="Destacar a un contacto"
+                  onClick={() => {
+                    setFeaturing(row);
+                  }}
+                />
+              )}
+              {!permissions.delete ? null : inTrash ? (
                 <RowAction
                   icon={ArchiveRestoreIcon}
                   label="Restaurar"
@@ -243,7 +254,14 @@ export function PropertiesGrid({
           ),
       },
     ];
-  }, [canSortByPrice, inTrash, permissions.delete, gridColumns, favoriteIds]);
+  }, [
+    canSortByPrice,
+    inTrash,
+    permissions.delete,
+    permissions.featureToClient,
+    gridColumns,
+    favoriteIds,
+  ]);
 
   return (
     <>
@@ -289,6 +307,17 @@ export function PropertiesGrid({
           if (!open) setPending(undefined);
         }}
       />
+      {featuring !== undefined && (
+        <FeatureToClientDialog
+          key={featuring.id}
+          propertyIds={[featuring.id]}
+          subject={featuring.code}
+          open
+          onOpenChange={(open) => {
+            if (!open) setFeaturing(undefined);
+          }}
+        />
+      )}
     </>
   );
 }

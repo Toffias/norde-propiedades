@@ -7,18 +7,39 @@ import {
   type ClientFeaturedRow,
   type ClientOpportunityRow,
   type ClientSavedSearchRow,
+  type SavedSearchDetail,
 } from '@norde/core/clients/contracts';
 import type { PanelPropertyRow } from '@norde/core/properties/contracts';
 import type { Page } from '@norde/core/shared';
+import { Button } from '@norde/ui/components/button';
 import type { DataTableColumn, DataTableSort } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@norde/ui/components/select';
+import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { StarOffIcon } from 'lucide-react';
+import { Switch } from '@norde/ui/components/switch';
+import {
+  ArchiveRestoreIcon,
+  ExternalLinkIcon,
+  PencilIcon,
+  PlusIcon,
+  StarOffIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
 
+import { runAction, type ActionResult } from '../../../lib/action-result';
 import { EMPTY_VALUE, formatDate, formatDateTime, formatMoney } from '../../../lib/format';
+import type { PanelData } from '../../../lib/panel-params';
 import {
   OPERATION_LABELS,
   PROPERTY_STATUS_DISPLAY,
@@ -30,9 +51,12 @@ import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
 } from '../../shared/components/confirm-action-dialog';
-import { ServerDataTable } from '../../shared/components/server-data-table';
+import { usePanel } from '../../shared/components/entity-sheet';
+import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
 import { listingPrice, reactionLabel } from '../activity-format';
-import { unfeaturePropertyAction } from '../activity-actions';
+import { setFeaturedAutoSendAction, unfeaturePropertyAction } from '../activity-actions';
+import { deleteSavedSearchAction, restoreSavedSearchAction } from '../saved-search-actions';
+import { SavedSearchSheet } from './saved-search-sheet';
 import { userName } from '../client-format';
 
 // Las pestañas de la ficha del contacto con listados: oportunidades, destacadas, búsquedas
@@ -119,7 +143,40 @@ export function ClientOpportunitiesGrid({
 
 interface PendingAction {
   readonly copy: ConfirmActionCopy;
-  readonly propertyId: string;
+  readonly run: () => Promise<ActionResult>;
+}
+
+/** El auto-envío de novedades de una destacada: se guarda al cambiarlo. */
+function AutoSendSwitch({
+  clientId,
+  row,
+  disabled,
+}: {
+  readonly clientId: string;
+  readonly row: ClientFeaturedRow;
+  readonly disabled: boolean;
+}) {
+  const [checked, setChecked] = useState(row.autoSendUpdates);
+  const [pending, startTransition] = useTransition();
+  return (
+    <Switch
+      checked={checked}
+      disabled={disabled || pending}
+      aria-label={`Auto-envío de novedades de ${row.property?.code ?? 'la propiedad'}`}
+      onCheckedChange={(next) => {
+        setChecked(next);
+        startTransition(async () => {
+          const message = await runAction(() =>
+            setFeaturedAutoSendAction({ clientId, propertyId: row.propertyId, enabled: next }),
+          );
+          if (message !== undefined) {
+            setChecked(!next);
+            toast.error(message);
+          }
+        });
+      }}
+    />
+  );
 }
 
 export function ClientFeaturedGrid({
@@ -131,6 +188,7 @@ export function ClientFeaturedGrid({
   readonly page: Page<ClientFeaturedRow>;
   readonly canEdit: boolean;
 }) {
+  const router = useRouter();
   const [pending, setPending] = useState<PendingAction | undefined>();
   const columns: readonly DataTableColumn<ClientFeaturedRow>[] = [
     {
@@ -157,6 +215,27 @@ export function ClientFeaturedGrid({
       showFrom: 'md',
       cell: (row) =>
         row.property === undefined ? EMPTY_VALUE : listingPrice(row.property.operations),
+    },
+    {
+      id: 'match',
+      header: 'Coincidencia',
+      cell: (row) =>
+        row.matchScore === undefined ? (
+          <span
+            className="text-muted-foreground"
+            title="El contacto no tenía búsquedas guardadas al destacarla."
+          >
+            Sin búsqueda
+          </span>
+        ) : (
+          <span title="Con su mejor búsqueda guardada, al destacarla.">
+            <StatusPill
+              tone={row.matchScore === 100 ? 'green' : row.matchScore >= 50 ? 'amber' : 'gray'}
+            >
+              {row.matchScore.toLocaleString('es-AR')} %
+            </StatusPill>
+          </span>
+        ),
     },
     {
       id: 'reaction',
@@ -186,35 +265,52 @@ export function ClientFeaturedGrid({
         </div>
       ),
     },
-    ...(canEdit
-      ? [
-          {
-            id: 'actions',
-            header: 'Acciones',
-            hideHeader: true,
-            className: 'w-12',
-            cell: (row: ClientFeaturedRow) => (
-              <RowActions>
-                <RowAction
-                  icon={StarOffIcon}
-                  label="Quitar destacada"
-                  onClick={() => {
-                    setPending({
-                      propertyId: row.propertyId,
-                      copy: {
-                        title: 'Quitar destacada',
-                        description: `${row.property?.code ?? 'La propiedad'} deja de estar destacada para este contacto.`,
-                        confirm: 'Quitar',
-                        done: 'Destacada quitada',
-                      },
-                    });
-                  }}
-                />
-              </RowActions>
-            ),
-          },
-        ]
-      : []),
+    {
+      id: 'autoSend',
+      header: 'Novedades',
+      showFrom: 'md',
+      cell: (row) => (
+        <span title="Le manda por email los cambios de la propiedad. Los envíos se activan próximamente.">
+          <AutoSendSwitch clientId={clientId} row={row} disabled={!canEdit} />
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      className: 'w-12',
+      cell: (row) => (
+        <RowActions>
+          {row.property !== undefined && (
+            <RowAction
+              icon={ExternalLinkIcon}
+              label="Ver ficha"
+              onClick={() => {
+                router.push(propertyHref(row.propertyId));
+              }}
+            />
+          )}
+          {canEdit && (
+            <RowAction
+              icon={StarOffIcon}
+              label="Quitar destacada"
+              onClick={() => {
+                setPending({
+                  run: () => unfeaturePropertyAction({ clientId, propertyId: row.propertyId }),
+                  copy: {
+                    title: 'Quitar destacada',
+                    description: `${row.property?.code ?? 'La propiedad'} deja de estar destacada para este contacto.`,
+                    confirm: 'Quitar',
+                    done: 'Destacada quitada',
+                  },
+                });
+              }}
+            />
+          )}
+        </RowActions>
+      ),
+    },
   ];
 
   return (
@@ -231,11 +327,7 @@ export function ClientFeaturedGrid({
       />
       <ConfirmActionDialog
         copy={pending?.copy}
-        run={() =>
-          pending === undefined
-            ? Promise.resolve({ ok: true })
-            : unfeaturePropertyAction({ clientId, propertyId: pending.propertyId })
-        }
+        run={pending?.run ?? (() => Promise.resolve({ ok: true }))}
         onOpenChange={(open) => {
           if (!open) setPending(undefined);
         }}
@@ -267,13 +359,53 @@ function searchSummary(row: ClientSavedSearchRow): string {
   return [operation, types].filter((part) => part !== '').join(' · ');
 }
 
+/** Vigentes o papelera: va en el toolbar, dentro de la grilla (usa su navegación). */
+function SavedSearchViewSelect({ view }: { readonly view: 'active' | 'trash' }) {
+  const { setParams } = useListNavigation();
+  return (
+    <Select
+      value={view}
+      onValueChange={(next) => {
+        setParams({ view: next === 'active' ? undefined : next });
+      }}
+    >
+      <SelectTrigger className="w-full sm:w-[160px]" aria-label="Qué ver">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="active">Vigentes</SelectItem>
+        <SelectItem value="trash">Papelera</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function savedSearchTitle(row: ClientSavedSearchRow): string {
+  return row.name ?? searchSummary(row);
+}
+
 export function ClientSavedSearchesGrid({
+  clientId,
   page,
   sort,
+  view,
+  canEdit,
+  detail,
+  activeOpportunityId,
 }: {
+  readonly clientId: string;
   readonly page: Page<ClientSavedSearchRow>;
   readonly sort: DataTableSort;
+  readonly view: 'active' | 'trash';
+  readonly canEdit: boolean;
+  /** La búsqueda del panel de edición, si está abierto. */
+  readonly detail: PanelData<SavedSearchDetail> | undefined;
+  readonly activeOpportunityId: string | undefined;
 }) {
+  // La ficha usa `tab` para su pestaña: el panel no lo toca.
+  const navigation = usePanel({ keepTab: true });
+  const [pending, setPending] = useState<PendingAction | undefined>();
+  const inTrash = view === 'trash';
   const columns: readonly DataTableColumn<ClientSavedSearchRow>[] = [
     {
       id: 'name',
@@ -310,27 +442,120 @@ export function ClientSavedSearchesGrid({
           <span className="text-muted-foreground">No</span>
         ),
     },
+    inTrash
+      ? {
+          id: 'deletedAt',
+          header: 'Borrada',
+          className: 'whitespace-nowrap',
+          cell: (row) => (
+            <span className="tabular-nums">
+              {row.deletedAt === undefined ? EMPTY_VALUE : formatDate(row.deletedAt)}
+            </span>
+          ),
+        }
+      : {
+          id: 'updatedAt',
+          header: 'Actualizada',
+          sortable: true,
+          className: 'whitespace-nowrap',
+          cell: (row) => <span className="tabular-nums">{formatDate(row.updatedAt)}</span>,
+        },
     {
-      id: 'updatedAt',
-      header: 'Actualizada',
-      sortable: true,
-      className: 'whitespace-nowrap',
-      cell: (row) => <span className="tabular-nums">{formatDate(row.updatedAt)}</span>,
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      className: 'w-12',
+      cell: (row) => (
+        <RowActions>
+          {!inTrash && (
+            <RowAction
+              icon={PencilIcon}
+              label={canEdit ? 'Editar' : 'Ver'}
+              onClick={() => {
+                navigation.openEdit(row.id);
+              }}
+            />
+          )}
+          {canEdit && !inTrash && (
+            <RowAction
+              icon={Trash2Icon}
+              label="Borrar"
+              destructive
+              onClick={() => {
+                setPending({
+                  run: () => deleteSavedSearchAction({ clientId, savedSearchId: row.id }),
+                  copy: {
+                    title: 'Borrar búsqueda',
+                    description: `"${savedSearchTitle(row)}" pasa a la papelera; desde ahí la podés restaurar.`,
+                    confirm: 'Borrar',
+                    done: 'Búsqueda borrada',
+                    destructive: true,
+                  },
+                });
+              }}
+            />
+          )}
+          {canEdit && inTrash && (
+            <RowAction
+              icon={ArchiveRestoreIcon}
+              label="Restaurar"
+              onClick={() => {
+                setPending({
+                  run: () => restoreSavedSearchAction({ clientId, savedSearchId: row.id }),
+                  copy: {
+                    title: 'Restaurar búsqueda',
+                    description: `"${savedSearchTitle(row)}" vuelve a las búsquedas del contacto.`,
+                    confirm: 'Restaurar',
+                    done: 'Búsqueda restaurada',
+                  },
+                });
+              }}
+            />
+          )}
+        </RowActions>
+      ),
     },
   ];
 
   return (
-    <ServerDataTable
-      label="Búsquedas guardadas"
-      columns={columns}
-      getRowId={(row) => row.id}
-      rows={page.items}
-      total={page.total}
-      page={page.page}
-      pageSize={page.pageSize}
-      sort={sort}
-      empty="No tiene búsquedas guardadas."
-    />
+    <>
+      <ServerDataTable
+        label="Búsquedas guardadas"
+        columns={columns}
+        getRowId={(row) => row.id}
+        rows={page.items}
+        total={page.total}
+        page={page.page}
+        pageSize={page.pageSize}
+        sort={sort}
+        toolbar={
+          <>
+            <SavedSearchViewSelect view={view} />
+            {canEdit && !inTrash && (
+              <Button type="button" className="sm:ml-auto" onClick={navigation.openNew}>
+                <PlusIcon className="h-4 w-4" />
+                Nueva búsqueda
+              </Button>
+            )}
+          </>
+        }
+        empty={inTrash ? 'La papelera está vacía.' : 'No tiene búsquedas guardadas.'}
+      />
+      <SavedSearchSheet
+        navigation={navigation}
+        clientId={clientId}
+        detail={detail}
+        activeOpportunityId={activeOpportunityId}
+        canEdit={canEdit}
+      />
+      <ConfirmActionDialog
+        copy={pending?.copy}
+        run={pending?.run ?? (() => Promise.resolve({ ok: true }))}
+        onOpenChange={(open) => {
+          if (!open) setPending(undefined);
+        }}
+      />
+    </>
   );
 }
 

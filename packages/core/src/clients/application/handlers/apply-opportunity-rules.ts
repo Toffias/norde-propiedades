@@ -16,7 +16,10 @@ import {
 import { findOpportunity, moveOpportunity } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
-/** El evento que llegó, ya leído: reasignada, volvió a consultar o recién creada. */
+/**
+ * El evento que llegó, ya leído: reasignada, volvió a consultar, le destacaron propiedades o
+ * recién creada.
+ */
 export interface OpportunityRuleEvent {
   /** El ID del evento: un cambio por evento, aunque la cola lo entregue dos veces. */
   readonly eventId: string;
@@ -24,6 +27,7 @@ export interface OpportunityRuleEvent {
   readonly trigger:
     | { readonly kind: 'assigned'; readonly toAgentId: string | undefined }
     | { readonly kind: 'request_added' }
+    | { readonly kind: 'listings_featured' }
     | { readonly kind: 'created' };
 }
 
@@ -37,7 +41,7 @@ export type OpportunityRuleOutcome =
 
 /**
  * Las reglas automáticas de estado de Mi empresa: "al asignar" (pasa a un agente), "al reactivar"
- * (una derivada a socia vuelve a consultar) y "para propietarios" (nace la de un contacto
+ * (una derivada a socia vuelve a consultar o le destacan una propiedad) y "para propietarios" (nace la de un contacto
  * propietario). Mueven la oportunidad al estado configurado si el dominio lo permite; si no, no
  * hacen nada. Son idempotentes por evento, y quedan en el historial, la actividad y la auditoría
  * como cambios del sistema.

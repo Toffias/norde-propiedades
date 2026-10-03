@@ -1,5 +1,6 @@
 'use client';
 
+import { MAX_FEATURE_PER_REQUEST } from '@norde/core/clients/contracts';
 import {
   MAX_COMPARE,
   MIN_COMPARE,
@@ -16,13 +17,14 @@ import {
 } from '@norde/ui/components/dropdown-menu';
 import { toast } from '@norde/ui/components/sonner';
 import type { DataTableSelection } from '@norde/ui/lib/data-table-selection';
-import { ColumnsIcon, DownloadIcon, PencilIcon, StarIcon } from 'lucide-react';
+import { ColumnsIcon, DownloadIcon, PencilIcon, StarIcon, UserPlusIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
+import { FeatureToClientDialog } from '../../clients/components/feature-to-client-dialog';
 import { setPropertyFavoritesAction } from '../actions';
 import { EXPORT_FORMAT_LABELS } from '../labels';
 import type { PropertyFilterValues } from './properties-toolbar';
@@ -34,6 +36,8 @@ export interface BulkPermissions {
   readonly markAvailable: boolean;
   /** `properties:export` o `properties:export-bulk`: el caso de uso decide según la cantidad. */
   readonly export: boolean;
+  /** Editar contactos: destacarles propiedades (#11). */
+  readonly featureToClient: boolean;
 }
 
 /** La selección de la grilla como la espera el contract: los IDs, o los filtros de la URL. */
@@ -91,6 +95,7 @@ export function PropertyBulkActions({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [featuring, setFeaturing] = useState(false);
   const [pending, startTransition] = useTransition();
   const target = toPropertySelection(selection, filters);
   const ids = selection.kind === 'ids' ? selection.ids : [];
@@ -167,6 +172,25 @@ export function PropertyBulkActions({
         <ColumnsIcon className="h-4 w-4" />
         Comparar
       </Button>
+      {permissions.featureToClient && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={selection.kind === 'filter' || ids.length > MAX_FEATURE_PER_REQUEST}
+          title={
+            selection.kind === 'filter' || ids.length > MAX_FEATURE_PER_REQUEST
+              ? `Marcá hasta ${MAX_FEATURE_PER_REQUEST.toLocaleString('es-AR')} propiedades de la página`
+              : undefined
+          }
+          onClick={() => {
+            setFeaturing(true);
+          }}
+        >
+          <UserPlusIcon className="h-4 w-4" />
+          Destacar a un contacto
+        </Button>
+      )}
       {permissions.bulkEdit && (
         <Button
           type="button"
@@ -178,6 +202,16 @@ export function PropertyBulkActions({
           <PencilIcon className="h-4 w-4" />
           Edición rápida
         </Button>
+      )}
+      {featuring && (
+        <FeatureToClientDialog
+          propertyIds={ids}
+          subject={
+            ids.length === 1 ? 'la propiedad' : `${ids.length.toLocaleString('es-AR')} propiedades`
+          }
+          open={featuring}
+          onOpenChange={setFeaturing}
+        />
       )}
       <QuickEditDialog
         open={editing}

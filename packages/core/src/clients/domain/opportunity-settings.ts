@@ -75,11 +75,12 @@ export function initialStage(
 export type OpportunityRuleTrigger =
   | { readonly kind: 'assigned'; readonly toAgentId: string | undefined }
   | { readonly kind: 'request_added' }
+  | { readonly kind: 'listings_featured' }
   | { readonly kind: 'created'; readonly ownerClient: boolean };
 
 /**
  * Qué regla aplica: "al asignar" cuando pasa a un agente (no al quedar sin agente), "al reactivar"
- * cuando una derivada a socia vuelve a consultar, y "para propietarios" cuando nace la de un
+ * cuando una derivada a socia vuelve a consultar o se le destaca una propiedad, y "para propietarios" cuando nace la de un
  * contacto propietario. Una cerrada no cambia.
  */
 export function automaticRuleFor(
@@ -91,6 +92,7 @@ export function automaticRuleFor(
     case 'assigned':
       return trigger.toAgentId === undefined ? undefined : 'onAssign';
     case 'request_added':
+    case 'listings_featured':
       return status === 'referred_to_partner' ? 'onReactivate' : undefined;
     case 'created':
       return trigger.ownerClient ? 'forOwners' : undefined;

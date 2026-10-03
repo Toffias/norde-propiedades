@@ -1,6 +1,7 @@
 import type {
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
+  OpportunityRuleEvent,
   RecordClientActivity,
   RouteInquiry,
   RunClientImport,
@@ -74,18 +75,25 @@ function opportunitySubscriptions(
     eventType:
       | 'clients.opportunity_reassigned'
       | 'clients.opportunity_request_added'
+      | 'clients.opportunity_listings_featured'
       | 'clients.opportunity_created',
   ): EventSubscription => ({
     eventType,
     name: 'apply-rules',
     handle: async (event) => {
       const payload = RulePayloadSchema.parse(event.payload);
-      const trigger =
-        eventType === 'clients.opportunity_reassigned'
-          ? { kind: 'assigned' as const, toAgentId: payload.toAgentId ?? undefined }
-          : eventType === 'clients.opportunity_request_added'
-            ? { kind: 'request_added' as const }
-            : { kind: 'created' as const };
+      const trigger = ((): OpportunityRuleEvent['trigger'] => {
+        switch (eventType) {
+          case 'clients.opportunity_reassigned':
+            return { kind: 'assigned', toAgentId: payload.toAgentId ?? undefined };
+          case 'clients.opportunity_request_added':
+            return { kind: 'request_added' };
+          case 'clients.opportunity_listings_featured':
+            return { kind: 'listings_featured' };
+          case 'clients.opportunity_created':
+            return { kind: 'created' };
+        }
+      })();
       const result = await jobs.applyRules.execute(
         { eventId: event.id, opportunityId: payload.opportunityId, trigger },
         actor,
@@ -96,6 +104,7 @@ function opportunitySubscriptions(
   return [
     rule('clients.opportunity_reassigned'),
     rule('clients.opportunity_request_added'),
+    rule('clients.opportunity_listings_featured'),
     rule('clients.opportunity_created'),
     {
       eventType: 'clients.opportunity_bulk_requested',

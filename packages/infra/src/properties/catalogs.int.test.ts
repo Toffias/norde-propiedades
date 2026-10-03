@@ -91,6 +91,7 @@ describe('locations', () => {
       text: 'palérmo',
       parentId: undefined,
       kind: undefined,
+      ids: undefined,
       direction: 'asc',
     });
     expect(found.items).toEqual([
@@ -106,10 +107,21 @@ describe('locations', () => {
       text: undefined,
       parentId: cabaCity.id,
       kind: 'neighborhood',
+      ids: undefined,
       direction: 'desc',
     });
     expect(children.items.map((l) => l.name)).toEqual(['Parque Patricios', 'Palermo']);
     expect(children.total).toBe(2);
+
+    const chosen = await catalog.searchLocations({
+      ...PAGE,
+      text: undefined,
+      parentId: undefined,
+      kind: undefined,
+      ids: [argentina.id, caba.id],
+      direction: 'asc',
+    });
+    expect(chosen.items.map((l) => l.name)).toEqual(['Argentina', 'CABA']);
   });
 });
 

@@ -470,6 +470,10 @@ export {
   type GetPropertyInterestProfileError,
 } from './application/queries/get-property-interest-profile';
 export {
+  GetPropertyInterestProfiles,
+  type GetPropertyInterestProfilesError,
+} from './application/queries/get-property-interest-profiles';
+export {
   RequestPropertyDocument,
   type RequestPropertyDocumentError,
 } from './application/commands/request-property-document';

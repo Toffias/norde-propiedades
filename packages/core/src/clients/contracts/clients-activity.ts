@@ -266,18 +266,32 @@ export interface ClientFeaturedRow {
   readonly propertyId: string;
   /** `undefined`: la propiedad ya no está en la cartera (borrada). */
   readonly property: ClientListingSummary | undefined;
+  /** Coincidencia con su mejor búsqueda guardada al destacarla, de 0 a 100. */
   readonly matchScore: number | undefined;
+  /** Si recibe por email los cambios de la propiedad (#11, etapa 4). */
+  readonly autoSendUpdates: boolean;
   readonly reaction: 'liked' | 'disliked' | undefined;
   readonly featuredBy: ClientUserRef | undefined;
   readonly featuredAt: Date;
 }
+
+export const SetFeaturedAutoSendInputSchema = z.object({
+  clientId: z.uuid(),
+  propertyId: z.uuid(),
+  enabled: z.boolean(),
+});
+export type SetFeaturedAutoSendInput = z.input<typeof SetFeaturedAutoSendInputSchema>;
 
 // ---------- Búsquedas guardadas ----------
 
 export const ListClientSavedSearchesQuerySchema = pageQuerySchema({
   sortable: ['updatedAt'],
   defaultSort: { field: 'updatedAt', direction: 'desc' },
-}).extend({ clientId: z.uuid() });
+}).extend({
+  clientId: z.uuid(),
+  /** `trash`: las borradas, las últimas primero. */
+  view: z.enum(['active', 'trash']).default('active'),
+});
 export type ListClientSavedSearchesQuery = z.input<typeof ListClientSavedSearchesQuerySchema>;
 
 export interface ClientSavedSearchRow {
@@ -294,6 +308,7 @@ export interface ClientSavedSearchRow {
   readonly unsubscribed: boolean;
   readonly lastMatchedAt: Date | undefined;
   readonly updatedAt: Date;
+  readonly deletedAt: Date | undefined;
 }
 
 // ---------- Contadores de las pestañas ----------

@@ -88,6 +88,7 @@ export type { ClientEvent, ClientsMerged } from './domain/client.events';
 export type {
   OpportunityCreated,
   OpportunityEvent,
+  OpportunityListingsFeatured,
   OpportunityReassigned,
   OpportunityRequestAdded,
   OpportunityStatusChanged,
@@ -109,7 +110,9 @@ export {
 // ---------- Interesados y envíos de una propiedad (#6) ----------
 
 export {
+  bestMatchScore,
   matchesSavedSearch,
+  matchScore,
   type MatchableProperty,
   type MatchableSearch,
 } from './domain/saved-search-match';
@@ -265,7 +268,42 @@ export {
 export type {
   ClientActivityRepository,
   FeaturedListingRepository,
+  SavedSearchRepository,
 } from './domain/client.repository';
+export {
+  MAX_SAVED_SEARCHES_PER_CLIENT,
+  SavedSearch,
+  type InvalidSavedSearchError,
+  type SavedSearchFields,
+  type SavedSearchId,
+  type SavedSearchLimitReachedError,
+  type SavedSearchSnapshot,
+  type SavedSearchUnsubscribedError,
+} from './domain/saved-search';
+export type { SavedSearchLocations } from './application/ports/saved-search-locations';
+export type { SavedSearchNotFoundError } from './application/saved-search-support';
+export {
+  CreateSavedSearch,
+  type CreateSavedSearchError,
+} from './application/commands/create-saved-search';
+export {
+  UpdateSavedSearch,
+  type UpdateSavedSearchError,
+} from './application/commands/update-saved-search';
+export {
+  DeleteSavedSearch,
+  type DeleteSavedSearchError,
+} from './application/commands/delete-saved-search';
+export {
+  RestoreSavedSearch,
+  type RestoreSavedSearchError,
+} from './application/commands/restore-saved-search';
+export { GetSavedSearch, type GetSavedSearchError } from './application/queries/get-saved-search';
+export {
+  SetFeaturedAutoSend,
+  type FeaturedListingNotFoundError,
+  type SetFeaturedAutoSendError,
+} from './application/commands/set-featured-auto-send';
 export type {
   ClientActivityItem,
   ClientFeaturedItem,

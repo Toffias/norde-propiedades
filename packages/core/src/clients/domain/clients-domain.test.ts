@@ -5,7 +5,7 @@ import { Email } from '../../shared/domain/value-objects/email';
 import { Phone } from '../../shared/domain/value-objects/phone';
 
 import { Client, type ClientId } from './client';
-import { findOpenOpportunityAbout, Opportunity } from './opportunity';
+import { findOpenOpportunityAbout, latestOpenOpportunity, Opportunity } from './opportunity';
 import { canTransition, OPPORTUNITY_STATUSES } from './opportunity-status';
 
 const T0 = new Date('2026-03-01T10:00:00Z');
@@ -113,6 +113,17 @@ describe('Client', () => {
 });
 
 describe('Opportunity', () => {
+  it('picks the latest open opportunity of a client', () => {
+    const older = openOpportunity();
+    const newer = openOpportunity({ now: T1 });
+    const sameTime = openOpportunity({ now: T1 });
+
+    expect(latestOpenOpportunity([])).toBeUndefined();
+    expect(latestOpenOpportunity([newer, older])?.id).toBe(newer.id);
+    // A igual fecha, la de ID mayor (UUID v7: la última creada).
+    expect(latestOpenOpportunity([older, sameTime, newer])?.id).toBe(sameTime.id);
+  });
+
   it('opens in the given stage and keeps its category as the status', () => {
     expect(openOpportunity().status).toBe('new');
     const referred = openOpportunity({ stage: REFERRED_STAGE });

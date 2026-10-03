@@ -12,6 +12,7 @@ import type {
   ClientTabCounts,
   ClientTagRow,
   OpportunityStageCount,
+  PropertyInterestProfile,
 } from '../contracts';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
@@ -118,7 +119,16 @@ import {
   type OpportunityRepository,
   type OpportunitySettingsRepository,
   type OpportunityStageRepository,
+  type SavedSearchRepository,
 } from '../domain/client.repository';
+import {
+  SavedSearch,
+  type SavedSearchFields,
+  type SavedSearchId,
+  type SavedSearchSnapshot,
+} from '../domain/saved-search';
+import type { PropertyProfiles } from '../application/ports/property-interest-query';
+import type { SavedSearchLocations } from '../application/ports/saved-search-locations';
 import {
   ClientTag,
   ClientTagGroup,
@@ -515,6 +525,119 @@ export class InMemoryFeaturedListingRepository implements FeaturedListingReposit
   }
 }
 
+export class InMemorySavedSearchRepository implements SavedSearchRepository {
+  readonly rows = new Map<string, SavedSearchSnapshot>();
+
+  findById(id: SavedSearchId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? SavedSearch.restore(row) : undefined);
+  }
+
+  findActiveByClient(clientId: ClientId, limit: number) {
+    return Promise.resolve(
+      this.activeRows(clientId)
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || b.id.localeCompare(a.id))
+        .slice(0, limit)
+        .map((row) => SavedSearch.restore(row)),
+    );
+  }
+
+  countActiveByClient(clientId: ClientId) {
+    return Promise.resolve(this.activeRows(clientId).length);
+  }
+
+  save(search: SavedSearch) {
+    this.rows.set(search.id, search.toSnapshot());
+    return Promise.resolve();
+  }
+
+  private activeRows(clientId: string) {
+    return [...this.rows.values()].filter(
+      (row) => row.clientId === clientId && row.deletedAt === undefined,
+    );
+  }
+}
+
+/** Criterios de una búsqueda de prueba: venta, sin filtros. */
+export function savedSearchFields(overrides: Partial<SavedSearchFields> = {}): SavedSearchFields {
+  return {
+    name: undefined,
+    opportunityId: undefined,
+    operation: 'sale',
+    propertyTypes: [],
+    currency: undefined,
+    minPriceCents: undefined,
+    maxPriceCents: undefined,
+    locationIds: [],
+    minRooms: undefined,
+    autoSend: false,
+    ...overrides,
+  };
+}
+
+/** Guarda una búsqueda del cliente directamente en el fake. */
+export function seedSavedSearch(
+  uow: InMemoryClientsUnitOfWork,
+  input: {
+    readonly id: string;
+    readonly clientId: string;
+    readonly fields?: Partial<SavedSearchFields>;
+    readonly snapshot?: Partial<SavedSearchSnapshot>;
+  },
+): SavedSearchSnapshot {
+  const id = parseId<'SavedSearch'>(input.id);
+  const clientId = parseId<'Client'>(input.clientId);
+  if (id.isErr() || clientId.isErr()) throw new Error('ID de prueba inválido');
+  const created = SavedSearch.create({
+    id: id.value,
+    clientId: clientId.value,
+    fields: savedSearchFields(input.fields),
+    now: new Date('2026-03-01T12:00:00Z'),
+  });
+  if (created.isErr()) throw new Error(`Búsqueda de prueba inválida: ${created.error.reason}`);
+  const snapshot = { ...created.value.toSnapshot(), ...input.snapshot };
+  uow.savedSearches.rows.set(snapshot.id, snapshot);
+  return snapshot;
+}
+
+/** Los perfiles de cruce de las propiedades que ve cualquier actor con `properties:read`. */
+export class InMemoryPropertyProfiles implements PropertyProfiles {
+  constructor(public profiles: readonly PropertyInterestProfile[] = []) {}
+
+  find(propertyId: string, actor: Actor) {
+    return Promise.resolve(
+      actor.can('properties:read')
+        ? this.profiles.find((p) => p.propertyId === propertyId)
+        : undefined,
+    );
+  }
+
+  findMany(propertyIds: readonly string[], actor: Actor) {
+    const visible = actor.can('properties:read') ? this.profiles : [];
+    return Promise.resolve(
+      new Map(
+        visible.filter((p) => propertyIds.includes(p.propertyId)).map((p) => [p.propertyId, p]),
+      ),
+    );
+  }
+}
+
+/** Nombres de ubicaciones de prueba. */
+export class InMemorySavedSearchLocations implements SavedSearchLocations {
+  constructor(public names: ReadonlyMap<string, string> = new Map()) {}
+
+  labels(ids: readonly string[]) {
+    return Promise.resolve(
+      new Map(
+        ids.flatMap((id) => {
+          const name = this.names.get(id);
+          return name === undefined ? [] : [[id, { id, name, hint: undefined }] as const];
+        }),
+      ),
+    );
+  }
+}
+
 /** Las importaciones y sus filas con problemas. */
 export class InMemoryClientImportRepository implements ClientImportRepository {
   readonly rows = new Map<string, ClientImportSnapshot>();
@@ -674,6 +797,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly records = new InMemoryClientLinkedRecords();
   readonly activities = new InMemoryClientActivityRepository();
   readonly featured = new InMemoryFeaturedListingRepository();
+  readonly savedSearches = new InMemorySavedSearchRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   readonly erasure = new InMemoryClientErasure(this.clients, this.activities, this.audit);
@@ -695,6 +819,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       records: new Map(this.records.counts),
       activities: new Map(this.activities.rows),
       featured: new Map(this.featured.rows),
+      savedSearches: new Map(this.savedSearches.rows),
       imports: new Map(this.imports.rows),
       bulkOperations: new Map(this.bulkOperations.rows),
       inquiries: new Map(this.inquiries.rows),
@@ -719,6 +844,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.records.counts, backup.records);
       restore(this.activities.rows, backup.activities);
       restore(this.featured.rows, backup.featured);
+      restore(this.savedSearches.rows, backup.savedSearches);
       restore(this.imports.rows, backup.imports);
       restore(this.bulkOperations.rows, backup.bulkOperations);
       restore(this.inquiries.rows, backup.inquiries);

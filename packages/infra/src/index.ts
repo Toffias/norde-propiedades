@@ -32,6 +32,7 @@ export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search
 export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-property-list-query';
 export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
 export { DrizzleDevelopmentListQuery } from './properties/drizzle-development-list-query';
+export { DrizzleDevelopmentUnitImportQuery } from './properties/drizzle-development-unit-imports';
 export {
   DrizzleClientFavoriteErasure,
   DrizzleUserFavorites,
@@ -48,6 +49,7 @@ export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-docu
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
+export { XlsxDevelopmentUnitsExportWriter } from './adapters/exports/development-units-export-writer';
 export { XlsxSpreadsheetReader } from './adapters/imports/xlsx-spreadsheet-reader';
 export { DrizzleClientListQuery } from './clients/drizzle-client-list-query';
 export { DrizzleOpportunityPipelineQuery } from './clients/drizzle-opportunity-pipeline-query';

@@ -1,0 +1,1 @@
+CREATE INDEX "import_jobs_units_development_idx" ON "core"."import_jobs" USING btree (("options" ->> 'developmentId'),"created_at") WHERE "core"."import_jobs"."kind" = 'units_xlsx';

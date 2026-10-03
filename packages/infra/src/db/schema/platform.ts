@@ -108,7 +108,10 @@ export const importJobs = coreSchema.table(
     storageKey: text('storage_key'),
     /** Nombre del archivo tal como se subió, para el historial. */
     fileName: text('file_name'),
-    /** Cómo se lee el archivo: el mapeo de columnas y el agente a cargo (`clients_xlsx`). */
+    /**
+     * Cómo se lee el archivo: el mapeo de columnas y el agente a cargo (`clients_xlsx`), o el
+     * emprendimiento (`units_xlsx`).
+     */
     options: jsonb('options')
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -124,7 +127,13 @@ export const importJobs = coreSchema.table(
     createdBy: text('created_by').notNull(),
     updatedBy: text('updated_by').notNull(),
   },
-  (t) => [index('import_jobs_kind_created_idx').on(t.kind, t.createdAt)],
+  (t) => [
+    index('import_jobs_kind_created_idx').on(t.kind, t.createdAt),
+    /** Las importaciones de unidades de un emprendimiento, las más recientes primero. */
+    index('import_jobs_units_development_idx')
+      .on(sql`(${t.options} ->> 'developmentId')`, t.createdAt)
+      .where(sql`${t.kind} = 'units_xlsx'`),
+  ],
 );
 
 export const importJobErrors = coreSchema.table(

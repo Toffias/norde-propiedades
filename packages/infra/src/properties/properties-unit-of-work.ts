@@ -21,6 +21,7 @@ import {
   DrizzleAttachmentRepository,
 } from './drizzle-media-repositories';
 import { DrizzleDevelopmentRepository } from './drizzle-development-repository';
+import { DrizzleDevelopmentUnitImportRepository } from './drizzle-development-unit-imports';
 import { DrizzlePropertyDocumentRepository } from './drizzle-property-documents';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 
@@ -31,6 +32,7 @@ export function createPropertiesUnitOfWork(
   return new DrizzleUnitOfWork<PropertiesTransaction>(db, (tx) => ({
     properties: new DrizzlePropertyRepository(tx, deps.ids),
     developments: new DrizzleDevelopmentRepository(tx),
+    unitImports: new DrizzleDevelopmentUnitImportRepository(tx, deps.ids),
     locations: new DrizzleLocationRepository(tx),
     features: new DrizzleFeatureRepository(tx),
     customAttributes: new DrizzleCustomAttributeRepository(tx),

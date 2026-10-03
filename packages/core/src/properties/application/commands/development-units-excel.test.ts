@@ -33,6 +33,8 @@ import { ListDevelopmentUnitImportProblems } from '../queries/list-development-u
 import { ListDevelopmentUnitImports } from '../queries/list-development-unit-imports';
 import { PreviewDevelopmentUnitImport } from '../queries/preview-development-unit-import';
 
+import { GetDevelopmentUnitImport } from '../queries/get-development-unit-import';
+
 import { ExportDevelopmentUnits } from './export-development-units';
 import { StartDevelopmentUnitImport } from './start-development-unit-import';
 
@@ -96,6 +98,7 @@ function setup(options: { readonly codes?: boolean } = {}) {
     start: new StartDevelopmentUnitImport({ uow, reader, storage, ids, clock }),
     run: new RunDevelopmentUnitImport({ uow, reader, storage, codes, ids, clock }),
     list: new ListDevelopmentUnitImports({ uow, imports, users }),
+    get: new GetDevelopmentUnitImport({ uow, imports, users }),
     problems: new ListDevelopmentUnitImportProblems({ uow, imports }),
   };
 }
@@ -634,7 +637,34 @@ describe('import history', () => {
       ),
     ).toEqual({ type: 'DevelopmentUnitImportNotFound' });
     expect(
+      unwrapErr(
+        await s.get.execute({ developmentId: OTHER_DEVELOPMENT, importId: job.id }, TEST_DEVELOPER),
+      ),
+    ).toEqual({ type: 'DevelopmentUnitImportNotFound' });
+    expect(
       unwrapErr(await s.list.execute({ developmentId: DEVELOPMENT_ID }, OTHER_BRANCH_EDITOR)),
     ).toEqual({ type: 'Forbidden' });
+    expect(
+      unwrapErr(
+        await s.get.execute({ developmentId: DEVELOPMENT_ID, importId: job.id }, TEST_OUTSIDER),
+      ),
+    ).toEqual({ type: 'Forbidden' });
+  });
+
+  it('gets one import with who asked for it', async () => {
+    const s = setup();
+    const job = await importRows(s, [row({ floor: '4' })]);
+
+    expect(
+      unwrap(
+        await s.get.execute({ developmentId: DEVELOPMENT_ID, importId: job.id }, TEST_DEVELOPER),
+      ),
+    ).toMatchObject({
+      id: job.id,
+      fileName: 'unidades.xlsx',
+      status: 'done',
+      requestedBy: { id: PRODUCER_ID, name: 'Camila Ruiz' },
+      totals: { rows: 1, failed: 1 },
+    });
   });
 });

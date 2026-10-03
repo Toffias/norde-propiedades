@@ -19,15 +19,13 @@ import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import { invalidInput, type InvalidInputError } from '../property-support';
 import { canImportUnits } from '../unit-import-support';
 
-export interface DevelopmentUnitImportNotFoundInListError {
-  readonly type: 'DevelopmentUnitImportNotFound';
-}
+import type { DevelopmentUnitImportNotFoundError } from './get-development-unit-import';
 
 export type ListDevelopmentUnitImportProblemsError =
   | ForbiddenError
   | InvalidInputError
   | DevelopmentNotFoundError
-  | DevelopmentUnitImportNotFoundInListError;
+  | DevelopmentUnitImportNotFoundError;
 
 /** Las filas que no se importaron, por número de fila: qué dato tenían mal y la unidad, si existe. */
 export class ListDevelopmentUnitImportProblems {

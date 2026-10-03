@@ -170,6 +170,12 @@ export const ListDevelopmentUnitImportsQuerySchema = pageQuerySchema({
 }).extend({ developmentId: z.uuid() });
 export type ListDevelopmentUnitImportsQuery = z.input<typeof ListDevelopmentUnitImportsQuerySchema>;
 
+export const DevelopmentUnitImportIdInputSchema = z.object({
+  developmentId: z.uuid(),
+  importId: z.uuid(),
+});
+export type DevelopmentUnitImportIdInput = z.input<typeof DevelopmentUnitImportIdInputSchema>;
+
 export const ListDevelopmentUnitImportProblemsQuerySchema = pageQuerySchema({
   sortable: ['rowNumber'],
   defaultSort: { field: 'rowNumber', direction: 'asc' },

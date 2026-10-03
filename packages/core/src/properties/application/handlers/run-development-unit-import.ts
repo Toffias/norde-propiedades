@@ -38,12 +38,9 @@ import {
 } from '../development-unit-creation';
 import type { PropertiesTransaction, PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { ReferenceCodeAllocator } from '../ports/reference-code-allocator';
+import type { DevelopmentUnitImportNotFoundError } from '../queries/get-development-unit-import';
 import { propertyDetailAuditState, propertyTarget, saveEdit } from '../property-support';
 import { readUnitImportRow, type ImportedUnit } from '../unit-import-row';
-
-export interface DevelopmentUnitImportNotFoundError {
-  readonly type: 'DevelopmentUnitImportNotFound';
-}
 
 export interface InvalidUnitImportIdError {
   readonly type: 'InvalidInput';

@@ -605,6 +605,11 @@ export {
   type RunDevelopmentUnitImportError,
 } from './application/handlers/run-development-unit-import';
 export {
+  GetDevelopmentUnitImport,
+  type DevelopmentUnitImportNotFoundError,
+  type GetDevelopmentUnitImportError,
+} from './application/queries/get-development-unit-import';
+export {
   ListDevelopmentUnitImports,
   type ListDevelopmentUnitImportsError,
 } from './application/queries/list-development-unit-imports';

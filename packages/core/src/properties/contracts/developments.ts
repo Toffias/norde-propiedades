@@ -134,6 +134,32 @@ export const ChangeDevelopmentTagsInputSchema = z.object({
 });
 export type ChangeDevelopmentTagsInput = z.input<typeof ChangeDevelopmentTagsInputSchema>;
 
+// ---------- Derivación por chances ----------
+// Mismos topes que el dominio (`MAX_DEVELOPMENT_CHANCE_AGENTS` y los pesos del reparto ponderado);
+// un test verifica que coincidan.
+
+export const MAX_DEVELOPMENT_CHANCES = 20;
+export const MIN_DEVELOPMENT_CHANCE_WEIGHT = 1;
+export const MAX_DEVELOPMENT_CHANCE_WEIGHT = 10;
+
+/** Los agentes que reciben las consultas del emprendimiento, en orden. Vacío: se apaga. */
+export const UpdateDevelopmentChancesInputSchema = z.object({
+  ...DevelopmentId,
+  agents: z
+    .array(
+      z.object({
+        userId: z.uuid(),
+        weight: z
+          .number()
+          .int()
+          .min(MIN_DEVELOPMENT_CHANCE_WEIGHT)
+          .max(MAX_DEVELOPMENT_CHANCE_WEIGHT),
+      }),
+    )
+    .max(MAX_DEVELOPMENT_CHANCES),
+});
+export type UpdateDevelopmentChancesInput = z.input<typeof UpdateDevelopmentChancesInputSchema>;
+
 // ---------- Unidades ----------
 
 /**
@@ -298,6 +324,11 @@ export interface DevelopmentDetail {
     readonly groupName: string | undefined;
   }[];
   readonly producer: DevelopmentUserRef | undefined;
+  /** Derivación por chances: quién recibe sus consultas, en orden y con su peso. */
+  readonly chances: readonly {
+    readonly user: DevelopmentUserRef;
+    readonly weight: number;
+  }[];
   /** Sucursal del captador: para las reglas de pertenencia de la UI. */
   readonly branchId: string | undefined;
   readonly unitCount: number;

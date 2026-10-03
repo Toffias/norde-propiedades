@@ -51,7 +51,12 @@ export class GetDevelopmentDetail {
       s.commercialContactClientId === undefined
         ? undefined
         : lookups.clientName(s.commercialContactClientId),
-      this.deps.users.names(s.producerUserId === undefined ? [] : [s.producerUserId]),
+      this.deps.users.names([
+        ...new Set([
+          ...(s.producerUserId === undefined ? [] : [s.producerUserId]),
+          ...s.chances.map((c) => c.userId),
+        ]),
+      ]),
     ]);
 
     return ok({
@@ -87,6 +92,10 @@ export class GetDevelopmentDetail {
         s.producerUserId === undefined
           ? undefined
           : { id: s.producerUserId, name: names.get(s.producerUserId) },
+      chances: s.chances.map((c) => ({
+        user: { id: c.userId, name: names.get(c.userId) },
+        weight: c.weight,
+      })),
       branchId: s.branchId,
       unitCount: loaded.unitCount,
       availableUnitCount: loaded.availableUnitCount,

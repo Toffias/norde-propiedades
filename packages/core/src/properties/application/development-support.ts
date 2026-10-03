@@ -77,6 +77,8 @@ export function developmentAuditState(development: Development): AuditState {
     tagIds: [...s.tagIds].sort(),
     producerUserId: s.producerUserId,
     branchId: s.branchId,
+    // En orden: el reparto depende de él.
+    chances: s.chances.map((c) => ({ userId: c.userId, weight: c.weight })),
   };
 }
 

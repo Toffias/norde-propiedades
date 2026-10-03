@@ -504,6 +504,7 @@ export {
   DEVELOPMENT_STATUSES,
   Development,
   EMPTY_DEVELOPMENT_DEAL,
+  MAX_DEVELOPMENT_CHANCE_AGENTS,
   suggestDevelopmentPublishAddress,
   type ConstructionStatus,
   type DevelopmentAlreadyDeletedError,
@@ -516,6 +517,7 @@ export {
   type DevelopmentSnapshot,
   type DevelopmentStatus,
   type DevelopmentUnitTemplate,
+  type InvalidDevelopmentChancesError,
   type InvalidDevelopmentStatusTransitionError,
 } from './domain/development';
 export type { DevelopmentEvent } from './domain/development.events';
@@ -554,6 +556,11 @@ export {
   UpdateDevelopmentFeatures,
   type UpdateDevelopmentFeaturesError,
 } from './application/commands/update-development-features';
+export {
+  UpdateDevelopmentChances,
+  type ChanceAgentNotFoundError,
+  type UpdateDevelopmentChancesError,
+} from './application/commands/update-development-chances';
 export {
   ChangeDevelopmentTags,
   type ChangeDevelopmentTagsError,

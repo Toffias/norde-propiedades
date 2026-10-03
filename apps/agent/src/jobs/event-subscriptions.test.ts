@@ -295,6 +295,20 @@ describe('eventSubscriptions', () => {
     ).rejects.toThrow();
   });
 
+  it('leaves received inquiries pending without the routing, while the rules are paused', () => {
+    const { routeInquiry: _routing, ...jobs } = clientJobs();
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...jobs,
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+
+    expect(subscriptions.some((s) => s.eventType === 'clients.inquiry_received')).toBe(false);
+  });
+
   it('applies the automatic rules with the event id and runs the queued bulk actions', async () => {
     const calls: unknown[] = [];
     const subscriptions = eventSubscriptions({

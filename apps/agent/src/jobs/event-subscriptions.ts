@@ -238,6 +238,27 @@ function erasureSubscriptions(
   ];
 }
 
+function routeInquirySubscription(
+  routeInquiry: Pick<RouteInquiry, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription {
+  return {
+    eventType: 'clients.inquiry_received',
+    name: 'route-inquiry',
+    handle: async (event) => {
+      const { inquiryId } = InquiryPayloadSchema.parse(event.payload);
+      const result = await routeInquiry.execute({ inquiryId }, actor);
+      if (result.isErr()) {
+        logger.error({ eventId: event.id, error: result.error }, 'Inquiry routing skipped');
+      } else if (!result.value.routed) {
+        // Queda pendiente en la bandeja: no es un error.
+        logger.info({ eventId: event.id, reason: result.value.reason }, 'Inquiry left pending');
+      }
+    },
+  };
+}
+
 export function eventSubscriptions(deps: {
   readonly notifyTeam: Pick<NotifyTeamOfOpportunity, 'execute'>;
   readonly recordActivity: Pick<RecordClientActivity, 'execute'>;
@@ -245,8 +266,8 @@ export function eventSubscriptions(deps: {
   readonly erasure: ErasureJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
-  /** El reparto automático de las consultas que entran (#10). */
-  readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
+  /** El reparto automático de las consultas que entran (#10). Sin él, quedan pendientes (#48). */
+  readonly routeInquiry?: Pick<RouteInquiry, 'execute'>;
   readonly actor: Actor;
   /** El de las importaciones: los contactos quedan creados por `system:import`. */
   readonly importActor: Actor;
@@ -287,22 +308,8 @@ export function eventSubscriptions(deps: {
         }
       },
     },
-    {
-      eventType: 'clients.inquiry_received',
-      name: 'route-inquiry',
-      handle: async (event) => {
-        const { inquiryId } = InquiryPayloadSchema.parse(event.payload);
-        const result = await deps.routeInquiry.execute({ inquiryId }, deps.actor);
-        if (result.isErr()) {
-          deps.logger.error({ eventId: event.id, error: result.error }, 'Inquiry routing skipped');
-        } else if (!result.value.routed) {
-          // Queda pendiente en la bandeja: no es un error.
-          deps.logger.info(
-            { eventId: event.id, reason: result.value.reason },
-            'Inquiry left pending',
-          );
-        }
-      },
-    },
+    ...(deps.routeInquiry
+      ? [routeInquirySubscription(deps.routeInquiry, deps.actor, deps.logger)]
+      : []),
   ];
 }

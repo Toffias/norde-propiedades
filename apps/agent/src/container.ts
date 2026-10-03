@@ -439,7 +439,7 @@ export function createContainer(
       clock,
     }),
     opportunities: createOpportunityJobs(db, { ids, clock }),
-    routeInquiry: createInquiryRouting(db, { ids, clock }),
+    ...(env.INQUIRY_RULES_ENABLED && { routeInquiry: createInquiryRouting(db, { ids, clock }) }),
     actor: SCHEDULER_ACTOR,
     importActor: IMPORT_ACTOR,
     logger,

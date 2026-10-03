@@ -587,3 +587,46 @@ export {
   ListDevelopmentHistory,
   type ListDevelopmentHistoryError,
 } from './application/queries/list-development-history';
+export {
+  ExportDevelopmentUnits,
+  type ExportDevelopmentUnitsError,
+} from './application/commands/export-development-units';
+export type { DevelopmentUnitsExportWriter } from './application/ports/development-units-export-writer';
+export {
+  PreviewDevelopmentUnitImport,
+  type PreviewDevelopmentUnitImportError,
+} from './application/queries/preview-development-unit-import';
+export {
+  StartDevelopmentUnitImport,
+  type StartDevelopmentUnitImportError,
+} from './application/commands/start-development-unit-import';
+export {
+  RunDevelopmentUnitImport,
+  type RunDevelopmentUnitImportError,
+} from './application/handlers/run-development-unit-import';
+export {
+  ListDevelopmentUnitImports,
+  type ListDevelopmentUnitImportsError,
+} from './application/queries/list-development-unit-imports';
+export {
+  ListDevelopmentUnitImportProblems,
+  type ListDevelopmentUnitImportProblemsError,
+} from './application/queries/list-development-unit-import-problems';
+export type {
+  DevelopmentUnitImportItem,
+  DevelopmentUnitImportQuery,
+} from './application/ports/development-unit-import-query';
+export type { DevelopmentUnitImportRepository } from './domain/development-unit-import.repository';
+export {
+  DevelopmentUnitImport,
+  normalizeUnitDesignation,
+  UNIT_IMPORT_FAILURES,
+  UNIT_IMPORT_FIELDS,
+  UNIT_IMPORT_PROBLEM_CODES,
+  UNIT_IMPORT_STATUSES,
+  type DevelopmentUnitImportId,
+  type DevelopmentUnitImportRequested,
+  type DevelopmentUnitImportSnapshot,
+  type UnitDesignation,
+  type UnitImportRowProblem,
+} from './domain/development-unit-import';

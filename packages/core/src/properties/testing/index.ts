@@ -11,6 +11,11 @@ import type {
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
 import type {
+  DevelopmentUnitImportItem,
+  DevelopmentUnitImportQuery,
+} from '../application/ports/development-unit-import-query';
+import type { DevelopmentUnitsExportWriter } from '../application/ports/development-units-export-writer';
+import type {
   DevelopmentFilterCriteria,
   DevelopmentListCriteria,
   DevelopmentListItem,
@@ -66,6 +71,15 @@ import {
   type DevelopmentId,
   type DevelopmentSnapshot,
 } from '../domain/development';
+import {
+  DevelopmentUnitImport,
+  normalizeUnitDesignation,
+  type DevelopmentUnitImportId,
+  type DevelopmentUnitImportSnapshot,
+  type UnitDesignation,
+  type UnitImportRowProblem,
+} from '../domain/development-unit-import';
+import type { DevelopmentUnitImportRepository } from '../domain/development-unit-import.repository';
 import type { DevelopmentRepository } from '../domain/development.repository';
 import { Feature, type FeatureId, type FeatureKind, type FeatureSnapshot } from '../domain/feature';
 import type { GridColumn } from '../domain/grid-columns';
@@ -284,6 +298,20 @@ export class InMemoryPropertyRepository implements PropertyRepository {
   findByCode(code: string) {
     const row = [...this.rows.values()].find((r) => r.code === code);
     return Promise.resolve(row ? Property.restore(row) : undefined);
+  }
+
+  findUnitsByDesignation(developmentId: string, designation: UnitDesignation, limit: number) {
+    const matches = [...this.rows.values()]
+      .filter(
+        (r) =>
+          r.developmentId === developmentId &&
+          normalizeUnitDesignation(r.address.floor) === designation.floor &&
+          normalizeUnitDesignation(r.address.unit) === designation.unit,
+      )
+      // Las activas primero, como el adaptador.
+      .sort((a, b) => Number(a.deletedAt !== undefined) - Number(b.deletedAt !== undefined))
+      .slice(0, limit);
+    return Promise.resolve(matches.map((row) => Property.restore(row)));
   }
 
   save(property: Property, actorId: string) {
@@ -548,6 +576,7 @@ function isErrResult(value: unknown): boolean {
 export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly properties = new InMemoryPropertyRepository();
   readonly developments = new InMemoryDevelopmentRepository(this.properties);
+  readonly unitImports = new InMemoryDevelopmentUnitImportRepository();
   readonly locations = new InMemoryLocationRepository();
   readonly features = new InMemoryFeatureRepository();
   readonly customAttributes = new InMemoryCustomAttributeRepository();
@@ -568,6 +597,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
     return [
       this.properties,
       this.developments,
+      this.unitImports,
       this.locations,
       this.features,
       this.customAttributes,
@@ -589,6 +619,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       events: this.events.published.length,
       audit: this.audit.entries.length,
       priceChanges: this.properties.priceChanges.length,
+      problems: this.unitImports.problems.length,
     };
     const rollback = () => {
       this.stores().forEach((store, index) => {
@@ -598,6 +629,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
       this.properties.priceChanges.splice(backup.priceChanges);
+      this.unitImports.problems.splice(backup.problems);
     };
     try {
       const result = await work(this);
@@ -1240,5 +1272,96 @@ export class StubDevelopmentListQuery implements DevelopmentListQuery {
   mapPins(criteria: DevelopmentFilterCriteria, area: BoundingBox, limit: number) {
     this.mapCalls.push({ criteria, area, limit });
     return Promise.resolve(this.pins);
+  }
+}
+
+// ---------- Excel de unidades ----------
+
+export class InMemoryDevelopmentUnitImportRepository implements DevelopmentUnitImportRepository {
+  readonly rows = new Map<string, DevelopmentUnitImportSnapshot>();
+  readonly problems: (UnitImportRowProblem & { readonly importId: string })[] = [];
+  readonly savedBy = new Map<string, string>();
+
+  findById(id: DevelopmentUnitImportId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && DevelopmentUnitImport.restore(row));
+  }
+
+  save(job: DevelopmentUnitImport, actorId: string) {
+    this.rows.set(job.id, job.toSnapshot());
+    this.savedBy.set(job.id, actorId);
+    return Promise.resolve();
+  }
+
+  addProblem(importId: DevelopmentUnitImportId, problem: UnitImportRowProblem) {
+    this.problems.push({ importId, ...problem });
+    return Promise.resolve();
+  }
+}
+
+function toUnitImportItem(snapshot: DevelopmentUnitImportSnapshot): DevelopmentUnitImportItem {
+  const {
+    storageKey: _key,
+    mapping: _mapping,
+    canMarkAvailable: _canMarkAvailable,
+    updatedAt: _updatedAt,
+    ...item
+  } = snapshot;
+  return item;
+}
+
+/** El historial de importaciones de unidades sobre el repositorio en memoria. */
+export class InMemoryDevelopmentUnitImportQuery implements DevelopmentUnitImportQuery {
+  constructor(private readonly imports: InMemoryDevelopmentUnitImportRepository) {}
+
+  list(query: Parameters<DevelopmentUnitImportQuery['list']>[0]) {
+    const sorted = [...this.imports.rows.values()]
+      .filter((row) => row.developmentId === query.developmentId)
+      .sort(
+        (a, b) =>
+          (a.createdAt.getTime() - b.createdAt.getTime()) * (query.direction === 'asc' ? 1 : -1),
+      );
+    return Promise.resolve({
+      items: sorted.slice(query.offset, query.offset + query.limit).map(toUnitImportItem),
+      total: sorted.length,
+    });
+  }
+
+  find(importId: string) {
+    const row = this.imports.rows.get(importId);
+    return Promise.resolve(row && toUnitImportItem(row));
+  }
+
+  problems(query: Parameters<DevelopmentUnitImportQuery['problems']>[0]) {
+    const sorted = this.imports.problems
+      .filter((problem) => problem.importId === query.importId)
+      .sort((a, b) => (a.rowNumber - b.rowNumber) * (query.direction === 'asc' ? 1 : -1));
+    return Promise.resolve({
+      items: sorted
+        .slice(query.offset, query.offset + query.limit)
+        .map(({ importId: _importId, ...problem }) => problem),
+      total: sorted.length,
+    });
+  }
+}
+
+/** Junta las filas que recibiría el Excel de unidades, sin armar ningún archivo. */
+export class FakeDevelopmentUnitsExportWriter implements DevelopmentUnitsExportWriter {
+  readonly rows: PanelPropertyRow[] = [];
+  developmentCode: string | undefined;
+
+  write(
+    batches: AsyncIterable<readonly PanelPropertyRow[]>,
+    meta: { readonly developmentCode: string },
+  ): ExportFile {
+    this.developmentCode = meta.developmentCode;
+    const rows = this.rows;
+    async function* body(): AsyncIterable<Uint8Array> {
+      for await (const batch of batches) {
+        rows.push(...batch);
+        yield new Uint8Array();
+      }
+    }
+    return { filename: 'unidades.xlsx', contentType: 'text/plain', body: body() };
   }
 }

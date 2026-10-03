@@ -23,6 +23,7 @@ export * from './detail';
 export * from './media';
 export * from './documents';
 export * from './developments';
+export * from './development-units-excel';
 export { AmountSchema } from './amount';
 
 /** Tope de la búsqueda pública (web y agente). El panel usa el `MAX_PAGE_SIZE` de shared. */

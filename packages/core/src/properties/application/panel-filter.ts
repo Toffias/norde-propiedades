@@ -34,6 +34,7 @@ export interface ParsedPanelFilter {
   readonly maxPrice?: bigint | undefined;
   readonly scope: PropertyScopeValue;
   readonly view: PropertyViewValue;
+  readonly developmentId?: string | undefined;
 }
 
 /**
@@ -78,6 +79,7 @@ export function resolvePanelFilter(
         ? undefined
         : { currency: filter.currency, minCents: filter.minPrice, maxCents: filter.maxPrice },
     ids,
+    developmentId: filter.developmentId,
   });
 }
 

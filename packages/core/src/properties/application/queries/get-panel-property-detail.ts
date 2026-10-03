@@ -27,7 +27,7 @@ export async function buildPanelPropertyDetail(
 ): Promise<PanelPropertyDetail> {
   const s = property.toSnapshot();
   const { lookups } = deps;
-  const [locationPath, features, tags, definitions, owners, cover, counts, createdBy] =
+  const [locationPath, features, tags, definitions, owners, cover, counts, createdBy, development] =
     await Promise.all([
       s.locationId === undefined ? [] : lookups.locationPath(s.locationId),
       lookups.features(s.featureIds),
@@ -37,6 +37,7 @@ export async function buildPanelPropertyDetail(
       lookups.cover(s.id),
       lookups.counts(s.id),
       lookups.createdBy(s.id),
+      s.developmentId === undefined ? undefined : lookups.development(s.developmentId),
     ]);
   const userIds = [
     s.producerUserId,
@@ -91,6 +92,7 @@ export async function buildPanelPropertyDetail(
     owners,
     cover,
     counts,
+    development,
     createdAt: s.createdAt,
     createdBy: ref(createdBy),
     updatedAt: s.updatedAt,

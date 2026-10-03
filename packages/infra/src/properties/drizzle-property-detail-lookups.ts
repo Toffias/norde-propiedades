@@ -12,6 +12,7 @@ import type { DbExecutor } from '../db/executor';
 import {
   attachments,
   clients,
+  developments,
   features,
   locations,
   mediaItems,
@@ -148,5 +149,24 @@ export class DrizzlePropertyDetailLookups implements PropertyDetailLookups {
       .where(eq(properties.id, propertyId))
       .limit(1);
     return row?.createdBy ?? undefined;
+  }
+
+  async development(developmentId: string) {
+    const [row] = await this.db
+      .select({ id: developments.id, code: developments.code, name: developments.name })
+      .from(developments)
+      .where(eq(developments.id, developmentId))
+      .limit(1);
+    return row;
+  }
+
+  /** El nombre del cliente (o su empresa); uno suprimido o borrado no se muestra. */
+  async clientName(clientId: string) {
+    const [row] = await this.db
+      .select({ name: clients.name, companyName: clients.companyName })
+      .from(clients)
+      .where(and(eq(clients.id, clientId), isNull(clients.deletedAt)))
+      .limit(1);
+    return row === undefined ? undefined : (row.name ?? row.companyName ?? 'Sin nombre');
   }
 }

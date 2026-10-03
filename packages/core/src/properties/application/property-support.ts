@@ -57,6 +57,7 @@ export function propertyAuditState(property: Property): AuditState {
     latitude: s.coordinates?.latitude,
     longitude: s.coordinates?.longitude,
     locationId: s.locationId,
+    developmentId: s.developmentId,
     operations: s.operations.map((o) => ({
       operation: o.operation,
       currency: o.currency,

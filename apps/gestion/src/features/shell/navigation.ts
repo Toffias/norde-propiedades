@@ -35,12 +35,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
     label: 'Cartera',
     items: [
       { href: '/propiedades', label: 'Propiedades', icon: BuildingIcon },
-      {
-        href: '/emprendimientos',
-        label: 'Emprendimientos',
-        icon: LandmarkIcon,
-        disabledReason: SOON,
-      },
+      { href: '/emprendimientos', label: 'Emprendimientos', icon: LandmarkIcon },
       { href: '/tasaciones', label: 'Tasaciones', icon: CalculatorIcon, disabledReason: SOON },
       { href: '/reservas', label: 'Reservas', icon: CalendarCheckIcon, disabledReason: SOON },
       { href: '/difusion', label: 'Difusión', icon: MegaphoneIcon, disabledReason: SOON },

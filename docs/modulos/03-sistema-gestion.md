@@ -447,7 +447,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
   - Una condición vacía es "cualquiera"; sin ninguna, la regla toma cualquier consulta.
   - Con varias, la consulta tiene que cumplir todas. Dentro de cada una alcanza con un valor.
   - Se comparan con las etiquetas automáticas de la consulta y sus IDs. La zona, sin mayúsculas ni acentos.
-  - Emprendimiento ya está en el modelo, pero el asistente no lo ofrece hasta que exista el módulo (#7).
+  - Emprendimiento ya está en el modelo, pero el asistente todavía no ofrece un selector de emprendimientos (llega con la derivación por chances de #7).
 - **Prioridad**: cada consulta va a la **primera regla activa que cumple**, en orden. Se sube o baja de a un lugar dentro de su pestaña.
 - **Activas e inactivas**: una inactiva no toma consultas, pero conserva su lugar y su reparto.
 - **Asistente por pasos**: nombre, condiciones, agentes con su peso (con el % que recibe cada uno) y revisión.
@@ -542,10 +542,20 @@ Campos comunes:
   - Agente captador.
   - Tasación de origen, si la hay.
 
-**Emprendimientos** (desarrollos en pozo o en construcción):
+**Emprendimientos** (desarrollos en pozo o en construcción, #7):
 
-- Ficha del emprendimiento: desarrolladora, estado de obra, fecha estimada de entrega, amenities del edificio y formas de pago.
-- **Unidades**: cada unidad es una propiedad con su tipología, piso, superficie, precio y estado (disponible, reservada, vendida). Así se reutilizan el buscador, la web y los portales.
+- Cada unidad es una **propiedad con `developmentId`**: tiene su tipología, piso, superficie, precio y estado, y reutiliza el buscador, la ficha, la web y los portales. No hay un modelo aparte de unidad.
+- **Listado** (`/emprendimientos`, con `developments:read`): grilla paginada en el servidor con código, nombre, tipo, dirección para publicar, estado, estado de obra, fecha de entrega, unidades activas, etiquetas y página web. Búsqueda por código, nombre, dirección o desarrollista; filtros por estado, tipo y estado de obra; orden por actualización, nombre, código o entrega. Papelera con restaurar (`developments:delete`).
+- **Estados**: "Cargando información" (al crear) y "Comercializando". Se pasa de uno a otro a mano.
+- **Alta** en panel lateral (`developments:create`): nombre público, tipo de desarrollo, dirección privada, ubicación del catálogo (obligatoria: las unidades la heredan), coordenadas, dirección para publicar y título para portales (si quedan vacíos, se arman solos), desarrollista y contacto comercial (privados). El código sale de la numeración de Mi empresa. Sin coordenadas, se buscan con la dirección.
+- **Ficha** (`/emprendimientos/[id]`), con pestañas:
+  - **Detalles**: datos generales, ubicación (con mapa), obra, entrega y financiación (financiado, acepta permuta, escritura inmediata, formas de pago, descripción), servicios y adicionales del catálogo, y etiquetas. Cada sección se edita en el lugar.
+  - **Unidades**: el buscador de propiedades filtrado por el emprendimiento, paginado. "Nueva unidad" crea una propiedad en borrador que hereda la dirección privada y la de publicar, la ubicación, las coordenadas, los servicios y adicionales, el captador y la sucursal del emprendimiento; se cargan tipo, ambientes, piso, unidad, superficies, operación y precio. La ficha de la unidad enlaza a su emprendimiento.
+  - **Historial**: la "Actividad" de Tokko (quién cambió qué y cuándo).
+- **Permisos**: editar los propios (`developments:update`), los de su sucursal (`developments:update-branch`) o todos (`developments:update-all`), según el captador y su sucursal. Sumar unidades pide además `properties:create`.
+- **Borrar**: un emprendimiento con unidades activas no se puede borrar; primero se borran las unidades.
+- Auditoría: `development.created`, `development.updated`, `development.status_changed`, `development.tags_changed`, `development.deleted`, `development.restored` y `development.unit_added` (contra el emprendimiento, con el ID de la unidad). El contacto comercial va en `client_ids`.
+- **Próximas etapas de #7**: multimedia y archivos del emprendimiento (y mostrar sus fotos en las unidades), vista rápida, mapa, Excel de unidades y derivación de consultas por chances.
 
 ### 4.2 Exportar a Excel
 

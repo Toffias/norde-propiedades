@@ -186,6 +186,20 @@ import {
   ListFeatures,
   ListPanelProperties,
   ListTagGroups,
+  ChangeDevelopmentStatus,
+  ChangeDevelopmentTags,
+  CreateDevelopment,
+  CreateDevelopmentUnit,
+  DeleteDevelopment,
+  GetDevelopmentDetail,
+  ListDevelopmentHistory,
+  ListDevelopments,
+  RestoreDevelopment,
+  UpdateDevelopmentDetails,
+  UpdateDevelopmentFeatures,
+  UpdateDevelopmentGeneral,
+  UpdateDevelopmentLocation,
+  type DevelopmentCodeAllocator,
   RenameLocation,
   RenameTagGroup,
   RestoreProperty,
@@ -261,6 +275,7 @@ import {
   DrizzleDirectory,
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
+  DrizzleDevelopmentListQuery,
   DrizzlePropertyCatalogQuery,
   DrizzlePropertyDetailLookups,
   DrizzlePropertyDocumentQuery,
@@ -452,6 +467,26 @@ function referenceCodesFrom(settings: SettingsUseCases): ReferenceCodeAllocator 
   };
 }
 
+/** El código de un emprendimiento nuevo sale de la misma numeración de Mi empresa. */
+function developmentCodesFrom(settings: SettingsUseCases): DevelopmentCodeAllocator {
+  return {
+    async allocate(request, actor) {
+      const result = await settings.allocateReferenceCode.execute(
+        { target: 'development', userId: request.producerUserId, branchId: request.branchId },
+        actor,
+      );
+      if (result.isErr()) {
+        getLogger().warn(
+          { error: result.error.type },
+          'Could not allocate a development reference code',
+        );
+        return err({ type: 'ReferenceCodeUnavailable' });
+      }
+      return ok(result.value.code);
+    },
+  };
+}
+
 function createPropertiesUseCases(
   db: Database,
   env: Env,
@@ -571,6 +606,38 @@ function createPropertiesUseCases(
       users,
     }),
     getPropertyDocumentDownload: new GetPropertyDocumentDownload({ uow, storage }),
+    // Emprendimientos (#7)
+    listDevelopments: new ListDevelopments({
+      developments: new DrizzleDevelopmentListQuery(db),
+      users,
+    }),
+    getDevelopmentDetail: new GetDevelopmentDetail({ uow, lookups, users }),
+    listDevelopmentHistory: new ListDevelopmentHistory({
+      uow,
+      history: new DrizzleAuditHistoryQuery(db),
+      users,
+    }),
+    createDevelopment: new CreateDevelopment({
+      uow,
+      codes: developmentCodesFrom(settings),
+      geocoder,
+      ids,
+      clock,
+    }),
+    updateDevelopmentGeneral: new UpdateDevelopmentGeneral({ uow, clock }),
+    updateDevelopmentLocation: new UpdateDevelopmentLocation({ uow, geocoder, clock }),
+    updateDevelopmentDetails: new UpdateDevelopmentDetails({ uow, clock }),
+    changeDevelopmentStatus: new ChangeDevelopmentStatus({ uow, clock }),
+    updateDevelopmentFeatures: new UpdateDevelopmentFeatures({ uow, clock }),
+    changeDevelopmentTags: new ChangeDevelopmentTags({ uow, clock }),
+    deleteDevelopment: new DeleteDevelopment({ uow, clock }),
+    restoreDevelopment: new RestoreDevelopment({ uow, clock }),
+    createDevelopmentUnit: new CreateDevelopmentUnit({
+      uow,
+      codes: referenceCodesFrom(settings),
+      ids,
+      clock,
+    }),
     sendOwnerReport: new SendOwnerReport({
       uow,
       storage,

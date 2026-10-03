@@ -87,6 +87,7 @@ const property: PanelPropertyDetail = {
   branchId: undefined,
   owners: [],
   cover: undefined,
+  development: undefined,
   counts: { media: 2, attachments: 0 },
   createdAt: new Date('2026-09-01T12:00:00Z'),
   createdBy: undefined,

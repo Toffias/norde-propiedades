@@ -39,6 +39,8 @@ export interface PanelPropertyFilterCriteria {
   readonly ids: readonly string[] | undefined;
   /** Solo las de este propietario (cliente del módulo clients, por ID). */
   readonly ownerClientId?: string | undefined;
+  /** Solo las unidades de este emprendimiento. */
+  readonly developmentId?: string | undefined;
 }
 
 export interface PanelPropertyListCriteria extends PanelPropertyFilterCriteria {
@@ -63,6 +65,8 @@ export interface PanelPropertyListItem {
   readonly status: PropertyStatusValue;
   readonly portalTitle: string;
   readonly publishAddress: string | undefined;
+  readonly floor: string | undefined;
+  readonly unit: string | undefined;
   readonly neighborhood: string;
   readonly city: string;
   readonly province: string;

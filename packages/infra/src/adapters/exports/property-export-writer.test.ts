@@ -18,6 +18,8 @@ function row(overrides: Partial<PanelPropertyRow> = {}): PanelPropertyRow {
     status: 'available',
     portalTitle: 'Departamento en venta en Palermo; "luminoso"',
     publishAddress: 'Gurruchaga al 1800',
+    floor: undefined,
+    unit: undefined,
     neighborhood: 'Palermo',
     city: 'CABA',
     province: 'CABA',

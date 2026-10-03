@@ -1,4 +1,8 @@
-import type { PanelPropertyCustomAttribute, PropertyLocationLevel } from '../../contracts';
+import type {
+  DevelopmentRef,
+  PanelPropertyCustomAttribute,
+  PropertyLocationLevel,
+} from '../../contracts';
 
 /**
  * Lo que la ficha muestra además del aggregate: nombres de los catálogos, propietarios, portada y
@@ -29,4 +33,8 @@ export interface PropertyDetailLookups {
   counts(propertyId: string): Promise<{ readonly media: number; readonly attachments: number }>;
   /** Quién dio el alta (`created_by`). */
   createdBy(propertyId: string): Promise<string | undefined>;
+  /** Nombre y código del emprendimiento de una unidad, también si está en la papelera. */
+  development(developmentId: string): Promise<DevelopmentRef | undefined>;
+  /** Nombre para mostrar de un cliente (contacto comercial de un emprendimiento), por ID. */
+  clientName(clientId: string): Promise<string | undefined>;
 }

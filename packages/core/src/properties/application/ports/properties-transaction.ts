@@ -8,6 +8,7 @@ import type {
   TagGroupRepository,
   TagRepository,
 } from '../../domain/catalog.repository';
+import type { DevelopmentRepository } from '../../domain/development.repository';
 import type { FavoriteSearchRepository } from '../../domain/favorite-search';
 import type {
   MediaItemRepository,
@@ -19,6 +20,7 @@ import type { PropertyRepository } from '../../domain/property.repository';
 /** Lo que un command de properties usa dentro de la transacción, ligado a la misma conexión. */
 export interface PropertiesTransaction {
   readonly properties: PropertyRepository;
+  readonly developments: DevelopmentRepository;
   readonly locations: LocationRepository;
   readonly features: FeatureRepository;
   readonly customAttributes: CustomAttributeRepository;

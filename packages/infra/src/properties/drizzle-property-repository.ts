@@ -160,6 +160,7 @@ export class DrizzlePropertyRepository implements PropertyRepository {
           ? undefined
           : stored(Coordinates.create(row.latitude, row.longitude)),
       locationId: optional(row.locationId),
+      developmentId: optional(row.developmentId),
       operations: operations.map((operation) => ({
         ...OperationEnums.parse(operation),
         priceCents: optional(operation.priceCents),
@@ -253,6 +254,7 @@ export class DrizzlePropertyRepository implements PropertyRepository {
       city: s.address.city,
       province: s.address.province,
       locationId: s.locationId ?? null,
+      developmentId: s.developmentId ?? null,
       latitude: s.coordinates?.latitude ?? null,
       longitude: s.coordinates?.longitude ?? null,
       rooms: c.rooms ?? null,

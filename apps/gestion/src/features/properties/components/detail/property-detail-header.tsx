@@ -162,6 +162,18 @@ export function PropertyDetailHeader({
             {detail.address.street !== '' &&
               ` (${[detail.address.street, detail.address.streetNumber].filter(Boolean).join(' ')})`}
           </p>
+          {detail.development !== undefined && (
+            <p className="text-sm leading-normal text-entity-header-muted">
+              Unidad de{' '}
+              <Link
+                // La ficha del emprendimiento: typedRoutes no verifica un segmento armado.
+                href={`/emprendimientos/${detail.development.id}` as Route}
+                className="font-medium text-white underline-offset-2 hover:underline"
+              >
+                {detail.development.name}
+              </Link>
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="rounded-lg bg-white/10 p-1">

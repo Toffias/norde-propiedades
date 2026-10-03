@@ -14,6 +14,7 @@ import type {
   UnlinkErasedClients,
   GenerateMediaVariants,
   RenderPropertyDocument,
+  RunDevelopmentUnitImport,
 } from '@norde/core/properties';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
@@ -274,11 +275,13 @@ export function eventSubscriptions(deps: {
   readonly properties: PropertyJobs;
   readonly erasure: ErasureJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
+  /** La importación de unidades de un emprendimiento desde Excel (#7). */
+  readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   /** El reparto automático de las consultas que entran (#10). Sin él, quedan pendientes (#48). */
   readonly routeInquiry?: Pick<RouteInquiry, 'execute'>;
   readonly actor: Actor;
-  /** El de las importaciones: los contactos quedan creados por `system:import`. */
+  /** El de las importaciones: los contactos y las unidades quedan creados por `system:import`. */
   readonly importActor: Actor;
   readonly logger: Logger;
 }): EventSubscription[] {
@@ -314,6 +317,17 @@ export function eventSubscriptions(deps: {
         const result = await deps.runImport.execute({ importId }, deps.importActor);
         if (result.isErr()) {
           deps.logger.error({ eventId: event.id, error: result.error }, 'Client import skipped');
+        }
+      },
+    },
+    {
+      eventType: 'properties.unit_import_requested',
+      name: 'run-unit-import',
+      handle: async (event) => {
+        const { importId } = ImportPayloadSchema.parse(event.payload);
+        const result = await deps.runUnitImport.execute({ importId }, deps.importActor);
+        if (result.isErr()) {
+          deps.logger.error({ eventId: event.id, error: result.error }, 'Unit import skipped');
         }
       },
     },

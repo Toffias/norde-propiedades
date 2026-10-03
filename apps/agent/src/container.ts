@@ -29,19 +29,22 @@ import {
   GetPropertyInterestProfile,
   GetPropertySummaries,
   RenderPropertyDocument,
+  RunDevelopmentUnitImport,
   SearchProperties,
   UnlinkErasedClients,
   type OwnerReports,
+  type ReferenceCodeAllocator,
 } from '@norde/core/properties';
 import { RemoveErasedClientFavorites, ResolveSessionActor } from '@norde/core/identity';
 import { GetOwnerReport, type ReportingPropertyProfiles } from '@norde/core/reporting';
-import type { FileStorage } from '@norde/core/settings';
-import { Actor } from '@norde/core/shared';
+import { AllocateReferenceCode, type FileStorage } from '@norde/core/settings';
+import { Actor, err, ok } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
   createConversationsUnitOfWork,
   createDatabase,
   createPropertiesUnitOfWork,
+  createSettingsUnitOfWork,
   DrizzleClientConversationErasure,
   DrizzleClientFavoriteErasure,
   DrizzleCompanySettingsRepository,
@@ -112,7 +115,15 @@ const WEB_ACTOR = Actor.system('web', ['inquiries:receive', 'properties:read']);
 /** Arma el actor de quien pidió una acción masiva, con sus permisos de ahora. */
 const AUTH_ACTOR = Actor.system('auth', ['sessions:resolve']);
 /** Las importaciones desde Excel: los contactos quedan creados y auditados por `system:import`. */
-const IMPORT_ACTOR = Actor.system('import', ['clients:run-imports']);
+/**
+ * Las importaciones desde Excel: contactos y unidades de emprendimientos. Crear unidades pide un
+ * código de referencia, que entrega la numeración con `properties:create`.
+ */
+const IMPORT_ACTOR = Actor.system('import', [
+  'clients:run-imports',
+  'properties:run-imports',
+  'properties:create',
+]);
 
 function createStorage(env: Env): FileStorage {
   if (env.STORAGE_DRIVER !== 's3') return new LocalFileStorage(env.STORAGE_LOCAL_DIR);
@@ -207,6 +218,36 @@ function createInquiryIntake(
     },
   };
   return new ReceiveInquiry({ uow: createClientsUnitOfWork(db, deps), properties, ...deps });
+}
+
+/**
+ * El código de referencia de una unidad importada sale de la numeración de Mi empresa, como el alta
+ * desde el panel. Cualquier error de la numeración se informa igual: no hay código.
+ */
+function referenceCodes(
+  db: Database,
+  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
+  logger: Logger,
+): ReferenceCodeAllocator {
+  const allocate = new AllocateReferenceCode({ uow: createSettingsUnitOfWork(db, deps) });
+  return {
+    async allocate(request, actor) {
+      const result = await allocate.execute(
+        {
+          target: 'property',
+          propertyType: request.kind,
+          userId: request.producerUserId,
+          branchId: request.branchId,
+        },
+        actor,
+      );
+      if (result.isErr()) {
+        logger.warn({ error: result.error.type }, 'Could not allocate a property reference code');
+        return err({ type: 'ReferenceCodeUnavailable' });
+      }
+      return ok(result.value.code);
+    },
+  };
 }
 
 /** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
@@ -435,6 +476,14 @@ export function createContainer(
       uow: createClientsUnitOfWork(db, { ids, clock }),
       reader: new XlsxSpreadsheetReader(),
       storage: createStorage(env),
+      ids,
+      clock,
+    }),
+    runUnitImport: new RunDevelopmentUnitImport({
+      uow: createPropertiesUnitOfWork(db, { ids, clock }),
+      reader: new XlsxSpreadsheetReader(),
+      storage: createStorage(env),
+      codes: referenceCodes(db, { ids, clock }, logger),
       ids,
       clock,
     }),

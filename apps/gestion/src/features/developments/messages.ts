@@ -63,6 +63,7 @@ export const DEVELOPMENT_UNIT_ERROR_MESSAGES = {
   ReferenceCodeUnavailable:
     'No pudimos asignarle un código de referencia. Revisá la numeración en Mi empresa → Códigos.',
   NegativePrice: 'El precio no puede ser negativo.',
+  InvalidOperations: 'La unidad tiene que tener una operación, sin repetir.',
   NegativeCharacteristic: 'Las superficies y los ambientes no pueden ser negativos.',
   CoveredExceedsTotal: 'La superficie cubierta no puede ser mayor que la total.',
 } satisfies ErrorMessages<CreateDevelopmentUnitError>;

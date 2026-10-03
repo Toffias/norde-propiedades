@@ -27,6 +27,7 @@ import {
   DEVELOPMENT_TYPE_LABELS,
 } from '../labels';
 import { DevelopmentFavoriteToggle } from './development-favorite-toggle';
+import { ExportUnitsButton } from './export-units-button';
 
 /** Lo que trajo el pedido de un emprendimiento; mientras no llega, se muestra cargando. */
 type Loaded = { readonly developmentId: string } & (
@@ -167,6 +168,9 @@ function Content({ view }: { readonly view: DevelopmentQuickView }) {
             {formatCount(view.attachmentCount, 'archivo', 'archivos')}
           </Link>
         </Button>
+        {view.canExportUnits && detail.unitCount > 0 && (
+          <ExportUnitsButton developmentId={detail.id} size="sm" label="Descargar unidades" />
+        )}
         {detail.websiteUrl !== undefined && (
           <Button asChild size="sm" variant="outline">
             <a href={detail.websiteUrl} target="_blank" rel="noopener noreferrer">

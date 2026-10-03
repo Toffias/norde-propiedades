@@ -193,6 +193,7 @@ async function renderTab(
             page={page.value}
             sort={value.sort}
             canAdd={permissions.addUnits}
+            canExport={actor.can('properties:export') || actor.can('properties:export-bulk')}
             enabledTypes={enabledTypes}
           />
         </Card>

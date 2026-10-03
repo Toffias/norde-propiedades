@@ -15,7 +15,7 @@ import { Form } from '@norde/ui/components/form';
 import { SheetBody, SheetFooter } from '@norde/ui/components/sheet';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { Loader2Icon, PlusIcon } from 'lucide-react';
+import { FileSpreadsheetIcon, Loader2Icon, PlusIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -37,6 +37,7 @@ import { FormAlert } from '../../shared/components/form-alert';
 import { NumberField, SelectField, TextField } from '../../shared/components/form-fields';
 import { ServerDataTable } from '../../shared/components/server-data-table';
 import { createDevelopmentUnitAction } from '../actions';
+import { ExportUnitsButton } from './export-units-button';
 
 const area = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
 
@@ -135,12 +136,16 @@ export function UnitsGrid({
   page,
   sort,
   canAdd,
+  canExport,
   enabledTypes,
 }: {
   readonly developmentId: string;
   readonly page: Page<PanelPropertyRow>;
   readonly sort: { readonly field: string; readonly direction: 'asc' | 'desc' };
+  /** Sumar unidades, a mano o desde un Excel. */
   readonly canAdd: boolean;
+  /** Descargar el Excel de unidades (`properties:export`). */
+  readonly canExport: boolean;
   readonly enabledTypes: readonly PropertyType[];
 }) {
   const router = useRouter();
@@ -165,12 +170,23 @@ export function UnitsGrid({
           router.push(propertyHref(row));
         }}
         toolbar={
-          canAdd ? (
-            <div className="flex w-full justify-end">
-              <Button onClick={navigation.openNew}>
-                <PlusIcon className="h-4 w-4" />
-                Nueva unidad
-              </Button>
+          canAdd || (canExport && page.total > 0) ? (
+            <div className="flex w-full flex-wrap justify-end gap-2">
+              {canExport && page.total > 0 && <ExportUnitsButton developmentId={developmentId} />}
+              {canAdd && (
+                <Button asChild variant="outline">
+                  <Link href={`/emprendimientos/${developmentId}/importaciones?panel=new` as Route}>
+                    <FileSpreadsheetIcon className="h-4 w-4" />
+                    Importar desde Excel
+                  </Link>
+                </Button>
+              )}
+              {canAdd && (
+                <Button onClick={navigation.openNew}>
+                  <PlusIcon className="h-4 w-4" />
+                  Nueva unidad
+                </Button>
+              )}
             </div>
           ) : undefined
         }

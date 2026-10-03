@@ -223,6 +223,8 @@ export interface DevelopmentQuickView {
   readonly photos: readonly MediaRow[];
   readonly attachmentCount: number;
   readonly favorite: boolean;
+  /** Puede descargar el Excel de unidades (`properties:export`). */
+  readonly canExportUnits: boolean;
 }
 
 /** Fotos que entran en el carrusel de la vista rápida; el resto, en la ficha. */
@@ -253,6 +255,7 @@ export async function loadDevelopmentQuickViewAction(
       photos: photos.isOk() ? photos.value.items : [],
       attachmentCount: attachments.isOk() ? attachments.value.total : 0,
       favorite: favorites.isOk() && favorites.value.has(developmentId),
+      canExportUnits: actor.can('properties:export') || actor.can('properties:export-bulk'),
     },
   };
 }

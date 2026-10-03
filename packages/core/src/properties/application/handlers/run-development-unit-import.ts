@@ -145,7 +145,6 @@ export class RunDevelopmentUnitImport {
       await tx.audit.record(
         auditAction(runner, developmentTarget('development.units_imported', development), {
           importId: { before: null, after: job.id },
-          status: { before: 'running', after: 'done' },
           created: { before: null, after: job.totals.created },
           updated: { before: null, after: job.totals.updated },
           unchanged: { before: null, after: job.totals.unchanged },
@@ -428,7 +427,6 @@ export class RunDevelopmentUnitImport {
       await tx.unitImports.save(job, runner.id);
       const changes = {
         importId: { before: null, after: job.id },
-        status: { before: 'running', after: 'failed' },
         failure: { before: null, after: failure },
       };
       await tx.audit.record(

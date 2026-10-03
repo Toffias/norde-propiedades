@@ -36,5 +36,15 @@ export type OpportunityReassigned = DomainEvent<
   }
 >;
 
+/** Se le destacaron propiedades al cliente. Dispara la regla "al reactivar" (#11). */
+export type OpportunityListingsFeatured = DomainEvent<
+  'clients.opportunity_listings_featured',
+  OpportunityPayload & { readonly propertyIds: readonly string[] }
+>;
+
 export type OpportunityEvent =
-  OpportunityCreated | OpportunityRequestAdded | OpportunityStatusChanged | OpportunityReassigned;
+  | OpportunityCreated
+  | OpportunityRequestAdded
+  | OpportunityStatusChanged
+  | OpportunityReassigned
+  | OpportunityListingsFeatured;

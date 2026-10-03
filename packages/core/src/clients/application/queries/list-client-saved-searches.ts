@@ -25,7 +25,10 @@ import { findReadableClient } from '../record-support';
 
 export type ListClientSavedSearchesError = ForbiddenError | InvalidInputError | ClientNotFoundError;
 
-/** Las búsquedas guardadas del contacto (sin las borradas), las actualizadas último primero. */
+/**
+ * Las búsquedas guardadas del contacto, las actualizadas último primero; o las de la papelera,
+ * las borradas último primero.
+ */
 export class ListClientSavedSearches {
   constructor(
     private readonly deps: {
@@ -50,6 +53,7 @@ export class ListClientSavedSearches {
     const { page, pageSize } = query;
     const slice = await this.deps.records.savedSearches({
       clientId: client.value.id,
+      view: query.view,
       direction: query.sort.direction,
       ...toOffsetLimit({ page, pageSize }),
     });

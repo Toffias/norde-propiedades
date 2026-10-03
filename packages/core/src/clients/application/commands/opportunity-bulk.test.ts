@@ -424,6 +424,27 @@ describe('ApplyOpportunityRules', () => {
     expect(uow.opportunities.rows.get(ownerOpportunity.id)?.stageId).toBe(VISITING);
   });
 
+  it('reactivates a referred opportunity when listings are featured, once per event', async () => {
+    const { uow, apply } = rulesSetup({ onReactivate: NEW });
+    const client = await seedClient(uow);
+    const referred = await seedOpportunity(uow, client, { stageIndex: 6 });
+    const event = {
+      eventId: '00000000-0000-7000-8000-0000000000e4',
+      opportunityId: referred.id,
+      trigger: { kind: 'listings_featured' as const },
+    };
+
+    expect(unwrap(await apply.execute(event, JOBS))).toEqual({
+      applied: true,
+      rule: 'onReactivate',
+    });
+    expect(unwrap(await apply.execute(event, JOBS))).toEqual({
+      applied: false,
+      reason: 'already_applied',
+    });
+    expect(uow.opportunities.rows.get(referred.id)?.stageId).toBe(NEW);
+  });
+
   it('only runs for the system actor with the rules permission', async () => {
     const { apply } = rulesSetup({});
     expect(

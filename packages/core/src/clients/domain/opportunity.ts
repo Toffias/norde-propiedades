@@ -457,3 +457,17 @@ export function findOpenOpportunityAbout(
 ): Opportunity | undefined {
   return opportunities.find((o) => o.isOpen() && o.isAbout(query));
 }
+
+/** La abierta más reciente del cliente (la que muestra su ficha), si tiene alguna. */
+export function latestOpenOpportunity(
+  opportunities: readonly Opportunity[],
+): Opportunity | undefined {
+  return opportunities
+    .filter((o) => o.isOpen())
+    .reduce<Opportunity | undefined>((latest, o) => {
+      if (latest === undefined) return o;
+      const a = o.toSnapshot().createdAt.getTime();
+      const b = latest.toSnapshot().createdAt.getTime();
+      return a > b || (a === b && o.id > latest.id) ? o : latest;
+    }, undefined);
+}

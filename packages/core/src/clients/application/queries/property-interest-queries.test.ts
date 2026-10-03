@@ -68,6 +68,7 @@ class StubInterestQuery implements PropertyInterestQuery {
 const agents = { names: () => Promise.resolve(new Map([[AGENT, 'Camila Ruiz']])) };
 const profiles = {
   find: (propertyId: string) => Promise.resolve(propertyId === PROPERTY ? PROFILE : undefined),
+  findMany: () => Promise.resolve(new Map()),
 };
 
 describe('ListPropertyInterestedClients', () => {

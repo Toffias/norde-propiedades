@@ -9,11 +9,14 @@ import {
   InMemoryClientAgents,
   InMemoryClientListings,
   InMemoryClientsUnitOfWork,
+  InMemoryPropertyProfiles,
   OTHER_AGENT_ID,
   OTHER_BRANCH_ID,
   OTHER_PROPERTY_ID,
   PROPERTY_ID,
   seedClient,
+  seedOpportunity,
+  seedSavedSearch,
   stageFixtureId,
   StubClientRecordQuery,
   TEST_AGENT,
@@ -30,6 +33,7 @@ import { ListClientSavedSearches } from '../queries/list-client-saved-searches';
 
 import { AddClientNote } from './add-client-note';
 import { FeatureProperties } from './feature-properties';
+import { SetFeaturedAutoSend } from './set-featured-auto-send';
 import { UnfeatureProperty } from './unfeature-property';
 
 const clock = new FixedClock('2026-03-10T12:00:00Z');
@@ -41,20 +45,31 @@ const AGENT_WITH_LISTINGS = Actor.user(AGENT_ID, [
   'clients:update',
   'properties:read',
 ]);
+const LOCATION_ID = '00000000-0000-7000-8000-0000000000a1';
 const JOBS = Actor.system('scheduler', ['clients:record-activity']);
 
 async function setup() {
   const uow = new InMemoryClientsUnitOfWork();
   const client = await seedClient(uow);
   const listings = new InMemoryClientListings();
+  const profiles = new InMemoryPropertyProfiles([
+    {
+      propertyId: PROPERTY_ID,
+      propertyType: 'apartment',
+      operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
+      locationIds: [LOCATION_ID],
+      rooms: 3,
+    },
+  ]);
   const ids = new SequentialIdGenerator();
   return {
     uow,
     client,
     listings,
     addNote: new AddClientNote({ uow, ids, clock }),
-    feature: new FeatureProperties({ uow, listings, ids, clock }),
+    feature: new FeatureProperties({ uow, listings, profiles, ids, clock }),
     unfeature: new UnfeatureProperty({ uow, clock }),
+    autoSend: new SetFeaturedAutoSend({ uow, clock }),
   };
 }
 
@@ -140,6 +155,82 @@ describe('FeatureProperties', () => {
       ['client.listings_featured', { propertyIds: { before: null, after: [PROPERTY_ID] } }],
       ['client.listings_featured', { propertyIds: { before: null, after: [OTHER_PROPERTY_ID] } }],
     ]);
+  });
+
+  it('stores the match with the best saved search, ignoring the deleted ones', async () => {
+    const { uow, client, feature } = await setup();
+    seedSavedSearch(uow, {
+      id: '00000000-0000-7000-8000-0000000005a1',
+      clientId: client.id,
+      fields: { minRooms: 4 },
+    });
+    seedSavedSearch(uow, {
+      id: '00000000-0000-7000-8000-0000000005a2',
+      clientId: client.id,
+      fields: { minRooms: 2 },
+      snapshot: { deletedAt: clock.now() },
+    });
+
+    unwrap(
+      await feature.execute(
+        { clientId: client.id, propertyIds: [PROPERTY_ID, OTHER_PROPERTY_ID] },
+        AGENT_WITH_LISTINGS,
+      ),
+    );
+
+    const scores = Object.fromEntries(
+      [...uow.featured.rows.values()].map((row) => [row.propertyId, row.matchScore]),
+    );
+    // Sin perfil (la otra propiedad no está en el cruce), no hay coincidencia.
+    expect(scores).toEqual({ [PROPERTY_ID]: 50, [OTHER_PROPERTY_ID]: undefined });
+  });
+
+  it('has no match without saved searches', async () => {
+    const { uow, client, feature } = await setup();
+    unwrap(
+      await feature.execute(
+        { clientId: client.id, propertyIds: [PROPERTY_ID] },
+        AGENT_WITH_LISTINGS,
+      ),
+    );
+    expect([...uow.featured.rows.values()][0]?.matchScore).toBeUndefined();
+  });
+
+  it('ties them to the latest open opportunity and tells it with an event', async () => {
+    const { uow, client, feature } = await setup();
+    const opportunity = await seedOpportunity(uow, client);
+
+    unwrap(
+      await feature.execute(
+        { clientId: client.id, propertyIds: [PROPERTY_ID] },
+        AGENT_WITH_LISTINGS,
+      ),
+    );
+
+    expect([...uow.featured.rows.values()][0]?.opportunityId).toBe(opportunity.id);
+    expect(uow.events.published).toEqual([
+      expect.objectContaining({
+        type: 'clients.opportunity_listings_featured',
+        aggregateId: opportunity.id,
+        payload: { opportunityId: opportunity.id, clientId: client.id, propertyIds: [PROPERTY_ID] },
+      }),
+    ]);
+    expect(uow.audit.entries[0]?.changes).toEqual({
+      propertyIds: { before: null, after: [PROPERTY_ID] },
+      opportunityId: { before: null, after: opportunity.id },
+    });
+  });
+
+  it('does not publish an event without an open opportunity', async () => {
+    const { uow, client, feature } = await setup();
+    unwrap(
+      await feature.execute(
+        { clientId: client.id, propertyIds: [PROPERTY_ID] },
+        AGENT_WITH_LISTINGS,
+      ),
+    );
+    expect([...uow.featured.rows.values()][0]?.opportunityId).toBeUndefined();
+    expect(uow.events.published).toEqual([]);
   });
 
   it('does not audit when everything was already featured', async () => {
@@ -231,6 +322,57 @@ describe('UnfeatureProperty', () => {
     });
     expect(unwrapErr(await unfeature.execute(input, TEST_OUTSIDER))).toEqual({ type: 'Forbidden' });
     expect(unwrapErr(await unfeature.execute({ ...input, clientId: MISSING }, SELLER))).toEqual({
+      type: 'ClientNotFound',
+    });
+  });
+});
+
+describe('SetFeaturedAutoSend', () => {
+  it('toggles the auto-send of a featured property and audits it once', async () => {
+    const { uow, client, feature, autoSend } = await setup();
+    unwrap(
+      await feature.execute(
+        { clientId: client.id, propertyIds: [PROPERTY_ID] },
+        AGENT_WITH_LISTINGS,
+      ),
+    );
+    const input = { clientId: client.id, propertyId: PROPERTY_ID, enabled: true };
+
+    unwrap(await autoSend.execute(input, SELLER));
+    unwrap(await autoSend.execute(input, SELLER));
+
+    expect([...uow.featured.rows.values()][0]?.autoSendUpdates).toBe(true);
+    expect(uow.audit.entries.map((e) => [e.action, e.changes]).slice(1)).toEqual([
+      [
+        'client.featured_auto_send_changed',
+        {
+          propertyId: { before: PROPERTY_ID, after: PROPERTY_ID },
+          autoSendUpdates: { before: false, after: true },
+        },
+      ],
+    ]);
+  });
+
+  it('rejects a property that is not featured', async () => {
+    const { client, autoSend } = await setup();
+    expect(
+      unwrapErr(
+        await autoSend.execute(
+          { clientId: client.id, propertyId: PROPERTY_ID, enabled: true },
+          SELLER,
+        ),
+      ),
+    ).toEqual({ type: 'FeaturedListingNotFound' });
+  });
+
+  it('needs to be able to edit the client', async () => {
+    const { client, autoSend } = await setup();
+    const input = { clientId: client.id, propertyId: PROPERTY_ID, enabled: true };
+    expect(unwrapErr(await autoSend.execute(input, TEST_OTHER_AGENT))).toEqual({
+      type: 'Forbidden',
+    });
+    expect(unwrapErr(await autoSend.execute(input, TEST_OUTSIDER))).toEqual({ type: 'Forbidden' });
+    expect(unwrapErr(await autoSend.execute({ ...input, clientId: MISSING }, SELLER))).toEqual({
       type: 'ClientNotFound',
     });
   });
@@ -477,6 +619,7 @@ describe('client detail tabs', () => {
         id: 'f1',
         propertyId: PROPERTY_ID,
         matchScore: 80,
+        autoSendUpdates: true,
         reaction: 'liked',
         featuredBy: AGENT_ID,
         featuredAt: clock.now(),
@@ -485,6 +628,7 @@ describe('client detail tabs', () => {
         id: 'f2',
         propertyId: MISSING,
         matchScore: undefined,
+        autoSendUpdates: false,
         reaction: undefined,
         featuredBy: 'system:scheduler',
         featuredAt: clock.now(),

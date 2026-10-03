@@ -10,6 +10,11 @@ import type {
 export interface PropertyProfiles {
   /** `undefined` si no existe o el actor no la puede ver. */
   find(propertyId: string, actor: Actor): Promise<PropertyInterestProfile | undefined>;
+  /** Varias a la vez (como mucho 50): las que no existen no vuelven. */
+  findMany(
+    propertyIds: readonly string[],
+    actor: Actor,
+  ): Promise<ReadonlyMap<string, PropertyInterestProfile>>;
 }
 
 /** Nombres de los usuarios del panel (identity), para mostrar agentes y quién envió. */

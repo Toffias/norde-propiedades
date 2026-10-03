@@ -19,6 +19,12 @@ import { CLOSE_REASON_RATINGS, MAX_CLOSE_REASONS } from '../domain/opportunity-c
 import { OPPORTUNITY_RULES } from '../domain/opportunity-settings';
 import { MAX_OPPORTUNITY_STAGES } from '../domain/opportunity-stage';
 import { OPPORTUNITY_STATUSES } from '../domain/opportunity-status';
+import {
+  MAX_SAVED_SEARCH_LOCATIONS,
+  MAX_SAVED_SEARCH_NAME_LENGTH,
+  MAX_SAVED_SEARCH_ROOMS,
+  MAX_SAVED_SEARCHES_PER_CLIENT,
+} from '../domain/saved-search';
 import { MAX_AGENT_WEIGHT, MIN_AGENT_WEIGHT } from '../domain/weighted-distribution';
 
 import {
@@ -49,6 +55,11 @@ import {
   PHONE_KIND_VALUES,
   OPPORTUNITY_INTENT_VALUES,
   OPPORTUNITY_TYPE_VALUES,
+  CreateSavedSearchInputSchema,
+  MAX_CLIENT_SAVED_SEARCHES,
+  MAX_SAVED_SEARCH_LOCATION_COUNT,
+  MAX_SAVED_SEARCH_MIN_ROOMS,
+  MAX_SAVED_SEARCH_NAME,
 } from './index';
 
 // Los contracts no pueden importar el dominio (van al cliente de React): replican sus enums.
@@ -114,5 +125,37 @@ describe('clients contracts', () => {
       MIN_AGENT_WEIGHT,
       MAX_AGENT_WEIGHT,
     ]);
+  });
+
+  it('mirror the limits of the saved searches', () => {
+    expect(MAX_CLIENT_SAVED_SEARCHES).toBe(MAX_SAVED_SEARCHES_PER_CLIENT);
+    expect(MAX_SAVED_SEARCH_LOCATION_COUNT).toBe(MAX_SAVED_SEARCH_LOCATIONS);
+    expect(MAX_SAVED_SEARCH_NAME).toBe(MAX_SAVED_SEARCH_NAME_LENGTH);
+    expect(MAX_SAVED_SEARCH_MIN_ROOMS).toBe(MAX_SAVED_SEARCH_ROOMS);
+  });
+
+  it('checks the price range of a saved search for the form', () => {
+    const base = { clientId: '00000000-0000-7000-8000-000000000001', operation: 'sale' };
+    const parsed = CreateSavedSearchInputSchema.parse({
+      ...base,
+      currency: 'USD',
+      minPrice: '100000',
+      maxPrice: '150000,50',
+      minRooms: '2',
+    });
+    expect(parsed).toMatchObject({
+      minPrice: 10_000_000n,
+      maxPrice: 15_000_050n,
+      minRooms: 2,
+      propertyTypes: [],
+      locationIds: [],
+      autoSend: false,
+    });
+    const paths = (input: object) =>
+      CreateSavedSearchInputSchema.safeParse({ ...base, ...input }).error?.issues.map((i) =>
+        i.path.join('.'),
+      );
+    expect(paths({ minPrice: '100' })).toEqual(['currency']);
+    expect(paths({ currency: 'USD', minPrice: '200', maxPrice: '100' })).toEqual(['maxPrice']);
   });
 });

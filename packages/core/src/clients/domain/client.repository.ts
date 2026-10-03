@@ -14,6 +14,7 @@ import type {
 import type { OpportunityCloseReason, OpportunityCloseReasonId } from './opportunity-close-reason';
 import type { OpportunityRules } from './opportunity-settings';
 import type { OpportunityStage, OpportunityStageId } from './opportunity-stage';
+import type { SavedSearch, SavedSearchId } from './saved-search';
 
 /** Tope de coincidencias que devuelve una búsqueda de duplicados. */
 export const MAX_DUPLICATE_CANDIDATES = 10;
@@ -155,6 +156,17 @@ export interface FeaturedListingRepository {
   /** Las destacadas vigentes del cliente entre estas propiedades. */
   findActive(clientId: ClientId, propertyIds: readonly string[]): Promise<FeaturedListing[]>;
   save(listing: FeaturedListing, actorId: string): Promise<void>;
+}
+
+/** Las búsquedas guardadas de los clientes, con su papelera. */
+export interface SavedSearchRepository {
+  /** Incluye las borradas. */
+  findById(id: SavedSearchId): Promise<SavedSearch | undefined>;
+  /** Las vigentes del cliente, las actualizadas último primero, como mucho `limit`. */
+  findActiveByClient(clientId: ClientId, limit: number): Promise<SavedSearch[]>;
+  countActiveByClient(clientId: ClientId): Promise<number>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(search: SavedSearch, actorId: string): Promise<void>;
 }
 
 export interface ClientImportRepository {

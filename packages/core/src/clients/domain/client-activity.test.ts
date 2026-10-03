@@ -133,6 +133,8 @@ describe('FeaturedListing', () => {
       id: id('00000000-0000-7000-8000-0000000000a1'),
       clientId: CLIENT,
       propertyId,
+      opportunityId: undefined,
+      matchScore: 75,
       by: 'u1',
       now: NOW,
     });
@@ -153,5 +155,15 @@ describe('FeaturedListing', () => {
     expect(listing.remove(later)).toBe(false);
     expect(listing.toSnapshot()).toMatchObject({ removedAt: later, featuredAt: NOW });
     expect(propertiesToFeature([PROPERTY], [listing])).toEqual([PROPERTY]);
+  });
+
+  it('starts without auto-send of updates and toggles it', () => {
+    const listing = feature(PROPERTY);
+    const later = new Date('2026-03-11T12:00:00Z');
+
+    expect(listing.toSnapshot()).toMatchObject({ matchScore: 75, autoSendUpdates: false });
+    expect(listing.setAutoSendUpdates(false, later)).toBe(false);
+    expect(listing.setAutoSendUpdates(true, later)).toBe(true);
+    expect(listing.toSnapshot()).toMatchObject({ autoSendUpdates: true, updatedAt: later });
   });
 });

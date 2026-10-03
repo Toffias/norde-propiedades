@@ -4,6 +4,7 @@ import { ErrorState } from '@norde/ui/components/error-state';
 import { SectionCard } from '@norde/ui/components/section-card';
 import type { Metadata } from 'next';
 
+import { companyFeatures } from '../../../../config/env';
 import { getContainer } from '../../../../container';
 import { CustomAttributesSettings } from '../../../../features/properties/components/custom-attributes-settings';
 import { GridColumnsForm } from '../../../../features/properties/components/grid-columns-form';
@@ -22,9 +23,10 @@ export default async function PropertySettingsPage({
   const { actor } = await requireSession();
   const { value: query } = parseListParams(ListCustomAttributesQuerySchema, await searchParams);
   const { properties } = getContainer();
+  const showAttributes = companyFeatures().customAttributes;
   const [result, attributes] = await Promise.all([
     properties.getPropertyConfiguration.execute(actor),
-    properties.listCustomAttributes.execute(query, actor),
+    showAttributes ? properties.listCustomAttributes.execute(query, actor) : undefined,
   ]);
   if (result.isErr()) {
     return (
@@ -41,22 +43,24 @@ export default async function PropertySettingsPage({
       <SectionCard title="Tipos de propiedad">
         <PropertyTypesSettings types={result.value.types} disabled={disabled} />
       </SectionCard>
-      <div className="flex flex-col gap-2">
-        <h2 className="text-base font-bold">Atributos personalizados</h2>
-        <p className="text-sm text-muted-foreground">
-          Datos que Norde agrega a la ficha además de los estándar (ej. &quot;Vista al río&quot;).
-        </p>
-        <Card className="gap-0 overflow-hidden p-0">
-          {attributes.isErr() ? (
-            <ErrorState
-              title="No pudimos cargar los atributos"
-              description={messageForError(attributes.error)}
-            />
-          ) : (
-            <CustomAttributesSettings page={attributes.value} disabled={disabled} />
-          )}
-        </Card>
-      </div>
+      {attributes !== undefined && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-base font-bold">Atributos personalizados</h2>
+          <p className="text-sm text-muted-foreground">
+            Datos que Norde agrega a la ficha además de los estándar (ej. &quot;Vista al río&quot;).
+          </p>
+          <Card className="gap-0 overflow-hidden p-0">
+            {attributes.isErr() ? (
+              <ErrorState
+                title="No pudimos cargar los atributos"
+                description={messageForError(attributes.error)}
+              />
+            ) : (
+              <CustomAttributesSettings page={attributes.value} disabled={disabled} />
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

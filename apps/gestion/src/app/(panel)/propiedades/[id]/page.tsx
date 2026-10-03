@@ -18,6 +18,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { companyFeatures } from '../../../../config/env';
 import { getContainer } from '../../../../container';
 import { AttachmentsGrid } from '../../../../features/properties/components/detail/attachments-grid';
 import { DetailSections } from '../../../../features/properties/components/detail/detail-sections';
@@ -174,6 +175,7 @@ async function renderTab(
           catalogTruncated={features.some(
             (page) => page.isOk() && page.value.total > page.value.items.length,
           )}
+          showCustomAttributes={companyFeatures().customAttributes}
         />
       );
     }

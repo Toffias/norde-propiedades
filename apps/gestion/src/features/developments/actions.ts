@@ -8,6 +8,7 @@ import {
   CreateDevelopmentUnitInputSchema,
   DevelopmentIdInputSchema,
   DevelopmentMapQuerySchema,
+  UpdateDevelopmentChancesInputSchema,
   UpdateDevelopmentDetailsInputSchema,
   UpdateDevelopmentFeaturesInputSchema,
   UpdateDevelopmentGeneralInputSchema,
@@ -22,6 +23,7 @@ import {
   type DevelopmentMapResult,
   type GeocodingOutcome,
   type MediaRow,
+  type UpdateDevelopmentChancesInput,
   type UpdateDevelopmentDetailsInput,
   type UpdateDevelopmentFeaturesInput,
   type UpdateDevelopmentGeneralInput,
@@ -147,6 +149,17 @@ export async function updateDevelopmentFeaturesAction(
   const parsed = UpdateDevelopmentFeaturesInputSchema.safeParse(input);
   if (!parsed.success) return actionFailed(INVALID);
   const result = await developments().updateDevelopmentFeatures.execute(parsed.data, actor);
+  return done(result, DEVELOPMENT_ERROR_MESSAGES, parsed.data.developmentId);
+}
+
+/** La derivación por chances: los agentes que reciben las consultas, con su peso. */
+export async function updateDevelopmentChancesAction(
+  input: UpdateDevelopmentChancesInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = UpdateDevelopmentChancesInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+  const result = await developments().updateDevelopmentChances.execute(parsed.data, actor);
   return done(result, DEVELOPMENT_ERROR_MESSAGES, parsed.data.developmentId);
 }
 

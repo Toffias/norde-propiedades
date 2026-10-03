@@ -16,6 +16,7 @@ import type {
   PreviewDevelopmentUnitImportError,
   RestoreDevelopmentError,
   StartDevelopmentUnitImportError,
+  UpdateDevelopmentChancesError,
   UpdateDevelopmentDetailsError,
   UpdateDevelopmentFeaturesError,
   UpdateDevelopmentGeneralError,
@@ -49,6 +50,13 @@ export const DEVELOPMENT_ERROR_MESSAGES = {
   InvalidDevelopmentStatusTransition: 'No se puede pasar a ese estado.',
   FeatureNotFound: 'Uno de los ítems ya no está en el catálogo. Recargá la página.',
   TagNotFound: 'Una de las etiquetas ya no existe. Recargá la página.',
+  InvalidDevelopmentChances: (error) =>
+    error.reason === 'duplicate_agent'
+      ? 'Un agente está repetido.'
+      : error.reason === 'too_many_agents'
+        ? 'Son demasiados agentes: el máximo es 20.'
+        : 'El peso de cada agente va de 1 a 10.',
+  ChanceAgentNotFound: 'Uno de los agentes ya no está activo. Elegí otro.',
 } satisfies ErrorMessages<
   | CreateDevelopmentError
   | DeleteDevelopmentError
@@ -58,6 +66,7 @@ export const DEVELOPMENT_ERROR_MESSAGES = {
   | UpdateDevelopmentDetailsError
   | ChangeDevelopmentStatusError
   | UpdateDevelopmentFeaturesError
+  | UpdateDevelopmentChancesError
   | ChangeDevelopmentTagsError
 >;
 

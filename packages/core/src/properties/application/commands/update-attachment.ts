@@ -7,45 +7,40 @@ import {
   type Clock,
   type Result,
 } from '../../../shared';
-import {
-  UpdatePropertyAttachmentInputSchema,
-  type UpdatePropertyAttachmentInput,
-} from '../../contracts';
-import type { InvalidAttachmentNameError } from '../../domain/property-attachment';
+import { UpdateAttachmentInputSchema, type UpdateAttachmentInput } from '../../contracts';
+import type { InvalidAttachmentNameError } from '../../domain/attachment';
 import {
   attachmentAuditState,
+  canEditMedia,
   childState,
   loadAttachmentForEdit,
+  ownerTarget,
   type AttachmentNotFoundError,
+  type MediaOwnerError,
 } from '../media-support';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
-import {
-  canEditProperties,
-  invalidInput,
-  propertyTarget,
-  type EditPropertyError,
-} from '../property-support';
+import { invalidInput, type InvalidInputError } from '../property-support';
 
-export type UpdatePropertyAttachmentError =
-  EditPropertyError | AttachmentNotFoundError | InvalidAttachmentNameError;
+export type UpdateAttachmentError =
+  InvalidInputError | MediaOwnerError | AttachmentNotFoundError | InvalidAttachmentNameError;
 
 /** Renombra un archivo o cambia "Mostrar en la web". */
-export class UpdatePropertyAttachment {
+export class UpdateAttachment {
   constructor(
     private readonly deps: { readonly uow: PropertiesUnitOfWork; readonly clock: Clock },
   ) {}
 
   async execute(
-    input: UpdatePropertyAttachmentInput,
+    input: UpdateAttachmentInput,
     actor: Actor,
-  ): Promise<Result<void, UpdatePropertyAttachmentError>> {
-    if (!canEditProperties(actor)) return err({ type: 'Forbidden' });
-    const parsed = UpdatePropertyAttachmentInputSchema.safeParse(input);
+  ): Promise<Result<void, UpdateAttachmentError>> {
+    if (!canEditMedia(actor)) return err({ type: 'Forbidden' });
+    const parsed = UpdateAttachmentInputSchema.safeParse(input);
     if (!parsed.success) return err(invalidInput(parsed.error));
     const { attachmentId, name, showOnWeb } = parsed.data;
     const now = this.deps.clock.now();
 
-    return this.deps.uow.run(async (tx): Promise<Result<void, UpdatePropertyAttachmentError>> => {
+    return this.deps.uow.run(async (tx): Promise<Result<void, UpdateAttachmentError>> => {
       const loaded = await loadAttachmentForEdit(tx, actor, attachmentId);
       if (loaded.isErr()) return err(loaded.error);
       const attachment = loaded.value;
@@ -65,7 +60,7 @@ export class UpdatePropertyAttachment {
       await tx.audit.record(
         auditAction(
           actor,
-          propertyTarget('property.attachment_updated', attachment.propertyId),
+          ownerTarget('attachment_updated', attachment.owner),
           diffChanges(
             childState(prefix, before),
             childState(prefix, attachmentAuditState(attachment)),

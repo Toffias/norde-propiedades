@@ -24,7 +24,7 @@ import {
 } from '@norde/core/conversations';
 import {
   DeleteStoredMediaFiles,
-  GeneratePropertyMediaVariants,
+  GenerateMediaVariants,
   GetPropertyDetail,
   GetPropertyInterestProfile,
   GetPropertySummaries,
@@ -239,7 +239,7 @@ function createPropertyJobs(
     },
   };
   return {
-    generateMediaVariants: new GeneratePropertyMediaVariants({
+    generateMediaVariants: new GenerateMediaVariants({
       uow,
       storage,
       images: new SharpImageVariantGenerator(),

@@ -1,4 +1,4 @@
-// Contracts de multimedia y archivos de la ficha (#6).
+// Contracts de multimedia y archivos de la ficha de una propiedad (#6) o de un emprendimiento (#7).
 
 import { z } from 'zod';
 
@@ -25,28 +25,38 @@ const bytes = (max: number) =>
     .refine((value) => value.byteLength > 0, { message: 'El archivo está vacío.' })
     .refine((value) => value.byteLength <= max, { message: 'El archivo es demasiado grande.' });
 
-const PropertyId = { propertyId: z.uuid() };
+/** De quién son la foto o el archivo. */
+export const MEDIA_OWNER_KIND_VALUES = ['property', 'development'] as const;
+export type MediaOwnerKindValue = (typeof MEDIA_OWNER_KIND_VALUES)[number];
+
+export const MediaOwnerInputSchema = z.object({
+  kind: z.enum(MEDIA_OWNER_KIND_VALUES),
+  id: z.uuid(),
+});
+export type MediaOwnerInput = z.infer<typeof MediaOwnerInputSchema>;
+
+const Owner = { owner: MediaOwnerInputSchema };
 
 /** Una foto por pedido: la pantalla sube varias en paralelo y muestra el avance de cada una. */
-export const UploadPropertyMediaInputSchema = z.object({
-  ...PropertyId,
+export const UploadMediaInputSchema = z.object({
+  ...Owner,
   fileName: z.string().trim().min(1).max(200),
   contentType: z.string().trim().min(1).max(100),
   bytes: bytes(MAX_MEDIA_UPLOAD_BYTES),
 });
-export type UploadPropertyMediaInput = z.input<typeof UploadPropertyMediaInputSchema>;
+export type UploadMediaInput = z.input<typeof UploadMediaInputSchema>;
 
-export const AddPropertyMediaLinkInputSchema = z.object({
-  ...PropertyId,
+export const AddMediaLinkInputSchema = z.object({
+  ...Owner,
   kind: z.enum(['video', 'tour_360']),
   url: z.url({ protocol: /^https$/, message: 'Pegá el link completo, con https://.' }).max(500),
 });
-export type AddPropertyMediaLinkInput = z.input<typeof AddPropertyMediaLinkInputSchema>;
+export type AddMediaLinkInput = z.input<typeof AddMediaLinkInputSchema>;
 
 export const MediaIdInputSchema = z.object({ mediaId: z.uuid() });
 export type MediaIdInput = z.input<typeof MediaIdInputSchema>;
 
-export const UpdatePropertyMediaInputSchema = z
+export const UpdateMediaInputSchema = z
   .object({
     mediaId: z.uuid(),
     showOnWeb: z.boolean().optional(),
@@ -64,28 +74,28 @@ export const UpdatePropertyMediaInputSchema = z
       input.rotation !== undefined,
     { message: 'Elegí qué cambiar de la foto.' },
   );
-export type UpdatePropertyMediaInput = z.input<typeof UpdatePropertyMediaInputSchema>;
+export type UpdateMediaInput = z.input<typeof UpdateMediaInputSchema>;
 
 /** El orden completo de la galería, como queda después de arrastrar. */
-export const ReorderPropertyMediaInputSchema = z.object({
-  ...PropertyId,
+export const ReorderMediaInputSchema = z.object({
+  ...Owner,
   mediaIds: z.array(z.uuid()).min(1).max(100),
 });
-export type ReorderPropertyMediaInput = z.input<typeof ReorderPropertyMediaInputSchema>;
+export type ReorderMediaInput = z.input<typeof ReorderMediaInputSchema>;
 
 /** La galería de la ficha, paginada. */
-export const ListPropertyMediaQuerySchema = pageQuerySchema({
+export const ListMediaQuerySchema = pageQuerySchema({
   sortable: ['position'],
   defaultSort: { field: 'position', direction: 'asc' },
 }).extend({
-  ...PropertyId,
-  /** La galería entra en una o dos páginas: una propiedad tiene como mucho 100 ítems. */
+  ...Owner,
+  /** La galería entra en una o dos páginas: tiene como mucho 100 ítems. */
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(50),
   kind: z.enum(['images', 'links']).optional(),
 });
-export type ListPropertyMediaQuery = z.input<typeof ListPropertyMediaQuerySchema>;
+export type ListMediaQuery = z.input<typeof ListMediaQuerySchema>;
 
-export interface PropertyMediaRow {
+export interface MediaRow {
   readonly id: string;
   readonly kind: MediaKindValue;
   readonly position: number;
@@ -107,36 +117,40 @@ export interface PropertyMediaRow {
 export const MEDIA_VARIANT_VALUES = ['thumbnail', 'web', 'original'] as const;
 export type MediaVariantValue = (typeof MEDIA_VARIANT_VALUES)[number];
 
-export const GetPropertyMediaFileInputSchema = z.object({
+export const GetMediaFileInputSchema = z.object({
   mediaId: z.uuid(),
   variant: z.enum(MEDIA_VARIANT_VALUES).default('thumbnail'),
 });
-export type GetPropertyMediaFileInput = z.input<typeof GetPropertyMediaFileInputSchema>;
+export type GetMediaFileInput = z.input<typeof GetMediaFileInputSchema>;
 
 // ---------- Jobs ----------
 
-/** Solo claves de la galería de una propiedad: el job nunca borra otra cosa del storage. */
+/** Solo claves de una galería: el job nunca borra otra cosa del storage. */
 export const DeleteStoredMediaFilesInputSchema = z.object({
   storageKeys: z
-    .array(z.string().regex(/^properties\/[0-9a-f-]{36}\/media\/[0-9a-f-]{36}\/[a-z0-9-]+$/))
+    .array(
+      z
+        .string()
+        .regex(/^(properties|developments)\/[0-9a-f-]{36}\/media\/[0-9a-f-]{36}\/[a-z0-9-]+$/),
+    )
     .max(10),
 });
 export type DeleteStoredMediaFilesInput = z.input<typeof DeleteStoredMediaFilesInputSchema>;
 
 // ---------- Archivos ----------
 
-export const UploadPropertyAttachmentInputSchema = z.object({
-  ...PropertyId,
+export const UploadAttachmentInputSchema = z.object({
+  ...Owner,
   fileName: z.string().trim().min(1).max(200),
   contentType: z.string().trim().min(1).max(200),
   bytes: bytes(MAX_ATTACHMENT_UPLOAD_BYTES),
 });
-export type UploadPropertyAttachmentInput = z.input<typeof UploadPropertyAttachmentInputSchema>;
+export type UploadAttachmentInput = z.input<typeof UploadAttachmentInputSchema>;
 
 export const AttachmentIdInputSchema = z.object({ attachmentId: z.uuid() });
 export type AttachmentIdInput = z.input<typeof AttachmentIdInputSchema>;
 
-export const UpdatePropertyAttachmentInputSchema = z
+export const UpdateAttachmentInputSchema = z
   .object({
     attachmentId: z.uuid(),
     name: z.string().trim().min(1).max(150).optional(),
@@ -145,17 +159,17 @@ export const UpdatePropertyAttachmentInputSchema = z
   .refine((input) => input.name !== undefined || input.showOnWeb !== undefined, {
     message: 'Elegí qué cambiar del archivo.',
   });
-export type UpdatePropertyAttachmentInput = z.input<typeof UpdatePropertyAttachmentInputSchema>;
+export type UpdateAttachmentInput = z.input<typeof UpdateAttachmentInputSchema>;
 
-export const PROPERTY_ATTACHMENT_SORT_FIELDS = ['createdAt', 'name'] as const;
+export const ATTACHMENT_SORT_FIELDS = ['createdAt', 'name'] as const;
 
-export const ListPropertyAttachmentsQuerySchema = pageQuerySchema({
-  sortable: PROPERTY_ATTACHMENT_SORT_FIELDS,
+export const ListAttachmentsQuerySchema = pageQuerySchema({
+  sortable: ATTACHMENT_SORT_FIELDS,
   defaultSort: { field: 'createdAt', direction: 'desc' },
-}).extend(PropertyId);
-export type ListPropertyAttachmentsQuery = z.input<typeof ListPropertyAttachmentsQuerySchema>;
+}).extend(Owner);
+export type ListAttachmentsQuery = z.input<typeof ListAttachmentsQuerySchema>;
 
-export interface PropertyAttachmentRow {
+export interface AttachmentRow {
   readonly id: string;
   readonly name: string;
   readonly mimeType: string;

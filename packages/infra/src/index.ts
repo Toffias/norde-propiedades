@@ -38,7 +38,7 @@ export {
 } from './identity/drizzle-user-favorites';
 export { DrizzlePropertyClientErasure } from './properties/drizzle-property-client-erasure';
 export { DrizzlePropertyCatalogQuery } from './properties/drizzle-property-catalog-query';
-export { DrizzlePropertyMediaQuery } from './properties/drizzle-property-media-query';
+export { DrizzleMediaQuery } from './properties/drizzle-media-query';
 export { DrizzlePropertyDocumentQuery } from './properties/drizzle-property-documents';
 export { DrizzlePropertyDetailLookups } from './properties/drizzle-property-detail-lookups';
 export { DrizzleAuditHistoryQuery } from './audit/drizzle-audit-history-query';

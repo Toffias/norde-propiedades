@@ -2,7 +2,6 @@ import type {
   ConditionValue,
   CustomAttributeKindValue,
   DispositionValue,
-  MediaKindValue,
   OrientationValue,
   PropertyDocumentKindValue,
   PropertyDocumentStatusValue,
@@ -65,13 +64,6 @@ export const CUSTOM_ATTRIBUTE_KIND_LABELS: Readonly<Record<CustomAttributeKindVa
   number: 'Número',
   boolean: 'Sí / No',
   select: 'Lista de opciones',
-};
-
-export const MEDIA_KIND_LABELS: Readonly<Record<MediaKindValue, string>> = {
-  photo: 'Foto',
-  floor_plan: 'Plano',
-  video: 'Video',
-  tour_360: 'Recorrido 360',
 };
 
 export const DOCUMENT_KIND_LABELS: Readonly<Record<PropertyDocumentKindValue, string>> = {

@@ -8,17 +8,17 @@ import type { ImageVariantGenerator } from '../ports/image-variant-generator';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import { invalidInput, type InvalidInputError } from '../property-support';
 
-export type GeneratePropertyMediaVariantsError = ForbiddenError | InvalidInputError;
+export type GenerateMediaVariantsError = ForbiddenError | InvalidInputError;
 
 /** Qué pasó con la foto: ya no existe (se borró antes de que corra el job), quedó lista o falló. */
 export type MediaProcessingOutcome = 'gone' | 'ready' | 'failed';
 
 /**
- * Lo corre el job de `MediaVariantsRequested`: genera la miniatura y la versión web de una foto y,
- * si la marca de agua está activa en Mi empresa, una copia con la marca. La original nunca se
- * modifica. Una imagen que no se puede leer queda "fallida" con el motivo, sin reintentos.
+ * Lo corre el job de `MediaVariantsRequested`: genera la miniatura y la versión web de una foto (de
+ * una propiedad o un emprendimiento) y, si la marca de agua está activa en Mi empresa, una copia con
+ * la marca. La original nunca se modifica. Una imagen que no se puede leer queda "fallida" con el motivo, sin reintentos.
  */
-export class GeneratePropertyMediaVariants {
+export class GenerateMediaVariants {
   constructor(
     private readonly deps: {
       readonly uow: PropertiesUnitOfWork;
@@ -33,7 +33,7 @@ export class GeneratePropertyMediaVariants {
   async execute(
     input: MediaIdInput,
     actor: Actor,
-  ): Promise<Result<MediaProcessingOutcome, GeneratePropertyMediaVariantsError>> {
+  ): Promise<Result<MediaProcessingOutcome, GenerateMediaVariantsError>> {
     if (!actor.can('properties:process-media')) return err({ type: 'Forbidden' });
     const parsed = MediaIdInputSchema.safeParse(input);
     if (!parsed.success) return err(invalidInput(parsed.error));
@@ -59,13 +59,13 @@ export class GeneratePropertyMediaVariants {
 
     // Cada generación usa claves nuevas: el navegador no muestra una versión vieja de la caché.
     const version = this.deps.clock.now().getTime().toString(36);
-    const thumbnailKey = mediaKey(item.propertyId, id, `thumbnail-${version}`);
-    const webKey = mediaKey(item.propertyId, id, `web-${version}`);
+    const thumbnailKey = mediaKey(item.owner, id, `thumbnail-${version}`);
+    const webKey = mediaKey(item.owner, id, `web-${version}`);
     await this.deps.storage.put({ key: thumbnailKey, contentType: 'image/jpeg', bytes: thumbnail });
     await this.deps.storage.put({ key: webKey, contentType: 'image/jpeg', bytes: web });
     const watermarkedKey = await this.watermark(
       web,
-      mediaKey(item.propertyId, id, `watermarked-${version}`),
+      mediaKey(item.owner, id, `watermarked-${version}`),
     );
 
     const variants: MediaVariants = {

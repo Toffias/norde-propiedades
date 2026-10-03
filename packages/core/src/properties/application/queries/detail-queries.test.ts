@@ -330,7 +330,7 @@ describe('property documents', () => {
       const item = unwrap(
         MediaItem.upload({
           id,
-          propertyId: unwrap(parseId<'Property'>(PROPERTY_ID)),
+          owner: { kind: 'property', id: unwrap(parseId<'Property'>(PROPERTY_ID)) },
           storageKey: `properties/${PROPERTY_ID}/media/${id}/original`,
           contentType: 'image/jpeg',
           sizeBytes: 1,

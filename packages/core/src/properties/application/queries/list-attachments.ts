@@ -9,32 +9,33 @@ import {
   type Result,
 } from '../../../shared';
 import {
-  ListPropertyAttachmentsQuerySchema,
-  type ListPropertyAttachmentsQuery,
-  type PropertyAttachmentRow,
+  ListAttachmentsQuerySchema,
+  type ListAttachmentsQuery,
+  type AttachmentRow,
 } from '../../contracts';
-import type { PropertyMediaQuery } from '../ports/property-media-query';
+import { canReadMedia, toMediaOwner, type MediaOwnerReadError } from '../media-support';
+import type { MediaQuery } from '../ports/media-query';
 import type { UserNames } from '../ports/user-names';
 import { invalidInput, type InvalidInputError } from '../property-support';
 
-export type ListPropertyAttachmentsError = ForbiddenError | InvalidInputError;
+export type ListAttachmentsError = ForbiddenError | InvalidInputError | MediaOwnerReadError;
 
 /** Los archivos de la ficha, con quién los subió, paginados en la base. */
-export class ListPropertyAttachments {
-  constructor(
-    private readonly deps: { readonly media: PropertyMediaQuery; readonly users: UserNames },
-  ) {}
+export class ListAttachments {
+  constructor(private readonly deps: { readonly media: MediaQuery; readonly users: UserNames }) {}
 
   async execute(
-    input: ListPropertyAttachmentsQuery,
+    input: ListAttachmentsQuery,
     actor: Actor,
-  ): Promise<Result<Page<PropertyAttachmentRow>, ListPropertyAttachmentsError>> {
-    if (!actor.can('properties:read')) return err({ type: 'Forbidden' });
-    const parsed = ListPropertyAttachmentsQuerySchema.safeParse(input);
+  ): Promise<Result<Page<AttachmentRow>, ListAttachmentsError>> {
+    const parsed = ListAttachmentsQuerySchema.safeParse(input);
     if (!parsed.success) return err(invalidInput(parsed.error));
-    const { propertyId, sort, page, pageSize } = parsed.data;
+    const { sort, page, pageSize } = parsed.data;
+    if (!canReadMedia(actor, parsed.data.owner.kind)) return err({ type: 'Forbidden' });
+    const owner = toMediaOwner(parsed.data.owner);
+    if (owner.isErr()) return err(owner.error);
     const slice = await this.deps.media.listAttachments({
-      propertyId,
+      owner: owner.value,
       sort,
       ...toOffsetLimit({ page, pageSize }),
     });

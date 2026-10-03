@@ -67,7 +67,9 @@ export class RenderPropertyDocument {
       const document = await tx.documents.findById(id);
       if (document?.status !== 'pending') return undefined;
       const property = await findProperty(tx.properties, document.propertyId);
-      const gallery = property ? await tx.media.listForProperty(property.id) : [];
+      const gallery = property
+        ? await tx.media.listForOwner({ kind: 'property', id: property.id })
+        : [];
       return property ? { document, property, gallery } : undefined;
     });
     if (!loaded) return ok('gone');

@@ -10,10 +10,7 @@ import type {
 } from '../../domain/catalog.repository';
 import type { DevelopmentRepository } from '../../domain/development.repository';
 import type { FavoriteSearchRepository } from '../../domain/favorite-search';
-import type {
-  MediaItemRepository,
-  PropertyAttachmentRepository,
-} from '../../domain/media.repository';
+import type { MediaItemRepository, AttachmentRepository } from '../../domain/media.repository';
 import type { PropertyDocumentRepository } from '../../domain/property-document.repository';
 import type { PropertyRepository } from '../../domain/property.repository';
 
@@ -30,7 +27,7 @@ export interface PropertiesTransaction {
   readonly settings: PropertySettingsRepository;
   readonly favoriteSearches: FavoriteSearchRepository;
   readonly media: MediaItemRepository;
-  readonly attachments: PropertyAttachmentRepository;
+  readonly attachments: AttachmentRepository;
   readonly documents: PropertyDocumentRepository;
   readonly events: EventPublisher;
   readonly audit: AuditLog;

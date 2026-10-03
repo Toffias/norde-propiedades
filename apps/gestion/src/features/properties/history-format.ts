@@ -5,9 +5,9 @@ import {
   CONDITION_LABELS,
   DISPOSITION_LABELS,
   HISTORY_FIELD_LABELS,
-  MEDIA_KIND_LABELS,
   ORIENTATION_LABELS,
 } from './detail-labels';
+import { MEDIA_KIND_LABELS } from '../media/labels';
 import { OPERATION_LABELS, PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from './labels';
 
 // El historial guarda valores crudos (centavos, IDs, enums): acá se pasan a texto para mostrarlos.

@@ -2,9 +2,9 @@ import { AggregateRoot } from '../../shared/domain/aggregate-root';
 import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
-import type { PropertyId } from './property';
+import type { MediaOwner } from './media-owner';
 
-export type PropertyAttachmentId = Id<'PropertyAttachment'>;
+export type AttachmentId = Id<'Attachment'>;
 
 /** Escrituras, reglamentos, planos en PDF, planillas: documentos, no fotos. */
 export const ATTACHMENT_TYPES = [
@@ -20,9 +20,9 @@ export const ATTACHMENT_TYPES = [
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_NAME_LENGTH = 150;
 
-export interface PropertyAttachmentSnapshot {
-  readonly id: PropertyAttachmentId;
-  readonly propertyId: PropertyId;
+export interface AttachmentSnapshot {
+  readonly id: AttachmentId;
+  readonly owner: MediaOwner;
   readonly name: string;
   readonly storageKey: string;
   readonly mimeType: string;
@@ -62,13 +62,13 @@ function cleanName(name: string): string | undefined {
 }
 
 /**
- * Archivo adjunto de una propiedad (escritura, reglamento). Se descarga a través del panel, que
+ * Archivo adjunto de una propiedad o de un emprendimiento (escritura, reglamento). Se descarga a través del panel, que
  * autoriza cada pedido. Al borrarlo queda la baja lógica: el archivo se conserva.
  */
-export class PropertyAttachment extends AggregateRoot<PropertyAttachmentId, never> {
-  #state: Omit<PropertyAttachmentSnapshot, 'id'>;
+export class Attachment extends AggregateRoot<AttachmentId, never> {
+  #state: Omit<AttachmentSnapshot, 'id'>;
 
-  private constructor(id: PropertyAttachmentId, state: Omit<PropertyAttachmentSnapshot, 'id'>) {
+  private constructor(id: AttachmentId, state: Omit<AttachmentSnapshot, 'id'>) {
     super(id);
     this.#state = state;
   }
@@ -92,8 +92,8 @@ export class PropertyAttachment extends AggregateRoot<PropertyAttachmentId, neve
   }
 
   static upload(input: {
-    readonly id: PropertyAttachmentId;
-    readonly propertyId: PropertyId;
+    readonly id: AttachmentId;
+    readonly owner: MediaOwner;
     readonly fileName: string;
     readonly storageKey: string;
     readonly contentType: string;
@@ -101,14 +101,14 @@ export class PropertyAttachment extends AggregateRoot<PropertyAttachmentId, neve
     readonly uploadedBy: string;
     readonly now: Date;
   }): Result<
-    PropertyAttachment,
+    Attachment,
     UnsupportedAttachmentTypeError | AttachmentTooLargeError | InvalidAttachmentNameError
   > {
-    const name = PropertyAttachment.validateUpload(input);
+    const name = Attachment.validateUpload(input);
     if (name.isErr()) return err(name.error);
     return ok(
-      new PropertyAttachment(input.id, {
-        propertyId: input.propertyId,
+      new Attachment(input.id, {
+        owner: input.owner,
         name: name.value,
         storageKey: input.storageKey,
         mimeType: input.contentType,
@@ -122,13 +122,13 @@ export class PropertyAttachment extends AggregateRoot<PropertyAttachmentId, neve
     );
   }
 
-  static restore(snapshot: PropertyAttachmentSnapshot): PropertyAttachment {
+  static restore(snapshot: AttachmentSnapshot): Attachment {
     const { id, ...state } = snapshot;
-    return new PropertyAttachment(id, state);
+    return new Attachment(id, state);
   }
 
-  get propertyId(): PropertyId {
-    return this.#state.propertyId;
+  get owner(): MediaOwner {
+    return this.#state.owner;
   }
 
   get name(): string {
@@ -171,7 +171,7 @@ export class PropertyAttachment extends AggregateRoot<PropertyAttachmentId, neve
     return true;
   }
 
-  toSnapshot(): PropertyAttachmentSnapshot {
+  toSnapshot(): AttachmentSnapshot {
     return { id: this.id, ...this.#state };
   }
 }

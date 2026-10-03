@@ -8,7 +8,7 @@ import {
   BRANCH_ID,
   FakeImageVariantGenerator,
   InMemoryPropertiesUnitOfWork,
-  InMemoryPropertyMediaQuery,
+  InMemoryMediaQuery,
   InMemoryUserNames,
   OTHER_USER_ID,
   PRODUCER_ID,
@@ -17,21 +17,21 @@ import {
   TEST_NOW,
   TEST_OUTSIDER,
 } from '../../testing';
-import { GetPropertyAttachmentDownload } from '../queries/get-property-attachment-download';
-import { GetPropertyMediaFile } from '../queries/get-property-media-file';
-import { ListPropertyAttachments } from '../queries/list-property-attachments';
-import { ListPropertyMedia } from '../queries/list-property-media';
-import { AddPropertyMediaLink } from './add-property-media-link';
-import { DeletePropertyAttachment } from './delete-property-attachment';
-import { DeletePropertyMedia } from './delete-property-media';
+import { GetAttachmentDownload } from '../queries/get-attachment-download';
+import { GetMediaFile } from '../queries/get-media-file';
+import { ListAttachments } from '../queries/list-attachments';
+import { ListMedia } from '../queries/list-media';
+import { AddMediaLink } from './add-media-link';
+import { DeleteAttachment } from './delete-attachment';
+import { DeleteMedia } from './delete-media';
 import { DeleteStoredMediaFiles } from './delete-stored-media-files';
-import { GeneratePropertyMediaVariants } from './generate-property-media-variants';
-import { ReorderPropertyMedia } from './reorder-property-media';
-import { SetPropertyCover } from './set-property-cover';
-import { UpdatePropertyAttachment } from './update-property-attachment';
-import { UpdatePropertyMedia } from './update-property-media';
-import { UploadPropertyAttachment } from './upload-property-attachment';
-import { UploadPropertyMedia } from './upload-property-media';
+import { GenerateMediaVariants } from './generate-media-variants';
+import { ReorderMedia } from './reorder-media';
+import { SetMediaCover } from './set-media-cover';
+import { UpdateAttachment } from './update-attachment';
+import { UpdateMedia } from './update-media';
+import { UploadAttachment } from './upload-attachment';
+import { UploadMedia } from './upload-media';
 
 const EDITOR = Actor.user(PRODUCER_ID, ['properties:read', 'properties:update']).withBranch(
   BRANCH_ID,
@@ -39,6 +39,7 @@ const EDITOR = Actor.user(PRODUCER_ID, ['properties:read', 'properties:update'])
 /** Edita solo lo suyo: la propiedad de prueba es de otro captador. */
 const STRANGER = Actor.user(OTHER_USER_ID, ['properties:read', 'properties:update']);
 const JOBS = Actor.system('scheduler', ['properties:process-media']);
+const OWNER = { kind: 'property', id: PROPERTY_ID } as const;
 const PHOTO = { fileName: 'living.jpg', contentType: 'image/jpeg', bytes: new Uint8Array([9]) };
 
 function settingsWith(watermark: Watermark) {
@@ -54,21 +55,21 @@ function setup() {
   const clock = new FixedClock(TEST_NOW);
   const ids = new SequentialIdGenerator();
   const images = new FakeImageVariantGenerator();
-  const query = new InMemoryPropertyMediaQuery(uow.media, uow.attachments);
+  const query = new InMemoryMediaQuery(uow.media, uow.attachments);
   return {
     uow,
     storage,
     clock,
     images,
     query,
-    upload: new UploadPropertyMedia({ uow, storage, ids, clock }),
-    link: new AddPropertyMediaLink({ uow, ids, clock }),
-    update: new UpdatePropertyMedia({ uow, clock }),
-    reorder: new ReorderPropertyMedia({ uow, clock }),
-    cover: new SetPropertyCover({ uow, clock }),
-    remove: new DeletePropertyMedia({ uow, clock }),
+    upload: new UploadMedia({ uow, storage, ids, clock }),
+    link: new AddMediaLink({ uow, ids, clock }),
+    update: new UpdateMedia({ uow, clock }),
+    reorder: new ReorderMedia({ uow, clock }),
+    cover: new SetMediaCover({ uow, clock }),
+    remove: new DeleteMedia({ uow, clock }),
     variants: (watermark = Watermark.disabled()) =>
-      new GeneratePropertyMediaVariants({
+      new GenerateMediaVariants({
         uow,
         storage,
         images,
@@ -79,10 +80,10 @@ function setup() {
   };
 }
 
-describe('UploadPropertyMedia', () => {
+describe('UploadMedia', () => {
   it('stores the original, leaves it processing and asks for its variants', async () => {
     const { upload, uow, storage } = setup();
-    const { mediaId } = unwrap(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
+    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
     const row = uow.media.rows.get(mediaId);
     expect(row).toMatchObject({
       kind: 'photo',
@@ -105,15 +106,15 @@ describe('UploadPropertyMedia', () => {
 
   it('makes only the first photo the cover', async () => {
     const { upload, uow } = setup();
-    unwrap(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
-    const second = unwrap(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
+    unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
+    const second = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
     expect(uow.media.rows.get(second.mediaId)).toMatchObject({ isCover: false, position: 1 });
   });
 
   it('rejects other file types and uploads nothing', async () => {
     const { upload, storage } = setup();
     const result = await upload.execute(
-      { propertyId: PROPERTY_ID, ...PHOTO, contentType: 'application/pdf' },
+      { owner: OWNER, ...PHOTO, contentType: 'application/pdf' },
       EDITOR,
     );
     expect(unwrapErr(result)).toEqual({ type: 'UnsupportedMediaType' });
@@ -122,20 +123,20 @@ describe('UploadPropertyMedia', () => {
 
   it('checks who can edit the property before uploading', async () => {
     const { upload, storage } = setup();
-    expect(
-      unwrapErr(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, STRANGER)),
-    ).toEqual({ type: 'Forbidden' });
-    expect(
-      unwrapErr(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, TEST_OUTSIDER)),
-    ).toEqual({ type: 'Forbidden' });
+    expect(unwrapErr(await upload.execute({ owner: OWNER, ...PHOTO }, STRANGER))).toEqual({
+      type: 'Forbidden',
+    });
+    expect(unwrapErr(await upload.execute({ owner: OWNER, ...PHOTO }, TEST_OUTSIDER))).toEqual({
+      type: 'Forbidden',
+    });
     expect(storage.objects.size).toBe(0);
   });
 });
 
-describe('GeneratePropertyMediaVariants', () => {
+describe('GenerateMediaVariants', () => {
   it('stores the thumbnail and the web version and marks the photo ready', async () => {
     const { upload, variants, uow, storage, images } = setup();
-    const { mediaId } = unwrap(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
+    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
     expect(unwrap(await variants().execute({ mediaId }, JOBS))).toBe('ready');
     const row = uow.media.rows.get(mediaId);
     expect(row).toMatchObject({ processing: 'ready', width: 1600, height: 1200 });
@@ -154,7 +155,7 @@ describe('GeneratePropertyMediaVariants', () => {
     const watermark = unwrap(
       Watermark.create({ ...Watermark.DEFAULTS, enabled: true, logoKey: 'settings/watermark' }),
     );
-    const { mediaId } = unwrap(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
+    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
     unwrap(await variants(watermark).execute({ mediaId }, JOBS));
     const key = uow.media.rows.get(mediaId)?.variants.watermarked;
     expect(key).toBeDefined();
@@ -164,7 +165,7 @@ describe('GeneratePropertyMediaVariants', () => {
   it('marks a damaged image as failed', async () => {
     const { upload, variants, uow, images } = setup();
     images.invalid = true;
-    const { mediaId } = unwrap(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
+    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
     expect(unwrap(await variants().execute({ mediaId }, JOBS))).toBe('failed');
     expect(uow.media.rows.get(mediaId)).toMatchObject({
       processing: 'failed',
@@ -186,12 +187,12 @@ describe('GeneratePropertyMediaVariants', () => {
 
   it('replaces the variants of a previous rotation', async () => {
     const { upload, update, variants, uow, storage } = setup();
-    const { mediaId } = unwrap(await upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
+    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
     unwrap(await variants().execute({ mediaId }, JOBS));
     const first = uow.media.rows.get(mediaId)?.variants.thumbnail ?? '';
     unwrap(await update.execute({ mediaId, rotation: 90 }, EDITOR));
     expect(uow.media.rows.get(mediaId)?.processing).toBe('pending');
-    const later = new GeneratePropertyMediaVariants({
+    const later = new GenerateMediaVariants({
       uow,
       storage,
       images: new FakeImageVariantGenerator(),
@@ -208,11 +209,11 @@ describe('GeneratePropertyMediaVariants', () => {
 describe('gallery edits', () => {
   async function gallery() {
     const ctx = setup();
-    const a = unwrap(await ctx.upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
-    const b = unwrap(await ctx.upload.execute({ propertyId: PROPERTY_ID, ...PHOTO }, EDITOR));
+    const a = unwrap(await ctx.upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
+    const b = unwrap(await ctx.upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
     const video = unwrap(
       await ctx.link.execute(
-        { propertyId: PROPERTY_ID, kind: 'video', url: 'https://youtu.be/abc123' },
+        { owner: OWNER, kind: 'video', url: 'https://youtu.be/abc123' },
         EDITOR,
       ),
     );
@@ -265,25 +266,22 @@ describe('gallery edits', () => {
     const { link } = await gallery();
     expect(
       unwrapErr(
-        await link.execute(
-          { propertyId: PROPERTY_ID, kind: 'tour_360', url: 'https://youtu.be/abc' },
-          EDITOR,
-        ),
+        await link.execute({ owner: OWNER, kind: 'tour_360', url: 'https://youtu.be/abc' }, EDITOR),
       ),
     ).toEqual({ type: 'InvalidMediaUrl' });
   });
 
   it('reorders the whole gallery', async () => {
     const { reorder, uow, a, b, video } = await gallery();
-    unwrap(await reorder.execute({ propertyId: PROPERTY_ID, mediaIds: [video, b, a] }, EDITOR));
+    unwrap(await reorder.execute({ owner: OWNER, mediaIds: [video, b, a] }, EDITOR));
     expect([a, b, video].map((id) => uow.media.rows.get(id)?.position)).toEqual([2, 1, 0]);
     expect(uow.audit.entries[0]).toMatchObject({
       action: 'property.media_reordered',
       changes: { mediaOrder: { before: [a, b, video], after: [video, b, a] } },
     });
-    expect(
-      unwrapErr(await reorder.execute({ propertyId: PROPERTY_ID, mediaIds: [a, b] }, EDITOR)),
-    ).toEqual({ type: 'InvalidMediaOrder' });
+    expect(unwrapErr(await reorder.execute({ owner: OWNER, mediaIds: [a, b] }, EDITOR))).toEqual({
+      type: 'InvalidMediaOrder',
+    });
   });
 
   it('moves the cover to another photo, but not to a video', async () => {
@@ -325,15 +323,12 @@ describe('gallery edits', () => {
   it('lists the gallery in order and serves the thumbnail or the original', async () => {
     const { query, uow, storage, a, b, variants } = await gallery();
     const list = unwrap(
-      await new ListPropertyMedia({ media: query }).execute(
-        { propertyId: PROPERTY_ID, kind: 'images' },
-        EDITOR,
-      ),
+      await new ListMedia({ media: query }).execute({ owner: OWNER, kind: 'images' }, EDITOR),
     );
     expect(list.items.map((item) => item.id)).toEqual([a, b]);
     expect(list.total).toBe(2);
 
-    const files = new GetPropertyMediaFile({ uow, storage });
+    const files = new GetMediaFile({ uow, storage });
     // Sin variantes todavía: se entrega la original.
     expect(unwrap(await files.execute({ mediaId: a }, EDITOR))).toMatchObject({
       kind: 'content',
@@ -364,30 +359,28 @@ describe('attachments', () => {
     const ids = new SequentialIdGenerator();
     return {
       ...ctx,
-      uploadFile: new UploadPropertyAttachment({
+      uploadFile: new UploadAttachment({
         uow: ctx.uow,
         storage: ctx.storage,
         ids,
         clock: ctx.clock,
       }),
-      updateFile: new UpdatePropertyAttachment({ uow: ctx.uow, clock: ctx.clock }),
-      deleteFile: new DeletePropertyAttachment({ uow: ctx.uow, clock: ctx.clock }),
-      download: new GetPropertyAttachmentDownload({ uow: ctx.uow, storage: ctx.storage }),
+      updateFile: new UpdateAttachment({ uow: ctx.uow, clock: ctx.clock }),
+      deleteFile: new DeleteAttachment({ uow: ctx.uow, clock: ctx.clock }),
+      download: new GetAttachmentDownload({ uow: ctx.uow, storage: ctx.storage }),
     };
   }
 
   it('uploads, renames, shows on the web and soft-deletes a file, all in the history', async () => {
     const { uploadFile, updateFile, deleteFile, uow, storage, query } = attachments();
-    const { attachmentId } = unwrap(
-      await uploadFile.execute({ propertyId: PROPERTY_ID, ...DEED }, EDITOR),
-    );
+    const { attachmentId } = unwrap(await uploadFile.execute({ owner: OWNER, ...DEED }, EDITOR));
     expect(storage.objects.has(`properties/${PROPERTY_ID}/attachments/${attachmentId}`)).toBe(true);
     unwrap(
       await updateFile.execute({ attachmentId, name: 'Escritura.pdf', showOnWeb: true }, EDITOR),
     );
     const listed = unwrap(
-      await new ListPropertyAttachments({ media: query, users: new InMemoryUserNames() }).execute(
-        { propertyId: PROPERTY_ID },
+      await new ListAttachments({ media: query, users: new InMemoryUserNames() }).execute(
+        { owner: OWNER },
         EDITOR,
       ),
     );
@@ -409,24 +402,20 @@ describe('attachments', () => {
     expect(
       unwrapErr(
         await uploadFile.execute(
-          { propertyId: PROPERTY_ID, ...DEED, contentType: 'application/x-msdownload' },
+          { owner: OWNER, ...DEED, contentType: 'application/x-msdownload' },
           EDITOR,
         ),
       ),
     ).toEqual({ type: 'UnsupportedAttachmentType' });
     expect(
-      unwrapErr(
-        await uploadFile.execute({ propertyId: PROPERTY_ID, ...DEED, fileName: '/\\' }, EDITOR),
-      ),
+      unwrapErr(await uploadFile.execute({ owner: OWNER, ...DEED, fileName: '/\\' }, EDITOR)),
     ).toEqual({ type: 'InvalidAttachmentName' });
     expect(storage.objects.size).toBe(0);
   });
 
   it('downloads with a signed URL or the content, never a deleted file', async () => {
     const { uploadFile, deleteFile, download, storage } = attachments();
-    const { attachmentId } = unwrap(
-      await uploadFile.execute({ propertyId: PROPERTY_ID, ...DEED }, EDITOR),
-    );
+    const { attachmentId } = unwrap(await uploadFile.execute({ owner: OWNER, ...DEED }, EDITOR));
     expect(unwrap(await download.execute({ attachmentId }, EDITOR))).toEqual({
       kind: 'content',
       fileName: 'Escritura 2019.pdf',
@@ -446,9 +435,9 @@ describe('attachments', () => {
 
   it('checks who can edit the property', async () => {
     const { uploadFile } = attachments();
-    expect(
-      unwrapErr(await uploadFile.execute({ propertyId: PROPERTY_ID, ...DEED }, STRANGER)),
-    ).toEqual({ type: 'Forbidden' });
+    expect(unwrapErr(await uploadFile.execute({ owner: OWNER, ...DEED }, STRANGER))).toEqual({
+      type: 'Forbidden',
+    });
   });
 });
 

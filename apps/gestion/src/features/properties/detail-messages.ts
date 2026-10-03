@@ -3,25 +3,17 @@ import type {
   ListPropertySendsError,
 } from '@norde/core/clients';
 import type {
-  AddPropertyMediaLinkError,
   ChangePropertyCodeError,
   ChangePropertyProducerError,
   ChangePropertyStatusError,
   ChangePropertyTagsError,
   CreateCustomAttributeError,
-  DeletePropertyAttachmentError,
-  DeletePropertyMediaError,
   GetPanelPropertyDetailError,
-  ListPropertyAttachmentsError,
   ListPropertyDocumentsError,
   ListPropertyHistoryError,
-  ListPropertyMediaError,
-  ReorderPropertyMediaError,
   RequestPropertyDocumentError,
   SendOwnerReportError,
-  SetPropertyCoverError,
   UpdateCustomAttributeError,
-  UpdatePropertyAttachmentError,
   UpdatePropertyCharacteristicsError,
   UpdatePropertyCustomAttributesError,
   UpdatePropertyDealError,
@@ -29,19 +21,14 @@ import type {
   UpdatePropertyFeaturesError,
   UpdatePropertyInternalInfoError,
   UpdatePropertyLocationError,
-  UpdatePropertyMediaError,
   UpdatePropertyOperationsError,
   UpdatePropertyPublicationError,
-  UploadPropertyAttachmentError,
-  UploadPropertyMediaError,
 } from '@norde/core/properties';
 import type { GetPropertyStatisticsError } from '@norde/core/reporting';
 
 import type { ErrorMessages } from '../../lib/errors';
 
 // Errores esperados de la ficha de propiedad → mensajes para la UI.
-
-const MEGABYTE = 1024 * 1024;
 
 /** Todo lo que puede fallar al editar la ficha, sección por sección. */
 export type PropertyDetailEditError =
@@ -92,45 +79,11 @@ export const DETAIL_READ_ERROR_MESSAGES = {
   PropertyNotFound: 'No encontramos esa propiedad.',
 } satisfies ErrorMessages<GetPanelPropertyDetailError>;
 
-export type PropertyMediaError =
-  | UploadPropertyMediaError
-  | AddPropertyMediaLinkError
-  | UpdatePropertyMediaError
-  | ReorderPropertyMediaError
-  | SetPropertyCoverError
-  | DeletePropertyMediaError
-  | UploadPropertyAttachmentError
-  | UpdatePropertyAttachmentError
-  | DeletePropertyAttachmentError;
-
-export const MEDIA_ERROR_MESSAGES = {
-  Forbidden: 'No tenés permiso para cambiar la multimedia de esta propiedad.',
-  InvalidInput: 'Revisá los datos y probá de nuevo.',
-  PropertyNotFound: DETAIL_ERROR_MESSAGES.PropertyNotFound,
-  PropertyInTrash: DETAIL_ERROR_MESSAGES.PropertyInTrash,
-  UnsupportedMediaType: 'Subí fotos JPG, PNG o WebP.',
-  MediaTooLarge: (error) =>
-    `La foto pesa más de ${Math.round(error.maxBytes / MEGABYTE).toString()} MB.`,
-  TooManyMedia: (error) => `La galería admite hasta ${error.max.toString()} ítems.`,
-  InvalidMediaUrl:
-    'Pegá un link de YouTube o Vimeo (videos) o de Matterport, Kuula o Roundme (recorridos).',
-  NotAnImage: 'Eso solo se puede hacer con una foto.',
-  MediaNotFound: 'Esa foto ya no está en la galería.',
-  InvalidMediaOrder: 'La galería cambió mientras la ordenabas. Recargá la página y probá de nuevo.',
-  UnsupportedAttachmentType: 'Subí PDF, imágenes, Word o Excel.',
-  AttachmentTooLarge: (error) =>
-    `El archivo pesa más de ${Math.round(error.maxBytes / MEGABYTE).toString()} MB.`,
-  InvalidAttachmentName: 'El nombre del archivo no es válido (hasta 150 caracteres).',
-  AttachmentNotFound: 'Ese archivo ya no está en la ficha.',
-} satisfies ErrorMessages<PropertyMediaError>;
-
 export const DETAIL_LIST_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver esta información.',
   InvalidInput: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
   PropertyNotFound: DETAIL_READ_ERROR_MESSAGES.PropertyNotFound,
 } satisfies ErrorMessages<
-  | ListPropertyMediaError
-  | ListPropertyAttachmentsError
   | ListPropertyHistoryError
   | ListPropertyDocumentsError
   | ListPropertyInterestedClientsError

@@ -12,7 +12,7 @@ import type { RemoveErasedClientFavorites } from '@norde/core/identity';
 import type {
   DeleteStoredMediaFiles,
   UnlinkErasedClients,
-  GeneratePropertyMediaVariants,
+  GenerateMediaVariants,
   RenderPropertyDocument,
 } from '@norde/core/properties';
 import type { Actor } from '@norde/core/shared';
@@ -130,7 +130,7 @@ export interface ErasureJobs {
 
 /** Los jobs de la ficha de propiedad (#6): variantes de fotos, limpieza del storage y PDF. */
 export interface PropertyJobs {
-  readonly generateMediaVariants: Pick<GeneratePropertyMediaVariants, 'execute'>;
+  readonly generateMediaVariants: Pick<GenerateMediaVariants, 'execute'>;
   readonly deleteStoredMediaFiles: Pick<DeleteStoredMediaFiles, 'execute'>;
   readonly renderDocument: Pick<RenderPropertyDocument, 'execute'>;
 }

@@ -11,7 +11,7 @@ export async function GET(
   const session = await getSession();
   if (session.isErr()) return new Response(null, { status: 401 });
   const { attachmentId } = await params;
-  const result = await getContainer().properties.getPropertyAttachmentDownload.execute(
+  const result = await getContainer().properties.getAttachmentDownload.execute(
     { attachmentId },
     session.value.actor,
   );

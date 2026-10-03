@@ -320,7 +320,7 @@ export {
 
 export {
   MAX_MEDIA_BYTES,
-  MAX_MEDIA_PER_PROPERTY,
+  MAX_MEDIA_PER_OWNER,
   MEDIA_IMAGE_TYPES,
   MEDIA_KINDS,
   MEDIA_PROCESSING_STATUSES,
@@ -343,91 +343,72 @@ export {
 export {
   ATTACHMENT_TYPES,
   MAX_ATTACHMENT_BYTES,
-  PropertyAttachment,
+  Attachment,
   type AttachmentTooLargeError,
   type InvalidAttachmentNameError,
-  type PropertyAttachmentId,
-  type PropertyAttachmentSnapshot,
+  type AttachmentId,
+  type AttachmentSnapshot,
   type UnsupportedAttachmentTypeError,
-} from './domain/property-attachment';
-export type { MediaItemRepository, PropertyAttachmentRepository } from './domain/media.repository';
+} from './domain/attachment';
+export type { MediaItemRepository, AttachmentRepository } from './domain/media.repository';
+export { sameOwner, type MediaOwner, type MediaOwnerKind } from './domain/media-owner';
 export type {
   ImageVariantGenerator,
   ImageVariants,
   InvalidImageError as InvalidPropertyImageError,
 } from './application/ports/image-variant-generator';
 export type {
-  PropertyAttachmentCriteria,
-  PropertyMediaCriteria,
-  PropertyMediaQuery,
-} from './application/ports/property-media-query';
+  AttachmentCriteria,
+  MediaCriteria,
+  MediaQuery,
+} from './application/ports/media-query';
 export type {
   AttachmentNotFoundError,
+  EditMediaError,
   MediaNotFoundError,
+  MediaOwnerError,
+  MediaOwnerInTrashError,
+  MediaOwnerReadError,
   TooManyMediaError,
 } from './application/media-support';
+export { UploadMedia, type UploadMediaError } from './application/commands/upload-media';
+export { AddMediaLink, type AddMediaLinkError } from './application/commands/add-media-link';
+export { UpdateMedia, type UpdateMediaError } from './application/commands/update-media';
 export {
-  UploadPropertyMedia,
-  type UploadPropertyMediaError,
-} from './application/commands/upload-property-media';
-export {
-  AddPropertyMediaLink,
-  type AddPropertyMediaLinkError,
-} from './application/commands/add-property-media-link';
-export {
-  UpdatePropertyMedia,
-  type UpdatePropertyMediaError,
-} from './application/commands/update-property-media';
-export {
-  ReorderPropertyMedia,
+  ReorderMedia,
   type InvalidMediaOrderError,
-  type ReorderPropertyMediaError,
-} from './application/commands/reorder-property-media';
+  type ReorderMediaError,
+} from './application/commands/reorder-media';
+export { SetMediaCover, type SetMediaCoverError } from './application/commands/set-media-cover';
+export { DeleteMedia, type DeleteMediaError } from './application/commands/delete-media';
 export {
-  SetPropertyCover,
-  type SetPropertyCoverError,
-} from './application/commands/set-property-cover';
-export {
-  DeletePropertyMedia,
-  type DeletePropertyMediaError,
-} from './application/commands/delete-property-media';
-export {
-  GeneratePropertyMediaVariants,
-  type GeneratePropertyMediaVariantsError,
+  GenerateMediaVariants,
+  type GenerateMediaVariantsError,
   type MediaProcessingOutcome,
-} from './application/commands/generate-property-media-variants';
+} from './application/commands/generate-media-variants';
 export {
   DeleteStoredMediaFiles,
   type DeleteStoredMediaFilesError,
 } from './application/commands/delete-stored-media-files';
 export {
-  UploadPropertyAttachment,
-  type UploadPropertyAttachmentError,
-} from './application/commands/upload-property-attachment';
+  UploadAttachment,
+  type UploadAttachmentError,
+} from './application/commands/upload-attachment';
 export {
-  UpdatePropertyAttachment,
-  type UpdatePropertyAttachmentError,
-} from './application/commands/update-property-attachment';
+  UpdateAttachment,
+  type UpdateAttachmentError,
+} from './application/commands/update-attachment';
 export {
-  DeletePropertyAttachment,
-  type DeletePropertyAttachmentError,
-} from './application/commands/delete-property-attachment';
+  DeleteAttachment,
+  type DeleteAttachmentError,
+} from './application/commands/delete-attachment';
+export { ListMedia, type ListMediaError } from './application/queries/list-media';
+export { ListAttachments, type ListAttachmentsError } from './application/queries/list-attachments';
+export { GetMediaFile, type GetMediaFileError } from './application/queries/get-media-file';
 export {
-  ListPropertyMedia,
-  type ListPropertyMediaError,
-} from './application/queries/list-property-media';
-export {
-  ListPropertyAttachments,
-  type ListPropertyAttachmentsError,
-} from './application/queries/list-property-attachments';
-export {
-  GetPropertyMediaFile,
-  type GetPropertyMediaFileError,
-} from './application/queries/get-property-media-file';
-export {
-  GetPropertyAttachmentDownload,
-  type GetPropertyAttachmentDownloadError,
-} from './application/queries/get-property-attachment-download';
+  GetAttachmentDownload,
+  type GetAttachmentDownloadError,
+} from './application/queries/get-attachment-download';
 
 // ---------- Ficha: lectura, historial y documentos (#6) ----------
 

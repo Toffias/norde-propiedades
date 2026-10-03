@@ -368,7 +368,7 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 
 **Derivadas** (selector Lista / Tablero / Derivadas): la lista con la categoría "Aplica a otra inmobiliaria". Cada fila muestra a qué socia se derivó, la fecha y el resultado (derivada, sin opciones, volvió a Norde). "Derivación…" en el menú los carga; solo mientras la oportunidad está en esa categoría, y queda auditado (`opportunity.referral_updated`).
 
-### 3.3.9 Bandeja de consultas (#10, etapas 1 a 3)
+### 3.3.9 Bandeja de consultas (#10)
 
 Las **consultas** son los mensajes que llegan de los portales y del formulario de la web. Entran **pendientes** a una bandeja y terminan asignadas a un contacto (existente o nuevo) o en "Borradas". Las del agente de IA (WhatsApp, web chat) no pasan por la bandeja: ya entran por `RegisterContact`.
 
@@ -376,8 +376,8 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 
 1. Ingesta idempotente, bandeja y contador del menú.
 2. Deduplicación y asignación manual: coincidencias por teléfono o email, "Asignar a este cliente" o "Crear cliente nuevo", la oportunidad, el aviso al agente y las reglas de estado.
-3. Reparto ponderado y reglas de asignación automática.
-4. Horario laboral y política fuera de horario.
+3. Reparto ponderado y reglas de asignación automática. Construidas pero **en pausa** (#48): Norde no usa reglas en Tokko y asigna las consultas a mano.
+4. Horario laboral y política fuera de horario. **No se construyó**: solo tiene sentido con reglas. Pasó a #48.
 
 **Ingesta** (`ReceiveInquiry`):
 
@@ -436,6 +436,8 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Supresión de datos**: al suprimir un contacto se borran también las consultas sin asignar que tienen alguno de sus teléfonos o emails. Las asignadas a él caen con el contacto.
 
 **Reglas de asignación automática** (`/consultas/reglas`, con "Administrar consultas"):
+
+> **En pausa (#48).** Se prenden con `INQUIRY_RULES_ENABLED=true` en `apps/gestion` (muestra la pantalla y su link) y en `apps/agent` (suscribe `RouteInquiry`). Apagadas, `/consultas/reglas` responde 404 y toda consulta queda pendiente hasta que se asigna a mano.
 
 - **Regla**: nombre, condiciones y agentes con su peso (de 1 a 10). Hasta 100 reglas y 20 agentes por regla.
 - **Condiciones**: canal, operación de la propiedad, tipo de propiedad, zona (barrios), propiedad y emprendimiento.

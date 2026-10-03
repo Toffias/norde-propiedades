@@ -44,7 +44,7 @@ const CATEGORIES: Readonly<Record<DevelopmentHistoryCategory, readonly string[]>
     'development.attachment_updated',
     'development.attachment_deleted',
   ],
-  assignments: ['development.tags_changed'],
+  assignments: ['development.tags_changed', 'development.chances_updated'],
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;

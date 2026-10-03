@@ -35,6 +35,7 @@ export const DEVELOPMENT_TABS = [
   'unidades',
   'multimedia',
   'archivos',
+  'derivacion',
   'historial',
 ] as const;
 export type DevelopmentTab = (typeof DEVELOPMENT_TABS)[number];
@@ -44,6 +45,7 @@ export const DEVELOPMENT_TAB_LABELS: Readonly<Record<DevelopmentTab, string>> = 
   unidades: 'Unidades',
   multimedia: 'Multimedia',
   archivos: 'Archivos',
+  derivacion: 'Derivación',
   historial: 'Historial',
 };
 
@@ -54,7 +56,7 @@ export const DEVELOPMENT_HISTORY_CATEGORY_LABELS: Readonly<
   status: 'Estado',
   units: 'Unidades',
   media: 'Fotos, videos y archivos',
-  assignments: 'Etiquetas',
+  assignments: 'Etiquetas y derivación',
 };
 
 /** Qué hizo cada entrada del historial, en la voz de la línea ("Camila cambió el estado"). */
@@ -63,6 +65,7 @@ export const DEVELOPMENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>>
   'development.updated': 'editó la ficha',
   'development.status_changed': 'cambió el estado',
   'development.tags_changed': 'cambió las etiquetas',
+  'development.chances_updated': 'cambió la derivación de consultas',
   'development.deleted': 'mandó el emprendimiento a la papelera',
   'development.restored': 'restauró el emprendimiento',
   'development.unit_added': 'sumó una unidad',
@@ -105,6 +108,7 @@ export const DEVELOPMENT_HISTORY_FIELD_LABELS: Readonly<Record<string, string>> 
   featureIds: 'Servicios y adicionales',
   tagIds: 'Etiquetas',
   producerUserId: 'Captador',
+  chances: 'Agentes y pesos',
   branchId: 'Sucursal',
   unitId: 'Unidad',
   unitCode: 'Código de la unidad',

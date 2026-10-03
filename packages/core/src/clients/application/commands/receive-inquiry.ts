@@ -95,7 +95,8 @@ export class ReceiveInquiry {
           email,
           message: data.message,
           propertyId: data.propertyId,
-          developmentId: data.developmentId,
+          // Una consulta por una unidad es también una consulta por su emprendimiento.
+          developmentId: data.developmentId ?? property?.developmentId,
           branchId: property?.branchId,
           autoTags: inquiryAutoTags(data.channel, property),
           now,

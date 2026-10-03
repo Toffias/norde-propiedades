@@ -278,7 +278,10 @@ export function eventSubscriptions(deps: {
   /** La importación de unidades de un emprendimiento desde Excel (#7). */
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
-  /** El reparto automático de las consultas que entran (#10). Sin él, quedan pendientes (#48). */
+  /**
+   * El reparto automático de las consultas que entran: por las chances del emprendimiento (#7) y,
+   * con el flag, por las reglas (#10). Sin él, quedan pendientes.
+   */
   readonly routeInquiry?: Pick<RouteInquiry, 'execute'>;
   readonly actor: Actor;
   /** El de las importaciones: los contactos y las unidades quedan creados por `system:import`. */

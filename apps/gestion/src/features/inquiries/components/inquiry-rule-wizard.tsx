@@ -22,41 +22,28 @@ import {
 import { Input } from '@norde/ui/components/input';
 import { Label } from '@norde/ui/components/label';
 import { PagedCombobox, type LoadComboboxPage } from '@norde/ui/components/paged-combobox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
 import { cn } from '@norde/ui/lib/utils';
 import { Loader2Icon, XIcon } from 'lucide-react';
 import { useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
-import { loadUserOptions } from '../../identity/actions';
 import { loadLocationOptions, loadPropertyOptions } from '../../properties/actions';
 import { OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../../properties/labels';
 import { FormAlert } from '../../shared/components/form-alert';
 import { createInquiryRuleAction, updateInquiryRuleAction } from '../rule-actions';
-import { conditionLines, weightShares } from '../rule-format';
+import {
+  WeightedAgentsEditor,
+  type WeightedAgentDraft,
+} from '../../shared/components/weighted-agents-editor';
+import { weightShares } from '../../shared/weight-shares';
+import { conditionLines } from '../rule-format';
 
 const STEPS = ['Nombre', 'Condiciones', 'Agentes', 'Revisar'] as const;
-const WEIGHTS = Array.from(
-  { length: MAX_INQUIRY_RULE_WEIGHT - MIN_INQUIRY_RULE_WEIGHT + 1 },
-  (_, i) => MIN_INQUIRY_RULE_WEIGHT + i,
-);
 
 interface Option {
   readonly id: string;
   readonly label: string;
-}
-
-interface AgentDraft {
-  readonly userId: string;
-  readonly label: string;
-  readonly weight: number;
 }
 
 interface Draft {
@@ -68,7 +55,7 @@ interface Draft {
   readonly properties: readonly Option[];
   /** Hasta #7 no hay selector de emprendimientos: se conservan los que ya tenía. */
   readonly developmentIds: readonly string[];
-  readonly agents: readonly AgentDraft[];
+  readonly agents: readonly WeightedAgentDraft[];
 }
 
 const EMPTY: Draft = {
@@ -409,77 +396,21 @@ export function InquiryRuleWizard({
 
           {step === 2 && (
             <>
-              {draft.agents.length < MAX_INQUIRY_RULE_AGENTS && (
-                <AddPicker
-                  id={`${id}-agent`}
-                  label="Agentes"
-                  loadPage={loadUserOptions}
-                  placeholder="Agregar un agente"
-                  searchPlaceholder="Buscar usuario"
-                  onAdd={(option) => {
-                    if (!draft.agents.some((a) => a.userId === option.id)) {
-                      set({
-                        agents: [
-                          ...draft.agents,
-                          {
-                            userId: option.id,
-                            label: option.label,
-                            weight: MIN_INQUIRY_RULE_WEIGHT,
-                          },
-                        ],
-                      });
-                    }
-                  }}
-                />
-              )}
-              {draft.agents.length === 0 ? (
+              <WeightedAgentsEditor
+                id={`${id}-agent`}
+                agents={draft.agents}
+                onChange={(agents) => {
+                  set({ agents });
+                }}
+                maxAgents={MAX_INQUIRY_RULE_AGENTS}
+                minWeight={MIN_INQUIRY_RULE_WEIGHT}
+                maxWeight={MAX_INQUIRY_RULE_WEIGHT}
+              />
+              {draft.agents.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   Agregá al menos un agente. Con varios, el peso dice cuántas consultas recibe cada
                   uno: con 2 recibe el doble que con 1.
                 </p>
-              ) : (
-                <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
-                  {draft.agents.map((agent, index) => (
-                    <li key={agent.userId} className="flex items-center gap-3 px-3 py-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate">{agent.label}</span>
-                      <Select
-                        value={String(agent.weight)}
-                        onValueChange={(value) => {
-                          set({
-                            agents: draft.agents.map((a) =>
-                              a.userId === agent.userId ? { ...a, weight: Number(value) } : a,
-                            ),
-                          });
-                        }}
-                      >
-                        <SelectTrigger aria-label={`Peso de ${agent.label}`} className="w-[84px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {WEIGHTS.map((weight) => (
-                            <SelectItem key={weight} value={String(weight)}>
-                              {weight}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
-                        {shares[index]}%
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Quitar a ${agent.label}`}
-                        onClick={() => {
-                          set({ agents: draft.agents.filter((a) => a.userId !== agent.userId) });
-                        }}
-                      >
-                        <XIcon className="h-4 w-4" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
               )}
               <p className="text-xs text-muted-foreground">
                 Si el contacto ya tiene agente, la consulta va a él y no cuenta en el reparto.

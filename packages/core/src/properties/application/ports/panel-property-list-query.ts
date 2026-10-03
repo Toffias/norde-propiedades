@@ -67,6 +67,7 @@ export interface PanelPropertyListItem {
   readonly publishAddress: string | undefined;
   readonly floor: string | undefined;
   readonly unit: string | undefined;
+  readonly developmentId: string | undefined;
   readonly neighborhood: string;
   readonly city: string;
   readonly province: string;

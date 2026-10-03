@@ -1,8 +1,13 @@
-import { parseId, type Actor, type AuditState, type AuditTarget } from '../../shared';
+import {
+  parseId,
+  type Actor,
+  type AuditState,
+  type AuditTarget,
+  type WeightedAgent,
+} from '../../shared';
 import type { ClientListingSummary, InquiryRuleRow } from '../contracts';
 import type { InquiryRuleRepository } from '../domain/client.repository';
 import type { InquiryAssignmentRule, InquiryRuleSnapshot } from '../domain/inquiry-assignment-rule';
-import type { WeightedAgent } from '../domain/weighted-distribution';
 
 import type { AgentNotFoundError } from './client-support';
 import type { ClientAgents } from './ports/client-agents';

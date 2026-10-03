@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseId } from '../../shared';
+import { MAX_AGENT_WEIGHT, MIN_AGENT_WEIGHT, parseId } from '../../shared';
 import { unwrap, unwrapErr } from '../../shared/testing';
 import {
   CONSTRUCTION_STATUS_VALUES,
   DEVELOPMENT_STATUS_VALUES,
   DEVELOPMENT_TYPES,
+  MAX_DEVELOPMENT_CHANCE_WEIGHT,
+  MAX_DEVELOPMENT_CHANCES,
+  MIN_DEVELOPMENT_CHANCE_WEIGHT,
 } from '../contracts';
 import { developmentSnapshot, TEST_NOW } from '../testing';
 
@@ -15,6 +18,7 @@ import {
   Development,
   DEVELOPMENT_KINDS,
   DEVELOPMENT_STATUSES,
+  MAX_DEVELOPMENT_CHANCE_AGENTS,
   suggestDevelopmentPublishAddress,
   type NewDevelopment,
 } from './development';
@@ -46,6 +50,11 @@ describe('Development values', () => {
     expect([...DEVELOPMENT_STATUSES]).toEqual([...DEVELOPMENT_STATUS_VALUES]);
     expect([...DEVELOPMENT_KINDS]).toEqual([...DEVELOPMENT_TYPES]);
     expect([...CONSTRUCTION_STATUSES]).toEqual([...CONSTRUCTION_STATUS_VALUES]);
+    expect(MAX_DEVELOPMENT_CHANCES).toBe(MAX_DEVELOPMENT_CHANCE_AGENTS);
+    expect([MIN_DEVELOPMENT_CHANCE_WEIGHT, MAX_DEVELOPMENT_CHANCE_WEIGHT]).toEqual([
+      MIN_AGENT_WEIGHT,
+      MAX_AGENT_WEIGHT,
+    ]);
   });
 });
 
@@ -245,5 +254,92 @@ describe('Development trash', () => {
       producerUserId: development.ownership.ownerId,
       branchId: development.ownership.ownerBranchId,
     });
+  });
+});
+
+describe('Development chances', () => {
+  const A = { userId: 'u-a', weight: 2 };
+  const B = { userId: 'u-b', weight: 1 };
+  const BOTH = new Set(['u-a', 'u-b']);
+
+  it('starts without chances', () => {
+    const development = newDevelopment();
+    expect(development.hasChances).toBe(false);
+    expect(development.toSnapshot()).toMatchObject({ chances: [], inquiryRouteCursor: 0n });
+  });
+
+  it('gives each agent as many inquiries as its weight, interleaved', () => {
+    const development = Development.restore(developmentSnapshot());
+    expect(unwrap(development.setChances([A, B], LATER))).toBe(true);
+    expect(development.hasChances).toBe(true);
+    const turns = Array.from({ length: 6 }, () => development.takeInquiryTurn(BOTH));
+    expect(turns).toEqual(['u-a', 'u-b', 'u-a', 'u-a', 'u-b', 'u-a']);
+    expect(development.toSnapshot().inquiryRouteCursor).toBe(6n);
+  });
+
+  it('skips inactive agents and does not advance without active ones', () => {
+    const development = Development.restore(developmentSnapshot({ chances: [A, B] }));
+    expect(development.takeInquiryTurn(new Set(['u-b']))).toBe('u-b');
+    expect(development.takeInquiryTurn(new Set())).toBeUndefined();
+    expect(development.toSnapshot().inquiryRouteCursor).toBe(1n);
+  });
+
+  it('does not touch the modification date when it takes a turn', () => {
+    const development = Development.restore(developmentSnapshot({ chances: [A] }));
+    const before = development.toSnapshot().updatedAt;
+    development.takeInquiryTurn(BOTH);
+    expect(development.toSnapshot().updatedAt).toBe(before);
+  });
+
+  it('restarts the distribution when the chances change, not when they are the same', () => {
+    const development = Development.restore(
+      developmentSnapshot({ chances: [A, B], inquiryRouteCursor: 5n }),
+    );
+    expect(unwrap(development.setChances([A, B], LATER))).toBe(false);
+    expect(development.toSnapshot().inquiryRouteCursor).toBe(5n);
+    expect(unwrap(development.setChances([B, A], LATER))).toBe(true);
+    expect(development.toSnapshot()).toMatchObject({
+      chances: [B, A],
+      inquiryRouteCursor: 0n,
+      updatedAt: LATER,
+    });
+  });
+
+  it('turns off with no agents', () => {
+    const development = Development.restore(developmentSnapshot({ chances: [A] }));
+    expect(unwrap(development.setChances([], LATER))).toBe(true);
+    expect(development.hasChances).toBe(false);
+    expect(development.takeInquiryTurn(BOTH)).toBeUndefined();
+  });
+
+  it('rejects repeated agents, weights out of range and too many agents', () => {
+    const development = Development.restore(developmentSnapshot());
+    expect(unwrapErr(development.setChances([A, { ...A, weight: 1 }], LATER))).toEqual({
+      type: 'InvalidDevelopmentChances',
+      reason: 'duplicate_agent',
+    });
+    for (const weight of [0, 11, 1.5]) {
+      expect(unwrapErr(development.setChances([{ userId: 'u-a', weight }], LATER))).toEqual({
+        type: 'InvalidDevelopmentChances',
+        reason: 'weight',
+      });
+    }
+    const many = Array.from({ length: MAX_DEVELOPMENT_CHANCE_AGENTS + 1 }, (_, i) => ({
+      userId: `u-${String(i)}`,
+      weight: 1,
+    }));
+    expect(unwrapErr(development.setChances(many, LATER))).toEqual({
+      type: 'InvalidDevelopmentChances',
+      reason: 'too_many_agents',
+    });
+  });
+
+  it('does not derive from the trash nor change its chances there', () => {
+    const development = Development.restore(
+      developmentSnapshot({ chances: [A], deletedAt: LATER, deletedBy: 'u-1' }),
+    );
+    expect(development.hasChances).toBe(false);
+    expect(development.takeInquiryTurn(BOTH)).toBeUndefined();
+    expect(unwrapErr(development.setChances([B], LATER))).toEqual({ type: 'DevelopmentInTrash' });
   });
 });

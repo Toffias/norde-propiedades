@@ -18,6 +18,7 @@ import type {
 
 import type { ClientErasure } from './client-erasure';
 import type { ClientLinkedRecords } from './client-linked-records';
+import type { DevelopmentChances } from './development-chances';
 
 /** Lo que un command de clients usa dentro de la transacción, ligado a la misma conexión. */
 export interface ClientsTransaction {
@@ -37,6 +38,7 @@ export interface ClientsTransaction {
   readonly bulkOperations: OpportunityBulkOperationRepository;
   readonly inquiries: InquiryRepository;
   readonly inquiryRules: InquiryRuleRepository;
+  readonly developmentChances: DevelopmentChances;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

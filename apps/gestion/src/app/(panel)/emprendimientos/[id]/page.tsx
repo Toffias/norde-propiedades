@@ -18,6 +18,7 @@ import {
   DevelopmentDetailHeader,
   type DevelopmentDetailPermissions,
 } from '../../../../features/developments/components/development-detail-header';
+import { DevelopmentChancesSection } from '../../../../features/developments/components/development-chances-section';
 import { DevelopmentHistoryGrid } from '../../../../features/developments/components/development-history-grid';
 import { DevelopmentSections } from '../../../../features/developments/components/development-sections';
 import { DevelopmentTabs } from '../../../../features/developments/components/development-tabs';
@@ -231,6 +232,8 @@ async function renderTab(
         </Card>
       );
     }
+    case 'derivacion':
+      return <DevelopmentChancesSection detail={detail} canEdit={permissions.edit} />;
     case 'historial': {
       if (!permissions.history) {
         return (

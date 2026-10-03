@@ -20,6 +20,7 @@ function row(overrides: Partial<PanelPropertyRow> = {}): PanelPropertyRow {
     publishAddress: 'Gurruchaga al 1800',
     floor: '4',
     unit: 'A',
+    developmentId: undefined,
     neighborhood: 'Palermo',
     city: 'CABA',
     province: 'CABA',

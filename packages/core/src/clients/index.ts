@@ -190,6 +190,7 @@ export type {
   ClientLinkedRecords,
   ClientRecordCounts,
 } from './application/ports/client-linked-records';
+export type { DevelopmentChances } from './application/ports/development-chances';
 export type { ClientTagQuery } from './application/ports/client-tag-query';
 export type {
   ClientRelationItem,
@@ -575,12 +576,6 @@ export {
   type InvalidInquiryRuleError,
   type TooManyInquiryRulesError,
 } from './domain/inquiry-assignment-rule';
-export {
-  MAX_AGENT_WEIGHT,
-  MIN_AGENT_WEIGHT,
-  pickWeighted,
-  type WeightedAgent,
-} from './domain/weighted-distribution';
 export type { InquiryRuleRepository } from './domain/client.repository';
 export type {
   InquiryRuleCriteria,

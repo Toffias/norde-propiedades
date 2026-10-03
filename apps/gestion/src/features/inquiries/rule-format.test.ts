@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { conditionLines, weightShares } from './rule-format';
+import { conditionLines } from './rule-format';
 
 const NONE = {
   channels: [],
@@ -31,13 +31,5 @@ describe('conditionLines', () => {
 
   it('has no lines when the rule takes any inquiry', () => {
     expect(conditionLines(NONE)).toEqual([]);
-  });
-});
-
-describe('weightShares', () => {
-  it('splits the inquiries by weight', () => {
-    expect(weightShares([2, 1])).toEqual([67, 33]);
-    expect(weightShares([1, 1, 1, 1])).toEqual([25, 25, 25, 25]);
-    expect(weightShares([])).toEqual([]);
   });
 });

@@ -6,6 +6,7 @@ import {
   type DevelopmentId,
 } from '@norde/core/properties';
 import { parseId, type Result } from '@norde/core/shared';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { describe, expect, inject, it } from 'vitest';
@@ -243,11 +244,12 @@ describe('DrizzleDevelopmentUnitImportQuery.list', () => {
 
   it('uses the index of the development imports', async () => {
     const development = await aDevelopment('EMP0008');
-    // Otras corridas, para que el plan no dependa de una tabla vacía.
+    // Muchas corridas de otros emprendimientos, para que el plan no dependa de una tabla chica
+    // ni de las estadísticas que tenga el Postgres de turno.
     await db.insert(importJobs).values(
-      Array.from({ length: 50 }, (_, n) => ({
+      Array.from({ length: 2_000 }, (_, n) => ({
         id: ids.next(),
-        kind: n % 2 === 0 ? 'clients_xlsx' : 'units_xlsx',
+        kind: n % 10 === 0 ? 'clients_xlsx' : 'units_xlsx',
         status: 'done',
         options: { developmentId: ids.next(), mapping: {} },
         createdAt: NOW,
@@ -256,6 +258,7 @@ describe('DrizzleDevelopmentUnitImportQuery.list', () => {
         updatedBy: PRODUCER,
       })),
     );
+    await db.execute(sql`analyze core.import_jobs`);
 
     const captured: { sql: string; params: unknown[] }[] = [];
     const pool = new pg.Pool({ connectionString: inject('databaseUrl'), max: 2 });

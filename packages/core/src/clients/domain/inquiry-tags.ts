@@ -8,6 +8,8 @@ export interface InquiryPropertyFacts {
   /** Las operaciones que ofrece: venta, alquiler, temporario. */
   readonly operations: readonly string[];
   readonly neighborhood: string | undefined;
+  /** El emprendimiento, si la propiedad es una de sus unidades. */
+  readonly developmentId?: string | undefined;
 }
 
 /** Prefijos de las etiquetas automáticas: la UI los traduce. */

@@ -97,6 +97,10 @@ export const developments = coreSchema.table(
     producerUserId: uuid('producer_user_id'),
     /** Sucursal del módulo identity: solo el ID, sin foreign key entre módulos. */
     branchId: uuid('branch_id'),
+    /** Derivación por chances (#7): cuántas consultas repartió; ver `development_agent_chances`. */
+    inquiryRouteCursor: bigint('inquiry_route_cursor', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
     searchText: searchText('code', 'name', 'publish_address', 'developer_name'),
     ...timestamps(),
     ...authorship(),
@@ -380,6 +384,27 @@ export const developmentFeatures = coreSchema.table(
   (t) => [
     primaryKey({ columns: [t.developmentId, t.featureId] }),
     index('development_features_feature_idx').on(t.featureId),
+  ],
+);
+
+/** Derivación por chances (#7): los agentes que reciben las consultas del emprendimiento. */
+export const developmentAgentChances = coreSchema.table(
+  'development_agent_chances',
+  {
+    developmentId: uuid('development_id')
+      .notNull()
+      .references(() => developments.id, { onDelete: 'cascade' }),
+    /** Usuario del módulo identity: solo el ID, sin foreign key entre módulos. */
+    userId: uuid('user_id').notNull(),
+    /** De 1 a 10: con 2 recibe el doble de consultas que con 1. */
+    weight: integer('weight').notNull().default(1),
+    /** Orden de los agentes: el reparto ponderado depende de él. */
+    position: integer('position').notNull().default(0),
+    ...linkAuthorship(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.developmentId, t.userId] }),
+    index('development_agent_chances_user_idx').on(t.userId),
   ],
 );
 

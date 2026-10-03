@@ -276,6 +276,8 @@ export interface PanelPropertyRow {
   /** Piso y unidad (privados): los muestra la grilla de unidades de un emprendimiento. */
   readonly floor: string | undefined;
   readonly unit: string | undefined;
+  /** El emprendimiento, si es una unidad. */
+  readonly developmentId: string | undefined;
   readonly neighborhood: string;
   readonly city: string;
   readonly province: string;

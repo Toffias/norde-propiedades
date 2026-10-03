@@ -1,6 +1,12 @@
 import { AggregateRoot } from '../../shared/domain/aggregate-root';
 import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
+import {
+  MAX_AGENT_WEIGHT,
+  MIN_AGENT_WEIGHT,
+  pickWeighted,
+  type WeightedAgent,
+} from '../../shared/domain/weighted-distribution';
 
 import type { Coordinates } from './coordinates';
 import type { DevelopmentEvent } from './development.events';
@@ -34,6 +40,9 @@ const TRANSITIONS: Readonly<Record<DevelopmentStatus, readonly DevelopmentStatus
 };
 
 export type DevelopmentId = Id<'Development'>;
+
+/** Cuántos agentes pueden tener chances en un emprendimiento. */
+export const MAX_DEVELOPMENT_CHANCE_AGENTS = 20;
 
 /** Atributos de operación que valen para todas las unidades. */
 export interface DevelopmentDeal {
@@ -77,6 +86,13 @@ export interface DevelopmentSnapshot {
   readonly producerUserId: string | undefined;
   /** Sucursal del captador al dar el alta: de identity, solo por ID. */
   readonly branchId: string | undefined;
+  /**
+   * Derivación por chances: los agentes que reciben las consultas del emprendimiento, en orden y
+   * con su peso. Sin agentes, sus consultas siguen el reparto general.
+   */
+  readonly chances: readonly WeightedAgent[];
+  /** Cuántas consultas derivó con estas chances: la próxima es la número `cursor` (`pickWeighted`). */
+  readonly inquiryRouteCursor: bigint;
   readonly deletedAt: Date | undefined;
   readonly deletedBy: string | undefined;
   readonly createdAt: Date;
@@ -121,6 +137,11 @@ export interface InvalidDevelopmentStatusTransitionError {
 export interface DevelopmentHasUnitsError {
   readonly type: 'DevelopmentHasUnits';
   readonly units: number;
+}
+
+export interface InvalidDevelopmentChancesError {
+  readonly type: 'InvalidDevelopmentChances';
+  readonly reason: 'too_many_agents' | 'duplicate_agent' | 'weight';
 }
 
 /** Lo que una unidad nueva hereda del emprendimiento. */
@@ -200,6 +221,8 @@ export class Development extends AggregateRoot<DevelopmentId, DevelopmentEvent> 
       tagIds: [],
       producerUserId: input.producerUserId,
       branchId: input.branchId,
+      chances: [],
+      inquiryRouteCursor: 0n,
       deletedAt: undefined,
       deletedBy: undefined,
       createdAt: input.now,
@@ -444,7 +467,63 @@ export class Development extends AggregateRoot<DevelopmentId, DevelopmentEvent> 
     return ok(true);
   }
 
+  /** ¿Deriva sus consultas por chances? Uno de la papelera no deriva. */
+  get hasChances(): boolean {
+    return !this.isDeleted && this.#state.chances.length > 0;
+  }
+
+  /**
+   * Los agentes que reciben sus consultas y cuánto: con peso 2 recibe el doble que con 1. Sin
+   * agentes, la derivación por chances se apaga. Si cambian los agentes, sus pesos o su orden, el
+   * reparto arranca de cero: el cursor de la secuencia anterior no significa nada en la nueva.
+   * Que los agentes existan y estén activos lo verifica el caso de uso.
+   */
+  setChances(
+    chances: readonly WeightedAgent[],
+    now: Date,
+  ): Result<boolean, DevelopmentInTrashError | InvalidDevelopmentChancesError> {
+    if (this.isDeleted) return err({ type: 'DevelopmentInTrash' });
+    if (chances.length > MAX_DEVELOPMENT_CHANCE_AGENTS) {
+      return err({ type: 'InvalidDevelopmentChances', reason: 'too_many_agents' });
+    }
+    if (new Set(chances.map((c) => c.userId)).size !== chances.length) {
+      return err({ type: 'InvalidDevelopmentChances', reason: 'duplicate_agent' });
+    }
+    const badWeight = chances.some(
+      (c) =>
+        !Number.isInteger(c.weight) || c.weight < MIN_AGENT_WEIGHT || c.weight > MAX_AGENT_WEIGHT,
+    );
+    if (badWeight) return err({ type: 'InvalidDevelopmentChances', reason: 'weight' });
+
+    const next = chances.map((c) => ({ userId: c.userId, weight: c.weight }));
+    const current = this.#state.chances;
+    const same =
+      next.length === current.length &&
+      next.every((c, i) => c.userId === current[i]?.userId && c.weight === current[i].weight);
+    if (same) return ok(false);
+    this.#state = { ...this.#state, chances: next, inquiryRouteCursor: 0n, updatedAt: now };
+    return ok(true);
+  }
+
+  /**
+   * El agente que recibe la próxima consulta, entre los de las chances que siguen activos, y avanza
+   * el reparto. Sin ninguno activo, o en la papelera, devuelve `undefined` y no avanza. Derivar no es
+   * editar: no cambia la fecha de modificación.
+   */
+  takeInquiryTurn(activeUserIds: ReadonlySet<string>): string | undefined {
+    if (this.isDeleted) return undefined;
+    const eligible = this.#state.chances.filter((c) => activeUserIds.has(c.userId));
+    const picked = pickWeighted(eligible, this.#state.inquiryRouteCursor);
+    if (!picked) return undefined;
+    this.#state = { ...this.#state, inquiryRouteCursor: this.#state.inquiryRouteCursor + 1n };
+    return picked.userId;
+  }
+
   toSnapshot(): DevelopmentSnapshot {
-    return { id: this.id, ...this.#state };
+    return {
+      id: this.id,
+      ...this.#state,
+      chances: this.#state.chances.map((c) => ({ ...c })),
+    };
   }
 }

@@ -175,9 +175,14 @@ function createOpportunityJobs(
 }
 
 /** El reparto automático de consultas por reglas (#10): `RouteInquiry` con los agentes activos. */
+/**
+ * El reparto de consultas (#10): las chances de los emprendimientos (#7) siempre; las reglas de
+ * asignación, solo con `INQUIRY_RULES_ENABLED`.
+ */
 function createInquiryRouting(
   db: Database,
   deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
+  rulesEnabled: boolean,
 ) {
   const directory = new DrizzleDirectory(db);
   const userAccess = new DrizzleUserAccessQuery(db);
@@ -188,7 +193,12 @@ function createInquiryRouting(
       return user?.status === 'active' ? { branchId: user.branchId } : undefined;
     },
   };
-  return new RouteInquiry({ uow: createClientsUnitOfWork(db, deps), agents, ...deps });
+  return new RouteInquiry({
+    uow: createClientsUnitOfWork(db, deps),
+    agents,
+    rulesEnabled,
+    ...deps,
+  });
 }
 
 /** La entrada de consultas (#10): `ReceiveInquiry` con los datos de la propiedad consultada. */
@@ -214,6 +224,7 @@ function createInquiryIntake(
         propertyType: row.propertyType,
         operations: row.operations.map((o) => o.operation),
         neighborhood: row.neighborhood,
+        developmentId: row.developmentId,
       };
     },
   };
@@ -488,7 +499,7 @@ export function createContainer(
       clock,
     }),
     opportunities: createOpportunityJobs(db, { ids, clock }),
-    ...(env.INQUIRY_RULES_ENABLED && { routeInquiry: createInquiryRouting(db, { ids, clock }) }),
+    routeInquiry: createInquiryRouting(db, { ids, clock }, env.INQUIRY_RULES_ENABLED),
     actor: SCHEDULER_ACTOR,
     importActor: IMPORT_ACTOR,
     logger,

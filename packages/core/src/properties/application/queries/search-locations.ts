@@ -38,6 +38,7 @@ export class SearchLocations {
       text: query.q,
       parentId: query.parentId,
       kind: query.kind,
+      ids: query.ids,
       direction: query.sort.direction,
       ...toOffsetLimit({ page, pageSize }),
     });

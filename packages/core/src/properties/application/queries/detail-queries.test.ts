@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { InMemoryAuditHistoryQuery } from '../../../audit/testing';
 import { CompanySettings } from '../../../settings';
 import { InMemoryFileStorage, RecordingMailer } from '../../../settings/testing';
-import { Actor, parseId } from '../../../shared';
+import { Actor, err, parseId } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
 import {
   BRANCH_ID,
@@ -27,6 +27,7 @@ import { SendOwnerReport } from '../commands/send-owner-report';
 import { GetPanelPropertyDetail } from './get-panel-property-detail';
 import { GetPropertyDocumentDownload } from './get-property-document-download';
 import { GetPropertyInterestProfile } from './get-property-interest-profile';
+import { GetPropertyInterestProfiles } from './get-property-interest-profiles';
 import { ListPropertyDocuments } from './list-property-documents';
 import { ListPropertyHistory } from './list-property-history';
 
@@ -213,6 +214,39 @@ describe('GetPropertyInterestProfile', () => {
       locationIds: [],
       rooms: undefined,
     });
+  });
+});
+
+describe('GetPropertyInterestProfiles', () => {
+  it('returns the profiles of the properties that exist, once each', async () => {
+    const { uow } = setup();
+    const query = new GetPropertyInterestProfiles({ uow });
+    const profiles = unwrap(
+      await query.execute(
+        {
+          propertyIds: [
+            PROPERTY_ID,
+            PROPERTY_ID.toUpperCase(),
+            '00000000-0000-7000-8000-0000000000c9',
+          ],
+        },
+        READER,
+      ),
+    );
+    expect(profiles.map((p) => p.propertyId)).toEqual([PROPERTY_ID]);
+    expect(profiles[0]?.rooms).toBe(3);
+  });
+
+  it('needs to read properties and validates the input', async () => {
+    const { uow } = setup();
+    const query = new GetPropertyInterestProfiles({ uow });
+    const noRead = Actor.user(PRODUCER_ID, ['audit:read']);
+    expect(await query.execute({ propertyIds: [PROPERTY_ID] }, noRead)).toEqual(
+      err({ type: 'Forbidden' }),
+    );
+    const tooMany = Array.from({ length: 51 }, () => PROPERTY_ID);
+    const result = await query.execute({ propertyIds: tooMany }, READER);
+    expect(result.isErr() && result.error.type).toBe('InvalidInput');
   });
 });
 

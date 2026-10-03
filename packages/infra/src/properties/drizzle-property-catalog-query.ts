@@ -76,6 +76,7 @@ export class DrizzlePropertyCatalogQuery implements PropertyCatalogQuery {
       criteria.text === undefined ? undefined : contains(locations.normalizedName, criteria.text),
       criteria.parentId === undefined ? undefined : eq(locations.parentId, criteria.parentId),
       criteria.kind === undefined ? undefined : eq(locations.kind, criteria.kind),
+      criteria.ids === undefined ? undefined : inArray(locations.id, [...criteria.ids]),
     );
     const [rows, totals] = await Promise.all([
       this.db

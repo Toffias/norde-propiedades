@@ -73,6 +73,8 @@ const listColumns = {
   title: properties.title,
   portalTitle: properties.portalTitle,
   publishAddress: properties.publishAddress,
+  floor: properties.floor,
+  unit: properties.unit,
   neighborhood: properties.neighborhood,
   city: properties.city,
   province: properties.province,
@@ -185,6 +187,8 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
       c.ownerClientId === undefined
         ? undefined
         : sql`exists (select 1 from ${propertyOwners} po where po.property_id = ${properties.id} and po.client_id = ${c.ownerClientId})`,
+      // Unidades de un emprendimiento: `properties_development_idx`.
+      c.developmentId === undefined ? undefined : eq(properties.developmentId, c.developmentId),
       c.owner.kind === 'producer' ? eq(properties.producerUserId, c.owner.userId) : undefined,
       c.owner.kind === 'branch' ? eq(properties.branchId, c.owner.branchId) : undefined,
       c.text === undefined ? undefined : matchesSearchText(properties.searchText, c.text),
@@ -246,6 +250,8 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
         status: enums.status,
         portalTitle: row.portalTitle ?? row.title,
         publishAddress: undefinedIfNull(row.publishAddress),
+        floor: undefinedIfNull(row.floor),
+        unit: undefinedIfNull(row.unit),
         neighborhood: row.neighborhood,
         city: row.city,
         province: row.province,

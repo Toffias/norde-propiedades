@@ -31,6 +31,7 @@ export { DrizzleOrganizationQuery } from './identity/drizzle-organization-query'
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
 export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-property-list-query';
 export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
+export { DrizzleDevelopmentListQuery } from './properties/drizzle-development-list-query';
 export {
   DrizzleClientFavoriteErasure,
   DrizzleUserFavorites,

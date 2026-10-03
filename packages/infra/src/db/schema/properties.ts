@@ -112,6 +112,13 @@ export const developments = coreSchema.table(
     index('developments_coordinates_idx').on(t.latitude, t.longitude).where(notDeleted),
     index('developments_commercial_contact_idx').on(t.commercialContactClientId),
     index('developments_search_text_idx').using('gin', t.searchText.op('gin_trgm_ops')),
+    // Listado del panel (#7): orden por defecto, filtros por tipo y estado de obra, y papelera.
+    index('developments_updated_idx').on(t.updatedAt, t.id).where(notDeleted),
+    index('developments_type_idx').on(t.developmentType).where(notDeleted),
+    index('developments_construction_status_idx').on(t.constructionStatus).where(notDeleted),
+    index('developments_deleted_idx')
+      .on(t.deletedAt)
+      .where(sql`deleted_at is not null`),
   ],
 );
 

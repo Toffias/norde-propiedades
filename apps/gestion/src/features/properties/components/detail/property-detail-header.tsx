@@ -36,6 +36,7 @@ import {
   GlobeIcon,
   MapPinIcon,
   MoreHorizontalIcon,
+  UserPlusIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
 import dynamic from 'next/dynamic';
@@ -43,6 +44,7 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../../lib/action-result';
+import { FeatureToClientDialog } from '../../../clients/components/feature-to-client-dialog';
 import { changePropertyStatusAction, updatePropertyPublicationAction } from '../../detail-actions';
 import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../../labels';
 import { FavoriteToggle } from '../favorite-toggle';
@@ -79,6 +81,7 @@ export function PropertyDetailHeader({
   const [mapOpen, setMapOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [featuring, setFeaturing] = useState(false);
   const documents = useRequestDocument(detail.id, () => {
     setDocumentsOpen(true);
   });
@@ -286,6 +289,16 @@ export function PropertyDetailHeader({
                   Estadísticas
                 </Link>
               </DropdownMenuItem>
+              {permissions.featureToClient && (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setFeaturing(true);
+                  }}
+                >
+                  <UserPlusIcon className="h-4 w-4" />
+                  Destacar a un contacto
+                </DropdownMenuItem>
+              )}
               {permissions.export && (
                 <>
                   <DropdownMenuSeparator />
@@ -329,6 +342,15 @@ export function PropertyDetailHeader({
           </DropdownMenu>
         </div>
       </div>
+
+      {featuring && (
+        <FeatureToClientDialog
+          propertyIds={[detail.id]}
+          subject={detail.code}
+          open={featuring}
+          onOpenChange={setFeaturing}
+        />
+      )}
 
       <Dialog open={mapOpen} onOpenChange={setMapOpen}>
         <DialogContent className="sm:max-w-3xl">

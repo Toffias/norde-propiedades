@@ -11,4 +11,6 @@ export interface DetailPermissions {
   readonly export: boolean;
   readonly history: boolean;
   readonly contacts: boolean;
+  /** Editar contactos: destacarles la propiedad (#11). */
+  readonly featureToClient: boolean;
 }

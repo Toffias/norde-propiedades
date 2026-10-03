@@ -1,4 +1,4 @@
-import { canActOn, OWNERSHIP_RULES } from '@norde/core/identity';
+import { accessScope, canActOn, OWNERSHIP_RULES } from '@norde/core/identity';
 import {
   ListPropertyAttachmentsQuerySchema,
   ListPropertyHistoryQuerySchema,
@@ -74,6 +74,9 @@ function permissionsFor(
       actor.can('clients:read') ||
       actor.can('clients:read-branch') ||
       actor.can('clients:read-all'),
+    featureToClient:
+      detail.deletedAt === undefined &&
+      accessScope(actor, OWNERSHIP_RULES.clientsUpdate) !== undefined,
   };
 }
 
@@ -246,7 +249,11 @@ async function renderTab(
       if (page.isErr()) return <TabError error={page.error} />;
       return (
         <Card className="gap-0 overflow-hidden p-0">
-          <InterestedGrid propertyId={propertyId} page={page.value} />
+          <InterestedGrid
+            propertyId={propertyId}
+            page={page.value}
+            canFeature={permissions.featureToClient}
+          />
         </Card>
       );
     }

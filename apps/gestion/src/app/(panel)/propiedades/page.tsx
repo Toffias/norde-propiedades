@@ -6,6 +6,7 @@ import {
   type PropertyLayoutValue,
   type PropertyType,
 } from '@norde/core/properties/contracts';
+import { accessScope, OWNERSHIP_RULES } from '@norde/core/identity';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import { PageHeader } from '@norde/ui/components/page-header';
@@ -122,6 +123,7 @@ export default async function PropertiesPage({
               changeProducer: actor.can('properties:change-producer'),
               markAvailable: actor.can('properties:mark-available'),
               export: actor.can('properties:export') || actor.can('properties:export-bulk'),
+              featureToClient: accessScope(actor, OWNERSHIP_RULES.clientsUpdate) !== undefined,
             }}
           />
         )}

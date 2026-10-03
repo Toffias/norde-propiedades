@@ -3,12 +3,16 @@
 import type { InterestedClientRow, PropertySendRow } from '@norde/core/clients/contracts';
 import type { Page } from '@norde/core/shared';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
+import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
 import type { Route } from 'next';
+import { UserPlusIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
 
 import { EMPTY_VALUE, formatDate, formatDateTime } from '../../../../lib/format';
+import { FeatureToClientDialog } from '../../../clients/components/feature-to-client-dialog';
 import { ServerDataTable } from '../../../shared/components/server-data-table';
 import { REACTION_LABELS, SEND_CHANNEL_LABELS } from '../../detail-labels';
 import { OPERATION_LABELS } from '../../labels';
@@ -55,10 +59,14 @@ function ViewSwitch({
 export function InterestedGrid({
   propertyId,
   page,
+  canFeature,
 }: {
   readonly propertyId: string;
   readonly page: Page<InterestedClientRow>;
+  /** Destacarle la propiedad al interesado (#11). */
+  readonly canFeature: boolean;
 }) {
+  const [featuring, setFeaturing] = useState<InterestedClientRow | undefined>();
   const columns: readonly DataTableColumn<InterestedClientRow>[] = [
     {
       id: 'client',
@@ -88,19 +96,54 @@ export function InterestedGrid({
       showFrom: 'sm',
       cell: (row) => <span className="text-muted-foreground">{formatDate(row.updatedAt)}</span>,
     },
+    ...(canFeature
+      ? [
+          {
+            id: 'actions',
+            header: 'Acciones',
+            hideHeader: true,
+            className: 'w-12',
+            cell: (row: InterestedClientRow) => (
+              <RowActions>
+                <RowAction
+                  icon={UserPlusIcon}
+                  label="Destacarle la propiedad"
+                  onClick={() => {
+                    setFeaturing(row);
+                  }}
+                />
+              </RowActions>
+            ),
+          },
+        ]
+      : []),
   ];
   return (
-    <ServerDataTable
-      label="Potenciales interesados"
-      columns={columns}
-      getRowId={(row) => row.savedSearchId}
-      rows={page.items}
-      total={page.total}
-      page={page.page}
-      pageSize={page.pageSize}
-      toolbar={<ViewSwitch propertyId={propertyId} active="interesados" />}
-      empty="Ningún cliente tiene una búsqueda guardada que coincida con esta propiedad."
-    />
+    <>
+      <ServerDataTable
+        label="Potenciales interesados"
+        columns={columns}
+        getRowId={(row) => row.savedSearchId}
+        rows={page.items}
+        total={page.total}
+        page={page.page}
+        pageSize={page.pageSize}
+        toolbar={<ViewSwitch propertyId={propertyId} active="interesados" />}
+        empty="Ningún cliente tiene una búsqueda guardada que coincida con esta propiedad."
+      />
+      {featuring !== undefined && (
+        <FeatureToClientDialog
+          key={featuring.savedSearchId}
+          propertyIds={[propertyId]}
+          subject="La propiedad"
+          client={{ id: featuring.clientId, name: featuring.clientName ?? 'el contacto' }}
+          open
+          onOpenChange={(open) => {
+            if (!open) setFeaturing(undefined);
+          }}
+        />
+      )}
+    </>
   );
 }
 

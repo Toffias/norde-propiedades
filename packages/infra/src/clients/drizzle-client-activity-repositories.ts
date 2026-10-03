@@ -148,6 +148,9 @@ export class DrizzleFeaturedListingRepository implements FeaturedListingReposito
         id: storedId<'FeaturedListing'>(row.id),
         clientId: storedId<'Client'>(row.clientId),
         propertyId: row.propertyId,
+        opportunityId: row.opportunityId ?? undefined,
+        matchScore: row.matchScore ?? undefined,
+        autoSendUpdates: row.autoSendUpdates,
         featuredBy: row.featuredBy,
         featuredAt: row.featuredAt,
         removedAt: row.removedAt ?? undefined,
@@ -164,6 +167,9 @@ export class DrizzleFeaturedListingRepository implements FeaturedListingReposito
         id: s.id,
         clientId: s.clientId,
         propertyId: s.propertyId,
+        opportunityId: s.opportunityId ?? null,
+        matchScore: s.matchScore ?? null,
+        autoSendUpdates: s.autoSendUpdates,
         featuredBy: s.featuredBy,
         featuredAt: s.featuredAt,
         removedAt: s.removedAt ?? null,
@@ -174,7 +180,12 @@ export class DrizzleFeaturedListingRepository implements FeaturedListingReposito
       })
       .onConflictDoUpdate({
         target: featuredListings.id,
-        set: { removedAt: s.removedAt ?? null, updatedAt: s.updatedAt, updatedBy: actorId },
+        set: {
+          removedAt: s.removedAt ?? null,
+          autoSendUpdates: s.autoSendUpdates,
+          updatedAt: s.updatedAt,
+          updatedBy: actorId,
+        },
       });
   }
 }

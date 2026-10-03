@@ -639,6 +639,10 @@ export const savedSearches = coreSchema.table(
     index('saved_searches_client_updated_idx')
       .on(t.clientId, t.updatedAt.desc(), t.id.desc())
       .where(notDeleted),
+    // Papelera de búsquedas de la ficha del cliente, las borradas último primero.
+    index('saved_searches_client_deleted_idx')
+      .on(t.clientId, t.deletedAt.desc(), t.id.desc())
+      .where(sql`deleted_at is not null`),
     // Prefiltro del cruce con el stock.
     index('saved_searches_matching_idx')
       .on(t.operation, t.currency)

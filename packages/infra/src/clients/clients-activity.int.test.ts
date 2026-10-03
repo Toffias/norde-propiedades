@@ -1,10 +1,14 @@
 import {
   AddClientNote,
   Client,
+  CreateSavedSearch,
+  DeleteSavedSearch,
   FeatureProperties,
   RecordClientActivity,
+  SetFeaturedAutoSend,
   UnfeatureProperty,
   type ClientListingSummary,
+  type PropertyInterestProfile,
   type ClientRecordQuery,
 } from '@norde/core/clients';
 import { Actor, parseId, Phone } from '@norde/core/shared';
@@ -63,6 +67,20 @@ function listing(id: string): ClientListingSummary {
 const listings = {
   summaries: (propertyIds: readonly string[]) =>
     Promise.resolve(new Map(propertyIds.map((id) => [id, listing(id)] as const))),
+};
+
+// Solo la primera propiedad tiene perfil de cruce: venta, 3 ambientes.
+const profile: PropertyInterestProfile = {
+  propertyId: PROPERTY,
+  propertyType: 'apartment',
+  operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
+  locationIds: [],
+  rooms: 3,
+};
+const profiles = {
+  find: (id: string) => Promise.resolve(id === PROPERTY ? profile : undefined),
+  findMany: (propertyIds: readonly string[]) =>
+    Promise.resolve(new Map(propertyIds.includes(PROPERTY) ? [[PROPERTY, profile]] : [])),
 };
 
 async function seedClient(name: string, phone: string): Promise<string> {
@@ -324,7 +342,13 @@ describe('opportunity history', () => {
 describe('featured listings', () => {
   it('features, lists and removes properties of a client', async () => {
     const clientId = await seedClient('Ana', '+5491166899124');
-    const feature = new FeatureProperties({ uow, listings, ids, clock });
+    const feature = new FeatureProperties({ uow, listings, profiles, ids, clock });
+    // Una búsqueda que la propiedad cumple a medias (pide 4 ambientes): 50 %.
+    const search = await new CreateSavedSearch({ uow, ids, clock }).execute(
+      { clientId, operation: 'sale', minRooms: 4 },
+      manager,
+    );
+    expect(search.isOk()).toBe(true);
 
     const added = await feature.execute(
       { clientId, propertyIds: [PROPERTY, OTHER_PROPERTY] },
@@ -340,8 +364,19 @@ describe('featured listings', () => {
     );
     expect(removed.isOk()).toBe(true);
 
+    const autoSend = await new SetFeaturedAutoSend({ uow, clock }).execute(
+      { clientId, propertyId: OTHER_PROPERTY, enabled: true },
+      manager,
+    );
+    expect(autoSend.isOk()).toBe(true);
+
     const page = await records.featured({ clientId, direction: 'desc', offset: 0, limit: 10 });
     expect(page.items.map((item) => item.propertyId)).toEqual([OTHER_PROPERTY]);
+    expect(page.items[0]).toMatchObject({ matchScore: undefined, autoSendUpdates: true });
+    const scores = await db
+      .select({ propertyId: featuredListings.propertyId, score: featuredListings.matchScore })
+      .from(featuredListings);
+    expect(scores).toContainEqual({ propertyId: PROPERTY, score: 50 });
     expect(await records.featuredPropertyIds(clientId, [PROPERTY, OTHER_PROPERTY])).toEqual([
       OTHER_PROPERTY,
     ]);
@@ -432,6 +467,7 @@ describe('opportunities, saved searches and counters', () => {
 
     const searches = await records.savedSearches({
       clientId,
+      view: 'active',
       direction: 'desc',
       offset: 0,
       limit: 10,
@@ -461,7 +497,13 @@ describe('opportunities, saved searches and counters', () => {
       ],
       [
         'saved_searches',
-        (q) => q.savedSearches({ clientId, direction: 'desc', offset: 0, limit: 25 }),
+        (q) =>
+          q.savedSearches({ clientId, view: 'active', direction: 'desc', offset: 0, limit: 25 }),
+      ],
+      [
+        'saved_searches',
+        (q) =>
+          q.savedSearches({ clientId, view: 'trash', direction: 'desc', offset: 0, limit: 25 }),
       ],
     ] as const satisfies readonly (readonly [
       string,
@@ -470,5 +512,64 @@ describe('opportunities, saved searches and counters', () => {
       expect(scansWithIndex(await pagePlan(run), table)).toBe(true);
     }
     expect(await db.select({ id: clients.id }).from(clients)).toHaveLength(3);
+  });
+});
+
+describe('saved searches', () => {
+  it('round-trips the criteria and pages the active ones and the trash without losing rows', async () => {
+    const clientId = await seedClient('Ana', '+5491166899124');
+    const create = new CreateSavedSearch({ uow, ids, clock });
+    const remove = new DeleteSavedSearch({ uow, clock });
+    const created: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const result = await create.execute(
+        {
+          clientId,
+          name: `Búsqueda ${i}`,
+          operation: 'sale',
+          propertyTypes: ['apartment', 'house'],
+          currency: 'USD',
+          minPrice: '100000',
+          maxPrice: '150000,50',
+          locationIds: ['00000000-0000-7000-8000-0000000000f1'],
+          minRooms: 2,
+        },
+        manager,
+      );
+      if (result.isErr()) throw new Error(result.error.type);
+      created.push(result.value.savedSearchId);
+    }
+    for (const savedSearchId of created.slice(0, 3)) {
+      const result = await remove.execute({ clientId, savedSearchId }, manager);
+      expect(result.isOk()).toBe(true);
+    }
+
+    const stored = await uow.run((tx) =>
+      tx.savedSearches.findActiveByClient(
+        parseId<'Client'>(clientId).unwrapOr(undefined as never),
+        10,
+      ),
+    );
+    expect(stored).toHaveLength(2);
+    expect(stored[0]?.fields).toMatchObject({
+      propertyTypes: ['apartment', 'house'],
+      currency: 'USD',
+      minPriceCents: 10_000_000n,
+      maxPriceCents: 15_000_050n,
+      locationIds: ['00000000-0000-7000-8000-0000000000f1'],
+      minRooms: 2,
+    });
+
+    const pageOf = async (view: 'active' | 'trash', offset: number) =>
+      records.savedSearches({ clientId, view, direction: 'desc', offset, limit: 2 });
+    const trashIds = [...(await pageOf('trash', 0)).items, ...(await pageOf('trash', 2)).items].map(
+      (item) => item.id,
+    );
+    expect((await pageOf('trash', 0)).total).toBe(3);
+    expect(new Set(trashIds)).toEqual(new Set(created.slice(0, 3)));
+    expect((await pageOf('trash', 0)).items[0]?.deletedAt).toEqual(NOW);
+    const active = await pageOf('active', 0);
+    expect(active.total).toBe(2);
+    expect(new Set(active.items.map((item) => item.id))).toEqual(new Set(created.slice(3)));
   });
 });

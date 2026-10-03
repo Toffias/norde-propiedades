@@ -19,6 +19,7 @@ import {
   eq,
   getTableColumns,
   inArray,
+  isNotNull,
   isNull,
   sql,
   type SQL,
@@ -214,6 +215,7 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
         id: row.id,
         propertyId: row.propertyId,
         matchScore: row.matchScore ?? undefined,
+        autoSendUpdates: row.autoSendUpdates,
         reaction: Reaction.parse(row.reaction) ?? undefined,
         featuredBy: row.featuredBy,
         featuredAt: row.featuredAt,
@@ -244,16 +246,21 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
     criteria: Criteria<'savedSearches'>,
   ): Promise<PageSlice<ClientSavedSearchRow>> {
     const order = direction(criteria.direction);
+    const trash = criteria.view === 'trash';
+    // Vigentes: `saved_searches_client_updated_idx`; papelera: `saved_searches_client_deleted_idx`.
     const where = and(
       eq(savedSearches.clientId, criteria.clientId),
-      isNull(savedSearches.deletedAt),
+      trash ? isNotNull(savedSearches.deletedAt) : isNull(savedSearches.deletedAt),
     );
     const [rows, count_] = await Promise.all([
       this.db
         .select()
         .from(savedSearches)
         .where(where)
-        .orderBy(order(savedSearches.updatedAt), order(savedSearches.id))
+        .orderBy(
+          trash ? desc(savedSearches.deletedAt) : order(savedSearches.updatedAt),
+          trash ? desc(savedSearches.id) : order(savedSearches.id),
+        )
         .limit(criteria.limit)
         .offset(criteria.offset),
       total(this.db.select({ total: count() }).from(savedSearches).where(where)),
@@ -273,6 +280,7 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
         unsubscribed: row.unsubscribedAt !== null,
         lastMatchedAt: row.lastMatchedAt ?? undefined,
         updatedAt: row.updatedAt,
+        deletedAt: row.deletedAt ?? undefined,
       })),
       total: count_,
     };

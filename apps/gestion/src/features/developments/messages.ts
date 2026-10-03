@@ -1,3 +1,4 @@
+import type { ChangeFavoritesError } from '@norde/core/identity';
 import type {
   ChangeDevelopmentStatusError,
   ChangeDevelopmentTagsError,
@@ -5,6 +6,7 @@ import type {
   CreateDevelopmentUnitError,
   DeleteDevelopmentError,
   GetDevelopmentDetailError,
+  GetDevelopmentMapError,
   ListDevelopmentHistoryError,
   ListDevelopmentsError,
   RestoreDevelopmentError,
@@ -68,7 +70,12 @@ export const DEVELOPMENT_UNIT_ERROR_MESSAGES = {
 export const DEVELOPMENT_LIST_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver estos emprendimientos.',
   InvalidSearch: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
-} satisfies ErrorMessages<ListDevelopmentsError>;
+} satisfies ErrorMessages<ListDevelopmentsError | GetDevelopmentMapError>;
+
+export const DEVELOPMENT_FAVORITE_ERROR_MESSAGES = {
+  Forbidden: 'Solo un usuario del panel tiene favoritos.',
+  InvalidInput: 'No pudimos marcar ese emprendimiento. Recargá la página y probá de nuevo.',
+} satisfies ErrorMessages<ChangeFavoritesError>;
 
 export const DEVELOPMENT_READ_ERROR_MESSAGES = {
   ...COMMON,

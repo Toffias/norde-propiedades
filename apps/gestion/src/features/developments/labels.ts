@@ -30,12 +30,20 @@ export const CONSTRUCTION_STATUS_LABELS: Readonly<Record<ConstructionStatusValue
   finished: 'Terminado',
 };
 
-export const DEVELOPMENT_TABS = ['detalles', 'unidades', 'historial'] as const;
+export const DEVELOPMENT_TABS = [
+  'detalles',
+  'unidades',
+  'multimedia',
+  'archivos',
+  'historial',
+] as const;
 export type DevelopmentTab = (typeof DEVELOPMENT_TABS)[number];
 
 export const DEVELOPMENT_TAB_LABELS: Readonly<Record<DevelopmentTab, string>> = {
   detalles: 'Detalles',
   unidades: 'Unidades',
+  multimedia: 'Multimedia',
+  archivos: 'Archivos',
   historial: 'Historial',
 };
 
@@ -45,6 +53,7 @@ export const DEVELOPMENT_HISTORY_CATEGORY_LABELS: Readonly<
   fields: 'Datos de la ficha',
   status: 'Estado',
   units: 'Unidades',
+  media: 'Fotos, videos y archivos',
   assignments: 'Etiquetas',
 };
 
@@ -57,6 +66,14 @@ export const DEVELOPMENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>>
   'development.deleted': 'mandó el emprendimiento a la papelera',
   'development.restored': 'restauró el emprendimiento',
   'development.unit_added': 'sumó una unidad',
+  'development.media_added': 'agregó multimedia',
+  'development.media_updated': 'editó una foto',
+  'development.media_reordered': 'reordenó la galería',
+  'development.media_deleted': 'borró multimedia',
+  'development.cover_changed': 'cambió la portada',
+  'development.attachment_added': 'subió un archivo',
+  'development.attachment_updated': 'editó un archivo',
+  'development.attachment_deleted': 'borró un archivo',
 };
 
 /** Nombre de cada campo del historial del emprendimiento. */

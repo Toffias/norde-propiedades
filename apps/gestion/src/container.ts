@@ -192,6 +192,7 @@ import {
   CreateDevelopmentUnit,
   DeleteDevelopment,
   GetDevelopmentDetail,
+  GetDevelopmentMap,
   ListDevelopmentHistory,
   ListDevelopments,
   RestoreDevelopment,
@@ -610,6 +611,9 @@ function createPropertiesUseCases(
     listDevelopments: new ListDevelopments({
       developments: new DrizzleDevelopmentListQuery(db),
       users,
+    }),
+    getDevelopmentMap: new GetDevelopmentMap({
+      developments: new DrizzleDevelopmentListQuery(db),
     }),
     getDevelopmentDetail: new GetDevelopmentDetail({ uow, lookups, users }),
     listDevelopmentHistory: new ListDevelopmentHistory({

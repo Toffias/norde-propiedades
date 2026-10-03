@@ -1,5 +1,6 @@
 import { canActOn, OWNERSHIP_RULES, type SessionActor } from '@norde/core/identity';
 import {
+  ListAttachmentsQuerySchema,
   ListDevelopmentHistoryQuerySchema,
   ListPanelPropertiesQuerySchema,
   type DevelopmentDetail,
@@ -23,6 +24,9 @@ import { DevelopmentTabs } from '../../../../features/developments/components/de
 import { UnitsGrid } from '../../../../features/developments/components/units-grid';
 import { DEVELOPMENT_TABS, type DevelopmentTab } from '../../../../features/developments/labels';
 import { DEVELOPMENT_READ_ERROR_MESSAGES } from '../../../../features/developments/messages';
+import { AttachmentsGrid } from '../../../../features/media/components/attachments-grid';
+import { MediaGallery } from '../../../../features/media/components/media-gallery';
+import { MEDIA_LIST_ERROR_MESSAGES } from '../../../../features/media/messages';
 import { PROPERTY_LIST_ERROR_MESSAGES } from '../../../../features/properties/messages';
 import { messageForError } from '../../../../lib/errors';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
@@ -30,6 +34,8 @@ import { requireSession } from '../../../../lib/session';
 
 /** Ítems por tipo del catálogo que se ofrecen como checklist en la ficha. */
 const FEATURES_PAGE = 100;
+/** La galería entra en una página: tiene como mucho 100 ítems. */
+const GALLERY_PAGE = 100;
 
 function first(params: SearchParams, key: string): string | undefined {
   const value = params[key];
@@ -95,6 +101,10 @@ export default async function DevelopmentDetailPage({
   const detail = result.value;
   const tab = tabFrom(query);
   const permissions = permissionsFor(actor, detail);
+  const favorites = await getContainer().identity.getFavoriteIds.execute(
+    { entityType: 'development', ids: [detail.id] },
+    actor,
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -106,7 +116,11 @@ export default async function DevelopmentDetailPage({
         Volver a emprendimientos
       </Link>
 
-      <DevelopmentDetailHeader detail={detail} permissions={permissions} />
+      <DevelopmentDetailHeader
+        detail={detail}
+        permissions={permissions}
+        favorite={favorites.isOk() && favorites.value.has(detail.id)}
+      />
       <DevelopmentTabs
         developmentId={detail.id}
         active={tab}
@@ -128,6 +142,7 @@ async function renderTab(
 ) {
   const { properties } = getContainer();
   const developmentId = detail.id;
+  const owner = { kind: 'development', id: developmentId } as const;
 
   switch (tab) {
     case 'detalles': {
@@ -179,6 +194,38 @@ async function renderTab(
             sort={value.sort}
             canAdd={permissions.addUnits}
             enabledTypes={enabledTypes}
+          />
+        </Card>
+      );
+    }
+    case 'multimedia': {
+      const gallery = await properties.listMedia.execute({ owner, pageSize: GALLERY_PAGE }, actor);
+      if (gallery.isErr()) {
+        return (
+          <Card className="gap-0 overflow-hidden p-0">
+            <DataTableError message={messageForError(gallery.error, MEDIA_LIST_ERROR_MESSAGES)} />
+          </Card>
+        );
+      }
+      return <MediaGallery owner={owner} items={gallery.value.items} canEdit={permissions.edit} />;
+    }
+    case 'archivos': {
+      const { value } = parseListParams(ListAttachmentsQuerySchema.omit({ owner: true }), query);
+      const page = await properties.listAttachments.execute({ ...value, owner }, actor);
+      if (page.isErr()) {
+        return (
+          <Card className="gap-0 overflow-hidden p-0">
+            <DataTableError message={messageForError(page.error, MEDIA_LIST_ERROR_MESSAGES)} />
+          </Card>
+        );
+      }
+      return (
+        <Card className="gap-0 overflow-hidden p-0">
+          <AttachmentsGrid
+            owner={owner}
+            page={page.value}
+            sort={value.sort}
+            canEdit={permissions.edit}
           />
         </Card>
       );

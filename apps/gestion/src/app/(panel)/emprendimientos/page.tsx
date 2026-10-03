@@ -1,4 +1,8 @@
-import { ListDevelopmentsQuerySchema } from '@norde/core/properties/contracts';
+import {
+  DEVELOPMENT_LAYOUT_VALUES,
+  ListDevelopmentsQuerySchema,
+  type DevelopmentLayoutValue,
+} from '@norde/core/properties/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import { PageHeader } from '@norde/ui/components/page-header';
@@ -17,6 +21,12 @@ import { requireSession } from '../../../lib/session';
 
 export const metadata: Metadata = { title: 'Emprendimientos' };
 
+/** Lista (por defecto) o mapa: `?layout=map`. */
+function layoutFrom(params: SearchParams): DevelopmentLayoutValue {
+  const value = params.layout;
+  return DEVELOPMENT_LAYOUT_VALUES.find((layout) => layout === value) ?? 'list';
+}
+
 export default async function DevelopmentsPage({
   searchParams,
 }: {
@@ -25,7 +35,13 @@ export default async function DevelopmentsPage({
   const { actor } = await requireSession();
   const params = await searchParams;
   const { value: query, invalidKeys } = parseListParams(ListDevelopmentsQuerySchema, params);
-  const result = await getContainer().properties.listDevelopments.execute(query, actor);
+  const layout = query.view === 'trash' ? 'list' : layoutFrom(params);
+  // En el mapa los pines los pide la vista según el área: la página de la grilla no hace falta.
+  const result =
+    layout === 'map'
+      ? undefined
+      : await getContainer().properties.listDevelopments.execute(query, actor);
+  const page = result?.isOk() === true ? result.value : undefined;
 
   const filters: DevelopmentFilterValues = {
     q: query.q ?? '',
@@ -51,16 +67,17 @@ export default async function DevelopmentsPage({
       )}
 
       <Card className="gap-0 overflow-hidden p-0">
-        {result.isErr() ? (
+        {result?.isErr() === true ? (
           <DataTableError
             message={messageForError(result.error, DEVELOPMENT_LIST_ERROR_MESSAGES)}
           />
         ) : (
           <DevelopmentsView
-            rows={result.value.items}
-            total={result.value.total}
-            page={result.value.page}
-            pageSize={result.value.pageSize}
+            layout={layout}
+            rows={page?.items ?? []}
+            total={page?.total ?? 0}
+            page={page?.page ?? 1}
+            pageSize={page?.pageSize ?? query.pageSize}
             sort={query.sort}
             filters={filters}
             permissions={{

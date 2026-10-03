@@ -2,8 +2,10 @@
 
 import {
   CONSTRUCTION_STATUS_VALUES,
+  DEVELOPMENT_LAYOUT_VALUES,
   DEVELOPMENT_STATUS_VALUES,
   DEVELOPMENT_TYPES,
+  type DevelopmentLayoutValue,
   type DevelopmentRow,
   type DevelopmentViewValue,
 } from '@norde/core/properties/contracts';
@@ -12,7 +14,17 @@ import { Button } from '@norde/ui/components/button';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { ArchiveRestoreIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { cn } from '@norde/ui/lib/utils';
+import {
+  ArchiveRestoreIcon,
+  EyeIcon,
+  ListIcon,
+  MapIcon,
+  PlusIcon,
+  SearchIcon,
+  Trash2Icon,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,13 +38,19 @@ import {
 } from '../../shared/components/confirm-action-dialog';
 import { usePanel } from '../../shared/components/entity-sheet';
 import { DebouncedInput, FilterSelect, options } from '../../shared/components/list-filters';
-import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
+import {
+  ListNavigationProvider,
+  ServerDataTable,
+  useListNavigation,
+} from '../../shared/components/server-data-table';
 import { deleteDevelopmentAction, restoreDevelopmentAction } from '../actions';
 import {
   CONSTRUCTION_STATUS_LABELS,
   DEVELOPMENT_STATUS_DISPLAY,
   DEVELOPMENT_TYPE_LABELS,
 } from '../labels';
+import { DevelopmentMap } from './development-map';
+import { DevelopmentQuickViewDialog } from './development-quick-view';
 import { DevelopmentSheet } from './development-sheet';
 
 /** Filtros del listado tal como están en la URL (texto, sin parsear). */
@@ -59,12 +77,58 @@ function detailHref(row: DevelopmentRow): Route {
   return `/emprendimientos/${row.id}` as Route;
 }
 
+const LAYOUTS: Readonly<
+  Record<DevelopmentLayoutValue, { readonly label: string; readonly icon: LucideIcon }>
+> = {
+  list: { label: 'Lista', icon: ListIcon },
+  map: { label: 'Mapa', icon: MapIcon },
+};
+
+/** Lista o mapa: la vista va en la URL (`?layout=map`), con los mismos filtros. */
+function LayoutSwitcher({ layout }: { readonly layout: DevelopmentLayoutValue }) {
+  const { setParams } = useListNavigation();
+  return (
+    <div
+      role="group"
+      aria-label="Cómo ver los emprendimientos"
+      className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5"
+    >
+      {DEVELOPMENT_LAYOUT_VALUES.map((value) => {
+        const { label, icon: Icon } = LAYOUTS[value];
+        const active = value === layout;
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={active}
+            title={label}
+            className={cn(
+              'inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              active
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+            onClick={() => {
+              setParams({ layout: value === 'list' ? undefined : value });
+            }}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function Toolbar({
   filters,
+  layout,
   permissions,
   onCreate,
 }: {
   readonly filters: DevelopmentFilterValues;
+  readonly layout: DevelopmentLayoutValue;
   readonly permissions: DevelopmentPermissions;
   readonly onCreate: () => void;
 }) {
@@ -107,8 +171,9 @@ function Toolbar({
           options={options(CONSTRUCTION_STATUS_VALUES, CONSTRUCTION_STATUS_LABELS)}
         />
       </div>
-      <div className="flex gap-2">
-        {permissions.delete && (
+      <div className="flex flex-wrap gap-2">
+        {!inTrash && <LayoutSwitcher layout={layout} />}
+        {permissions.delete && layout === 'list' && (
           <Button
             variant={inTrash ? 'secondary' : 'ghost'}
             onClick={() => {
@@ -131,8 +196,9 @@ function Toolbar({
 }
 
 /**
- * Listado de emprendimientos: grilla paginada en el servidor con búsqueda, filtros y papelera, más
- * el alta en el panel lateral. Cada fila abre la ficha.
+ * Listado de emprendimientos: grilla paginada en el servidor con búsqueda, filtros y papelera, o
+ * mapa con los mismos filtros, más el alta en el panel lateral. Cada fila abre la ficha o la vista
+ * rápida.
  */
 export function DevelopmentsView({
   rows,
@@ -141,8 +207,10 @@ export function DevelopmentsView({
   pageSize,
   sort,
   filters,
+  layout,
   permissions,
 }: {
+  readonly layout: DevelopmentLayoutValue;
   readonly rows: readonly DevelopmentRow[];
   readonly total: number;
   readonly page: number;
@@ -154,7 +222,10 @@ export function DevelopmentsView({
   const router = useRouter();
   const navigation = usePanel();
   const [pending, setPending] = useState<PendingAction | undefined>();
+  const [quickView, setQuickView] = useState<string | undefined>();
   const inTrash = filters.view === 'trash';
+  // La papelera solo se ve en lista.
+  const effectiveLayout = inTrash ? 'list' : layout;
   const hasFilters = [
     filters.q,
     filters.status,
@@ -297,9 +368,18 @@ export function DevelopmentsView({
         hideHeader: true,
         className: 'w-[60px] text-right',
         cell: (row) =>
-          permissions.delete && (
+          (permissions.delete || !inTrash) && (
             <RowActions>
-              {inTrash ? (
+              {!inTrash && (
+                <RowAction
+                  icon={EyeIcon}
+                  label="Vista rápida"
+                  onClick={() => {
+                    setQuickView(row.id);
+                  }}
+                />
+              )}
+              {!permissions.delete ? null : inTrash ? (
                 <RowAction
                   icon={ArchiveRestoreIcon}
                   label="Restaurar"
@@ -341,35 +421,54 @@ export function DevelopmentsView({
     [inTrash, permissions.delete],
   );
 
+  const toolbar = (
+    <Toolbar
+      filters={filters}
+      layout={effectiveLayout}
+      permissions={permissions}
+      onCreate={navigation.openNew}
+    />
+  );
+
   return (
     <>
-      <ServerDataTable
-        label={inTrash ? 'Papelera de emprendimientos' : 'Emprendimientos'}
-        columns={columns}
-        rows={rows}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        sort={sort}
-        getRowId={(row) => row.id}
-        onRowClick={(row, event) => {
-          // Como un link: con Ctrl o Cmd, la ficha se abre en otra pestaña.
-          if (event.ctrlKey || event.metaKey) {
-            window.open(detailHref(row), '_blank', 'noopener');
-            return;
+      {effectiveLayout === 'map' ? (
+        <ListNavigationProvider>
+          <DevelopmentMap filters={filters} toolbar={toolbar} />
+        </ListNavigationProvider>
+      ) : (
+        <ServerDataTable
+          label={inTrash ? 'Papelera de emprendimientos' : 'Emprendimientos'}
+          columns={columns}
+          rows={rows}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          sort={sort}
+          getRowId={(row) => row.id}
+          onRowClick={(row, event) => {
+            // Como un link: con Ctrl o Cmd, la ficha se abre en otra pestaña.
+            if (event.ctrlKey || event.metaKey) {
+              window.open(detailHref(row), '_blank', 'noopener');
+              return;
+            }
+            router.push(detailHref(row));
+          }}
+          toolbar={toolbar}
+          empty={
+            inTrash
+              ? 'La papelera está vacía.'
+              : hasFilters
+                ? 'No hay emprendimientos que coincidan con los filtros.'
+                : 'Todavía no hay emprendimientos cargados.'
           }
-          router.push(detailHref(row));
+        />
+      )}
+      <DevelopmentQuickViewDialog
+        developmentId={quickView}
+        onClose={() => {
+          setQuickView(undefined);
         }}
-        toolbar={
-          <Toolbar filters={filters} permissions={permissions} onCreate={navigation.openNew} />
-        }
-        empty={
-          inTrash
-            ? 'La papelera está vacía.'
-            : hasFilters
-              ? 'No hay emprendimientos que coincidan con los filtros.'
-              : 'Todavía no hay emprendimientos cargados.'
-        }
       />
       <ConfirmActionDialog
         copy={pending?.copy}

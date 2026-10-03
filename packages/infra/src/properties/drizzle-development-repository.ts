@@ -4,6 +4,7 @@ import {
   Development,
   DEVELOPMENT_KINDS,
   DEVELOPMENT_STATUSES,
+  MAX_DEVELOPMENT_CHANCE_AGENTS,
   type DevelopmentId,
   type DevelopmentRepository,
 } from '@norde/core/properties';
@@ -13,6 +14,7 @@ import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
 import {
+  developmentAgentChances,
   developmentFeatures,
   developments,
   developmentTagAssignments,
@@ -60,6 +62,25 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
     return row ? this.restore(row) : undefined;
   }
 
+  /** Bloqueado hasta el final de la transacción: para tomar un turno de la derivación. */
+  async findForUpdate(id: DevelopmentId): Promise<Development | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(developments)
+      .where(eq(developments.id, id))
+      .limit(1)
+      .for('update');
+    return row ? this.restore(row) : undefined;
+  }
+
+  /** Solo el cursor de la derivación: tomar un turno no es editar el emprendimiento. */
+  async saveInquiryCursor(development: Development): Promise<void> {
+    await this.db
+      .update(developments)
+      .set({ inquiryRouteCursor: development.toSnapshot().inquiryRouteCursor })
+      .where(eq(developments.id, development.id));
+  }
+
   /** Por `properties_development_idx`. */
   async countActiveUnits(id: DevelopmentId): Promise<number> {
     const [row] = await this.db
@@ -97,6 +118,12 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
       .where(eq(developmentTagAssignments.developmentId, row.id))
       .orderBy(asc(developmentTagAssignments.tagId))
       .limit(MAX_TAGS_PER_DEVELOPMENT);
+    const chanceRows = await this.db
+      .select({ userId: developmentAgentChances.userId, weight: developmentAgentChances.weight })
+      .from(developmentAgentChances)
+      .where(eq(developmentAgentChances.developmentId, row.id))
+      .orderBy(asc(developmentAgentChances.position))
+      .limit(MAX_DEVELOPMENT_CHANCE_AGENTS);
 
     const enums = RowEnums.parse(row);
     return Development.restore({
@@ -130,6 +157,8 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
       tagIds: tagRows.map((tag) => tag.tagId),
       producerUserId: optional(row.producerUserId),
       branchId: optional(row.branchId),
+      chances: chanceRows.map((chance) => ({ userId: chance.userId, weight: chance.weight })),
+      inquiryRouteCursor: row.inquiryRouteCursor,
       deletedAt: optional(row.deletedAt),
       deletedBy: optional(row.deletedBy),
       createdAt: row.createdAt,
@@ -166,6 +195,7 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
       immediateDeed: s.deal.immediateDeed,
       producerUserId: s.producerUserId ?? null,
       branchId: s.branchId ?? null,
+      inquiryRouteCursor: s.inquiryRouteCursor,
       deletedAt: s.deletedAt ?? null,
       deletedBy: s.deletedBy ?? null,
       updatedAt: s.updatedAt,
@@ -184,6 +214,40 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
 
     await this.saveFeatures(s.id, s.featureIds, s.updatedAt, actorId);
     await this.saveTags(s.id, s.tagIds, s.updatedAt, actorId);
+    await this.saveChances(s.id, s.chances, s.updatedAt, actorId);
+  }
+
+  /** Reemplaza las chances enteras si cambiaron: son pocas y el orden importa. */
+  private async saveChances(
+    developmentId: string,
+    chances: readonly { readonly userId: string; readonly weight: number }[],
+    now: Date,
+    actorId: string,
+  ): Promise<void> {
+    const current = await this.db
+      .select({ userId: developmentAgentChances.userId, weight: developmentAgentChances.weight })
+      .from(developmentAgentChances)
+      .where(eq(developmentAgentChances.developmentId, developmentId))
+      .orderBy(asc(developmentAgentChances.position))
+      .limit(MAX_DEVELOPMENT_CHANCE_AGENTS);
+    const same =
+      current.length === chances.length &&
+      current.every((c, i) => c.userId === chances[i]?.userId && c.weight === chances[i].weight);
+    if (same) return;
+    await this.db
+      .delete(developmentAgentChances)
+      .where(eq(developmentAgentChances.developmentId, developmentId));
+    if (chances.length === 0) return;
+    await this.db.insert(developmentAgentChances).values(
+      chances.map((chance, position) => ({
+        developmentId,
+        userId: chance.userId,
+        weight: chance.weight,
+        position,
+        createdAt: now,
+        createdBy: actorId,
+      })),
+    );
   }
 
   private async saveFeatures(

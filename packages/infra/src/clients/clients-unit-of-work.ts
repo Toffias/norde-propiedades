@@ -3,6 +3,7 @@ import type { Clock, IdGenerator } from '@norde/core/shared';
 
 import type { Database } from '../db/client';
 import { DrizzleUnitOfWork } from '../db/unit-of-work';
+import { DrizzleDevelopmentChances } from '../properties/drizzle-development-chances';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
@@ -52,6 +53,7 @@ export function createClientsUnitOfWork(
     bulkOperations: new DrizzleOpportunityBulkOperationRepository(tx),
     inquiries: new DrizzleInquiryRepository(tx),
     inquiryRules: new DrizzleInquiryRuleRepository(tx),
+    developmentChances: new DrizzleDevelopmentChances(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

@@ -36,6 +36,9 @@ const EnvSchema = z.object({
   GEOCODER_USER_AGENT: z.string().min(3).default('NordePropiedades/1.0 (panel de gestion)'),
   /** Otra instancia de Nominatim. Sin valor, la pública de OpenStreetMap. */
   GEOCODER_URL: z.url({ protocol: /^https?$/ }).optional(),
+
+  /** Reglas de asignación de consultas (#48): en pausa hasta que Norde las use. */
+  INQUIRY_RULES_ENABLED: z.stringbool().default(false),
 });
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
@@ -85,6 +88,11 @@ export function getNodeEnv(): Env['NODE_ENV'] {
 /** Para el logger: no exige el resto de las variables (un error de configuración también se loguea). */
 export function getLogLevel(): Env['LOG_LEVEL'] {
   return EnvSchema.shape.LOG_LEVEL.catch('info').parse(process.env.LOG_LEVEL);
+}
+
+/** Si se muestran las reglas de asignación de consultas (#48). */
+export function inquiryRulesEnabled(): boolean {
+  return getEnv().INQUIRY_RULES_ENABLED;
 }
 
 /** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */

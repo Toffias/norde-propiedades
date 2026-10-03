@@ -6,7 +6,9 @@ import { PageHeader } from '@norde/ui/components/page-header';
 import { ArrowLeftIcon, WorkflowIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
+import { inquiryRulesEnabled } from '../../../../config/env';
 import { getContainer } from '../../../../container';
 import { InquiryRulesView } from '../../../../features/inquiries/components/inquiry-rules-view';
 import { LIST_INQUIRY_RULES_ERROR_MESSAGES } from '../../../../features/inquiries/messages';
@@ -21,6 +23,7 @@ export default async function InquiryRulesPage({
 }: {
   readonly searchParams: Promise<SearchParams>;
 }) {
+  if (!inquiryRulesEnabled()) notFound();
   const { actor } = await requireSession();
   const { value: query } = parseListParams(ListInquiryRulesQuerySchema, await searchParams);
   const result = await getContainer().inquiries.listInquiryRules.execute(query, actor);

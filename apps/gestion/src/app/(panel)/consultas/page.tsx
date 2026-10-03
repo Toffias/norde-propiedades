@@ -7,6 +7,7 @@ import { InboxIcon, WorkflowIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { inquiryRulesEnabled } from '../../../config/env';
 import { getContainer } from '../../../container';
 import {
   InquiriesView,
@@ -51,6 +52,7 @@ export default async function InquiriesPage({
         title="Consultas"
         subtitle="Lo que llega de los portales y de la web, hasta que se asigna a un contacto"
         actions={
+          inquiryRulesEnabled() &&
           actor.can('inquiries:manage') && (
             <Button asChild variant="outline" size="sm">
               <Link href="/consultas/reglas">

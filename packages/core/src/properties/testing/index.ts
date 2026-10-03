@@ -3,6 +3,7 @@
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
+  DevelopmentMapPin,
   DevelopmentRef,
   PanelPropertyCustomAttribute,
   PanelPropertyRow,
@@ -10,6 +11,7 @@ import type {
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
 import type {
+  DevelopmentFilterCriteria,
   DevelopmentListCriteria,
   DevelopmentListItem,
   DevelopmentListQuery,
@@ -86,14 +88,11 @@ import {
 } from '../domain/property';
 import type { PropertyRepository } from '../domain/property.repository';
 import { MediaItem, type MediaItemId, type MediaItemSnapshot } from '../domain/media-item';
-import type { MediaItemRepository, PropertyAttachmentRepository } from '../domain/media.repository';
-import {
-  PropertyAttachment,
-  type PropertyAttachmentId,
-  type PropertyAttachmentSnapshot,
-} from '../domain/property-attachment';
+import { sameOwner, type MediaOwner } from '../domain/media-owner';
+import type { MediaItemRepository, AttachmentRepository } from '../domain/media.repository';
+import { Attachment, type AttachmentId, type AttachmentSnapshot } from '../domain/attachment';
 import type { ImageVariantGenerator } from '../application/ports/image-variant-generator';
-import type { PropertyMediaQuery } from '../application/ports/property-media-query';
+import type { MediaQuery } from '../application/ports/media-query';
 import type {
   OwnerReports,
   PropertyDocumentContent,
@@ -558,7 +557,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly settings = new InMemoryPropertySettingsRepository();
   readonly favoriteSearches = new InMemoryFavoriteSearchRepository();
   readonly media = new InMemoryMediaItemRepository();
-  readonly attachments = new InMemoryPropertyAttachmentRepository();
+  readonly attachments = new InMemoryAttachmentRepository();
   readonly documents = new InMemoryPropertyDocumentRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
@@ -837,24 +836,22 @@ export class InMemoryMediaItemRepository implements MediaItemRepository {
     return Promise.resolve(row ? MediaItem.restore(row) : undefined);
   }
 
-  listForProperty(propertyId: PropertyId) {
+  listForOwner(owner: MediaOwner) {
     return Promise.resolve(
       [...this.rows.values()]
-        .filter((row) => row.propertyId === propertyId)
+        .filter((row) => sameOwner(row.owner, owner))
         .sort((a, b) => a.position - b.position)
         .map((row) => MediaItem.restore(row)),
     );
   }
 
-  count(propertyId: PropertyId) {
-    return Promise.resolve(
-      [...this.rows.values()].filter((r) => r.propertyId === propertyId).length,
-    );
+  count(owner: MediaOwner) {
+    return Promise.resolve([...this.rows.values()].filter((r) => sameOwner(r.owner, owner)).length);
   }
 
-  nextPosition(propertyId: PropertyId) {
+  nextPosition(owner: MediaOwner) {
     const positions = [...this.rows.values()]
-      .filter((row) => row.propertyId === propertyId)
+      .filter((row) => sameOwner(row.owner, owner))
       .map((row) => row.position);
     return Promise.resolve(Math.max(-1, ...positions) + 1);
   }
@@ -870,15 +867,15 @@ export class InMemoryMediaItemRepository implements MediaItemRepository {
   }
 }
 
-export class InMemoryPropertyAttachmentRepository implements PropertyAttachmentRepository {
-  readonly rows = new Map<string, PropertyAttachmentSnapshot>();
+export class InMemoryAttachmentRepository implements AttachmentRepository {
+  readonly rows = new Map<string, AttachmentSnapshot>();
 
-  findById(id: PropertyAttachmentId) {
+  findById(id: AttachmentId) {
     const row = this.rows.get(id);
-    return Promise.resolve(row ? PropertyAttachment.restore(row) : undefined);
+    return Promise.resolve(row ? Attachment.restore(row) : undefined);
   }
 
-  save(attachment: PropertyAttachment) {
+  save(attachment: Attachment) {
     this.rows.set(attachment.id, attachment.toSnapshot());
     return Promise.resolve();
   }
@@ -904,15 +901,15 @@ export class FakeImageVariantGenerator implements ImageVariantGenerator {
 }
 
 /** Lee las filas de los repositorios en memoria, como lo haría el SQL de la galería y los archivos. */
-export class InMemoryPropertyMediaQuery implements PropertyMediaQuery {
+export class InMemoryMediaQuery implements MediaQuery {
   constructor(
     private readonly media: InMemoryMediaItemRepository,
-    private readonly attachments: InMemoryPropertyAttachmentRepository,
+    private readonly attachments: InMemoryAttachmentRepository,
   ) {}
 
-  listMedia(criteria: Parameters<PropertyMediaQuery['listMedia']>[0]) {
+  listMedia(criteria: Parameters<MediaQuery['listMedia']>[0]) {
     const rows = [...this.media.rows.values()]
-      .filter((row) => row.propertyId === criteria.propertyId)
+      .filter((row) => sameOwner(row.owner, criteria.owner))
       .filter((row) =>
         criteria.kind === undefined
           ? true
@@ -942,10 +939,10 @@ export class InMemoryPropertyMediaQuery implements PropertyMediaQuery {
     });
   }
 
-  listAttachments(criteria: Parameters<PropertyMediaQuery['listAttachments']>[0]) {
+  listAttachments(criteria: Parameters<MediaQuery['listAttachments']>[0]) {
     const direction = criteria.sort.direction === 'asc' ? 1 : -1;
     const rows = [...this.attachments.rows.values()]
-      .filter((row) => row.propertyId === criteria.propertyId && row.deletedAt === undefined)
+      .filter((row) => sameOwner(row.owner, criteria.owner) && row.deletedAt === undefined)
       .sort((a, b) =>
         criteria.sort.field === 'name'
           ? a.name.localeCompare(b.name) * direction
@@ -1165,6 +1162,16 @@ export class InMemoryDevelopmentRepository implements DevelopmentRepository {
     return Promise.resolve(units.length);
   }
 
+  countAvailableUnits(id: DevelopmentId) {
+    const units = [...this.properties.rows.values()].filter(
+      (property) =>
+        property.developmentId === id &&
+        property.deletedAt === undefined &&
+        property.status === 'available',
+    );
+    return Promise.resolve(units.length);
+  }
+
   save(development: Development, actorId: string) {
     this.rows.set(development.id, development.toSnapshot());
     this.savedBy.set(development.id, actorId);
@@ -1221,5 +1228,17 @@ export class StubDevelopmentListQuery implements DevelopmentListQuery {
   search(criteria: DevelopmentListCriteria) {
     this.calls.push(criteria);
     return Promise.resolve(this.slice);
+  }
+
+  readonly mapCalls: {
+    readonly criteria: DevelopmentFilterCriteria;
+    readonly area: BoundingBox;
+    readonly limit: number;
+  }[] = [];
+  pins: PageSlice<DevelopmentMapPin> = { items: [], total: 0 };
+
+  mapPins(criteria: DevelopmentFilterCriteria, area: BoundingBox, limit: number) {
+    this.mapCalls.push({ criteria, area, limit });
+    return Promise.resolve(this.pins);
   }
 }

@@ -69,6 +69,21 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
     return row?.total ?? 0;
   }
 
+  /** Por `properties_development_idx`: un emprendimiento tiene pocas unidades. */
+  async countAvailableUnits(id: DevelopmentId): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(properties)
+      .where(
+        and(
+          eq(properties.developmentId, id),
+          isNull(properties.deletedAt),
+          eq(properties.status, 'available'),
+        ),
+      );
+    return row?.total ?? 0;
+  }
+
   private async restore(row: typeof developments.$inferSelect): Promise<Development> {
     const featureRows = await this.db
       .select({ featureId: developmentFeatures.featureId })

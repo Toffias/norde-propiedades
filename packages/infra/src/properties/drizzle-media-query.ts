@@ -2,11 +2,11 @@ import {
   MEDIA_KINDS,
   MEDIA_PROCESSING_STATUSES,
   MEDIA_ROTATIONS,
-  type PropertyAttachmentCriteria,
-  type PropertyAttachmentRow,
-  type PropertyMediaCriteria,
-  type PropertyMediaQuery,
-  type PropertyMediaRow,
+  type AttachmentCriteria,
+  type AttachmentRow,
+  type MediaCriteria,
+  type MediaQuery,
+  type MediaRow,
 } from '@norde/core/properties';
 import type { PageSlice } from '@norde/core/shared';
 import { and, asc, count, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
@@ -24,13 +24,15 @@ const MediaEnums = z.object({
 const IMAGE_KINDS = ['photo', 'floor_plan'];
 const LINK_KINDS = ['video', 'tour_360'];
 
-/** Galería y archivos de la ficha, paginados en la base con los índices por propiedad. */
-export class DrizzlePropertyMediaQuery implements PropertyMediaQuery {
+/** Galería y archivos de la ficha, paginados en la base con los índices por dueño. */
+export class DrizzleMediaQuery implements MediaQuery {
   constructor(private readonly db: DbExecutor) {}
 
-  async listMedia(criteria: PropertyMediaCriteria): Promise<PageSlice<PropertyMediaRow>> {
+  async listMedia(criteria: MediaCriteria): Promise<PageSlice<MediaRow>> {
     const where = and(
-      eq(mediaItems.propertyId, criteria.propertyId),
+      criteria.owner.kind === 'property'
+        ? eq(mediaItems.propertyId, criteria.owner.id)
+        : eq(mediaItems.developmentId, criteria.owner.id),
       criteria.kind === undefined
         ? undefined
         : inArray(mediaItems.kind, criteria.kind === 'images' ? IMAGE_KINDS : LINK_KINDS),
@@ -85,12 +87,12 @@ export class DrizzlePropertyMediaQuery implements PropertyMediaQuery {
   }
 
   async listAttachments(
-    criteria: PropertyAttachmentCriteria,
-  ): Promise<
-    PageSlice<Omit<PropertyAttachmentRow, 'uploadedBy'> & { readonly uploadedBy: string }>
-  > {
+    criteria: AttachmentCriteria,
+  ): Promise<PageSlice<Omit<AttachmentRow, 'uploadedBy'> & { readonly uploadedBy: string }>> {
     const where = and(
-      eq(attachments.propertyId, criteria.propertyId),
+      criteria.owner.kind === 'property'
+        ? eq(attachments.propertyId, criteria.owner.id)
+        : eq(attachments.developmentId, criteria.owner.id),
       isNull(attachments.deletedAt),
     );
     const direction = criteria.sort.direction === 'asc' ? asc : desc;

@@ -15,7 +15,7 @@ export async function GET(
   const { mediaId } = await params;
   const requested = new URL(request.url).searchParams.get('v');
   const variant = MEDIA_VARIANT_VALUES.find((value) => value === requested) ?? 'thumbnail';
-  const result = await getContainer().properties.getPropertyMediaFile.execute(
+  const result = await getContainer().properties.getMediaFile.execute(
     { mediaId, variant },
     session.value.actor,
   );

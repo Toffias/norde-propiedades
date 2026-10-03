@@ -31,6 +31,7 @@ import {
   DEVELOPMENT_STATUS_DISPLAY,
   DEVELOPMENT_TYPE_LABELS,
 } from '../labels';
+import { DevelopmentFavoriteToggle } from './development-favorite-toggle';
 
 export interface DevelopmentDetailPermissions {
   /** Editar la ficha: el caso de uso vuelve a decidirlo (propios, de su sucursal o todos). */
@@ -45,9 +46,11 @@ export interface DevelopmentDetailPermissions {
 export function DevelopmentDetailHeader({
   detail,
   permissions,
+  favorite,
 }: {
   readonly detail: DevelopmentDetail;
   readonly permissions: DevelopmentDetailPermissions;
+  readonly favorite: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<
@@ -94,6 +97,9 @@ export function DevelopmentDetailHeader({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-lg bg-white/10 p-1">
+            <DevelopmentFavoriteToggle developmentId={detail.id} favorite={favorite} />
+          </div>
           {permissions.edit && !inTrash && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

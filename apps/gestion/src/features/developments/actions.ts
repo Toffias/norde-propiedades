@@ -1,12 +1,13 @@
 'use server';
 
-import type { Result } from '@norde/core/shared';
+import { FavoritesInputSchema } from '@norde/core/identity/contracts';
 import {
   ChangeDevelopmentStatusInputSchema,
   ChangeDevelopmentTagsInputSchema,
   CreateDevelopmentInputSchema,
   CreateDevelopmentUnitInputSchema,
   DevelopmentIdInputSchema,
+  DevelopmentMapQuerySchema,
   UpdateDevelopmentDetailsInputSchema,
   UpdateDevelopmentFeaturesInputSchema,
   UpdateDevelopmentGeneralInputSchema,
@@ -15,20 +16,31 @@ import {
   type ChangeDevelopmentTagsInput,
   type CreateDevelopmentInput,
   type CreateDevelopmentUnitInput,
+  type DevelopmentDetail,
   type DevelopmentIdInput,
+  type DevelopmentMapQuery,
+  type DevelopmentMapResult,
   type GeocodingOutcome,
+  type MediaRow,
   type UpdateDevelopmentDetailsInput,
   type UpdateDevelopmentFeaturesInput,
   type UpdateDevelopmentGeneralInput,
   type UpdateDevelopmentLocationInput,
 } from '@norde/core/properties/contracts';
+import type { Result } from '@norde/core/shared';
 import { revalidatePath } from 'next/cache';
 
 import { getContainer } from '../../container';
 import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-result';
 import { messageForError, type ErrorMessages, type ExpectedError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
-import { DEVELOPMENT_ERROR_MESSAGES, DEVELOPMENT_UNIT_ERROR_MESSAGES } from './messages';
+import {
+  DEVELOPMENT_ERROR_MESSAGES,
+  DEVELOPMENT_FAVORITE_ERROR_MESSAGES,
+  DEVELOPMENT_LIST_ERROR_MESSAGES,
+  DEVELOPMENT_READ_ERROR_MESSAGES,
+  DEVELOPMENT_UNIT_ERROR_MESSAGES,
+} from './messages';
 
 // Server Actions de emprendimientos (#7): una por caso de uso.
 
@@ -160,4 +172,87 @@ export async function createDevelopmentUnitAction(
   if (result.isErr()) return outcome;
   revalidatePath('/propiedades');
   return { ...outcome, ...result.value };
+}
+
+// ---------- Mapa y favoritos ----------
+
+type ActionResultFailure = Extract<ActionResult, { readonly ok: false }>;
+
+/** Los pines del área visible del mapa, con los filtros del listado. */
+export async function loadDevelopmentMapPinsAction(
+  query: DevelopmentMapQuery,
+): Promise<{ readonly ok: true; readonly value: DevelopmentMapResult } | ActionResultFailure> {
+  const { actor } = await requireSession();
+  const parsed = DevelopmentMapQuerySchema.safeParse(query);
+  if (!parsed.success) {
+    return { ok: false, message: DEVELOPMENT_LIST_ERROR_MESSAGES.InvalidSearch };
+  }
+  const result = await developments().getDevelopmentMap.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return { ok: false, message: messageForError(result.error, DEVELOPMENT_LIST_ERROR_MESSAGES) };
+  }
+  return { ok: true, value: result.value };
+}
+
+/** Marca o desmarca el emprendimiento como favorito de quien usa el panel. */
+export async function setDevelopmentFavoriteAction(input: {
+  readonly developmentId: string;
+  readonly favorite: boolean;
+}): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = FavoritesInputSchema.safeParse({
+    entityType: 'development',
+    ids: [input.developmentId],
+  });
+  if (!parsed.success) return actionFailed(DEVELOPMENT_FAVORITE_ERROR_MESSAGES.InvalidInput);
+
+  const { identity } = getContainer();
+  const useCase = input.favorite ? identity.addFavorites : identity.removeFavorites;
+  const result = await useCase.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, DEVELOPMENT_FAVORITE_ERROR_MESSAGES));
+  }
+  revalidatePath(DEVELOPMENTS_PATH);
+  revalidatePath(`${DEVELOPMENTS_PATH}/${input.developmentId}`);
+  return ACTION_OK;
+}
+
+/** Lo que muestra la vista rápida del listado: la ficha, las primeras fotos y los archivos. */
+export interface DevelopmentQuickView {
+  readonly detail: DevelopmentDetail;
+  readonly photos: readonly MediaRow[];
+  readonly attachmentCount: number;
+  readonly favorite: boolean;
+}
+
+/** Fotos que entran en el carrusel de la vista rápida; el resto, en la ficha. */
+const QUICK_VIEW_PHOTOS = 12;
+
+export async function loadDevelopmentQuickViewAction(
+  input: DevelopmentIdInput,
+): Promise<{ readonly ok: true; readonly value: DevelopmentQuickView } | ActionResultFailure> {
+  const { actor } = await requireSession();
+  const parsed = DevelopmentIdInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: DEVELOPMENT_READ_ERROR_MESSAGES.InvalidInput };
+  const { developmentId } = parsed.data;
+  const owner = { kind: 'development', id: developmentId } as const;
+  const { properties, identity } = getContainer();
+  const [detail, photos, attachments, favorites] = await Promise.all([
+    properties.getDevelopmentDetail.execute({ developmentId }, actor),
+    properties.listMedia.execute({ owner, kind: 'images', pageSize: QUICK_VIEW_PHOTOS }, actor),
+    properties.listAttachments.execute({ owner, pageSize: 1 }, actor),
+    identity.getFavoriteIds.execute({ entityType: 'development', ids: [developmentId] }, actor),
+  ]);
+  if (detail.isErr()) {
+    return { ok: false, message: messageForError(detail.error, DEVELOPMENT_READ_ERROR_MESSAGES) };
+  }
+  return {
+    ok: true,
+    value: {
+      detail: detail.value,
+      photos: photos.isOk() ? photos.value.items : [],
+      attachmentCount: attachments.isOk() ? attachments.value.total : 0,
+      favorite: favorites.isOk() && favorites.value.has(developmentId),
+    },
+  };
 }

@@ -1,20 +1,15 @@
 'use server';
 
 import {
-  AddPropertyMediaLinkInputSchema,
-  AttachmentIdInputSchema,
   ChangePropertyCodeInputSchema,
   ChangePropertyProducerInputSchema,
   ChangePropertyStatusInputSchema,
   ChangePropertyTagsInputSchema,
   CreateCustomAttributeInputSchema,
   ListPropertyDocumentsQuerySchema,
-  MediaIdInputSchema,
-  ReorderPropertyMediaInputSchema,
   RequestPropertyDocumentInputSchema,
   SendOwnerReportInputSchema,
   UpdateCustomAttributeInputSchema,
-  UpdatePropertyAttachmentInputSchema,
   UpdatePropertyCharacteristicsInputSchema,
   UpdatePropertyCustomAttributesInputSchema,
   UpdatePropertyDealInputSchema,
@@ -22,26 +17,18 @@ import {
   UpdatePropertyFeaturesInputSchema,
   UpdatePropertyInternalInfoInputSchema,
   UpdatePropertyLocationInputSchema,
-  UpdatePropertyMediaInputSchema,
   UpdatePropertyOperationsInputSchema,
   UpdatePropertyPublicationInputSchema,
-  UploadPropertyAttachmentInputSchema,
-  UploadPropertyMediaInputSchema,
-  type AddPropertyMediaLinkInput,
-  type AttachmentIdInput,
   type ChangePropertyCodeInput,
   type ChangePropertyProducerInput,
   type ChangePropertyStatusInput,
   type ChangePropertyTagsInput,
   type CreateCustomAttributeInput,
   type GeocodingOutcome,
-  type MediaIdInput,
   type PropertyDocumentRow,
-  type ReorderPropertyMediaInput,
   type RequestPropertyDocumentInput,
   type SendOwnerReportInput,
   type UpdateCustomAttributeInput,
-  type UpdatePropertyAttachmentInput,
   type UpdatePropertyCharacteristicsInput,
   type UpdatePropertyCustomAttributesInput,
   type UpdatePropertyDealInput,
@@ -49,7 +36,6 @@ import {
   type UpdatePropertyFeaturesInput,
   type UpdatePropertyInternalInfoInput,
   type UpdatePropertyLocationInput,
-  type UpdatePropertyMediaInput,
   type UpdatePropertyOperationsInput,
   type UpdatePropertyPublicationInput,
 } from '@norde/core/properties/contracts';
@@ -65,7 +51,6 @@ import {
   DETAIL_ERROR_MESSAGES,
   DETAIL_LIST_ERROR_MESSAGES,
   DOCUMENT_ERROR_MESSAGES,
-  MEDIA_ERROR_MESSAGES,
 } from './detail-messages';
 
 // Server Actions de la ficha de propiedad (#6): una por caso de uso.
@@ -91,17 +76,6 @@ function done<E extends ExpectedError>(
   revalidatePath('/propiedades');
   revalidatePath('/mi-empresa', 'layout');
   return ACTION_OK;
-}
-
-/** El archivo de un `FormData` tal como lo espera el contract de subida. */
-async function fileFrom(form: FormData) {
-  const file = form.get('file');
-  if (!(file instanceof File)) return {};
-  return {
-    fileName: file.name,
-    contentType: file.type,
-    bytes: new Uint8Array(await file.arrayBuffer()),
-  };
 }
 
 // ---------- Datos de la ficha ----------
@@ -235,109 +209,6 @@ export async function updatePropertyPublicationAction(
   if (!parsed.success) return actionFailed(INVALID);
   const result = await properties().updatePropertyPublication.execute(parsed.data, actor);
   return done(result, DETAIL_ERROR_MESSAGES, parsed.data.propertyId);
-}
-
-// ---------- Multimedia y archivos ----------
-
-const MEDIA_INVALID = MEDIA_ERROR_MESSAGES.InvalidInput;
-
-/** Una foto por pedido: la pantalla sube varias en paralelo y muestra el avance de cada una. */
-export async function uploadPropertyMediaAction(form: FormData): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = UploadPropertyMediaInputSchema.safeParse({
-    propertyId: form.get('propertyId'),
-    ...(await fileFrom(form)),
-  });
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().uploadPropertyMedia.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, parsed.data.propertyId);
-}
-
-export async function addPropertyMediaLinkAction(
-  input: AddPropertyMediaLinkInput,
-): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = AddPropertyMediaLinkInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(MEDIA_ERROR_MESSAGES.InvalidMediaUrl);
-  const result = await properties().addPropertyMediaLink.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, parsed.data.propertyId);
-}
-
-/** Las acciones sobre una foto o un archivo revalidan la ficha desde la que se pidieron. */
-export async function updatePropertyMediaAction(
-  propertyId: string,
-  input: UpdatePropertyMediaInput,
-): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = UpdatePropertyMediaInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().updatePropertyMedia.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, propertyId);
-}
-
-export async function reorderPropertyMediaAction(
-  input: ReorderPropertyMediaInput,
-): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = ReorderPropertyMediaInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().reorderPropertyMedia.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, parsed.data.propertyId);
-}
-
-export async function setPropertyCoverAction(
-  propertyId: string,
-  input: MediaIdInput,
-): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = MediaIdInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().setPropertyCover.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, propertyId);
-}
-
-export async function deletePropertyMediaAction(
-  propertyId: string,
-  input: MediaIdInput,
-): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = MediaIdInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().deletePropertyMedia.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, propertyId);
-}
-
-export async function uploadPropertyAttachmentAction(form: FormData): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = UploadPropertyAttachmentInputSchema.safeParse({
-    propertyId: form.get('propertyId'),
-    ...(await fileFrom(form)),
-  });
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().uploadPropertyAttachment.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, parsed.data.propertyId);
-}
-
-export async function updatePropertyAttachmentAction(
-  propertyId: string,
-  input: UpdatePropertyAttachmentInput,
-): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = UpdatePropertyAttachmentInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().updatePropertyAttachment.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, propertyId);
-}
-
-export async function deletePropertyAttachmentAction(
-  propertyId: string,
-  input: AttachmentIdInput,
-): Promise<ActionResult> {
-  const { actor } = await requireSession();
-  const parsed = AttachmentIdInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(MEDIA_INVALID);
-  const result = await properties().deletePropertyAttachment.execute(parsed.data, actor);
-  return done(result, MEDIA_ERROR_MESSAGES, propertyId);
 }
 
 // ---------- PDF ----------

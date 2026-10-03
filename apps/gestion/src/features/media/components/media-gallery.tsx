@@ -20,8 +20,9 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   MAX_MEDIA_UPLOAD_BYTES,
   MEDIA_IMAGE_CONTENT_TYPES,
+  type MediaOwnerInput,
   type MediaRotationValue,
-  type PropertyMediaRow,
+  type MediaRow,
 } from '@norde/core/properties/contracts';
 import { Badge } from '@norde/ui/components/badge';
 import { Button } from '@norde/ui/components/button';
@@ -66,17 +67,18 @@ import {
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, useTransition } from 'react';
 
-import { runAction, type ActionResult } from '../../../../lib/action-result';
+import { runAction, type ActionResult } from '../../../lib/action-result';
 import {
-  addPropertyMediaLinkAction,
-  deletePropertyMediaAction,
-  reorderPropertyMediaAction,
-  setPropertyCoverAction,
-  updatePropertyMediaAction,
-  uploadPropertyMediaAction,
-} from '../../detail-actions';
-import { MEDIA_KIND_LABELS } from '../../detail-labels';
-import { ConfirmActionDialog } from '../../../shared/components/confirm-action-dialog';
+  addMediaLinkAction,
+  deleteMediaAction,
+  reorderMediaAction,
+  setMediaCoverAction,
+  updateMediaAction,
+  uploadMediaAction,
+} from '../actions';
+import { mediaFileHref } from '../paths';
+import { MEDIA_KIND_LABELS } from '../labels';
+import { ConfirmActionDialog } from '../../shared/components/confirm-action-dialog';
 
 /** Fotos que se suben a la vez: el resto espera su turno. */
 const UPLOAD_CONCURRENCY = 3;
@@ -89,7 +91,7 @@ function nextRotation(rotation: MediaRotationValue): MediaRotationValue {
   return ROTATIONS[(ROTATIONS.indexOf(rotation) + 1) % ROTATIONS.length] ?? 0;
 }
 
-function isImage(item: PropertyMediaRow): boolean {
+function isImage(item: MediaRow): boolean {
   return item.kind === 'photo' || item.kind === 'floor_plan';
 }
 
@@ -106,22 +108,22 @@ interface Upload {
  * borrar. Más los videos y recorridos 360 por link.
  */
 export function MediaGallery({
-  propertyId,
+  owner,
   items,
   canEdit,
 }: {
-  readonly propertyId: string;
-  readonly items: readonly PropertyMediaRow[];
+  readonly owner: MediaOwnerInput;
+  readonly items: readonly MediaRow[];
   readonly canEdit: boolean;
 }) {
   const router = useRouter();
   // El orden recién arrastrado vale hasta que el servidor manda la galería actualizada.
   const [dragged, setDragged] = useState<{
-    readonly source: readonly PropertyMediaRow[];
-    readonly order: readonly PropertyMediaRow[];
+    readonly source: readonly MediaRow[];
+    readonly order: readonly MediaRow[];
   }>();
   const order = dragged?.source === items ? dragged.order : items;
-  const setOrder = (next: readonly PropertyMediaRow[]) => {
+  const setOrder = (next: readonly MediaRow[]) => {
     setDragged({ source: items, order: next });
   };
   const [uploads, setUploads] = useState<readonly Upload[]>([]);
@@ -166,9 +168,10 @@ export function MediaGallery({
         if (next === undefined) return;
         update(next.key, { status: 'uploading' });
         const form = new FormData();
-        form.set('propertyId', propertyId);
+        form.set('ownerKind', owner.kind);
+        form.set('ownerId', owner.id);
         form.set('file', next.file);
-        const error = await runAction(() => uploadPropertyMediaAction(form));
+        const error = await runAction(() => uploadMediaAction(form));
         update(next.key, error === undefined ? { status: 'done' } : { status: 'failed', error });
       }
     };
@@ -187,7 +190,7 @@ export function MediaGallery({
     setOrder(next);
     startTransition(async () => {
       const error = await runAction(() =>
-        reorderPropertyMediaAction({ propertyId, mediaIds: next.map((item) => item.id) }),
+        reorderMediaAction({ owner, mediaIds: next.map((item) => item.id) }),
       );
       if (error !== undefined) {
         toast.error(error);
@@ -255,12 +258,7 @@ export function MediaGallery({
               <SortableContext items={images.map((item) => item.id)} strategy={rectSortingStrategy}>
                 <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {images.map((item) => (
-                    <MediaTile
-                      key={item.id}
-                      propertyId={propertyId}
-                      item={item}
-                      canEdit={canEdit}
-                    />
+                    <MediaTile key={item.id} owner={owner} item={item} canEdit={canEdit} />
                   ))}
                 </ul>
               </SortableContext>
@@ -276,19 +274,19 @@ export function MediaGallery({
       </SectionCard>
 
       <SectionCard title="Videos y recorridos 360">
-        <MediaLinks propertyId={propertyId} links={links} canEdit={canEdit} />
+        <MediaLinks owner={owner} links={links} canEdit={canEdit} />
       </SectionCard>
     </div>
   );
 }
 
 function MediaTile({
-  propertyId,
+  owner,
   item,
   canEdit,
 }: {
-  readonly propertyId: string;
-  readonly item: PropertyMediaRow;
+  readonly owner: MediaOwnerInput;
+  readonly item: MediaRow;
   readonly canEdit: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -306,10 +304,10 @@ function MediaTile({
       else toast.error(error);
     });
   };
-  const update = (change: Parameters<typeof updatePropertyMediaAction>[1], done: string) => {
-    run(() => updatePropertyMediaAction(propertyId, change), done);
+  const update = (change: Parameters<typeof updateMediaAction>[1], done: string) => {
+    run(() => updateMediaAction(owner, change), done);
   };
-  const src = `/propiedades/${propertyId}/fotos/${item.id}`;
+  const src = mediaFileHref(owner, item.id);
   // La versión en la URL cambia al regenerarse las variantes: evita mostrar la de la caché.
   const version = `${item.processing}-${item.rotation.toString()}`;
 
@@ -390,10 +388,7 @@ function MediaTile({
                 <DropdownMenuItem
                   disabled={item.isCover || item.kind !== 'photo'}
                   onSelect={() => {
-                    run(
-                      () => setPropertyCoverAction(propertyId, { mediaId: item.id }),
-                      'Portada elegida.',
-                    );
+                    run(() => setMediaCoverAction(owner, { mediaId: item.id }), 'Portada elegida.');
                   }}
                 >
                   Usar como portada
@@ -487,7 +482,7 @@ function MediaTile({
               }
             : undefined
         }
-        run={() => deletePropertyMediaAction(propertyId, { mediaId: item.id })}
+        run={() => deleteMediaAction(owner, { mediaId: item.id })}
         onOpenChange={setDeleting}
       />
     </li>
@@ -546,25 +541,23 @@ function DescriptionDialog({
 }
 
 function MediaLinks({
-  propertyId,
+  owner,
   links,
   canEdit,
 }: {
-  readonly propertyId: string;
-  readonly links: readonly PropertyMediaRow[];
+  readonly owner: MediaOwnerInput;
+  readonly links: readonly MediaRow[];
   readonly canEdit: boolean;
 }) {
   const id = useId();
   const [kind, setKind] = useState<'video' | 'tour_360'>('video');
   const [url, setUrl] = useState('');
-  const [deleting, setDeleting] = useState<PropertyMediaRow | undefined>();
+  const [deleting, setDeleting] = useState<MediaRow | undefined>();
   const [pending, startTransition] = useTransition();
 
   function add() {
     startTransition(async () => {
-      const error = await runAction(() =>
-        addPropertyMediaLinkAction({ propertyId, kind, url: url.trim() }),
-      );
+      const error = await runAction(() => addMediaLinkAction({ owner, kind, url: url.trim() }));
       if (error !== undefined) {
         toast.error(error);
         return;
@@ -666,7 +659,7 @@ function MediaLinks({
                 destructive: true,
               }
         }
-        run={() => deletePropertyMediaAction(propertyId, { mediaId: deleting?.id ?? '' })}
+        run={() => deleteMediaAction(owner, { mediaId: deleting?.id ?? '' })}
         onOpenChange={(open) => {
           if (!open) setDeleting(undefined);
         }}

@@ -163,19 +163,68 @@ export type DevelopmentSortField = (typeof DEVELOPMENT_SORT_FIELDS)[number];
 export const DEVELOPMENT_VIEW_VALUES = ['active', 'trash'] as const;
 export type DevelopmentViewValue = (typeof DEVELOPMENT_VIEW_VALUES)[number];
 
-export const ListDevelopmentsQuerySchema = pageQuerySchema({
-  sortable: DEVELOPMENT_SORT_FIELDS,
-  defaultSort: { field: 'updatedAt', direction: 'desc' },
-}).extend({
+/** Los filtros del listado, que comparte la vista de mapa. */
+const DevelopmentFilterFields = {
   /** Código, nombre, dirección o desarrollista, sin distinguir mayúsculas ni acentos. */
   q: z.string().trim().min(1).max(100).optional(),
   status: z.enum(DEVELOPMENT_STATUS_VALUES).optional(),
   developmentType: z.enum(DEVELOPMENT_TYPES).optional(),
   constructionStatus: z.enum(CONSTRUCTION_STATUS_VALUES).optional(),
   tagId: z.uuid().optional(),
+};
+
+export const ListDevelopmentsQuerySchema = pageQuerySchema({
+  sortable: DEVELOPMENT_SORT_FIELDS,
+  defaultSort: { field: 'updatedAt', direction: 'desc' },
+}).extend({
+  ...DevelopmentFilterFields,
   view: z.enum(DEVELOPMENT_VIEW_VALUES).default('active'),
 });
 export type ListDevelopmentsQuery = z.input<typeof ListDevelopmentsQuerySchema>;
+
+/** Lista o mapa: la vista va en la URL (`?layout=map`), con los mismos filtros. */
+export const DEVELOPMENT_LAYOUT_VALUES = ['list', 'map'] as const;
+export type DevelopmentLayoutValue = (typeof DEVELOPMENT_LAYOUT_VALUES)[number];
+
+/** Cuántos pines entran en el mapa: con más, se pide acercarlo. */
+export const MAX_DEVELOPMENT_MAP_PINS = 500;
+
+const MapLatitude = z.coerce.number().min(-90).max(90);
+const MapLongitude = z.coerce.number().min(-180).max(180);
+
+/** Los filtros del listado más el rectángulo visible del mapa. Solo emprendimientos activos. */
+export const DevelopmentMapQuerySchema = z
+  .object({
+    ...DevelopmentFilterFields,
+    south: MapLatitude,
+    west: MapLongitude,
+    north: MapLatitude,
+    east: MapLongitude,
+  })
+  .refine((query) => query.south <= query.north && query.west <= query.east, {
+    message: 'El área del mapa no es válida.',
+    path: ['north'],
+  });
+export type DevelopmentMapQuery = z.input<typeof DevelopmentMapQuerySchema>;
+
+export interface DevelopmentMapPin {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly status: DevelopmentStatusValue;
+  readonly publishAddress: string | undefined;
+  readonly unitCount: number;
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
+export interface DevelopmentMapResult {
+  readonly pins: readonly DevelopmentMapPin[];
+  /** Cuántos emprendimientos del área cumplen los filtros. */
+  readonly total: number;
+  /** Hay más de `MAX_DEVELOPMENT_MAP_PINS`: se muestran los actualizados más recientemente. */
+  readonly truncated: boolean;
+}
 
 export interface DevelopmentUserRef {
   readonly id: string;
@@ -252,6 +301,8 @@ export interface DevelopmentDetail {
   /** Sucursal del captador: para las reglas de pertenencia de la UI. */
   readonly branchId: string | undefined;
   readonly unitCount: number;
+  /** Unidades activas en estado "Disponible": las que se pueden ofrecer. */
+  readonly availableUnitCount: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | undefined;
@@ -270,6 +321,7 @@ export const DEVELOPMENT_HISTORY_CATEGORY_VALUES = [
   'fields',
   'status',
   'units',
+  'media',
   'assignments',
 ] as const;
 export type DevelopmentHistoryCategory = (typeof DEVELOPMENT_HISTORY_CATEGORY_VALUES)[number];

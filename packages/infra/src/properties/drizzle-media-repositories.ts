@@ -1,18 +1,18 @@
 import {
-  MAX_MEDIA_PER_PROPERTY,
+  MAX_MEDIA_PER_OWNER,
   MEDIA_KINDS,
   MEDIA_PROCESSING_STATUSES,
   MEDIA_ROTATIONS,
   MediaItem,
-  PropertyAttachment,
+  Attachment,
   type MediaItemId,
   type MediaItemRepository,
-  type PropertyAttachmentId,
-  type PropertyAttachmentRepository,
-  type PropertyId,
+  type MediaOwner,
+  type AttachmentId,
+  type AttachmentRepository,
 } from '@norde/core/properties';
 import { parseId, type Result } from '@norde/core/shared';
-import { asc, count, eq, max } from 'drizzle-orm';
+import { asc, count, eq, max, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -20,7 +20,7 @@ import { attachments, mediaItems } from '../db/schema';
 
 // Repositorios de la galería y los archivos de la ficha. Solo mapean filas y aggregates.
 
-const MediaRow = z.object({
+const StoredMediaRow = z.object({
   kind: z.enum(MEDIA_KINDS),
   processingStatus: z.enum(MEDIA_PROCESSING_STATUSES),
   rotation: z.union(MEDIA_ROTATIONS.map((value) => z.literal(value))),
@@ -40,13 +40,41 @@ function isLink(kind: string): boolean {
   return kind === 'video' || kind === 'tour_360';
 }
 
+/** La base garantiza un solo dueño por fila (`num_nonnulls(...) = 1`). */
+function ownerOf(row: {
+  readonly propertyId: string | null;
+  readonly developmentId: string | null;
+}): MediaOwner {
+  if (row.propertyId !== null) {
+    return { kind: 'property', id: stored(parseId<'Property'>(row.propertyId)) };
+  }
+  if (row.developmentId !== null) {
+    return { kind: 'development', id: stored(parseId<'Development'>(row.developmentId)) };
+  }
+  throw new Error('A media row without owner');
+}
+
+function ownerColumns(owner: MediaOwner): {
+  readonly propertyId: string | null;
+  readonly developmentId: string | null;
+} {
+  return owner.kind === 'property'
+    ? { propertyId: owner.id, developmentId: null }
+    : { propertyId: null, developmentId: owner.id };
+}
+
+function ofOwner(owner: MediaOwner): SQL {
+  return owner.kind === 'property'
+    ? eq(mediaItems.propertyId, owner.id)
+    : eq(mediaItems.developmentId, owner.id);
+}
+
 function toMediaItem(row: typeof mediaItems.$inferSelect): MediaItem {
-  const parsed = MediaRow.parse(row);
+  const parsed = StoredMediaRow.parse(row);
   const variants = VariantsSchema.parse(row.variants);
-  if (row.propertyId === null) throw new Error('A media item of a development is not a property');
   return MediaItem.restore({
     id: stored(parseId<'MediaItem'>(row.id)),
-    propertyId: stored(parseId<'Property'>(row.propertyId)),
+    owner: ownerOf(row),
     kind: parsed.kind,
     storageKey: row.storageKey ?? undefined,
     // Los links guardan la URL externa; las fotos, la clave de la original (la columna es NOT NULL).
@@ -82,29 +110,26 @@ export class DrizzleMediaItemRepository implements MediaItemRepository {
     return row ? toMediaItem(row) : undefined;
   }
 
-  async listForProperty(propertyId: PropertyId): Promise<readonly MediaItem[]> {
+  async listForOwner(owner: MediaOwner): Promise<readonly MediaItem[]> {
     const rows = await this.db
       .select()
       .from(mediaItems)
-      .where(eq(mediaItems.propertyId, propertyId))
+      .where(ofOwner(owner))
       .orderBy(asc(mediaItems.position), asc(mediaItems.id))
-      .limit(MAX_MEDIA_PER_PROPERTY);
+      .limit(MAX_MEDIA_PER_OWNER);
     return rows.map(toMediaItem);
   }
 
-  async count(propertyId: PropertyId): Promise<number> {
-    const [row] = await this.db
-      .select({ total: count() })
-      .from(mediaItems)
-      .where(eq(mediaItems.propertyId, propertyId));
+  async count(owner: MediaOwner): Promise<number> {
+    const [row] = await this.db.select({ total: count() }).from(mediaItems).where(ofOwner(owner));
     return row?.total ?? 0;
   }
 
-  async nextPosition(propertyId: PropertyId): Promise<number> {
+  async nextPosition(owner: MediaOwner): Promise<number> {
     const [row] = await this.db
       .select({ last: max(mediaItems.position) })
       .from(mediaItems)
-      .where(eq(mediaItems.propertyId, propertyId));
+      .where(ofOwner(owner));
     return row?.last === null || row?.last === undefined ? 0 : row.last + 1;
   }
 
@@ -130,7 +155,7 @@ export class DrizzleMediaItemRepository implements MediaItemRepository {
       .insert(mediaItems)
       .values({
         id: s.id,
-        propertyId: s.propertyId,
+        ...ownerColumns(s.owner),
         storageKey: s.storageKey ?? null,
         url: s.externalUrl ?? s.storageKey ?? '',
         contentType: s.contentType ?? null,
@@ -148,16 +173,15 @@ export class DrizzleMediaItemRepository implements MediaItemRepository {
   }
 }
 
-export class DrizzlePropertyAttachmentRepository implements PropertyAttachmentRepository {
+export class DrizzleAttachmentRepository implements AttachmentRepository {
   constructor(private readonly db: DbExecutor) {}
 
-  async findById(id: PropertyAttachmentId): Promise<PropertyAttachment | undefined> {
+  async findById(id: AttachmentId): Promise<Attachment | undefined> {
     const [row] = await this.db.select().from(attachments).where(eq(attachments.id, id)).limit(1);
     if (!row) return undefined;
-    if (row.propertyId === null) return undefined;
-    return PropertyAttachment.restore({
-      id: stored(parseId<'PropertyAttachment'>(row.id)),
-      propertyId: stored(parseId<'Property'>(row.propertyId)),
+    return Attachment.restore({
+      id: stored(parseId<'Attachment'>(row.id)),
+      owner: ownerOf(row),
       name: row.name,
       storageKey: row.storageKey,
       mimeType: row.mimeType,
@@ -170,7 +194,7 @@ export class DrizzlePropertyAttachmentRepository implements PropertyAttachmentRe
     });
   }
 
-  async save(attachment: PropertyAttachment, actorId: string): Promise<void> {
+  async save(attachment: Attachment, actorId: string): Promise<void> {
     const s = attachment.toSnapshot();
     const values = {
       name: s.name,
@@ -183,7 +207,7 @@ export class DrizzlePropertyAttachmentRepository implements PropertyAttachmentRe
       .insert(attachments)
       .values({
         id: s.id,
-        propertyId: s.propertyId,
+        ...ownerColumns(s.owner),
         storageKey: s.storageKey,
         mimeType: s.mimeType,
         sizeBytes: s.sizeBytes,

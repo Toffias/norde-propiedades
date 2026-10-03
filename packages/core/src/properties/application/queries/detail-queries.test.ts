@@ -7,6 +7,7 @@ import { Actor, err, parseId } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
 import {
   BRANCH_ID,
+  DEVELOPMENT_ID,
   FakeDocumentRenderer,
   InMemoryPropertiesUnitOfWork,
   InMemoryPropertyDocumentQuery,
@@ -21,6 +22,7 @@ import {
   TEST_OUTSIDER,
 } from '../../testing';
 import { MediaItem } from '../../domain/media-item';
+import type { MediaOwner } from '../../domain/media-owner';
 import { RenderPropertyDocument } from '../commands/render-property-document';
 import { RequestPropertyDocument } from '../commands/request-property-document';
 import { SendOwnerReport } from '../commands/send-owner-report';
@@ -42,8 +44,12 @@ const AUDITOR = Actor.user(OTHER_USER_ID, ['properties:read', 'audit:read', 'aud
 const OWN_AUDIT = Actor.user(OTHER_USER_ID, ['properties:read', 'audit:read']);
 const JOBS = Actor.system('scheduler', ['properties:render-documents', 'properties:read']);
 
-function settingsReader() {
+function settingsReader(developmentPhotosInUnits = true) {
   const settings = CompanySettings.defaults();
+  settings.updatePdfOptions(
+    { ...settings.toSnapshot().pdfOptions, developmentPhotosInUnits },
+    TEST_NOW,
+  );
   return { get: () => Promise.resolve(settings) };
 }
 
@@ -251,13 +257,13 @@ describe('GetPropertyInterestProfiles', () => {
 });
 
 describe('property documents', () => {
-  function documents() {
+  function documents(developmentPhotosInUnits = true) {
     const ctx = setup();
     const storage = new InMemoryFileStorage();
     const renderer = new FakeDocumentRenderer();
     const ownerReports = new StubOwnerReports();
     const mailer = new RecordingMailer();
-    const settings = settingsReader();
+    const settings = settingsReader(developmentPhotosInUnits);
     return {
       ...ctx,
       storage,
@@ -330,7 +336,7 @@ describe('property documents', () => {
       const item = unwrap(
         MediaItem.upload({
           id,
-          propertyId: unwrap(parseId<'Property'>(PROPERTY_ID)),
+          owner: { kind: 'property', id: unwrap(parseId<'Property'>(PROPERTY_ID)) },
           storageKey: `properties/${PROPERTY_ID}/media/${id}/original`,
           contentType: 'image/jpeg',
           sizeBytes: 1,
@@ -375,6 +381,52 @@ describe('property documents', () => {
     // Ya armado: un segundo aviso del job no lo vuelve a armar.
     expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('gone');
   });
+
+  it.each([
+    [true, [new Uint8Array([7]), new Uint8Array([8])]],
+    [false, [new Uint8Array([7])]],
+  ])(
+    'adds the development photos to a unit sheet when Mi empresa asks for it (%s)',
+    async (developmentPhotosInUnits, expected) => {
+      const { request, render, renderer, uow, storage } = documents(developmentPhotosInUnits);
+      const unit = uow.properties.rows.get(PROPERTY_ID);
+      if (unit) uow.properties.rows.set(PROPERTY_ID, { ...unit, developmentId: DEVELOPMENT_ID });
+      const photo = (owner: MediaOwner, suffix: string, bytes: number): Promise<void> => {
+        const id = unwrap(parseId<'MediaItem'>(`00000000-0000-7000-8000-0000000000${suffix}`));
+        const item = unwrap(
+          MediaItem.upload({
+            id,
+            owner,
+            storageKey: `${owner.kind}/${id}`,
+            contentType: 'image/jpeg',
+            sizeBytes: 1,
+            position: 0,
+            isCover: true,
+            uploadedBy: PRODUCER_ID,
+            now: TEST_NOW,
+          }),
+        );
+        uow.media.rows.set(id, item.toSnapshot());
+        return storage.put({
+          key: item.storageKey ?? '',
+          contentType: 'image/jpeg',
+          bytes: new Uint8Array([bytes]),
+        });
+      };
+      await photo({ kind: 'property', id: unwrap(parseId<'Property'>(PROPERTY_ID)) }, 'a1', 7);
+      await photo(
+        { kind: 'development', id: unwrap(parseId<'Development'>(DEVELOPMENT_ID)) },
+        'a2',
+        8,
+      );
+
+      const { documentId } = unwrap(
+        await request.execute({ propertyId: PROPERTY_ID, kind: 'sheet' }, READER),
+      );
+      expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('ready');
+      expect(renderer.rendered[0]?.photos).toEqual(expected);
+    },
+  );
 
   it('marks the document failed when the PDF breaks, and lets the error reach the job', async () => {
     const { request, render, renderer, uow, download } = documents();

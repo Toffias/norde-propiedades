@@ -3,7 +3,8 @@
 import {
   ATTACHMENT_UPLOAD_ACCEPT,
   MAX_ATTACHMENT_UPLOAD_BYTES,
-  type PropertyAttachmentRow,
+  type AttachmentRow,
+  type MediaOwnerInput,
 } from '@norde/core/properties/contracts';
 import type { Page } from '@norde/core/shared';
 import { Button } from '@norde/ui/components/button';
@@ -32,40 +33,37 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
-import { runAction } from '../../../../lib/action-result';
-import { formatDate } from '../../../../lib/format';
-import { formatBytes } from '../../../settings/components/company-files-grid';
-import { ConfirmActionDialog } from '../../../shared/components/confirm-action-dialog';
-import { FormAlert } from '../../../shared/components/form-alert';
-import { ServerDataTable } from '../../../shared/components/server-data-table';
-import {
-  deletePropertyAttachmentAction,
-  updatePropertyAttachmentAction,
-  uploadPropertyAttachmentAction,
-} from '../../detail-actions';
+import { runAction } from '../../../lib/action-result';
+import { formatDate } from '../../../lib/format';
+import { formatBytes } from '../../settings/components/company-files-grid';
+import { ConfirmActionDialog } from '../../shared/components/confirm-action-dialog';
+import { FormAlert } from '../../shared/components/form-alert';
+import { ServerDataTable } from '../../shared/components/server-data-table';
+import { deleteAttachmentAction, updateAttachmentAction, uploadAttachmentAction } from '../actions';
+import { attachmentFileHref } from '../paths';
 
 /** Archivos de la ficha (escrituras, reglamentos): subir, renombrar, mostrar en la web, bajar y borrar. */
 export function AttachmentsGrid({
-  propertyId,
+  owner,
   page,
   sort,
   canEdit,
 }: {
-  readonly propertyId: string;
-  readonly page: Page<PropertyAttachmentRow>;
+  readonly owner: MediaOwnerInput;
+  readonly page: Page<AttachmentRow>;
   readonly sort: { readonly field: string; readonly direction: 'asc' | 'desc' };
   readonly canEdit: boolean;
 }) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
-  const [renaming, setRenaming] = useState<PropertyAttachmentRow | undefined>();
-  const [deleting, setDeleting] = useState<PropertyAttachmentRow | undefined>();
+  const [renaming, setRenaming] = useState<AttachmentRow | undefined>();
+  const [deleting, setDeleting] = useState<AttachmentRow | undefined>();
   const [, startTransition] = useTransition();
 
-  const toggleWeb = (row: PropertyAttachmentRow, showOnWeb: boolean) => {
+  const toggleWeb = (row: AttachmentRow, showOnWeb: boolean) => {
     startTransition(async () => {
       const error = await runAction(() =>
-        updatePropertyAttachmentAction(propertyId, { attachmentId: row.id, showOnWeb }),
+        updateAttachmentAction(owner, { attachmentId: row.id, showOnWeb }),
       );
       if (error === undefined)
         toast.success(showOnWeb ? 'Se muestra en la web.' : 'Ya no se muestra en la web.');
@@ -73,7 +71,7 @@ export function AttachmentsGrid({
     });
   };
 
-  const columns: readonly DataTableColumn<PropertyAttachmentRow>[] = [
+  const columns: readonly DataTableColumn<AttachmentRow>[] = [
     {
       id: 'name',
       header: 'Nombre',
@@ -128,7 +126,7 @@ export function AttachmentsGrid({
             icon={DownloadIcon}
             label="Descargar"
             onClick={() => {
-              window.location.assign(`/propiedades/${propertyId}/archivos/${row.id}`);
+              window.location.assign(attachmentFileHref(owner, row.id));
             }}
           />
           {canEdit && (
@@ -158,7 +156,7 @@ export function AttachmentsGrid({
   return (
     <>
       <ServerDataTable
-        label="Archivos de la propiedad"
+        label="Archivos de la ficha"
         columns={columns}
         getRowId={(row) => row.id}
         rows={page.items}
@@ -180,11 +178,11 @@ export function AttachmentsGrid({
             </Button>
           ) : undefined
         }
-        empty="Todavía no hay archivos en esta propiedad."
+        empty="Todavía no hay archivos en esta ficha."
       />
       {uploading && (
         <UploadDialog
-          propertyId={propertyId}
+          owner={owner}
           onClose={() => {
             setUploading(false);
             router.refresh();
@@ -193,7 +191,7 @@ export function AttachmentsGrid({
       )}
       {renaming !== undefined && (
         <RenameDialog
-          propertyId={propertyId}
+          owner={owner}
           attachment={renaming}
           onClose={() => {
             setRenaming(undefined);
@@ -212,7 +210,7 @@ export function AttachmentsGrid({
                 destructive: true,
               }
         }
-        run={() => deletePropertyAttachmentAction(propertyId, { attachmentId: deleting?.id ?? '' })}
+        run={() => deleteAttachmentAction(owner, { attachmentId: deleting?.id ?? '' })}
         onOpenChange={(open) => {
           if (!open) setDeleting(undefined);
         }}
@@ -222,10 +220,10 @@ export function AttachmentsGrid({
 }
 
 function UploadDialog({
-  propertyId,
+  owner,
   onClose,
 }: {
-  readonly propertyId: string;
+  readonly owner: MediaOwnerInput;
   readonly onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -241,9 +239,10 @@ function UploadDialog({
           continue;
         }
         const form = new FormData();
-        form.set('propertyId', propertyId);
+        form.set('ownerKind', owner.kind);
+        form.set('ownerId', owner.id);
         form.set('file', file);
-        const error = await runAction(() => uploadPropertyAttachmentAction(form));
+        const error = await runAction(() => uploadAttachmentAction(form));
         if (error !== undefined) failed.push(`${file.name}: ${error}`);
       }
       setErrors(failed);
@@ -289,12 +288,12 @@ function UploadDialog({
 }
 
 function RenameDialog({
-  propertyId,
+  owner,
   attachment,
   onClose,
 }: {
-  readonly propertyId: string;
-  readonly attachment: PropertyAttachmentRow;
+  readonly owner: MediaOwnerInput;
+  readonly attachment: AttachmentRow;
   readonly onClose: () => void;
 }) {
   const [name, setName] = useState(attachment.name);
@@ -329,7 +328,7 @@ function RenameDialog({
             onClick={() => {
               startTransition(async () => {
                 const failure = await runAction(() =>
-                  updatePropertyAttachmentAction(propertyId, {
+                  updateAttachmentAction(owner, {
                     attachmentId: attachment.id,
                     name: name.trim(),
                   }),

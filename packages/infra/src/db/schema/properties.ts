@@ -640,6 +640,10 @@ export const attachments = coreSchema.table(
       .on(t.propertyId, t.name, t.id)
       .where(sql`deleted_at is null`),
     index('attachments_development_created_idx').on(t.developmentId, t.createdAt),
+    // Pestaña Archivos de la ficha del emprendimiento, ordenada por nombre.
+    index('attachments_development_name_idx')
+      .on(t.developmentId, t.name, t.id)
+      .where(sql`deleted_at is null`),
   ],
 );
 

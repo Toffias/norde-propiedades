@@ -1,25 +1,56 @@
 'use client';
 
-import { MAX_MAP_PINS, type PropertyMapResult } from '@norde/core/properties/contracts';
+import {
+  MAX_MAP_PINS,
+  PROPERTY_STATUS_VALUES,
+  type PropertyMapPin,
+  type PropertyMapResult,
+} from '@norde/core/properties/contracts';
 import { Skeleton } from '@norde/ui/components/skeleton';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { formatCount } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
+import type { MapArea, MapLayer, MapPin } from '../../shared/components/map-canvas';
 import { loadMapPinsAction } from '../actions';
-import type { MapArea } from './property-map-canvas';
+import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../labels';
+import { operationsSummary } from '../property-format';
 import type { PropertyFilterValues } from './properties-toolbar';
 
 // Leaflet usa `window`: el mapa se carga solo en el navegador.
-const PropertyMapCanvas = dynamic(
-  () => import('./property-map-canvas').then((module) => module.PropertyMapCanvas),
+const MapCanvas = dynamic(
+  () => import('../../shared/components/map-canvas').then((module) => module.MapCanvas),
   {
     ssr: false,
     loading: () => <Skeleton className="h-[60vh] min-h-[360px] w-full rounded-none" />,
   },
 );
+
+/** Una capa por estado, con los mismos tonos que la grilla. */
+const LAYERS: readonly MapLayer[] = PROPERTY_STATUS_VALUES.map((status) => ({
+  key: status,
+  label: PROPERTY_STATUS_DISPLAY[status].label,
+}));
+
+function toMapPin(pin: PropertyMapPin): MapPin {
+  const status = PROPERTY_STATUS_DISPLAY[pin.status];
+  return {
+    id: pin.id,
+    latitude: pin.latitude,
+    longitude: pin.longitude,
+    layer: pin.status,
+    tone: status.tone,
+    title: `${pin.code} · ${pin.portalTitle}`,
+    popup: [
+      { text: `${pin.code} · ${PROPERTY_TYPE_LABELS[pin.propertyType]}`, strong: true },
+      { text: pin.portalTitle },
+      { text: operationsSummary(pin.operations) },
+      { text: status.label, muted: true },
+    ],
+  };
+}
 
 /** Esperar a que el mapa quede quieto antes de pedir los pines del área. */
 const AREA_DEBOUNCE_MS = 300;
@@ -39,6 +70,7 @@ export function PropertyMap({
   const [error, setError] = useState<string | undefined>();
   const [area, setArea] = useState<MapArea | undefined>();
   const request = useRef(0);
+  const pins = useMemo(() => (result?.pins ?? []).map(toMapPin), [result]);
 
   const onAreaChange = useCallback((next: MapArea) => {
     setArea(next);
@@ -95,7 +127,12 @@ export function PropertyMap({
           <FormAlert message={error} />
         </div>
       )}
-      <PropertyMapCanvas pins={result?.pins ?? []} onAreaChange={onAreaChange} />
+      <MapCanvas
+        pins={pins}
+        layers={LAYERS}
+        label="Mapa de propiedades"
+        onAreaChange={onAreaChange}
+      />
     </div>
   );
 }

@@ -37,7 +37,10 @@ export default async function PropertyPreviewPage({
   const { properties } = getContainer();
   const [result, gallery] = await Promise.all([
     properties.getPanelPropertyDetail.execute({ propertyId: id }, actor),
-    properties.listPropertyMedia.execute({ propertyId: id, kind: 'images', pageSize: 100 }, actor),
+    properties.listMedia.execute(
+      { owner: { kind: 'property', id }, kind: 'images', pageSize: 100 },
+      actor,
+    ),
   ]);
   if (result.isErr()) notFound();
   const detail = result.value;

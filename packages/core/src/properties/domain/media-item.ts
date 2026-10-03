@@ -3,7 +3,7 @@ import type { DomainEvent } from '../../shared/domain/domain-event';
 import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
-import type { PropertyId } from './property';
+import type { MediaOwner } from './media-owner';
 
 export type MediaItemId = Id<'MediaItem'>;
 
@@ -30,12 +30,12 @@ export interface MediaVariants {
 export const MEDIA_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 /** Una foto de celular pesa entre 3 y 8 MB; más que esto no aporta a la web ni al PDF. */
 export const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
-/** Fotos, planos, videos y recorridos por propiedad: los portales aceptan menos. */
-export const MAX_MEDIA_PER_PROPERTY = 100;
+/** Fotos, planos, videos y recorridos por propiedad o emprendimiento: los portales aceptan menos. */
+export const MAX_MEDIA_PER_OWNER = 100;
 
 export interface MediaItemSnapshot {
   readonly id: MediaItemId;
-  readonly propertyId: PropertyId;
+  readonly owner: MediaOwner;
   readonly kind: MediaKind;
   /** Original en el storage (fotos y planos). */
   readonly storageKey: string | undefined;
@@ -75,7 +75,8 @@ export interface NotAnImageError {
 }
 
 interface MediaPayload {
-  readonly propertyId: string;
+  readonly ownerKind: MediaOwner['kind'];
+  readonly ownerId: string;
   readonly mediaId: string;
 }
 
@@ -106,7 +107,7 @@ function isImage(kind: MediaKind): boolean {
 }
 
 /**
- * Una foto, un plano, un video o un recorrido 360 de una propiedad. La original se guarda tal cual;
+ * Una foto, un plano, un video o un recorrido 360 de una propiedad o de un emprendimiento. La original se guarda tal cual;
  * las variantes optimizadas las genera un job, y mientras tanto queda "procesando".
  */
 export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
@@ -133,12 +134,12 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
 
   static upload(input: {
     readonly id: MediaItemId;
-    readonly propertyId: PropertyId;
+    readonly owner: MediaOwner;
     readonly storageKey: string;
     readonly contentType: string;
     readonly sizeBytes: number;
     readonly position: number;
-    /** La primera foto de la propiedad es la portada. */
+    /** La primera foto de la galería es la portada. */
     readonly isCover: boolean;
     readonly uploadedBy: string;
     readonly now: Date;
@@ -146,7 +147,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
     const valid = MediaItem.validateUpload(input);
     if (valid.isErr()) return err(valid.error);
     const item = new MediaItem(input.id, {
-      propertyId: input.propertyId,
+      owner: input.owner,
       kind: 'photo',
       storageKey: input.storageKey,
       externalUrl: undefined,
@@ -174,7 +175,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
   /** Un video (YouTube, Vimeo) o un recorrido 360 (Matterport, Kuula): solo el link. */
   static link(input: {
     readonly id: MediaItemId;
-    readonly propertyId: PropertyId;
+    readonly owner: MediaOwner;
     readonly kind: 'video' | 'tour_360';
     readonly url: string;
     readonly position: number;
@@ -187,7 +188,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
     }
     return ok(
       new MediaItem(input.id, {
-        propertyId: input.propertyId,
+        owner: input.owner,
         kind: input.kind,
         storageKey: undefined,
         externalUrl: url,
@@ -216,8 +217,8 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
     return new MediaItem(id, state);
   }
 
-  get propertyId(): PropertyId {
-    return this.#state.propertyId;
+  get owner(): MediaOwner {
+    return this.#state.owner;
   }
 
   get kind(): MediaKind {
@@ -304,7 +305,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
     return true;
   }
 
-  /** Portada: solo una foto por propiedad. El caso de uso desmarca la anterior. */
+  /** Portada: solo una foto por galería. El caso de uso desmarca la anterior. */
   markCover(isCover: boolean, now: Date): Result<boolean, NotAnImageError> {
     if (isCover && this.#state.kind !== 'photo') return err({ type: 'NotAnImage' });
     if (this.#state.isCover === isCover) return ok(false);
@@ -350,11 +351,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
       type: 'properties.media_deleted',
       aggregateId: this.id,
       occurredAt: now,
-      payload: {
-        propertyId: this.#state.propertyId,
-        mediaId: this.id,
-        storageKeys: this.storageKeys,
-      },
+      payload: { ...this.#payload(), storageKeys: this.storageKeys },
     });
   }
 
@@ -363,8 +360,13 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
       type: 'properties.media_variants_requested',
       aggregateId: this.id,
       occurredAt: now,
-      payload: { propertyId: this.#state.propertyId, mediaId: this.id },
+      payload: this.#payload(),
     });
+  }
+
+  #payload(): MediaPayload {
+    const { owner } = this.#state;
+    return { ownerKind: owner.kind, ownerId: owner.id, mediaId: this.id };
   }
 
   toSnapshot(): MediaItemSnapshot {

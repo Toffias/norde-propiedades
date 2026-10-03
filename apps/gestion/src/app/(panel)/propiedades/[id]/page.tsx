@@ -1,8 +1,7 @@
 import { accessScope, canActOn, OWNERSHIP_RULES } from '@norde/core/identity';
 import {
-  ListPropertyAttachmentsQuerySchema,
+  ListAttachmentsQuerySchema,
   ListPropertyHistoryQuerySchema,
-  ListPropertyMediaQuerySchema,
   type PanelPropertyDetail,
 } from '@norde/core/properties/contracts';
 import {
@@ -20,7 +19,7 @@ import { notFound } from 'next/navigation';
 
 import { companyFeatures } from '../../../../config/env';
 import { getContainer } from '../../../../container';
-import { AttachmentsGrid } from '../../../../features/properties/components/detail/attachments-grid';
+import { AttachmentsGrid } from '../../../../features/media/components/attachments-grid';
 import { DetailSections } from '../../../../features/properties/components/detail/detail-sections';
 import { DetailTabs } from '../../../../features/properties/components/detail/detail-tabs';
 import { HistoryGrid } from '../../../../features/properties/components/detail/history-grid';
@@ -28,7 +27,7 @@ import {
   InterestedGrid,
   SendsGrid,
 } from '../../../../features/properties/components/detail/contacts-grids';
-import { MediaGallery } from '../../../../features/properties/components/detail/media-gallery';
+import { MediaGallery } from '../../../../features/media/components/media-gallery';
 import { PropertyDetailHeader } from '../../../../features/properties/components/detail/property-detail-header';
 import { StatisticsView } from '../../../../features/properties/components/detail/statistics-view';
 import type { DetailPermissions } from '../../../../features/properties/components/detail/permissions';
@@ -154,6 +153,7 @@ async function renderTab(
 ) {
   const { properties, clients, reporting } = getContainer();
   const propertyId = detail.id;
+  const owner = { kind: 'property', id: propertyId } as const;
 
   switch (tab) {
     case 'detalles': {
@@ -183,31 +183,18 @@ async function renderTab(
       );
     }
     case 'multimedia': {
-      const { value } = parseListParams(ListPropertyMediaQuerySchema, {
-        propertyId,
-        pageSize: String(GALLERY_PAGE),
-      });
-      const gallery = await properties.listPropertyMedia.execute(value, actor);
+      const gallery = await properties.listMedia.execute({ owner, pageSize: GALLERY_PAGE }, actor);
       if (gallery.isErr()) return <TabError error={gallery.error} />;
-      return (
-        <MediaGallery
-          propertyId={propertyId}
-          items={gallery.value.items}
-          canEdit={permissions.edit}
-        />
-      );
+      return <MediaGallery owner={owner} items={gallery.value.items} canEdit={permissions.edit} />;
     }
     case 'archivos': {
-      const { value } = parseListParams(ListPropertyAttachmentsQuerySchema, {
-        ...query,
-        propertyId,
-      });
-      const page = await properties.listPropertyAttachments.execute(value, actor);
+      const { value } = parseListParams(ListAttachmentsQuerySchema.omit({ owner: true }), query);
+      const page = await properties.listAttachments.execute({ ...value, owner }, actor);
       if (page.isErr()) return <TabError error={page.error} />;
       return (
         <Card className="gap-0 overflow-hidden p-0">
           <AttachmentsGrid
-            propertyId={propertyId}
+            owner={owner}
             page={page.value}
             sort={value.sort}
             canEdit={permissions.edit}

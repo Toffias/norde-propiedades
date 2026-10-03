@@ -5,5 +5,7 @@ export interface DevelopmentRepository {
   findById(id: DevelopmentId): Promise<Development | undefined>;
   /** Cuántas unidades activas (fuera de la papelera) tiene. */
   countActiveUnits(id: DevelopmentId): Promise<number>;
+  /** Cuántas de esas unidades están disponibles (estado `available`). */
+  countAvailableUnits(id: DevelopmentId): Promise<number>;
   save(development: Development, actorId: string): Promise<void>;
 }

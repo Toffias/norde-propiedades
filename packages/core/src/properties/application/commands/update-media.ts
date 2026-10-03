@@ -7,50 +7,42 @@ import {
   type Clock,
   type Result,
 } from '../../../shared';
-import { UpdatePropertyMediaInputSchema, type UpdatePropertyMediaInput } from '../../contracts';
+import { UpdateMediaInputSchema, type UpdateMediaInput } from '../../contracts';
 import type { NotAnImageError } from '../../domain/media-item';
-import type { PropertyInTrashError } from '../../domain/property';
 import {
+  canEditMedia,
   childState,
   loadMediaForEdit,
   mediaAuditState,
+  ownerTarget,
+  type EditMediaError,
   type MediaNotFoundError,
 } from '../media-support';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
-import {
-  canEditProperties,
-  invalidInput,
-  propertyTarget,
-  type EditPropertyError,
-} from '../property-support';
+import { invalidInput } from '../property-support';
 
-export type UpdatePropertyMediaError =
-  EditPropertyError | PropertyInTrashError | MediaNotFoundError | NotAnImageError;
+export type UpdateMediaError = EditMediaError | MediaNotFoundError | NotAnImageError;
 
 /**
  * Por foto: mostrar en la web, incluir en el PDF, es plano, descripción y rotación. Rotar vuelve a
  * generar las variantes (la original no se toca).
  */
-export class UpdatePropertyMedia {
+export class UpdateMedia {
   constructor(
     private readonly deps: { readonly uow: PropertiesUnitOfWork; readonly clock: Clock },
   ) {}
 
-  async execute(
-    input: UpdatePropertyMediaInput,
-    actor: Actor,
-  ): Promise<Result<void, UpdatePropertyMediaError>> {
-    if (!canEditProperties(actor)) return err({ type: 'Forbidden' });
-    const parsed = UpdatePropertyMediaInputSchema.safeParse(input);
+  async execute(input: UpdateMediaInput, actor: Actor): Promise<Result<void, UpdateMediaError>> {
+    if (!canEditMedia(actor)) return err({ type: 'Forbidden' });
+    const parsed = UpdateMediaInputSchema.safeParse(input);
     if (!parsed.success) return err(invalidInput(parsed.error));
     const { mediaId, ...change } = parsed.data;
     const now = this.deps.clock.now();
 
-    return this.deps.uow.run(async (tx): Promise<Result<void, UpdatePropertyMediaError>> => {
+    return this.deps.uow.run(async (tx): Promise<Result<void, UpdateMediaError>> => {
       const loaded = await loadMediaForEdit(tx, actor, mediaId);
       if (loaded.isErr()) return err(loaded.error);
-      const { item, property } = loaded.value;
-      if (property.isDeleted) return err({ type: 'PropertyInTrash' });
+      const item = loaded.value;
 
       const before = mediaAuditState(item);
       const updated = item.update(
@@ -66,7 +58,7 @@ export class UpdatePropertyMedia {
       await tx.audit.record(
         auditAction(
           actor,
-          propertyTarget('property.media_updated', property.id),
+          ownerTarget('media_updated', item.owner),
           diffChanges(childState(prefix, before), childState(prefix, mediaAuditState(item))),
         ),
       );

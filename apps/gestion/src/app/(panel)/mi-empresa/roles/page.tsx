@@ -1,4 +1,3 @@
-import { PERMISSION_CATALOG } from '@norde/core/identity';
 import { ListRolesQuerySchema } from '@norde/core/identity/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
@@ -7,6 +6,7 @@ import type { Metadata } from 'next';
 import { getContainer } from '../../../../container';
 import { RolesGrid } from '../../../../features/identity/components/roles-grid';
 import { ROLE_ERROR_MESSAGES } from '../../../../features/identity/messages';
+import { visiblePermissionCatalog } from '../../../../features/identity/permission-catalog';
 import { messageForError } from '../../../../lib/errors';
 import { formatCount } from '../../../../lib/format';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
@@ -62,7 +62,7 @@ export default async function RolesPage({
           sort={query.sort}
           view={query.view}
           text={query.q ?? ''}
-          catalog={PERMISSION_CATALOG}
+          catalog={visiblePermissionCatalog()}
           detail={
             panel?.kind !== 'edit' || role === undefined
               ? undefined

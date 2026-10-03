@@ -2,7 +2,9 @@ import { ListReferenceCodeSequencesQuerySchema } from '@norde/core/settings/cont
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
+import { companyFeatures } from '../../../../config/env';
 import { getContainer } from '../../../../container';
 import { ReferenceCodesGrid } from '../../../../features/settings/components/reference-codes-grid';
 import { messageForError } from '../../../../lib/errors';
@@ -16,6 +18,7 @@ export default async function ReferenceCodesPage({
 }: {
   readonly searchParams: Promise<SearchParams>;
 }) {
+  if (!companyFeatures().referenceCodes) notFound();
   const { actor } = await requireSession();
   const { value: query } = parseListParams(
     ListReferenceCodeSequencesQuerySchema,

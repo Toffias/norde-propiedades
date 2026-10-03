@@ -2,6 +2,7 @@ import { PageHeader } from '@norde/ui/components/page-header';
 import { SettingsIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { companyFeatures } from '../../../config/env';
 import { CompanyTabs } from '../../../features/identity/components/company-tabs';
 
 export default function CompanyLayout({ children }: { readonly children: ReactNode }) {
@@ -12,7 +13,7 @@ export default function CompanyLayout({ children }: { readonly children: ReactNo
         title="Mi empresa"
         subtitle="Datos de Norde, códigos, ficha, archivos, catálogos de propiedades y quién usa el panel"
       />
-      <CompanyTabs />
+      <CompanyTabs features={companyFeatures()} />
       {children}
     </div>
   );

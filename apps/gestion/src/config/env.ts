@@ -39,6 +39,11 @@ const EnvSchema = z.object({
 
   /** Reglas de asignación de consultas (#48): en pausa hasta que Norde las use. */
   INQUIRY_RULES_ENABLED: z.stringbool().default(false),
+  /** Funciones de Tokko que Norde no usa hoy (#50): construidas, pero ocultas hasta que las pidan. */
+  WATERMARK_ENABLED: z.stringbool().default(false),
+  REFERENCE_CODES_ENABLED: z.stringbool().default(false),
+  TEAMS_ENABLED: z.stringbool().default(false),
+  CUSTOM_ATTRIBUTES_ENABLED: z.stringbool().default(false),
 });
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
@@ -93,6 +98,24 @@ export function getLogLevel(): Env['LOG_LEVEL'] {
 /** Si se muestran las reglas de asignación de consultas (#48). */
 export function inquiryRulesEnabled(): boolean {
   return getEnv().INQUIRY_RULES_ENABLED;
+}
+
+/** Funciones de "Mi empresa" que se prenden por entorno (#50). */
+export interface CompanyFeatures {
+  readonly watermark: boolean;
+  readonly referenceCodes: boolean;
+  readonly teams: boolean;
+  readonly customAttributes: boolean;
+}
+
+export function companyFeatures(): CompanyFeatures {
+  const env = getEnv();
+  return {
+    watermark: env.WATERMARK_ENABLED,
+    referenceCodes: env.REFERENCE_CODES_ENABLED,
+    teams: env.TEAMS_ENABLED,
+    customAttributes: env.CUSTOM_ATTRIBUTES_ENABLED,
+  };
 }
 
 /** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */

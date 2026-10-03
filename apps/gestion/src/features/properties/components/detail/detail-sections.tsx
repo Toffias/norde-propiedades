@@ -22,12 +22,15 @@ export function DetailSections({
   visibleAttributes,
   catalog,
   catalogTruncated,
+  showCustomAttributes,
 }: {
   readonly detail: PanelPropertyDetail;
   readonly permissions: DetailPermissions;
   readonly visibleAttributes: readonly PropertyAttributeValue[];
   readonly catalog: readonly FeatureRow[];
   readonly catalogTruncated: boolean;
+  /** Los atributos personalizados están ocultos mientras Norde no los use (#50). */
+  readonly showCustomAttributes: boolean;
 }) {
   const canEdit = permissions.edit;
   return (
@@ -56,7 +59,7 @@ export function DetailSections({
         />
       </div>
       <TagsSection detail={detail} canEdit={canEdit} />
-      <CustomAttributesSection detail={detail} canEdit={canEdit} />
+      {showCustomAttributes && <CustomAttributesSection detail={detail} canEdit={canEdit} />}
     </div>
   );
 }

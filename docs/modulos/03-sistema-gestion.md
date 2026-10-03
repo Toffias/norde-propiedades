@@ -108,6 +108,9 @@ Roles propuestos (a validar con Norde):
   - En la pantalla del equipo, los miembros se listan paginados (es el listado de usuarios filtrado por equipo). Se suman con un buscador paginado y se sacan de a uno.
 - No puede haber dos sucursales vigentes, ni dos equipos vigentes, con el mismo nombre (sin distinguir mayúsculas ni acentos).
 - Permisos: `branches:read/create/update/delete` y `teams:read/create/update/delete`. Los miembros de un equipo se cambian con `teams:update`.
+
+> **Equipos, oculto (#50).** Norde no tiene equipos en Tokko. Con `TEAMS_ENABLED=false` (por defecto) en `apps/gestion`, la pestaña no se muestra, `/mi-empresa/equipos` responde 404 y Roles y Usuarios no ofrecen los permisos `teams:*` (un rol que ya los tiene los conserva).
+
 - Auditoría: `branch.created`, `branch.updated`, `branch.made-main`, `branch.deleted` y `branch.restored`; `team.created`, `team.updated`, `team.deleted`, `team.restored`, `team.member-added` y `team.member-removed` (contra el equipo, con el ID del usuario).
 
 ### 2.2 Trazabilidad de cambios (auditoría)
@@ -630,7 +633,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 - Condiciones: exclusividad, permuta, escritura inmediata, financiación, apto crédito y expensas (en pesos).
 - Características: ambientes, superficies y medidas, antigüedad, orientación, estado de conservación y disposición. La superficie cubierta más la semicubierta no supera la total. Se muestran los atributos que el tipo de propiedad tiene habilitados en Mi empresa.
 - Ubicación: dirección real (privada), dirección para publicar (vacía: se sugiere), ubicación del catálogo y coordenadas. Si cambia la dirección y no hay coordenadas cargadas a mano, se ubica de nuevo en el mapa.
-- Título para portales y descripción. Servicios, ambientes y adicionales como checklists del catálogo. Etiquetas. Atributos personalizados (se definen en Mi empresa → Propiedades: texto, número, sí o no, o lista; no se borran ni cambian de tipo, se desactivan).
+- Título para portales y descripción. Servicios, ambientes y adicionales como checklists del catálogo. Etiquetas. Atributos personalizados (se definen en Mi empresa → Propiedades: texto, número, sí o no, o lista; no se borran ni cambian de tipo, se desactivan). **Ocultos (#50)**: Norde no creó ninguno en Tokko; con `CUSTOM_ATTRIBUTES_ENABLED=false` (por defecto) no se muestran ni en Mi empresa ni en la ficha.
 - Información interna: código de referencia (editable, sin repetir), captador (`properties:change-producer`), tasadores, usuario de mantenimiento, ubicación de las llaves, información legal y comentarios internos. Los propietarios se muestran; se cargan cuando exista el buscador de contactos (#8).
 
 **Multimedia**: fotos y planos (JPG, PNG o WebP, hasta 15 MB, hasta 100 ítems por propiedad), videos (YouTube, Vimeo) y recorridos 360 (Matterport, Kuula, Roundme) por link.
@@ -810,6 +813,12 @@ El sistema de gestión reemplaza a **Tokko Broker**, el CRM que Norde usa hoy (4
 
 Decidido el 01/10/2026: Chat, Red Tokko Broker (y el inventario de Zonaprop en el buscador, redes y asociaciones, comisión compartida con colegas), Calendario y eventos, Tareas, sincronización con Google Calendar y Outlook, Reportes (y la pestaña Performance de Inicio, que se definen al terminar el sistema), Sitios web (los reemplaza `apps/web`), Facturación y API key de Tokko, e integración Asiprop (la reemplaza el módulo `rentals`, §5).
 
+Decidido el 02/10/2026 (#50), porque Norde no las usa ni las configuró en Tokko:
+
+- **No se construyen**: importar listas de propiedades, la configuración de Reservas (gerentes de reservas, etiqueta obligatoria para reservar y notificaciones propias; el módulo sigue en #13), la supervisión de propiedades (administradores de cartera), la validación legal o tributaria antes de publicar en portales, un proveedor de email propio (SMTP; los emails salen por Resend), la ficha y el PDF en inglés, y las búsquedas similares automáticas para consultas web.
+- **Construidas pero ocultas**, cada una con su variable de entorno apagada por defecto en `apps/gestion`: marca de agua, códigos de referencia por tipo, usuario, equipo o sucursal, equipos y atributos personalizados (§3, §14).
+- **Se mantienen**: Roles, aunque hoy hay un solo grupo, y la importación de contactos desde Excel (#8).
+
 ### 13.2 Reglas que surgen del reemplazo
 
 - **Mono-tenant**: Norde es la única inmobiliaria. La configuración "por tenant" de Tokko es un único registro de configuración de la empresa.
@@ -835,6 +844,8 @@ Módulo `settings`. Es un único registro de configuración (mono-tenant). Todo 
 | Códigos                   | Prefijos por tipo de propiedad y exclusivos por usuario, equipo o sucursal                                                                                                                                                             |
 | Ficha y PDF               | Contacto de la empresa, datos del agente, precio, dirección al enviar y al descargar (exacta, aproximada u oculta), fotos del emprendimiento en las unidades                                                                           |
 | Archivos                  | Gestor de archivos de la empresa                                                                                                                                                                                                       |
+
+> **Ocultas (#50).** Marca de agua (`WATERMARK_ENABLED`) y Códigos (`REFERENCE_CODES_ENABLED`): Norde tiene la marca de agua deshabilitada y usa solo el prefijo general. Apagadas (por defecto), la pestaña no se muestra y su ruta responde 404. Sin la pantalla de Códigos, toda alta recibe el prefijo general.
 
 ### 14.2 Códigos de referencia
 

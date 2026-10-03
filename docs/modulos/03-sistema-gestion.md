@@ -546,16 +546,23 @@ Campos comunes:
 
 - Cada unidad es una **propiedad con `developmentId`**: tiene su tipología, piso, superficie, precio y estado, y reutiliza el buscador, la ficha, la web y los portales. No hay un modelo aparte de unidad.
 - **Listado** (`/emprendimientos`, con `developments:read`): grilla paginada en el servidor con código, nombre, tipo, dirección para publicar, estado, estado de obra, fecha de entrega, unidades activas, etiquetas y página web. Búsqueda por código, nombre, dirección o desarrollista; filtros por estado, tipo y estado de obra; orden por actualización, nombre, código o entrega. Papelera con restaurar (`developments:delete`).
+  - **Vista rápida** (el ojo de cada fila): fotos, estado, estado de obra, unidades y disponibles, servicios y amenities, favorito, y accesos a la ficha, a sus unidades, a sus archivos y a su página web.
+  - **Mapa** (`?layout=map`): los emprendimientos activos con coordenadas del área visible, con los mismos filtros, una capa por estado y como mucho 500 pines (los actualizados más recientemente). El globo enlaza a la ficha.
 - **Estados**: "Cargando información" (al crear) y "Comercializando". Se pasa de uno a otro a mano.
 - **Alta** en panel lateral (`developments:create`): nombre público, tipo de desarrollo, dirección privada, ubicación del catálogo (obligatoria: las unidades la heredan), coordenadas, dirección para publicar y título para portales (si quedan vacíos, se arman solos), desarrollista y contacto comercial (privados). El código sale de la numeración de Mi empresa. Sin coordenadas, se buscan con la dirección.
 - **Ficha** (`/emprendimientos/[id]`), con pestañas:
   - **Detalles**: datos generales, ubicación (con mapa), obra, entrega y financiación (financiado, acepta permuta, escritura inmediata, formas de pago, descripción), servicios y adicionales del catálogo, y etiquetas. Cada sección se edita en el lugar.
   - **Unidades**: el buscador de propiedades filtrado por el emprendimiento, paginado. "Nueva unidad" crea una propiedad en borrador que hereda la dirección privada y la de publicar, la ubicación, las coordenadas, los servicios y adicionales, el captador y la sucursal del emprendimiento; se cargan tipo, ambientes, piso, unidad, superficies, operación y precio. La ficha de la unidad enlaza a su emprendimiento.
-  - **Historial**: la "Actividad" de Tokko (quién cambió qué y cuándo).
+  - **Multimedia**: fotos y planos (con orden y portada), videos y recorridos 360, igual que en la ficha de propiedad (§4.8), con las mismas variantes generadas por un job.
+  - **Archivos**: documentos del emprendimiento (brochure, reglamento, planos en PDF), con descarga autorizada por el panel.
+  - **Historial**: la "Actividad" de Tokko (quién cambió qué y cuándo), con filtro por datos, estado, unidades, multimedia y archivos, y etiquetas.
+- **Fotos en las unidades**: el PDF de una unidad suma, después de las suyas, las fotos del emprendimiento marcadas para el PDF, si "Fotos del emprendimiento en las unidades" está activo en Mi empresa. Se leen del emprendimiento; no se copian.
+- **Favoritos**: la estrella de la ficha y de la vista rápida marca el emprendimiento como favorito de quien usa el panel.
 - **Permisos**: editar los propios (`developments:update`), los de su sucursal (`developments:update-branch`) o todos (`developments:update-all`), según el captador y su sucursal. Sumar unidades pide además `properties:create`.
 - **Borrar**: un emprendimiento con unidades activas no se puede borrar; primero se borran las unidades.
-- Auditoría: `development.created`, `development.updated`, `development.status_changed`, `development.tags_changed`, `development.deleted`, `development.restored` y `development.unit_added` (contra el emprendimiento, con el ID de la unidad). El contacto comercial va en `client_ids`.
-- **Próximas etapas de #7**: multimedia y archivos del emprendimiento (y mostrar sus fotos en las unidades), vista rápida, mapa, Excel de unidades y derivación de consultas por chances.
+- Auditoría: `development.created`, `development.updated`, `development.status_changed`, `development.tags_changed`, `development.deleted`, `development.restored` y `development.unit_added` (contra el emprendimiento, con el ID de la unidad). El contacto comercial va en `client_ids`. La multimedia y los archivos se registran como en la propiedad (`development.media_added`, `development.cover_changed`, `development.attachment_added`, etc.).
+- La galería y los archivos son los mismos casos de uso que en la propiedad, con un **dueño** (propiedad o emprendimiento) que decide los permisos, la papelera y el historial.
+- **Próximas etapas de #7**: Excel de unidades y derivación de consultas por chances. "Compartir" llega con #11 y "Difusión" con #14.
 
 ### 4.2 Exportar a Excel
 

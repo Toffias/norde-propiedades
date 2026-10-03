@@ -52,3 +52,45 @@ export function matchesSavedSearch(property: MatchableProperty, search: Matchabl
   if (search.maxPriceCents !== undefined && price > search.maxPriceCents) return false;
   return true;
 }
+
+/**
+ * Qué tanto coincide una propiedad con una búsqueda, de 0 a 100: la proporción de los criterios
+ * de la búsqueda que cumple. La operación es excluyente (sin ella da 0) y los criterios que la
+ * búsqueda no define no cuentan. Todos valen lo mismo. Da 100 solo si `matchesSavedSearch`.
+ */
+export function matchScore(property: MatchableProperty, search: MatchableSearch): number {
+  const operation = property.operations.find((o) => o.operation === search.operation);
+  if (operation === undefined) return 0;
+
+  const checks: boolean[] = [true];
+  if (search.propertyTypes.length > 0) {
+    checks.push(search.propertyTypes.includes(property.propertyType));
+  }
+  if (search.locationIds.length > 0) {
+    checks.push(search.locationIds.some((id) => property.locationIds.includes(id)));
+  }
+  if (search.minRooms !== undefined) {
+    checks.push((property.rooms ?? -1) >= search.minRooms);
+  }
+  const hasRange = search.minPriceCents !== undefined || search.maxPriceCents !== undefined;
+  if (search.currency !== undefined && hasRange) {
+    const price = operation.priceCents;
+    checks.push(
+      operation.currency === search.currency &&
+        price !== undefined &&
+        (search.minPriceCents === undefined || price >= search.minPriceCents) &&
+        (search.maxPriceCents === undefined || price <= search.maxPriceCents),
+    );
+  }
+  const met = checks.filter(Boolean).length;
+  return Math.round((100 * met) / checks.length);
+}
+
+/** La coincidencia con la mejor de las búsquedas; sin búsquedas, no hay coincidencia. */
+export function bestMatchScore(
+  property: MatchableProperty,
+  searches: readonly MatchableSearch[],
+): number | undefined {
+  if (searches.length === 0) return undefined;
+  return Math.max(...searches.map((search) => matchScore(property, search)));
+}

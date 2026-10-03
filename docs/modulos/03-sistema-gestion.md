@@ -258,9 +258,9 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 
 **Oportunidades**: todas las del contacto (abiertas y cerradas), con su estado, origen y agente.
 
-**Destacadas**: las propiedades destacadas vigentes, con su reacción. Quitar una la deja como quitada (no se borra) y se puede volver a destacar. Una propiedad que ya no está en la cartera queda sin datos.
+**Destacadas**: las propiedades destacadas vigentes, con su coincidencia y su reacción (§3.3.10). Quitar una la deja como quitada (no se borra) y se puede volver a destacar. Una propiedad que ya no está en la cartera queda sin datos.
 
-**Búsquedas**: las búsquedas guardadas, en solo lectura (crearlas va con #11).
+**Búsquedas**: las búsquedas guardadas, con alta, edición, papelera y restauración (§3.3.10).
 
 **Propiedades**: las de la cartera de las que es propietario (`property_owners`), desde el módulo properties.
 
@@ -365,7 +365,7 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 **Reglas automáticas** (las de Mi empresa → Oportunidades). Las aplica el sistema al recibir el evento:
 
 - **Al asignar**: cuando una oportunidad pasa a un agente (no cuando queda sin agente).
-- **Al reactivar**: cuando una en "Aplica a otra inmobiliaria" vuelve a consultar.
+- **Al reactivar**: cuando una en "Aplica a otra inmobiliaria" vuelve a consultar o se le destaca una propiedad al contacto (§3.3.10).
 - **Para propietarios**: cuando nace la oportunidad de un contacto propietario.
 - Mueven al estado configurado solo si el dominio lo permite y la oportunidad está abierta; si no, no hacen nada. Cada evento aplica una sola vez, aunque llegue repetido. El cambio queda como hecho por el sistema.
 
@@ -472,6 +472,35 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - Cliente y oportunidad están separados: asignar una consulta abre o actualiza una oportunidad del contacto.
 - No se conocen las reglas que Norde usa en Tokko: el asistente es genérico y arranca sin reglas.
 - El reparto automático respeta al agente que ya tiene el contacto.
+
+### 3.3.10 Destacadas y búsquedas guardadas (#11, etapa 1)
+
+#11 (seguimiento comercial) va en cuatro etapas: (1) destacadas y búsquedas guardadas, (2) envíos por email o WhatsApp con link público, reacciones y las reglas "tras enviar" y "tras me gusta / no me gusta", (3) respuestas rápidas, (4) cruce con el stock, seguimientos automáticos y baja.
+
+**Destacar** una propiedad a un contacto, desde cuatro lugares:
+
+- La pestaña **Ofrecer** de su ficha.
+- El **buscador** de propiedades: la acción de la fila o la acción masiva sobre las marcadas (hasta 50; no sobre "todas las que cumplen los filtros").
+- **Más acciones** de la ficha de la propiedad.
+- Sus **potenciales interesados** (pestaña Contactos de la ficha), con el contacto ya elegido.
+
+Cada destacada guarda:
+
+- **Coincidencia** (0 a 100 %) con la mejor búsqueda guardada del contacto al destacarla. Es la proporción de los criterios que la búsqueda define y la propiedad cumple: operación (si no la tiene, 0 %), tipos, ubicaciones (o una debajo), ambientes mínimos y precio (a consultar u otra moneda no cumple). Todos valen lo mismo y 100 % es coincidir en todo. Sin búsquedas, "Sin búsqueda". No se recalcula después.
+- La **oportunidad abierta más reciente** del contacto. Si tiene una, se publica `clients.opportunity_listings_featured` y la regla "al reactivar" puede sacarla de "Aplica a otra inmobiliaria".
+- **Auto-envío de novedades** (switch por destacada): queda guardado y auditado; los envíos llegan con la etapa 4.
+
+Por fila: ver la ficha de la propiedad y quitar la destacada. Enviar y reservar llegan con la etapa 2 y con #13.
+
+**Búsquedas guardadas** (pestaña Búsquedas, en un panel lateral sobre la grilla):
+
+- Nombre (opcional), operación, tipos, ubicaciones del catálogo, moneda con precio desde y hasta, ambientes mínimos y envío automático. Se puede atar a la oportunidad abierta del contacto.
+- Borrar las manda a la papelera ("Vigentes / Papelera"); se restauran desde ahí.
+- Como mucho 20 vigentes por contacto. Si el contacto se dio de baja de los envíos, el asesor no le vuelve a activar el envío automático.
+- Desde el **buscador**, "Guardar para un contacto" arranca con sus filtros (operación, tipo, moneda y precios). La ubicación del buscador es texto libre: no se copia y se pide elegirla del catálogo.
+- Auditoría contra el contacto: `client.saved_search_created`, `.saved_search_updated` (solo lo que cambió), `.saved_search_deleted` y `.saved_search_restored`. Destacar suma la oportunidad a `client.listings_featured`; el switch registra `client.featured_auto_send_changed`.
+
+**Diferencias con Tokko**: la coincidencia es una foto del momento de destacar, con una regla explícita. Las búsquedas tienen papelera y tope por contacto.
 
 ### 3.4 Cruce de búsquedas con stock
 

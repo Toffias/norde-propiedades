@@ -515,3 +515,89 @@ export {
   type UnlinkErasedClientsError,
 } from './application/handlers/unlink-erased-clients';
 export type { PropertyClientErasure } from './application/ports/property-client-erasure';
+
+// Emprendimientos (#7)
+export {
+  CONSTRUCTION_STATUSES,
+  DEVELOPMENT_KINDS,
+  DEVELOPMENT_STATUSES,
+  Development,
+  EMPTY_DEVELOPMENT_DEAL,
+  suggestDevelopmentPublishAddress,
+  type ConstructionStatus,
+  type DevelopmentAlreadyDeletedError,
+  type DevelopmentDeal,
+  type DevelopmentHasUnitsError,
+  type DevelopmentId,
+  type DevelopmentInTrashError,
+  type DevelopmentKind,
+  type DevelopmentNotDeletedError,
+  type DevelopmentSnapshot,
+  type DevelopmentStatus,
+  type DevelopmentUnitTemplate,
+  type InvalidDevelopmentStatusTransitionError,
+} from './domain/development';
+export type { DevelopmentEvent } from './domain/development.events';
+export type { DevelopmentRepository } from './domain/development.repository';
+export type { DevelopmentNotFoundError } from './application/development-support';
+export type { DevelopmentCodeAllocator } from './application/ports/development-code-allocator';
+export type {
+  DevelopmentListCriteria,
+  DevelopmentListItem,
+  DevelopmentListQuery,
+} from './application/ports/development-list-query';
+export {
+  CreateDevelopment,
+  type CreateDevelopmentError,
+  type CreateDevelopmentOutput,
+} from './application/commands/create-development';
+export {
+  UpdateDevelopmentGeneral,
+  type UpdateDevelopmentGeneralError,
+} from './application/commands/update-development-general';
+export {
+  UpdateDevelopmentLocation,
+  type UpdateDevelopmentLocationError,
+  type UpdateDevelopmentLocationOutput,
+} from './application/commands/update-development-location';
+export {
+  UpdateDevelopmentDetails,
+  type UpdateDevelopmentDetailsError,
+} from './application/commands/update-development-details';
+export {
+  ChangeDevelopmentStatus,
+  type ChangeDevelopmentStatusError,
+} from './application/commands/change-development-status';
+export {
+  UpdateDevelopmentFeatures,
+  type UpdateDevelopmentFeaturesError,
+} from './application/commands/update-development-features';
+export {
+  ChangeDevelopmentTags,
+  type ChangeDevelopmentTagsError,
+} from './application/commands/change-development-tags';
+export {
+  DeleteDevelopment,
+  type DeleteDevelopmentError,
+} from './application/commands/delete-development';
+export {
+  RestoreDevelopment,
+  type RestoreDevelopmentError,
+} from './application/commands/restore-development';
+export {
+  CreateDevelopmentUnit,
+  type CreateDevelopmentUnitError,
+  type CreateDevelopmentUnitOutput,
+} from './application/commands/create-development-unit';
+export {
+  ListDevelopments,
+  type ListDevelopmentsError,
+} from './application/queries/list-developments';
+export {
+  GetDevelopmentDetail,
+  type GetDevelopmentDetailError,
+} from './application/queries/get-development-detail';
+export {
+  ListDevelopmentHistory,
+  type ListDevelopmentHistoryError,
+} from './application/queries/list-development-history';

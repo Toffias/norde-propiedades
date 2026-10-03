@@ -64,6 +64,8 @@ export interface PropertySnapshot {
   readonly coordinates: Coordinates | undefined;
   /** Ubicación del catálogo jerárquico. Las propiedades viejas solo tienen la ubicación en texto. */
   readonly locationId: string | undefined;
+  /** Emprendimiento al que pertenece, si es una unidad. */
+  readonly developmentId: string | undefined;
   readonly operations: readonly PropertyOperation[];
   /** Etiquetas de propiedades, por ID. */
   readonly tagIds: readonly string[];
@@ -146,6 +148,8 @@ export interface NewProperty {
   readonly portalTitle: string | undefined;
   readonly coordinates: Coordinates | undefined;
   readonly locationId: string | undefined;
+  /** Solo las unidades de un emprendimiento. */
+  readonly developmentId?: string | undefined;
   readonly producerUserId: string | undefined;
   readonly branchId: string | undefined;
   readonly now: Date;
@@ -241,6 +245,7 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
       portalTitle,
       coordinates: input.coordinates,
       locationId: input.locationId,
+      developmentId: input.developmentId,
       operations: [toOperation(input.operation)],
       tagIds: [],
       producerUserId: input.producerUserId,
@@ -282,6 +287,10 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
 
   get producerUserId(): string | undefined {
     return this.#state.producerUserId;
+  }
+
+  get developmentId(): string | undefined {
+    return this.#state.developmentId;
   }
 
   get tagIds(): readonly string[] {

@@ -3,10 +3,17 @@
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
+  DevelopmentRef,
   PanelPropertyCustomAttribute,
   PanelPropertyRow,
   PropertyExportFormat,
 } from '../contracts';
+import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
+import type {
+  DevelopmentListCriteria,
+  DevelopmentListItem,
+  DevelopmentListQuery,
+} from '../application/ports/development-list-query';
 import type { GeocodingFailedError, Geocoder } from '../application/ports/geocoder';
 import type {
   BoundingBox,
@@ -51,6 +58,13 @@ import {
   type CustomAttributeId,
   type CustomAttributeSnapshot,
 } from '../domain/custom-attribute';
+import {
+  Development,
+  EMPTY_DEVELOPMENT_DEAL,
+  type DevelopmentId,
+  type DevelopmentSnapshot,
+} from '../domain/development';
+import type { DevelopmentRepository } from '../domain/development.repository';
 import { Feature, type FeatureId, type FeatureKind, type FeatureSnapshot } from '../domain/feature';
 import type { GridColumn } from '../domain/grid-columns';
 import { Location, type LocationId, type LocationSnapshot } from '../domain/location';
@@ -213,6 +227,7 @@ export function propertySnapshot(
     portalTitle: 'Departamento en venta en Palermo',
     coordinates: undefined,
     locationId: undefined,
+    developmentId: undefined,
     operations: [
       {
         operation: 'sale',
@@ -533,6 +548,7 @@ function isErrResult(value: unknown): boolean {
 
 export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly properties = new InMemoryPropertyRepository();
+  readonly developments = new InMemoryDevelopmentRepository(this.properties);
   readonly locations = new InMemoryLocationRepository();
   readonly features = new InMemoryFeatureRepository();
   readonly customAttributes = new InMemoryCustomAttributeRepository();
@@ -552,6 +568,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   private stores(): readonly Snapshotting[] {
     return [
       this.properties,
+      this.developments,
       this.locations,
       this.features,
       this.customAttributes,
@@ -621,6 +638,8 @@ export function aPanelItem(overrides: Partial<PanelPropertyListItem> = {}): Pane
     status: 'draft',
     portalTitle: 'Departamento en venta en Palermo',
     publishAddress: 'Gurruchaga al 1800',
+    floor: undefined,
+    unit: undefined,
     neighborhood: 'Palermo',
     city: 'CABA',
     province: 'CABA',
@@ -1048,5 +1067,159 @@ export class StubPropertyDetailLookups implements PropertyDetailLookups {
 
   createdBy() {
     return Promise.resolve(PRODUCER_ID);
+  }
+
+  /** Emprendimientos conocidos, por ID. */
+  developments_ = new Map<string, DevelopmentRef>();
+  /** Clientes conocidos, por ID. */
+  clients_ = new Map<string, string>();
+
+  development(developmentId: string) {
+    return Promise.resolve(this.developments_.get(developmentId));
+  }
+
+  clientName(clientId: string) {
+    return Promise.resolve(this.clients_.get(clientId));
+  }
+}
+
+// ---------- Emprendimientos (#7) ----------
+
+export const DEVELOPMENT_ID = '00000000-0000-7000-8000-0000000000e1';
+
+/** Agente con su cartera de emprendimientos: los ve, crea, edita los propios y suma unidades. */
+export const TEST_DEVELOPER = Actor.user(PRODUCER_ID, [
+  'developments:read',
+  'developments:create',
+  'developments:update',
+  'properties:read',
+  'properties:create',
+  'audit:read',
+])
+  .withBranch(BRANCH_ID)
+  .withCorrelation('req-2');
+/** Gerente: edita y borra los emprendimientos de todos. */
+export const TEST_DEVELOPMENTS_MANAGER = Actor.user(OTHER_USER_ID, [
+  'developments:*',
+  'properties:*',
+  'audit:*',
+]);
+
+function unwrapDevelopmentId(raw: string): DevelopmentId {
+  const id = parseId<'Development'>(raw);
+  if (id.isErr()) throw new Error('Invalid test fixture');
+  return id.value;
+}
+
+export function developmentSnapshot(
+  overrides: Partial<Omit<DevelopmentSnapshot, 'id'>> & { readonly id?: string } = {},
+): DevelopmentSnapshot {
+  const { id, ...rest } = overrides;
+  return {
+    id: unwrapDevelopmentId(id ?? DEVELOPMENT_ID),
+    code: 'EMP0001',
+    slug: 'torre-gurruchaga-emp0001',
+    name: 'Torre Gurruchaga',
+    kind: 'building',
+    status: 'loading',
+    constructionStatus: undefined,
+    deliveryDate: undefined,
+    privateAddress: 'Gurruchaga 1834',
+    publishAddress: 'Gurruchaga al 1800',
+    portalTitle: 'Torre Gurruchaga',
+    locationId: undefined,
+    coordinates: undefined,
+    developerName: undefined,
+    commercialContactClientId: undefined,
+    websiteUrl: undefined,
+    description: '',
+    financingDetails: undefined,
+    deal: EMPTY_DEVELOPMENT_DEAL,
+    featureIds: [],
+    tagIds: [],
+    producerUserId: PRODUCER_ID,
+    branchId: BRANCH_ID,
+    deletedAt: undefined,
+    deletedBy: undefined,
+    createdAt: new Date('2026-09-01T12:00:00Z'),
+    updatedAt: new Date('2026-09-01T12:00:00Z'),
+    ...rest,
+  };
+}
+
+export class InMemoryDevelopmentRepository implements DevelopmentRepository {
+  readonly rows = new Map<string, DevelopmentSnapshot>();
+  readonly savedBy = new Map<string, string>();
+
+  constructor(private readonly properties: InMemoryPropertyRepository) {}
+
+  findById(id: DevelopmentId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? Development.restore(row) : undefined);
+  }
+
+  countActiveUnits(id: DevelopmentId) {
+    const units = [...this.properties.rows.values()].filter(
+      (property) => property.developmentId === id && property.deletedAt === undefined,
+    );
+    return Promise.resolve(units.length);
+  }
+
+  save(development: Development, actorId: string) {
+    this.rows.set(development.id, development.toSnapshot());
+    this.savedBy.set(development.id, actorId);
+    return Promise.resolve();
+  }
+}
+
+/** Entrega códigos correlativos de emprendimiento (`EMP0001`…), o falla si se lo configura así. */
+export class FakeDevelopmentCodeAllocator implements DevelopmentCodeAllocator {
+  readonly requests: Parameters<DevelopmentCodeAllocator['allocate']>[0][] = [];
+  #next = 1;
+
+  constructor(private readonly available = true) {}
+
+  allocate(
+    request: Parameters<DevelopmentCodeAllocator['allocate']>[0],
+  ): Promise<Result<string, ReferenceCodeUnavailableError>> {
+    this.requests.push(request);
+    if (!this.available) return Promise.resolve(err({ type: 'ReferenceCodeUnavailable' }));
+    const code = `EMP${this.#next.toString().padStart(4, '0')}`;
+    this.#next += 1;
+    return Promise.resolve(ok(code));
+  }
+}
+
+/** Fila del listado con valores razonables; se pisan los campos que importan. */
+export function aDevelopmentItem(
+  overrides: Partial<DevelopmentListItem> = {},
+): DevelopmentListItem {
+  return {
+    id: DEVELOPMENT_ID,
+    code: 'EMP0001',
+    name: 'Torre Gurruchaga',
+    developmentType: 'building',
+    status: 'marketing',
+    constructionStatus: 'under_construction',
+    publishAddress: 'Gurruchaga al 1800',
+    deliveryDate: '2027-12-01',
+    websiteUrl: undefined,
+    tags: [],
+    unitCount: 0,
+    updatedAt: new Date('2026-09-01T12:00:00Z'),
+    deletedAt: undefined,
+    deletedBy: undefined,
+    ...overrides,
+  };
+}
+
+export class StubDevelopmentListQuery implements DevelopmentListQuery {
+  readonly calls: DevelopmentListCriteria[] = [];
+
+  constructor(private readonly slice: PageSlice<DevelopmentListItem> = { items: [], total: 0 }) {}
+
+  search(criteria: DevelopmentListCriteria) {
+    this.calls.push(criteria);
+    return Promise.resolve(this.slice);
   }
 }

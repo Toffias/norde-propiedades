@@ -6,6 +6,7 @@ import { historyQuerySchema } from '../../audit/contracts';
 import { pageQuerySchema } from '../../shared/contracts';
 
 import { AmountSchema } from './amount';
+import type { DevelopmentRef } from './developments';
 import { CURRENCIES, MANUAL_STATUS_VALUES, OPERATIONS } from './values';
 
 export const ORIENTATION_VALUES = [
@@ -426,6 +427,8 @@ export interface PanelPropertyDetail {
   readonly owners: readonly { readonly id: string; readonly name: string }[];
   readonly cover: { readonly mediaId: string; readonly hasThumbnail: boolean } | undefined;
   readonly counts: { readonly media: number; readonly attachments: number };
+  /** Emprendimiento al que pertenece, si es una unidad. */
+  readonly development: DevelopmentRef | undefined;
   readonly createdAt: Date;
   readonly createdBy: PanelUserRef | undefined;
   readonly updatedAt: Date;

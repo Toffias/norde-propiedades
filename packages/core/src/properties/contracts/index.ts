@@ -22,6 +22,7 @@ export * from './catalog';
 export * from './detail';
 export * from './media';
 export * from './documents';
+export * from './developments';
 export { AmountSchema } from './amount';
 
 /** Tope de la búsqueda pública (web y agente). El panel usa el `MAX_PAGE_SIZE` de shared. */
@@ -184,6 +185,8 @@ const PanelPropertyFilterFields = {
   maxPrice: AmountSchema.optional(),
   scope: z.enum(PROPERTY_SCOPE_VALUES).default('all'),
   view: z.enum(PROPERTY_VIEW_VALUES).default('active'),
+  /** Solo las unidades de este emprendimiento. */
+  developmentId: z.uuid().optional(),
 };
 
 /** El precio se filtra y se ordena en una sola moneda: sin moneda no hay rango ni orden por precio. */
@@ -269,6 +272,9 @@ export interface PanelPropertyRow {
   readonly status: PropertyStatusValue;
   readonly portalTitle: string;
   readonly publishAddress: string | undefined;
+  /** Piso y unidad (privados): los muestra la grilla de unidades de un emprendimiento. */
+  readonly floor: string | undefined;
+  readonly unit: string | undefined;
   readonly neighborhood: string;
   readonly city: string;
   readonly province: string;

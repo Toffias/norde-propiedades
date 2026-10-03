@@ -440,14 +440,14 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 
 **Reglas de asignación automática** (`/consultas/reglas`, con "Administrar consultas"):
 
-> **En pausa (#48).** Se prenden con `INQUIRY_RULES_ENABLED=true` en `apps/gestion` (muestra la pantalla y su link) y en `apps/agent` (suscribe `RouteInquiry`). Apagadas, `/consultas/reglas` responde 404 y toda consulta queda pendiente hasta que se asigna a mano.
+> **En pausa (#48).** Se prenden con `INQUIRY_RULES_ENABLED=true` en `apps/gestion` (muestra la pantalla y su link) y en `apps/agent` (`RouteInquiry` usa las reglas). Apagadas, `/consultas/reglas` responde 404 y una consulta queda pendiente hasta que se asigna a mano, salvo que su emprendimiento derive por chances (§4.1, Emprendimientos).
 
 - **Regla**: nombre, condiciones y agentes con su peso (de 1 a 10). Hasta 100 reglas y 20 agentes por regla.
 - **Condiciones**: canal, operación de la propiedad, tipo de propiedad, zona (barrios), propiedad y emprendimiento.
   - Una condición vacía es "cualquiera"; sin ninguna, la regla toma cualquier consulta.
   - Con varias, la consulta tiene que cumplir todas. Dentro de cada una alcanza con un valor.
   - Se comparan con las etiquetas automáticas de la consulta y sus IDs. La zona, sin mayúsculas ni acentos.
-  - Emprendimiento ya está en el modelo, pero el asistente todavía no ofrece un selector de emprendimientos (llega con la derivación por chances de #7).
+  - Emprendimiento ya está en el modelo, pero el asistente no ofrece un selector: para repartir las consultas de un emprendimiento se usa su derivación por chances (§4.1). Una consulta por una unidad cuenta como consulta por su emprendimiento.
 - **Prioridad**: cada consulta va a la **primera regla activa que cumple**, en orden. Se sube o baja de a un lugar dentro de su pestaña.
 - **Activas e inactivas**: una inactiva no toma consultas, pero conserva su lugar y su reparto.
 - **Asistente por pasos**: nombre, condiciones, agentes con su peso (con el % que recibe cada uno) y revisión.
@@ -456,11 +456,12 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
   - La regla guarda cuántas repartió (`cursor`), y la fila se bloquea al tomar el turno: dos consultas a la vez no reciben el mismo.
   - Los agentes inactivos se saltean. Si cambian los agentes o sus pesos, el reparto arranca de cero.
 - **Al entrar una consulta** (`RouteInquiry`, reacción a `clients.inquiry_received` en `apps/agent`, como `system:scheduler`):
+  - Primero, la **derivación por chances** de su emprendimiento (o el de la unidad consultada), si tiene agentes; funciona con las reglas apagadas. Si ninguno de sus agentes está activo, sigue con las reglas.
   - Se asigna como con "Asignar", sin una persona: al contacto que coincide por teléfono o email o, si no hay ninguno, a uno nuevo.
   - **Si el contacto ya tiene agente**, la oportunidad sigue con él y la regla no avanza su reparto. Si no, va al agente que toca.
   - **Queda pendiente** si no cumple ninguna regla, si coinciden varios contactos distintos (decide una persona) o si la regla no tiene ningún agente activo.
   - Es idempotente: una consulta que ya no está pendiente no se toca.
-  - La auditoría de `inquiry.assigned` suma la regla que la repartió.
+  - La auditoría de `inquiry.assigned` suma la regla (`ruleId`) o el emprendimiento (`developmentChances`) que la repartió.
 - **Auditoría** de las reglas: `inquiry_rule.created`, `.updated` (con el diff), `.activated`, `.deactivated`, `.moved` y `.deleted` (con todos sus valores).
 
 **Diferencias con Tokko**:
@@ -555,7 +556,8 @@ Campos comunes:
   - **Unidades**: el buscador de propiedades filtrado por el emprendimiento, paginado. "Nueva unidad" crea una propiedad en borrador que hereda la dirección privada y la de publicar, la ubicación, las coordenadas, los servicios y adicionales, el captador y la sucursal del emprendimiento; se cargan tipo, ambientes, piso, unidad, superficies, operación y precio. La ficha de la unidad enlaza a su emprendimiento.
   - **Multimedia**: fotos y planos (con orden y portada), videos y recorridos 360, igual que en la ficha de propiedad (§4.8), con las mismas variantes generadas por un job.
   - **Archivos**: documentos del emprendimiento (brochure, reglamento, planos en PDF), con descarga autorizada por el panel.
-  - **Historial**: la "Actividad" de Tokko (quién cambió qué y cuándo), con filtro por datos, estado, unidades, multimedia y archivos, y etiquetas.
+  - **Derivación**: los agentes que reciben las consultas del emprendimiento, con su peso (ver abajo).
+  - **Historial**: la "Actividad" de Tokko (quién cambió qué y cuándo), con filtro por datos, estado, unidades, multimedia y archivos, y etiquetas y derivación.
 - **Excel de unidades** (`/emprendimientos/[id]/importaciones`, desde la pestaña Unidades):
   - **Exportar** ("Exportar a Excel" o "Descargar unidades"): las unidades activas con código, piso, unidad, tipo, ambientes, superficies, moneda y precio de cada operación y estado. Unidades son propiedades: hasta 10 alcanza con `properties:export`; más, con `properties:export-bulk`. Se arma por lotes y queda en el historial del emprendimiento (`development.units_exported`, con la cantidad).
   - **Importar** (crear propiedades y editar el emprendimiento): se sube un `.xlsx` (hasta 5 MB y 2.000 filas), la vista previa propone qué columna va con cada dato (reconoce los encabezados de la exportación y los habituales de una lista de precios: "Depto", "Precio", "Moneda") y se puede corregir. La importación corre como job (`properties.unit_import_requested`) y la pantalla muestra el avance.
@@ -563,13 +565,19 @@ Campos comunes:
   - **Qué cambia**: ambientes, superficies, moneda y precio de cada operación (una operación que la unidad no tenía se suma) y estado. Las celdas vacías no borran nada; "Consultar" deja la operación sin precio. El tipo se usa solo al crear. Pasar a "Disponible" respeta `properties:mark-available` de quien importó, y "Reservada" no se elige (la marca una reserva).
   - **Filas con problemas** (no frenan la importación): sin unidad, dos unidades con el mismo piso y unidad, unidad en la papelera, unidad nueva sin tipo o sin operación, operación nueva sin moneda, valor inválido, estado no permitido o sin código de referencia. El reporte muestra la fila, el dato y enlaza a la unidad si existe.
   - **Historial**: la importación queda en el del emprendimiento (`development.units_import_requested`, `development.units_imported` o `development.units_import_failed`, con los totales), y cada unidad creada o actualizada en el suyo como `system:import`, agrupada por la importación. El archivo se borra al terminar.
+- **Derivación por chances** (pestaña Derivación; la edita quien puede editar el emprendimiento):
+  - Hasta 20 agentes activos, cada uno con un peso de 1 a 10 y el % de consultas que le toca. Sin agentes, no deriva.
+  - Toma las consultas por el emprendimiento y por cualquiera de sus unidades, antes que las reglas de asignación y aunque estén apagadas (`INQUIRY_RULES_ENABLED`).
+  - El reparto es el mismo round robin ponderado de las reglas: con A en 2 y B en 1, A, B, A, A, B, A… El emprendimiento guarda cuántas derivó (`inquiry_route_cursor`) y se bloquea al tomar el turno.
+  - Si quien consulta ya tiene agente, la consulta va a él y el reparto no avanza. Los agentes inactivos se saltean; si ninguno está activo, la consulta sigue con las reglas o queda pendiente.
+  - Cambiar los agentes, sus pesos o su orden reinicia el reparto y queda en el historial (`development.chances_updated`, con los agentes y pesos antes y después). Un emprendimiento en la papelera no deriva.
 - **Fotos en las unidades**: el PDF de una unidad suma, después de las suyas, las fotos del emprendimiento marcadas para el PDF, si "Fotos del emprendimiento en las unidades" está activo en Mi empresa. Se leen del emprendimiento; no se copian.
 - **Favoritos**: la estrella de la ficha y de la vista rápida marca el emprendimiento como favorito de quien usa el panel.
 - **Permisos**: editar los propios (`developments:update`), los de su sucursal (`developments:update-branch`) o todos (`developments:update-all`), según el captador y su sucursal. Sumar unidades pide además `properties:create`.
 - **Borrar**: un emprendimiento con unidades activas no se puede borrar; primero se borran las unidades.
-- Auditoría: `development.created`, `development.updated`, `development.status_changed`, `development.tags_changed`, `development.deleted`, `development.restored`, `development.unit_added` (contra el emprendimiento, con el ID de la unidad) y las del Excel de unidades. El contacto comercial va en `client_ids`. La multimedia y los archivos se registran como en la propiedad (`development.media_added`, `development.cover_changed`, `development.attachment_added`, etc.).
+- Auditoría: `development.created`, `development.updated`, `development.status_changed`, `development.tags_changed`, `development.chances_updated`, `development.deleted`, `development.restored`, `development.unit_added` (contra el emprendimiento, con el ID de la unidad) y las del Excel de unidades. El contacto comercial va en `client_ids`. La multimedia y los archivos se registran como en la propiedad (`development.media_added`, `development.cover_changed`, `development.attachment_added`, etc.).
 - La galería y los archivos son los mismos casos de uso que en la propiedad, con un **dueño** (propiedad o emprendimiento) que decide los permisos, la papelera y el historial.
-- **Próxima etapa de #7**: derivación de consultas por chances. "Compartir" llega con #11 y "Difusión" con #14.
+- **Pendiente de #7**: "Compartir" llega con #11 y "Difusión" con #14.
 
 ### 4.2 Exportar a Excel
 

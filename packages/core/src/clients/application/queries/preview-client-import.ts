@@ -1,4 +1,12 @@
-import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
+import {
+  type Actor,
+  err,
+  type ForbiddenError,
+  ok,
+  type Result,
+  type SpreadsheetReader,
+  type UnreadableSpreadsheetError,
+} from '../../../shared';
 import {
   CLIENT_IMPORT_SAMPLE_ROWS,
   PreviewClientImportInputSchema,
@@ -13,7 +21,6 @@ import {
   type TooManyImportRowsError,
 } from '../../domain/client-import';
 import { invalidInput, type InvalidInputError } from '../client-support';
-import type { SpreadsheetReader, UnreadableSpreadsheetError } from '../ports/spreadsheet-reader';
 
 export interface TooManyImportColumnsError {
   readonly type: 'TooManyImportColumns';

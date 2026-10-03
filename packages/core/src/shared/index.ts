@@ -43,3 +43,9 @@ export type {
   IdGenerator,
   UnitOfWork,
 } from './application/ports';
+export type {
+  Spreadsheet,
+  SpreadsheetReader,
+  SpreadsheetRow,
+  UnreadableSpreadsheetError,
+} from './application/spreadsheet-reader';

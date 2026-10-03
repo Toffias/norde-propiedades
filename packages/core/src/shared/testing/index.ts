@@ -7,8 +7,13 @@ import type {
   EventPublisher,
   IdGenerator,
 } from '../application/ports';
+import type {
+  Spreadsheet,
+  SpreadsheetReader,
+  UnreadableSpreadsheetError,
+} from '../application/spreadsheet-reader';
 import type { DomainEvent } from '../domain/domain-event';
-import type { Result } from '../domain/result';
+import { err, ok, type Result } from '../domain/result';
 
 /** Reloj fijo, avanzable a mano. */
 export class FixedClock implements Clock {
@@ -65,4 +70,38 @@ export function unwrap<T, E>(result: Result<T, E>): T {
 export function unwrapErr<T, E>(result: Result<T, E>): E {
   if (result.isOk()) throw new Error('Expected Err, got Ok');
   return result.error;
+}
+
+/**
+ * Lee "planillas" de prueba: los bytes son una clave registrada con `register` (no hace falta
+ * armar un Excel de verdad). Una clave desconocida es un archivo que no se puede leer.
+ */
+export class FakeSpreadsheetReader implements SpreadsheetReader {
+  readonly #sheets = new Map<string, readonly (readonly (string | undefined)[])[]>();
+
+  /** La primera fila son los encabezados. Devuelve los bytes que la representan. */
+  register(
+    name: string,
+    rows: readonly (readonly (string | undefined)[])[],
+  ): Uint8Array<ArrayBuffer> {
+    this.#sheets.set(name, rows);
+    return new TextEncoder().encode(name);
+  }
+
+  open(bytes: Uint8Array): Promise<Result<Spreadsheet, UnreadableSpreadsheetError>> {
+    const rows = this.#sheets.get(new TextDecoder().decode(bytes));
+    if (rows === undefined) return Promise.resolve(err({ type: 'UnreadableSpreadsheet' }));
+    const [headers = [], ...data] = rows;
+    const sheet: Spreadsheet = {
+      headers: headers.map((h) => h ?? ''),
+      rowCount: data.length,
+      async *rows() {
+        for (const [index, cells] of data.entries()) {
+          await Promise.resolve();
+          yield { rowNumber: index + 2, cells };
+        }
+      },
+    };
+    return Promise.resolve(ok(sheet));
+  }
 }

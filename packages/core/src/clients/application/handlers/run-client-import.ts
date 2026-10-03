@@ -1,15 +1,17 @@
 import type { FileStorage } from '../../../settings';
 import {
+  type Actor,
   auditAction,
+  type Clock,
   err,
+  type ForbiddenError,
+  type IdGenerator,
   nextId,
   ok,
   parseId,
-  type Actor,
-  type Clock,
-  type ForbiddenError,
-  type IdGenerator,
   type Result,
+  type SpreadsheetReader,
+  type SpreadsheetRow,
 } from '../../../shared';
 import {
   MAX_IMPORT_ROWS,
@@ -24,7 +26,6 @@ import { createClientIn } from '../client-creation';
 import { readImportRow } from '../client-import-row';
 import { importTarget } from '../import-support';
 import type { ClientsTransaction, ClientsUnitOfWork } from '../ports/clients-transaction';
-import type { SpreadsheetReader, SpreadsheetRow } from '../ports/spreadsheet-reader';
 
 export interface ClientImportNotFoundError {
   readonly type: 'ClientImportNotFound';

@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 
-import type { SpreadsheetRow } from '@norde/core/clients';
+import type { SpreadsheetRow } from '@norde/core/shared';
 
 import { XlsxSpreadsheetReader } from './xlsx-spreadsheet-reader';
 

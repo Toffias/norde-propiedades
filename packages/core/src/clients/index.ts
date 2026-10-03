@@ -376,12 +376,6 @@ export {
   type ListClientImportProblemsError,
 } from './application/queries/list-client-import-problems';
 export type { ClientImportItem, ClientImportQuery } from './application/ports/client-import-query';
-export type {
-  Spreadsheet,
-  SpreadsheetReader,
-  SpreadsheetRow,
-  UnreadableSpreadsheetError,
-} from './application/ports/spreadsheet-reader';
 export type { ClientImportRepository } from './domain/client.repository';
 export {
   ClientImport,

@@ -1,12 +1,14 @@
 import { Readable } from 'node:stream';
 
-import type {
-  Spreadsheet,
-  SpreadsheetReader,
-  SpreadsheetRow,
-  UnreadableSpreadsheetError,
-} from '@norde/core/clients';
-import { err, ok, type Result } from '@norde/core/shared';
+import {
+  err,
+  ok,
+  type Result,
+  type Spreadsheet,
+  type SpreadsheetReader,
+  type SpreadsheetRow,
+  type UnreadableSpreadsheetError,
+} from '@norde/core/shared';
 import ExcelJS from 'exceljs';
 
 // Lee la primera hoja de un `.xlsx` subido para importar. El archivo ya llegó acotado en tamaño

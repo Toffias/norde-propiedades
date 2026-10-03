@@ -4,18 +4,11 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-import {
-  PROPERTY_STATUS_VALUES,
-  type PropertyMapPin,
-  type PropertyStatusValue,
-} from '@norde/core/properties/contracts';
+import type { StatusTone } from '@norde/ui/components/status-pill';
 import L from 'leaflet';
 // Después de leaflet: el plugin se registra sobre el `L` global que deja leaflet.
 import 'leaflet.markercluster';
 import { useEffect, useRef } from 'react';
-
-import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../labels';
-import { operationsSummary } from '../property-format';
 
 export interface MapArea {
   readonly south: number;
@@ -24,10 +17,35 @@ export interface MapArea {
   readonly east: number;
 }
 
+/** Una capa del mapa, que se prende y se apaga (un estado, por ejemplo). */
+export interface MapLayer {
+  readonly key: string;
+  readonly label: string;
+}
+
+export interface MapPin {
+  readonly id: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  /** La `key` de su capa. */
+  readonly layer: string;
+  /** Color del pin, con los mismos tonos que la grilla. */
+  readonly tone: StatusTone;
+  /** Lo que se lee al pasar el mouse. */
+  readonly title: string;
+  /** Las líneas del globo, como texto: se escapan al armarlo. */
+  readonly popup: readonly {
+    readonly text: string;
+    readonly strong?: boolean;
+    readonly muted?: boolean;
+  }[];
+  /** Link del globo (la ficha). */
+  readonly href?: string;
+}
+
 /** Centro de partida: la Ciudad de Buenos Aires. */
 const START = { center: [-34.6, -58.44] as L.LatLngTuple, zoom: 12 };
 
-/** Color del pin según el estado, con los mismos tonos que la grilla. */
 const PIN_CLASS: Readonly<Record<string, string>> = {
   green: 'bg-success-600',
   amber: 'bg-warning-600',
@@ -39,8 +57,7 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-function pinIcon(status: PropertyStatusValue): L.DivIcon {
-  const tone = PROPERTY_STATUS_DISPLAY[status].tone;
+function pinIcon(tone: StatusTone): L.DivIcon {
   return L.divIcon({
     className: '',
     html: `<span class="block h-[18px] w-[18px] rounded-full border-2 border-white shadow-md ring-1 ring-black/40 ${PIN_CLASS[tone] ?? ''}"></span>`,
@@ -50,31 +67,39 @@ function pinIcon(status: PropertyStatusValue): L.DivIcon {
   });
 }
 
-function popupHtml(pin: PropertyMapPin): string {
-  const status = PROPERTY_STATUS_DISPLAY[pin.status].label;
-  return [
-    `<strong>${escapeHtml(pin.code)}</strong> · ${escapeHtml(PROPERTY_TYPE_LABELS[pin.propertyType])}`,
-    `<div>${escapeHtml(pin.portalTitle)}</div>`,
-    `<div>${escapeHtml(operationsSummary(pin.operations))}</div>`,
-    `<div style="opacity:.7">${escapeHtml(status)}</div>`,
-  ].join('');
+function popupHtml(pin: MapPin): string {
+  const lines = pin.popup.map((line) => {
+    const text = escapeHtml(line.text);
+    if (line.strong === true) return `<strong>${text}</strong>`;
+    if (line.muted === true) return `<div style="opacity:.7">${text}</div>`;
+    return `<div>${text}</div>`;
+  });
+  if (pin.href !== undefined) {
+    lines.push(`<div><a href="${escapeHtml(pin.href)}">Abrir la ficha</a></div>`);
+  }
+  return lines.join('');
 }
 
 /**
- * Mapa de Leaflet con OpenStreetMap (ADR 0019): una capa por estado, que se prende y se apaga, con
+ * Mapa de Leaflet con OpenStreetMap (ADR 0019): una capa por grupo, que se prende y se apaga, con
  * los pines agrupados cuando están cerca. Avisa el área visible cada vez que se mueve.
  */
-export function PropertyMapCanvas({
+export function MapCanvas({
   pins,
+  layers,
+  label,
   onAreaChange,
 }: {
-  readonly pins: readonly PropertyMapPin[];
+  readonly pins: readonly MapPin[];
+  readonly layers: readonly MapLayer[];
+  readonly label: string;
   readonly onAreaChange: (area: MapArea) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
-  const layers = useRef(new Map<PropertyStatusValue, L.MarkerClusterGroup>());
+  const groups = useRef(new Map<string, L.MarkerClusterGroup>());
   const onArea = useRef(onAreaChange);
+  const initialLayers = useRef(layers);
 
   useEffect(() => {
     onArea.current = onAreaChange;
@@ -89,12 +114,12 @@ export function PropertyMapCanvas({
     }).addTo(instance);
 
     const overlays: Record<string, L.Layer> = {};
-    const groups = layers.current;
-    for (const status of PROPERTY_STATUS_VALUES) {
+    const byKey = groups.current;
+    for (const layer of initialLayers.current) {
       const group = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50 });
       group.addTo(instance);
-      groups.set(status, group);
-      overlays[PROPERTY_STATUS_DISPLAY[status].label] = group;
+      byKey.set(layer.key, group);
+      overlays[layer.label] = group;
     }
     L.control.layers(undefined, overlays, { collapsed: true }).addTo(instance);
 
@@ -114,17 +139,17 @@ export function PropertyMapCanvas({
     return () => {
       instance.remove();
       map.current = null;
-      groups.clear();
+      byKey.clear();
     };
   }, []);
 
   useEffect(() => {
-    for (const group of layers.current.values()) group.clearLayers();
+    for (const group of groups.current.values()) group.clearLayers();
     for (const pin of pins) {
-      layers.current.get(pin.status)?.addLayer(
+      groups.current.get(pin.layer)?.addLayer(
         L.marker([pin.latitude, pin.longitude], {
-          icon: pinIcon(pin.status),
-          title: `${pin.code} · ${pin.portalTitle}`,
+          icon: pinIcon(pin.tone),
+          title: pin.title,
         }).bindPopup(popupHtml(pin)),
       );
     }
@@ -134,7 +159,7 @@ export function PropertyMapCanvas({
     <div
       ref={container}
       role="region"
-      aria-label="Mapa de propiedades"
+      aria-label={label}
       className="relative z-0 h-[60vh] min-h-[360px] w-full"
     />
   );

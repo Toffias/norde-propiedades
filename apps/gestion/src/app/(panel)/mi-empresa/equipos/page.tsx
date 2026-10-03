@@ -2,7 +2,9 @@ import { ListTeamsQuerySchema } from '@norde/core/identity/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
+import { companyFeatures } from '../../../../config/env';
 import { getContainer } from '../../../../container';
 import type { TeamSheetData } from '../../../../features/identity/components/team-sheet';
 import { TeamsGrid } from '../../../../features/identity/components/teams-grid';
@@ -28,6 +30,7 @@ export default async function TeamsPage({
 }: {
   readonly searchParams: Promise<SearchParams>;
 }) {
+  if (!companyFeatures().teams) notFound();
   const { actor } = await requireSession();
   const params = await searchParams;
   const { value: query, invalidKeys } = parseListParams(ListTeamsQuerySchema, params);

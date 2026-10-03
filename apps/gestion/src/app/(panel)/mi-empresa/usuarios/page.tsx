@@ -1,4 +1,3 @@
-import { PERMISSION_CATALOG } from '@norde/core/identity';
 import { ListUsersQuerySchema, type UserListItem } from '@norde/core/identity/contracts';
 import { MAX_PAGE_SIZE } from '@norde/core/shared/contracts';
 import { Card } from '@norde/ui/components/card';
@@ -12,6 +11,7 @@ import type { UserSheetData } from '../../../../features/identity/components/use
 import { UsersGrid } from '../../../../features/identity/components/users-grid';
 import { USER_ERROR_MESSAGES } from '../../../../features/identity/messages';
 import { userTab } from '../../../../features/identity/panels';
+import { visiblePermissionCatalog } from '../../../../features/identity/permission-catalog';
 import { messageForError } from '../../../../lib/errors';
 import { formatCount } from '../../../../lib/format';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
@@ -99,7 +99,7 @@ export default async function UsersPage({
           roles={roleOptions}
           currentUserId={profile.id}
           detail={detail}
-          catalog={PERMISSION_CATALOG}
+          catalog={visiblePermissionCatalog()}
           permissions={{
             create: canPickRoles && actor.can('users:create'),
             update: canPickRoles && actor.can('users:update'),

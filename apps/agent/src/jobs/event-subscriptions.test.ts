@@ -137,6 +137,7 @@ describe('eventSubscriptions', () => {
       'clients.client_erased.remove-favorites',
       'clients.opportunity_reassigned.apply-rules',
       'clients.opportunity_request_added.apply-rules',
+      'clients.opportunity_listings_featured.apply-rules',
       'clients.opportunity_created.apply-rules',
       'clients.opportunity_bulk_requested.run-bulk',
       'clients.import_requested.run-import',
@@ -328,6 +329,11 @@ describe('eventSubscriptions', () => {
       type: 'clients.opportunity_reassigned',
       payload: { opportunityId: 'opp-1', clientId: 'client-1', fromAgentId: 'a', toAgentId: null },
     });
+    await named('clients.opportunity_listings_featured', 'apply-rules')?.handle({
+      ...event,
+      type: 'clients.opportunity_listings_featured',
+      payload: { opportunityId: 'opp-1', clientId: 'client-1', propertyIds: ['p-1'] },
+    });
     await named('clients.opportunity_created', 'apply-rules')?.handle(event);
     await named('clients.opportunity_bulk_requested', 'run-bulk')?.handle({
       ...event,
@@ -342,6 +348,11 @@ describe('eventSubscriptions', () => {
           opportunityId: 'opp-1',
           trigger: { kind: 'assigned', toAgentId: undefined },
         },
+        'system:scheduler',
+      ],
+      [
+        'rules',
+        { eventId: event.id, opportunityId: 'opp-1', trigger: { kind: 'listings_featured' } },
         'system:scheduler',
       ],
       [

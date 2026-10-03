@@ -2,15 +2,19 @@ import {
   CONSTRUCTION_STATUSES,
   DEVELOPMENT_KINDS,
   DEVELOPMENT_STATUSES,
+  type BoundingBox,
+  type DevelopmentFilterCriteria,
   type DevelopmentListCriteria,
   type DevelopmentListItem,
   type DevelopmentListQuery,
+  type DevelopmentMapPin,
   type DevelopmentTagRef,
 } from '@norde/core/properties';
 import type { PageSlice } from '@norde/core/shared';
 import {
   and,
   asc,
+  between,
   count,
   desc,
   eq,
@@ -113,7 +117,63 @@ export class DrizzleDevelopmentListQuery implements DevelopmentListQuery {
     return { items, total };
   }
 
-  private filters(c: DevelopmentListCriteria): (SQL | undefined)[] {
+  async mapPins(
+    criteria: DevelopmentFilterCriteria,
+    area: BoundingBox,
+    limit: number,
+  ): Promise<PageSlice<DevelopmentMapPin>> {
+    // Sin PostGIS: el rectángulo se resuelve con `developments_coordinates_idx` (lat, long).
+    const where = and(
+      ...this.filters({ ...criteria, view: 'active' }),
+      isNotNull(developments.latitude),
+      isNotNull(developments.longitude),
+      between(developments.latitude, area.south, area.north),
+      between(developments.longitude, area.west, area.east),
+    );
+    const [rows, total] = await Promise.all([
+      this.db
+        .select({
+          id: developments.id,
+          code: developments.code,
+          name: developments.name,
+          status: developments.status,
+          publishAddress: developments.publishAddress,
+          unitCount,
+          latitude: developments.latitude,
+          longitude: developments.longitude,
+        })
+        .from(developments)
+        .where(where)
+        .orderBy(desc(developments.updatedAt), desc(developments.id))
+        .limit(limit),
+      this.db
+        .select({ total: count() })
+        .from(developments)
+        .where(where)
+        .then(([row]) => row?.total ?? 0),
+    ]);
+    const items = rows.flatMap((row): DevelopmentMapPin[] =>
+      row.latitude === null || row.longitude === null
+        ? []
+        : [
+            {
+              id: row.id,
+              code: row.code,
+              name: row.name,
+              status: RowEnums.shape.status.parse(row.status),
+              publishAddress: undefinedIfNull(row.publishAddress),
+              unitCount: row.unitCount,
+              latitude: row.latitude,
+              longitude: row.longitude,
+            },
+          ],
+    );
+    return { items, total };
+  }
+
+  private filters(
+    c: DevelopmentFilterCriteria & Pick<DevelopmentListCriteria, 'view'>,
+  ): (SQL | undefined)[] {
     return [
       c.view === 'trash' ? isNotNull(developments.deletedAt) : isNull(developments.deletedAt),
       c.text === undefined ? undefined : matchesSearchText(developments.searchText, c.text),

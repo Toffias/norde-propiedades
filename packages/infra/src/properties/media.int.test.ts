@@ -1,4 +1,6 @@
 import {
+  Coordinates,
+  Development,
   MediaItem,
   Property,
   Attachment,
@@ -17,6 +19,7 @@ import {
   DrizzleMediaItemRepository,
   DrizzleAttachmentRepository,
 } from './drizzle-media-repositories';
+import { DrizzleDevelopmentRepository } from './drizzle-development-repository';
 import { DrizzleMediaQuery } from './drizzle-media-query';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 
@@ -235,3 +238,104 @@ describe('DrizzleMediaQuery', () => {
     expect(JSON.stringify(plan.rows)).toContain('attachments_property_name_idx');
   });
 });
+
+describe('media of a development', () => {
+  async function aDevelopment(): Promise<MediaOwner> {
+    const id = ids.next();
+    await db.execute(
+      sql`insert into core.locations (id, kind, name, normalized_name, path, created_at, updated_at, created_by, updated_by) values (${id}, 'neighborhood', 'Palermo', 'palermo', ${`/${id}/`}, ${NOW}, ${NOW}, ${USER}, ${USER})`,
+    );
+    const development = Development.create({
+      id: unwrap(parseId<'Development'>(ids.next())),
+      code: 'EMP0001',
+      name: 'Torre Gurruchaga',
+      kind: 'building',
+      privateAddress: 'Gurruchaga 1834',
+      publishAddress: undefined,
+      portalTitle: undefined,
+      developerName: undefined,
+      commercialContactClientId: undefined,
+      locationId: id,
+      coordinates: unwrap(Coordinates.create(-34.5861, -58.4321)),
+      producerUserId: USER,
+      branchId: undefined,
+      now: NOW,
+    });
+    await new DrizzleDevelopmentRepository(db).save(development, USER);
+    return { kind: 'development', id: development.id };
+  }
+
+  it('keeps the gallery and the files apart from the properties, with their indexes', async () => {
+    const development = await aDevelopment();
+    const propertyId = await aProperty('CAS0005');
+    const id = mediaId();
+    const photo = unwrap(
+      MediaItem.upload({
+        id,
+        owner: development,
+        storageKey: `developments/${development.id}/media/${id}/original`,
+        contentType: 'image/jpeg',
+        sizeBytes: 1000,
+        position: 0,
+        isCover: true,
+        uploadedBy: USER,
+        now: NOW,
+      }),
+    );
+    await media.save(photo, USER);
+    await media.save(aPhoto(propertyId, 0, true), USER);
+
+    expect((await media.findById(id))?.toSnapshot()).toEqual(photo.toSnapshot());
+    expect((await media.listForOwner(development)).map((item) => item.id)).toEqual([id]);
+    expect(await media.count(development)).toBe(1);
+    expect(await media.nextPosition(development)).toBe(1);
+    const page = await query.listMedia({
+      owner: development,
+      kind: undefined,
+      offset: 0,
+      limit: 10,
+    });
+    expect(page.items.map((item) => item.id)).toEqual([id]);
+
+    const fileId = unwrap(parseId<'Attachment'>(ids.next()));
+    const brochure = unwrap(
+      Attachment.upload({
+        id: fileId,
+        owner: development,
+        fileName: 'Brochure.pdf',
+        storageKey: `developments/${development.id}/attachments/${fileId}`,
+        contentType: 'application/pdf',
+        sizeBytes: 10,
+        uploadedBy: USER,
+        now: NOW,
+      }),
+    );
+    await files.save(brochure, USER);
+    expect((await files.findById(fileId))?.toSnapshot()).toEqual(brochure.toSnapshot());
+    const listed = await query.listAttachments({
+      owner: development,
+      sort: { field: 'name', direction: 'asc' },
+      offset: 0,
+      limit: 10,
+    });
+    expect(listed.items.map((item) => item.name)).toEqual(['Brochure.pdf']);
+    expect((await query.listAttachments({ ...listedCriteria(propertyId) })).total).toBe(0);
+
+    const plan = await db.transaction(async (tx) => {
+      await tx.execute(sql`set local enable_seqscan = off`);
+      return tx.execute(
+        sql`explain select id from core.attachments where development_id = ${development.id} and deleted_at is null order by name, id limit 10`,
+      );
+    });
+    expect(JSON.stringify(plan.rows)).toContain('attachments_development_name_idx');
+  });
+});
+
+function listedCriteria(propertyId: PropertyId) {
+  return {
+    owner: owner(propertyId),
+    sort: { field: 'name', direction: 'asc' } as const,
+    offset: 0,
+    limit: 10,
+  };
+}

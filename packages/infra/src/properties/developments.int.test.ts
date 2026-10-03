@@ -14,7 +14,7 @@ import { describe, expect, inject, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
 import * as schema from '../db/schema';
-import { developments, features, locations, propertyTags } from '../db/schema';
+import { developments, features, locations, properties, propertyTags } from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzleDevelopmentListQuery } from './drizzle-development-list-query';
@@ -50,7 +50,8 @@ async function aLocation(): Promise<string> {
     id,
     kind: 'neighborhood',
     name: 'Palermo',
-    normalizedName: 'palermo',
+    // Un barrio por emprendimiento: el nombre normalizado es único entre hermanos.
+    normalizedName: `palermo-${id}`,
     path: `/${id}/`,
     createdAt: NOW,
     updatedAt: NOW,
@@ -60,7 +61,11 @@ async function aLocation(): Promise<string> {
   return id;
 }
 
-async function aDevelopment(code: string, name = 'Torre Gurruchaga') {
+async function aDevelopment(
+  code: string,
+  name = 'Torre Gurruchaga',
+  coordinates = unwrap(Coordinates.create(-34.5861, -58.4321)),
+) {
   return Development.create({
     id: newId(),
     code,
@@ -72,7 +77,7 @@ async function aDevelopment(code: string, name = 'Torre Gurruchaga') {
     developerName: 'Constructora Sur',
     commercialContactClientId: undefined,
     locationId: await aLocation(),
-    coordinates: unwrap(Coordinates.create(-34.5861, -58.4321)),
+    coordinates,
     producerUserId: PRODUCER,
     branchId: BRANCH,
     now: NOW,
@@ -179,6 +184,9 @@ describe('DrizzleDevelopmentRepository', () => {
     await propertyRepository.save(aUnit('DEP0003', undefined), PRODUCER);
 
     expect(await repository.countActiveUnits(development.id)).toBe(1);
+    expect(await repository.countAvailableUnits(development.id)).toBe(0);
+    await db.update(properties).set({ status: 'available' });
+    expect(await repository.countAvailableUnits(development.id)).toBe(1);
     expect((await propertyRepository.findById(active.id))?.developmentId).toBe(development.id);
 
     const lookups = new DrizzlePropertyDetailLookups(db);
@@ -238,6 +246,9 @@ async function seedDevelopments(tag: string) {
         deliveryDate: n % 7 === 0 ? null : `2027-${((n % 12) + 1).toString().padStart(2, '0')}-01`,
         privateAddress: `Calle ${n} 1234`,
         publishAddress: `Calle ${n} al 1200`,
+        // Repartidos por la ciudad, para el mapa.
+        latitude: -34.55 - (n % 30) * 0.004,
+        longitude: -58.38 - (n % 25) * 0.004,
         updatedAt: new Date(NOW.getTime() + n * 60_000),
         createdAt: NOW,
         createdBy: PRODUCER,
@@ -268,7 +279,14 @@ function flatten(node: PlanNode): PlanNode[] {
  * El plan de la consulta de la página, con `enable_seqscan = off`: Postgres solo recorre la tabla
  * entera si no tiene un índice que resuelva el filtro y el orden.
  */
-async function pagePlan(criteria: DevelopmentListCriteria): Promise<PlanNode[]> {
+function pagePlan(criteria: DevelopmentListCriteria): Promise<PlanNode[]> {
+  return planOf((query) => query.search(criteria));
+}
+
+/** Lo mismo para la consulta paginada que haga `run` (la del listado o la del mapa). */
+async function planOf(
+  run: (query: DrizzleDevelopmentListQuery) => Promise<unknown>,
+): Promise<PlanNode[]> {
   const captured: { sql: string; params: unknown[] }[] = [];
   const pool = new pg.Pool({ connectionString: inject('databaseUrl'), max: 2 });
   try {
@@ -276,7 +294,7 @@ async function pagePlan(criteria: DevelopmentListCriteria): Promise<PlanNode[]> 
       schema,
       logger: { logQuery: (statement, params) => captured.push({ sql: statement, params }) },
     });
-    await new DrizzleDevelopmentListQuery(logged).search(criteria);
+    await run(new DrizzleDevelopmentListQuery(logged));
     const page = captured.find(
       (q) => /\blimit\b/i.test(q.sql) && /"unit_?count"|count\(\*\)::int/i.test(q.sql),
     );
@@ -393,5 +411,55 @@ describe('DrizzleDevelopmentListQuery', () => {
     for (const criteria of cases) {
       expect(scansWithIndex(await pagePlan(criteria)), JSON.stringify(criteria)).toBe(true);
     }
+  });
+});
+
+describe('DrizzleDevelopmentListQuery.mapPins', () => {
+  const FILTERS = {
+    text: undefined,
+    status: undefined,
+    developmentType: undefined,
+    constructionStatus: undefined,
+    tagId: undefined,
+  };
+  const PALERMO = { south: -34.6, west: -58.45, north: -34.57, east: -58.42 };
+
+  it('returns the active developments inside the area, with their units', async () => {
+    const inside = await aDevelopment('EMP0001');
+    await repository.save(inside, PRODUCER);
+    await propertyRepository.save(aUnit('DEP0001', inside.id), PRODUCER);
+    const trashed = await aDevelopment('EMP0002');
+    unwrap(trashed.delete(PRODUCER, 0, NOW));
+    await repository.save(trashed, PRODUCER);
+    const laPlata = unwrap(Coordinates.create(-34.9, -57.95));
+    await repository.save(await aDevelopment('EMP0003', 'Torre Sur', laPlata), PRODUCER);
+
+    const page = await list.mapPins(FILTERS, PALERMO, 10);
+    expect(page.total).toBe(1);
+    expect(page.items).toEqual([
+      {
+        id: inside.id,
+        code: 'EMP0001',
+        name: 'Torre Gurruchaga',
+        status: 'loading',
+        publishAddress: 'Gurruchaga al 1800',
+        unitCount: 1,
+        latitude: -34.5861,
+        longitude: -58.4321,
+      },
+    ]);
+    expect((await list.mapPins({ ...FILTERS, status: 'marketing' }, PALERMO, 10)).total).toBe(0);
+  });
+
+  it('caps the pins, counts them all and uses the coordinates index', async () => {
+    await seedDevelopments(await aTag('Pozo'));
+    const city = { south: -34.7, west: -58.5, north: -34.5, east: -58.3 };
+    const page = await list.mapPins(FILTERS, city, 50);
+    expect(page.items).toHaveLength(50);
+    expect(page.total).toBe(270);
+    const plan = await planOf((query) =>
+      query.mapPins({ ...FILTERS, status: 'marketing' }, city, 50),
+    );
+    expect(scansWithIndex(plan)).toBe(true);
   });
 });

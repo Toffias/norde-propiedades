@@ -1,0 +1,1 @@
+CREATE INDEX "attachments_development_name_idx" ON "core"."attachments" USING btree ("development_id","name","id") WHERE deleted_at is null;

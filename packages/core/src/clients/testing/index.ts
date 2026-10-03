@@ -1,6 +1,6 @@
 // Fakes del módulo clients para tests (`@norde/core/clients/testing`).
 
-import { Actor, Email, err, ok, parseId, Phone, type Result } from '../../shared';
+import { Actor, Email, parseId, Phone } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
   ClientLetterCount,
@@ -17,11 +17,6 @@ import type {
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
 import type { ClientImportItem, ClientImportQuery } from '../application/ports/client-import-query';
-import type {
-  Spreadsheet,
-  SpreadsheetReader,
-  UnreadableSpreadsheetError,
-} from '../application/ports/spreadsheet-reader';
 import type {
   ClientLinkedRecords,
   ClientRecordCounts,
@@ -1207,40 +1202,6 @@ export class InMemoryClientListings implements ClientListings {
 }
 
 // ---------- Importación desde Excel ----------
-
-/**
- * Lee "planillas" de prueba: los bytes son una clave registrada con `register` (no hace falta
- * armar un Excel de verdad). Una clave desconocida es un archivo que no se puede leer.
- */
-export class FakeSpreadsheetReader implements SpreadsheetReader {
-  readonly #sheets = new Map<string, readonly (readonly (string | undefined)[])[]>();
-
-  /** La primera fila son los encabezados. Devuelve los bytes que la representan. */
-  register(
-    name: string,
-    rows: readonly (readonly (string | undefined)[])[],
-  ): Uint8Array<ArrayBuffer> {
-    this.#sheets.set(name, rows);
-    return new TextEncoder().encode(name);
-  }
-
-  open(bytes: Uint8Array): Promise<Result<Spreadsheet, UnreadableSpreadsheetError>> {
-    const rows = this.#sheets.get(new TextDecoder().decode(bytes));
-    if (rows === undefined) return Promise.resolve(err({ type: 'UnreadableSpreadsheet' }));
-    const [headers = [], ...data] = rows;
-    const sheet: Spreadsheet = {
-      headers: headers.map((h) => h ?? ''),
-      rowCount: data.length,
-      async *rows() {
-        for (const [index, cells] of data.entries()) {
-          await Promise.resolve();
-          yield { rowNumber: index + 2, cells };
-        }
-      },
-    };
-    return Promise.resolve(ok(sheet));
-  }
-}
 
 /** El historial de importaciones sobre el repositorio en memoria. */
 export class InMemoryClientImportQuery implements ClientImportQuery {

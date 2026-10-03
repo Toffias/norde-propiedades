@@ -190,6 +190,12 @@ import {
   ChangeDevelopmentTags,
   CreateDevelopment,
   CreateDevelopmentUnit,
+  ExportDevelopmentUnits,
+  GetDevelopmentUnitImport,
+  ListDevelopmentUnitImportProblems,
+  ListDevelopmentUnitImports,
+  PreviewDevelopmentUnitImport,
+  StartDevelopmentUnitImport,
   DeleteDevelopment,
   GetDevelopmentDetail,
   GetDevelopmentMap,
@@ -289,6 +295,8 @@ import {
   DrizzleUserFavorites,
   DrizzleUserListQuery,
   FilePropertyExportWriter,
+  DrizzleDevelopmentUnitImportQuery,
+  XlsxDevelopmentUnitsExportWriter,
   LocalFileStorage,
   NominatimGeocoder,
   ResendMailer,
@@ -511,6 +519,7 @@ function createPropertiesUseCases(
   const storage = createStorage(env);
   const lookups = new DrizzlePropertyDetailLookups(db);
   const media = new DrizzleMediaQuery(db);
+  const unitImports = new DrizzleDevelopmentUnitImportQuery(db);
   const geocoder = new NominatimGeocoder({
     userAgent: env.GEOCODER_USER_AGENT,
     baseUrl: env.GEOCODER_URL,
@@ -641,6 +650,34 @@ function createPropertiesUseCases(
       codes: referenceCodesFrom(settings),
       ids,
       clock,
+    }),
+    exportDevelopmentUnits: new ExportDevelopmentUnits({
+      uow,
+      list,
+      users,
+      writer: new XlsxDevelopmentUnitsExportWriter(),
+      clock,
+    }),
+    previewDevelopmentUnitImport: new PreviewDevelopmentUnitImport({
+      uow,
+      reader: new XlsxSpreadsheetReader(),
+    }),
+    startDevelopmentUnitImport: new StartDevelopmentUnitImport({
+      uow,
+      reader: new XlsxSpreadsheetReader(),
+      storage,
+      ids,
+      clock,
+    }),
+    listDevelopmentUnitImports: new ListDevelopmentUnitImports({
+      uow,
+      imports: unitImports,
+      users,
+    }),
+    getDevelopmentUnitImport: new GetDevelopmentUnitImport({ uow, imports: unitImports, users }),
+    listDevelopmentUnitImportProblems: new ListDevelopmentUnitImportProblems({
+      uow,
+      imports: unitImports,
     }),
     sendOwnerReport: new SendOwnerReport({
       uow,

@@ -1,4 +1,4 @@
-import type { Result } from '../../../shared';
+import type { Result } from '../domain/result';
 
 /** Una fila con datos (las vacías no se cuentan). `rowNumber` es el de la planilla, desde 1. */
 export interface SpreadsheetRow {
@@ -19,7 +19,7 @@ export interface UnreadableSpreadsheetError {
   readonly type: 'UnreadableSpreadsheet';
 }
 
-/** Lee una planilla de Excel (`.xlsx`). */
+/** Lee una planilla de Excel (`.xlsx`) subida para importar. */
 export interface SpreadsheetReader {
   open(bytes: Uint8Array): Promise<Result<Spreadsheet, UnreadableSpreadsheetError>>;
 }

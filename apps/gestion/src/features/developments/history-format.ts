@@ -1,4 +1,5 @@
 import type { HistoryValue } from '@norde/core/audit/contracts';
+import { UNIT_IMPORT_FAILURE_LABELS } from '@norde/core/properties/contracts';
 
 import { formatDateOnly } from '../../lib/format';
 import { formatHistoryValue, historyFieldLabel } from '../properties/history-format';
@@ -17,6 +18,7 @@ const VALUE_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> =
   ),
   developmentType: DEVELOPMENT_TYPE_LABELS,
   constructionStatus: CONSTRUCTION_STATUS_LABELS,
+  failure: UNIT_IMPORT_FAILURE_LABELS,
 };
 
 export function developmentFieldLabel(field: string): string {

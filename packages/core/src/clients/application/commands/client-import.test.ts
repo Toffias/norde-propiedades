@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { InMemoryFileStorage } from '../../../settings/testing';
 import { Actor } from '../../../shared';
-import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
+import {
+  FakeSpreadsheetReader,
+  FixedClock,
+  SequentialIdGenerator,
+  unwrap,
+  unwrapErr,
+} from '../../../shared/testing';
 import {
   AGENT_ID,
   BRANCH_ID,
-  FakeSpreadsheetReader,
   InMemoryClientAgents,
   InMemoryClientImportQuery,
   InMemoryClientsUnitOfWork,

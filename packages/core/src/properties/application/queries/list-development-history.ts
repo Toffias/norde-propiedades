@@ -27,7 +27,13 @@ export type ListDevelopmentHistoryError =
 const CATEGORIES: Readonly<Record<DevelopmentHistoryCategory, readonly string[]>> = {
   fields: ['development.created', 'development.updated'],
   status: ['development.status_changed', 'development.deleted', 'development.restored'],
-  units: ['development.unit_added'],
+  units: [
+    'development.unit_added',
+    'development.units_exported',
+    'development.units_import_requested',
+    'development.units_imported',
+    'development.units_import_failed',
+  ],
   media: [
     'development.media_added',
     'development.media_updated',

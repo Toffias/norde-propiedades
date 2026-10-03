@@ -11,9 +11,10 @@ import {
   type CustomAttributeEntry,
   type PropertyId,
   type PropertyRepository,
+  type UnitDesignation,
 } from '@norde/core/properties';
 import { parseId, type IdGenerator, type Result } from '@norde/core/shared';
-import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -89,6 +90,28 @@ export class DrizzlePropertyRepository implements PropertyRepository {
   async findByCode(code: string): Promise<Property | undefined> {
     const [row] = await this.db.select().from(properties).where(eq(properties.code, code)).limit(1);
     return row ? this.restore(row) : undefined;
+  }
+
+  async findUnitsByDesignation(
+    developmentId: string,
+    designation: UnitDesignation,
+    limit: number,
+  ): Promise<readonly Property[]> {
+    // `properties_development_idx` acota a las unidades del emprendimiento; la comparación
+    // normalizada recorre solo esas. Las activas primero.
+    const rows = await this.db
+      .select()
+      .from(properties)
+      .where(
+        and(
+          eq(properties.developmentId, developmentId),
+          sql`${designationOf(properties.floor)} = ${designation.floor}`,
+          sql`${designationOf(properties.unit)} = ${designation.unit}`,
+        ),
+      )
+      .orderBy(sql`${properties.deletedAt} is not null`, asc(properties.id))
+      .limit(limit);
+    return Promise.all(rows.map((row) => this.restore(row)));
   }
 
   private async restore(row: typeof properties.$inferSelect): Promise<Property> {
@@ -516,4 +539,13 @@ export class DrizzlePropertyRepository implements PropertyRepository {
         });
     }
   }
+}
+
+/**
+ * Piso o unidad normalizados como `normalizeUnitDesignation` del dominio: sin espacios, puntos ni
+ * "°", sin acentos y en mayúsculas. Los símbolos se sacan antes de `unaccent`, que cambia "º" por
+ * "o".
+ */
+function designationOf(column: typeof properties.floor | typeof properties.unit): SQL {
+  return sql`upper(core.search_normalize(regexp_replace(coalesce(${column}, ''), '[[:space:].°º]', '', 'g')))`;
 }

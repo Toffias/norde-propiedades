@@ -1,4 +1,5 @@
 import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
+import type { RunDevelopmentUnitImport } from '@norde/core/properties';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -54,12 +55,13 @@ function recordActivity(calls: unknown[] = []): Pick<RecordClientActivity, 'exec
 
 const CLIENT_ID = '00000000-0000-7000-8000-0000000000c1';
 const IMPORT_ID = '00000000-0000-7000-8000-0000000000e1';
-const importActor = Actor.system('import', ['clients:run-imports']);
+const importActor = Actor.system('import', ['clients:run-imports', 'properties:run-imports']);
 
 /** La importación y la supresión, con lo que recibe cada una. */
 function clientJobs(calls: unknown[] = []): {
   readonly erasure: ErasureJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
+  readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
   readonly importActor: Actor;
@@ -79,6 +81,12 @@ function clientJobs(calls: unknown[] = []): {
     runImport: {
       execute: (input, by) => {
         calls.push(['import', input, by.id]);
+        return Promise.resolve(ok({ status: 'done' as const }));
+      },
+    },
+    runUnitImport: {
+      execute: (input, by) => {
+        calls.push(['unit-import', input, by.id]);
         return Promise.resolve(ok({ status: 'done' as const }));
       },
     },
@@ -141,6 +149,7 @@ describe('eventSubscriptions', () => {
       'clients.opportunity_created.apply-rules',
       'clients.opportunity_bulk_requested.run-bulk',
       'clients.import_requested.run-import',
+      'properties.unit_import_requested.run-unit-import',
       'clients.inquiry_received.route-inquiry',
     ]);
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
@@ -248,6 +257,9 @@ describe('eventSubscriptions', () => {
     for (const subscription of byType('clients.import_requested')) {
       await subscription.handle({ ...event, payload: { importId: IMPORT_ID } });
     }
+    for (const subscription of byType('properties.unit_import_requested')) {
+      await subscription.handle({ ...event, payload: { importId: IMPORT_ID } });
+    }
     for (const subscription of byType('clients.client_erased')) {
       await subscription.handle({
         ...event,
@@ -262,6 +274,7 @@ describe('eventSubscriptions', () => {
     ]);
     expect(calls).toEqual([
       ['import', { importId: IMPORT_ID }, 'system:import'],
+      ['unit-import', { importId: IMPORT_ID }, 'system:import'],
       ['conversations', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['favorites', { clientIds: [CLIENT_ID] }, 'system:scheduler'],

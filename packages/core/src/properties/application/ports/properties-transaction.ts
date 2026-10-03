@@ -8,6 +8,7 @@ import type {
   TagGroupRepository,
   TagRepository,
 } from '../../domain/catalog.repository';
+import type { DevelopmentUnitImportRepository } from '../../domain/development-unit-import.repository';
 import type { DevelopmentRepository } from '../../domain/development.repository';
 import type { FavoriteSearchRepository } from '../../domain/favorite-search';
 import type { MediaItemRepository, AttachmentRepository } from '../../domain/media.repository';
@@ -18,6 +19,7 @@ import type { PropertyRepository } from '../../domain/property.repository';
 export interface PropertiesTransaction {
   readonly properties: PropertyRepository;
   readonly developments: DevelopmentRepository;
+  readonly unitImports: DevelopmentUnitImportRepository;
   readonly locations: LocationRepository;
   readonly features: FeatureRepository;
   readonly customAttributes: CustomAttributeRepository;

@@ -64,7 +64,14 @@ import {
   ListClientTagGroups,
   MergeClients,
   AddClientNote,
+  CreateSavedSearch,
+  DeleteSavedSearch,
   FeatureProperties,
+  GetSavedSearch,
+  RestoreSavedSearch,
+  SetFeaturedAutoSend,
+  UpdateSavedSearch,
+  type SavedSearchLocations,
   GetFeaturedPropertyIds,
   ListClientActivity,
   ListClientFeatured,
@@ -138,6 +145,7 @@ import {
   GetPropertyAttachmentDownload,
   GetPropertyDocumentDownload,
   GetPropertyInterestProfile,
+  GetPropertyInterestProfiles,
   GetPropertyMediaFile,
   ListCustomAttributes,
   ListPropertyAttachments,
@@ -541,6 +549,7 @@ function createPropertiesUseCases(
       users,
     }),
     getPropertyInterestProfile: new GetPropertyInterestProfile({ uow }),
+    getPropertyInterestProfiles: new GetPropertyInterestProfiles({ uow }),
     // Multimedia y archivos
     listPropertyMedia: new ListPropertyMedia({ media }),
     getPropertyMediaFile: new GetPropertyMediaFile({ uow, storage }),
@@ -594,6 +603,51 @@ function clientListings(properties: PropertiesUseCases): ClientListings {
             operations: row.operations,
             coverImageUrl: row.coverImageUrl,
             producer: row.producer,
+          },
+        ]),
+      );
+    },
+  };
+}
+
+/** El perfil de cruce de las propiedades (para interesados y coincidencias), por la API de properties. */
+function propertyProfiles(properties: PropertiesUseCases): PropertyProfiles {
+  return {
+    async find(propertyId, actor) {
+      const profile = await properties.getPropertyInterestProfile.execute({ propertyId }, actor);
+      return profile.isOk() ? profile.value : undefined;
+    },
+    async findMany(propertyIds, actor) {
+      const profiles = await properties.getPropertyInterestProfiles.execute(
+        { propertyIds: [...propertyIds] },
+        actor,
+      );
+      if (profiles.isErr()) return new Map();
+      return new Map(profiles.value.map((profile) => [profile.propertyId, profile]));
+    },
+  };
+}
+
+/** Los nombres de las ubicaciones de una búsqueda guardada, del catálogo de properties. */
+function savedSearchLocations(properties: PropertiesUseCases): SavedSearchLocations {
+  return {
+    async labels(ids, actor) {
+      const page = await properties.searchLocations.execute(
+        { ids: [...ids], pageSize: Math.max(ids.length, 1) },
+        actor,
+      );
+      if (page.isErr()) return new Map();
+      return new Map(
+        page.value.items.map((location) => [
+          location.id,
+          {
+            id: location.id,
+            name: location.name,
+            // De lo más cercano a lo más general: "CABA, Argentina".
+            hint:
+              location.ancestors.length === 0
+                ? undefined
+                : [...location.ancestors].reverse().join(', '),
           },
         ]),
       );
@@ -713,8 +767,21 @@ function createClientsUseCases(
     listClientFeatured: new ListClientFeatured({ uow, records, listings, agents }),
     listClientSavedSearches: new ListClientSavedSearches({ uow, records }),
     getFeaturedPropertyIds: new GetFeaturedPropertyIds({ uow, records }),
-    featureProperties: new FeatureProperties({ uow, listings, ids, clock }),
+    featureProperties: new FeatureProperties({
+      uow,
+      listings,
+      profiles: propertyProfiles(properties),
+      ids,
+      clock,
+    }),
     unfeatureProperty: new UnfeatureProperty({ uow, clock }),
+    setFeaturedAutoSend: new SetFeaturedAutoSend({ uow, clock }),
+    // Búsquedas guardadas (#11)
+    getSavedSearch: new GetSavedSearch({ uow, locations: savedSearchLocations(properties) }),
+    createSavedSearch: new CreateSavedSearch({ uow, ids, clock }),
+    updateSavedSearch: new UpdateSavedSearch({ uow, clock }),
+    deleteSavedSearch: new DeleteSavedSearch({ uow, clock }),
+    restoreSavedSearch: new RestoreSavedSearch({ uow, clock }),
     exportClients: new ExportClients({
       uow,
       list,
@@ -767,12 +834,7 @@ function createDetailReadModels(
 ) {
   const directory = new DrizzleDirectory(db);
   const agents = { names: (userIds: readonly string[]) => directory.names('user', userIds) };
-  const profiles: PropertyProfiles & ReportingPropertyProfiles = {
-    async find(propertyId, actor) {
-      const profile = await properties.getPropertyInterestProfile.execute({ propertyId }, actor);
-      return profile.isOk() ? profile.value : undefined;
-    },
-  };
+  const profiles: PropertyProfiles & ReportingPropertyProfiles = propertyProfiles(properties);
   const interest = new DrizzlePropertyInterestQuery(db);
   const statistics = new DrizzlePropertyStatisticsQuery(db);
   return {

@@ -8,6 +8,7 @@ import {
 } from '@norde/core/clients/contracts';
 
 import { EMPTY_VALUE, formatDateOnly } from '../../lib/format';
+import { CURRENCY_LABELS, OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../properties/labels';
 import { formatPhone } from './client-format';
 
 // El historial guarda valores crudos (E.164, IDs, enums): acá se pasan a texto para mostrarlos.
@@ -27,6 +28,11 @@ export const CLIENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'client.note_added': 'agregó una nota',
   'client.listings_featured': 'le destacó propiedades',
   'client.listing_unfeatured': 'le quitó una propiedad destacada',
+  'client.featured_auto_send_changed': 'cambió el auto-envío de una destacada',
+  'client.saved_search_created': 'le guardó una búsqueda',
+  'client.saved_search_updated': 'editó una búsqueda guardada',
+  'client.saved_search_deleted': 'mandó una búsqueda a la papelera',
+  'client.saved_search_restored': 'restauró una búsqueda',
   'client.merged': 'unificó otro contacto en este',
   'client.merged_into': 'unificó este contacto en otro',
 };
@@ -58,6 +64,17 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   note: 'Nota',
   propertyIds: 'Propiedades',
   propertyId: 'Propiedad',
+  opportunityId: 'Oportunidad',
+  autoSendUpdates: 'Auto-envío de novedades',
+  savedSearchId: 'Búsqueda',
+  operation: 'Operación',
+  propertyTypes: 'Tipos',
+  currency: 'Moneda',
+  minPriceCents: 'Precio desde',
+  maxPriceCents: 'Precio hasta',
+  locationIds: 'Ubicaciones',
+  minRooms: 'Ambientes mínimos',
+  autoSend: 'Envío automático',
   'moved.opportunities': 'Oportunidades que pasaron',
   'moved.activities': 'Actividades que pasaron',
   'moved.savedSearches': 'Búsquedas que pasaron',
@@ -105,6 +122,7 @@ function entry(
 /** Un valor del historial como texto: "Celular +54 9 11 6689-9124 (de 9 a 13)". */
 export function formatClientHistoryValue(field: string, value: HistoryValue): string {
   if (value === null || value === '') return EMPTY_VALUE;
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
   switch (field) {
     case 'phones':
       return isList(value)
@@ -163,6 +181,24 @@ export function formatClientHistoryValue(field: string, value: HistoryValue): st
       return isList(value) ? count(value.length, 'propiedad', 'propiedades') : EMPTY_VALUE;
     case 'propertyId':
       return 'una propiedad';
+    case 'opportunityId':
+      return 'la oportunidad';
+    case 'savedSearchId':
+      return 'una búsqueda';
+    // Los montos de una búsqueda van en centavos; la moneda es otro campo.
+    case 'minPriceCents':
+    case 'maxPriceCents':
+      return typeof value === 'bigint' ? (value / 100n).toLocaleString('es-AR') : EMPTY_VALUE;
+    case 'operation':
+      return label(OPERATION_LABELS, value);
+    case 'currency':
+      return label(CURRENCY_LABELS, value);
+    case 'propertyTypes':
+      return isList(value)
+        ? value.map((type) => label(PROPERTY_TYPE_LABELS, type)).join(', ')
+        : EMPTY_VALUE;
+    case 'locationIds':
+      return isList(value) ? count(value.length, 'ubicación', 'ubicaciones') : EMPTY_VALUE;
     default:
       return typeof value === 'string' || typeof value === 'number' ? String(value) : EMPTY_VALUE;
   }

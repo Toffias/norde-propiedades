@@ -39,6 +39,13 @@ import type {
   UnlinkClientsError,
   UpdateClientDetailsError,
   UpdateClientTagError,
+  CreateSavedSearchError,
+  DeleteSavedSearchError,
+  GetSavedSearchError,
+  InvalidSavedSearchError,
+  RestoreSavedSearchError,
+  SetFeaturedAutoSendError,
+  UpdateSavedSearchError,
 } from '@norde/core/clients';
 import type { ChangeFavoritesError } from '@norde/core/identity';
 
@@ -300,6 +307,75 @@ export const UNFEATURE_PROPERTY_ERROR_MESSAGES = {
   ClientNotFound: NOT_FOUND,
   ClientInTrash: IN_TRASH,
 } satisfies ErrorMessages<UnfeaturePropertyError>;
+
+export const SET_FEATURED_AUTO_SEND_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para cambiar las destacadas de este contacto.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  FeaturedListingNotFound: 'La propiedad ya no está destacada para este contacto.',
+} satisfies ErrorMessages<SetFeaturedAutoSendError>;
+
+// ---------- Búsquedas guardadas (#11) ----------
+
+const SAVED_SEARCH_NOT_FOUND = 'No encontramos la búsqueda. Puede que la hayan borrado.';
+const SAVED_SEARCH_LIMIT = (error: { readonly max: number }) =>
+  `El contacto ya tiene ${error.max.toLocaleString('es-AR')} búsquedas: borrá alguna para guardar otra.`;
+const INVALID_SAVED_SEARCH = ({ reason }: InvalidSavedSearchError) =>
+  ({
+    currency_required: 'Elegí la moneda del precio.',
+    negative_price: 'El precio no puede ser negativo.',
+    price_range: 'El precio máximo no puede ser menor que el mínimo.',
+    rooms: 'Los ambientes van de 1 a 20.',
+    too_many_locations: 'Elegí hasta 20 ubicaciones.',
+    name_too_long: 'El nombre puede tener hasta 80 caracteres.',
+  })[reason];
+
+export const CREATE_SAVED_SEARCH_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para guardarle búsquedas a este contacto.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  OpportunityNotFound: 'La oportunidad ya no está abierta.',
+  InvalidSavedSearch: INVALID_SAVED_SEARCH,
+  SavedSearchLimitReached: SAVED_SEARCH_LIMIT,
+} satisfies ErrorMessages<CreateSavedSearchError>;
+
+export const UPDATE_SAVED_SEARCH_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para editar las búsquedas de este contacto.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  SavedSearchNotFound: SAVED_SEARCH_NOT_FOUND,
+  OpportunityNotFound: 'La oportunidad ya no está abierta.',
+  InvalidSavedSearch: INVALID_SAVED_SEARCH,
+  SavedSearchUnsubscribed:
+    'El contacto se dio de baja de los envíos automáticos: no se pueden volver a activar.',
+} satisfies ErrorMessages<UpdateSavedSearchError>;
+
+export const DELETE_SAVED_SEARCH_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para borrar las búsquedas de este contacto.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  SavedSearchNotFound: SAVED_SEARCH_NOT_FOUND,
+} satisfies ErrorMessages<DeleteSavedSearchError>;
+
+export const RESTORE_SAVED_SEARCH_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para restaurar las búsquedas de este contacto.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  SavedSearchNotFound: SAVED_SEARCH_NOT_FOUND,
+  SavedSearchLimitReached: SAVED_SEARCH_LIMIT,
+} satisfies ErrorMessages<RestoreSavedSearchError>;
+
+export const GET_SAVED_SEARCH_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver las búsquedas de este contacto.',
+  InvalidInput: SAVED_SEARCH_NOT_FOUND,
+  ClientNotFound: NOT_FOUND,
+  SavedSearchNotFound: SAVED_SEARCH_NOT_FOUND,
+} satisfies ErrorMessages<GetSavedSearchError>;
 
 export const CLIENT_FAVORITE_ERROR_MESSAGES = {
   Forbidden: 'Solo un usuario del panel tiene favoritos.',

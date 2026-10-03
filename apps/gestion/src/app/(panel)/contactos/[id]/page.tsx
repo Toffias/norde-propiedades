@@ -6,6 +6,7 @@ import {
   ListClientRelationsQuerySchema,
   ListClientSavedSearchesQuerySchema,
   type ClientDetail,
+  type SavedSearchDetail,
 } from '@norde/core/clients/contracts';
 import {
   ListOwnedPropertiesQuerySchema,
@@ -45,9 +46,11 @@ import {
   CLIENT_HISTORY_ERROR_MESSAGES,
   CLIENT_OPPORTUNITIES_ERROR_MESSAGES,
   CLIENT_SAVED_SEARCHES_ERROR_MESSAGES,
+  GET_SAVED_SEARCH_ERROR_MESSAGES,
 } from '../../../../features/clients/messages';
 import { messageForError } from '../../../../lib/errors';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
+import { parsePanelParams, type PanelData } from '../../../../lib/panel-params';
 import { requireSession } from '../../../../lib/session';
 
 function tabFrom(params: SearchParams, available: readonly ClientDetailTab[]): ClientDetailTab {
@@ -239,17 +242,41 @@ async function TabContent({
     }
     case 'busquedas': {
       const { value: searchesQuery } = parseListParams(ListClientSavedSearchesQuerySchema, {
-        ...pick(query, PAGING),
+        ...pick(query, [...PAGING, 'view']),
         clientId,
       });
-      const page = await clients.listClientSavedSearches.execute(searchesQuery, actor);
+      const panel = parsePanelParams(query);
+      const [page, searchPanel] = await Promise.all([
+        clients.listClientSavedSearches.execute(searchesQuery, actor),
+        panel?.kind === 'edit'
+          ? clients.getSavedSearch.execute({ clientId, savedSearchId: panel.id }, actor)
+          : undefined,
+      ]);
+      const detailPanel: PanelData<SavedSearchDetail> | undefined =
+        panel?.kind !== 'edit' || searchPanel === undefined
+          ? undefined
+          : searchPanel.isOk()
+            ? { id: panel.id, ok: true, value: searchPanel.value }
+            : {
+                id: panel.id,
+                ok: false,
+                message: messageForError(searchPanel.error, GET_SAVED_SEARCH_ERROR_MESSAGES),
+              };
       return card(
         page.isErr() ? (
           <DataTableError
             message={messageForError(page.error, CLIENT_SAVED_SEARCHES_ERROR_MESSAGES)}
           />
         ) : (
-          <ClientSavedSearchesGrid page={page.value} sort={searchesQuery.sort} />
+          <ClientSavedSearchesGrid
+            clientId={clientId}
+            page={page.value}
+            sort={searchesQuery.sort}
+            view={searchesQuery.view}
+            canEdit={detail.can.edit}
+            detail={detailPanel}
+            activeOpportunityId={detail.activeOpportunity?.id}
+          />
         ),
       );
     }

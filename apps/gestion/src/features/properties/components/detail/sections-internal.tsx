@@ -40,6 +40,8 @@ import {
 
 function name(user: PanelUserRef | undefined): string {
   if (user === undefined) return EMPTY_VALUE;
+  // Un job (la conversión de una tasación, una importación): como en el historial.
+  if (user.id.startsWith('system:')) return 'El sistema';
   return user.name ?? 'Usuario inactivo';
 }
 

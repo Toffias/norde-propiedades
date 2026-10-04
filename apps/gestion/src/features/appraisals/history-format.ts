@@ -2,6 +2,7 @@ import type { HistoryValue } from '@norde/core/audit/contracts';
 
 import { formatAmount, formatDateTime, formatMoney } from '../../lib/format';
 import { formatHistoryValue, historyFieldLabel } from '../properties/history-format';
+import { CURRENCY_LABELS } from '../properties/labels';
 import {
   APPRAISAL_HISTORY_FIELD_LABELS,
   APPRAISAL_SOURCE_LABELS,
@@ -15,6 +16,8 @@ const VALUE_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> =
     Object.entries(APPRAISAL_STATUS_DISPLAY).map(([status, display]) => [status, display.label]),
   ),
   source: APPRAISAL_SOURCE_LABELS,
+  saleCurrency: CURRENCY_LABELS,
+  rentCurrency: CURRENCY_LABELS,
 };
 
 // `Array.isArray` no angosta las listas `readonly`.

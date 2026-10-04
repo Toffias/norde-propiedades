@@ -88,7 +88,9 @@ export function LocationSection({
               label: 'Ubicación',
               value: text(
                 place === ''
-                  ? [address.neighborhood, address.city, address.province].join(', ')
+                  ? [address.neighborhood, address.city, address.province]
+                      .filter((part) => part !== '')
+                      .join(', ')
                   : place,
               ),
             },

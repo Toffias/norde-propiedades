@@ -40,6 +40,7 @@ export type ClientOpportunityItem = Omit<ClientOpportunityRow, 'agent' | 'open'>
 export interface ClientFeaturedItem {
   readonly id: string;
   readonly propertyId: string;
+  readonly opportunityId: string | undefined;
   readonly matchScore: number | undefined;
   readonly autoSendUpdates: boolean;
   readonly reaction: 'liked' | 'disliked' | undefined;

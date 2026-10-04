@@ -214,6 +214,7 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
       items: rows.map((row) => ({
         id: row.id,
         propertyId: row.propertyId,
+        opportunityId: row.opportunityId ?? undefined,
         matchScore: row.matchScore ?? undefined,
         autoSendUpdates: row.autoSendUpdates,
         reaction: Reaction.parse(row.reaction) ?? undefined,

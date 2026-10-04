@@ -613,11 +613,13 @@ describe('client detail tabs', () => {
   });
 
   it('lists the featured properties with their data; a deleted one stays without data', async () => {
+    const OPPORTUNITY_OF_LISTING = '00000000-0000-7000-8000-0000000000e7';
     const { client, records, featured } = await tabs();
     records.featuredItems = [
       {
         id: 'f1',
         propertyId: PROPERTY_ID,
+        opportunityId: OPPORTUNITY_OF_LISTING,
         matchScore: 80,
         autoSendUpdates: true,
         reaction: 'liked',
@@ -627,6 +629,7 @@ describe('client detail tabs', () => {
       {
         id: 'f2',
         propertyId: MISSING,
+        opportunityId: undefined,
         matchScore: undefined,
         autoSendUpdates: false,
         reaction: undefined,
@@ -640,6 +643,7 @@ describe('client detail tabs', () => {
     expect(page.items).toEqual([
       expect.objectContaining({
         id: 'f1',
+        opportunityId: OPPORTUNITY_OF_LISTING,
         property: aListing(),
         featuredBy: { id: AGENT_ID, name: 'Camila' },
       }),

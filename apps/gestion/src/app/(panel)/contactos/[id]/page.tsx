@@ -236,7 +236,13 @@ async function TabContent({
         page.isErr() ? (
           <DataTableError message={messageForError(page.error, CLIENT_FEATURED_ERROR_MESSAGES)} />
         ) : (
-          <ClientFeaturedGrid clientId={clientId} page={page.value} canEdit={detail.can.edit} />
+          <ClientFeaturedGrid
+            clientId={clientId}
+            clientDisplayName={clientName(detail.name)}
+            page={page.value}
+            canEdit={detail.can.edit}
+            canReserve={actor.can('reservations:create')}
+          />
         ),
       );
     }

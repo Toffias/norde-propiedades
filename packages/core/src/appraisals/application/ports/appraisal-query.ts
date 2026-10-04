@@ -23,7 +23,7 @@ export type AppraisalSearchItem = WithIds<AppraisalListRow>;
 
 /** La ficha de una tasación como la lee la base; lo que decide el dominio lo agrega el caso de uso. */
 export type AppraisalDetailItem = WithIds<
-  Omit<AppraisalDetail, 'nextStatuses' | 'convertible' | 'result'>
+  Omit<AppraisalDetail, 'nextStatuses' | 'convertible' | 'reportable' | 'result'>
 > & { readonly result: AppraisalResultDto };
 
 /** Los filtros ya validados, con las fechas como instantes UTC en `[from, to)`. */

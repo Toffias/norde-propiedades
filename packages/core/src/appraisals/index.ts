@@ -102,6 +102,20 @@ export {
   type ConvertAppraisalToListingError,
 } from './application/commands/convert-appraisal-to-listing';
 export {
+  DownloadAppraisalReport,
+  type AppraisalReportFile,
+  type DownloadAppraisalReportError,
+} from './application/commands/download-appraisal-report';
+export type {
+  AppraisalReportContent,
+  AppraisalReportRenderer,
+} from './application/ports/appraisal-report-renderer';
+export {
+  appraisalReportFileName,
+  checkAppraisalReportable,
+  type AppraisalNotReportableError,
+} from './domain/appraisal-report';
+export {
   GetAppraisalPhotoFile,
   type GetAppraisalPhotoFileError,
 } from './application/queries/get-appraisal-photo-file';

@@ -38,6 +38,7 @@ export {
   DrizzleUserFavorites,
 } from './identity/drizzle-user-favorites';
 export { DrizzlePropertyClientErasure } from './properties/drizzle-property-client-erasure';
+export { DrizzlePropertyReservationsQuery } from './properties/drizzle-property-reservations-query';
 export { DrizzlePropertyCatalogQuery } from './properties/drizzle-property-catalog-query';
 export { DrizzleMediaQuery } from './properties/drizzle-media-query';
 export { DrizzlePropertyDocumentQuery } from './properties/drizzle-property-documents';

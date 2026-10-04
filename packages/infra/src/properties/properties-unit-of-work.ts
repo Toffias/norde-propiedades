@@ -24,6 +24,7 @@ import { DrizzleDevelopmentRepository } from './drizzle-development-repository';
 import { DrizzleDevelopmentUnitImportRepository } from './drizzle-development-unit-imports';
 import { DrizzlePropertyDocumentRepository } from './drizzle-property-documents';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
+import { DrizzleReservationRepository } from './drizzle-reservation-repository';
 
 export function createPropertiesUnitOfWork(
   db: Database,
@@ -44,6 +45,7 @@ export function createPropertiesUnitOfWork(
     media: new DrizzleMediaItemRepository(tx),
     attachments: new DrizzleAttachmentRepository(tx),
     documents: new DrizzlePropertyDocumentRepository(tx),
+    reservations: new DrizzleReservationRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

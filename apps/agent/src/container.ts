@@ -478,7 +478,11 @@ export function createContainer(
       conversations: new EraseClientConversations({
         erasure: new DrizzleClientConversationErasure(db),
       }),
-      properties: new UnlinkErasedClients({ erasure: new DrizzlePropertyClientErasure(db) }),
+      properties: new UnlinkErasedClients({
+        erasure: new DrizzlePropertyClientErasure(db),
+        uow: createPropertiesUnitOfWork(db, { ids, clock }),
+        clock,
+      }),
       favorites: new RemoveErasedClientFavorites({
         favorites: new DrizzleClientFavoriteErasure(db),
       }),

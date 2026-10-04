@@ -1,7 +1,11 @@
 // Composition root: único archivo de la app que importa @norde/infra.
 // Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app.
 
-import { EraseClientAppraisals, MoveMergedClientAppraisals } from '@norde/core/appraisals';
+import {
+  DeleteAppraisalPhotoFiles,
+  EraseClientAppraisals,
+  MoveMergedClientAppraisals,
+} from '@norde/core/appraisals';
 import {
   ApplyOpportunityRules,
   RouteInquiry,
@@ -25,6 +29,7 @@ import {
   type ConversationPolicy,
 } from '@norde/core/conversations';
 import {
+  CreatePropertyFromAppraisal,
   DeleteStoredMediaFiles,
   GenerateMediaVariants,
   GetPropertyDetail,
@@ -112,6 +117,7 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'properties:read',
   'properties:process-media',
   'properties:render-documents',
+  'appraisals:process-photos',
   'appraisals:erase-client-data',
   'conversations:erase-client-data',
   'properties:erase-client-data',
@@ -123,6 +129,14 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'opportunities:apply-rules',
   'opportunities:run-bulk',
   'inquiries:route',
+]);
+/**
+ * Crea la propiedad de una tasación convertida. Es el scheduler, con lo justo: el código de
+ * referencia sale de la numeración, que pide `properties:create`.
+ */
+const CONVERSION_ACTOR = Actor.system('scheduler', [
+  'properties:create',
+  'properties:create-from-appraisal',
 ]);
 /** Las consultas del formulario web: quedan creadas y auditadas por `system:web`. */
 const WEB_ACTOR = Actor.system('web', ['inquiries:receive', 'properties:read']);
@@ -488,9 +502,20 @@ export function createContainer(
     notifyTeam,
     recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, { ids, clock }) }),
     properties: createPropertyJobs(db, env, { ids, clock }),
+    appraisals: {
+      deletePhotoFiles: new DeleteAppraisalPhotoFiles({ storage: createStorage(env) }),
+      createProperty: new CreatePropertyFromAppraisal({
+        uow: createPropertiesUnitOfWork(db, { ids, clock }),
+        codes: referenceCodes(db, { ids, clock }, logger),
+        storage: createStorage(env),
+        ids,
+        clock,
+      }),
+    },
     erasure: {
       appraisals: new EraseClientAppraisals({
         uow: createAppraisalsUnitOfWork(db, { ids, clock }),
+        storage: createStorage(env),
       }),
       conversations: new EraseClientConversations({
         erasure: new DrizzleClientConversationErasure(db),
@@ -537,6 +562,7 @@ export function createContainer(
     routeInquiry: createInquiryRouting(db, { ids, clock }, env.INQUIRY_RULES_ENABLED),
     actor: SCHEDULER_ACTOR,
     importActor: IMPORT_ACTOR,
+    conversionActor: CONVERSION_ACTOR,
     logger,
   })) {
     bus.subscribe(subscription);

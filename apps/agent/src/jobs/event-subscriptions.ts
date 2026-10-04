@@ -1,4 +1,8 @@
-import type { EraseClientAppraisals, MoveMergedClientAppraisals } from '@norde/core/appraisals';
+import type {
+  DeleteAppraisalPhotoFiles,
+  EraseClientAppraisals,
+  MoveMergedClientAppraisals,
+} from '@norde/core/appraisals';
 import type {
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
@@ -13,13 +17,15 @@ import type {
   MoveMergedClientConversations,
 } from '@norde/core/conversations';
 import type { MoveMergedClientFavorites, RemoveErasedClientFavorites } from '@norde/core/identity';
-import type {
-  DeleteStoredMediaFiles,
-  MoveMergedClientLinks,
-  UnlinkErasedClients,
-  GenerateMediaVariants,
-  RenderPropertyDocument,
-  RunDevelopmentUnitImport,
+import {
+  CreatePropertyFromAppraisalInputSchema,
+  type CreatePropertyFromAppraisal,
+  type DeleteStoredMediaFiles,
+  type MoveMergedClientLinks,
+  type UnlinkErasedClients,
+  type GenerateMediaVariants,
+  type RenderPropertyDocument,
+  type RunDevelopmentUnitImport,
 } from '@norde/core/properties';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
@@ -63,6 +69,46 @@ const RulePayloadSchema = z.object({
 });
 const BulkPayloadSchema = z.object({ operationId: z.uuid() });
 const InquiryPayloadSchema = z.object({ inquiryId: z.uuid() });
+const AppraisalPhotoDeletedPayloadSchema = z.object({
+  storageKeys: z.array(z.string()).max(30),
+});
+
+/** Las fotos y la conversión en propiedad de las tasaciones (#12). */
+export interface AppraisalJobs {
+  readonly deletePhotoFiles: Pick<DeleteAppraisalPhotoFiles, 'execute'>;
+  /** Corre con `conversionActor`: crear la propiedad pide un código de la numeración. */
+  readonly createProperty: Pick<CreatePropertyFromAppraisal, 'execute'>;
+}
+
+function appraisalSubscriptions(
+  jobs: AppraisalJobs,
+  actors: { readonly actor: Actor; readonly conversionActor: Actor },
+  logger: Logger,
+): EventSubscription[] {
+  const skipped = (event: DeliveredEvent, error: unknown) => {
+    logger.error({ eventId: event.id, type: event.type, error }, 'Appraisal job skipped');
+  };
+  return [
+    {
+      eventType: 'appraisals.appraisal_photo_deleted',
+      name: 'delete-photo-files',
+      handle: async (event) => {
+        const { storageKeys } = AppraisalPhotoDeletedPayloadSchema.parse(event.payload);
+        const result = await jobs.deletePhotoFiles.execute({ storageKeys }, actors.actor);
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+    {
+      eventType: 'appraisals.appraisal_converted',
+      name: 'create-property',
+      handle: async (event) => {
+        const input = CreatePropertyFromAppraisalInputSchema.parse(event.payload);
+        const result = await jobs.createProperty.execute(input, actors.conversionActor);
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+  ];
+}
 
 /** Las reglas automáticas de estado y las acciones masivas encoladas (#9). */
 export interface OpportunityJobs {
@@ -319,6 +365,7 @@ export function eventSubscriptions(deps: {
   readonly notifyTeam: Pick<NotifyTeamOfOpportunity, 'execute'>;
   readonly recordActivity: Pick<RecordClientActivity, 'execute'>;
   readonly properties: PropertyJobs;
+  readonly appraisals: AppraisalJobs;
   readonly erasure: ErasureJobs;
   readonly merge: MergeJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
@@ -333,6 +380,8 @@ export function eventSubscriptions(deps: {
   readonly actor: Actor;
   /** El de las importaciones: los contactos y las unidades quedan creados por `system:import`. */
   readonly importActor: Actor;
+  /** El que crea la propiedad de una tasación convertida: pide un código de la numeración. */
+  readonly conversionActor: Actor;
   readonly logger: Logger;
 }): EventSubscription[] {
   const notifyTeam = (
@@ -356,6 +405,7 @@ export function eventSubscriptions(deps: {
     notifyTeam('clients.opportunity_created'),
     notifyTeam('clients.opportunity_request_added'),
     ...propertySubscriptions(deps.properties, deps.actor, deps.logger),
+    ...appraisalSubscriptions(deps.appraisals, deps, deps.logger),
     ...activitySubscriptions(deps.recordActivity, deps.actor, deps.logger),
     ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),
     ...mergeSubscriptions(deps.merge, deps.actor, deps.logger),

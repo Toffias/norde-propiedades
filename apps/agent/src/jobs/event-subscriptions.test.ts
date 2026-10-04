@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   eventSubscriptions,
+  type AppraisalJobs,
   type ErasureJobs,
   type MergeJobs,
   type OpportunityJobs,
@@ -45,6 +46,31 @@ function propertyJobs(calls: unknown[] = []): PropertyJobs {
   };
 }
 
+const conversionActor = Actor.system('scheduler', [
+  'properties:create',
+  'properties:create-from-appraisal',
+]);
+const APPRAISAL_ID = '00000000-0000-7000-8000-0000000000a9';
+const PROPERTY_ID = '00000000-0000-7000-8000-0000000000b9';
+const PHOTO_KEY = `appraisals/${APPRAISAL_ID}/photos/${MEDIA_ID}/original`;
+
+function appraisalJobs(calls: unknown[] = []): AppraisalJobs {
+  return {
+    deletePhotoFiles: {
+      execute: (input, by) => {
+        calls.push(['delete-photos', input, by === actor]);
+        return Promise.resolve(ok(undefined));
+      },
+    },
+    createProperty: {
+      execute: (input, by) => {
+        calls.push(['create-property', input.listing.propertyId, by === conversionActor]);
+        return Promise.resolve(ok('created' as const));
+      },
+    },
+  };
+}
+
 function recordActivity(calls: unknown[] = []): Pick<RecordClientActivity, 'execute'> {
   return {
     execute: (input) => {
@@ -68,6 +94,8 @@ function clientJobs(calls: unknown[] = []): {
   readonly opportunities: OpportunityJobs;
   readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
   readonly importActor: Actor;
+  readonly appraisals: AppraisalJobs;
+  readonly conversionActor: Actor;
 } {
   const erase = (name: string) => ({
     execute: (input: { readonly clientIds: readonly string[] }, by: Actor) => {
@@ -127,6 +155,8 @@ function clientJobs(calls: unknown[] = []): {
       },
     },
     importActor,
+    appraisals: appraisalJobs(calls),
+    conversionActor,
   };
 }
 
@@ -153,6 +183,8 @@ describe('eventSubscriptions', () => {
       'properties.media_variants_requested.generate-variants',
       'properties.media_deleted.delete-files',
       'properties.document_requested.render-document',
+      'appraisals.appraisal_photo_deleted.delete-photo-files',
+      'appraisals.appraisal_converted.create-property',
       'clients.opportunity_created.record-activity',
       'clients.opportunity_request_added.record-activity',
       'conversations.conversation_linked_to_client.record-activity',
@@ -231,6 +263,47 @@ describe('eventSubscriptions', () => {
     ]);
     await expect(
       byType('properties.document_requested')?.handle({ ...event, payload: { documentId: 'x' } }),
+    ).rejects.toThrow();
+  });
+
+  it('deletes removed appraisal photos and creates the property of a converted one', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(),
+      appraisals: appraisalJobs(calls),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const byType = (type: string) => subscriptions.find((s) => s.eventType === type);
+    const base = { appraisalId: APPRAISAL_ID, requesterClientId: CLIENT_ID };
+
+    await byType('appraisals.appraisal_photo_deleted')?.handle({
+      ...event,
+      payload: { ...base, storageKeys: [PHOTO_KEY] },
+    });
+    await byType('appraisals.appraisal_converted')?.handle({
+      ...event,
+      payload: {
+        ...base,
+        listing: {
+          propertyId: PROPERTY_ID,
+          appraisalCode: 'TAS0001',
+          propertyType: 'house',
+          producerUserId: CLIENT_ID,
+          sale: { priceCents: '12000000', currency: 'USD' },
+          photoKeys: [PHOTO_KEY],
+        },
+      },
+    });
+    expect(calls).toEqual([
+      ['delete-photos', { storageKeys: [PHOTO_KEY] }, true],
+      ['create-property', PROPERTY_ID, true],
+    ]);
+    await expect(
+      byType('appraisals.appraisal_converted')?.handle({ ...event, payload: base }),
     ).rejects.toThrow();
   });
 

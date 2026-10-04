@@ -15,6 +15,13 @@ export { DrizzleAuditLog } from './shared/drizzle-audit-log';
 export { DrizzleOutboxPublisher } from './shared/drizzle-outbox-publisher';
 export { maskEmail, maskPhone, type InfraLogger } from './shared/logger';
 
+export { createAppraisalsUnitOfWork } from './appraisals/appraisals-unit-of-work';
+export { DrizzleAppraisalQuery } from './appraisals/drizzle-appraisal-query';
+export {
+  DrizzleAppraisalCodeSequence,
+  DrizzleAppraisalRepository,
+} from './appraisals/drizzle-appraisal-repository';
+
 export {
   BetterAuthSessionReader,
   createAuth,

@@ -7,10 +7,14 @@ import type {
   RunClientImport,
   RunOpportunityBulkOperation,
 } from '@norde/core/clients';
-import type { EraseClientConversations } from '@norde/core/conversations';
-import type { RemoveErasedClientFavorites } from '@norde/core/identity';
+import type {
+  EraseClientConversations,
+  MoveMergedClientConversations,
+} from '@norde/core/conversations';
+import type { MoveMergedClientFavorites, RemoveErasedClientFavorites } from '@norde/core/identity';
 import type {
   DeleteStoredMediaFiles,
+  MoveMergedClientLinks,
   UnlinkErasedClients,
   GenerateMediaVariants,
   RenderPropertyDocument,
@@ -50,6 +54,7 @@ const MediaDeletedPayloadSchema = z.object({ storageKeys: z.array(z.string()).ma
 const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
 const ImportPayloadSchema = z.object({ importId: z.uuid() });
 const ErasedPayloadSchema = z.object({ erasedClientIds: z.array(z.uuid()).min(1) });
+const MergedPayloadSchema = z.object({ clientId: z.uuid(), mergedClientId: z.uuid() });
 const RulePayloadSchema = z.object({
   opportunityId: z.string(),
   // Solo en las reasignaciones; sin agente, la dejó sin nadie a cargo.
@@ -127,6 +132,16 @@ export interface ErasureJobs {
   readonly conversations: Pick<EraseClientConversations, 'execute'>;
   readonly properties: Pick<UnlinkErasedClients, 'execute'>;
   readonly favorites: Pick<RemoveErasedClientFavorites, 'execute'>;
+}
+
+/**
+ * Cada módulo que guarda el ID de un cliente pasa lo suyo al contacto que queda cuando se unifican
+ * dos. Lo de clients ya se movió en la misma transacción que la unificación.
+ */
+export interface MergeJobs {
+  readonly conversations: Pick<MoveMergedClientConversations, 'execute'>;
+  readonly properties: Pick<MoveMergedClientLinks, 'execute'>;
+  readonly favorites: Pick<MoveMergedClientFavorites, 'execute'>;
 }
 
 /** Los jobs de la ficha de propiedad (#6): variantes de fotos, limpieza del storage y PDF. */
@@ -248,6 +263,32 @@ function erasureSubscriptions(
   ];
 }
 
+/** La unificación de dos contactos (#8): cada módulo pasa lo suyo al que queda. */
+function mergeSubscriptions(jobs: MergeJobs, actor: Actor, logger: Logger): EventSubscription[] {
+  const move = (
+    name: string,
+    useCase: {
+      execute(
+        input: { clientId: string; mergedClientId: string },
+        actor: Actor,
+      ): Promise<{ isErr(): boolean }>;
+    },
+  ): EventSubscription => ({
+    eventType: 'clients.clients_merged',
+    name,
+    handle: async (event) => {
+      const payload = MergedPayloadSchema.parse(event.payload);
+      const result = await useCase.execute(payload, actor);
+      if (result.isErr()) logger.error({ eventId: event.id, name }, 'Client merge skipped');
+    },
+  });
+  return [
+    move('move-conversations', jobs.conversations),
+    move('move-properties', jobs.properties),
+    move('move-favorites', jobs.favorites),
+  ];
+}
+
 function routeInquirySubscription(
   routeInquiry: Pick<RouteInquiry, 'execute'>,
   actor: Actor,
@@ -274,6 +315,7 @@ export function eventSubscriptions(deps: {
   readonly recordActivity: Pick<RecordClientActivity, 'execute'>;
   readonly properties: PropertyJobs;
   readonly erasure: ErasureJobs;
+  readonly merge: MergeJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   /** La importación de unidades de un emprendimiento desde Excel (#7). */
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
@@ -311,6 +353,7 @@ export function eventSubscriptions(deps: {
     ...propertySubscriptions(deps.properties, deps.actor, deps.logger),
     ...activitySubscriptions(deps.recordActivity, deps.actor, deps.logger),
     ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),
+    ...mergeSubscriptions(deps.merge, deps.actor, deps.logger),
     ...opportunitySubscriptions(deps.opportunities, deps.actor, deps.logger),
     {
       eventType: 'clients.import_requested',

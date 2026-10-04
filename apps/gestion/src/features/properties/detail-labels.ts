@@ -118,6 +118,7 @@ export const HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'property.reservation_fallen': 'dio por caída la reserva',
   'property.reservation_signed': 'firmó la reserva',
   'property.reservation_erased': 'borró la reserva al suprimir los datos del contacto',
+  'property.client_merged': 'pasó la reserva o el propietario al unificar contactos',
 };
 
 /** Nombre de cada campo del historial. Los de las filas hijas (`media.<id>.campo`) usan el último tramo. */

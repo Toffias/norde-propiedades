@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   eventSubscriptions,
   type ErasureJobs,
+  type MergeJobs,
   type OpportunityJobs,
   type PropertyJobs,
 } from './event-subscriptions';
@@ -55,11 +56,13 @@ function recordActivity(calls: unknown[] = []): Pick<RecordClientActivity, 'exec
 
 const CLIENT_ID = '00000000-0000-7000-8000-0000000000c1';
 const IMPORT_ID = '00000000-0000-7000-8000-0000000000e1';
+const DUPLICATE_ID = '00000000-0000-7000-8000-0000000000c2';
 const importActor = Actor.system('import', ['clients:run-imports', 'properties:run-imports']);
 
 /** La importación y la supresión, con lo que recibe cada una. */
 function clientJobs(calls: unknown[] = []): {
   readonly erasure: ErasureJobs;
+  readonly merge: MergeJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
@@ -72,11 +75,22 @@ function clientJobs(calls: unknown[] = []): {
       return Promise.resolve(ok({ erased: 1, unlinked: 1, removed: 1 }));
     },
   });
+  const move = (name: string) => ({
+    execute: (input: { readonly clientId: string; readonly mergedClientId: string }, by: Actor) => {
+      calls.push([name, input, by.id]);
+      return Promise.resolve(ok({ moved: 1, propertyIds: [], developmentIds: [] }));
+    },
+  });
   return {
     erasure: {
       conversations: erase('conversations'),
       properties: erase('properties'),
       favorites: erase('favorites'),
+    },
+    merge: {
+      conversations: move('merge-conversations'),
+      properties: move('merge-properties'),
+      favorites: move('merge-favorites'),
     },
     runImport: {
       execute: (input, by) => {
@@ -143,6 +157,9 @@ describe('eventSubscriptions', () => {
       'clients.client_erased.erase-conversations',
       'clients.client_erased.unlink-properties',
       'clients.client_erased.remove-favorites',
+      'clients.clients_merged.move-conversations',
+      'clients.clients_merged.move-properties',
+      'clients.clients_merged.move-favorites',
       'clients.opportunity_reassigned.apply-rules',
       'clients.opportunity_request_added.apply-rules',
       'clients.opportunity_listings_featured.apply-rules',
@@ -267,6 +284,13 @@ describe('eventSubscriptions', () => {
       });
     }
 
+    for (const subscription of byType('clients.clients_merged')) {
+      await subscription.handle({
+        ...event,
+        payload: { clientId: CLIENT_ID, mergedClientId: DUPLICATE_ID },
+      });
+    }
+
     expect(byType('clients.client_erased').map((s) => s.name)).toEqual([
       'erase-conversations',
       'unlink-properties',
@@ -278,7 +302,15 @@ describe('eventSubscriptions', () => {
       ['conversations', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['favorites', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
+      ...['merge-conversations', 'merge-properties', 'merge-favorites'].map((name) => [
+        name,
+        { clientId: CLIENT_ID, mergedClientId: DUPLICATE_ID },
+        'system:scheduler',
+      ]),
     ]);
+    await expect(
+      byType('clients.clients_merged')[0]?.handle({ ...event, payload: { clientId: CLIENT_ID } }),
+    ).rejects.toThrow();
     await expect(
       byType('clients.client_erased')[0]?.handle({ ...event, payload: { erasedClientIds: [] } }),
     ).rejects.toThrow();

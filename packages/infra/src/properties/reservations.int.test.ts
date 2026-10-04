@@ -1,6 +1,8 @@
 import {
+  ExportReservations,
   FallReservation,
   ListPropertyReservations,
+  ListReservations,
   Property,
   ReserveProperty,
   SignReservation,
@@ -19,7 +21,12 @@ import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzlePropertyClientErasure } from './drizzle-property-client-erasure';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
-import { DrizzlePropertyReservationsQuery } from './drizzle-property-reservations-query';
+import { XlsxReservationExportWriter } from '../adapters/exports/reservation-export-writer';
+
+import {
+  DrizzlePropertyReservationsQuery,
+  DrizzleReservationListQuery,
+} from './drizzle-property-reservations-query';
 import { createPropertiesUnitOfWork } from './properties-unit-of-work';
 
 const db = useTestDatabase();
@@ -51,13 +58,17 @@ function unwrap<T, E>(result: Result<T, E>): T {
   return result.value;
 }
 
-async function anAvailableProperty(code: string): Promise<PropertyId> {
+async function anAvailableProperty(
+  code: string,
+  kind: 'apartment' | 'house' = 'apartment',
+  operation: 'sale' | 'rent' = 'sale',
+): Promise<PropertyId> {
   const property = unwrap(
     Property.create({
       id: unwrap(parseId<'Property'>(ids.next())),
       code,
-      kind: 'apartment',
-      operation: { operation: 'sale', currency: 'USD', priceCents: 12_000_000n },
+      kind,
+      operation: { operation, currency: 'USD', priceCents: 12_000_000n },
       address: {
         street: 'Gurruchaga',
         streetNumber: '1834',
@@ -234,5 +245,139 @@ describe('reservations', () => {
     expect(entries.map((entry) => [entry.action, entry.clientIds])).toEqual(
       expect.arrayContaining([['property.reservation_erased', []]]),
     );
+  });
+
+  it('lists all reservations with filters and sorts, and exports them', async () => {
+    const OTHER_AGENT = '00000000-0000-7000-8000-0000000000a3';
+    const OTHER_BRANCH = '00000000-0000-7000-8000-0000000000b2';
+    const MANAGER_ID = '00000000-0000-7000-8000-0000000000a2';
+    const branches: Producers = {
+      find: (id) => Promise.resolve({ branchId: id === OTHER_AGENT ? OTHER_BRANCH : BRANCH }),
+    };
+    const reserveOn = (day: string) =>
+      new ReserveProperty({ uow, producers: branches, clock: new FixedClock(day), ids });
+    await aClient(CLIENT, 'Lucía Pérez');
+
+    const apartment = await anAvailableProperty('DEP0201');
+    const house = await anAvailableProperty('DEP0202', 'house', 'rent');
+    const third = await anAvailableProperty('DEP0203');
+    // Reservada el 1/9 a la noche de Buenos Aires: ya es 2/9 en UTC.
+    const first = unwrap(
+      await reserveOn('2026-09-02T01:00:00Z').execute(
+        { ...input(apartment), agentUserId: AGENT, managerUserId: MANAGER_ID },
+        MANAGER,
+      ),
+    );
+    const second = unwrap(
+      await reserveOn('2026-09-15T12:00:00Z').execute(
+        {
+          ...input(house),
+          operation: 'rent',
+          agentUserId: OTHER_AGENT,
+          estimatedSigningDate: '2026-10-20',
+        },
+        MANAGER,
+      ),
+    );
+    const last = unwrap(
+      await reserveOn('2026-09-30T12:00:00Z').execute(
+        { ...input(third), agentUserId: AGENT, estimatedSigningDate: undefined },
+        MANAGER,
+      ),
+    );
+    unwrap(
+      await new FallReservation({ uow, clock }).execute(
+        { reservationId: last.reservationId },
+        MANAGER,
+      ),
+    );
+
+    const query = new DrizzleReservationListQuery(db);
+    const list = new ListReservations({
+      reservations: query,
+      users: { names: () => Promise.resolve(new Map([[AGENT, 'Camila Ríos']])) },
+    });
+    const idsOf = async (filter: Parameters<ListReservations['execute']>[0]) => {
+      const page = unwrap(await list.execute(filter, AGENT_ACTOR));
+      return { ids: page.items.map((item) => item.id), total: page.total };
+    };
+
+    const all = unwrap(await list.execute({}, AGENT_ACTOR));
+    expect(all.items.map((item) => item.id)).toEqual([
+      last.reservationId,
+      second.reservationId,
+      first.reservationId,
+    ]);
+    expect(all.items[2]).toMatchObject({
+      property: { id: apartment, code: 'DEP0201', propertyType: 'apartment' },
+      client: { id: CLIENT, name: 'Lucía Pérez' },
+      agent: { id: AGENT, name: 'Camila Ríos' },
+      manager: { id: MANAGER_ID, name: undefined },
+    });
+    expect(await idsOf({ pageSize: 1, page: 2 })).toEqual({
+      ids: [second.reservationId],
+      total: 3,
+    });
+
+    expect(await idsOf({ status: 'fallen' })).toEqual({ ids: [last.reservationId], total: 1 });
+    expect(await idsOf({ status: 'active', operation: 'rent' })).toEqual({
+      ids: [second.reservationId],
+      total: 1,
+    });
+    expect(await idsOf({ propertyType: 'house' })).toEqual({
+      ids: [second.reservationId],
+      total: 1,
+    });
+    expect(await idsOf({ agentId: OTHER_AGENT })).toEqual({
+      ids: [second.reservationId],
+      total: 1,
+    });
+    expect(await idsOf({ managerId: MANAGER_ID })).toEqual({
+      ids: [first.reservationId],
+      total: 1,
+    });
+    expect(await idsOf({ branchId: OTHER_BRANCH })).toEqual({
+      ids: [second.reservationId],
+      total: 1,
+    });
+    expect(await idsOf({ reservedFrom: '2026-09-01', reservedTo: '2026-09-01' })).toEqual({
+      ids: [first.reservationId],
+      total: 1,
+    });
+    expect(await idsOf({ signingFrom: '2026-11-01', signingTo: '2026-11-30' })).toEqual({
+      ids: [first.reservationId],
+      total: 1,
+    });
+    // Sin fecha estimada, al final en los dos sentidos.
+    expect((await idsOf({ sort: 'estimatedSigningDate' })).ids).toEqual([
+      second.reservationId,
+      first.reservationId,
+      last.reservationId,
+    ]);
+    expect((await idsOf({ sort: '-estimatedSigningDate' })).ids).toEqual([
+      first.reservationId,
+      second.reservationId,
+      last.reservationId,
+    ]);
+
+    const exporter = new ExportReservations({
+      uow,
+      reservations: query,
+      users: { names: () => Promise.resolve(new Map()) },
+      writer: new XlsxReservationExportWriter(),
+      clock,
+    });
+    const file = unwrap(await exporter.execute({ filter: { status: 'active' } }, MANAGER));
+    let bytes = 0;
+    for await (const chunk of file.body) bytes += chunk.byteLength;
+    expect(bytes).toBeGreaterThan(0);
+    const [exported] = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, 'reservation.exported'));
+    expect(exported).toMatchObject({
+      entityType: 'reservation_export',
+      changes: { count: { before: null, after: 2 } },
+    });
   });
 });

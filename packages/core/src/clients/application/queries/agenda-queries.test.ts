@@ -338,6 +338,33 @@ describe('ListClientHistory', () => {
     expect(history.criteria[0]).toMatchObject({ entityType: 'client', offset: 0, limit: 25 });
   });
 
+  it('includes the history of the contacts merged into it', async () => {
+    const { uow, history, useCase } = setup();
+    const client = await seedClient(uow);
+    const duplicate = await seedClient(uow);
+    uow.clients.rows.set(duplicate.id, { ...duplicate.toSnapshot(), mergedIntoId: client.id });
+    const entry = (id: string, entityId: string, day: string) => ({
+      id,
+      entityType: 'client',
+      entityId,
+      occurredAt: new Date(`${day}T10:00:00Z`),
+      actorId: AGENT_ID,
+      source: 'gestion',
+      action: 'client.updated',
+      changes: {},
+    });
+    history.entries.push(
+      entry('own', client.id, '2026-03-02'),
+      entry('merged', duplicate.id, '2026-03-01'),
+      entry('other', '00000000-0000-7000-8000-0000000000ff', '2026-03-03'),
+    );
+
+    const page = unwrap(await useCase.execute({ clientId: client.id }, TEST_AGENT));
+
+    expect(page.items.map((item) => item.id)).toEqual(['own', 'merged']);
+    expect(history.criteria[0]).toMatchObject({ mergedEntityIds: [duplicate.id] });
+  });
+
   it('shows the history of others only with audit:read-others', async () => {
     const { uow, useCase } = setup();
     const client = await seedClient(uow, { agentId: OTHER_AGENT_ID, branchId: OTHER_BRANCH_ID });

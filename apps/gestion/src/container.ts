@@ -178,8 +178,10 @@ import {
   DeleteFavoriteSearch,
   DeleteProperty,
   FallReservation,
+  ExportReservations,
   GetActiveReservation,
   ListPropertyReservations,
+  ListReservations,
   ReserveProperty,
   SignReservation,
   UpdateReservation,
@@ -294,6 +296,7 @@ import {
   DrizzlePropertyDetailLookups,
   DrizzlePropertyDocumentQuery,
   DrizzlePropertyReservationsQuery,
+  DrizzleReservationListQuery,
   DrizzlePropertyInterestQuery,
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
@@ -305,6 +308,7 @@ import {
   FilePropertyExportWriter,
   DrizzleDevelopmentUnitImportQuery,
   XlsxDevelopmentUnitsExportWriter,
+  XlsxReservationExportWriter,
   LocalFileStorage,
   NominatimGeocoder,
   ResendMailer,
@@ -527,6 +531,7 @@ function createPropertiesUseCases(
   const storage = createStorage(env);
   const lookups = new DrizzlePropertyDetailLookups(db);
   const reservations = new DrizzlePropertyReservationsQuery(db);
+  const reservationList = new DrizzleReservationListQuery(db);
   const media = new DrizzleMediaQuery(db);
   const unitImports = new DrizzleDevelopmentUnitImportQuery(db);
   const geocoder = new NominatimGeocoder({
@@ -611,6 +616,14 @@ function createPropertiesUseCases(
     signReservation: new SignReservation({ uow, clock }),
     listPropertyReservations: new ListPropertyReservations({ reservations, users }),
     getActiveReservation: new GetActiveReservation({ reservations, users }),
+    listReservations: new ListReservations({ reservations: reservationList, users }),
+    exportReservations: new ExportReservations({
+      uow,
+      reservations: reservationList,
+      users,
+      writer: new XlsxReservationExportWriter(),
+      clock,
+    }),
     // Multimedia y archivos
     listMedia: new ListMedia({ media }),
     getMediaFile: new GetMediaFile({ uow, storage }),

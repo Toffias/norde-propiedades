@@ -739,6 +739,10 @@ export const reservations = coreSchema.table(
       .where(sql`status = 'active'`),
     // Pestaña Reservas de la ficha: las de una propiedad, por fecha.
     index('reservations_property_reserved_idx').on(t.propertyId, t.reservedAt),
+    // Listado /reservas: orden por fecha de reserva o de firma, y filtro por operación.
+    index('reservations_reserved_idx').on(t.reservedAt, t.id),
+    index('reservations_signing_idx').on(t.estimatedSigningDate, t.id),
+    index('reservations_operation_reserved_idx').on(t.operation, t.reservedAt),
     index('reservations_status_signing_idx').on(t.status, t.estimatedSigningDate),
     index('reservations_agent_reserved_idx').on(t.agentUserId, t.reservedAt),
     index('reservations_manager_reserved_idx').on(t.managerUserId, t.reservedAt),

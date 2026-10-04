@@ -34,7 +34,7 @@ export function TablePagination({
   const pages = pageCount(total, pageSize);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 px-4 py-3 print:hidden">
       <div className="flex items-center gap-2">
         <Label htmlFor={sizeId} className="text-xs font-normal text-muted-foreground">
           Filas por página

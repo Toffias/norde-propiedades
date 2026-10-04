@@ -44,15 +44,15 @@ export interface DataTableSort {
   readonly direction: 'asc' | 'desc';
 }
 
-/** Breakpoint desde el que se muestra una columna secundaria (en mobile se oculta). */
+/** Breakpoint desde el que se muestra una columna secundaria (en mobile se oculta; impresa, no). */
 export type DataTableBreakpoint = 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
 const SHOW_FROM: Record<DataTableBreakpoint, string> = {
-  sm: 'hidden sm:table-cell',
-  md: 'hidden md:table-cell',
-  lg: 'hidden lg:table-cell',
-  xl: 'hidden xl:table-cell',
-  '2xl': 'hidden 2xl:table-cell',
+  sm: 'hidden sm:table-cell print:table-cell',
+  md: 'hidden md:table-cell print:table-cell',
+  lg: 'hidden lg:table-cell print:table-cell',
+  xl: 'hidden xl:table-cell print:table-cell',
+  '2xl': 'hidden 2xl:table-cell print:table-cell',
 };
 
 export interface DataTableColumn<T extends DataTableRow> {
@@ -188,7 +188,7 @@ export function DataTable<T extends DataTableRow>({
   return (
     <div className="flex flex-col">
       {toolbar !== undefined && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 print:hidden">
           {toolbar}
         </div>
       )}

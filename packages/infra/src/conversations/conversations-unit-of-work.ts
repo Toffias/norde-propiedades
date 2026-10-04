@@ -6,6 +6,7 @@ import { DrizzleUnitOfWork } from '../db/unit-of-work';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
+import { DrizzleClientConversationMerge } from './drizzle-client-conversation-merge';
 import {
   DrizzleConversationRepository,
   DrizzleMessageLog,
@@ -18,6 +19,7 @@ export function createConversationsUnitOfWork(
   return new DrizzleUnitOfWork<ConversationsTransaction>(db, (tx) => ({
     conversations: new DrizzleConversationRepository(tx),
     messages: new DrizzleMessageLog(tx),
+    clientMerge: new DrizzleClientConversationMerge(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

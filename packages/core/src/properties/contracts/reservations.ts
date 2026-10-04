@@ -7,7 +7,14 @@ import { pageQuerySchema } from '../../shared/contracts';
 import { AmountSchema } from './amount';
 import { PercentageSchema, type PanelUserRef } from './detail';
 import type { MoneyDto } from './index';
-import { CURRENCIES, OPERATIONS, type Currency, type Operation } from './values';
+import {
+  CURRENCIES,
+  OPERATIONS,
+  PROPERTY_TYPES,
+  type Currency,
+  type Operation,
+  type PropertyType,
+} from './values';
 
 /** Replica `RESERVATION_STATUSES` del dominio. */
 export const RESERVATION_STATUS_VALUES = ['active', 'fallen', 'signed'] as const;
@@ -114,4 +121,84 @@ export interface ReservationRow {
   readonly fallenReason: string | undefined;
   readonly signedAt: Date | undefined;
   readonly notes: string | undefined;
+}
+
+// ---------- Listado de reservas (/reservas) ----------
+
+export const RESERVATION_SORT_FIELDS = ['reservedAt', 'estimatedSigningDate'] as const;
+export type ReservationSortField = (typeof RESERVATION_SORT_FIELDS)[number];
+
+/** Tope de filas de una exportación a Excel. */
+export const MAX_RESERVATION_EXPORT_ROWS = 10_000;
+
+const ReservationFilterFields = {
+  status: z.enum(RESERVATION_STATUS_VALUES).optional(),
+  operation: z.enum(OPERATIONS).optional(),
+  /** El tipo de la propiedad reservada. */
+  propertyType: z.enum(PROPERTY_TYPES).optional(),
+  agentId: z.uuid().optional(),
+  managerId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
+  /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
+  reservedFrom: z.iso.date().optional(),
+  reservedTo: z.iso.date().optional(),
+  signingFrom: z.iso.date().optional(),
+  signingTo: z.iso.date().optional(),
+};
+
+function checkDateRanges(
+  query: {
+    readonly reservedFrom?: string | undefined;
+    readonly reservedTo?: string | undefined;
+    readonly signingFrom?: string | undefined;
+    readonly signingTo?: string | undefined;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  // Las fechas ISO se comparan bien como texto.
+  for (const [from, to] of [
+    ['reservedFrom', 'reservedTo'],
+    ['signingFrom', 'signingTo'],
+  ] as const) {
+    const start = query[from];
+    const end = query[to];
+    if (start !== undefined && end !== undefined && start > end) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'La fecha "desde" es posterior a "hasta".',
+        path: [to],
+      });
+    }
+  }
+}
+
+/** Todas las reservas, con filtros, paginadas en la base. */
+export const ListReservationsQuerySchema = pageQuerySchema({
+  sortable: RESERVATION_SORT_FIELDS,
+  defaultSort: { field: 'reservedAt', direction: 'desc' },
+})
+  .extend(ReservationFilterFields)
+  .superRefine(checkDateRanges);
+export type ListReservationsQuery = z.input<typeof ListReservationsQuerySchema>;
+
+/** Los filtros sin página ni orden (exportación de "todas las que cumplen"). */
+export const ReservationFilterSchema = z
+  .object(ReservationFilterFields)
+  .superRefine(checkDateRanges);
+export type ReservationFilter = z.input<typeof ReservationFilterSchema>;
+
+export const ExportReservationsInputSchema = z.object({
+  filter: ReservationFilterSchema.default({}),
+});
+export type ExportReservationsInput = z.input<typeof ExportReservationsInputSchema>;
+
+/** Una reserva del listado: la de la ficha más la propiedad reservada. */
+export interface ReservationListRow extends ReservationRow {
+  readonly property: {
+    readonly id: string;
+    readonly code: string;
+    readonly propertyType: PropertyType;
+    /** La dirección para publicar, o el título si no tiene. */
+    readonly address: string;
+  };
 }

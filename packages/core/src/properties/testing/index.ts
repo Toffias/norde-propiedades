@@ -8,6 +8,7 @@ import type {
   PanelPropertyCustomAttribute,
   PanelPropertyRow,
   PropertyExportFormat,
+  ReservationListRow,
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
 import type {
@@ -26,6 +27,12 @@ import type {
   PropertyReservationsQuery,
   ReservationListItem,
 } from '../application/ports/property-reservations-query';
+import type { ReservationExportWriter } from '../application/ports/reservation-export-writer';
+import type {
+  ReservationFilterCriteria,
+  ReservationListQuery,
+  ReservationSearchItem,
+} from '../application/ports/reservation-list-query';
 import { Reservation, type ReservationId, type ReservationSnapshot } from '../domain/reservation';
 import type { ReservationRepository } from '../domain/reservation.repository';
 import type {
@@ -36,6 +43,10 @@ import type {
   PanelPropertyListQuery,
 } from '../application/ports/panel-property-list-query';
 import type { PropertyCatalogQuery } from '../application/ports/property-catalog-query';
+import type {
+  MovedClientLinks,
+  PropertyClientMerge,
+} from '../application/ports/property-client-merge';
 import type { ExportFile, PropertyExportWriter } from '../application/ports/property-export-writer';
 import type {
   PropertiesTransaction,
@@ -595,6 +606,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly attachments = new InMemoryAttachmentRepository();
   readonly documents = new InMemoryPropertyDocumentRepository();
   readonly reservations = new InMemoryReservationRepository();
+  readonly clientMerge = new FakePropertyClientMerge();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
@@ -1504,5 +1516,53 @@ export class StubPropertyReservationsQuery implements PropertyReservationsQuery 
     return Promise.resolve(
       this.rows.find((r) => r.propertyId === propertyId && r.status === 'active'),
     );
+  }
+}
+
+/** Listado de `/reservas`: devuelve las filas cargadas (sin filtrar) y registra lo pedido. */
+export class StubReservationListQuery implements ReservationListQuery {
+  readonly requests: Parameters<ReservationListQuery['search']>[0][] = [];
+  readonly counts: ReservationFilterCriteria[] = [];
+
+  constructor(private readonly rows: readonly ReservationSearchItem[] = []) {}
+
+  search(query: Parameters<ReservationListQuery['search']>[0]) {
+    this.requests.push(query);
+    return Promise.resolve({
+      items: this.rows.slice(query.offset, query.offset + query.limit),
+      total: this.rows.length,
+    });
+  }
+
+  count(criteria: ReservationFilterCriteria) {
+    this.counts.push(criteria);
+    return Promise.resolve(this.rows.length);
+  }
+}
+
+/** Junta las filas que recibiría el Excel de reservas, sin armar ningún archivo. */
+export class FakeReservationExportWriter implements ReservationExportWriter {
+  readonly rows: ReservationListRow[] = [];
+
+  write(batches: AsyncIterable<readonly ReservationListRow[]>): ExportFile {
+    const rows = this.rows;
+    async function* body(): AsyncIterable<Uint8Array> {
+      for await (const batch of batches) {
+        rows.push(...batch);
+        yield new Uint8Array();
+      }
+    }
+    return { filename: 'reservas.xlsx', contentType: 'text/plain', body: body() };
+  }
+}
+
+/** Registra los pedidos de la unificación y devuelve lo que se le cargó como movido. */
+export class FakePropertyClientMerge implements PropertyClientMerge {
+  readonly moves: { readonly from: string; readonly to: string }[] = [];
+  moved: MovedClientLinks = { propertyIds: [], developmentIds: [] };
+
+  moveClient(fromClientId: string, toClientId: string): Promise<MovedClientLinks> {
+    this.moves.push({ from: fromClientId, to: toClientId });
+    return Promise.resolve(this.moved);
   }
 }

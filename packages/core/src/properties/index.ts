@@ -497,6 +497,14 @@ export {
   UnlinkErasedClients,
   type UnlinkErasedClientsError,
 } from './application/handlers/unlink-erased-clients';
+export {
+  MoveMergedClientLinks,
+  type MoveMergedClientLinksError,
+} from './application/handlers/move-merged-client-links';
+export type {
+  MovedClientLinks,
+  PropertyClientMerge,
+} from './application/ports/property-client-merge';
 export type { PropertyClientErasure } from './application/ports/property-client-erasure';
 
 // Emprendimientos (#7)
@@ -695,3 +703,17 @@ export type {
   PropertyReservationsQuery,
   ReservationListItem,
 } from './application/ports/property-reservations-query';
+export {
+  ListReservations,
+  type ListReservationsError,
+} from './application/queries/list-reservations';
+export {
+  ExportReservations,
+  type ExportReservationsError,
+} from './application/commands/export-reservations';
+export type {
+  ReservationFilterCriteria,
+  ReservationListQuery,
+  ReservationSearchItem,
+} from './application/ports/reservation-list-query';
+export type { ReservationExportWriter } from './application/ports/reservation-export-writer';

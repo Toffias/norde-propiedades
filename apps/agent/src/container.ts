@@ -16,6 +16,7 @@ import {
 } from '@norde/core/clients';
 import {
   EraseClientConversations,
+  MoveMergedClientConversations,
   ReceiveInboundMessages,
   SendReply,
   type ChannelMessenger,
@@ -31,17 +32,23 @@ import {
   RenderPropertyDocument,
   RunDevelopmentUnitImport,
   SearchProperties,
+  MoveMergedClientLinks,
   UnlinkErasedClients,
   type OwnerReports,
   type ReferenceCodeAllocator,
 } from '@norde/core/properties';
-import { RemoveErasedClientFavorites, ResolveSessionActor } from '@norde/core/identity';
+import {
+  MoveMergedClientFavorites,
+  RemoveErasedClientFavorites,
+  ResolveSessionActor,
+} from '@norde/core/identity';
 import { GetOwnerReport, type ReportingPropertyProfiles } from '@norde/core/reporting';
 import { AllocateReferenceCode, type FileStorage } from '@norde/core/settings';
 import { Actor, err, ok } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
   createConversationsUnitOfWork,
+  createIdentityUnitOfWork,
   createDatabase,
   createPropertiesUnitOfWork,
   createSettingsUnitOfWork,
@@ -106,6 +113,9 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'conversations:erase-client-data',
   'properties:erase-client-data',
   'identity:erase-client-data',
+  'conversations:merge-client-data',
+  'properties:merge-client-data',
+  'identity:merge-client-data',
   'opportunities:apply-rules',
   'opportunities:run-bulk',
   'inquiries:route',
@@ -485,6 +495,17 @@ export function createContainer(
       }),
       favorites: new RemoveErasedClientFavorites({
         favorites: new DrizzleClientFavoriteErasure(db),
+      }),
+    },
+    merge: {
+      conversations: new MoveMergedClientConversations({
+        uow: createConversationsUnitOfWork(db, { ids, clock }),
+      }),
+      properties: new MoveMergedClientLinks({
+        uow: createPropertiesUnitOfWork(db, { ids, clock }),
+      }),
+      favorites: new MoveMergedClientFavorites({
+        uow: createIdentityUnitOfWork(db, { ids, clock }),
       }),
     },
     runImport: new RunClientImport({

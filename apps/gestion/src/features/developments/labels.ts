@@ -81,6 +81,7 @@ export const DEVELOPMENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>>
   'development.attachment_added': 'subió un archivo',
   'development.attachment_updated': 'editó un archivo',
   'development.attachment_deleted': 'borró un archivo',
+  'development.client_merged': 'pasó el contacto comercial al unificar contactos',
 };
 
 /** Nombre de cada campo del historial del emprendimiento. */
@@ -99,6 +100,7 @@ export const DEVELOPMENT_HISTORY_FIELD_LABELS: Readonly<Record<string, string>> 
   longitude: 'Longitud',
   developerName: 'Desarrollista',
   commercialContactClientId: 'Contacto comercial',
+  clientId: 'Contacto',
   websiteUrl: 'Página web',
   description: 'Descripción',
   financingDetails: 'Financiación',

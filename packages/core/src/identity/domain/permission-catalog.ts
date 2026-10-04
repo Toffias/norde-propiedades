@@ -156,7 +156,10 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
       {
         resource: 'reservations',
         label: 'Reservas',
-        permissions: crud('reservations', 'reservas'),
+        permissions: [
+          ...crud('reservations', 'reservas'),
+          { permission: 'reservations:export', label: 'Exportar reservas' },
+        ],
       },
       {
         resource: 'files',

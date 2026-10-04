@@ -238,7 +238,13 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - El principal se queda con todo: teléfonos, emails, canales, tipos de cliente, etiquetas, relaciones (las suyas y las que otros declaran hacia el duplicado), oportunidades, actividad, búsquedas guardadas, destacadas, envíos y consultas. Lo que ya tiene el principal manda (nombre, agente, teléfono y email principales, datos cargados); los datos vacíos se completan con los del duplicado. Si los dos tenían destacada la misma propiedad, la del duplicado pasa como quitada.
 - El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
 - Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
-- Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. Se publica `clients.clients_merged` para que los otros módulos que guardan el ID del cliente lo reapunten.
+- Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. El historial del principal muestra también el del duplicado.
+- El mapeo con Tokko pasa al principal en la misma transacción: una reimportación resuelve al contacto que quedó.
+- **Lo de los otros módulos también pasa al principal**, al recibir `clients.clients_merged` (en segundos, por el agente):
+  - Propiedades: sus reservas, las propiedades de las que es propietario (si los dos eran dueños de la misma, queda uno) y el contacto comercial de los emprendimientos. Cada propiedad y emprendimiento lo deja en su historial (`property.client_merged`, `development.client_merged`).
+  - Las conversaciones del agente de IA, con sus mensajes (`conversation.client_merged`).
+  - Los favoritos de cada usuario: quien tenía a los dos queda con uno (`user.favorites_merged`).
+- Las unificaciones anteriores a esto se corrigieron con la migración `0029`, siguiendo las cadenas (un principal que después se unificó a otro).
 
 ### 3.3.3 Actividad, notas, oportunidades, destacadas y ofrecer (#8, etapa 3)
 
@@ -715,7 +721,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **Pendiente de #6**: cargar propietarios (#8), compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
 
-### 4.9 Reservas (#13, etapa 1)
+### 4.9 Reservas (#13)
 
 Una **reserva** es la seña de un contacto sobre una propiedad. Vive en el módulo `properties` porque cambia el estado de la propiedad en la misma transacción.
 
@@ -742,7 +748,14 @@ El contacto y la operación no se editan: si cambian, la reserva se da por caíd
 
 **Historial**: cada paso queda en el historial de la propiedad (filtro "Reservas") con su diff y el ID del contacto en `client_ids`: `property.reserved`, `property.reservation_updated`, `property.reservation_fallen`, `property.reservation_signed`. Al suprimir los datos de un contacto se borran sus reservas; si una estaba activa, la propiedad vuelve a disponible y queda `property.reservation_erased`, sin el contacto.
 
-**No se construye**: la configuración de Reservas de Tokko (etiqueta obligatoria, gerentes de reservas, gerente obligatorio, a quién notificar). **Etapa 2**: el listado `/reservas` con filtros, Excel e imprimir. El aviso de reservas por vencer va con Inicio (#15) y las notificaciones (#16).
+**Listado `/reservas`** (menú Cartera → Reservas, con `reservations:read`): todas las reservas, activas, caídas y firmadas, incluidas las de propiedades en la papelera. Lo ve todo el que ve reservas, de cualquier agente o sucursal.
+
+- Columnas: propiedad (código, tipo y dirección), cliente y operación, estado (el motivo de la caída al pasar el mouse), agente y gerente, valor, comisión, fecha de reserva y fecha estimada de firma. Cada fila abre la pestaña Reservas de la propiedad.
+- Filtros: estado, operación, tipo de propiedad y, en "Más filtros", agente, gerente, sucursal (la de la reserva), fecha de reserva y fecha estimada de firma (desde/hasta, días de Buenos Aires, inclusive). Paginado en la base, ordenable por fecha de reserva (de fábrica, la más nueva primero) o de firma (las que no tienen fecha, al final).
+- **Exportar a Excel** (`reservations:export`; de fábrica, gerente y administrador): todas las que cumplen los filtros, hasta 10.000, con todas las columnas más las fechas de firma y caída, el motivo y las notas. Se arma por lotes y queda en la auditoría (`reservation.exported`, con los filtros y la cantidad).
+- **Imprimir**: la página que se está viendo, sin el menú, los filtros ni la paginación, siempre en tema claro. Para imprimir más filas, se agranda el tamaño de página.
+
+**No se construye**: la configuración de Reservas de Tokko (etiqueta obligatoria, gerentes de reservas, gerente obligatorio, a quién notificar); por eso el filtro de gerente ofrece cualquier usuario. El aviso de reservas por vencer va con Inicio (#15) y las notificaciones (#16).
 
 ## 5. Alquiler: gestión de contratos
 

@@ -4,6 +4,7 @@ import { err, ok, type Result } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type { OutboundMessage } from '../contracts';
 import type { ChannelMessenger, DeliveryFailedError } from '../application/ports/channel-messenger';
+import type { ClientConversationMerge } from '../application/ports/client-conversation-merge';
 import type {
   ConversationsTransaction,
   ConversationsUnitOfWork,
@@ -77,6 +78,7 @@ export class InMemoryMessageLog implements MessageLog {
 export class InMemoryConversationsUnitOfWork implements ConversationsUnitOfWork {
   readonly conversations = new InMemoryConversationRepository();
   readonly messages = new InMemoryMessageLog();
+  readonly clientMerge = new FakeClientConversationMerge();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
 
@@ -130,5 +132,16 @@ export class RecordingMessenger implements ChannelMessenger {
   markAsRead(channelMessageId: string) {
     this.read.push(channelMessageId);
     return Promise.resolve();
+  }
+}
+
+/** Registra los pedidos de la unificación y devuelve las conversaciones que se le cargaron. */
+export class FakeClientConversationMerge implements ClientConversationMerge {
+  readonly moves: { readonly from: string; readonly to: string }[] = [];
+  moved: readonly string[] = [];
+
+  moveClient(fromClientId: string, toClientId: string): Promise<readonly string[]> {
+    this.moves.push({ from: fromClientId, to: toClientId });
+    return Promise.resolve(this.moved);
   }
 }

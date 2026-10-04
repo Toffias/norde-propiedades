@@ -38,7 +38,9 @@ export class DrizzleAuditHistoryQuery implements AuditHistoryQuery {
   async list(criteria: AuditHistoryCriteria): Promise<PageSlice<AuditHistoryEntry>> {
     const where = and(
       eq(auditLog.entityType, criteria.entityType),
-      eq(auditLog.entityId, criteria.entityId),
+      criteria.mergedEntityIds === undefined || criteria.mergedEntityIds.length === 0
+        ? eq(auditLog.entityId, criteria.entityId)
+        : inArray(auditLog.entityId, [criteria.entityId, ...criteria.mergedEntityIds]),
       criteria.actions === undefined ? undefined : inArray(auditLog.action, [...criteria.actions]),
       criteria.fields === undefined
         ? undefined

@@ -1,12 +1,21 @@
-import type { ReservationRow } from '../contracts';
-import type { ReservationListItem } from './ports/property-reservations-query';
+import type { PanelUserRef } from '../contracts';
 import type { UserNames } from './ports/user-names';
 
+interface WithUserIds {
+  readonly agentUserId: string | undefined;
+  readonly managerUserId: string | undefined;
+}
+
+type WithUsers<T> = Omit<T, 'agentUserId' | 'managerUserId'> & {
+  readonly agent: PanelUserRef | undefined;
+  readonly manager: PanelUserRef | undefined;
+};
+
 /** Pone los nombres del agente y del gerente (una sola consulta para toda la página). */
-export async function withUserNames(
+export async function withUserNames<T extends WithUserIds>(
   users: UserNames,
-  items: readonly ReservationListItem[],
-): Promise<ReservationRow[]> {
+  items: readonly T[],
+): Promise<WithUsers<T>[]> {
   const ids = new Set<string>();
   for (const item of items) {
     if (item.agentUserId !== undefined) ids.add(item.agentUserId);

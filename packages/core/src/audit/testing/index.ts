@@ -23,7 +23,8 @@ export class InMemoryAuditHistoryQuery implements AuditHistoryQuery {
       .filter(
         (entry) =>
           entry.entityType === criteria.entityType &&
-          entry.entityId === criteria.entityId &&
+          (entry.entityId === criteria.entityId ||
+            (criteria.mergedEntityIds ?? []).includes(entry.entityId)) &&
           (criteria.actions === undefined || criteria.actions.includes(entry.action)) &&
           (criteria.fields === undefined ||
             criteria.fields.some((field) => field in entry.changes)) &&

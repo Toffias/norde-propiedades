@@ -238,7 +238,13 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - El principal se queda con todo: teléfonos, emails, canales, tipos de cliente, etiquetas, relaciones (las suyas y las que otros declaran hacia el duplicado), oportunidades, actividad, búsquedas guardadas, destacadas, envíos y consultas. Lo que ya tiene el principal manda (nombre, agente, teléfono y email principales, datos cargados); los datos vacíos se completan con los del duplicado. Si los dos tenían destacada la misma propiedad, la del duplicado pasa como quitada.
 - El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
 - Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
-- Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. Se publica `clients.clients_merged` para que los otros módulos que guardan el ID del cliente lo reapunten.
+- Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. El historial del principal muestra también el del duplicado.
+- El mapeo con Tokko pasa al principal en la misma transacción: una reimportación resuelve al contacto que quedó.
+- **Lo de los otros módulos también pasa al principal**, al recibir `clients.clients_merged` (en segundos, por el agente):
+  - Propiedades: sus reservas, las propiedades de las que es propietario (si los dos eran dueños de la misma, queda uno) y el contacto comercial de los emprendimientos. Cada propiedad y emprendimiento lo deja en su historial (`property.client_merged`, `development.client_merged`).
+  - Las conversaciones del agente de IA, con sus mensajes (`conversation.client_merged`).
+  - Los favoritos de cada usuario: quien tenía a los dos queda con uno (`user.favorites_merged`).
+- Las unificaciones anteriores a esto se corrigieron con la migración `0029`, siguiendo las cadenas (un principal que después se unificó a otro).
 
 ### 3.3.3 Actividad, notas, oportunidades, destacadas y ofrecer (#8, etapa 3)
 

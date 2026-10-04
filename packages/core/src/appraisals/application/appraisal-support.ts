@@ -3,6 +3,7 @@ import {
   err,
   ok,
   parseId,
+  toAuditValue,
   type Actor,
   type AuditState,
   type AuditTarget,
@@ -19,6 +20,9 @@ import type { ActiveUsers } from './ports/panel-directory';
 
 export interface AppraisalNotFoundError {
   readonly type: 'AppraisalNotFound';
+}
+export interface AppraisalPhotoNotFoundError {
+  readonly type: 'AppraisalPhotoNotFound';
 }
 export interface ProducerNotFoundError {
   readonly type: 'ProducerNotFound';
@@ -96,6 +100,20 @@ export async function loadAppraisalForChange(
   return ok(appraisal);
 }
 
+/** La tasación, si el usuario la puede ver (también en la papelera). */
+export async function loadAppraisalForRead(
+  tx: AppraisalsTransaction,
+  actor: Actor,
+  appraisalId: string,
+): Promise<Result<Appraisal, ForbiddenError | AppraisalNotFoundError>> {
+  if (!actor.can('appraisals:read')) return err({ type: 'Forbidden' });
+  const appraisal = await findAppraisal(tx.appraisals, appraisalId);
+  if (!appraisal || !canActOnAppraisal(actor, OWNERSHIP_RULES.appraisalsRead, appraisal)) {
+    return err({ type: 'AppraisalNotFound' });
+  }
+  return ok(appraisal);
+}
+
 /** Valores crudos de la tasación para su historial. Usuarios, sucursal y cliente, por ID. */
 export function appraisalAuditState(appraisal: Appraisal): AuditState {
   const s = appraisal.toSnapshot();
@@ -131,6 +149,21 @@ export function appraisalTarget(
   const clientIds = new Set([appraisal.requesterClientId]);
   if (previousRequester !== undefined) clientIds.add(previousRequester);
   return { action, entityType: 'appraisal', entityId: appraisal.id, clientIds: [...clientIds] };
+}
+
+/** El resultado, para el historial: montos en centavos con su moneda y los comparables como lista. */
+export function appraisalResultAuditState(appraisal: Appraisal): AuditState {
+  const { sale, rent, comparables, observations } = appraisal.result;
+  return {
+    saleMinCents: sale?.minCents,
+    saleMaxCents: sale?.maxCents,
+    saleCurrency: sale?.currency,
+    rentMinCents: rent?.minCents,
+    rentMaxCents: rent?.maxCents,
+    rentCurrency: rent?.currency,
+    comparables: comparables.length === 0 ? undefined : comparables.map(toAuditValue),
+    observations,
+  };
 }
 
 /** `AAAA-MM-DDTHH:mm[:ss]` de Buenos Aires (UTC−3, sin horario de verano) → instante UTC. */

@@ -12,6 +12,7 @@ import { ChangeAppraisalStatusInputSchema, type ChangeAppraisalStatusInput } fro
 import type {
   AppraisalConvertedError,
   AppraisalDeletedError,
+  AppraisalValueRequiredError,
   InvalidAppraisalTransitionError,
   VisitDateRequiredError,
 } from '../../domain/appraisal';
@@ -31,7 +32,8 @@ export type ChangeAppraisalStatusError =
   | AppraisalDeletedError
   | AppraisalConvertedError
   | InvalidAppraisalTransitionError
-  | VisitDateRequiredError;
+  | VisitDateRequiredError
+  | AppraisalValueRequiredError;
 
 /**
  * Pasa una tasación a otro estado (agendar la visita, marcarla tasada, descartarla o reabrirla),

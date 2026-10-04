@@ -6,6 +6,7 @@ import {
   type AppraisalDetail,
   type AppraisalIdInput,
 } from '../../contracts';
+import { comparablePricePerM2Cents } from '../../domain/appraisal-result';
 import { canAppraisalTransition } from '../../domain/appraisal-status';
 import { withNames } from '../appraisal-rows';
 import {
@@ -48,6 +49,26 @@ export class GetAppraisal {
     const nextStatuses = MANUAL_APPRAISAL_STATUS_VALUES.filter((status) =>
       canAppraisalTransition(item.status, status),
     );
-    return ok({ ...detail, nextStatuses });
+    const comparables = item.result.comparables.map((comparable) => {
+      const perM2 = comparablePricePerM2Cents({
+        address: comparable.address,
+        priceCents: comparable.price.amountCents,
+        currency: comparable.price.currency,
+        surfaceM2: comparable.surfaceM2,
+        url: comparable.url,
+        note: comparable.note,
+      });
+      const pricePerM2 =
+        perM2 === undefined
+          ? undefined
+          : { amountCents: perM2, currency: comparable.price.currency };
+      return { ...comparable, pricePerM2 };
+    });
+    return ok({
+      ...detail,
+      result: { ...item.result, comparables },
+      nextStatuses,
+      convertible: canAppraisalTransition(item.status, 'converted') && item.deletedAt === undefined,
+    });
   }
 }

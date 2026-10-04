@@ -86,11 +86,13 @@ function clientJobs(calls: unknown[] = []): {
       conversations: erase('conversations'),
       properties: erase('properties'),
       favorites: erase('favorites'),
+      appraisals: erase('appraisals'),
     },
     merge: {
       conversations: move('merge-conversations'),
       properties: move('merge-properties'),
       favorites: move('merge-favorites'),
+      appraisals: move('merge-appraisals'),
     },
     runImport: {
       execute: (input, by) => {
@@ -157,9 +159,11 @@ describe('eventSubscriptions', () => {
       'clients.client_erased.erase-conversations',
       'clients.client_erased.unlink-properties',
       'clients.client_erased.remove-favorites',
+      'clients.client_erased.erase-appraisals',
       'clients.clients_merged.move-conversations',
       'clients.clients_merged.move-properties',
       'clients.clients_merged.move-favorites',
+      'clients.clients_merged.move-appraisals',
       'clients.opportunity_reassigned.apply-rules',
       'clients.opportunity_request_added.apply-rules',
       'clients.opportunity_listings_featured.apply-rules',
@@ -295,6 +299,7 @@ describe('eventSubscriptions', () => {
       'erase-conversations',
       'unlink-properties',
       'remove-favorites',
+      'erase-appraisals',
     ]);
     expect(calls).toEqual([
       ['import', { importId: IMPORT_ID }, 'system:import'],
@@ -302,11 +307,10 @@ describe('eventSubscriptions', () => {
       ['conversations', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['favorites', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
-      ...['merge-conversations', 'merge-properties', 'merge-favorites'].map((name) => [
-        name,
-        { clientId: CLIENT_ID, mergedClientId: DUPLICATE_ID },
-        'system:scheduler',
-      ]),
+      ['appraisals', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
+      ...['merge-conversations', 'merge-properties', 'merge-favorites', 'merge-appraisals'].map(
+        (name) => [name, { clientId: CLIENT_ID, mergedClientId: DUPLICATE_ID }, 'system:scheduler'],
+      ),
     ]);
     await expect(
       byType('clients.clients_merged')[0]?.handle({ ...event, payload: { clientId: CLIENT_ID } }),

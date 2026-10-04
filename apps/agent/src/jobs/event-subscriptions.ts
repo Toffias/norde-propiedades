@@ -1,3 +1,4 @@
+import type { EraseClientAppraisals, MoveMergedClientAppraisals } from '@norde/core/appraisals';
 import type {
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
@@ -129,6 +130,7 @@ function opportunitySubscriptions(
  * datos (Ley 25.326). Lo de clients ya se borró en la misma transacción que la constancia.
  */
 export interface ErasureJobs {
+  readonly appraisals: Pick<EraseClientAppraisals, 'execute'>;
   readonly conversations: Pick<EraseClientConversations, 'execute'>;
   readonly properties: Pick<UnlinkErasedClients, 'execute'>;
   readonly favorites: Pick<RemoveErasedClientFavorites, 'execute'>;
@@ -139,6 +141,7 @@ export interface ErasureJobs {
  * dos. Lo de clients ya se movió en la misma transacción que la unificación.
  */
 export interface MergeJobs {
+  readonly appraisals: Pick<MoveMergedClientAppraisals, 'execute'>;
   readonly conversations: Pick<MoveMergedClientConversations, 'execute'>;
   readonly properties: Pick<MoveMergedClientLinks, 'execute'>;
   readonly favorites: Pick<MoveMergedClientFavorites, 'execute'>;
@@ -260,6 +263,7 @@ function erasureSubscriptions(
     erase('erase-conversations', jobs.conversations),
     erase('unlink-properties', jobs.properties),
     erase('remove-favorites', jobs.favorites),
+    erase('erase-appraisals', jobs.appraisals),
   ];
 }
 
@@ -286,6 +290,7 @@ function mergeSubscriptions(jobs: MergeJobs, actor: Actor, logger: Logger): Even
     move('move-conversations', jobs.conversations),
     move('move-properties', jobs.properties),
     move('move-favorites', jobs.favorites),
+    move('move-appraisals', jobs.appraisals),
   ];
 }
 

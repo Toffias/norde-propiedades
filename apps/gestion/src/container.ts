@@ -177,6 +177,12 @@ import {
   CreateTagGroup,
   DeleteFavoriteSearch,
   DeleteProperty,
+  FallReservation,
+  GetActiveReservation,
+  ListPropertyReservations,
+  ReserveProperty,
+  SignReservation,
+  UpdateReservation,
   DeleteTag,
   DeleteTagGroup,
   ExportProperties,
@@ -287,6 +293,7 @@ import {
   DrizzlePropertyCatalogQuery,
   DrizzlePropertyDetailLookups,
   DrizzlePropertyDocumentQuery,
+  DrizzlePropertyReservationsQuery,
   DrizzlePropertyInterestQuery,
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
@@ -519,6 +526,7 @@ function createPropertiesUseCases(
   };
   const storage = createStorage(env);
   const lookups = new DrizzlePropertyDetailLookups(db);
+  const reservations = new DrizzlePropertyReservationsQuery(db);
   const media = new DrizzleMediaQuery(db);
   const unitImports = new DrizzleDevelopmentUnitImportQuery(db);
   const geocoder = new NominatimGeocoder({
@@ -596,6 +604,13 @@ function createPropertiesUseCases(
     }),
     getPropertyInterestProfile: new GetPropertyInterestProfile({ uow }),
     getPropertyInterestProfiles: new GetPropertyInterestProfiles({ uow }),
+    // Reservas (#13)
+    reserveProperty: new ReserveProperty({ uow, producers, clock, ids }),
+    updateReservation: new UpdateReservation({ uow, producers, clock }),
+    fallReservation: new FallReservation({ uow, clock }),
+    signReservation: new SignReservation({ uow, clock }),
+    listPropertyReservations: new ListPropertyReservations({ reservations, users }),
+    getActiveReservation: new GetActiveReservation({ reservations, users }),
     // Multimedia y archivos
     listMedia: new ListMedia({ media }),
     getMediaFile: new GetMediaFile({ uow, storage }),

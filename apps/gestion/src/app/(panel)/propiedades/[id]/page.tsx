@@ -2,7 +2,9 @@ import { accessScope, canActOn, OWNERSHIP_RULES } from '@norde/core/identity';
 import {
   ListAttachmentsQuerySchema,
   ListPropertyHistoryQuerySchema,
+  ListPropertyReservationsQuerySchema,
   type PanelPropertyDetail,
+  type ReservationRow,
 } from '@norde/core/properties/contracts';
 import {
   PropertyInterestQuerySchema,
@@ -30,6 +32,8 @@ import {
 import { MediaGallery } from '../../../../features/media/components/media-gallery';
 import { PropertyDetailHeader } from '../../../../features/properties/components/detail/property-detail-header';
 import { StatisticsView } from '../../../../features/properties/components/detail/statistics-view';
+import { ActiveReservationCard } from '../../../../features/properties/components/reservations/active-reservation-card';
+import { ReservationsGrid } from '../../../../features/properties/components/reservations/reservations-grid';
 import type { DetailPermissions } from '../../../../features/properties/components/detail/permissions';
 import { DETAIL_TABS, type DetailTab } from '../../../../features/properties/detail-labels';
 import {
@@ -76,6 +80,9 @@ function permissionsFor(
     featureToClient:
       detail.deletedAt === undefined &&
       accessScope(actor, OWNERSHIP_RULES.clientsUpdate) !== undefined,
+    reserve: detail.deletedAt === undefined && actor.can('reservations:create'),
+    manageReservations: actor.can('reservations:update'),
+    reservations: actor.can('reservations:read'),
   };
 }
 
@@ -117,10 +124,15 @@ export default async function PropertyDetailPage({
   const detail = result.value;
   const tab = tabFrom(query);
   const permissions = permissionsFor(actor, detail);
-  const favorites = await container.identity.getFavoriteIds.execute(
-    { entityType: 'property', ids: [detail.id] },
-    actor,
-  );
+  const [favorites, active] = await Promise.all([
+    container.identity.getFavoriteIds.execute({ entityType: 'property', ids: [detail.id] }, actor),
+    activeReservation(detail, permissions, actor),
+  ]);
+  const reservationSubject = {
+    propertyId: detail.id,
+    code: detail.code,
+    operations: detail.operations.map((operation) => operation.operation),
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -136,7 +148,15 @@ export default async function PropertyDetailPage({
         detail={detail}
         permissions={permissions}
         favorite={favorites.isOk() && favorites.value.has(detail.id)}
+        reservationSubject={reservationSubject}
       />
+      {active !== undefined && (
+        <ActiveReservationCard
+          reservation={active}
+          subject={reservationSubject}
+          canManage={permissions.manageReservations}
+        />
+      )}
       <DetailTabs propertyId={detail.id} active={tab} counts={detail.counts} />
 
       {await renderTab(tab, detail, permissions, actor, query)}
@@ -244,6 +264,20 @@ async function renderTab(
         </Card>
       );
     }
+    case 'reservas': {
+      if (!permissions.reservations) return <TabError error={{ type: 'Forbidden' }} />;
+      const { value } = parseListParams(ListPropertyReservationsQuerySchema, {
+        ...query,
+        propertyId,
+      });
+      const page = await properties.listPropertyReservations.execute(value, actor);
+      if (page.isErr()) return <TabError error={page.error} />;
+      return (
+        <Card className="gap-0 overflow-hidden p-0">
+          <ReservationsGrid page={page.value} sort={value.sort} />
+        </Card>
+      );
+    }
     case 'estadisticas': {
       const { value } = parseListParams(PropertyStatisticsQuerySchema, {
         propertyId,
@@ -254,6 +288,20 @@ async function renderTab(
       return <StatisticsView statistics={statistics.value} months={value.months} />;
     }
   }
+}
+
+/** La reserva activa, para la tarjeta de la ficha. Solo una propiedad reservada la tiene. */
+async function activeReservation(
+  detail: PanelPropertyDetail,
+  permissions: DetailPermissions,
+  actor: SessionActor['actor'],
+): Promise<ReservationRow | undefined> {
+  if (!permissions.reservations || detail.status !== 'reserved') return undefined;
+  const result = await getContainer().properties.getActiveReservation.execute(
+    { propertyId: detail.id },
+    actor,
+  );
+  return result.isOk() ? result.value : undefined;
 }
 
 function TabError({ error }: { readonly error: { readonly type: string } }) {

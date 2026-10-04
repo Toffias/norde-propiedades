@@ -19,6 +19,7 @@ export const DETAIL_TABS = [
   'archivos',
   'historial',
   'contactos',
+  'reservas',
   'estadisticas',
 ] as const;
 export type DetailTab = (typeof DETAIL_TABS)[number];
@@ -29,6 +30,7 @@ export const DETAIL_TAB_LABELS: Readonly<Record<DetailTab, string>> = {
   archivos: 'Archivos',
   historial: 'Historial',
   contactos: 'Contactos',
+  reservas: 'Reservas',
   estadisticas: 'Estadísticas',
 };
 

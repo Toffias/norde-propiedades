@@ -62,6 +62,7 @@ export const APPRAISAL_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> =
   'appraisal.photo_added': 'subió una foto',
   'appraisal.photo_deleted': 'borró una foto',
   'appraisal.converted': 'convirtió la tasación en propiedad',
+  'appraisal.report_downloaded': 'descargó el PDF de la tasación',
 };
 
 export const APPRAISAL_HISTORY_FIELD_LABELS: Readonly<Record<string, string>> = {

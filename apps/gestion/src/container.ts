@@ -8,6 +8,7 @@ import {
   ConvertAppraisalToListing,
   CreateAppraisal,
   DeleteAppraisalPhoto,
+  DownloadAppraisalReport,
   GetAppraisalPhotoFile,
   RecordAppraisalResult,
   UploadAppraisalPhoto,
@@ -340,6 +341,7 @@ import {
   type DatabaseConnection,
   createAppraisalsUnitOfWork,
   DrizzleAppraisalQuery,
+  PdfLibAppraisalReportRenderer,
 } from '@norde/infra';
 import { nextCookies } from 'better-auth/next-js';
 
@@ -898,6 +900,15 @@ function createAppraisalsUseCases(
     deleteAppraisalPhoto: new DeleteAppraisalPhoto({ uow, clock }),
     getAppraisalPhotoFile: new GetAppraisalPhotoFile({ uow, storage }),
     convertAppraisalToListing: new ConvertAppraisalToListing({ uow, ids, clock }),
+    downloadAppraisalReport: new DownloadAppraisalReport({
+      uow,
+      appraisals,
+      directory,
+      storage,
+      settings: new DrizzleCompanySettingsRepository(db, clock),
+      renderer: new PdfLibAppraisalReportRenderer(),
+      clock,
+    }),
   };
 }
 

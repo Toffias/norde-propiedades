@@ -76,29 +76,31 @@ function Filters({
   const { setParams } = useListNavigation();
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-category`} className="text-xs">
-          Tipo de cambio
-        </Label>
-        <Select
-          value={category ?? ALL}
-          onValueChange={(value) => {
-            setParams({ category: value === ALL ? undefined : value });
-          }}
-        >
-          <SelectTrigger id={`${id}-category`} size="sm" className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todos</SelectItem>
-            {categories.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {categories.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${id}-category`} className="text-xs">
+            Tipo de cambio
+          </Label>
+          <Select
+            value={category ?? ALL}
+            onValueChange={(value) => {
+              setParams({ category: value === ALL ? undefined : value });
+            }}
+          >
+            <SelectTrigger id={`${id}-category`} size="sm" className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos</SelectItem>
+              {categories.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="flex flex-col gap-1">
         <Label htmlFor={`${id}-from`} className="text-xs">
           Desde
@@ -133,7 +135,8 @@ function Filters({
 
 /**
  * La pestaña Historial de una ficha: quién cambió qué y cuándo, paginada en el servidor, con filtros
- * por tipo de cambio y fechas. Cada ficha pasa sus categorías y cómo mostrar sus campos.
+ * por tipo de cambio (si la ficha tiene categorías) y fechas. Cada ficha pasa sus categorías y cómo
+ * mostrar sus campos.
  */
 export function AuditHistoryGrid({
   label,

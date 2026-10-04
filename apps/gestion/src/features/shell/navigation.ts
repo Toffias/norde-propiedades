@@ -36,7 +36,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
     items: [
       { href: '/propiedades', label: 'Propiedades', icon: BuildingIcon },
       { href: '/emprendimientos', label: 'Emprendimientos', icon: LandmarkIcon },
-      { href: '/tasaciones', label: 'Tasaciones', icon: CalculatorIcon, disabledReason: SOON },
+      { href: '/tasaciones', label: 'Tasaciones', icon: CalculatorIcon },
       { href: '/reservas', label: 'Reservas', icon: CalendarCheckIcon },
       { href: '/difusion', label: 'Difusión', icon: MegaphoneIcon, disabledReason: SOON },
     ],

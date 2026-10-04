@@ -43,6 +43,10 @@ import type {
   PanelPropertyListQuery,
 } from '../application/ports/panel-property-list-query';
 import type { PropertyCatalogQuery } from '../application/ports/property-catalog-query';
+import type {
+  MovedClientLinks,
+  PropertyClientMerge,
+} from '../application/ports/property-client-merge';
 import type { ExportFile, PropertyExportWriter } from '../application/ports/property-export-writer';
 import type {
   PropertiesTransaction,
@@ -602,6 +606,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly attachments = new InMemoryAttachmentRepository();
   readonly documents = new InMemoryPropertyDocumentRepository();
   readonly reservations = new InMemoryReservationRepository();
+  readonly clientMerge = new FakePropertyClientMerge();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
@@ -1548,5 +1553,16 @@ export class FakeReservationExportWriter implements ReservationExportWriter {
       }
     }
     return { filename: 'reservas.xlsx', contentType: 'text/plain', body: body() };
+  }
+}
+
+/** Registra los pedidos de la unificación y devuelve lo que se le cargó como movido. */
+export class FakePropertyClientMerge implements PropertyClientMerge {
+  readonly moves: { readonly from: string; readonly to: string }[] = [];
+  moved: MovedClientLinks = { propertyIds: [], developmentIds: [] };
+
+  moveClient(fromClientId: string, toClientId: string): Promise<MovedClientLinks> {
+    this.moves.push({ from: fromClientId, to: toClientId });
+    return Promise.resolve(this.moved);
   }
 }

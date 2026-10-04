@@ -4,6 +4,8 @@ import type { HistoryChange } from '../../contracts';
 export interface AuditHistoryCriteria {
   readonly entityType: string;
   readonly entityId: string;
+  /** Más estas entidades del mismo tipo (los contactos que se le unificaron). */
+  readonly mergedEntityIds?: readonly string[] | undefined;
   /** Solo estas acciones (`property.status_changed`). */
   readonly actions: readonly string[] | undefined;
   /** Solo las entradas que tocan alguno de estos campos (`operations`). */

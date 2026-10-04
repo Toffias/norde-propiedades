@@ -39,3 +39,8 @@ export {
   type EraseClientConversationsError,
 } from './application/handlers/erase-client-conversations';
 export type { ClientConversationErasure } from './application/ports/client-conversation-erasure';
+export {
+  MoveMergedClientConversations,
+  type MoveMergedClientConversationsError,
+} from './application/handlers/move-merged-client-conversations';
+export type { ClientConversationMerge } from './application/ports/client-conversation-merge';

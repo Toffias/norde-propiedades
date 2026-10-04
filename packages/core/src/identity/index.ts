@@ -172,3 +172,7 @@ export {
   type RemoveErasedClientFavoritesError,
 } from './application/handlers/remove-erased-client-favorites';
 export type { ClientFavoriteErasure } from './application/ports/client-favorite-erasure';
+export {
+  MoveMergedClientFavorites,
+  type MoveMergedClientFavoritesError,
+} from './application/handlers/move-merged-client-favorites';

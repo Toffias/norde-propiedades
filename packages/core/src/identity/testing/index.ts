@@ -280,6 +280,18 @@ export class InMemoryUserFavorites implements UserFavorites {
     for (const id of ids) this.rows.delete(`${userId}|${entityType}|${id}`);
     return Promise.resolve();
   }
+
+  moveEntity(entityType: FavoriteEntityValue, fromId: string, toId: string) {
+    const users: string[] = [];
+    for (const row of [...this.rows]) {
+      const [userId, type, id] = row.split('|');
+      if (userId === undefined || type !== entityType || id !== fromId) continue;
+      this.rows.delete(row);
+      this.rows.add(`${userId}|${entityType}|${toId}`);
+      users.push(userId);
+    }
+    return Promise.resolve(users);
+  }
 }
 
 export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {

@@ -61,6 +61,7 @@ const CATEGORIES: Readonly<
       'property.reservation_fallen',
       'property.reservation_signed',
       'property.reservation_erased',
+      'property.client_merged',
     ],
   },
 };

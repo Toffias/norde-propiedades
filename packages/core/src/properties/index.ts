@@ -497,6 +497,14 @@ export {
   UnlinkErasedClients,
   type UnlinkErasedClientsError,
 } from './application/handlers/unlink-erased-clients';
+export {
+  MoveMergedClientLinks,
+  type MoveMergedClientLinksError,
+} from './application/handlers/move-merged-client-links';
+export type {
+  MovedClientLinks,
+  PropertyClientMerge,
+} from './application/ports/property-client-merge';
 export type { PropertyClientErasure } from './application/ports/property-client-erasure';
 
 // Emprendimientos (#7)

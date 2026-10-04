@@ -12,8 +12,9 @@ export interface ClientRecordCounts {
 
 /**
  * Los registros del módulo que referencian a un contacto por ID y no son parte de su aggregate
- * (oportunidades, actividad, búsquedas, destacadas, envíos, consultas, relaciones entrantes). Al
- * unificar se reapuntan todos al principal, dentro de la misma transacción.
+ * (oportunidades, actividad, búsquedas, destacadas, envíos, consultas, relaciones entrantes), más
+ * el mapeo de la importación desde Tokko. Al unificar se reapuntan todos al principal, dentro de la
+ * misma transacción. Lo de otros módulos lo mueve cada uno al recibir `clients.clients_merged`.
  */
 export interface ClientLinkedRecords {
   countFor(clientId: string): Promise<ClientRecordCounts>;

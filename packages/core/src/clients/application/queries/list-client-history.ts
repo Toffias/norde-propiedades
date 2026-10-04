@@ -11,6 +11,7 @@ import {
   type Result,
 } from '../../../shared';
 import { ListClientHistoryQuerySchema, type ListClientHistoryQuery } from '../../contracts';
+import { MAX_ERASED_MERGED_CLIENTS } from '../../domain/client-erasure';
 import {
   canReadClients,
   findClient,
@@ -55,8 +56,16 @@ export class ListClientHistory {
     if (!parsed.success) return err(invalidInput(parsed.error));
     const query = parsed.data;
 
-    const client = await this.deps.uow.run((tx) => findClient(tx.clients, query.clientId));
-    if (!client) return err({ type: 'ClientNotFound' });
+    const found = await this.deps.uow.run(async (tx) => {
+      const client = await findClient(tx.clients, query.clientId);
+      // Los contactos que se le unificaron: su historial pasa a ser parte del suyo.
+      const merged = client
+        ? await tx.erasure.mergedInto(client.id, MAX_ERASED_MERGED_CLIENTS)
+        : [];
+      return client && { client, merged };
+    });
+    if (!found) return err({ type: 'ClientNotFound' });
+    const { client, merged } = found;
     if (
       !canActOn(actor, OWNERSHIP_RULES.clientsRead, client.ownership) ||
       !canActOn(actor, rule, client.ownership)
@@ -68,6 +77,7 @@ export class ListClientHistory {
     const slice = await this.deps.history.list({
       entityType: 'client',
       entityId: client.id,
+      mergedEntityIds: merged,
       actions: undefined,
       fields: undefined,
       actorId: query.actorId,

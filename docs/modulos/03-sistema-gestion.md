@@ -287,7 +287,7 @@ Al confirmar se guarda el archivo y un job de `apps/agent` (`clients.import_requ
 - Se borra físicamente, sin papelera: la ficha con sus teléfonos, emails, canales, relaciones (en los dos sentidos) y etiquetas, las oportunidades, consultas, búsquedas, destacadas, envíos y actividad, y **sus entradas de `audit_log`** (las que lo tienen en `client_ids`). También se suprimen los duplicados que se le habían unificado, porque sus lápidas guardan nombre y datos de la ficha.
 - Queda una constancia en `erasure_records` (fecha del pedido, quién la ejecutó, cuándo y el ID suprimido) y una entrada `client.erased` en la auditoría, sin datos personales.
 - Los IDs externos del contacto (`import_mappings`) quedan marcados como suprimidos, para que una importación de Tokko no lo vuelva a crear.
-- `clients.client_erased` hace que cada módulo borre lo suyo en el agente: las conversaciones del agente de IA con sus mensajes, los vínculos como propietario de una propiedad y como contacto comercial de un emprendimiento (las propiedades quedan) y los favoritos de todos los usuarios. Las reservas y las tasaciones todavía no tienen módulo: cuando lo tengan (#13 y #12), reaccionan al mismo evento.
+- `clients.client_erased` hace que cada módulo borre lo suyo en el agente: las conversaciones del agente de IA con sus mensajes, los vínculos como propietario de una propiedad y como contacto comercial de un emprendimiento (las propiedades quedan), sus reservas (si una estaba activa, la propiedad vuelve a estar disponible; ver §4.9) y los favoritos de todos los usuarios. Las tasaciones todavía no tienen módulo: cuando lo tengan (#12), reaccionan al mismo evento.
 - Los eventos del outbox solo llevan IDs. Los datos siguen en los backups hasta que rotan: falta documentar el plazo de retención.
 
 ### 3.3.5 Estados, motivos de cierre y reglas de oportunidades (#9, etapa 1)
@@ -491,7 +491,7 @@ Cada destacada guarda:
 - La **oportunidad abierta más reciente** del contacto. Si tiene una, se publica `clients.opportunity_listings_featured` y la regla "al reactivar" puede sacarla de "Aplica a otra inmobiliaria".
 - **Auto-envío de novedades** (switch por destacada): queda guardado y auditado; los envíos llegan con la etapa 4.
 
-Por fila: ver la ficha de la propiedad y quitar la destacada. Enviar y reservar llegan con la etapa 2 y con #13.
+Por fila: ver la ficha de la propiedad, reservarla (si está disponible y hay `reservations:create`, con el contacto ya elegido y la oportunidad de la destacada; ver §4.9) y quitar la destacada. Enviar llega con la etapa 2.
 
 **Búsquedas guardadas** (pestaña Búsquedas, en un panel lateral sobre la grilla):
 
@@ -705,7 +705,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **Archivos**: escrituras, reglamentos y planos (PDF, imágenes, Word o Excel, hasta 25 MB), con "Mostrar en la web", renombrar, bajar y borrar (baja lógica).
 
-**Historial**: cada cambio con quién y cuándo, campo por campo (antes → después), paginado. Se filtra por tipo de cambio (datos, precio, estado, fotos y videos, archivos, publicación, captador y etiquetas) y por fechas. Los cambios de fotos y archivos aparecen en el historial de la propiedad. Ver el historial de lo propio pide `audit:read`; el de otros, `audit:read-others`.
+**Historial**: cada cambio con quién y cuándo, campo por campo (antes → después), paginado. Se filtra por tipo de cambio (datos, precio, estado, fotos y videos, archivos, publicación, captador y etiquetas, reservas) y por fechas. Los cambios de fotos y archivos aparecen en el historial de la propiedad. Ver el historial de lo propio pide `audit:read`; el de otros, `audit:read-others`.
 
 **Contactos**: potenciales interesados (clientes con búsquedas guardadas que coinciden con la propiedad: misma operación, tipo, ubicación o una que la contiene, ambientes y precio en la misma moneda) e historial de envíos de la ficha con lo que hizo el cliente (abrió, le gustó, no le gustó). Solo los clientes que el usuario puede ver. Los envíos los crea #11.
 
@@ -714,6 +714,35 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 **PDF** (con `properties:export`, queda en el historial): ficha (con las fotos marcadas para el PDF), vidriera (una hoja con una foto grande) y reporte al propietario de un período de hasta un año (publicaciones activas, visitas por portal, envíos, consultas e interesados). Siguen "Ficha y PDF" de Mi empresa (dirección al descargar, precio, agente). Los arma un job; el diálogo muestra el estado y se descargan cuando están listos. El reporte se puede mandar por email con el PDF adjunto: el email del propietario no queda en el historial.
 
 **Pendiente de #6**: cargar propietarios (#8), compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
+
+### 4.9 Reservas (#13, etapa 1)
+
+Una **reserva** es la seña de un contacto sobre una propiedad. Vive en el módulo `properties` porque cambia el estado de la propiedad en la misma transacción.
+
+**Reservar** ("Reservar" en la cabecera de la ficha o en una destacada del contacto, con `reservations:create`):
+
+- Solo una propiedad **disponible**, fuera de la papelera y que ofrezca la operación elegida. Pasa a **reservada** y deja de mostrarse en la web.
+- Datos: contacto, operación, agente (sin elegir, quien reserva), gerente (opcional, cualquier usuario activo), valor y moneda, comisión en porcentaje y/o monto con su moneda (todo opcional), fecha estimada de firma y notas. Desde una destacada, el contacto viene elegido y la reserva queda atada a la oportunidad de la destacada.
+- La sucursal de la reserva es la del agente.
+- **Una sola reserva activa por propiedad**: lo exige el dominio (la propiedad tiene que estar disponible) y un índice único parcial en la base, también si dos la reservan al mismo tiempo.
+
+**Estados**: activa → caída o firmada. Caída y firmada son finales.
+
+| Acción                                                  | Permiso               | La propiedad                                       |
+| ------------------------------------------------------- | --------------------- | -------------------------------------------------- |
+| Editar (valor, comisión, fecha, agente, gerente, notas) | `reservations:update` | No cambia                                          |
+| Dar por caída (con motivo opcional)                     | `reservations:update` | Vuelve a disponible                                |
+| Firmar                                                  | `reservations:update` | Venta → vendida; alquiler o temporario → alquilada |
+
+El contacto y la operación no se editan: si cambian, la reserva se da por caída y se reserva de nuevo. De fábrica, gerente y administrador tienen `reservations:*`; el agente, ver y crear.
+
+**Mientras hay una reserva activa**, el estado de la propiedad no se cambia a mano (ficha, edición rápida o masiva, importación de unidades) y no se puede mandar a la papelera.
+
+**En la ficha**: la tarjeta de la reserva activa (debajo de la cabecera, con Editar, Dar por caída y Firmar) y la pestaña **Reservas**, paginada, con todas las de la propiedad (contacto, estado, agente, valor, comisión, fecha de reserva y firma estimada), ordenable por fecha de reserva o de firma.
+
+**Historial**: cada paso queda en el historial de la propiedad (filtro "Reservas") con su diff y el ID del contacto en `client_ids`: `property.reserved`, `property.reservation_updated`, `property.reservation_fallen`, `property.reservation_signed`. Al suprimir los datos de un contacto se borran sus reservas; si una estaba activa, la propiedad vuelve a disponible y queda `property.reservation_erased`, sin el contacto.
+
+**No se construye**: la configuración de Reservas de Tokko (etiqueta obligatoria, gerentes de reservas, gerente obligatorio, a quién notificar). **Etapa 2**: el listado `/reservas` con filtros, Excel e imprimir. El aviso de reservas por vencer va con Inicio (#15) y las notificaciones (#16).
 
 ## 5. Alquiler: gestión de contratos
 
@@ -849,7 +878,7 @@ Resumen de lo que aplica a este módulo:
 
 1. **Migración**: ✅ Definido. Norde usa **Tokko Broker**; este sistema lo reemplaza y hay que migrar sus datos (ver §13 y la sub-issue de migración).
 2. **Cobranzas de alquileres**: ¿están en alcance?
-3. **Comisiones**: ¿se registran en el sistema para los reportes de ventas?
+3. **Comisiones**: ✅ Definido. La reserva registra la comisión en porcentaje y/o monto (§4.9); los reportes se definen al final.
 4. **Cuántos usuarios** y roles reales tiene el equipo.
 5. **Portales**: ¿Norde ya tiene cuentas activas en Zonaprop y Argenprop? ¿Con qué plan o acceso?
 6. **"Oportunidades cross platform"**: ✅ Definido (sección 3.3).

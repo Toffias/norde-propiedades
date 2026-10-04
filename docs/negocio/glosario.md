@@ -35,7 +35,7 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 | Envío de ficha                        | `SharedListing` (a definir) | Envío                            | Ficha mandada por email o WhatsApp con un link que mide aperturas y "me gusta"                           |
 | Seguimiento automático                | —                           | Seguimiento automático           | Envío automático de novedades que coinciden con búsquedas guardadas o destacadas                         |
 | Respuesta rápida                      | —                           | Respuesta rápida                 | Plantilla de email con variables                                                                         |
-| Reserva                               | `Reservation` (a definir)   | Reserva                          | Seña sobre una propiedad. Activa, caída o firmada. Una sola activa por propiedad                         |
+| Reserva                               | `Reservation`               | Reserva                          | Seña sobre una propiedad. Activa, caída o firmada. Una sola activa por propiedad                         |
 
 ## Cartera
 

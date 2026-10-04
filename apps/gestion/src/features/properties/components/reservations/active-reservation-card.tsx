@@ -110,7 +110,7 @@ export function ActiveReservationCard({
           </div>
         )}
       </div>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm lg:grid-cols-4">
         {facts.map((fact) => (
           <div key={fact.label} className="flex flex-col">
             <dt className="text-xs text-muted-foreground">{fact.label}</dt>

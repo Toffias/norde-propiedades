@@ -1,6 +1,6 @@
 import type { HistoryValue } from '@norde/core/audit/contracts';
 
-import { EMPTY_VALUE, formatAmount, formatMoney } from '../../lib/format';
+import { EMPTY_VALUE, formatAmount, formatDateOnly, formatMoney } from '../../lib/format';
 import {
   CONDITION_LABELS,
   DISPOSITION_LABELS,
@@ -100,7 +100,10 @@ export function formatHistoryValue(field: string, value: HistoryValue): string {
     if (base.endsWith('M2')) return `${value.toLocaleString('es-AR')} m²`;
     return value.toLocaleString('es-AR');
   }
-  if (typeof value === 'string') return VALUE_LABELS[base]?.[value] ?? value;
+  if (typeof value === 'string') {
+    if (base === 'estimatedSigningDate') return formatDateOnly(value);
+    return VALUE_LABELS[base]?.[value] ?? value;
+  }
   if (isList(value)) {
     if (value.length === 0) return 'Ninguno';
     if (base === 'operations') {

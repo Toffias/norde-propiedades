@@ -7,6 +7,7 @@ import {
   ok,
   parseId,
   type Actor,
+  type AuditState,
   type Clock,
   type ForbiddenError,
   type IdGenerator,
@@ -253,7 +254,7 @@ export class CreatePropertyFromAppraisal {
           clientIds: [data.requesterClientId],
         },
         {
-          ...propertyAuditState(property),
+          ...withoutEmptyTexts(propertyAuditState(property)),
           appraisalId: data.appraisalId,
           appraisalCode: listing.appraisalCode,
           ownerClientIds: [data.requesterClientId],
@@ -294,6 +295,11 @@ export class CreatePropertyFromAppraisal {
       );
     }
   }
+}
+
+/** Barrio, localidad y provincia quedan vacíos hasta completar la ubicación: no van al historial. */
+function withoutEmptyTexts(state: AuditState): AuditState {
+  return Object.fromEntries(Object.entries(state).filter(([, value]) => value !== ''));
 }
 
 /** Para pasos que no pueden fallar con datos ya validados: si fallan, es un error de programación. */

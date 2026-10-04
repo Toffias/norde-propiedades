@@ -111,6 +111,8 @@ describe('CreatePropertyFromAppraisal', () => {
         }) as unknown,
       }),
     );
+    // Barrio, localidad y provincia se completan después: el alta no los registra vacíos.
+    expect(uow.audit.entries[0]?.changes).not.toHaveProperty('neighborhood');
   });
 
   it('copies the photos to the gallery, the first one as the cover', async () => {

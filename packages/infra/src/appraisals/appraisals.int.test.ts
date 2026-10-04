@@ -1,22 +1,40 @@
 import {
   ChangeAppraisalStatus,
+  ConvertAppraisalToListing,
   CreateAppraisal,
   DeleteAppraisal,
   EraseClientAppraisals,
   GetAppraisal,
   ListAppraisals,
   MoveMergedClientAppraisals,
+  RecordAppraisalResult,
   UpdateAppraisal,
+  UploadAppraisalPhoto,
   type ActiveUsers,
   type PanelDirectory,
 } from '@norde/core/appraisals';
+import {
+  CreatePropertyFromAppraisal,
+  CreatePropertyFromAppraisalInputSchema,
+} from '@norde/core/properties';
+import { FakeReferenceCodeAllocator } from '@norde/core/properties/testing';
+import { InMemoryFileStorage } from '@norde/core/settings/testing';
 import { Actor, type Result } from '@norde/core/shared';
 import { FixedClock } from '@norde/core/shared/testing';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
-import { appraisals, auditLog, clients, outbox } from '../db/schema';
+import {
+  appraisalPhotos,
+  appraisals,
+  auditLog,
+  clients,
+  mediaItems,
+  outbox,
+  propertyOwners,
+} from '../db/schema';
+import { createPropertiesUnitOfWork } from '../properties/properties-unit-of-work';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { createAppraisalsUnitOfWork } from './appraisals-unit-of-work';
@@ -56,11 +74,23 @@ const MANAGER = Actor.user(OTHER_AGENT, ['appraisals:*']);
 const SCHEDULER = Actor.system('scheduler', [
   'appraisals:erase-client-data',
   'appraisals:merge-client-data',
+  'properties:create-from-appraisal',
 ]);
+const CONVERTER = Actor.user(PRODUCER, [
+  'appraisals:read',
+  'appraisals:update',
+  'properties:create',
+]).withBranch(BRANCH);
+const JPEG = { contentType: 'image/jpeg', bytes: new Uint8Array([1, 2, 3]) };
 
 function unwrap<T, E>(result: Result<T, E>): T {
   if (result.isErr()) throw new Error(`Expected Ok: ${JSON.stringify(result.error)}`);
   return result.value;
+}
+
+function unwrapErr<T, E>(result: Result<T, E>): E {
+  if (result.isOk()) throw new Error('Expected Err');
+  return result.error;
 }
 
 async function aClient(id: string, name: string): Promise<void> {
@@ -251,10 +281,129 @@ describe('appraisals (Postgres)', () => {
     const [row] = await db.select().from(appraisals).where(eq(appraisals.id, appraisalId));
     expect(row?.requesterClientId).toBe(OTHER_CLIENT);
 
+    const storage = new InMemoryFileStorage();
+    const upload = new UploadAppraisalPhoto({ uow, storage, ids, clock });
+    unwrap(await upload.execute({ appraisalId, ...JPEG }, PRODUCER_ACTOR));
+    expect(storage.objects.size).toBe(1);
+
     const erased = unwrap(
-      await new EraseClientAppraisals({ uow }).execute({ clientIds: [OTHER_CLIENT] }, SCHEDULER),
+      await new EraseClientAppraisals({ uow, storage }).execute(
+        { clientIds: [OTHER_CLIENT] },
+        SCHEDULER,
+      ),
     );
     expect(erased).toEqual({ erased: 2 });
     expect(await db.select().from(appraisals)).toEqual([]);
+    expect(await db.select().from(appraisalPhotos)).toEqual([]);
+    expect(storage.objects.size).toBe(0);
+  });
+
+  it('records the result, uploads photos and converts it into a draft property', async () => {
+    await aClient(CLIENT, 'Ana Pérez');
+    const { appraisalId } = await anAppraisal({
+      address: 'Mitre 1234',
+      rooms: 4,
+      appraiserUserId: APPRAISER,
+    });
+    const storage = new InMemoryFileStorage();
+    const upload = new UploadAppraisalPhoto({ uow, storage, ids, clock });
+    const first = unwrap(await upload.execute({ appraisalId, ...JPEG }, PRODUCER_ACTOR));
+    const second = unwrap(await upload.execute({ appraisalId, ...JPEG }, PRODUCER_ACTOR));
+
+    unwrap(
+      await new RecordAppraisalResult({ uow, clock }).execute(
+        {
+          appraisalId,
+          saleMin: '110000',
+          saleMax: '120000',
+          saleCurrency: 'USD',
+          rentCurrency: 'ARS',
+          comparables: [
+            { address: 'Mitre 1500', price: '118000', currency: 'USD', surfaceM2: '65' },
+          ],
+          observations: 'Muy luminoso.',
+        },
+        PRODUCER_ACTOR,
+      ),
+    );
+    unwrap(
+      await new ChangeAppraisalStatus({ uow, clock }).execute(
+        { appraisalId, status: 'appraised' },
+        PRODUCER_ACTOR,
+      ),
+    );
+
+    const get = new GetAppraisal({ appraisals: query, directory });
+    const detail = unwrap(await get.execute({ appraisalId }, PRODUCER_ACTOR));
+    expect(detail).toMatchObject({
+      status: 'appraised',
+      convertible: true,
+      photoIds: [first.photoId, second.photoId],
+      convertedProperty: undefined,
+      result: {
+        sale: { minCents: 11_000_000n, maxCents: 12_000_000n, currency: 'USD' },
+        rent: undefined,
+        observations: 'Muy luminoso.',
+        comparables: [
+          {
+            address: 'Mitre 1500',
+            price: { amountCents: 11_800_000n, currency: 'USD' },
+            surfaceM2: 65,
+            pricePerM2: { amountCents: 181_538n, currency: 'USD' },
+          },
+        ],
+      },
+    });
+
+    const convert = new ConvertAppraisalToListing({ uow, ids, clock });
+    const { propertyId } = unwrap(await convert.execute({ appraisalId }, CONVERTER));
+    expect(unwrapErr(await convert.execute({ appraisalId }, CONVERTER))).toEqual({
+      type: 'AppraisalConverted',
+    });
+    const converted = unwrap(await get.execute({ appraisalId }, PRODUCER_ACTOR));
+    expect(converted).toMatchObject({
+      status: 'converted',
+      convertible: false,
+      convertedProperty: { id: propertyId, code: undefined },
+    });
+
+    // Lo que hace el job: el payload del outbox, tal cual, crea el borrador en properties.
+    const [event] = await db
+      .select()
+      .from(outbox)
+      .where(
+        and(
+          eq(outbox.aggregateId, appraisalId),
+          eq(outbox.eventType, 'appraisals.appraisal_converted'),
+        ),
+      );
+    const input = CreatePropertyFromAppraisalInputSchema.parse(event?.payload);
+    const createFromAppraisal = new CreatePropertyFromAppraisal({
+      uow: createPropertiesUnitOfWork(db, { ids, clock }),
+      codes: new FakeReferenceCodeAllocator(),
+      storage,
+      ids,
+      clock,
+    });
+    expect(unwrap(await createFromAppraisal.execute(input, SCHEDULER))).toBe('created');
+    expect(unwrap(await createFromAppraisal.execute(input, SCHEDULER))).toBe('exists');
+
+    const linked = unwrap(await get.execute({ appraisalId }, PRODUCER_ACTOR));
+    expect(linked.convertedProperty).toEqual({ id: propertyId, code: 'DEP0001' });
+    expect(
+      await db
+        .select({ clientId: propertyOwners.clientId })
+        .from(propertyOwners)
+        .where(eq(propertyOwners.propertyId, propertyId)),
+    ).toEqual([{ clientId: CLIENT }]);
+    const media = await db
+      .select({ isCover: mediaItems.isCover, position: mediaItems.position })
+      .from(mediaItems)
+      .where(eq(mediaItems.propertyId, propertyId))
+      .orderBy(mediaItems.position);
+    expect(media).toEqual([
+      { isCover: true, position: 0 },
+      { isCover: false, position: 1 },
+    ]);
   });
 });

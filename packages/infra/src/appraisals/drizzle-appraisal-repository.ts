@@ -6,15 +6,21 @@ import {
   Appraisal,
   type AppraisalCodeSequence,
   type AppraisalId,
+  type AppraisalPhoto,
+  type AppraisalPhotoId,
+  type AppraisalPhotoRepository,
   type AppraisalRepository,
   type AppraisalSnapshot,
+  type ErasedAppraisals,
 } from '@norde/core/appraisals';
 import { parseId } from '@norde/core/shared';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { asc, count, eq, inArray, max, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { appraisals } from '../db/schema';
+import { appraisalPhotos, appraisals } from '../db/schema';
+
+import { resultColumns, resultFromRow } from './appraisal-result-columns';
 
 type AppraisalDbRow = typeof appraisals.$inferSelect;
 
@@ -55,6 +61,8 @@ function toSnapshot(row: AppraisalDbRow): AppraisalSnapshot {
     bedrooms: row.bedrooms ?? undefined,
     bathrooms: row.bathrooms ?? undefined,
     condition: row.condition === null ? undefined : ConditionSchema.parse(row.condition),
+    result: resultFromRow(row),
+    convertedPropertyId: row.convertedPropertyId ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt ?? undefined,
@@ -80,6 +88,8 @@ function changingValues(s: AppraisalSnapshot, actorId: string) {
     bedrooms: s.bedrooms ?? null,
     bathrooms: s.bathrooms ?? null,
     condition: s.condition ?? null,
+    ...resultColumns(s.result),
+    convertedPropertyId: s.convertedPropertyId ?? null,
     deletedAt: s.deletedAt ?? null,
     deletedBy: s.deletedBy ?? null,
     updatedAt: s.updatedAt,
@@ -121,13 +131,26 @@ export class DrizzleAppraisalRepository implements AppraisalRepository {
     return moved.map((row) => toId(row.id));
   }
 
-  async deleteByRequesters(clientIds: readonly string[]): Promise<number> {
-    if (clientIds.length === 0) return 0;
+  async deleteByRequesters(clientIds: readonly string[], limit: number): Promise<ErasedAppraisals> {
+    if (clientIds.length === 0) return { deleted: 0, photoKeys: [] };
+    const batch = await this.db
+      .select({ id: appraisals.id })
+      .from(appraisals)
+      .where(inArray(appraisals.requesterClientId, [...clientIds]))
+      .orderBy(asc(appraisals.id))
+      .limit(limit);
+    if (batch.length === 0) return { deleted: 0, photoKeys: [] };
+    const ids = batch.map((row) => row.id);
+    // Las fotos se irían por cascada; se borran antes para devolver sus claves de storage.
+    const photos = await this.db
+      .delete(appraisalPhotos)
+      .where(inArray(appraisalPhotos.appraisalId, ids))
+      .returning({ storageKey: appraisalPhotos.storageKey });
     const deleted = await this.db
       .delete(appraisals)
-      .where(inArray(appraisals.requesterClientId, [...clientIds]))
+      .where(inArray(appraisals.id, ids))
       .returning({ id: appraisals.id });
-    return deleted.length;
+    return { deleted: deleted.length, photoKeys: photos.map((photo) => photo.storageKey) };
   }
 }
 
@@ -138,5 +161,81 @@ export class DrizzleAppraisalCodeSequence implements AppraisalCodeSequence {
   async next(): Promise<number> {
     const result = await this.db.execute(sql`select nextval('core.appraisal_code_seq') as value`);
     return NextValueSchema.parse(result.rows[0]).value;
+  }
+}
+
+function toPhotoId(raw: string): AppraisalPhotoId {
+  const id = parseId<'AppraisalPhoto'>(raw);
+  if (id.isErr()) throw new Error(`Invalid appraisal photo id ${raw}`);
+  return id.value;
+}
+
+function toPhoto(row: typeof appraisalPhotos.$inferSelect): AppraisalPhoto {
+  return {
+    id: toPhotoId(row.id),
+    appraisalId: toId(row.appraisalId),
+    storageKey: row.storageKey,
+    position: row.position,
+    createdAt: row.createdAt,
+  };
+}
+
+/** Las fotos de una tasación. El dominio limita cuántas hay; la lista igual lleva tope. */
+export class DrizzleAppraisalPhotoRepository implements AppraisalPhotoRepository {
+  constructor(
+    private readonly db: DbExecutor,
+    private readonly maxPerAppraisal: number,
+  ) {}
+
+  async listByAppraisal(appraisalId: AppraisalId): Promise<readonly AppraisalPhoto[]> {
+    const rows = await this.db
+      .select()
+      .from(appraisalPhotos)
+      .where(eq(appraisalPhotos.appraisalId, appraisalId))
+      .orderBy(asc(appraisalPhotos.position), asc(appraisalPhotos.id))
+      .limit(this.maxPerAppraisal);
+    return rows.map(toPhoto);
+  }
+
+  async findById(id: AppraisalPhotoId): Promise<AppraisalPhoto | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(appraisalPhotos)
+      .where(eq(appraisalPhotos.id, id))
+      .limit(1);
+    return row && toPhoto(row);
+  }
+
+  async count(appraisalId: AppraisalId): Promise<number> {
+    const [row] = await this.db
+      .select({ total: count() })
+      .from(appraisalPhotos)
+      .where(eq(appraisalPhotos.appraisalId, appraisalId));
+    return row?.total ?? 0;
+  }
+
+  async nextPosition(appraisalId: AppraisalId): Promise<number> {
+    const [row] = await this.db
+      .select({ last: max(appraisalPhotos.position) })
+      .from(appraisalPhotos)
+      .where(eq(appraisalPhotos.appraisalId, appraisalId));
+    return (row?.last ?? -1) + 1;
+  }
+
+  async insert(photo: AppraisalPhoto, actorId: string): Promise<void> {
+    await this.db.insert(appraisalPhotos).values({
+      id: photo.id,
+      appraisalId: photo.appraisalId,
+      storageKey: photo.storageKey,
+      position: photo.position,
+      createdAt: photo.createdAt,
+      updatedAt: photo.createdAt,
+      createdBy: actorId,
+      updatedBy: actorId,
+    });
+  }
+
+  async delete(id: AppraisalPhotoId): Promise<void> {
+    await this.db.delete(appraisalPhotos).where(eq(appraisalPhotos.id, id));
   }
 }

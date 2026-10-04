@@ -3,6 +3,7 @@ import {
   APPRAISAL_PROPERTY_TYPES,
   APPRAISAL_SOURCES,
   APPRAISAL_STATUSES,
+  MAX_APPRAISAL_PHOTOS,
   type AppraisalDetailItem,
   type AppraisalFilterCriteria,
   type AppraisalQuery,
@@ -29,7 +30,9 @@ import {
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { appraisals, clients } from '../db/schema';
+import { appraisalPhotos, appraisals, clients, properties } from '../db/schema';
+
+import { resultFromRow } from './appraisal-result-columns';
 
 const StatusSchema = z.enum(APPRAISAL_STATUSES);
 const SourceSchema = z.enum(APPRAISAL_SOURCES);
@@ -97,7 +100,7 @@ interface Row {
   readonly requesterName: string | null;
 }
 
-function toDetail(row: Row): AppraisalDetailItem {
+function toSearchItem(row: Row): AppraisalSearchItem {
   const a = row.appraisal;
   // Las tasaciones del panel siempre tienen solicitante y productor; una sin ellos es un bug.
   if (a.requesterClientId === null || a.producerUserId === null) {
@@ -117,6 +120,17 @@ function toDetail(row: Row): AppraisalDetailItem {
     visitAt: a.visitAt ?? undefined,
     createdAt: a.createdAt,
     deletedAt: a.deletedAt ?? undefined,
+  };
+}
+
+function toDetail(
+  row: Row & { readonly convertedPropertyCode: string | null },
+  photoIds: readonly string[],
+): AppraisalDetailItem {
+  const a = row.appraisal;
+  const { sale, rent, comparables, observations } = resultFromRow(a);
+  return {
+    ...toSearchItem(row),
     source: SourceSchema.parse(a.source),
     surfaceTotalM2: a.surfaceTotalM2 ?? undefined,
     surfaceCoveredM2: a.surfaceCoveredM2 ?? undefined,
@@ -126,25 +140,23 @@ function toDetail(row: Row): AppraisalDetailItem {
     condition: a.condition === null ? undefined : ConditionSchema.parse(a.condition),
     statusChangedAt: a.statusChangedAt ?? undefined,
     updatedAt: a.updatedAt,
-  };
-}
-
-function toSearchItem(row: Row): AppraisalSearchItem {
-  const d = toDetail(row);
-  return {
-    id: d.id,
-    code: d.code,
-    status: d.status,
-    propertyType: d.propertyType,
-    address: d.address,
-    requesterClientId: d.requesterClientId,
-    requesterName: d.requesterName,
-    producerUserId: d.producerUserId,
-    appraiserUserId: d.appraiserUserId,
-    branchId: d.branchId,
-    visitAt: d.visitAt,
-    createdAt: d.createdAt,
-    deletedAt: d.deletedAt,
+    result: {
+      sale,
+      rent,
+      observations,
+      comparables: comparables.map((comparable) => ({
+        address: comparable.address,
+        price: { amountCents: comparable.priceCents, currency: comparable.currency },
+        surfaceM2: comparable.surfaceM2,
+        url: comparable.url,
+        note: comparable.note,
+      })),
+    },
+    photoIds,
+    convertedProperty:
+      a.convertedPropertyId === null
+        ? undefined
+        : { id: a.convertedPropertyId, code: row.convertedPropertyCode ?? undefined },
   };
 }
 
@@ -182,15 +194,32 @@ export class DrizzleAppraisalQuery implements AppraisalQuery {
   }
 
   async findDetail(appraisalId: string): Promise<AppraisalDetailItem | undefined> {
-    const [row] = await this.db
-      .select(COLUMNS)
-      .from(appraisals)
-      .leftJoin(
-        clients,
-        and(eq(clients.id, appraisals.requesterClientId), isNull(clients.deletedAt)),
+    const [[row], photos] = await Promise.all([
+      this.db
+        .select({ ...COLUMNS, convertedPropertyCode: properties.code })
+        .from(appraisals)
+        .leftJoin(
+          clients,
+          and(eq(clients.id, appraisals.requesterClientId), isNull(clients.deletedAt)),
+        )
+        // La propiedad en la que se convirtió, solo para mostrar su código (no existe hasta que
+        // properties procesa la conversión).
+        .leftJoin(properties, eq(properties.id, appraisals.convertedPropertyId))
+        .where(eq(appraisals.id, appraisalId))
+        .limit(1),
+      this.db
+        .select({ id: appraisalPhotos.id })
+        .from(appraisalPhotos)
+        .where(eq(appraisalPhotos.appraisalId, appraisalId))
+        .orderBy(asc(appraisalPhotos.position), asc(appraisalPhotos.id))
+        .limit(MAX_APPRAISAL_PHOTOS),
+    ]);
+    return (
+      row &&
+      toDetail(
+        row,
+        photos.map((photo) => photo.id),
       )
-      .where(eq(appraisals.id, appraisalId))
-      .limit(1);
-    return row && toDetail(row);
+    );
   }
 }

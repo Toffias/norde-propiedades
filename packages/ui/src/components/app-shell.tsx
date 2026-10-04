@@ -73,7 +73,7 @@ export function AppShell({
     <div className="flex min-h-screen">
       <aside
         className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 border-r border-sidebar-border bg-sidebar transition-[width] motion-reduce:transition-none md:flex md:flex-col',
+          'sticky top-0 hidden h-dvh shrink-0 border-r border-sidebar-border bg-sidebar transition-[width] motion-reduce:transition-none md:flex md:flex-col print:hidden',
           compact ? 'w-[64px]' : 'w-[240px]',
         )}
       >
@@ -129,7 +129,7 @@ export function AppShell({
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-(--z-sticky) flex h-14 items-center justify-between gap-4 border-b border-border bg-card/95 px-4 backdrop-blur">
+        <header className="sticky top-0 z-(--z-sticky) flex h-14 items-center justify-between gap-4 border-b border-border bg-card/95 px-4 backdrop-blur print:hidden">
           <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
@@ -149,7 +149,7 @@ export function AppShell({
             <div className="flex shrink-0 items-center gap-2">{actions}</div>
           )}
         </header>
-        <main className="flex-1 px-4 py-5 md:px-6">{children}</main>
+        <main className="flex-1 px-4 py-5 md:px-6 print:p-0">{children}</main>
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ import type { PropertyRepository } from '../../domain/property.repository';
 import type { ReservationRepository } from '../../domain/reservation.repository';
 
 import type { PropertyClientMerge } from './property-client-merge';
+import type { PropertyOwnerLinks } from './property-owner-links';
 
 /** Lo que un command de properties usa dentro de la transacción, ligado a la misma conexión. */
 export interface PropertiesTransaction {
@@ -36,6 +37,7 @@ export interface PropertiesTransaction {
   readonly documents: PropertyDocumentRepository;
   readonly reservations: ReservationRepository;
   readonly clientMerge: PropertyClientMerge;
+  readonly owners: PropertyOwnerLinks;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

@@ -41,11 +41,13 @@ export const APPRAISAL_SOURCE_LABELS: Readonly<Record<AppraisalSourceValue, stri
   web: 'Formulario de la web',
 };
 
-export const APPRAISAL_TABS = ['datos', 'historial'] as const;
+export const APPRAISAL_TABS = ['datos', 'resultado', 'fotos', 'historial'] as const;
 export type AppraisalTab = (typeof APPRAISAL_TABS)[number];
 
 export const APPRAISAL_TAB_LABELS: Readonly<Record<AppraisalTab, string>> = {
   datos: 'Datos',
+  resultado: 'Resultado',
+  fotos: 'Fotos',
   historial: 'Historial',
 };
 
@@ -56,6 +58,10 @@ export const APPRAISAL_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> =
   'appraisal.deleted': 'mandó la tasación a la papelera',
   'appraisal.restored': 'restauró la tasación',
   'appraisal.client_merged': 'unificó el contacto solicitante',
+  'appraisal.result_recorded': 'cargó el resultado',
+  'appraisal.photo_added': 'subió una foto',
+  'appraisal.photo_deleted': 'borró una foto',
+  'appraisal.converted': 'convirtió la tasación en propiedad',
 };
 
 export const APPRAISAL_HISTORY_FIELD_LABELS: Readonly<Record<string, string>> = {
@@ -75,4 +81,13 @@ export const APPRAISAL_HISTORY_FIELD_LABELS: Readonly<Record<string, string>> = 
   bedrooms: 'Dormitorios',
   bathrooms: 'Baños',
   condition: 'Estado de conservación',
+  saleMinCents: 'Venta: mínimo',
+  saleMaxCents: 'Venta: máximo',
+  saleCurrency: 'Venta: moneda',
+  rentMinCents: 'Alquiler: mínimo',
+  rentMaxCents: 'Alquiler: máximo',
+  rentCurrency: 'Alquiler: moneda',
+  comparables: 'Comparables',
+  observations: 'Observaciones',
+  convertedPropertyId: 'Propiedad',
 };

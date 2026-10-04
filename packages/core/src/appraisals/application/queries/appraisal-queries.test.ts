@@ -133,6 +133,40 @@ describe('GetAppraisal', () => {
     }
   });
 
+  it('adds the value per m² of each comparable and whether it can be converted', async () => {
+    const appraised = appraisalDetailItem(
+      appraisalSnapshot({
+        status: 'appraised',
+        result: {
+          sale: { minCents: 1n, maxCents: 2n, currency: 'USD' },
+          rent: undefined,
+          comparables: [
+            {
+              address: 'Mitre 1500',
+              priceCents: 11_800_000n,
+              currency: 'USD',
+              surfaceM2: 65,
+              url: undefined,
+              note: undefined,
+            },
+          ],
+          observations: undefined,
+        },
+      }),
+    );
+    const get = new GetAppraisal({ appraisals: new StubAppraisalQuery([appraised]), directory });
+    const detail = unwrap(await get.execute({ appraisalId: APPRAISAL_ID }, TEST_PRODUCER));
+    expect(detail.convertible).toBe(true);
+    expect(detail.result.comparables[0]?.pricePerM2).toEqual({
+      amountCents: 181_538n,
+      currency: 'USD',
+    });
+
+    const requested = new GetAppraisal({ appraisals: new StubAppraisalQuery([ITEM]), directory });
+    const pending = unwrap(await requested.execute({ appraisalId: APPRAISAL_ID }, TEST_PRODUCER));
+    expect(pending.convertible).toBe(false);
+  });
+
   it("hides other people's appraisals without read-others", async () => {
     const get = new GetAppraisal({ appraisals: new StubAppraisalQuery([ITEM]), directory });
     expect(unwrapErr(await get.execute({ appraisalId: APPRAISAL_ID }, TEST_OTHER_AGENT))).toEqual({

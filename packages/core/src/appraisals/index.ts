@@ -25,8 +25,32 @@ export {
   type AppraisalId,
   type AppraisalSnapshot,
 } from './domain/appraisal';
-export type { AppraisalEvent } from './domain/appraisal.events';
-export type { AppraisalRepository } from './domain/appraisal.repository';
+export {
+  APPRAISAL_CURRENCIES,
+  comparablePricePerM2Cents,
+  EMPTY_APPRAISAL_RESULT,
+  type AppraisalComparable,
+  type AppraisalCurrency,
+  type AppraisalResult,
+  type AppraisalValueRange,
+} from './domain/appraisal-result';
+export {
+  APPRAISAL_PHOTO_TYPES,
+  appraisalPhotoKey,
+  type AppraisalPhoto,
+  type AppraisalPhotoId,
+} from './domain/appraisal-photo';
+export type {
+  AppraisalConverted,
+  AppraisalEvent,
+  ConvertedListing,
+  ConvertedListingPrice,
+} from './domain/appraisal.events';
+export type {
+  AppraisalPhotoRepository,
+  AppraisalRepository,
+  ErasedAppraisals,
+} from './domain/appraisal.repository';
 
 export type {
   AppraisalCodeSequence,
@@ -61,6 +85,26 @@ export {
   RestoreAppraisal,
   type RestoreAppraisalError,
 } from './application/commands/restore-appraisal';
+export {
+  RecordAppraisalResult,
+  type RecordAppraisalResultError,
+} from './application/commands/record-appraisal-result';
+export {
+  UploadAppraisalPhoto,
+  type UploadAppraisalPhotoError,
+} from './application/commands/upload-appraisal-photo';
+export {
+  DeleteAppraisalPhoto,
+  type DeleteAppraisalPhotoError,
+} from './application/commands/delete-appraisal-photo';
+export {
+  ConvertAppraisalToListing,
+  type ConvertAppraisalToListingError,
+} from './application/commands/convert-appraisal-to-listing';
+export {
+  GetAppraisalPhotoFile,
+  type GetAppraisalPhotoFileError,
+} from './application/queries/get-appraisal-photo-file';
 export { ListAppraisals, type ListAppraisalsError } from './application/queries/list-appraisals';
 export { GetAppraisal, type GetAppraisalError } from './application/queries/get-appraisal';
 export {
@@ -71,6 +115,10 @@ export {
   EraseClientAppraisals,
   type EraseClientAppraisalsError,
 } from './application/handlers/erase-client-appraisals';
+export {
+  DeleteAppraisalPhotoFiles,
+  type DeleteAppraisalPhotoFilesError,
+} from './application/handlers/delete-appraisal-photo-files';
 export {
   MoveMergedClientAppraisals,
   type MoveMergedClientAppraisalsError,

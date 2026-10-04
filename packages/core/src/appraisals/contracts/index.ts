@@ -4,15 +4,27 @@ import { z } from 'zod';
 
 import { historyQuerySchema } from '../../audit/contracts';
 import {
+  AmountSchema,
   CONDITION_VALUES,
+  CURRENCIES,
   PROPERTY_TYPES,
   type ConditionValue,
+  type Currency,
+  type MoneyDto,
   type PropertyType,
 } from '../../properties/contracts';
 import { pageQuerySchema } from '../../shared/contracts';
 
 // Los catálogos que la tasación comparte con la propiedad a la que se convierte.
-export { CONDITION_VALUES, PROPERTY_TYPES, type ConditionValue, type PropertyType };
+export {
+  CONDITION_VALUES,
+  CURRENCIES,
+  PROPERTY_TYPES,
+  type ConditionValue,
+  type Currency,
+  type MoneyDto,
+  type PropertyType,
+};
 
 /** Replica `APPRAISAL_STATUSES` del dominio. */
 export const APPRAISAL_STATUS_VALUES = [
@@ -103,6 +115,110 @@ export type ChangeAppraisalStatusInput = z.input<typeof ChangeAppraisalStatusInp
 export const AppraisalIdInputSchema = z.object({ appraisalId: z.uuid() });
 export type AppraisalIdInput = z.input<typeof AppraisalIdInputSchema>;
 
+// ---------- Resultado ----------
+
+/** Replica `MAX_APPRAISAL_COMPARABLES` del dominio. */
+export const MAX_APPRAISAL_COMPARABLES = 20;
+export const MAX_APPRAISAL_OBSERVATIONS_LENGTH = 4000;
+
+const OptionalAmount = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  AmountSchema.optional(),
+);
+
+export const AppraisalComparableInputSchema = z.object({
+  address: z.string().trim().min(1, 'Ingresá la dirección.').max(MAX_APPRAISAL_ADDRESS_LENGTH),
+  /** En unidades; se guarda en centavos. */
+  price: AmountSchema,
+  currency: z.enum(CURRENCIES),
+  surfaceM2: OptionalMeters,
+  url: z
+    .url({ protocol: /^https?$/, message: 'Pegá el link completo, con https://.' })
+    .max(500)
+    .optional(),
+  note: z.string().trim().max(300).optional(),
+});
+export type AppraisalComparableInput = z.input<typeof AppraisalComparableInputSchema>;
+
+/**
+ * Valores sugeridos (en unidades; se guardan en centavos), comparables y observaciones. De cada
+ * operación se cargan los dos valores o ninguno, y el mínimo no supera al máximo.
+ */
+export const RecordAppraisalResultInputSchema = z
+  .object({
+    appraisalId: z.uuid(),
+    saleMin: OptionalAmount,
+    saleMax: OptionalAmount,
+    saleCurrency: z.enum(CURRENCIES),
+    rentMin: OptionalAmount,
+    rentMax: OptionalAmount,
+    rentCurrency: z.enum(CURRENCIES),
+    comparables: z
+      .array(AppraisalComparableInputSchema)
+      .max(
+        MAX_APPRAISAL_COMPARABLES,
+        `Cargá hasta ${String(MAX_APPRAISAL_COMPARABLES)} comparables.`,
+      )
+      .default([]),
+    observations: z.string().trim().max(MAX_APPRAISAL_OBSERVATIONS_LENGTH).optional(),
+  })
+  .superRefine((input, ctx) => {
+    for (const operation of ['sale', 'rent'] as const) {
+      const min = input[`${operation}Min`];
+      const max = input[`${operation}Max`];
+      if ((min === undefined) !== (max === undefined)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Cargá el mínimo y el máximo.',
+          path: [min === undefined ? `${operation}Min` : `${operation}Max`],
+        });
+      } else if (min !== undefined && max !== undefined && min > max) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'El mínimo no puede superar al máximo.',
+          path: [`${operation}Max`],
+        });
+      }
+    }
+  });
+export type RecordAppraisalResultInput = z.input<typeof RecordAppraisalResultInputSchema>;
+export type RecordAppraisalResultValues = z.output<typeof RecordAppraisalResultInputSchema>;
+
+// ---------- Fotos ----------
+
+/** Replica `MAX_APPRAISAL_PHOTO_BYTES` del dominio. */
+export const MAX_APPRAISAL_PHOTO_BYTES = 15 * 1024 * 1024;
+/** Replica `MAX_APPRAISAL_PHOTOS` del dominio. */
+export const MAX_APPRAISAL_PHOTOS = 30;
+/** Replica `APPRAISAL_PHOTO_TYPES` del dominio, para el selector de archivos. */
+export const APPRAISAL_PHOTO_TYPE_VALUES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+export const UploadAppraisalPhotoInputSchema = z.object({
+  appraisalId: z.uuid(),
+  contentType: z.string().trim().min(1).max(100),
+  bytes: z
+    .instanceof(Uint8Array)
+    .refine((value) => value.byteLength > 0, { message: 'El archivo está vacío.' })
+    .refine((value) => value.byteLength <= MAX_APPRAISAL_PHOTO_BYTES, {
+      message: 'El archivo es demasiado grande.',
+    }),
+});
+export type UploadAppraisalPhotoInput = z.input<typeof UploadAppraisalPhotoInputSchema>;
+
+export const AppraisalPhotoInputSchema = z.object({
+  appraisalId: z.uuid(),
+  photoId: z.uuid(),
+});
+export type AppraisalPhotoInput = z.input<typeof AppraisalPhotoInputSchema>;
+
+/** Solo claves de fotos de tasaciones: el job nunca borra otra cosa del storage. */
+export const DeleteAppraisalPhotoFilesInputSchema = z.object({
+  storageKeys: z
+    .array(z.string().regex(/^appraisals\/[0-9a-f-]{36}\/photos\/[0-9a-f-]{36}\/original$/))
+    .max(MAX_APPRAISAL_PHOTOS),
+});
+export type DeleteAppraisalPhotoFilesInput = z.input<typeof DeleteAppraisalPhotoFilesInputSchema>;
+
 // ---------- Listado (/tasaciones) ----------
 
 export const APPRAISAL_SORT_FIELDS = ['createdAt', 'visitAt', 'code'] as const;
@@ -181,6 +297,39 @@ export interface AppraisalListRow {
 
 // ---------- Ficha (/tasaciones/[id]) ----------
 
+/** Valor sugerido de una operación. */
+export interface AppraisalValueRangeDto {
+  readonly minCents: bigint;
+  readonly maxCents: bigint;
+  readonly currency: Currency;
+}
+
+export interface AppraisalComparableDto {
+  readonly address: string;
+  readonly price: MoneyDto;
+  readonly surfaceM2: number | undefined;
+  readonly url: string | undefined;
+  readonly note: string | undefined;
+}
+
+export interface AppraisalResultDto {
+  readonly sale: AppraisalValueRangeDto | undefined;
+  readonly rent: AppraisalValueRangeDto | undefined;
+  readonly comparables: readonly AppraisalComparableDto[];
+  readonly observations: string | undefined;
+}
+
+/** Un comparable con su valor por m² (lo calcula el dominio). */
+export interface AppraisalComparableRow extends AppraisalComparableDto {
+  readonly pricePerM2: MoneyDto | undefined;
+}
+
+/** La propiedad en la que se convirtió. `code` es `undefined` mientras se crea. */
+export interface ConvertedPropertyRef {
+  readonly id: string;
+  readonly code: string | undefined;
+}
+
 /** La tasación completa, para su ficha. */
 export interface AppraisalDetail extends AppraisalListRow {
   readonly source: AppraisalSourceValue;
@@ -192,8 +341,16 @@ export interface AppraisalDetail extends AppraisalListRow {
   readonly condition: ConditionValue | undefined;
   readonly statusChangedAt: Date | undefined;
   readonly updatedAt: Date;
+  readonly result: Omit<AppraisalResultDto, 'comparables'> & {
+    readonly comparables: readonly AppraisalComparableRow[];
+  };
+  /** Las fotos, en orden de carga. */
+  readonly photoIds: readonly string[];
+  readonly convertedProperty: ConvertedPropertyRef | undefined;
   /** A qué estados se puede pasar a mano desde el actual (lo decide el dominio). */
   readonly nextStatuses: readonly ManualAppraisalStatusValue[];
+  /** Se puede convertir en propiedad: está tasada (lo decide el dominio). */
+  readonly convertible: boolean;
 }
 
 export const ListAppraisalHistoryQuerySchema = historyQuerySchema().extend({

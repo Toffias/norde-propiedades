@@ -10,7 +10,9 @@ import type {
 } from '../application/ports/appraisals-transaction';
 import type { ActiveUsers, PanelDirectory } from '../application/ports/panel-directory';
 import { Appraisal, type AppraisalId, type AppraisalSnapshot } from '../domain/appraisal';
-import type { AppraisalRepository } from '../domain/appraisal.repository';
+import type { AppraisalPhoto, AppraisalPhotoId } from '../domain/appraisal-photo';
+import { EMPTY_APPRAISAL_RESULT } from '../domain/appraisal-result';
+import type { AppraisalPhotoRepository, AppraisalRepository } from '../domain/appraisal.repository';
 
 export const TEST_NOW = new Date('2026-10-01T12:00:00Z');
 export const APPRAISAL_ID = '00000000-0000-7000-8000-0000000000d1';
@@ -76,6 +78,8 @@ export function appraisalSnapshot(
     bedrooms: 3,
     bathrooms: 2,
     condition: 'good',
+    result: EMPTY_APPRAISAL_RESULT,
+    convertedPropertyId: undefined,
     createdAt: TEST_NOW,
     updatedAt: TEST_NOW,
     deletedAt: undefined,
@@ -84,9 +88,47 @@ export function appraisalSnapshot(
   };
 }
 
+export class InMemoryAppraisalPhotoRepository implements AppraisalPhotoRepository {
+  readonly rows = new Map<string, AppraisalPhoto>();
+
+  listByAppraisal(appraisalId: AppraisalId) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((photo) => photo.appraisalId === appraisalId)
+        .sort((a, b) => a.position - b.position),
+    );
+  }
+
+  findById(id: AppraisalPhotoId) {
+    return Promise.resolve(this.rows.get(id));
+  }
+
+  async count(appraisalId: AppraisalId) {
+    return (await this.listByAppraisal(appraisalId)).length;
+  }
+
+  async nextPosition(appraisalId: AppraisalId) {
+    const photos = await this.listByAppraisal(appraisalId);
+    return Math.max(-1, ...photos.map((photo) => photo.position)) + 1;
+  }
+
+  insert(photo: AppraisalPhoto) {
+    this.rows.set(photo.id, photo);
+    return Promise.resolve();
+  }
+
+  delete(id: AppraisalPhotoId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
 export class InMemoryAppraisalRepository implements AppraisalRepository {
   readonly rows = new Map<string, AppraisalSnapshot>();
   readonly savedBy = new Map<string, string>();
+
+  /** Las fotos se borran con su tasación (en la base, por cascada). */
+  constructor(private readonly photos = new InMemoryAppraisalPhotoRepository()) {}
 
   findById(id: AppraisalId) {
     const row = this.rows.get(id);
@@ -115,14 +157,21 @@ export class InMemoryAppraisalRepository implements AppraisalRepository {
     return Promise.resolve(moved);
   }
 
-  deleteByRequesters(clientIds: readonly string[]) {
+  deleteByRequesters(clientIds: readonly string[], limit: number) {
     let deleted = 0;
+    const photoKeys: string[] = [];
     for (const [id, row] of this.rows) {
+      if (deleted >= limit) break;
       if (!clientIds.includes(row.requesterClientId)) continue;
+      for (const [photoId, photo] of this.photos.rows) {
+        if (photo.appraisalId !== id) continue;
+        photoKeys.push(photo.storageKey);
+        this.photos.rows.delete(photoId);
+      }
       this.rows.delete(id);
       deleted += 1;
     }
-    return Promise.resolve(deleted);
+    return Promise.resolve({ deleted, photoKeys });
   }
 }
 
@@ -140,7 +189,8 @@ function isErrResult(value: unknown): boolean {
 }
 
 export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, AppraisalsTransaction {
-  readonly appraisals = new InMemoryAppraisalRepository();
+  readonly photos = new InMemoryAppraisalPhotoRepository();
+  readonly appraisals = new InMemoryAppraisalRepository(this.photos);
   readonly codes = new InMemoryAppraisalCodeSequence();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
@@ -148,12 +198,15 @@ export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, Appra
   async run<T>(work: (tx: AppraisalsTransaction) => Promise<T>): Promise<T> {
     const backup = {
       rows: new Map(this.appraisals.rows),
+      photos: new Map(this.photos.rows),
       events: this.events.published.length,
       audit: this.audit.entries.length,
     };
     const rollback = () => {
       this.appraisals.rows.clear();
       for (const [k, v] of backup.rows) this.appraisals.rows.set(k, v);
+      this.photos.rows.clear();
+      for (const [k, v] of backup.photos) this.photos.rows.set(k, v);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
     };
@@ -206,8 +259,27 @@ export class InMemoryPanelDirectory implements PanelDirectory {
 export function appraisalDetailItem(
   snapshot: AppraisalSnapshot,
   requesterName: string | undefined = 'Ana Pérez',
+  photoIds: readonly string[] = [],
 ): AppraisalDetailItem {
+  const { sale, rent, comparables, observations } = snapshot.result;
   return {
+    result: {
+      sale,
+      rent,
+      observations,
+      comparables: comparables.map((comparable) => ({
+        address: comparable.address,
+        price: { amountCents: comparable.priceCents, currency: comparable.currency },
+        surfaceM2: comparable.surfaceM2,
+        url: comparable.url,
+        note: comparable.note,
+      })),
+    },
+    photoIds,
+    convertedProperty:
+      snapshot.convertedPropertyId === undefined
+        ? undefined
+        : { id: snapshot.convertedPropertyId, code: undefined },
     id: snapshot.id,
     code: snapshot.code,
     status: snapshot.status,

@@ -2,7 +2,16 @@ import { AggregateRoot } from '../../shared/domain/aggregate-root';
 import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
-import type { AppraisalEvent } from './appraisal.events';
+import {
+  cleanAppraisalResult,
+  EMPTY_APPRAISAL_RESULT,
+  hasSuggestedValue,
+  sameAppraisalResult,
+  type AppraisalResult,
+  type AppraisalValueRange,
+  type InvalidAppraisalResultError,
+} from './appraisal-result';
+import type { AppraisalEvent, ConvertedListing, ConvertedListingPrice } from './appraisal.events';
 import {
   canAppraisalTransition,
   type AppraisalStatus,
@@ -58,6 +67,10 @@ export interface AppraisalSnapshot extends AppraisalDetails {
   readonly source: AppraisalSource;
   readonly status: AppraisalStatus;
   readonly statusChangedAt: Date | undefined;
+  /** Valores sugeridos, comparables y observaciones. */
+  readonly result: AppraisalResult;
+  /** La propiedad en la que se convirtió: del módulo properties, solo por ID. */
+  readonly convertedPropertyId: string | undefined;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | undefined;
@@ -81,6 +94,14 @@ export interface VisitDateRequiredError {
 /** Una tasación convertida en propiedad ya no se edita ni cambia de estado. */
 export interface AppraisalConvertedError {
   readonly type: 'AppraisalConverted';
+}
+/** Para marcarla tasada (o seguir tasada) hace falta un valor sugerido de venta o de alquiler. */
+export interface AppraisalValueRequiredError {
+  readonly type: 'AppraisalValueRequired';
+}
+/** Solo una tasación tasada se convierte en propiedad. */
+export interface AppraisalNotAppraisedError {
+  readonly type: 'AppraisalNotAppraised';
 }
 export interface AppraisalDeletedError {
   readonly type: 'AppraisalDeleted';
@@ -178,6 +199,8 @@ export class Appraisal extends AggregateRoot<AppraisalId, AppraisalEvent> {
       source: input.source,
       status: 'requested',
       statusChangedAt: input.now,
+      result: EMPTY_APPRAISAL_RESULT,
+      convertedPropertyId: undefined,
       createdAt: input.now,
       updatedAt: input.now,
       deletedAt: undefined,
@@ -221,8 +244,23 @@ export class Appraisal extends AggregateRoot<AppraisalId, AppraisalEvent> {
     return this.#state.branchId;
   }
 
+  get result(): AppraisalResult {
+    return this.#state.result;
+  }
+
+  get convertedPropertyId(): string | undefined {
+    return this.#state.convertedPropertyId;
+  }
+
   get isDeleted(): boolean {
     return this.#state.deletedAt !== undefined;
+  }
+
+  /** Se puede cambiar (datos, resultado, fotos): no está en la papelera ni convertida. */
+  checkEditable(): Result<void, AppraisalDeletedError | AppraisalConvertedError> {
+    if (this.isDeleted) return err({ type: 'AppraisalDeleted' });
+    if (this.#state.status === 'converted') return err({ type: 'AppraisalConverted' });
+    return ok(undefined);
   }
 
   /** Cambia los datos. Devuelve `false` si no cambió nada. */
@@ -236,7 +274,7 @@ export class Appraisal extends AggregateRoot<AppraisalId, AppraisalEvent> {
     | VisitDateRequiredError
     | InvalidAppraisalDetailsError
   > {
-    const editable = this.#checkEditable();
+    const editable = this.checkEditable();
     if (editable.isErr()) return err(editable.error);
     const cleaned = cleanDetails(details);
     if (cleaned.isErr()) return err(cleaned.error);
@@ -264,8 +302,9 @@ export class Appraisal extends AggregateRoot<AppraisalId, AppraisalEvent> {
     | AppraisalConvertedError
     | InvalidAppraisalTransitionError
     | VisitDateRequiredError
+    | AppraisalValueRequiredError
   > {
-    const editable = this.#checkEditable();
+    const editable = this.checkEditable();
     if (editable.isErr()) return err(editable.error);
     const from = this.#state.status;
     if (from === to) return ok(false);
@@ -275,6 +314,9 @@ export class Appraisal extends AggregateRoot<AppraisalId, AppraisalEvent> {
     if (to === 'visit_scheduled' && this.#state.visitAt === undefined) {
       return err({ type: 'VisitDateRequired' });
     }
+    if (to === 'appraised' && !hasSuggestedValue(this.#state.result)) {
+      return err({ type: 'AppraisalValueRequired' });
+    }
     this.#state = { ...this.#state, status: to, statusChangedAt: now, updatedAt: now };
     this.record({
       type: 'appraisals.appraisal_status_changed',
@@ -283,6 +325,83 @@ export class Appraisal extends AggregateRoot<AppraisalId, AppraisalEvent> {
       payload: { ...this.#payload(), from, to },
     });
     return ok(true);
+  }
+
+  /**
+   * Carga o corrige el resultado: valores sugeridos, comparables y observaciones. Una tasada no
+   * puede quedarse sin valores. Devuelve `false` si no cambió nada.
+   */
+  recordResult(
+    result: AppraisalResult,
+    now: Date,
+  ): Result<
+    boolean,
+    | AppraisalDeletedError
+    | AppraisalConvertedError
+    | AppraisalValueRequiredError
+    | InvalidAppraisalResultError
+  > {
+    const editable = this.checkEditable();
+    if (editable.isErr()) return err(editable.error);
+    const cleaned = cleanAppraisalResult(result);
+    if (cleaned.isErr()) return err(cleaned.error);
+    if (this.#state.status === 'appraised' && !hasSuggestedValue(cleaned.value)) {
+      return err({ type: 'AppraisalValueRequired' });
+    }
+    if (sameAppraisalResult(this.#state.result, cleaned.value)) return ok(false);
+    this.#state = { ...this.#state, result: cleaned.value, updatedAt: now };
+    this.record({
+      type: 'appraisals.appraisal_result_recorded',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: this.#payload(),
+    });
+    return ok(true);
+  }
+
+  /** Saca una foto: el archivo lo borra un job, después de confirmar la baja. */
+  removePhoto(
+    storageKey: string,
+    now: Date,
+  ): Result<void, AppraisalDeletedError | AppraisalConvertedError> {
+    const editable = this.checkEditable();
+    if (editable.isErr()) return err(editable.error);
+    this.#state = { ...this.#state, updatedAt: now };
+    this.record({
+      type: 'appraisals.appraisal_photo_deleted',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: { ...this.#payload(), storageKeys: [storageKey] },
+    });
+    return ok(undefined);
+  }
+
+  /**
+   * La convierte en una propiedad: queda "convertida", con el ID de la propiedad, y el evento lleva
+   * lo que properties necesita para crear el borrador. Una sola vez, y solo si está tasada.
+   */
+  convert(
+    input: { readonly propertyId: string; readonly photoKeys: readonly string[] },
+    now: Date,
+  ): Result<void, AppraisalDeletedError | AppraisalConvertedError | AppraisalNotAppraisedError> {
+    const editable = this.checkEditable();
+    if (editable.isErr()) return err(editable.error);
+    const from = this.#state.status;
+    if (!canAppraisalTransition(from, 'converted')) return err({ type: 'AppraisalNotAppraised' });
+    this.#state = {
+      ...this.#state,
+      status: 'converted',
+      statusChangedAt: now,
+      convertedPropertyId: input.propertyId,
+      updatedAt: now,
+    };
+    this.record({
+      type: 'appraisals.appraisal_converted',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: { ...this.#payload(), listing: this.#listing(input) },
+    });
+    return ok(undefined);
   }
 
   /** Baja lógica: va a la papelera con quién la borró y cuándo. */
@@ -314,13 +433,42 @@ export class Appraisal extends AggregateRoot<AppraisalId, AppraisalEvent> {
     return { id: this.id, ...this.#state };
   }
 
-  #checkEditable(): Result<void, AppraisalDeletedError | AppraisalConvertedError> {
-    if (this.isDeleted) return err({ type: 'AppraisalDeleted' });
-    if (this.#state.status === 'converted') return err({ type: 'AppraisalConverted' });
-    return ok(undefined);
+  #listing(input: {
+    readonly propertyId: string;
+    readonly photoKeys: readonly string[];
+  }): ConvertedListing {
+    const s = this.#state;
+    const sale = listingPrice(s.result.sale);
+    const rent = listingPrice(s.result.rent);
+    // Los campos sin dato no viajan: el payload se guarda como JSON.
+    return {
+      propertyId: input.propertyId,
+      appraisalCode: s.code,
+      propertyType: s.propertyType,
+      producerUserId: s.producerUserId,
+      photoKeys: input.photoKeys,
+      ...(s.address === undefined ? {} : { address: s.address }),
+      ...(s.surfaceTotalM2 === undefined ? {} : { surfaceTotalM2: s.surfaceTotalM2 }),
+      ...(s.surfaceCoveredM2 === undefined ? {} : { surfaceCoveredM2: s.surfaceCoveredM2 }),
+      ...(s.rooms === undefined ? {} : { rooms: s.rooms }),
+      ...(s.bedrooms === undefined ? {} : { bedrooms: s.bedrooms }),
+      ...(s.bathrooms === undefined ? {} : { bathrooms: s.bathrooms }),
+      ...(s.condition === undefined ? {} : { condition: s.condition }),
+      ...(s.branchId === undefined ? {} : { branchId: s.branchId }),
+      ...(s.appraiserUserId === undefined ? {} : { appraiserUserId: s.appraiserUserId }),
+      ...(sale === undefined ? {} : { sale }),
+      ...(rent === undefined ? {} : { rent }),
+    };
   }
 
   #payload(): { appraisalId: string; requesterClientId: string } {
     return { appraisalId: this.id, requesterClientId: this.#state.requesterClientId };
   }
+}
+
+/** El precio con el que se publica: el máximo sugerido. */
+function listingPrice(range: AppraisalValueRange | undefined): ConvertedListingPrice | undefined {
+  return range === undefined
+    ? undefined
+    : { priceCents: range.maxCents.toString(), currency: range.currency };
 }

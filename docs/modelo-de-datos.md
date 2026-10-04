@@ -96,6 +96,8 @@ Entre paréntesis, los IDs de **otros módulos** que guarda cada tabla (sin FK).
 
 El código de la tasación (`TAS0001`) sale de la secuencia `core.appraisal_code_seq` (migración `0030`): las tasaciones tienen numeración propia, separada de los códigos de referencia de las propiedades.
 
+El resultado vive en la fila de la tasación: los valores sugeridos en `sale_*_cents` / `rent_*_cents` con su moneda, y los comparables en `comparables` (jsonb, una lista de `{ address, priceCents, currency, surfaceM2?, url?, note? }` con los centavos como texto). Las fotos (`appraisal_photos`) guardan la clave de la original en el storage privado (`appraisals/<tasación>/photos/<foto>/original`). Al convertir, `converted_property_id` apunta a la propiedad que crea properties, que copia las fotos a su galería y suma al solicitante en `property_owners`.
+
 ### `portals` (`portals.ts`)
 
 | Tabla                        | Qué es (IDs de otros módulos)                                                      |

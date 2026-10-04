@@ -165,7 +165,7 @@ export function PropertyDetailHeader({
             {detail.portalTitle}
           </h1>
           <p className="mt-0.5 text-sm leading-normal text-entity-header-muted">
-            {type} · {detail.code} · {place}
+            {[type, detail.code, place].filter((part) => part !== '').join(' · ')}
           </p>
           <p className="text-sm leading-normal text-entity-header-muted">
             {detail.publishAddress}

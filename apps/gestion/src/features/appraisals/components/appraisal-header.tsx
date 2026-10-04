@@ -10,8 +10,18 @@ import {
 } from '@norde/ui/components/dropdown-menu';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { ArchiveRestoreIcon, CalculatorIcon, ChevronDownIcon, Trash2Icon } from 'lucide-react';
-import { useState, useTransition } from 'react';
+import {
+  ArchiveRestoreIcon,
+  CalculatorIcon,
+  ChevronDownIcon,
+  HousePlusIcon,
+  Loader2Icon,
+  Trash2Icon,
+} from 'lucide-react';
+import type { Route } from 'next';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, useTransition } from 'react';
 
 import { runAction, type ActionResult } from '../../../lib/action-result';
 import { formatDate, formatDateTime } from '../../../lib/format';
@@ -22,6 +32,7 @@ import {
 } from '../../shared/components/confirm-action-dialog';
 import {
   changeAppraisalStatusAction,
+  convertAppraisalToListingAction,
   deleteAppraisalAction,
   restoreAppraisalAction,
 } from '../actions';
@@ -34,8 +45,54 @@ import {
 export interface AppraisalDetailPermissions {
   /** Editar y cambiar el estado: el caso de uso vuelve a decidirlo. */
   readonly edit: boolean;
+  /** Convertir en propiedad: además pide poder dar de alta propiedades. */
+  readonly convert: boolean;
   readonly delete: boolean;
   readonly history: boolean;
+}
+
+/** Cada cuánto se vuelve a pedir la ficha mientras se crea la propiedad de la conversión. */
+const REFRESH_MS = 3000;
+
+/** La propiedad en la que se convirtió; la crea un job, así que al principio no tiene código. */
+function ConvertedProperty({
+  property,
+}: {
+  readonly property: NonNullable<AppraisalDetail['convertedProperty']>;
+}) {
+  const router = useRouter();
+  const creating = property.code === undefined;
+
+  useEffect(() => {
+    if (!creating) return undefined;
+    const timer = setInterval(() => {
+      router.refresh();
+    }, REFRESH_MS);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [creating, router]);
+
+  if (creating) {
+    return (
+      <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-entity-header-muted">
+        <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />
+        Creando la propiedad…
+      </p>
+    );
+  }
+  return (
+    <p className="mt-1 text-sm text-entity-header-muted">
+      Ingresó como{' '}
+      <Link
+        // La ficha de la propiedad: typedRoutes no verifica un segmento armado.
+        href={`/propiedades/${property.id}` as Route}
+        className="font-semibold text-white underline underline-offset-2"
+      >
+        {property.code}
+      </Link>
+    </p>
+  );
 }
 
 /** Cabecera de la ficha: código, estado (con su cambio), solicitante, visita y papelera. */
@@ -95,6 +152,9 @@ export function AppraisalHeader({
             {subtitle.join(' · ')}
           </p>
           <p className="text-sm leading-normal text-entity-header-muted">{facts.join(' · ')}</p>
+          {detail.convertedProperty !== undefined && (
+            <ConvertedProperty property={detail.convertedProperty} />
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {permissions.edit && !inTrash && detail.nextStatuses.length > 0 && (
@@ -123,6 +183,27 @@ export function AppraisalHeader({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+          {permissions.convert && !inTrash && detail.convertible && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-foreground dark:bg-card"
+              onClick={() => {
+                setConfirm({
+                  copy: {
+                    title: 'Convertir en propiedad',
+                    description: `Se crea una propiedad en borrador con los datos de ${detail.code}, el solicitante como propietario, el valor sugerido máximo como precio y las fotos. La tasación queda ingresada y ya no se edita.`,
+                    confirm: 'Convertir',
+                    done: 'Tasación convertida: la propiedad se está creando',
+                  },
+                  run: () => convertAppraisalToListingAction({ appraisalId: detail.id }),
+                });
+              }}
+            >
+              <HousePlusIcon className="h-4 w-4" />
+              Convertir en propiedad
+            </Button>
           )}
           {permissions.delete &&
             (inTrash ? (

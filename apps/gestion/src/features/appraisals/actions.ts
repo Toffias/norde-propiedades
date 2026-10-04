@@ -2,19 +2,27 @@
 
 import {
   AppraisalIdInputSchema,
+  AppraisalPhotoInputSchema,
   ChangeAppraisalStatusInputSchema,
   CreateAppraisalInputSchema,
+  RecordAppraisalResultInputSchema,
   UpdateAppraisalInputSchema,
+  UploadAppraisalPhotoInputSchema,
   type AppraisalIdInput,
+  type AppraisalPhotoInput,
   type ChangeAppraisalStatusInput,
   type CreateAppraisalInput,
+  type RecordAppraisalResultInput,
   type UpdateAppraisalInput,
 } from '@norde/core/appraisals/contracts';
 import type {
   ChangeAppraisalStatusError,
   DeleteAppraisalError,
+  DeleteAppraisalPhotoError,
+  RecordAppraisalResultError,
   RestoreAppraisalError,
   UpdateAppraisalError,
+  UploadAppraisalPhotoError,
 } from '@norde/core/appraisals';
 import type { Result } from '@norde/core/shared';
 import { revalidatePath } from 'next/cache';
@@ -35,7 +43,13 @@ function appraisals() {
 }
 
 type AppraisalCommandError =
-  UpdateAppraisalError | ChangeAppraisalStatusError | DeleteAppraisalError | RestoreAppraisalError;
+  | UpdateAppraisalError
+  | ChangeAppraisalStatusError
+  | DeleteAppraisalError
+  | RestoreAppraisalError
+  | RecordAppraisalResultError
+  | UploadAppraisalPhotoError
+  | DeleteAppraisalPhotoError;
 
 /** Mapea el resultado y revalida el listado y las fichas. */
 function done(result: Result<unknown, AppraisalCommandError>): ActionResult {
@@ -84,4 +98,49 @@ export async function restoreAppraisalAction(input: AppraisalIdInput): Promise<A
   const parsed = AppraisalIdInputSchema.safeParse(input);
   if (!parsed.success) return actionFailed(INVALID);
   return done(await appraisals().restoreAppraisal.execute(parsed.data, actor));
+}
+
+export async function recordAppraisalResultAction(
+  input: RecordAppraisalResultInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = RecordAppraisalResultInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+  return done(await appraisals().recordAppraisalResult.execute(parsed.data, actor));
+}
+
+/** Una foto por pedido: la pantalla sube varias en paralelo y muestra el avance. */
+export async function uploadAppraisalPhotoAction(form: FormData): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const file = form.get('file');
+  const parsed = UploadAppraisalPhotoInputSchema.safeParse({
+    appraisalId: form.get('appraisalId'),
+    ...(file instanceof File
+      ? { contentType: file.type, bytes: new Uint8Array(await file.arrayBuffer()) }
+      : {}),
+  });
+  if (!parsed.success) return actionFailed(INVALID);
+  return done(await appraisals().uploadAppraisalPhoto.execute(parsed.data, actor));
+}
+
+export async function deleteAppraisalPhotoAction(
+  input: AppraisalPhotoInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = AppraisalPhotoInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+  return done(await appraisals().deleteAppraisalPhoto.execute(parsed.data, actor));
+}
+
+/** Convierte la tasación en propiedad; la propiedad la crea un job en unos segundos. */
+export async function convertAppraisalToListingAction(
+  input: AppraisalIdInput,
+): Promise<ActionResult & { readonly propertyId?: string }> {
+  const { actor } = await requireSession();
+  const parsed = AppraisalIdInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+  const result = await appraisals().convertAppraisalToListing.execute(parsed.data, actor);
+  if (result.isErr()) return actionFailed(messageForError(result.error, APPRAISAL_ERROR_MESSAGES));
+  revalidatePath(APPRAISALS_PATH, 'layout');
+  return { ok: true, ...result.value };
 }

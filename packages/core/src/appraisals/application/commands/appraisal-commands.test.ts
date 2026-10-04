@@ -270,7 +270,10 @@ describe('UpdateAppraisal', () => {
 
 describe('ChangeAppraisalStatus', () => {
   it('changes the status and records it', async () => {
-    const { uow, clock, stored } = withAppraisal();
+    const sale = { minCents: 1n, maxCents: 2n, currency: 'USD' } as const;
+    const { uow, clock, stored } = withAppraisal({
+      result: { sale, rent: undefined, comparables: [], observations: undefined },
+    });
     const change = new ChangeAppraisalStatus({ uow, clock });
 
     unwrap(await change.execute({ appraisalId: APPRAISAL_ID, status: 'appraised' }, TEST_PRODUCER));
@@ -304,6 +307,17 @@ describe('ChangeAppraisalStatus', () => {
         await change.execute({ appraisalId: APPRAISAL_ID, status: 'appraised' }, TEST_PRODUCER),
       ),
     ).toEqual({ type: 'InvalidAppraisalTransition', from: 'discarded', to: 'appraised' });
+  });
+
+  it('needs a suggested value to mark it appraised', async () => {
+    const { uow, clock } = withAppraisal();
+    const change = new ChangeAppraisalStatus({ uow, clock });
+    expect(
+      unwrapErr(
+        await change.execute({ appraisalId: APPRAISAL_ID, status: 'appraised' }, TEST_PRODUCER),
+      ),
+    ).toEqual({ type: 'AppraisalValueRequired' });
+    expect(uow.audit.entries).toEqual([]);
   });
 
   it('needs the visit date to schedule the visit', async () => {

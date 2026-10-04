@@ -786,7 +786,7 @@ Además de la propiedad publicada en alquiler, cuando se concreta el alquiler se
 
 ## 6. Tasaciones
 
-La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y papelera, (2) resultado (valores sugeridos y comparables), fotos y convertir en propiedad, (3) informe en PDF con la marca de Norde. El ingreso desde el agente de IA (`request_appraisal`) y desde el formulario de la web queda para después (depende de #53). Esta sección describe la etapa 1.
+La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y papelera, (2) resultado (valores sugeridos y comparables), fotos y convertir en propiedad, (3) informe en PDF con la marca de Norde. El ingreso desde el agente de IA (`request_appraisal`) y desde el formulario de la web queda para después (depende de #53). Esta sección describe las etapas 1 y 2.
 
 ### 6.1 Listado (`/tasaciones`)
 
@@ -797,12 +797,14 @@ La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y pap
 
 ### 6.2 Alta y ficha (`/tasaciones/nueva`, `/tasaciones/[id]`)
 
-La tasación tiene pantalla propia (no panel lateral): en la etapa 2 suma resultado, comparables y fotos.
+La tasación tiene pantalla propia (no panel lateral).
 
 - **Solicitud**: solicitante (el cliente propietario, obligatorio), productor (quien trae la tasación; sin elegir, quien la carga), tasador (opcional hasta asignarlo) y visita (día y hora de Buenos Aires). La sucursal es la del productor.
 - **Propiedad**: tipo (obligatorio), dirección, superficie total y cubierta (m², hasta dos decimales), ambientes, dormitorios, baños y estado de conservación. Los catálogos son los de las propiedades, para poder convertirla.
-- La ficha tiene las pestañas **Datos** (el mismo formulario, editable) e **Historial** (quién cambió qué y cuándo).
-- Editar y cambiar el estado piden `appraisals:update`; borrar y restaurar, `appraisals:delete`. Las dos además piden ver la tasación (ser productor o tasador, o "Ver tasaciones de otros").
+- La ficha tiene las pestañas **Datos** (el mismo formulario, editable), **Resultado**, **Fotos** e **Historial** (quién cambió qué y cuándo).
+- **Resultado**: valor sugerido de venta y de alquiler, cada uno con mínimo y máximo en su moneda (se cargan los dos o ninguno, y el mínimo no supera al máximo); **comparables**, hasta 20; y observaciones. Los comparables son propiedades parecidas de la zona, publicadas o vendidas, que respaldan el valor: se cargan a mano (dirección, precio y moneda, superficie, link a la publicación y nota), porque suelen ser de portales o de otras inmobiliarias. El panel muestra el valor por m² de cada uno, que calcula el dominio.
+- **Fotos** de la visita: hasta 30, JPG, PNG o WebP de hasta 15 MB. Se guarda la original en el storage privado y se sirve desde la ficha a quien ve la tasación. Una foto borrada se saca del storage con un job.
+- Editar, cargar el resultado, subir o borrar fotos y cambiar el estado piden `appraisals:update`; borrar y restaurar, `appraisals:delete`. Todo eso además pide ver la tasación (ser productor o tasador, o "Ver tasaciones de otros").
 
 ### 6.3 Estados
 
@@ -817,20 +819,24 @@ La tasación tiene pantalla propia (no panel lateral): en la etapa 2 suma result
 | Ingresada       | — (final)                                 |
 
 - Para agendar la visita hace falta su fecha; con la visita agendada, la fecha no se puede borrar.
-- "Ingresada" no se elige a mano: la marca la conversión en propiedad (etapa 2). Una tasación ingresada ya no se edita ni cambia de estado.
+- Para marcarla **tasada** hace falta un valor sugerido (de venta o de alquiler); una tasada no se puede quedar sin valores.
+- "Ingresada" no se elige a mano: la marca la conversión en propiedad. Una tasación ingresada ya no se edita, no cambia de estado y no suma ni borra fotos.
 - Una tasación en la papelera no se edita.
 
 ### 6.4 Historial, supresión y unificación
 
-- Todo cambio queda en el historial de la tasación (`appraisal.created`, `appraisal.updated` con solo los campos que cambiaron, `appraisal.status_changed`, `appraisal.deleted`, `appraisal.restored`), con el solicitante en `client_ids`.
-- Si se suprimen los datos del solicitante, sus tasaciones se borran físicamente, con su historial.
+- Todo cambio queda en el historial de la tasación (`appraisal.created`, `appraisal.updated` y `appraisal.result_recorded` con solo los campos que cambiaron, `appraisal.status_changed`, `appraisal.photo_added`, `appraisal.photo_deleted`, `appraisal.converted`, `appraisal.deleted`, `appraisal.restored`), con el solicitante en `client_ids`. Los montos se guardan en centavos con su moneda.
+- Si se suprimen los datos del solicitante, sus tasaciones se borran físicamente por tandas, con su historial, sus fotos y los archivos de las fotos.
 - Si se unifica el solicitante con otro contacto, sus tasaciones pasan al principal (`appraisal.client_merged`).
 
-### 6.5 Convertir a venta (etapa 2)
+### 6.5 Convertir en propiedad
 
-- Con un botón se crea una **propiedad en venta** (o en alquiler) prellenada con los datos de la tasación, en estado borrador.
-- La propiedad queda vinculada a la tasación y al propietario, para medir la conversión de tasaciones en captaciones en los reportes.
-- Opcional: generar un **informe de tasación en PDF** con la marca de Norde (etapa 3).
+- "Convertir en propiedad", en la cabecera de una tasación **tasada**, pide `appraisals:update` y `properties:create` (dar de alta propiedades). Convertirla dos veces se rechaza.
+- La tasación pasa a **Ingresada**, guarda el ID de la propiedad nueva y emite `AppraisalConverted` en la misma transacción (`appraisal.converted` en su historial).
+- Un job de properties reacciona y crea la **propiedad en borrador** con ese ID: tipo, dirección (en la calle; altura, ubicación y coordenadas se completan en la ficha), superficies, ambientes, dormitorios, baños y estado de conservación, **una operación por cada valor sugerido, al máximo**, el productor como captador con su sucursal, el tasador, el **solicitante como propietario** y una copia de las fotos (la primera es la portada; se generan las miniaturas como en cualquier galería). El código de referencia sale de la numeración de Mi empresa. Queda en el historial de la propiedad (`property.created_from_appraisal`, con la tasación de origen).
+- Mientras el job crea la propiedad, la ficha dice "Creando la propiedad…"; después muestra su código con el link. Es idempotente: si el evento llega dos veces, la propiedad no se duplica.
+- Si las superficies de la tasación no cierran (cubierta mayor que la total), la propiedad se crea sin ellas.
+- El **informe de tasación en PDF** con la marca de Norde es la etapa 3.
 
 ---
 

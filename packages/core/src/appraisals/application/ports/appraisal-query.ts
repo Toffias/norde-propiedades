@@ -3,6 +3,7 @@ import type { PageSlice } from '../../../shared';
 import type {
   AppraisalDetail,
   AppraisalListRow,
+  AppraisalResultDto,
   AppraisalSortField,
   AppraisalStatusValue,
   PropertyType,
@@ -20,8 +21,10 @@ type WithIds<T> = Omit<T, 'requester' | 'producer' | 'appraiser' | 'branch'> & {
 /** Una tasación del listado como la lee la base: el contacto va resuelto; usuarios, por ID. */
 export type AppraisalSearchItem = WithIds<AppraisalListRow>;
 
-/** La ficha de una tasación como la lee la base. */
-export type AppraisalDetailItem = WithIds<Omit<AppraisalDetail, 'nextStatuses'>>;
+/** La ficha de una tasación como la lee la base; lo que decide el dominio lo agrega el caso de uso. */
+export type AppraisalDetailItem = WithIds<
+  Omit<AppraisalDetail, 'nextStatuses' | 'convertible' | 'result'>
+> & { readonly result: AppraisalResultDto };
 
 /** Los filtros ya validados, con las fechas como instantes UTC en `[from, to)`. */
 export interface AppraisalFilterCriteria {

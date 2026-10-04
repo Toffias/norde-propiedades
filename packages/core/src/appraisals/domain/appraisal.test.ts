@@ -6,12 +6,32 @@ import {
   APPRAISAL_SOURCE_VALUES,
   APPRAISAL_STATUS_GROUP_VALUES,
   APPRAISAL_STATUS_VALUES,
+  APPRAISAL_PHOTO_TYPE_VALUES,
   CONDITION_VALUES,
+  CURRENCIES,
+  MAX_APPRAISAL_COMPARABLES as MAX_COMPARABLES_VALUE,
+  MAX_APPRAISAL_PHOTO_BYTES as MAX_PHOTO_BYTES_VALUE,
+  MAX_APPRAISAL_PHOTOS as MAX_PHOTOS_VALUE,
   PROPERTY_TYPES,
 } from '../contracts';
 import { appraisalSnapshot, TEST_NOW } from '../testing';
 
 import { Appraisal, appraisalCode, type AppraisalDetails } from './appraisal';
+import {
+  APPRAISAL_PHOTO_TYPES,
+  checkPhotoRoom,
+  MAX_APPRAISAL_PHOTO_BYTES,
+  MAX_APPRAISAL_PHOTOS,
+  validateAppraisalPhoto,
+} from './appraisal-photo';
+import {
+  APPRAISAL_CURRENCIES,
+  comparablePricePerM2Cents,
+  EMPTY_APPRAISAL_RESULT,
+  MAX_APPRAISAL_COMPARABLES,
+  type AppraisalComparable,
+  type AppraisalResult,
+} from './appraisal-result';
 import {
   APPRAISAL_STATUS_GROUPS,
   APPRAISAL_STATUSES,
@@ -43,6 +63,24 @@ const DETAILS: AppraisalDetails = {
   bathrooms: 2,
   condition: 'good',
 };
+
+const COMPARABLE: AppraisalComparable = {
+  address: ' Mitre 1500 ',
+  priceCents: 11_800_000n,
+  currency: 'USD',
+  surfaceM2: 65,
+  url: ' ',
+  note: undefined,
+};
+
+const RESULT: AppraisalResult = {
+  sale: { minCents: 11_000_000n, maxCents: 12_000_000n, currency: 'USD' },
+  rent: undefined,
+  comparables: [COMPARABLE],
+  observations: '  Muy luminoso. ',
+};
+
+const PROPERTY_ID = '00000000-0000-7000-8000-0000000000e1';
 
 function restored(overrides: Parameters<typeof appraisalSnapshot>[0] = {}): Appraisal {
   return Appraisal.restore(appraisalSnapshot(overrides));
@@ -179,6 +217,213 @@ describe('Appraisal.changeStatus', () => {
       type: 'AppraisalConverted',
     });
   });
+
+  it('needs a suggested value to mark it appraised', () => {
+    expect(unwrapErr(restored().changeStatus('appraised', LATER))).toEqual({
+      type: 'AppraisalValueRequired',
+    });
+    expect(unwrap(restored({ result: RESULT }).changeStatus('appraised', LATER))).toBe(true);
+  });
+});
+
+describe('Appraisal.recordResult', () => {
+  it('records the result, trims the texts and reports the change', () => {
+    const appraisal = restored();
+    expect(unwrap(appraisal.recordResult(RESULT, LATER))).toBe(true);
+
+    expect(appraisal.result).toEqual({
+      ...RESULT,
+      comparables: [{ ...COMPARABLE, address: 'Mitre 1500', url: undefined }],
+      observations: 'Muy luminoso.',
+    });
+    expect(appraisal.toSnapshot().updatedAt).toEqual(LATER);
+    expect(appraisal.pullEvents().map((e) => e.type)).toEqual([
+      'appraisals.appraisal_result_recorded',
+    ]);
+    expect(unwrap(appraisal.recordResult(RESULT, LATER))).toBe(false);
+  });
+
+  it('rejects a minimum above the maximum or a negative value', () => {
+    const appraisal = restored();
+    const sale = { minCents: 2n, maxCents: 1n, currency: 'USD' } as const;
+    expect(unwrapErr(appraisal.recordResult({ ...RESULT, sale }, LATER))).toEqual({
+      type: 'InvalidValueRange',
+      operation: 'sale',
+    });
+    const rent = { minCents: -1n, maxCents: 1n, currency: 'ARS' } as const;
+    expect(unwrapErr(appraisal.recordResult({ ...RESULT, rent }, LATER))).toEqual({
+      type: 'InvalidValueRange',
+      operation: 'rent',
+    });
+  });
+
+  it('rejects an invalid comparable or too many of them', () => {
+    const appraisal = restored();
+    const comparables = [COMPARABLE, { ...COMPARABLE, address: ' ' }];
+    expect(unwrapErr(appraisal.recordResult({ ...RESULT, comparables }, LATER))).toEqual({
+      type: 'InvalidComparable',
+      index: 1,
+    });
+    const many = Array.from({ length: MAX_APPRAISAL_COMPARABLES + 1 }, () => COMPARABLE);
+    expect(unwrapErr(appraisal.recordResult({ ...RESULT, comparables: many }, LATER))).toEqual({
+      type: 'TooManyComparables',
+      max: MAX_APPRAISAL_COMPARABLES,
+    });
+  });
+
+  it('keeps a value while the appraisal is appraised', () => {
+    const appraisal = restored({ status: 'appraised', result: RESULT });
+    expect(unwrapErr(appraisal.recordResult(EMPTY_APPRAISAL_RESULT, LATER))).toEqual({
+      type: 'AppraisalValueRequired',
+    });
+  });
+
+  it('rejects changing a converted or deleted appraisal', () => {
+    expect(unwrapErr(restored({ status: 'converted' }).recordResult(RESULT, LATER))).toEqual({
+      type: 'AppraisalConverted',
+    });
+    expect(unwrapErr(restored({ deletedAt: LATER }).recordResult(RESULT, LATER))).toEqual({
+      type: 'AppraisalDeleted',
+    });
+  });
+});
+
+describe('comparablePricePerM2Cents', () => {
+  it('divides the price by the surface, rounded to the cent', () => {
+    expect(comparablePricePerM2Cents(COMPARABLE)).toBe(181_538n);
+    expect(comparablePricePerM2Cents({ ...COMPARABLE, priceCents: 100n, surfaceM2: 0.03 })).toBe(
+      3333n,
+    );
+  });
+
+  it('is undefined without a surface', () => {
+    expect(comparablePricePerM2Cents({ ...COMPARABLE, surfaceM2: undefined })).toBeUndefined();
+    expect(comparablePricePerM2Cents({ ...COMPARABLE, surfaceM2: 0 })).toBeUndefined();
+  });
+});
+
+describe('Appraisal.convert', () => {
+  it('marks it converted and sends what the draft property needs', () => {
+    const appraiserUserId = '00000000-0000-7000-8000-0000000000a2';
+    const appraisal = restored({
+      status: 'appraised',
+      appraiserUserId,
+      result: {
+        ...RESULT,
+        rent: { minCents: 50_000_000n, maxCents: 60_000_000n, currency: 'ARS' },
+      },
+    });
+    unwrap(appraisal.convert({ propertyId: PROPERTY_ID, photoKeys: ['k1', 'k2'] }, LATER));
+
+    expect(appraisal.toSnapshot()).toMatchObject({
+      status: 'converted',
+      statusChangedAt: LATER,
+      convertedPropertyId: PROPERTY_ID,
+    });
+    expect(appraisal.pullEvents()).toEqual([
+      {
+        type: 'appraisals.appraisal_converted',
+        aggregateId: ID,
+        occurredAt: LATER,
+        payload: {
+          appraisalId: ID,
+          requesterClientId: DETAILS.requesterClientId,
+          listing: {
+            propertyId: PROPERTY_ID,
+            appraisalCode: 'TAS0001',
+            propertyType: 'house',
+            address: 'Mitre 1234',
+            surfaceTotalM2: 300,
+            surfaceCoveredM2: 180.5,
+            rooms: 5,
+            bedrooms: 3,
+            bathrooms: 2,
+            condition: 'good',
+            producerUserId: DETAILS.producerUserId,
+            branchId: DETAILS.branchId,
+            appraiserUserId,
+            sale: { priceCents: '12000000', currency: 'USD' },
+            rent: { priceCents: '60000000', currency: 'ARS' },
+            photoKeys: ['k1', 'k2'],
+          },
+        },
+      },
+    ]);
+  });
+
+  it('leaves out the fields without data', () => {
+    const appraisal = restored({
+      status: 'appraised',
+      result: RESULT,
+      address: undefined,
+      rooms: undefined,
+      condition: undefined,
+    });
+    unwrap(appraisal.convert({ propertyId: PROPERTY_ID, photoKeys: [] }, LATER));
+    const [event] = appraisal.pullEvents();
+    const listing = event?.type === 'appraisals.appraisal_converted' ? event.payload.listing : {};
+    expect(listing).not.toHaveProperty('address');
+    expect(listing).not.toHaveProperty('rooms');
+    expect(listing).not.toHaveProperty('rent');
+    expect(listing).toHaveProperty('sale');
+  });
+
+  it('converts only once, and only an appraised appraisal', () => {
+    const input = { propertyId: PROPERTY_ID, photoKeys: [] };
+    const appraisal = restored({ status: 'appraised', result: RESULT });
+    unwrap(appraisal.convert(input, LATER));
+    expect(unwrapErr(appraisal.convert(input, LATER))).toEqual({ type: 'AppraisalConverted' });
+    expect(unwrapErr(restored().convert(input, LATER))).toEqual({
+      type: 'AppraisalNotAppraised',
+    });
+    const deleted = restored({ status: 'appraised', deletedAt: LATER });
+    expect(unwrapErr(deleted.convert(input, LATER))).toEqual({ type: 'AppraisalDeleted' });
+  });
+});
+
+describe('Appraisal.removePhoto', () => {
+  it('records the file to delete', () => {
+    const appraisal = restored();
+    unwrap(appraisal.removePhoto('appraisals/x/photos/y/original', LATER));
+    expect(appraisal.pullEvents()).toEqual([
+      expect.objectContaining({
+        type: 'appraisals.appraisal_photo_deleted',
+        payload: {
+          appraisalId: ID,
+          requesterClientId: DETAILS.requesterClientId,
+          storageKeys: ['appraisals/x/photos/y/original'],
+        },
+      }),
+    ]);
+  });
+
+  it('rejects a converted appraisal', () => {
+    expect(unwrapErr(restored({ status: 'converted' }).removePhoto('k', LATER))).toEqual({
+      type: 'AppraisalConverted',
+    });
+  });
+});
+
+describe('appraisal photos', () => {
+  it('accept images up to the size limit', () => {
+    unwrap(validateAppraisalPhoto({ contentType: 'image/jpeg', sizeBytes: 1000 }));
+    expect(
+      unwrapErr(validateAppraisalPhoto({ contentType: 'application/pdf', sizeBytes: 1000 })),
+    ).toEqual({ type: 'UnsupportedPhotoType' });
+    const tooLarge = { contentType: 'image/png', sizeBytes: MAX_APPRAISAL_PHOTO_BYTES + 1 };
+    expect(unwrapErr(validateAppraisalPhoto(tooLarge))).toEqual({
+      type: 'PhotoTooLarge',
+      maxBytes: MAX_APPRAISAL_PHOTO_BYTES,
+    });
+  });
+
+  it('have a limit per appraisal', () => {
+    unwrap(checkPhotoRoom(MAX_APPRAISAL_PHOTOS - 1));
+    expect(unwrapErr(checkPhotoRoom(MAX_APPRAISAL_PHOTOS))).toEqual({
+      type: 'TooManyPhotos',
+      max: MAX_APPRAISAL_PHOTOS,
+    });
+  });
 });
 
 describe('Appraisal trash', () => {
@@ -220,5 +465,10 @@ describe('catalogs', () => {
     expect([...APPRAISAL_SOURCE_VALUES]).toEqual([...APPRAISAL_SOURCES]);
     expect([...PROPERTY_TYPES]).toEqual([...APPRAISAL_PROPERTY_TYPES]);
     expect([...CONDITION_VALUES]).toEqual([...APPRAISAL_CONDITIONS]);
+    expect([...CURRENCIES]).toEqual([...APPRAISAL_CURRENCIES]);
+    expect([...APPRAISAL_PHOTO_TYPE_VALUES]).toEqual([...APPRAISAL_PHOTO_TYPES]);
+    expect(MAX_COMPARABLES_VALUE).toBe(MAX_APPRAISAL_COMPARABLES);
+    expect(MAX_PHOTO_BYTES_VALUE).toBe(MAX_APPRAISAL_PHOTO_BYTES);
+    expect(MAX_PHOTOS_VALUE).toBe(MAX_APPRAISAL_PHOTOS);
   });
 });

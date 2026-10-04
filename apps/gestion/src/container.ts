@@ -5,7 +5,12 @@ import 'server-only';
 
 import {
   ChangeAppraisalStatus,
+  ConvertAppraisalToListing,
   CreateAppraisal,
+  DeleteAppraisalPhoto,
+  GetAppraisalPhotoFile,
+  RecordAppraisalResult,
+  UploadAppraisalPhoto,
   DeleteAppraisal,
   GetAppraisal,
   ListAppraisalHistory,
@@ -860,10 +865,10 @@ function createInquiriesUseCases(
 
 function createAppraisalsUseCases(
   db: Database,
-  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+  deps: { readonly ids: IdGenerator; readonly clock: Clock; readonly storage: FileStorage },
 ) {
-  const { ids, clock } = deps;
-  const uow = createAppraisalsUnitOfWork(db, deps);
+  const { ids, clock, storage } = deps;
+  const uow = createAppraisalsUnitOfWork(db, { ids, clock });
   const appraisals = new DrizzleAppraisalQuery(db);
   const names = new DrizzleDirectory(db);
   const userAccess = new DrizzleUserAccessQuery(db);
@@ -888,6 +893,11 @@ function createAppraisalsUseCases(
     changeAppraisalStatus: new ChangeAppraisalStatus({ uow, clock }),
     deleteAppraisal: new DeleteAppraisal({ uow, clock }),
     restoreAppraisal: new RestoreAppraisal({ uow, clock }),
+    recordAppraisalResult: new RecordAppraisalResult({ uow, clock }),
+    uploadAppraisalPhoto: new UploadAppraisalPhoto({ uow, storage, ids, clock }),
+    deleteAppraisalPhoto: new DeleteAppraisalPhoto({ uow, clock }),
+    getAppraisalPhotoFile: new GetAppraisalPhotoFile({ uow, storage }),
+    convertAppraisalToListing: new ConvertAppraisalToListing({ uow, ids, clock }),
   };
 }
 
@@ -1076,7 +1086,7 @@ function createContainer(): Container {
     settings,
     properties,
     inquiries: createInquiriesUseCases(database.db, properties, { ids, clock }),
-    appraisals: createAppraisalsUseCases(database.db, { ids, clock }),
+    appraisals: createAppraisalsUseCases(database.db, { ids, clock, storage: createStorage(env) }),
     ...withClients(
       createDetailReadModels(database.db, properties, { clock }),
       createClientsUseCases(database.db, properties, { ids, clock, storage: createStorage(env) }),

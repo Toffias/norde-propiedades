@@ -1,12 +1,16 @@
 import type {
   ChangeAppraisalStatusError,
+  ConvertAppraisalToListingError,
   CreateAppraisalError,
   DeleteAppraisalError,
+  DeleteAppraisalPhotoError,
   GetAppraisalError,
   ListAppraisalHistoryError,
   ListAppraisalsError,
+  RecordAppraisalResultError,
   RestoreAppraisalError,
   UpdateAppraisalError,
+  UploadAppraisalPhotoError,
 } from '@norde/core/appraisals';
 
 import type { ErrorMessages } from '../../lib/errors';
@@ -28,12 +32,29 @@ export const APPRAISAL_ERROR_MESSAGES = {
     `Una tasación ${APPRAISAL_STATUS_DISPLAY[error.from].label.toLowerCase()} no pasa a ${APPRAISAL_STATUS_DISPLAY[error.to].label.toLowerCase()}.`,
   AppraisalAlreadyDeleted: 'La tasación ya estaba en la papelera.',
   AppraisalNotDeleted: 'La tasación no está en la papelera.',
+  AppraisalValueRequired:
+    'Para marcarla tasada hace falta un valor sugerido de venta o de alquiler. Cargalo en Resultado.',
+  AppraisalNotAppraised: 'Solo se convierte en propiedad una tasación tasada.',
+  InvalidValueRange: (error) =>
+    `El valor de ${error.operation === 'sale' ? 'venta' : 'alquiler'} no es válido: el mínimo no puede superar al máximo.`,
+  InvalidComparable: (error) =>
+    `Revisá el comparable ${String(error.index + 1)}: necesita dirección y un precio válido.`,
+  TooManyComparables: (error) => `Cargá hasta ${String(error.max)} comparables.`,
+  UnsupportedPhotoType: 'Subí una foto en JPG, PNG o WebP.',
+  PhotoTooLarge: (error) =>
+    `La foto pesa más de ${Math.round(error.maxBytes / (1024 * 1024)).toString()} MB.`,
+  TooManyPhotos: (error) => `La tasación ya tiene ${String(error.max)} fotos, el máximo.`,
+  AppraisalPhotoNotFound: 'No encontramos esa foto. Puede que ya la hayan borrado.',
 } satisfies ErrorMessages<
   | CreateAppraisalError
   | UpdateAppraisalError
   | ChangeAppraisalStatusError
   | DeleteAppraisalError
   | RestoreAppraisalError
+  | RecordAppraisalResultError
+  | UploadAppraisalPhotoError
+  | DeleteAppraisalPhotoError
+  | ConvertAppraisalToListingError
 >;
 
 export const APPRAISAL_READ_ERROR_MESSAGES = {

@@ -105,7 +105,7 @@ export function cleanAppraisalResult(
 }
 
 /** Tiene al menos un valor sugerido, de venta o de alquiler. */
-export function hasSuggestedValue(result: AppraisalResult): boolean {
+export function hasSuggestedValue(result: Pick<AppraisalResult, 'sale' | 'rent'>): boolean {
   return result.sale !== undefined || result.rent !== undefined;
 }
 

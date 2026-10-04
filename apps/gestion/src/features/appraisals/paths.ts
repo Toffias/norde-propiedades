@@ -2,3 +2,8 @@
 export function appraisalPhotoHref(appraisalId: string, photoId: string): string {
   return `/tasaciones/${appraisalId}/fotos/${photoId}`;
 }
+
+/** El informe de la tasación en PDF. */
+export function appraisalReportHref(appraisalId: string): string {
+  return `/tasaciones/${appraisalId}/pdf`;
+}

@@ -786,7 +786,7 @@ Además de la propiedad publicada en alquiler, cuando se concreta el alquiler se
 
 ## 6. Tasaciones
 
-La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y papelera, (2) resultado (valores sugeridos y comparables), fotos y convertir en propiedad, (3) informe en PDF con la marca de Norde. El ingreso desde el agente de IA (`request_appraisal`) y desde el formulario de la web queda para después (depende de #53). Esta sección describe las etapas 1 y 2.
+La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y papelera, (2) resultado (valores sugeridos y comparables), fotos y convertir en propiedad, (3) informe en PDF con la marca de Norde. El ingreso desde el agente de IA (`request_appraisal`) y desde el formulario de la web queda para después (depende de #53). Esta sección describe las tres etapas.
 
 ### 6.1 Listado (`/tasaciones`)
 
@@ -825,7 +825,7 @@ La tasación tiene pantalla propia (no panel lateral).
 
 ### 6.4 Historial, supresión y unificación
 
-- Todo cambio queda en el historial de la tasación (`appraisal.created`, `appraisal.updated` y `appraisal.result_recorded` con solo los campos que cambiaron, `appraisal.status_changed`, `appraisal.photo_added`, `appraisal.photo_deleted`, `appraisal.converted`, `appraisal.deleted`, `appraisal.restored`), con el solicitante en `client_ids`. Los montos se guardan en centavos con su moneda.
+- Todo cambio queda en el historial de la tasación (`appraisal.created`, `appraisal.updated` y `appraisal.result_recorded` con solo los campos que cambiaron, `appraisal.status_changed`, `appraisal.photo_added`, `appraisal.photo_deleted`, `appraisal.converted`, `appraisal.report_downloaded`, `appraisal.deleted`, `appraisal.restored`), con el solicitante en `client_ids`. Los montos se guardan en centavos con su moneda.
 - Si se suprimen los datos del solicitante, sus tasaciones se borran físicamente por tandas, con su historial, sus fotos y los archivos de las fotos.
 - Si se unifica el solicitante con otro contacto, sus tasaciones pasan al principal (`appraisal.client_merged`).
 
@@ -836,7 +836,12 @@ La tasación tiene pantalla propia (no panel lateral).
 - Un job de properties reacciona y crea la **propiedad en borrador** con ese ID: tipo, dirección (en la calle; altura, ubicación y coordenadas se completan en la ficha), superficies, ambientes, dormitorios, baños y estado de conservación, **una operación por cada valor sugerido, al máximo**, el productor como captador con su sucursal, el tasador, el **solicitante como propietario** y una copia de las fotos (la primera es la portada; se generan las miniaturas como en cualquier galería). El código de referencia sale de la numeración de Mi empresa. Queda en el historial de la propiedad (`property.created_from_appraisal`, con la tasación de origen).
 - Mientras el job crea la propiedad, la ficha dice "Creando la propiedad…"; después muestra su código con el link. Es idempotente: si el evento llega dos veces, la propiedad no se duplica.
 - Si las superficies de la tasación no cierran (cubierta mayor que la total), la propiedad se crea sin ellas.
-- El **informe de tasación en PDF** con la marca de Norde es la etapa 3.
+
+### 6.6 Informe en PDF
+
+- "Descargar PDF", en la cabecera, arma el **informe de tasación** para entregárselo al propietario. Está si la tasación está **tasada o ingresada** y tiene un valor sugerido; lo descarga quien puede ver la tasación (`appraisals:read`, con la misma regla de productor y tasador).
+- Lleva el logo y el nombre de Mi empresa, el código, el tipo y la dirección, para quién se preparó, quién la tasó, los datos de la propiedad (superficies, ambientes, dormitorios, baños y estado), los **valores sugeridos** (mínimo y máximo de venta y de alquiler mensual), los **comparables** con su precio, superficie y valor por m², las **observaciones** y las **fotos** (de a dos por fila, achicadas para imprimir). El pie aclara que los valores son orientativos.
+- Se arma en el momento, sin job: el archivo es `Tasacion-TAS0001.pdf` y no se guarda. Cada descarga queda en el historial (`appraisal.report_downloaded`).
 
 ---
 

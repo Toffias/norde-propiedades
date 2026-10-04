@@ -157,6 +157,7 @@ describe('GetAppraisal', () => {
     const get = new GetAppraisal({ appraisals: new StubAppraisalQuery([appraised]), directory });
     const detail = unwrap(await get.execute({ appraisalId: APPRAISAL_ID }, TEST_PRODUCER));
     expect(detail.convertible).toBe(true);
+    expect(detail.reportable).toBe(true);
     expect(detail.result.comparables[0]?.pricePerM2).toEqual({
       amountCents: 181_538n,
       currency: 'USD',
@@ -165,6 +166,7 @@ describe('GetAppraisal', () => {
     const requested = new GetAppraisal({ appraisals: new StubAppraisalQuery([ITEM]), directory });
     const pending = unwrap(await requested.execute({ appraisalId: APPRAISAL_ID }, TEST_PRODUCER));
     expect(pending.convertible).toBe(false);
+    expect(pending.reportable).toBe(false);
   });
 
   it("hides other people's appraisals without read-others", async () => {

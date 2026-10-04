@@ -351,6 +351,8 @@ export interface AppraisalDetail extends AppraisalListRow {
   readonly nextStatuses: readonly ManualAppraisalStatusValue[];
   /** Se puede convertir en propiedad: está tasada (lo decide el dominio). */
   readonly convertible: boolean;
+  /** Se puede descargar el PDF: está tasada (o convertida) y tiene un valor (lo decide el dominio). */
+  readonly reportable: boolean;
 }
 
 export const ListAppraisalHistoryQuerySchema = historyQuerySchema().extend({

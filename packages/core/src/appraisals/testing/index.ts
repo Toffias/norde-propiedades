@@ -9,6 +9,10 @@ import type {
   AppraisalsUnitOfWork,
 } from '../application/ports/appraisals-transaction';
 import type { ActiveUsers, PanelDirectory } from '../application/ports/panel-directory';
+import type {
+  AppraisalReportContent,
+  AppraisalReportRenderer,
+} from '../application/ports/appraisal-report-renderer';
 import { Appraisal, type AppraisalId, type AppraisalSnapshot } from '../domain/appraisal';
 import type { AppraisalPhoto, AppraisalPhotoId } from '../domain/appraisal-photo';
 import { EMPTY_APPRAISAL_RESULT } from '../domain/appraisal-result';
@@ -321,5 +325,19 @@ export class StubAppraisalQuery implements AppraisalQuery {
 
   findDetail(appraisalId: string) {
     return Promise.resolve(this.rows.find((row) => row.id === appraisalId));
+  }
+}
+
+/** Guarda lo que recibe (con las fotos ya leídas) y devuelve un PDF de mentira. */
+export class RecordingAppraisalReportRenderer implements AppraisalReportRenderer {
+  readonly rendered: (Omit<AppraisalReportContent, 'photos'> & {
+    readonly photos: readonly Uint8Array[];
+  })[] = [];
+
+  async render(content: AppraisalReportContent): Promise<Uint8Array> {
+    const photos: Uint8Array[] = [];
+    for await (const photo of content.photos) photos.push(photo);
+    this.rendered.push({ ...content, photos });
+    return new Uint8Array([0x25, 0x50, 0x44, 0x46]);
   }
 }

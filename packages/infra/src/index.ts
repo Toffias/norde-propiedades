@@ -57,6 +57,7 @@ export { DrizzleAuditHistoryQuery } from './audit/drizzle-audit-history-query';
 export { DrizzlePropertyInterestQuery } from './clients/drizzle-property-interest-query';
 export { DrizzlePropertyStatisticsQuery } from './reporting/drizzle-property-statistics-query';
 export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-document-renderer';
+export { PdfLibAppraisalReportRenderer } from './adapters/exports/appraisal-report-renderer';
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';

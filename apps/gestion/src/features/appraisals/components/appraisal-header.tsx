@@ -14,6 +14,7 @@ import {
   ArchiveRestoreIcon,
   CalculatorIcon,
   ChevronDownIcon,
+  FileDownIcon,
   HousePlusIcon,
   Loader2Icon,
   Trash2Icon,
@@ -41,6 +42,7 @@ import {
   APPRAISAL_STATUS_ACTION_LABELS,
   APPRAISAL_STATUS_DISPLAY,
 } from '../labels';
+import { appraisalReportHref } from '../paths';
 
 export interface AppraisalDetailPermissions {
   /** Editar y cambiar el estado: el caso de uso vuelve a decidirlo. */
@@ -183,6 +185,15 @@ export function AppraisalHeader({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+          {detail.reportable && (
+            <Button size="sm" variant="outline" className="text-foreground dark:bg-card" asChild>
+              {/* Lo sirve una ruta (no una página): se baja con un enlace común. */}
+              <a href={appraisalReportHref(detail.id)} download>
+                <FileDownIcon className="h-4 w-4" />
+                Descargar PDF
+              </a>
+            </Button>
           )}
           {permissions.convert && !inTrash && detail.convertible && (
             <Button

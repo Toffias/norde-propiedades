@@ -121,7 +121,52 @@ function LayoutSwitcher({ layout }: { readonly layout: DevelopmentLayoutValue })
   );
 }
 
-function Toolbar({
+/** Filtros del listado (búsqueda, estado, tipo y obra): debajo de la barra de acciones. */
+function Toolbar({ filters }: { readonly filters: DevelopmentFilterValues }) {
+  return (
+    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
+      <DebouncedInput
+        param="q"
+        value={filters.q}
+        label="Buscar por código, nombre, dirección o desarrollista"
+        placeholder="Código, nombre o dirección"
+        icon={SearchIcon}
+        className="col-span-2 w-full sm:max-w-[260px]"
+      />
+      <FilterSelect
+        param="status"
+        value={filters.status}
+        label="Estado"
+        anyLabel="Estado"
+        options={DEVELOPMENT_STATUS_VALUES.map((value) => ({
+          value,
+          label: DEVELOPMENT_STATUS_DISPLAY[value].label,
+        }))}
+        className="w-full sm:w-[200px]"
+      />
+      <FilterSelect
+        param="developmentType"
+        value={filters.developmentType}
+        label="Tipo de desarrollo"
+        anyLabel="Tipo"
+        options={options(DEVELOPMENT_TYPES, DEVELOPMENT_TYPE_LABELS)}
+      />
+      <FilterSelect
+        param="constructionStatus"
+        value={filters.constructionStatus}
+        label="Estado de obra"
+        anyLabel="Obra"
+        options={options(CONSTRUCTION_STATUS_VALUES, CONSTRUCTION_STATUS_LABELS)}
+      />
+    </div>
+  );
+}
+
+/**
+ * La barra de acciones, arriba de los filtros: la vista a la izquierda; papelera y alta a la
+ * derecha.
+ */
+function ActionsBar({
   filters,
   layout,
   permissions,
@@ -135,44 +180,9 @@ function Toolbar({
   const { setParams } = useListNavigation();
   const inTrash = filters.view === 'trash';
   return (
-    <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-1 sm:flex-row sm:flex-wrap sm:items-center">
-        <DebouncedInput
-          param="q"
-          value={filters.q}
-          label="Buscar por código, nombre, dirección o desarrollista"
-          placeholder="Código, nombre o dirección"
-          icon={SearchIcon}
-          className="col-span-2 w-full sm:max-w-[260px]"
-        />
-        <FilterSelect
-          param="status"
-          value={filters.status}
-          label="Estado"
-          anyLabel="Estado"
-          options={DEVELOPMENT_STATUS_VALUES.map((value) => ({
-            value,
-            label: DEVELOPMENT_STATUS_DISPLAY[value].label,
-          }))}
-          className="w-full sm:w-[200px]"
-        />
-        <FilterSelect
-          param="developmentType"
-          value={filters.developmentType}
-          label="Tipo de desarrollo"
-          anyLabel="Tipo"
-          options={options(DEVELOPMENT_TYPES, DEVELOPMENT_TYPE_LABELS)}
-        />
-        <FilterSelect
-          param="constructionStatus"
-          value={filters.constructionStatus}
-          label="Estado de obra"
-          anyLabel="Obra"
-          options={options(CONSTRUCTION_STATUS_VALUES, CONSTRUCTION_STATUS_LABELS)}
-        />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {!inTrash && <LayoutSwitcher layout={layout} />}
+    <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+      {!inTrash && <LayoutSwitcher layout={layout} />}
+      <div className="ml-auto flex flex-wrap justify-end gap-2">
         {permissions.delete && layout === 'list' && (
           <Button
             variant={inTrash ? 'secondary' : 'ghost'}
@@ -421,17 +431,18 @@ export function DevelopmentsView({
     [inTrash, permissions.delete],
   );
 
-  const toolbar = (
-    <Toolbar
-      filters={filters}
-      layout={effectiveLayout}
-      permissions={permissions}
-      onCreate={navigation.openNew}
-    />
-  );
+  const toolbar = <Toolbar filters={filters} />;
 
   return (
     <>
+      <ListNavigationProvider>
+        <ActionsBar
+          filters={filters}
+          layout={effectiveLayout}
+          permissions={permissions}
+          onCreate={navigation.openNew}
+        />
+      </ListNavigationProvider>
       {effectiveLayout === 'map' ? (
         <ListNavigationProvider>
           <DevelopmentMap filters={filters} toolbar={toolbar} />

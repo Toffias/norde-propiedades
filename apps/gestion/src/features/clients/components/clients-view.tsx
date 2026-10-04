@@ -5,11 +5,14 @@ import { Button } from '@norde/ui/components/button';
 import { PlusIcon } from 'lucide-react';
 
 import { usePanel } from '../../shared/components/entity-sheet';
+import { ListNavigationProvider } from '../../shared/components/server-data-table';
 import { ClientCreateSheet } from './client-create-sheet';
 import { ClientsAgenda, type AgendaLetterPage } from './clients-agenda';
 import { ClientsGrid } from './clients-grid';
 import {
+  ClientsDataActions,
   ClientsToolbar,
+  LayoutSwitcher,
   type OpportunityStageOption,
   type ClientFilterValues,
   type ClientLayout,
@@ -62,7 +65,6 @@ export function ClientsView({
   const toolbar = (
     <ClientsToolbar
       filters={filters}
-      layout={layout}
       permissions={permissions}
       agentLabel={agentLabel}
       tagLabel={tagLabel}
@@ -72,14 +74,21 @@ export function ClientsView({
 
   return (
     <>
-      {permissions.create && (
-        <div className="flex justify-end border-b border-border px-4 py-3">
-          <Button type="button" onClick={navigation.openNew}>
-            <PlusIcon className="h-4 w-4" />
-            Nuevo contacto
-          </Button>
+      <ListNavigationProvider>
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          {/* La papelera se ve siempre en la grilla. */}
+          {filters.view === 'active' && <LayoutSwitcher layout={layout} />}
+          <div className="ml-auto flex flex-wrap justify-end gap-2">
+            <ClientsDataActions filters={filters} permissions={permissions} />
+            {permissions.create && (
+              <Button type="button" onClick={navigation.openNew}>
+                <PlusIcon className="h-4 w-4" />
+                Nuevo contacto
+              </Button>
+            )}
+          </div>
         </div>
-      )}
+      </ListNavigationProvider>
       {agenda === undefined ? (
         <ClientsGrid
           rows={rows}

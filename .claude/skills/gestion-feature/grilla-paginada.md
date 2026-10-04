@@ -167,6 +167,22 @@ export function ClientsGrid({ page, sort }: ClientsGridProps) {
 - Estados: `pending` atenúa las filas durante la navegación; `empty` sin filas; `DataTableError` si la query falla.
 - Mobile: columnas secundarias con `showFrom`; la tabla scrollea dentro de la card.
 
+### Cabecera: acciones arriba, filtros abajo
+
+La cabecera de toda grilla (y de sus vistas hermanas: tarjetas, mapa, agenda) se divide en dos franjas, separadas por una línea (`border-b`):
+
+| Franja                | Izquierda                                                 | Derecha                                                                                                       |
+| --------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Acciones** (arriba) | El switch de vista (Lista / Tarjetas / Mapa, Agenda A–Z)  | Las acciones, con el alta (botón primario) **última**, en el extremo: importar, exportar, búsquedas, papelera |
+| **Filtros** (abajo)   | Búsqueda, selects, switches y "Más filtros", en una línea | —                                                                                                             |
+
+- La franja de acciones la renderiza la vista, **fuera** de `ServerDataTable`, como primer hijo de la card: `<div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">`, con las acciones en `<div className="ml-auto flex flex-wrap justify-end gap-2">`. Si usa `useListNavigation` (el switch, la papelera), va dentro de su propio `ListNavigationProvider`.
+- El `toolbar` de `ServerDataTable` (y el de las otras vistas) lleva **solo filtros**. Cada acción con permiso se oculta si el actor no lo tiene; si no queda ninguna acción ni switch, la franja no se muestra.
+- En la papelera, el switch de vista y el alta se ocultan (la papelera solo se ve en lista).
+- Mobile: las dos franjas hacen wrap; los filtros se apilan en la grilla de dos columnas.
+- Las exportaciones viajan con los filtros aplicados (`toClientFilter` y similares), aunque el botón esté en la otra franja.
+- Ejemplos: `features/clients/components/clients-view.tsx`, `features/properties/components/property-actions-bar.tsx`, `features/developments/components/developments-view.tsx`.
+
 ## Kanban, selects y acciones masivas
 
 - **Kanban**: una query por columna con su propio `page` / `pageSize`; "cargar más" al hacer scroll pide la siguiente página de esa columna. Los contadores por columna salen de una query de conteo agrupado, no de traer las tarjetas.

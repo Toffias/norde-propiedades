@@ -49,7 +49,6 @@ export interface ClientFilterValues {
   readonly branchId: string;
   readonly kind: string;
   readonly clientType: string;
-  readonly tagged: string;
   readonly tagId: string;
   /** Solo en la agenda: la letra abierta. */
   readonly letter: string;
@@ -94,7 +93,7 @@ const LAYOUTS: readonly {
 ];
 
 /** Grilla o agenda alfabética: la vista va en la URL (?layout=agenda), con los mismos filtros. */
-function LayoutSwitcher({ layout }: { readonly layout: ClientLayout }) {
+export function LayoutSwitcher({ layout }: { readonly layout: ClientLayout }) {
   const { setParams } = useListNavigation();
   return (
     <div
@@ -421,19 +420,17 @@ function MoreFilters({
 }
 
 /**
- * Vista (grilla o agenda), búsqueda, tipo de registro, tipo de cliente, con o sin etiquetas, solo
- * propietarios, más filtros, etiquetas y exportar.
+ * Búsqueda, tipo de registro, tipo de cliente, solo propietarios, más filtros y etiquetas. La vista
+ * (grilla o agenda) va en el encabezado.
  */
 export function ClientsToolbar({
   filters,
-  layout,
   permissions,
   agentLabel,
   tagLabel,
   opportunityStages,
 }: {
   readonly filters: ClientFilterValues;
-  readonly layout: ClientLayout;
   readonly permissions: ClientToolbarPermissions;
   /** El nombre del agente filtrado, si se conoce (para el selector). */
   readonly agentLabel: string | undefined;
@@ -443,29 +440,9 @@ export function ClientsToolbar({
 }) {
   const id = useId();
   const { setParams } = useListNavigation();
-  const [exporting, startExport] = useTransition();
-
-  function exportAll() {
-    startExport(async () => {
-      const toastId = toast.loading('Preparando la planilla…');
-      try {
-        await download(toClientFilter(filters));
-        toast.success('Exportación lista', { id: toastId });
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : UNEXPECTED_ERROR_MESSAGE, {
-          id: toastId,
-        });
-      }
-    });
-  }
 
   return (
     <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
-      {filters.view === 'active' && (
-        <div className="col-span-2 sm:contents">
-          <LayoutSwitcher layout={layout} />
-        </div>
-      )}
       <div className="col-span-2 sm:contents">
         <SearchInput value={filters.q} />
       </div>
@@ -505,21 +482,6 @@ export function ClientsToolbar({
           ))}
         </SelectContent>
       </Select>
-      <Select
-        value={filters.tagged === '' ? ANY : filters.tagged}
-        onValueChange={(next) => {
-          setParams({ tagged: next === ANY ? undefined : next });
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[170px]" aria-label="Etiquetas">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Con y sin etiquetas</SelectItem>
-          <SelectItem value="with">Con etiquetas</SelectItem>
-          <SelectItem value="without">Sin etiquetas</SelectItem>
-        </SelectContent>
-      </Select>
       <div className="flex items-center gap-2 px-1">
         <Switch
           id={`${id}-owners`}
@@ -545,8 +507,38 @@ export function ClientsToolbar({
           Etiquetas
         </Link>
       </Button>
+    </div>
+  );
+}
+
+/** Importar y exportar a Excel, junto al alta: la exportación lleva los filtros aplicados. */
+export function ClientsDataActions({
+  filters,
+  permissions,
+}: {
+  readonly filters: ClientFilterValues;
+  readonly permissions: Pick<ClientToolbarPermissions, 'import' | 'export'>;
+}) {
+  const [exporting, startExport] = useTransition();
+
+  function exportAll() {
+    startExport(async () => {
+      const toastId = toast.loading('Preparando la planilla…');
+      try {
+        await download(toClientFilter(filters));
+        toast.success('Exportación lista', { id: toastId });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : UNEXPECTED_ERROR_MESSAGE, {
+          id: toastId,
+        });
+      }
+    });
+  }
+
+  return (
+    <>
       {permissions.import && (
-        <Button asChild variant="outline" className="w-full sm:ml-auto sm:w-auto">
+        <Button asChild variant="outline">
           <Link href="/contactos/importaciones">
             <UploadIcon className="h-4 w-4" />
             Importar
@@ -554,13 +546,7 @@ export function ClientsToolbar({
         </Button>
       )}
       {permissions.export && (
-        <Button
-          type="button"
-          variant="outline"
-          className={cn('w-full sm:w-auto', !permissions.import && 'sm:ml-auto')}
-          disabled={exporting}
-          onClick={exportAll}
-        >
+        <Button type="button" variant="outline" disabled={exporting} onClick={exportAll}>
           {exporting ? (
             <Loader2Icon className="h-4 w-4 animate-spin" />
           ) : (
@@ -569,6 +555,6 @@ export function ClientsToolbar({
           Exportar a Excel
         </Button>
       )}
-    </div>
+    </>
   );
 }

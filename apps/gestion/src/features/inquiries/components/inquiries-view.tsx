@@ -137,7 +137,7 @@ function Toolbar({
   ).length;
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border px-4 py-3">
+    <div className="flex flex-col gap-3 border-b border-border px-4 py-3 lg:flex-row lg:flex-wrap lg:items-center">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs tab={filters.tab} />
         {pending && (
@@ -291,7 +291,7 @@ function InquiryCard({
         )}
       </div>
 
-      <div className="flex flex-col gap-2 text-xs sm:w-[280px] sm:shrink-0 sm:text-sm">
+      <div className="flex min-w-0 flex-col gap-2 text-xs sm:flex-1 sm:text-sm">
         <div className="flex items-start gap-1.5">
           <BuildingIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {property ? (

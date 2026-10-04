@@ -42,6 +42,7 @@ src/
   - El cliente solo recibe las filas de la página actual. Nunca traer todo a memoria, ni para un select, un autocomplete o un kanban (cada columna pagina sola).
   - "Seleccionar todos" en acciones masivas manda **el filtro**, no la lista de IDs, y la acción corre por lotes o como job.
   - La grilla es `ServerDataTable` (`features/shared/components/server-data-table.tsx`) y los params se leen con `parseListParams` (`lib/list-params.ts`).
+  - **Cabecera en dos franjas**, separadas por una línea: arriba, las acciones (switch de vista a la izquierda; importar, exportar, búsquedas, papelera y el alta, última, a la derecha); abajo, solo los filtros.
   - Patrón completo: `.claude/skills/gestion-feature/grilla-paginada.md`.
 - **Papelera**: borrar es baja lógica. Toda entidad con papelera tiene su listado de borrados (paginado) con restaurar.
 - **Autorización**:

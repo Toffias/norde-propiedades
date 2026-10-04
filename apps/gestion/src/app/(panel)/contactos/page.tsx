@@ -31,7 +31,9 @@ export default async function ContactsPage({
 }) {
   const { actor } = await requireSession();
   const params = await searchParams;
-  const { value: query, invalidKeys } = parseListParams(ListClientsQuerySchema, params);
+  const { value: parsed, invalidKeys } = parseListParams(ListClientsQuerySchema, params);
+  // Con o sin etiquetas no se ofrece como filtro: se ignora aunque venga en la URL.
+  const { tagged: _tagged, ...query } = parsed;
   const { clients } = getContainer();
   // La agenda A–Z es de los activos; la papelera se ve siempre en la grilla.
   const layout: ClientLayout =
@@ -76,7 +78,6 @@ export default async function ContactsPage({
     branchId: query.branchId ?? '',
     kind: query.kind ?? '',
     clientType: query.clientType ?? '',
-    tagged: query.tagged ?? '',
     tagId: query.tagId ?? '',
     letter: layout === 'agenda' ? (query.letter ?? '') : '',
     owners: query.owners,

@@ -12,10 +12,10 @@ import { useMemo } from 'react';
 import { usePanel } from '../../shared/components/entity-sheet';
 import { ListNavigationProvider } from '../../shared/components/server-data-table';
 import { PropertiesGrid, type PropertyPermissions } from './properties-grid';
-import type { PropertyFilterValues } from './properties-toolbar';
+import { PropertiesToolbar, type PropertyFilterValues } from './properties-toolbar';
+import { PropertyActionsBar } from './property-actions-bar';
 import { PropertyCards } from './property-cards';
 import { PropertyMap } from './property-map';
-import { PropertySearchHeader } from './property-search-header';
 import { PropertySheet } from './property-sheet';
 
 export interface PropertiesViewProps {
@@ -43,15 +43,10 @@ export function PropertiesView(props: PropertiesViewProps) {
   const effectiveLayout = filters.view === 'trash' ? 'list' : layout;
 
   const toolbar = (
-    <PropertySearchHeader
-      layout={effectiveLayout}
+    <PropertiesToolbar
       filters={filters}
       sortsByPrice={props.sort.field === 'price'}
       canSeeTrash={permissions.delete}
-      canCreate={permissions.create}
-      canSaveForClient={permissions.featureToClient}
-      favoriteSearches={props.favoriteSearches}
-      onCreate={navigation.openNew}
     />
   );
   const empty = Object.entries(filters).some(
@@ -62,6 +57,14 @@ export function PropertiesView(props: PropertiesViewProps) {
 
   return (
     <>
+      <PropertyActionsBar
+        layout={effectiveLayout}
+        filters={filters}
+        canCreate={permissions.create}
+        canSaveForClient={permissions.featureToClient}
+        favoriteSearches={props.favoriteSearches}
+        onCreate={navigation.openNew}
+      />
       {effectiveLayout === 'list' ? (
         <PropertiesGrid
           rows={props.rows}

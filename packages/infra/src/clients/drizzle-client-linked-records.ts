@@ -6,6 +6,7 @@ import {
   clientActivities,
   clientRelations,
   featuredListings,
+  importMappings,
   inquiries,
   opportunities,
   savedSearches,
@@ -130,6 +131,11 @@ export class DrizzleClientLinkedRecords implements ClientLinkedRecords {
         .where(eq(inquiries.clientId, fromId))
         .returning({ id: inquiries.id }),
     );
+    // El mapeo con Tokko: al reimportar, el contacto de origen resuelve al principal.
+    await this.db
+      .update(importMappings)
+      .set({ internalId: toId })
+      .where(and(eq(importMappings.entityType, 'client'), eq(importMappings.internalId, fromId)));
 
     // Relaciones que otros declaran hacia el duplicado: pasan al principal. Las que el principal
     // ya tiene con ese contacto (o las del principal mismo) se descartan.

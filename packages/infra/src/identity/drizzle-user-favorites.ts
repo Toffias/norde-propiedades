@@ -61,6 +61,31 @@ export class DrizzleUserFavorites implements UserFavorites {
         ),
       );
   }
+
+  async moveEntity(
+    entityType: FavoriteEntityValue,
+    fromId: string,
+    toId: string,
+  ): Promise<readonly string[]> {
+    const moved = await this.db
+      .delete(userFavorites)
+      .where(and(eq(userFavorites.entityType, entityType), eq(userFavorites.entityId, fromId)))
+      .returning({ userId: userFavorites.userId, createdAt: userFavorites.createdAt });
+    if (moved.length === 0) return [];
+    // Quien ya tenía la otra la conserva, con su fecha.
+    await this.db
+      .insert(userFavorites)
+      .values(
+        moved.map((row) => ({
+          userId: row.userId,
+          entityType,
+          entityId: toId,
+          createdAt: row.createdAt,
+        })),
+      )
+      .onConflictDoNothing();
+    return moved.map((row) => row.userId);
+  }
 }
 
 /** Supresión: los clientes suprimidos salen de los favoritos de todos los usuarios. */

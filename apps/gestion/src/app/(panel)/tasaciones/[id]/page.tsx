@@ -17,6 +17,8 @@ import {
   type AppraisalDetailPermissions,
 } from '../../../../features/appraisals/components/appraisal-header';
 import { AppraisalHistoryGrid } from '../../../../features/appraisals/components/appraisal-history-grid';
+import { AppraisalPhotosSection } from '../../../../features/appraisals/components/appraisal-photos-section';
+import { AppraisalResultSection } from '../../../../features/appraisals/components/appraisal-result-section';
 import { AppraisalTabs } from '../../../../features/appraisals/components/appraisal-tabs';
 import { APPRAISAL_TABS, type AppraisalTab } from '../../../../features/appraisals/labels';
 import { APPRAISAL_READ_ERROR_MESSAGES } from '../../../../features/appraisals/messages';
@@ -37,8 +39,10 @@ function permissionsFor(
 ): AppraisalDetailPermissions {
   const owners = [detail.producer.id, detail.appraiser?.id];
   const editable = detail.deletedAt === undefined && detail.status !== 'converted';
+  const edit = editable && actor.can('appraisals:update');
   return {
-    edit: editable && actor.can('appraisals:update'),
+    edit,
+    convert: edit && actor.can('properties:create'),
     delete: actor.can('appraisals:delete'),
     history: owners.some((ownerId) =>
       canActOn(actor, OWNERSHIP_RULES.auditRead, {
@@ -97,6 +101,19 @@ export default async function AppraisalDetailPage({
 
       {tab === 'historial' ? (
         await renderHistory(detail, permissions, actor, query)
+      ) : tab === 'resultado' ? (
+        // `key`: al guardar, la vista vuelve a tomar los valores de la ficha.
+        <AppraisalResultSection
+          key={detail.updatedAt.toISOString()}
+          detail={detail}
+          canEdit={permissions.edit}
+        />
+      ) : tab === 'fotos' ? (
+        <AppraisalPhotosSection
+          appraisalId={detail.id}
+          photoIds={detail.photoIds}
+          canEdit={permissions.edit}
+        />
       ) : (
         <Card>
           <CardContent>

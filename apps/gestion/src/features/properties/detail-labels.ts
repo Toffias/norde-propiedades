@@ -96,6 +96,7 @@ export const HISTORY_CATEGORY_LABELS: Readonly<Record<PropertyHistoryCategory, s
 /** Qué hizo cada entrada del historial, en la voz de la línea ("Camila cambió el estado"). */
 export const HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'property.created': 'dio de alta la propiedad',
+  'property.created_from_appraisal': 'dio de alta la propiedad desde una tasación',
   'property.updated': 'editó la ficha',
   'property.status_changed': 'cambió el estado',
   'property.producer_changed': 'cambió el captador',
@@ -149,6 +150,9 @@ export const HISTORY_FIELD_LABELS: Readonly<Record<string, string>> = {
   customAttributes: 'Atributos personalizados',
   maintenanceUserId: 'Usuario de mantenimiento',
   appraiserUserIds: 'Tasadores',
+  appraisalId: 'Tasación',
+  appraisalCode: 'Tasación de origen',
+  ownerClientIds: 'Propietarios',
   keysLocation: 'Ubicación de las llaves',
   legalInfo: 'Información legal',
   internalComments: 'Comentarios internos',

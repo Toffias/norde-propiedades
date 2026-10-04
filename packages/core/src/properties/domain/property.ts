@@ -118,6 +118,14 @@ export interface InvalidStatusTransitionError {
 export interface StatusNotManualError {
   readonly type: 'StatusNotManual';
 }
+/** Una propiedad reservada no cambia de estado a mano ni se borra: la reserva se cae o se firma. */
+export interface PropertyReservedError {
+  readonly type: 'PropertyReserved';
+}
+/** Solo se reserva una propiedad disponible. */
+export interface PropertyNotAvailableError {
+  readonly type: 'PropertyNotAvailable';
+}
 export interface OperationNotFoundError {
   readonly type: 'OperationNotFound';
 }
@@ -203,7 +211,7 @@ function sameValue(a: unknown, b: unknown): boolean {
 }
 
 /** Dos decimales como mucho: la comisión se guarda en `numeric(5, 2)`. */
-function validCommission(pct: number | undefined): boolean {
+export function validCommission(pct: number | undefined): boolean {
   if (pct === undefined) return true;
   return pct >= 0 && pct <= 100 && Math.abs(Math.round(pct * 100) - pct * 100) < 1e-9;
 }
@@ -314,9 +322,10 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
     return { ownerId: this.#state.producerUserId, ownerBranchId: this.#state.branchId };
   }
 
-  /** Baja lógica: va a la papelera con quién la borró y cuándo. */
-  delete(by: string, now: Date): Result<void, PropertyAlreadyDeletedError> {
+  /** Baja lógica: va a la papelera con quién la borró y cuándo. Una reservada no se borra. */
+  delete(by: string, now: Date): Result<void, PropertyAlreadyDeletedError | PropertyReservedError> {
     if (this.isDeleted) return err({ type: 'PropertyAlreadyDeleted' });
+    if (this.#state.status === 'reserved') return err({ type: 'PropertyReserved' });
     this.#state = { ...this.#state, deletedAt: now, deletedBy: by, updatedAt: now };
     this.record({
       type: 'properties.property_deleted',
@@ -341,17 +350,68 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
 
   /**
    * Cambia el estado a mano. Devuelve `false` si ya estaba en ese estado (no hay cambio que
-   * registrar). "Reservada" no se elige a mano: la marca una reserva.
+   * registrar). "Reservada" no se elige a mano: la marca una reserva, y mientras está reservada el
+   * estado lo cambia la reserva al caerse o firmarse.
    */
   changeStatus(
     to: PropertyStatus,
     now: Date,
-  ): Result<boolean, PropertyInTrashError | StatusNotManualError | InvalidStatusTransitionError> {
+  ): Result<
+    boolean,
+    | PropertyInTrashError
+    | StatusNotManualError
+    | PropertyReservedError
+    | InvalidStatusTransitionError
+  > {
     if (this.isDeleted) return err({ type: 'PropertyInTrash' });
     if (!MANUAL_STATUSES.includes(to)) return err({ type: 'StatusNotManual' });
     const from = this.#state.status;
     if (from === to) return ok(false);
+    if (from === 'reserved') return err({ type: 'PropertyReserved' });
     if (!canTransition(from, to)) return err({ type: 'InvalidStatusTransition', from, to });
+    this.#moveTo(to, now);
+    return ok(true);
+  }
+
+  /** Tiene esa operación (venta, alquiler, temporario). */
+  offers(operation: PropertyOperationKind): boolean {
+    return this.#state.operations.some((o) => o.operation === operation);
+  }
+
+  /** Una reserva la toma: tiene que estar disponible y ofrecer la operación reservada. */
+  markAsReserved(
+    operation: PropertyOperationKind,
+    now: Date,
+  ): Result<void, PropertyInTrashError | PropertyNotAvailableError | OperationNotFoundError> {
+    if (this.isDeleted) return err({ type: 'PropertyInTrash' });
+    if (this.#state.status !== 'available') return err({ type: 'PropertyNotAvailable' });
+    if (!this.offers(operation)) return err({ type: 'OperationNotFound' });
+    this.#moveTo('reserved', now);
+    return ok(undefined);
+  }
+
+  /**
+   * La reserva se cayó: vuelve a estar disponible. Si ya no estaba reservada (datos anteriores a
+   * esta regla), no cambia. Devuelve si cambió.
+   */
+  releaseReservation(now: Date): boolean {
+    if (this.#state.status !== 'reserved') return false;
+    this.#moveTo('available', now);
+    return true;
+  }
+
+  /**
+   * Se firmó la reserva: pasa a vendida (venta) o alquilada (alquiler o temporario). Si ya no estaba
+   * reservada, no cambia. Devuelve si cambió.
+   */
+  closeAsSigned(operation: PropertyOperationKind, now: Date): boolean {
+    if (this.#state.status !== 'reserved') return false;
+    this.#moveTo(operation === 'sale' ? 'sold' : 'rented', now);
+    return true;
+  }
+
+  #moveTo(to: PropertyStatus, now: Date): void {
+    const from = this.#state.status;
     this.#state = { ...this.#state, status: to, statusChangedAt: now, updatedAt: now };
     this.record({
       type: 'properties.property_status_changed',
@@ -359,7 +419,6 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
       occurredAt: now,
       payload: { propertyId: this.id, code: this.#state.code, from, to },
     });
-    return ok(true);
   }
 
   /**

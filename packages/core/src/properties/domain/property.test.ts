@@ -291,3 +291,84 @@ describe('Property quick edits', () => {
     expect(unwrap(property.changeTags({ add: ['b'], remove: ['z'] }, LATER))).toBe(false);
   });
 });
+
+describe('Property reservations', () => {
+  function available() {
+    const property = unwrap(Property.create(newProperty()));
+    unwrap(property.changeStatus('available', NOW));
+    property.pullEvents();
+    return property;
+  }
+
+  it('is reserved only while available and offering the reserved operation', () => {
+    const draft = unwrap(Property.create(newProperty()));
+    expect(unwrapErr(draft.markAsReserved('sale', LATER))).toEqual({
+      type: 'PropertyNotAvailable',
+    });
+
+    const property = available();
+    expect(property.offers('rent')).toBe(false);
+    expect(unwrapErr(property.markAsReserved('rent', LATER))).toEqual({
+      type: 'OperationNotFound',
+    });
+    unwrap(property.markAsReserved('sale', LATER));
+    expect(property.toSnapshot()).toMatchObject({ status: 'reserved', statusChangedAt: LATER });
+    expect(property.pullEvents()).toMatchObject([
+      {
+        type: 'properties.property_status_changed',
+        payload: { from: 'available', to: 'reserved' },
+      },
+    ]);
+    expect(unwrapErr(property.markAsReserved('sale', LATER))).toEqual({
+      type: 'PropertyNotAvailable',
+    });
+  });
+
+  it('does not reserve a property in the trash', () => {
+    const property = available();
+    unwrap(property.delete('user-1', LATER));
+    expect(unwrapErr(property.markAsReserved('sale', LATER))).toEqual({
+      type: 'PropertyInTrash',
+    });
+  });
+
+  it('blocks status changes by hand and the trash while reserved', () => {
+    const property = available();
+    unwrap(property.markAsReserved('sale', LATER));
+    for (const status of ['available', 'sold', 'withdrawn'] as const) {
+      expect(unwrapErr(property.changeStatus(status, LATER))).toEqual({
+        type: 'PropertyReserved',
+      });
+    }
+    expect(unwrapErr(property.delete('user-1', LATER))).toEqual({ type: 'PropertyReserved' });
+    expect(property.status).toBe('reserved');
+  });
+
+  it('goes back to available when the reservation falls', () => {
+    const property = available();
+    unwrap(property.markAsReserved('sale', LATER));
+    expect(property.releaseReservation(LATER)).toBe(true);
+    expect(property.status).toBe('available');
+    expect(property.releaseReservation(LATER)).toBe(false);
+  });
+
+  it('is sold or rented when the reservation is signed', () => {
+    const sale = available();
+    unwrap(sale.markAsReserved('sale', LATER));
+    expect(sale.closeAsSigned('sale', LATER)).toBe(true);
+    expect(sale.status).toBe('sold');
+    expect(sale.closeAsSigned('sale', LATER)).toBe(false);
+
+    for (const operation of ['rent', 'temporary_rent'] as const) {
+      const rental = unwrap(
+        Property.create(
+          newProperty({ operation: { operation, currency: 'ARS', priceCents: 80_000_000n } }),
+        ),
+      );
+      unwrap(rental.changeStatus('available', NOW));
+      unwrap(rental.markAsReserved(operation, LATER));
+      expect(rental.closeAsSigned(operation, LATER)).toBe(true);
+      expect(rental.status).toBe('rented');
+    }
+  });
+});

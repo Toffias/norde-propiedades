@@ -9,7 +9,7 @@ import {
 } from '../../../shared';
 import { canActOn, OWNERSHIP_RULES } from '../../../identity';
 import { PropertyIdInputSchema, type PropertyIdInput } from '../../contracts';
-import type { PropertyAlreadyDeletedError } from '../../domain/property';
+import type { PropertyAlreadyDeletedError, PropertyReservedError } from '../../domain/property';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import {
   findProperty,
@@ -19,11 +19,15 @@ import {
 } from '../property-support';
 
 export type DeletePropertyError =
-  ForbiddenError | InvalidInputError | PropertyNotFoundError | PropertyAlreadyDeletedError;
+  | ForbiddenError
+  | InvalidInputError
+  | PropertyNotFoundError
+  | PropertyAlreadyDeletedError
+  | PropertyReservedError;
 
 /**
  * Manda una propiedad a la papelera: las propias con `properties:delete`, las de cualquiera con
- * `properties:delete-others`.
+ * `properties:delete-others`. Una propiedad reservada no se borra: primero se cae o se firma la reserva.
  */
 export class DeleteProperty {
   constructor(

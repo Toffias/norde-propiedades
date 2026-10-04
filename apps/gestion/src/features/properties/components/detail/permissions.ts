@@ -13,4 +13,10 @@ export interface DetailPermissions {
   readonly contacts: boolean;
   /** Editar contactos: destacarles la propiedad (#11). */
   readonly featureToClient: boolean;
+  /** Reservar la propiedad (#13): la reserva además pide que esté disponible. */
+  readonly reserve: boolean;
+  /** Editar, dar por caída y firmar reservas (gerencia). */
+  readonly manageReservations: boolean;
+  /** Ver las reservas de la propiedad. */
+  readonly reservations: boolean;
 }

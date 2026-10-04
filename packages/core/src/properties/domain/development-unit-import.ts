@@ -56,6 +56,7 @@ export const UNIT_IMPORT_PROBLEM_CODES = [
   'missing_currency',
   'invalid_value',
   'invalid_status',
+  'unit_reserved',
   'status_forbidden',
   'code_unavailable',
 ] as const;

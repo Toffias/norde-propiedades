@@ -435,6 +435,19 @@ describe('RunDevelopmentUnitImport', () => {
     ]);
   });
 
+  it('does not change the status of a reserved unit', async () => {
+    const s = setup();
+    withUnit(s.uow, UNIT_4A, { floor: '4', unit: 'A' }, { status: 'reserved' });
+
+    const job = await importRows(s, [row({ floor: '4', unit: 'A', status: 'Vendida' })]);
+
+    expect(job.totals).toMatchObject({ failed: 1 });
+    expect(s.uow.properties.rows.get(UNIT_4A)?.status).toBe('reserved');
+    expect(s.uow.unitImports.problems).toEqual([
+      expect.objectContaining({ code: 'unit_reserved', field: 'status', propertyId: UNIT_4A }),
+    ]);
+  });
+
   it('lets who can mark available make a unit available', async () => {
     const s = setup();
     withUnit(s.uow, UNIT_5B, { floor: '5', unit: 'B' });

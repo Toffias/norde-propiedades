@@ -12,6 +12,7 @@ import type {
   PropertyScopeValue,
   PropertyStatusValue,
   PropertyType,
+  ReservationStatusValue,
 } from '@norde/core/properties/contracts';
 import type { StatusTone } from '@norde/ui/components/status-pill';
 
@@ -49,6 +50,14 @@ export const PROPERTY_STATUS_DISPLAY: Readonly<
   rented: { label: 'Alquilada', tone: 'red' },
   paused: { label: 'Pausada', tone: 'amber' },
   withdrawn: { label: 'Dada de baja', tone: 'gray' },
+};
+
+export const RESERVATION_STATUS_DISPLAY: Readonly<
+  Record<ReservationStatusValue, { readonly label: string; readonly tone: StatusTone }>
+> = {
+  active: { label: 'Activa', tone: 'amber' },
+  fallen: { label: 'Caída', tone: 'gray' },
+  signed: { label: 'Firmada', tone: 'green' },
 };
 
 export const SCOPE_LABELS: Readonly<Record<PropertyScopeValue, string>> = {
@@ -137,4 +146,5 @@ export const BULK_SKIP_LABELS: Readonly<Record<BulkSkipReason, string>> = {
   in_trash: 'está en la papelera',
   invalid_transition: 'no puede pasar a ese estado',
   operation_not_found: 'no tiene esa operación',
+  reserved: 'está reservada',
 };

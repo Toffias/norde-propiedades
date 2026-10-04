@@ -19,6 +19,7 @@ export const DETAIL_TABS = [
   'archivos',
   'historial',
   'contactos',
+  'reservas',
   'estadisticas',
 ] as const;
 export type DetailTab = (typeof DETAIL_TABS)[number];
@@ -29,6 +30,7 @@ export const DETAIL_TAB_LABELS: Readonly<Record<DetailTab, string>> = {
   archivos: 'Archivos',
   historial: 'Historial',
   contactos: 'Contactos',
+  reservas: 'Reservas',
   estadisticas: 'Estadísticas',
 };
 
@@ -88,6 +90,7 @@ export const HISTORY_CATEGORY_LABELS: Readonly<Record<PropertyHistoryCategory, s
   files: 'Archivos',
   publication: 'Publicación',
   assignments: 'Captador y etiquetas',
+  reservations: 'Reservas',
 };
 
 /** Qué hizo cada entrada del historial, en la voz de la línea ("Camila cambió el estado"). */
@@ -110,6 +113,11 @@ export const HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'property.attachment_deleted': 'borró un archivo',
   'property.exported': 'pidió un PDF',
   'property.owner_report_sent': 'mandó el reporte al propietario',
+  'property.reserved': 'reservó la propiedad',
+  'property.reservation_updated': 'editó la reserva',
+  'property.reservation_fallen': 'dio por caída la reserva',
+  'property.reservation_signed': 'firmó la reserva',
+  'property.reservation_erased': 'borró la reserva al suprimir los datos del contacto',
 };
 
 /** Nombre de cada campo del historial. Los de las filas hijas (`media.<id>.campo`) usan el último tramo. */
@@ -162,6 +170,22 @@ export const HISTORY_FIELD_LABELS: Readonly<Record<string, string>> = {
   name: 'Nombre',
   mimeType: 'Tipo de archivo',
   sizeBytes: 'Tamaño',
+  reservationId: 'Reserva',
+  clientId: 'Contacto',
+  opportunityId: 'Oportunidad',
+  reservationOperation: 'Operación reservada',
+  reservationStatus: 'Estado de la reserva',
+  agentUserId: 'Agente',
+  managerUserId: 'Gerente',
+  reservationBranchId: 'Sucursal de la reserva',
+  amountCents: 'Valor de la reserva',
+  amountCurrency: 'Moneda del valor',
+  commissionPct: 'Comisión (%)',
+  commissionCents: 'Comisión (monto)',
+  commissionCurrency: 'Moneda de la comisión',
+  estimatedSigningDate: 'Fecha estimada de firma',
+  reservationNotes: 'Notas de la reserva',
+  fallenReason: 'Motivo de la caída',
 };
 
 export const SEND_CHANNEL_LABELS: Readonly<Record<string, string>> = {

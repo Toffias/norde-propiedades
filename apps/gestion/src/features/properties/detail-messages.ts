@@ -62,6 +62,7 @@ export const DETAIL_ERROR_MESSAGES = {
   NegativePrice: 'Los montos no pueden ser negativos.',
   InvalidCommission: 'La comisión va de 0 a 100, con hasta dos decimales.',
   StatusNotManual: 'Ese estado no se elige a mano: lo marca una reserva.',
+  PropertyReserved: 'La propiedad está reservada: primero se cae o se firma la reserva.',
   InvalidStatusTransition: 'La propiedad no puede pasar a ese estado desde el actual.',
   NegativeCharacteristic: 'Las medidas y cantidades no pueden ser negativas.',
   CoveredExceedsTotal: 'La superficie cubierta y semicubierta no puede superar la total.',

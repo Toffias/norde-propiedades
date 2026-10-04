@@ -737,6 +737,8 @@ export const reservations = coreSchema.table(
     uniqueIndex('reservations_active_property_uq')
       .on(t.propertyId)
       .where(sql`status = 'active'`),
+    // Pestaña Reservas de la ficha: las de una propiedad, por fecha.
+    index('reservations_property_reserved_idx').on(t.propertyId, t.reservedAt),
     index('reservations_status_signing_idx').on(t.status, t.estimatedSigningDate),
     index('reservations_agent_reserved_idx').on(t.agentUserId, t.reservedAt),
     index('reservations_manager_reserved_idx').on(t.managerUserId, t.reservedAt),

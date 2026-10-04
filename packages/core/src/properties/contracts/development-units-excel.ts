@@ -93,6 +93,7 @@ export const UNIT_IMPORT_PROBLEM_CODE_VALUES = [
   'missing_currency',
   'invalid_value',
   'invalid_status',
+  'unit_reserved',
   'status_forbidden',
   'code_unavailable',
 ] as const;
@@ -108,6 +109,7 @@ export const UNIT_IMPORT_PROBLEM_LABELS: Readonly<Record<UnitImportProblemCodeVa
   missing_currency: 'Una operación nueva no tiene moneda',
   invalid_value: 'Valor inválido',
   invalid_status: 'No puede pasar a ese estado',
+  unit_reserved: 'La unidad tiene una reserva activa: primero se cae o se firma',
   status_forbidden: 'Marcarla disponible requiere un permiso que no tenés',
   code_unavailable: 'No se pudo asignar un código de referencia',
 };

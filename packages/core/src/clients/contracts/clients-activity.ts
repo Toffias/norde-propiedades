@@ -264,6 +264,8 @@ export interface ClientListingSummary {
 export interface ClientFeaturedRow {
   readonly id: string;
   readonly propertyId: string;
+  /** Oportunidad a la que quedó atada al destacarla (la reserva la hereda). */
+  readonly opportunityId: string | undefined;
   /** `undefined`: la propiedad ya no está en la cartera (borrada). */
   readonly property: ClientListingSummary | undefined;
   /** Coincidencia con su mejor búsqueda guardada al destacarla, de 0 a 100. */

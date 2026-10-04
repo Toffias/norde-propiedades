@@ -1,0 +1,1 @@
+CREATE INDEX "reservations_property_reserved_idx" ON "core"."reservations" USING btree ("property_id","reserved_at");

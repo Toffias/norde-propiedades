@@ -455,7 +455,8 @@ export class RunDevelopmentUnitImport {
 
 /**
  * Pasa la unidad al estado de la planilla. "Disponible" respeta el permiso de quien importó; uno
- * que no se elige a mano (reservada) o una transición inválida es un problema de la fila.
+ * que no se elige a mano (reservada), una unidad reservada o una transición inválida es un problema
+ * de la fila.
  */
 function changeStatus(
   job: DevelopmentUnitImport,
@@ -467,7 +468,10 @@ function changeStatus(
     return { code: 'status_forbidden', field: 'status' };
   }
   const changed = unit.changeStatus(status, now);
-  return changed.isErr() ? { code: 'invalid_status', field: 'status' } : undefined;
+  if (changed.isOk()) return undefined;
+  return changed.error.type === 'PropertyReserved'
+    ? { code: 'unit_reserved', field: 'status' }
+    : { code: 'invalid_status', field: 'status' };
 }
 
 /** El dato de la fila que explica un error del alta. */

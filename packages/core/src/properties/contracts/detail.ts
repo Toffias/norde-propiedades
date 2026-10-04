@@ -54,7 +54,7 @@ function hasTwoDecimals(value: number): boolean {
 }
 
 /** Porcentaje con hasta dos decimales ("3", "4,5"). */
-const Percentage = z.preprocess(
+export const PercentageSchema = z.preprocess(
   (value) => (typeof value === 'string' ? value.replace(',', '.') : value),
   z.coerce
     .number()
@@ -115,7 +115,7 @@ export const PropertyOperationInputSchema = z.object({
   /** En unidades; vacío: sin precio cargado. */
   price: AmountSchema.optional(),
   priceOnRequest: z.boolean().default(false),
-  commissionPct: Percentage.optional(),
+  commissionPct: PercentageSchema.optional(),
 });
 
 export const UpdatePropertyOperationsInputSchema = z.object({
@@ -301,6 +301,7 @@ export const PROPERTY_HISTORY_CATEGORY_VALUES = [
   'files',
   'publication',
   'assignments',
+  'reservations',
 ] as const;
 export type PropertyHistoryCategory = (typeof PROPERTY_HISTORY_CATEGORY_VALUES)[number];
 

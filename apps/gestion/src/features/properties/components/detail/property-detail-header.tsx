@@ -28,6 +28,7 @@ import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import {
   BarChart3Icon,
+  BookmarkCheckIcon,
   BuildingIcon,
   ChevronDownIcon,
   EyeIcon,
@@ -48,6 +49,7 @@ import { FeatureToClientDialog } from '../../../clients/components/feature-to-cl
 import { changePropertyStatusAction, updatePropertyPublicationAction } from '../../detail-actions';
 import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../../labels';
 import { FavoriteToggle } from '../favorite-toggle';
+import { ReservationDialog, type ReservationSubject } from '../reservations/reservation-dialog';
 import { DocumentsDialog, OwnerReportDialog, useRequestDocument } from './documents-dialogs';
 import type { DetailPermissions } from './permissions';
 
@@ -72,16 +74,19 @@ export function PropertyDetailHeader({
   detail,
   permissions,
   favorite,
+  reservationSubject,
 }: {
   readonly detail: PanelPropertyDetail;
   readonly permissions: DetailPermissions;
   readonly favorite: boolean;
+  readonly reservationSubject: ReservationSubject;
 }) {
   const [pending, startTransition] = useTransition();
   const [mapOpen, setMapOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [featuring, setFeaturing] = useState(false);
+  const [reserving, setReserving] = useState(false);
   const documents = useRequestDocument(detail.id, () => {
     setDocumentsOpen(true);
   });
@@ -97,9 +102,14 @@ export function PropertyDetailHeader({
           .slice(1)
           .join(' › ')
       : [detail.address.neighborhood, detail.address.city].filter(Boolean).join(', ');
-  const statuses = MANUAL_STATUS_VALUES.filter(
-    (value) => value !== detail.status && (permissions.markAvailable || value !== 'available'),
-  );
+  // Una reservada cambia de estado con su reserva (se cae o se firma), no a mano.
+  const reserved = detail.status === 'reserved';
+  const statuses = reserved
+    ? []
+    : MANUAL_STATUS_VALUES.filter(
+        (value) => value !== detail.status && (permissions.markAvailable || value !== 'available'),
+      );
+  const canReserve = permissions.reserve && detail.status === 'available';
 
   function run(
     action: () => Promise<
@@ -179,6 +189,30 @@ export function PropertyDetailHeader({
           <div className="rounded-lg bg-white/10 p-1">
             <FavoriteToggle propertyId={detail.id} code={detail.code} favorite={favorite} />
           </div>
+
+          {canReserve && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-foreground dark:bg-card"
+              onClick={() => {
+                setReserving(true);
+              }}
+            >
+              <BookmarkCheckIcon className="h-4 w-4" />
+              Reservar
+            </Button>
+          )}
+
+          {permissions.edit && reserved && (
+            // Un botón deshabilitado no muestra su `title`: lo muestra el contenedor.
+            <span title="Primero se cae o se firma la reserva.">
+              <Button size="sm" variant="outline" className="text-foreground dark:bg-card" disabled>
+                Cambiar estado
+                <ChevronDownIcon className="h-4 w-4" />
+              </Button>
+            </span>
+          )}
 
           {permissions.edit && statuses.length > 0 && (
             <DropdownMenu>
@@ -354,6 +388,14 @@ export function PropertyDetailHeader({
           </DropdownMenu>
         </div>
       </div>
+
+      {reserving && (
+        <ReservationDialog
+          subject={reservationSubject}
+          open={reserving}
+          onOpenChange={setReserving}
+        />
+      )}
 
       {featuring && (
         <FeatureToClientDialog

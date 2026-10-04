@@ -38,6 +38,7 @@ export const PROPERTY_ERROR_MESSAGES = {
   PropertyNotFound: 'No encontramos esa propiedad. Puede que la hayan borrado definitivamente.',
   PropertyAlreadyDeleted: 'La propiedad ya estaba en la papelera.',
   PropertyNotDeleted: 'La propiedad no está en la papelera.',
+  PropertyReserved: 'La propiedad está reservada: primero se cae o se firma la reserva.',
   LocationNotFound: 'No encontramos esa ubicación. Elegila de nuevo en el buscador.',
   PropertyTypeDisabled:
     'Ese tipo de propiedad está deshabilitado en Mi empresa → Propiedades. Elegí otro o habilitalo.',

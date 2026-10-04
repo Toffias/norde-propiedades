@@ -9,7 +9,7 @@ import {
   type ClientSavedSearchRow,
   type SavedSearchDetail,
 } from '@norde/core/clients/contracts';
-import type { PanelPropertyRow } from '@norde/core/properties/contracts';
+import { OPERATIONS, type PanelPropertyRow } from '@norde/core/properties/contracts';
 import type { Page } from '@norde/core/shared';
 import { Button } from '@norde/ui/components/button';
 import type { DataTableColumn, DataTableSort } from '@norde/ui/components/data-table';
@@ -26,6 +26,7 @@ import { StatusPill } from '@norde/ui/components/status-pill';
 import { Switch } from '@norde/ui/components/switch';
 import {
   ArchiveRestoreIcon,
+  BookmarkCheckIcon,
   ExternalLinkIcon,
   PencilIcon,
   PlusIcon,
@@ -56,6 +57,10 @@ import { ServerDataTable, useListNavigation } from '../../shared/components/serv
 import { listingPrice, reactionLabel } from '../activity-format';
 import { setFeaturedAutoSendAction, unfeaturePropertyAction } from '../activity-actions';
 import { deleteSavedSearchAction, restoreSavedSearchAction } from '../saved-search-actions';
+import {
+  ReservationDialog,
+  type ReservationSubject,
+} from '../../properties/components/reservations/reservation-dialog';
 import { SavedSearchSheet } from './saved-search-sheet';
 import { userName } from '../client-format';
 
@@ -181,15 +186,21 @@ function AutoSendSwitch({
 
 export function ClientFeaturedGrid({
   clientId,
+  clientDisplayName,
   page,
   canEdit,
+  canReserve,
 }: {
   readonly clientId: string;
+  readonly clientDisplayName: string;
   readonly page: Page<ClientFeaturedRow>;
   readonly canEdit: boolean;
+  /** Reservarle una propiedad disponible (#13). */
+  readonly canReserve: boolean;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState<PendingAction | undefined>();
+  const [reserving, setReserving] = useState<ReservationSubject | undefined>();
   const columns: readonly DataTableColumn<ClientFeaturedRow>[] = [
     {
       id: 'property',
@@ -291,6 +302,23 @@ export function ClientFeaturedGrid({
               }}
             />
           )}
+          {canReserve && row.property?.status === 'available' && (
+            <RowAction
+              icon={BookmarkCheckIcon}
+              label="Reservar"
+              onClick={() => {
+                setReserving({
+                  propertyId: row.propertyId,
+                  code: row.property?.code ?? '',
+                  operations: OPERATIONS.filter((operation) =>
+                    row.property?.operations.some((offered) => offered.operation === operation),
+                  ),
+                  client: { id: clientId, name: clientDisplayName },
+                  opportunityId: row.opportunityId,
+                });
+              }}
+            />
+          )}
           {canEdit && (
             <RowAction
               icon={StarOffIcon}
@@ -332,6 +360,15 @@ export function ClientFeaturedGrid({
           if (!open) setPending(undefined);
         }}
       />
+      {reserving !== undefined && (
+        <ReservationDialog
+          subject={reserving}
+          open
+          onOpenChange={(open) => {
+            if (!open) setReserving(undefined);
+          }}
+        />
+      )}
     </>
   );
 }

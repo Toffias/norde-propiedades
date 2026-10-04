@@ -23,6 +23,12 @@ import type {
 } from '../application/ports/development-list-query';
 import type { GeocodingFailedError, Geocoder } from '../application/ports/geocoder';
 import type {
+  PropertyReservationsQuery,
+  ReservationListItem,
+} from '../application/ports/property-reservations-query';
+import { Reservation, type ReservationId, type ReservationSnapshot } from '../domain/reservation';
+import type { ReservationRepository } from '../domain/reservation.repository';
+import type {
   BoundingBox,
   PanelPropertyFilterCriteria,
   PanelPropertyListCriteria,
@@ -588,6 +594,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly media = new InMemoryMediaItemRepository();
   readonly attachments = new InMemoryAttachmentRepository();
   readonly documents = new InMemoryPropertyDocumentRepository();
+  readonly reservations = new InMemoryReservationRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
@@ -609,6 +616,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.media,
       this.attachments,
       this.documents,
+      this.reservations,
     ];
   }
 
@@ -1366,5 +1374,135 @@ export class FakeDevelopmentUnitsExportWriter implements DevelopmentUnitsExportW
       }
     }
     return { filename: 'unidades.xlsx', contentType: 'text/plain', body: body() };
+  }
+}
+
+// ---------- Reservas (#13) ----------
+
+export const RESERVATION_ID = '00000000-0000-7000-8000-0000000000f1';
+export const CLIENT_ID = '00000000-0000-7000-8000-0000000000d1';
+export const MANAGER_USER_ID = '00000000-0000-7000-8000-0000000000a4';
+
+/** Agente: ve las propiedades y reserva, pero no cae ni firma reservas. */
+export const TEST_RESERVING_AGENT = Actor.user(PRODUCER_ID, [
+  'properties:read',
+  'reservations:read',
+  'reservations:create',
+]).withBranch(BRANCH_ID);
+/** Gerente de reservas: hace todo con las reservas. */
+export const TEST_RESERVATIONS_MANAGER = Actor.user(OTHER_USER_ID, [
+  'properties:read',
+  'reservations:*',
+]);
+
+export function reservationSnapshot(
+  overrides: Partial<Omit<ReservationSnapshot, 'id'>> & { readonly id?: string } = {},
+): ReservationSnapshot {
+  const { id, ...rest } = overrides;
+  const reservationId = parseId<'Reservation'>(id ?? RESERVATION_ID);
+  if (reservationId.isErr()) throw new Error('Invalid test fixture');
+  return {
+    id: reservationId.value,
+    propertyId: unwrapId(PROPERTY_ID),
+    clientId: CLIENT_ID,
+    opportunityId: undefined,
+    operation: 'sale',
+    status: 'active',
+    agentUserId: PRODUCER_ID,
+    branchId: BRANCH_ID,
+    managerUserId: undefined,
+    amount: { cents: 500_000n, currency: 'USD' },
+    commissionPct: 3,
+    commission: undefined,
+    estimatedSigningDate: '2026-11-15',
+    notes: undefined,
+    reservedAt: new Date('2026-09-20T12:00:00Z'),
+    fallenAt: undefined,
+    fallenReason: undefined,
+    signedAt: undefined,
+    createdAt: new Date('2026-09-20T12:00:00Z'),
+    updatedAt: new Date('2026-09-20T12:00:00Z'),
+    ...rest,
+  };
+}
+
+/** Simula el índice único parcial: una sola reserva activa por propiedad. */
+export class InMemoryReservationRepository implements ReservationRepository {
+  readonly rows = new Map<string, ReservationSnapshot>();
+  /** Quién guardó cada reserva por última vez. */
+  readonly savedBy = new Map<string, string>();
+
+  add(snapshot: ReservationSnapshot): this {
+    this.rows.set(snapshot.id, snapshot);
+    return this;
+  }
+
+  findById(id: ReservationId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? Reservation.restore(row) : undefined);
+  }
+
+  findActiveByProperty(propertyId: PropertyId) {
+    const row = [...this.rows.values()].find(
+      (r) => r.propertyId === propertyId && r.status === 'active',
+    );
+    return Promise.resolve(row ? Reservation.restore(row) : undefined);
+  }
+
+  insert(reservation: Reservation, actorId: string) {
+    const taken = [...this.rows.values()].some(
+      (r) => r.propertyId === reservation.propertyId && r.status === 'active',
+    );
+    if (!taken) {
+      this.rows.set(reservation.id, reservation.toSnapshot());
+      this.savedBy.set(reservation.id, actorId);
+    }
+    return Promise.resolve(!taken);
+  }
+
+  save(reservation: Reservation, actorId: string) {
+    this.rows.set(reservation.id, reservation.toSnapshot());
+    this.savedBy.set(reservation.id, actorId);
+    return Promise.resolve();
+  }
+
+  findActiveByClients(clientIds: readonly string[], limit: number) {
+    const rows = [...this.rows.values()]
+      .filter((r) => clientIds.includes(r.clientId) && r.status === 'active')
+      .slice(0, limit);
+    return Promise.resolve(rows.map((row) => Reservation.restore(row)));
+  }
+
+  remove(reservation: Reservation) {
+    this.rows.delete(reservation.id);
+    return Promise.resolve();
+  }
+
+  deleteByClients(clientIds: readonly string[]) {
+    const ids = [...this.rows.values()].filter((r) => clientIds.includes(r.clientId));
+    for (const row of ids) this.rows.delete(row.id);
+    return Promise.resolve(ids.length);
+  }
+}
+
+/** Devuelve las filas cargadas y registra lo que se le pidió. */
+export class StubPropertyReservationsQuery implements PropertyReservationsQuery {
+  readonly requests: Parameters<PropertyReservationsQuery['listByProperty']>[0][] = [];
+
+  constructor(private readonly rows: readonly ReservationListItem[] = []) {}
+
+  listByProperty(query: Parameters<PropertyReservationsQuery['listByProperty']>[0]) {
+    this.requests.push(query);
+    const items = this.rows.filter((r) => r.propertyId === query.propertyId);
+    return Promise.resolve({
+      items: items.slice(query.offset, query.offset + query.limit),
+      total: items.length,
+    });
+  }
+
+  findActive(propertyId: string) {
+    return Promise.resolve(
+      this.rows.find((r) => r.propertyId === propertyId && r.status === 'active'),
+    );
   }
 }

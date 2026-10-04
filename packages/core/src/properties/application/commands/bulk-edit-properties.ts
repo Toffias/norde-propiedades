@@ -21,7 +21,13 @@ import {
   type BulkEditResult,
   type BulkSkipReason,
 } from '../../contracts';
-import type { Property } from '../../domain/property';
+import type {
+  InvalidStatusTransitionError,
+  Property,
+  PropertyInTrashError,
+  PropertyReservedError,
+  StatusNotManualError,
+} from '../../domain/property';
 import type { TagNotFoundError } from '../catalog-support';
 import { resolveSelection, type NoBranchAssignedError } from '../panel-filter';
 import type { PanelPropertyListQuery } from '../ports/panel-property-list-query';
@@ -171,7 +177,7 @@ function apply(
       if (result.isErr()) {
         return {
           kind: 'skipped',
-          reason: result.error.type === 'PropertyInTrash' ? 'in_trash' : 'invalid_transition',
+          reason: bulkStatusSkipReason(result.error.type),
         };
       }
       if (!result.value) return { kind: 'unchanged' };
@@ -248,4 +254,23 @@ function operationsState(property: Property) {
       priceCents: o.priceCents ?? null,
     })),
   };
+}
+
+function bulkStatusSkipReason(
+  type: (
+    | PropertyInTrashError
+    | PropertyReservedError
+    | StatusNotManualError
+    | InvalidStatusTransitionError
+  )['type'],
+): BulkSkipReason {
+  switch (type) {
+    case 'PropertyInTrash':
+      return 'in_trash';
+    case 'PropertyReserved':
+      return 'reserved';
+    case 'StatusNotManual':
+    case 'InvalidStatusTransition':
+      return 'invalid_transition';
+  }
 }

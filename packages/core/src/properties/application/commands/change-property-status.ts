@@ -3,6 +3,7 @@ import { ChangePropertyStatusInputSchema, type ChangePropertyStatusInput } from 
 import type {
   InvalidStatusTransitionError,
   PropertyInTrashError,
+  PropertyReservedError,
   StatusNotManualError,
 } from '../../domain/property';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
@@ -14,7 +15,11 @@ import {
 } from '../property-support';
 
 export type ChangePropertyStatusError =
-  EditPropertyError | PropertyInTrashError | StatusNotManualError | InvalidStatusTransitionError;
+  | EditPropertyError
+  | PropertyInTrashError
+  | StatusNotManualError
+  | PropertyReservedError
+  | InvalidStatusTransitionError;
 
 /**
  * Cambia el estado desde la ficha. Marcarla disponible (lo que la habilita en la web) requiere

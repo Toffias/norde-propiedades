@@ -54,6 +54,15 @@ const CATEGORIES: Readonly<
   },
   publication: { actions: ['property.publication_changed'] },
   assignments: { actions: ['property.producer_changed', 'property.tags_changed'] },
+  reservations: {
+    actions: [
+      'property.reserved',
+      'property.reservation_updated',
+      'property.reservation_fallen',
+      'property.reservation_signed',
+      'property.reservation_erased',
+    ],
+  },
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;

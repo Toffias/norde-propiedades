@@ -93,6 +93,19 @@ describe('BulkEditProperties', () => {
     expect(uow.events.published.map((e) => e.type)).toEqual(['properties.property_status_changed']);
   });
 
+  it('skips a reserved property: its reservation falls or is signed first', async () => {
+    const { uow, bulk } = setup();
+    uow.properties.rows.set(B, propertySnapshot({ id: B, code: 'DEP0002', status: 'reserved' }));
+    const result = unwrap(
+      await bulk.execute(
+        { selection: { kind: 'ids', ids: [B] }, change: { field: 'status', status: 'available' } },
+        MANAGER,
+      ),
+    );
+    expect(result.skipped).toEqual([{ code: 'DEP0002', reason: 'reserved' }]);
+    expect(uow.properties.rows.get(B)?.status).toBe('reserved');
+  });
+
   it('changes the price of the selected properties and keeps the price history', async () => {
     const { uow, bulk } = setup();
     const result = unwrap(

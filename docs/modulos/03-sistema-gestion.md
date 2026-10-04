@@ -243,6 +243,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - **Lo de los otros módulos también pasa al principal**, al recibir `clients.clients_merged` (en segundos, por el agente):
   - Propiedades: sus reservas, las propiedades de las que es propietario (si los dos eran dueños de la misma, queda uno) y el contacto comercial de los emprendimientos. Cada propiedad y emprendimiento lo deja en su historial (`property.client_merged`, `development.client_merged`).
   - Las conversaciones del agente de IA, con sus mensajes (`conversation.client_merged`).
+  - Las tasaciones que pidió el duplicado (`appraisal.client_merged`).
   - Los favoritos de cada usuario: quien tenía a los dos queda con uno (`user.favorites_merged`).
 - Las unificaciones anteriores a esto se corrigieron con la migración `0029`, siguiendo las cadenas (un principal que después se unificó a otro).
 
@@ -293,7 +294,7 @@ Al confirmar se guarda el archivo y un job de `apps/agent` (`clients.import_requ
 - Se borra físicamente, sin papelera: la ficha con sus teléfonos, emails, canales, relaciones (en los dos sentidos) y etiquetas, las oportunidades, consultas, búsquedas, destacadas, envíos y actividad, y **sus entradas de `audit_log`** (las que lo tienen en `client_ids`). También se suprimen los duplicados que se le habían unificado, porque sus lápidas guardan nombre y datos de la ficha.
 - Queda una constancia en `erasure_records` (fecha del pedido, quién la ejecutó, cuándo y el ID suprimido) y una entrada `client.erased` en la auditoría, sin datos personales.
 - Los IDs externos del contacto (`import_mappings`) quedan marcados como suprimidos, para que una importación de Tokko no lo vuelva a crear.
-- `clients.client_erased` hace que cada módulo borre lo suyo en el agente: las conversaciones del agente de IA con sus mensajes, los vínculos como propietario de una propiedad y como contacto comercial de un emprendimiento (las propiedades quedan), sus reservas (si una estaba activa, la propiedad vuelve a estar disponible; ver §4.9) y los favoritos de todos los usuarios. Las tasaciones todavía no tienen módulo: cuando lo tengan (#12), reaccionan al mismo evento.
+- `clients.client_erased` hace que cada módulo borre lo suyo en el agente: las conversaciones del agente de IA con sus mensajes, los vínculos como propietario de una propiedad y como contacto comercial de un emprendimiento (las propiedades quedan), sus reservas (si una estaba activa, la propiedad vuelve a estar disponible; ver §4.9) los favoritos de todos los usuarios y las tasaciones que pidió (ver §6.4).
 - Los eventos del outbox solo llevan IDs. Los datos siguen en los backups hasta que rotan: falta documentar el plazo de retención.
 
 ### 3.3.5 Estados, motivos de cierre y reglas de oportunidades (#9, etapa 1)
@@ -785,19 +786,51 @@ Además de la propiedad publicada en alquiler, cuando se concreta el alquiler se
 
 ## 6. Tasaciones
 
-### 6.1 Alta, baja y modificación
+La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y papelera, (2) resultado (valores sugeridos y comparables), fotos y convertir en propiedad, (3) informe en PDF con la marca de Norde. El ingreso desde el agente de IA (`request_appraisal`) y desde el formulario de la web queda para después (depende de #53). Esta sección describe la etapa 1.
 
-- **Solicitante**: cliente propietario. Puede entrar desde el agente de IA con la tool `request_appraisal`.
-- **Datos de la propiedad**: dirección, tipo, superficies, ambientes, estado y fotos.
-- **Tasador asignado** y fecha de visita.
-- **Resultado**: valor sugerido de venta o alquiler (mínimo y máximo), comparables, observaciones.
-- **Estado**: solicitada → visita agendada → tasada → convertida / descartada.
-- Opcional: generar un **informe de tasación en PDF** con la marca de Norde.
+### 6.1 Listado (`/tasaciones`)
 
-### 6.2 Convertir a venta
+- Grilla paginada en el servidor: código (`TAS0001`, numeración propia de las tasaciones), tipo y dirección, solicitante, estado, productor y tasador, sucursal, visita y alta. Ordena por código, visita o alta.
+- Filtros: estado agrupado como en Tokko (**Pendientes** = solicitada o con visita agendada, **Tasadas**, **Descartadas**, **Ingresadas** = convertidas en propiedad), tipo de propiedad y, en "Más filtros", productor, tasador, sucursal, fecha de alta y fecha de visita.
+- **Quién ve qué**: cada uno ve las tasaciones que produce o que tiene asignadas como tasador. Con "Ver tasaciones de otros" (`appraisals:read-others`, gerencia) ve todas. Una tasación que no ve no existe para él, tampoco en la ficha.
+- Papelera con restaurar, con `appraisals:delete`.
+
+### 6.2 Alta y ficha (`/tasaciones/nueva`, `/tasaciones/[id]`)
+
+La tasación tiene pantalla propia (no panel lateral): en la etapa 2 suma resultado, comparables y fotos.
+
+- **Solicitud**: solicitante (el cliente propietario, obligatorio), productor (quien trae la tasación; sin elegir, quien la carga), tasador (opcional hasta asignarlo) y visita (día y hora de Buenos Aires). La sucursal es la del productor.
+- **Propiedad**: tipo (obligatorio), dirección, superficie total y cubierta (m², hasta dos decimales), ambientes, dormitorios, baños y estado de conservación. Los catálogos son los de las propiedades, para poder convertirla.
+- La ficha tiene las pestañas **Datos** (el mismo formulario, editable) e **Historial** (quién cambió qué y cuándo).
+- Editar y cambiar el estado piden `appraisals:update`; borrar y restaurar, `appraisals:delete`. Las dos además piden ver la tasación (ser productor o tasador, o "Ver tasaciones de otros").
+
+### 6.3 Estados
+
+**Solicitada → Visita agendada → Tasada → Ingresada (convertida)**, y **Descartada**.
+
+| Desde           | Puede pasar a                             |
+| --------------- | ----------------------------------------- |
+| Solicitada      | Visita agendada, Tasada, Descartada       |
+| Visita agendada | Solicitada, Tasada, Descartada            |
+| Tasada          | Ingresada (solo al convertir), Descartada |
+| Descartada      | Solicitada (se reabre)                    |
+| Ingresada       | — (final)                                 |
+
+- Para agendar la visita hace falta su fecha; con la visita agendada, la fecha no se puede borrar.
+- "Ingresada" no se elige a mano: la marca la conversión en propiedad (etapa 2). Una tasación ingresada ya no se edita ni cambia de estado.
+- Una tasación en la papelera no se edita.
+
+### 6.4 Historial, supresión y unificación
+
+- Todo cambio queda en el historial de la tasación (`appraisal.created`, `appraisal.updated` con solo los campos que cambiaron, `appraisal.status_changed`, `appraisal.deleted`, `appraisal.restored`), con el solicitante en `client_ids`.
+- Si se suprimen los datos del solicitante, sus tasaciones se borran físicamente, con su historial.
+- Si se unifica el solicitante con otro contacto, sus tasaciones pasan al principal (`appraisal.client_merged`).
+
+### 6.5 Convertir a venta (etapa 2)
 
 - Con un botón se crea una **propiedad en venta** (o en alquiler) prellenada con los datos de la tasación, en estado borrador.
 - La propiedad queda vinculada a la tasación y al propietario, para medir la conversión de tasaciones en captaciones en los reportes.
+- Opcional: generar un **informe de tasación en PDF** con la marca de Norde (etapa 3).
 
 ---
 

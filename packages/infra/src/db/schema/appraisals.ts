@@ -14,6 +14,9 @@ import {
 import { authorship, notDeleted, timestamps, trash } from './columns';
 import { coreSchema } from './core-schema';
 
+/** Numera las tasaciones (`TAS0001`). Un número tomado no se reusa, aunque la transacción falle. */
+export const appraisalCodeSeq = coreSchema.sequence('appraisal_code_seq');
+
 export const appraisals = coreSchema.table(
   'appraisals',
   {
@@ -67,6 +70,7 @@ export const appraisals = coreSchema.table(
     index('appraisals_branch_status_idx').on(t.branchId, t.status),
     index('appraisals_type_status_idx').on(t.propertyType, t.status),
     index('appraisals_visit_idx').on(t.visitAt),
+    index('appraisals_created_idx').on(t.createdAt),
     index('appraisals_requester_idx').on(t.requesterClientId),
     // Una tasación se convierte en propiedad una sola vez.
     uniqueIndex('appraisals_converted_property_uq')

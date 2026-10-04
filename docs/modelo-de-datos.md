@@ -94,6 +94,8 @@ Entre paréntesis, los IDs de **otros módulos** que guarda cada tabla (sin FK).
 | `appraisals`       | Tasaciones. Se convierten en propiedad una sola vez (`requester_client_id`, `appraiser_user_id`, `producer_user_id`, `branch_id`, `location_id`, `converted_property_id`) |
 | `appraisal_photos` | Fotos de la tasación                                                                                                                                                      |
 
+El código de la tasación (`TAS0001`) sale de la secuencia `core.appraisal_code_seq` (migración `0030`): las tasaciones tienen numeración propia, separada de los códigos de referencia de las propiedades.
+
 ### `portals` (`portals.ts`)
 
 | Tabla                        | Qué es (IDs de otros módulos)                                                      |

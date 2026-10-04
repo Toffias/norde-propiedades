@@ -1,6 +1,7 @@
 // Composition root: único archivo de la app que importa @norde/infra.
 // Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app.
 
+import { EraseClientAppraisals, MoveMergedClientAppraisals } from '@norde/core/appraisals';
 import {
   ApplyOpportunityRules,
   RouteInquiry,
@@ -79,6 +80,7 @@ import {
   WebhookTeamNotifier,
   XlsxSpreadsheetReader,
   type Database,
+  createAppraisalsUnitOfWork,
 } from '@norde/infra';
 import type { Logger } from 'pino';
 
@@ -110,9 +112,11 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'properties:read',
   'properties:process-media',
   'properties:render-documents',
+  'appraisals:erase-client-data',
   'conversations:erase-client-data',
   'properties:erase-client-data',
   'identity:erase-client-data',
+  'appraisals:merge-client-data',
   'conversations:merge-client-data',
   'properties:merge-client-data',
   'identity:merge-client-data',
@@ -485,6 +489,9 @@ export function createContainer(
     recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, { ids, clock }) }),
     properties: createPropertyJobs(db, env, { ids, clock }),
     erasure: {
+      appraisals: new EraseClientAppraisals({
+        uow: createAppraisalsUnitOfWork(db, { ids, clock }),
+      }),
       conversations: new EraseClientConversations({
         erasure: new DrizzleClientConversationErasure(db),
       }),
@@ -498,6 +505,9 @@ export function createContainer(
       }),
     },
     merge: {
+      appraisals: new MoveMergedClientAppraisals({
+        uow: createAppraisalsUnitOfWork(db, { ids, clock }),
+      }),
       conversations: new MoveMergedClientConversations({
         uow: createConversationsUnitOfWork(db, { ids, clock }),
       }),

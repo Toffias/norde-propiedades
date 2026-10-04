@@ -199,7 +199,7 @@ packages/infra/src/
 | `properties`    | Propiedades, emprendimientos, unidades, estados, fotos, destacados, mapa                     | `PropertyPublished`, `PropertyPriceChanged`, `PropertyStatusChanged` |
 | `clients`       | Clientes, canales de contacto, deduplicación, oportunidades, asignación, búsquedas guardadas | `ClientRegistered`, `OpportunityCreated`, `OpportunityStatusChanged` |
 | `rentals`       | Contratos, partes, garantes, actualizaciones por IPC, vencimientos                           | `RentUpdateCalculated`, `ContractExpiring`                           |
-| `appraisals`    | Tasaciones, conversión a propiedad                                                           | `AppraisalCompleted`, `AppraisalConverted`                           |
+| `appraisals`    | Tasaciones, conversión a propiedad                                                           | `AppraisalRequested`, `AppraisalStatusChanged`, `AppraisalConverted` |
 | `promotions`    | Promociones del modal de la web                                                              | `PromotionActivated`                                                 |
 | `conversations` | Conversaciones del agente, historial, handoff humano                                         | `ConversationHandedOff`, `ConversationReturnedToBot`                 |
 | `portals`       | Publicación en portales, estado de sincronización, contactos entrantes                       | `ListingSyncFailed`, `PortalContactReceived`                         |

@@ -4,6 +4,18 @@ import 'server-only';
 // Arma los casos de uso de @norde/core que usan los Server Components y las Server Actions.
 
 import {
+  ChangeAppraisalStatus,
+  CreateAppraisal,
+  DeleteAppraisal,
+  GetAppraisal,
+  ListAppraisalHistory,
+  ListAppraisals,
+  RestoreAppraisal,
+  UpdateAppraisal,
+  type ActiveUsers,
+  type PanelDirectory,
+} from '@norde/core/appraisals';
+import {
   AddFavorites,
   AddTeamMember,
   ChangeOwnPassword,
@@ -321,6 +333,8 @@ import {
   DrizzleClientImportQuery,
   type Database,
   type DatabaseConnection,
+  createAppraisalsUnitOfWork,
+  DrizzleAppraisalQuery,
 } from '@norde/infra';
 import { nextCookies } from 'better-auth/next-js';
 
@@ -379,6 +393,8 @@ export interface Container {
   readonly reporting: ReportingUseCases;
   /** Bandeja de consultas de portales y de la web (#10). */
   readonly inquiries: InquiriesUseCases;
+  /** Tasaciones: listado, alta, edición, estados y papelera (#12). */
+  readonly appraisals: AppraisalsUseCases;
 }
 
 export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
@@ -387,6 +403,7 @@ export type ClientsUseCases = ReturnType<typeof createDetailReadModels>['clients
   ReturnType<typeof createClientsUseCases>;
 export type ReportingUseCases = ReturnType<typeof createDetailReadModels>['reporting'];
 export type InquiriesUseCases = ReturnType<typeof createInquiriesUseCases>;
+export type AppraisalsUseCases = ReturnType<typeof createAppraisalsUseCases>;
 
 let container: Container | undefined;
 
@@ -841,6 +858,39 @@ function createInquiriesUseCases(
   };
 }
 
+function createAppraisalsUseCases(
+  db: Database,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+) {
+  const { ids, clock } = deps;
+  const uow = createAppraisalsUnitOfWork(db, deps);
+  const appraisals = new DrizzleAppraisalQuery(db);
+  const names = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const directory: PanelDirectory = { names: (kind, entityIds) => names.names(kind, entityIds) };
+  // Productores y tasadores: usuarios activos de identity, con su sucursal.
+  const users: ActiveUsers = {
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+  return {
+    listAppraisals: new ListAppraisals({ appraisals, directory }),
+    getAppraisal: new GetAppraisal({ appraisals, directory }),
+    listAppraisalHistory: new ListAppraisalHistory({
+      appraisals,
+      history: new DrizzleAuditHistoryQuery(db),
+      directory,
+    }),
+    createAppraisal: new CreateAppraisal({ uow, users, clock, ids }),
+    updateAppraisal: new UpdateAppraisal({ uow, users, clock }),
+    changeAppraisalStatus: new ChangeAppraisalStatus({ uow, clock }),
+    deleteAppraisal: new DeleteAppraisal({ uow, clock }),
+    restoreAppraisal: new RestoreAppraisal({ uow, clock }),
+  };
+}
+
 function createClientsUseCases(
   db: Database,
   properties: PropertiesUseCases,
@@ -1026,6 +1076,7 @@ function createContainer(): Container {
     settings,
     properties,
     inquiries: createInquiriesUseCases(database.db, properties, { ids, clock }),
+    appraisals: createAppraisalsUseCases(database.db, { ids, clock }),
     ...withClients(
       createDetailReadModels(database.db, properties, { clock }),
       createClientsUseCases(database.db, properties, { ids, clock, storage: createStorage(env) }),

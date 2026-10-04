@@ -695,3 +695,17 @@ export type {
   PropertyReservationsQuery,
   ReservationListItem,
 } from './application/ports/property-reservations-query';
+export {
+  ListReservations,
+  type ListReservationsError,
+} from './application/queries/list-reservations';
+export {
+  ExportReservations,
+  type ExportReservationsError,
+} from './application/commands/export-reservations';
+export type {
+  ReservationFilterCriteria,
+  ReservationListQuery,
+  ReservationSearchItem,
+} from './application/ports/reservation-list-query';
+export type { ReservationExportWriter } from './application/ports/reservation-export-writer';

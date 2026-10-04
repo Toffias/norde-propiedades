@@ -8,6 +8,7 @@ import type {
   PanelPropertyCustomAttribute,
   PanelPropertyRow,
   PropertyExportFormat,
+  ReservationListRow,
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
 import type {
@@ -26,6 +27,12 @@ import type {
   PropertyReservationsQuery,
   ReservationListItem,
 } from '../application/ports/property-reservations-query';
+import type { ReservationExportWriter } from '../application/ports/reservation-export-writer';
+import type {
+  ReservationFilterCriteria,
+  ReservationListQuery,
+  ReservationSearchItem,
+} from '../application/ports/reservation-list-query';
 import { Reservation, type ReservationId, type ReservationSnapshot } from '../domain/reservation';
 import type { ReservationRepository } from '../domain/reservation.repository';
 import type {
@@ -1504,5 +1511,42 @@ export class StubPropertyReservationsQuery implements PropertyReservationsQuery 
     return Promise.resolve(
       this.rows.find((r) => r.propertyId === propertyId && r.status === 'active'),
     );
+  }
+}
+
+/** Listado de `/reservas`: devuelve las filas cargadas (sin filtrar) y registra lo pedido. */
+export class StubReservationListQuery implements ReservationListQuery {
+  readonly requests: Parameters<ReservationListQuery['search']>[0][] = [];
+  readonly counts: ReservationFilterCriteria[] = [];
+
+  constructor(private readonly rows: readonly ReservationSearchItem[] = []) {}
+
+  search(query: Parameters<ReservationListQuery['search']>[0]) {
+    this.requests.push(query);
+    return Promise.resolve({
+      items: this.rows.slice(query.offset, query.offset + query.limit),
+      total: this.rows.length,
+    });
+  }
+
+  count(criteria: ReservationFilterCriteria) {
+    this.counts.push(criteria);
+    return Promise.resolve(this.rows.length);
+  }
+}
+
+/** Junta las filas que recibiría el Excel de reservas, sin armar ningún archivo. */
+export class FakeReservationExportWriter implements ReservationExportWriter {
+  readonly rows: ReservationListRow[] = [];
+
+  write(batches: AsyncIterable<readonly ReservationListRow[]>): ExportFile {
+    const rows = this.rows;
+    async function* body(): AsyncIterable<Uint8Array> {
+      for await (const batch of batches) {
+        rows.push(...batch);
+        yield new Uint8Array();
+      }
+    }
+    return { filename: 'reservas.xlsx', contentType: 'text/plain', body: body() };
   }
 }

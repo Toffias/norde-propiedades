@@ -1,7 +1,9 @@
 import type {
+  ExportReservationsError,
   FallReservationError,
   GetActiveReservationError,
   ListPropertyReservationsError,
+  ListReservationsError,
   ReservePropertyError,
   SignReservationError,
   UpdateReservationError,
@@ -32,4 +34,14 @@ export const RESERVATION_ERROR_MESSAGES = {
 export const RESERVATION_READ_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver las reservas.',
   InvalidInput: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
-} satisfies ErrorMessages<ListPropertyReservationsError | GetActiveReservationError>;
+} satisfies ErrorMessages<
+  ListPropertyReservationsError | GetActiveReservationError | ListReservationsError
+>;
+
+export const EXPORT_RESERVATIONS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para exportar reservas.',
+  InvalidInput: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
+  NothingToExport: 'No hay reservas para exportar con estos filtros.',
+  TooManyToExport: (error) =>
+    `Son ${error.total.toLocaleString('es-AR')} reservas y el máximo es ${error.max.toLocaleString('es-AR')}. Filtrá un poco más.`,
+} satisfies ErrorMessages<ExportReservationsError>;

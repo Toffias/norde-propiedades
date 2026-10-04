@@ -37,7 +37,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
       { href: '/propiedades', label: 'Propiedades', icon: BuildingIcon },
       { href: '/emprendimientos', label: 'Emprendimientos', icon: LandmarkIcon },
       { href: '/tasaciones', label: 'Tasaciones', icon: CalculatorIcon, disabledReason: SOON },
-      { href: '/reservas', label: 'Reservas', icon: CalendarCheckIcon, disabledReason: SOON },
+      { href: '/reservas', label: 'Reservas', icon: CalendarCheckIcon },
       { href: '/difusion', label: 'Difusión', icon: MegaphoneIcon, disabledReason: SOON },
     ],
   },

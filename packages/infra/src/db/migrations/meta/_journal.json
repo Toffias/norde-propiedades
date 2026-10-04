@@ -197,6 +197,13 @@
       "when": 1791120955786,
       "tag": "0027_reservations_property_index",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791124298695,
+      "tag": "0028_reservations_list_indexes",
+      "breakpoints": true
     }
   ]
 }

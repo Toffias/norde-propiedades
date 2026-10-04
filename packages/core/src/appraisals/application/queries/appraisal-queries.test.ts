@@ -124,7 +124,12 @@ describe('GetAppraisal', () => {
     const get = new GetAppraisal({ appraisals: new StubAppraisalQuery([ITEM]), directory });
     for (const actor of [TEST_PRODUCER, TEST_APPRAISER, TEST_MANAGER]) {
       const detail = unwrap(await get.execute({ appraisalId: APPRAISAL_ID }, actor));
-      expect(detail).toMatchObject({ id: APPRAISAL_ID, rooms: 5, condition: 'good' });
+      expect(detail).toMatchObject({
+        id: APPRAISAL_ID,
+        rooms: 5,
+        condition: 'good',
+        nextStatuses: ['visit_scheduled', 'appraised', 'discarded'],
+      });
     }
   });
 

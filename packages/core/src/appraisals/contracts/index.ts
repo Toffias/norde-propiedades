@@ -31,6 +31,7 @@ export const MANUAL_APPRAISAL_STATUS_VALUES = [
   'appraised',
   'discarded',
 ] as const satisfies readonly AppraisalStatusValue[];
+export type ManualAppraisalStatusValue = (typeof MANUAL_APPRAISAL_STATUS_VALUES)[number];
 
 /** Replica `APPRAISAL_STATUS_GROUPS` del dominio: los estados como los agrupa Tokko. */
 export const APPRAISAL_STATUS_GROUP_VALUES = [
@@ -191,6 +192,8 @@ export interface AppraisalDetail extends AppraisalListRow {
   readonly condition: ConditionValue | undefined;
   readonly statusChangedAt: Date | undefined;
   readonly updatedAt: Date;
+  /** A qué estados se puede pasar a mano desde el actual (lo decide el dominio). */
+  readonly nextStatuses: readonly ManualAppraisalStatusValue[];
 }
 
 export const ListAppraisalHistoryQuerySchema = historyQuerySchema().extend({

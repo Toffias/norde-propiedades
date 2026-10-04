@@ -21,7 +21,7 @@ type WithIds<T> = Omit<T, 'requester' | 'producer' | 'appraiser' | 'branch'> & {
 export type AppraisalSearchItem = WithIds<AppraisalListRow>;
 
 /** La ficha de una tasación como la lee la base. */
-export type AppraisalDetailItem = WithIds<AppraisalDetail>;
+export type AppraisalDetailItem = WithIds<Omit<AppraisalDetail, 'nextStatuses'>>;
 
 /** Los filtros ya validados, con las fechas como instantes UTC en `[from, to)`. */
 export interface AppraisalFilterCriteria {

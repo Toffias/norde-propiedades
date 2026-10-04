@@ -2,9 +2,11 @@ import { OWNERSHIP_RULES } from '../../../identity';
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
 import {
   AppraisalIdInputSchema,
+  MANUAL_APPRAISAL_STATUS_VALUES,
   type AppraisalDetail,
   type AppraisalIdInput,
 } from '../../contracts';
+import { canAppraisalTransition } from '../../domain/appraisal-status';
 import { withNames } from '../appraisal-rows';
 import {
   canActOnAppraisal,
@@ -43,6 +45,9 @@ export class GetAppraisal {
     }
     const [detail] = await withNames(this.deps.directory, [item]);
     if (!detail) return err({ type: 'AppraisalNotFound' });
-    return ok(detail);
+    const nextStatuses = MANUAL_APPRAISAL_STATUS_VALUES.filter((status) =>
+      canAppraisalTransition(item.status, status),
+    );
+    return ok({ ...detail, nextStatuses });
   }
 }

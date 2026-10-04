@@ -715,7 +715,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **Pendiente de #6**: cargar propietarios (#8), compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
 
-### 4.9 Reservas (#13, etapa 1)
+### 4.9 Reservas (#13)
 
 Una **reserva** es la seña de un contacto sobre una propiedad. Vive en el módulo `properties` porque cambia el estado de la propiedad en la misma transacción.
 
@@ -742,7 +742,14 @@ El contacto y la operación no se editan: si cambian, la reserva se da por caíd
 
 **Historial**: cada paso queda en el historial de la propiedad (filtro "Reservas") con su diff y el ID del contacto en `client_ids`: `property.reserved`, `property.reservation_updated`, `property.reservation_fallen`, `property.reservation_signed`. Al suprimir los datos de un contacto se borran sus reservas; si una estaba activa, la propiedad vuelve a disponible y queda `property.reservation_erased`, sin el contacto.
 
-**No se construye**: la configuración de Reservas de Tokko (etiqueta obligatoria, gerentes de reservas, gerente obligatorio, a quién notificar). **Etapa 2**: el listado `/reservas` con filtros, Excel e imprimir. El aviso de reservas por vencer va con Inicio (#15) y las notificaciones (#16).
+**Listado `/reservas`** (menú Cartera → Reservas, con `reservations:read`): todas las reservas, activas, caídas y firmadas, incluidas las de propiedades en la papelera. Lo ve todo el que ve reservas, de cualquier agente o sucursal.
+
+- Columnas: propiedad (código, tipo y dirección), cliente y operación, estado (el motivo de la caída al pasar el mouse), agente y gerente, valor, comisión, fecha de reserva y fecha estimada de firma. Cada fila abre la pestaña Reservas de la propiedad.
+- Filtros: estado, operación, tipo de propiedad y, en "Más filtros", agente, gerente, sucursal (la de la reserva), fecha de reserva y fecha estimada de firma (desde/hasta, días de Buenos Aires, inclusive). Paginado en la base, ordenable por fecha de reserva (de fábrica, la más nueva primero) o de firma (las que no tienen fecha, al final).
+- **Exportar a Excel** (`reservations:export`; de fábrica, gerente y administrador): todas las que cumplen los filtros, hasta 10.000, con todas las columnas más las fechas de firma y caída, el motivo y las notas. Se arma por lotes y queda en la auditoría (`reservation.exported`, con los filtros y la cantidad).
+- **Imprimir**: la página que se está viendo, sin el menú, los filtros ni la paginación, siempre en tema claro. Para imprimir más filas, se agranda el tamaño de página.
+
+**No se construye**: la configuración de Reservas de Tokko (etiqueta obligatoria, gerentes de reservas, gerente obligatorio, a quién notificar); por eso el filtro de gerente ofrece cualquier usuario. El aviso de reservas por vencer va con Inicio (#15) y las notificaciones (#16).
 
 ## 5. Alquiler: gestión de contratos
 

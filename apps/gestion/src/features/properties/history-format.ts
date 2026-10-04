@@ -1,6 +1,6 @@
 import type { HistoryValue } from '@norde/core/audit/contracts';
 
-import { EMPTY_VALUE, formatMoney } from '../../lib/format';
+import { EMPTY_VALUE, formatAmount, formatMoney } from '../../lib/format';
 import {
   CONDITION_LABELS,
   DISPOSITION_LABELS,
@@ -8,7 +8,12 @@ import {
   ORIENTATION_LABELS,
 } from './detail-labels';
 import { MEDIA_KIND_LABELS } from '../media/labels';
-import { OPERATION_LABELS, PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from './labels';
+import {
+  OPERATION_LABELS,
+  PROPERTY_STATUS_DISPLAY,
+  PROPERTY_TYPE_LABELS,
+  RESERVATION_STATUS_DISPLAY,
+} from './labels';
 
 // El historial guarda valores crudos (centavos, IDs, enums): acá se pasan a texto para mostrarlos.
 
@@ -20,6 +25,13 @@ const STATUS_LABELS: Readonly<Record<string, string>> = Object.fromEntries(
 
 const OPERATION_NAMES: Readonly<Record<string, string>> = OPERATION_LABELS;
 
+const RESERVATION_STATUS_LABELS: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(RESERVATION_STATUS_DISPLAY).map(([status, display]) => [status, display.label]),
+);
+
+/** Montos de la reserva: la moneda va en su propio campo, así que se muestra solo el número. */
+const AMOUNT_WITHOUT_CURRENCY = new Set(['amountCents', 'commissionCents']);
+
 /** Valores de un catálogo según el campo: lo que no está en el catálogo se muestra tal cual. */
 const VALUE_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   status: STATUS_LABELS,
@@ -28,6 +40,8 @@ const VALUE_LABELS: Readonly<Record<string, Readonly<Record<string, string>>>> =
   condition: CONDITION_LABELS,
   disposition: DISPOSITION_LABELS,
   kind: MEDIA_KIND_LABELS,
+  reservationStatus: RESERVATION_STATUS_LABELS,
+  reservationOperation: OPERATION_NAMES,
 };
 
 /** El último tramo de un campo de una fila hija (`media.<id>.showOnWeb` → `showOnWeb`). */
@@ -76,6 +90,7 @@ export function formatHistoryValue(field: string, value: HistoryValue): string {
   const base = baseField(field);
   if (typeof value === 'boolean') return value ? 'Sí' : 'No';
   if (typeof value === 'bigint') {
+    if (AMOUNT_WITHOUT_CURRENCY.has(base)) return formatAmount(value);
     return base.endsWith('Cents')
       ? formatMoney({ amountCents: value, currency: 'ARS' })
       : value.toString();

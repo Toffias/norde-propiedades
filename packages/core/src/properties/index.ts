@@ -107,6 +107,8 @@ export {
   type OperationNotFoundError,
   type PriceChange,
   type PropertyInTrashError,
+  type PropertyNotAvailableError,
+  type PropertyReservedError,
   type StatusNotManualError,
   type PropertyAddress,
   type PropertyAlreadyDeletedError,
@@ -642,3 +644,54 @@ export {
   type UnitDesignation,
   type UnitImportRowProblem,
 } from './domain/development-unit-import';
+
+// ---------- Reservas (#13) ----------
+
+export {
+  Reservation,
+  type InvalidReservationTermsError,
+  type NegativeReservationAmountError,
+  type NewReservation,
+  type ReservationAmount,
+  type ReservationId,
+  type ReservationNotActiveError,
+  type ReservationSnapshot,
+  type ReservationTerms,
+} from './domain/reservation';
+export { RESERVATION_STATUSES, type ReservationStatus } from './domain/reservation-status';
+export type { ReservationEvent } from './domain/reservation.events';
+export type { ReservationRepository } from './domain/reservation.repository';
+export type {
+  AgentNotFoundError,
+  ManagerNotFoundError,
+  ReservationNotFoundError,
+} from './application/reservation-support';
+export {
+  ReserveProperty,
+  type PropertyAlreadyReservedError,
+  type ReservePropertyError,
+} from './application/commands/reserve-property';
+export {
+  UpdateReservation,
+  type UpdateReservationError,
+} from './application/commands/update-reservation';
+export {
+  FallReservation,
+  type FallReservationError,
+} from './application/commands/fall-reservation';
+export {
+  SignReservation,
+  type SignReservationError,
+} from './application/commands/sign-reservation';
+export {
+  ListPropertyReservations,
+  type ListPropertyReservationsError,
+} from './application/queries/list-property-reservations';
+export {
+  GetActiveReservation,
+  type GetActiveReservationError,
+} from './application/queries/get-active-reservation';
+export type {
+  PropertyReservationsQuery,
+  ReservationListItem,
+} from './application/ports/property-reservations-query';

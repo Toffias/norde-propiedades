@@ -30,6 +30,13 @@ function centsToDecimal(cents: bigint): `${number}` {
   return `${sign}${(abs / 100n).toString()}.${fraction}` as `${number}`; // Intl acepta decimales como string.
 }
 
+const plainAmount = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
+
+/** Un monto sin moneda ("1.500,5"), cuando la moneda se muestra aparte. */
+export function formatAmount(cents: bigint): string {
+  return plainAmount.format(centsToDecimal(cents));
+}
+
 /** "$ 420.000", "US$ 1.500", "-$ 1.000". Sin decimales. */
 export function formatMoney(money: MoneyDto | null): string {
   if (!money) return EMPTY_VALUE;

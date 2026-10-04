@@ -256,6 +256,19 @@ html {
   }
 }
 
+/* Impresa, la tabla entra entera en la hoja: apaisada, letra más chica y sin scroll. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  .table-responsive {
+    overflow: visible;
+    font-size: 11px;
+  }
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    Placeholder de carga. Sin barrido cuando el usuario pide menos movimiento.
    ────────────────────────────────────────────────────────────────────────── */

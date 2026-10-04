@@ -366,7 +366,10 @@ export function ReservationsView({
           >
             {row.property.code}
           </Link>
-          <span className="truncate text-xs text-muted-foreground" title={row.property.address}>
+          <span
+            className="block max-w-[160px] truncate text-xs text-muted-foreground sm:max-w-[240px]"
+            title={row.property.address}
+          >
             {PROPERTY_TYPE_LABELS[row.property.propertyType]} · {row.property.address}
           </span>
         </div>

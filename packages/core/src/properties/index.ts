@@ -506,6 +506,12 @@ export type {
   PropertyClientMerge,
 } from './application/ports/property-client-merge';
 export type { PropertyClientErasure } from './application/ports/property-client-erasure';
+export type { PropertyOwnerLinks } from './application/ports/property-owner-links';
+export {
+  CreatePropertyFromAppraisal,
+  type CreatePropertyFromAppraisalError,
+  type CreatePropertyFromAppraisalOutcome,
+} from './application/handlers/create-property-from-appraisal';
 
 // Emprendimientos (#7)
 export {

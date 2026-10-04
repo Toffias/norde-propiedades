@@ -11,6 +11,7 @@ import type {
   ReservationListRow,
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
+import type { PropertyOwnerLinks } from '../application/ports/property-owner-links';
 import type {
   DevelopmentUnitImportItem,
   DevelopmentUnitImportQuery,
@@ -586,6 +587,17 @@ export class InMemoryFavoriteSearchRepository implements FavoriteSearchRepositor
   }
 }
 
+/** Vínculos de propietarios, con la clave `propiedad:cliente` y el autor. */
+export class InMemoryPropertyOwnerLinks implements PropertyOwnerLinks {
+  readonly rows = new Map<string, string>();
+
+  add(propertyId: string, clientId: string, actorId: string) {
+    const key = `${propertyId}:${clientId}`;
+    if (!this.rows.has(key)) this.rows.set(key, actorId);
+    return Promise.resolve();
+  }
+}
+
 function isErrResult(value: unknown): boolean {
   return typeof value === 'object' && value !== null && 'ok' in value && value.ok === false;
 }
@@ -607,6 +619,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly documents = new InMemoryPropertyDocumentRepository();
   readonly reservations = new InMemoryReservationRepository();
   readonly clientMerge = new FakePropertyClientMerge();
+  readonly owners = new InMemoryPropertyOwnerLinks();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
@@ -629,6 +642,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.attachments,
       this.documents,
       this.reservations,
+      this.owners,
     ];
   }
 

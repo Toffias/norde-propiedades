@@ -1,0 +1,2 @@
+CREATE INDEX "developments_producer_status_idx" ON "core"."developments" USING btree ("producer_user_id","status") WHERE deleted_at is null;--> statement-breakpoint
+CREATE INDEX "developments_branch_status_idx" ON "core"."developments" USING btree ("branch_id","status") WHERE deleted_at is null;

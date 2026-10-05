@@ -72,3 +72,5 @@ export interface OwnerReport {
   readonly inquiries: number;
   readonly interested: number;
 }
+
+export * from './home';

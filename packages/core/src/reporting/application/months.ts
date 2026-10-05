@@ -36,3 +36,15 @@ export function startOfDay(date: string): Date {
 export function endOfDay(date: string): Date {
   return new Date(startOfDay(date).getTime() + 24 * 60 * 60 * 1000);
 }
+
+/** `AAAA-MM-DD` del instante, en Buenos Aires. */
+export function dayOf(instant: Date): string {
+  return new Date(instant.getTime() - OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** El día `AAAA-MM-DD` corrido `delta` días. */
+export function shiftDay(date: string, delta: number): string {
+  const shifted = new Date(`${date}T12:00:00.000Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + delta);
+  return shifted.toISOString().slice(0, 10);
+}

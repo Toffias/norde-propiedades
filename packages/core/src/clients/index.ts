@@ -13,7 +13,11 @@ export {
   type OpportunitySearch,
   type OpportunityType,
 } from './domain/opportunity';
-export { OPPORTUNITY_STATUSES, type OpportunityStatus } from './domain/opportunity-status';
+export {
+  OPPORTUNITY_STATUSES,
+  isOpenStatus,
+  type OpportunityStatus,
+} from './domain/opportunity-status';
 export {
   Client,
   type ClientEmail,

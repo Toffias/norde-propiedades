@@ -235,7 +235,7 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyecto:
 
 - **Core**:
-  - `properties`: `SearchProperties` y `GetPropertyDetail`. Solo ofrecen propiedades disponibles y publicadas en la web.
+  - `properties`: `SearchProperties` y `GetPropertyDetail`. Solo ofrecen propiedades disponibles y publicadas en la web, con las mismas reglas que la web (precio oculto, dirección aproximada, fotos publicadas). La foto que manda `show_photo` es la portada, por la ruta pública del sitio (`/fotos/...`).
   - `clients`: `RegisterContact`, que deduplica por teléfono o email y abre la oportunidad o suma el pedido a la que está abierta. Incluye el estado "Aplica a otra inmobiliaria" y `NotifyTeamOfOpportunity`.
   - `conversations`: `ReceiveInboundMessages`, que registra los mensajes de forma idempotente y decide el plan de respuesta, y `SendReply`.
 - **`@norde/agent-kit`**: el runner del MVP sobre el OpenAI Agents SDK (ADR 0009).

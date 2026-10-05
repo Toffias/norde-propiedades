@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 import { pageQuerySchema } from '../../shared/contracts';
 
+export * from './news';
+
 /** Valor crudo tal como quedó en el historial: centavos, IDs, fechas ISO, listas y objetos. */
 export type HistoryValue =
   | string

@@ -21,6 +21,7 @@ import {
   type ActiveUsers,
   type PanelDirectory,
 } from '@norde/core/appraisals';
+import { ListNews } from '@norde/core/audit';
 import {
   AddFavorites,
   AddTeamMember,
@@ -316,6 +317,7 @@ import {
   DrizzleCompanyFilesQuery,
   DrizzleCompanySettingsRepository,
   DrizzleDirectory,
+  DrizzleNewsFeedQuery,
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
   DrizzleDevelopmentListQuery,
@@ -414,6 +416,8 @@ export interface Container {
   readonly search: { readonly globalSearch: GlobalSearch };
   /** Tasaciones: listado, alta, edición, estados y papelera (#12). */
   readonly appraisals: AppraisalsUseCases;
+  /** Noticias: el feed de actividad de la empresa (#16). */
+  readonly news: { readonly listNews: ListNews };
 }
 
 export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
@@ -1134,6 +1138,7 @@ function createContainer(): Container {
         agents: listUsers,
       }),
     },
+    news: { listNews: createListNews(database.db, clock) },
     identity: {
       listUsers,
       listRoles: new ListRoles({ roles: roleQuery }),
@@ -1170,6 +1175,16 @@ function createContainer(): Container {
       getFavoriteIds: new GetFavoriteIds({ favorites: new DrizzleUserFavorites(database.db) }),
     },
   };
+}
+
+function createListNews(db: Database, clock: Clock): ListNews {
+  const settings = new DrizzleCompanySettingsRepository(db, clock);
+  const directory = new DrizzleDirectory(db);
+  return new ListNews({
+    feed: new DrizzleNewsFeedQuery(db),
+    settings: { scope: async () => (await settings.get()).toSnapshot().newsScope },
+    users: { names: (userIds) => directory.names('user', userIds) },
+  });
 }
 
 /** Suma la agenda de contactos a los read models de clientes de la ficha de propiedad. */

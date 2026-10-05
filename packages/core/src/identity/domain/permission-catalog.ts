@@ -146,6 +146,11 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
         ],
       },
       {
+        resource: 'news',
+        label: 'Noticias',
+        permissions: [{ permission: 'news:read', label: 'Ver las noticias de la empresa' }],
+      },
+      {
         resource: 'appraisals',
         label: 'Tasaciones',
         permissions: [

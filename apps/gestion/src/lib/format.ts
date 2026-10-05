@@ -90,6 +90,12 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   return date ? `${mediumDate.format(date)}, ${shortTime.format(date)}` : EMPTY_VALUE;
 }
 
+/** Hora de Buenos Aires de un instante: "17:09". */
+export function formatTime(value: string | Date | null | undefined): string {
+  const date = toDate(value);
+  return date ? shortTime.format(date) : EMPTY_VALUE;
+}
+
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /**

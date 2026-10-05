@@ -871,6 +871,27 @@ La pantalla de inicio del panel (`/`). Son consultas de solo lectura del módulo
 
 Cada bloque aparece solo con el permiso de su módulo. **No se construye**: la pestaña Performance (va con Reportes), los widgets de eventos, tareas y visitas autogestionadas, y las alertas de publicaciones en portales, que se suman cuando exista el módulo `portals` (#14). Los vencimientos de contratos de alquiler se suman con `rentals`.
 
+### 7.0.1 Noticias (#16)
+
+El feed de actividad de la empresa (`/noticias`, permiso `news:read`). Se lee del historial (`audit_log`): ningún módulo escribe noticias aparte. El módulo `audit` decide qué entradas son noticia y de qué tipo (`newsKindOf`):
+
+| Tipo                  | Entradas del historial                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| Contactos nuevos      | Alta del contacto, también la que registra el agente de IA o la web                              |
+| Contactos reasignados | Reasignación de agente, con el agente nuevo                                                      |
+| Contactos borrados    | Baja a la papelera                                                                               |
+| Nuevas propiedades    | Alta, también la que sale de una tasación                                                        |
+| Cambios de estado     | Cambio de estado, con el anterior                                                                |
+| Cambios de operación  | Edición que cambia las operaciones ofrecidas (venta, alquiler…), aunque también cambie un precio |
+| Cambios de precio     | Edición que cambia un precio o su moneda, con el anterior (sube o baja)                          |
+| Reservas              | Reserva, reserva caída y reserva firmada                                                         |
+
+- **Tarjetas**: una por propiedad o contacto y por día (en Buenos Aires), ordenadas por su novedad más reciente. Muestran la entidad como está hoy (estado, código, tipo, barrio y operaciones; nombre y etiquetas), la última novedad con su autor y hora, y las demás plegadas ("N actualizaciones más"). Cada tarjeta trae hasta 20 novedades; las demás se ven en el historial de la ficha.
+- **Scroll infinito**, paginado por tarjetas en la base (15 por tanda).
+- **Tipos**: el selector "Mostrando N tipos de noticias" se guarda por usuario en una cookie.
+- **Alcance**: lo define "Noticias" en Mi empresa → General. Con "Sucursal", cada usuario ve las propiedades y contactos de su sucursal; un usuario sin sucursal ve todo. Las reglas de lectura de propiedades y contactos no se aplican al feed: se ve la novedad aunque no se pueda abrir la ficha.
+- **No se construye** (queda en #16): notificaciones por usuario (en el panel y por mail), sus preferencias y la configuración personal.
+
 ### 7.1 Ventas y orígenes
 
 - Operaciones cerradas (ventas y alquileres) por período, agente, tipo de propiedad y zona.

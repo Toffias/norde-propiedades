@@ -6,7 +6,7 @@
 // se escala, solo una lleva `JOBS_ENABLED=true` (el webhook de consultas limita por instancia).
 //
 // El VPS es compartido con otros proyectos: los nombres llevan el prefijo `norde-` y los puertos
-// (3010 y 3011; el agente toma el suyo de `PORT` en su `.env`) no chocan con los de las otras apps.
+// (3020 y 3021; el agente toma el suyo de `PORT` en su `.env`) no chocan con los de las otras apps.
 
 /** Le da tiempo al cierre ordenado (jobs en curso, turnos del agente) antes del SIGKILL. */
 const KILL_TIMEOUT_MS = 15_000;
@@ -23,7 +23,7 @@ module.exports = {
       name: 'norde-web',
       cwd: 'apps/web',
       script: 'node_modules/next/dist/bin/next',
-      args: 'start --port 3010',
+      args: 'start --port 3020',
       interpreter: NODE_BIN,
       exec_mode: 'fork',
       instances: 1,
@@ -34,7 +34,7 @@ module.exports = {
       name: 'norde-gestion',
       cwd: 'apps/gestion',
       script: 'node_modules/next/dist/bin/next',
-      args: 'start --port 3011',
+      args: 'start --port 3021',
       interpreter: NODE_BIN,
       exec_mode: 'fork',
       instances: 1,

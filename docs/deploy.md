@@ -4,11 +4,11 @@ Entorno de pruebas para validar integraciones (MercadoLibre, WhatsApp, Resend) y
 
 | App     | URL                                       | Puerto local | Proceso PM2     |
 | ------- | ----------------------------------------- | ------------ | --------------- |
-| Web     | `https://landingnorde.apzsoftware.online` | 3010         | `norde-web`     |
-| Gestión | `https://gestionnorde.apzsoftware.online` | 3011         | `norde-gestion` |
-| Agente  | `https://agentenorde.apzsoftware.online`  | 3012         | `norde-agent`   |
+| Web     | `https://landingnorde.apzsoftware.online` | 3020         | `norde-web`     |
+| Gestión | `https://gestionnorde.apzsoftware.online` | 3021         | `norde-gestion` |
+| Agente  | `https://agentenorde.apzsoftware.online`  | 3022         | `norde-agent`   |
 
-- **VPS**: `srv1589149.hstgr.cloud` (`82.29.59.19`), KVM 1 (1 vCPU / 4 GB), Ubuntu. Las otras apps usan los puertos 3000 a 3002.
+- **VPS**: `srv1589149.hstgr.cloud` (`82.29.59.19`), KVM 1 (1 vCPU / 4 GB), Ubuntu. Las otras apps usan los puertos 3000 a 3003 y 3010.
 - **Carpeta**: `/var/www/norde-uat`. **Base**: PostgreSQL local, base `norde_uat`.
 - **Node**: las apps de Norde usan Node 24 en `/opt/node-24`. El Node del sistema queda para los otros proyectos.
 
@@ -102,7 +102,7 @@ JOBS_ENABLED=true
 ```bash
 NODE_ENV=production
 HOST=127.0.0.1
-PORT=3012
+PORT=3022
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
 PUBLIC_SITE_URL=https://landingnorde.apzsoftware.online
 # WhatsApp: webhook en https://agentenorde.apzsoftware.online/webhooks/whatsapp
@@ -113,11 +113,11 @@ Si cambiás un `.env` sin hacer un deploy, recargá el proceso: `pm2 reload nord
 ### 6. Nginx y SSL
 
 ```bash
-for pair in landingnorde:3010 gestionnorde:3011 agentenorde:3012; do
-  name=${pair%%:*}; port=${pair##*:}
+for pair in landingnorde:3020 gestionnorde:3021 agentenorde:3022; do
+  name=${pair%%:*}.apzsoftware.online; port=${pair##*:}
   cat > /etc/nginx/sites-available/$name <<NGINX
 server {
-    server_name $name.apzsoftware.online;
+    server_name $name;
     client_max_body_size 30M;   # gestor de archivos y fotos (hasta 26 MB por envío)
 
     location / {
@@ -133,18 +133,16 @@ server {
     }
 }
 NGINX
-  ln -sf /etc/nginx/sites-available/$name /etc/nginx/sites-enabled/
+  ln -sf /etc/nginx/sites-available/$name /etc/nginx/sites-enabled/$name
 done
 nginx -t && systemctl reload nginx
-certbot --nginx --redirect \
-  -d landingnorde.apzsoftware.online \
-  -d gestionnorde.apzsoftware.online \
-  -d agentenorde.apzsoftware.online
+# Un certificado por subdominio, como el resto de los sitios del VPS.
+for d in landingnorde gestionnorde agentenorde; do
+  certbot --nginx --non-interactive --redirect -d $d.apzsoftware.online
+done
 ```
 
-Los tres subdominios ya apuntan a `82.29.59.19`.
-
-**Opcional**: para que la web de pruebas no se indexe, sumá `add_header X-Robots-Tag "noindex, nofollow" always;` al bloque de `landingnorde`.
+Los tres subdominios ya apuntan a `82.29.59.19`. El bloque de `landingnorde` lleva además `add_header X-Robots-Tag "noindex, nofollow" always;`, para que la web de pruebas no se indexe.
 
 ### 7. Clave de GitHub Actions hacia el VPS
 

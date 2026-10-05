@@ -46,3 +46,8 @@ export {
   ListAvailableDevelopments,
   type ListAvailableDevelopmentsError,
 } from './application/queries/list-available-developments';
+export {
+  GlobalSearch,
+  type GlobalSearchError,
+  type GlobalSearchSources,
+} from './application/queries/global-search';

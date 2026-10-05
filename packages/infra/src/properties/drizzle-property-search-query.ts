@@ -106,6 +106,15 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     return this.findOne(eq(properties.slug, slug));
   }
 
+  /** `mediaId` ya validado como UUID por el caso de uso. */
+  findByMediaId(mediaId: string) {
+    const owner = this.db
+      .select({ id: mediaItems.propertyId })
+      .from(mediaItems)
+      .where(eq(mediaItems.id, mediaId));
+    return this.findOne(inArray(properties.id, owner));
+  }
+
   private async findOne(condition: SQL): Promise<PropertyRecord | undefined> {
     const [row] = await this.db
       .select({ id: properties.id })

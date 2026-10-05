@@ -94,6 +94,31 @@ export function publicImagePath(mediaId: string, version: string): string {
   return `/fotos/${mediaId}/${version}`;
 }
 
+/** La versión de una foto: su última modificación. Una foto rotada cambia de URL. */
+export function publicImageVersion(updatedAt: Date): string {
+  return updatedAt.getTime().toString(36);
+}
+
+/** `/fotos/<id>/<versión>`: la versión no elige el archivo, solo detecta una URL vieja. */
+export const GetPublicPhotoInputSchema = z.object({
+  mediaId: z.uuid(),
+  version: z.string().regex(/^[0-9a-z]{1,16}$/),
+});
+export type GetPublicPhotoInput = z.input<typeof GetPublicPhotoInputSchema>;
+
+/**
+ * Lo que entrega la ruta pública de fotos: el archivo (se cachea para siempre), el link de una
+ * foto importada sin archivo propio, o la ruta nueva si la versión pedida quedó vieja.
+ */
+export type PublicPhotoDelivery =
+  | { readonly kind: 'content'; readonly contentType: string; readonly bytes: Uint8Array }
+  | { readonly kind: 'external'; readonly url: string }
+  | { readonly kind: 'moved'; readonly path: string };
+
+/** Avisarle a la web que una propiedad cambió (ADR 0023). */
+export const RevalidatePublicPropertyInputSchema = z.object({ propertyId: z.uuid() });
+export type RevalidatePublicPropertyInput = z.input<typeof RevalidatePublicPropertyInputSchema>;
+
 export interface PublicFeature {
   readonly kind: FeatureKindValue;
   readonly name: string;

@@ -123,4 +123,6 @@ export interface PropertySearchQuery {
   ): Promise<{ readonly items: readonly PropertyRecord[]; readonly total: number }>;
   findById(id: string): Promise<PropertyRecord | undefined>;
   findBySlug(slug: string): Promise<PropertyRecord | undefined>;
+  /** La propiedad dueña de una foto, plano o link de la galería (la ruta pública de fotos). */
+  findByMediaId(mediaId: string): Promise<PropertyRecord | undefined>;
 }

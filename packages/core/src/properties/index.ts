@@ -23,6 +23,12 @@ export {
   SearchProperties,
   type SearchPropertiesError,
 } from './application/queries/search-properties';
+export { GetPublicPhoto, type GetPublicPhotoError } from './application/queries/get-public-photo';
+export type { PublicSite } from './application/ports/public-site';
+export {
+  RevalidatePublicProperty,
+  type RevalidatePublicPropertyError,
+} from './application/handlers/revalidate-public-property';
 
 export {
   OPERATION_LABELS,

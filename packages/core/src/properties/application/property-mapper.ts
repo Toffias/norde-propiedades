@@ -1,5 +1,6 @@
 import {
   publicImagePath,
+  publicImageVersion,
   type MoneyDto,
   type Operation,
   type PropertyDetail,
@@ -34,8 +35,7 @@ function toPublicOperation(
 }
 
 function toPublicImage(media: PropertyMediaRecord): PublicImage {
-  // La versión es la fecha de la última modificación: una foto rotada cambia de URL.
-  const version = media.updatedAt.getTime().toString(36);
+  const version = publicImageVersion(media.updatedAt);
   return {
     id: media.id,
     src:

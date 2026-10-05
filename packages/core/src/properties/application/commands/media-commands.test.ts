@@ -95,6 +95,7 @@ describe('UploadMedia', () => {
     expect([...storage.objects.keys()]).toEqual([row?.storageKey]);
     expect(uow.events.published).toMatchObject([
       { type: 'properties.media_variants_requested', payload: { mediaId } },
+      { type: 'properties.media_changed', payload: { ownerKind: 'property', mediaId } },
     ]);
     expect(uow.audit.entries[0]).toMatchObject({
       action: 'property.media_added',
@@ -143,6 +144,11 @@ describe('GenerateMediaVariants', () => {
     expect(row?.variants.watermarked).toBeUndefined();
     expect(storage.objects.has(row?.variants.thumbnail ?? '')).toBe(true);
     expect(images.requests[0]?.rotation).toBe(0);
+    // Con las variantes listas, la foto ya se publica: la web revalida la ficha.
+    expect(uow.events.published.at(-1)).toMatchObject({
+      type: 'properties.media_changed',
+      payload: { mediaId },
+    });
   });
 
   it('adds the watermarked copy when Mi empresa has it enabled', async () => {
@@ -244,7 +250,9 @@ describe('gallery edits', () => {
         [`media.${a}.description`]: { before: null, after: 'Plano PB' },
       },
     });
-    expect(uow.events.published).toEqual([]);
+    expect(uow.events.published).toMatchObject([
+      { type: 'properties.media_changed', payload: { ownerKind: 'property', mediaId: a } },
+    ]);
   });
 
   it('asks for new variants when the photo is rotated', async () => {
@@ -252,6 +260,7 @@ describe('gallery edits', () => {
     unwrap(await update.execute({ mediaId: a, rotation: 270 }, EDITOR));
     expect(uow.events.published).toMatchObject([
       { type: 'properties.media_variants_requested', payload: { mediaId: a } },
+      { type: 'properties.media_changed', payload: { mediaId: a } },
     ]);
   });
 
@@ -289,14 +298,22 @@ describe('gallery edits', () => {
     'https://player.vimeo.com#t=1',
     ' https://youtu.be/abc ',
   ])('accepts %s as a video link', async (url) => {
-    const { link } = await gallery();
-    unwrap(await link.execute({ owner: OWNER, kind: 'video', url }, EDITOR));
+    const { link, uow } = await gallery();
+    const { mediaId } = unwrap(await link.execute({ owner: OWNER, kind: 'video', url }, EDITOR));
+    expect(uow.events.published).toMatchObject([
+      { type: 'properties.media_changed', payload: { mediaId } },
+    ]);
   });
 
   it('reorders the whole gallery', async () => {
     const { reorder, uow, a, b, video } = await gallery();
     unwrap(await reorder.execute({ owner: OWNER, mediaIds: [video, b, a] }, EDITOR));
     expect([a, b, video].map((id) => uow.media.rows.get(id)?.position)).toEqual([2, 1, 0]);
+    // La web revalida la ficha: cambió el orden de las fotos (`b` ya estaba en su lugar).
+    expect(uow.events.published.map((e) => [e.type, e.payload])).toEqual([
+      ['properties.media_changed', { ownerKind: 'property', ownerId: PROPERTY_ID, mediaId: video }],
+      ['properties.media_changed', { ownerKind: 'property', ownerId: PROPERTY_ID, mediaId: a }],
+    ]);
     expect(uow.audit.entries[0]).toMatchObject({
       action: 'property.media_reordered',
       changes: { mediaOrder: { before: [a, b, video], after: [video, b, a] } },
@@ -312,6 +329,10 @@ describe('gallery edits', () => {
     expect(uow.media.rows.get(a)?.isCover).toBe(false);
     expect(uow.media.rows.get(b)?.isCover).toBe(true);
     expect(uow.audit.entries[0]?.changes).toEqual({ coverMediaId: { before: a, after: b } });
+    expect(uow.events.published.map((e) => e.type)).toEqual([
+      'properties.media_changed',
+      'properties.media_changed',
+    ]);
     expect(unwrapErr(await cover.execute({ mediaId: video }, EDITOR))).toEqual({
       type: 'NotAnImage',
     });

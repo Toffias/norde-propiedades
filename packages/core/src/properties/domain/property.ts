@@ -223,10 +223,17 @@ export function validCommission(pct: number | undefined): boolean {
 export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
   #state: Omit<PropertySnapshot, 'id'>;
   readonly #priceChanges: PriceChange[] = [];
+  /** El estado guardado; `undefined` mientras es nueva. Cada cambio reemplaza `#state`. */
+  #saved: Omit<PropertySnapshot, 'id'> | undefined;
 
-  private constructor(id: PropertyId, state: Omit<PropertySnapshot, 'id'>) {
+  private constructor(
+    id: PropertyId,
+    state: Omit<PropertySnapshot, 'id'>,
+    saved: 'stored' | 'new',
+  ) {
     super(id);
     this.#state = state;
+    this.#saved = saved === 'stored' ? state : undefined;
   }
 
   static create(input: NewProperty): Result<Property, NegativePriceError> {
@@ -241,36 +248,40 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
         operation: input.operation.operation,
         neighborhood: address.neighborhood,
       });
-    const property = new Property(input.id, {
-      code: input.code,
-      slug: propertySlug(portalTitle, input.code),
-      kind: input.kind,
-      status: 'draft',
-      address,
-      publishAddress:
-        optionalText(input.publishAddress) ??
-        suggestPublishAddress(address.street, address.streetNumber),
-      portalTitle,
-      coordinates: input.coordinates,
-      locationId: input.locationId,
-      developmentId: input.developmentId,
-      operations: [toOperation(input.operation)],
-      tagIds: [],
-      producerUserId: input.producerUserId,
-      branchId: input.branchId,
-      description: '',
-      characteristics: EMPTY_CHARACTERISTICS,
-      deal: EMPTY_DEAL_ATTRIBUTES,
-      featureIds: [],
-      customAttributes: [],
-      internal: EMPTY_INTERNAL_INFO,
-      publication: DEFAULT_PUBLICATION,
-      statusChangedAt: input.now,
-      deletedAt: undefined,
-      deletedBy: undefined,
-      createdAt: input.now,
-      updatedAt: input.now,
-    });
+    const property = new Property(
+      input.id,
+      {
+        code: input.code,
+        slug: propertySlug(portalTitle, input.code),
+        kind: input.kind,
+        status: 'draft',
+        address,
+        publishAddress:
+          optionalText(input.publishAddress) ??
+          suggestPublishAddress(address.street, address.streetNumber),
+        portalTitle,
+        coordinates: input.coordinates,
+        locationId: input.locationId,
+        developmentId: input.developmentId,
+        operations: [toOperation(input.operation)],
+        tagIds: [],
+        producerUserId: input.producerUserId,
+        branchId: input.branchId,
+        description: '',
+        characteristics: EMPTY_CHARACTERISTICS,
+        deal: EMPTY_DEAL_ATTRIBUTES,
+        featureIds: [],
+        customAttributes: [],
+        internal: EMPTY_INTERNAL_INFO,
+        publication: DEFAULT_PUBLICATION,
+        statusChangedAt: input.now,
+        deletedAt: undefined,
+        deletedBy: undefined,
+        createdAt: input.now,
+        updatedAt: input.now,
+      },
+      'new',
+    );
     property.record({
       type: 'properties.property_created',
       aggregateId: input.id,
@@ -282,7 +293,25 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
 
   static restore(snapshot: PropertySnapshot): Property {
     const { id, ...state } = snapshot;
-    return new Property(id, state);
+    return new Property(id, state, 'stored');
+  }
+
+  /**
+   * Los eventos pendientes y, si cambió algo desde lo último guardado, `property_changed`: así
+   * ninguna edición se olvida de avisarle a la web (ADR 0023).
+   */
+  override pullEvents(): readonly PropertyEvent[] {
+    const { updatedAt, code } = this.#state;
+    if (this.#saved !== this.#state) {
+      this.record({
+        type: 'properties.property_changed',
+        aggregateId: this.id,
+        occurredAt: updatedAt,
+        payload: { propertyId: this.id, code },
+      });
+      this.#saved = this.#state;
+    }
+    return super.pullEvents();
   }
 
   get code(): string {

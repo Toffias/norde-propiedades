@@ -19,8 +19,15 @@ export type PropertyPriceChanged = DomainEvent<
   PropertyPayload & { readonly operation: string; readonly currency: string }
 >;
 
+/**
+ * Algo de la propiedad cambió (cualquier edición, alta, baja o cambio de estado): la web revalida
+ * su ficha y sus listados (ADR 0023). Uno por guardado, sin importar cuántos campos cambiaron.
+ */
+export type PropertyChanged = DomainEvent<'properties.property_changed', PropertyPayload>;
+
 export type PropertyEvent =
   | PropertyCreated
+  | PropertyChanged
   | PropertyDeleted
   | PropertyRestored
   | PropertyStatusChanged

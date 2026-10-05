@@ -202,7 +202,10 @@ describe('CreateProperty', () => {
       publishAddress: 'Gurruchaga al 1800',
       operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
     });
-    expect(uow.events.published.map((e) => e.type)).toEqual(['properties.property_created']);
+    expect(uow.events.published.map((e) => e.type)).toEqual([
+      'properties.property_created',
+      'properties.property_changed',
+    ]);
     expect(uow.audit.entries).toHaveLength(1);
     expect(uow.audit.entries[0]).toMatchObject({
       kind: 'created',
@@ -288,7 +291,10 @@ describe('DeleteProperty', () => {
       deletedAt: TEST_NOW,
       deletedBy: PRODUCER_ID,
     });
-    expect(uow.events.published.map((e) => e.type)).toEqual(['properties.property_deleted']);
+    expect(uow.events.published.map((e) => e.type)).toEqual([
+      'properties.property_deleted',
+      'properties.property_changed',
+    ]);
     expect(uow.audit.entries).toEqual([
       expect.objectContaining({
         kind: 'action',

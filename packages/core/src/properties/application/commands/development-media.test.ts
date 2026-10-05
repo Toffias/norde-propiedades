@@ -76,6 +76,7 @@ describe('development gallery', () => {
         type: 'properties.media_variants_requested',
         payload: { ownerKind: 'development', ownerId: DEVELOPMENT_ID, mediaId },
       },
+      { type: 'properties.media_changed', payload: { ownerKind: 'development', mediaId } },
     ]);
     expect(uow.audit.entries[0]).toMatchObject({
       action: 'development.media_added',

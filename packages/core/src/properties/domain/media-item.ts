@@ -90,7 +90,12 @@ export type MediaDeleted = DomainEvent<
   'properties.media_deleted',
   MediaPayload & { readonly storageKeys: readonly string[] }
 >;
-export type MediaEvent = MediaVariantsRequested | MediaDeleted;
+/**
+ * Cambió una foto, un plano o un link (alta, edición, orden, portada o variantes listas): la web
+ * revalida la ficha de su dueño (ADR 0023).
+ */
+export type MediaChanged = DomainEvent<'properties.media_changed', MediaPayload>;
+export type MediaEvent = MediaVariantsRequested | MediaDeleted | MediaChanged;
 
 /** Proveedores de video y recorridos virtuales que se pueden embeber en la web. */
 const VIDEO_HOSTS = ['youtube.com', 'www.youtube.com', 'youtu.be', 'vimeo.com', 'player.vimeo.com'];
@@ -117,10 +122,17 @@ function isImage(kind: MediaKind): boolean {
  */
 export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
   #state: Omit<MediaItemSnapshot, 'id'>;
+  /** El estado guardado; `undefined` mientras es nuevo. Cada cambio reemplaza `#state`. */
+  #saved: Omit<MediaItemSnapshot, 'id'> | undefined;
 
-  private constructor(id: MediaItemId, state: Omit<MediaItemSnapshot, 'id'>) {
+  private constructor(
+    id: MediaItemId,
+    state: Omit<MediaItemSnapshot, 'id'>,
+    saved: 'stored' | 'new',
+  ) {
     super(id);
     this.#state = state;
+    this.#saved = saved === 'stored' ? state : undefined;
   }
 
   /** Valida tipo y tamaño antes de subir la original al storage. */
@@ -151,28 +163,32 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
   }): Result<MediaItem, UnsupportedMediaTypeError | MediaTooLargeError> {
     const valid = MediaItem.validateUpload(input);
     if (valid.isErr()) return err(valid.error);
-    const item = new MediaItem(input.id, {
-      owner: input.owner,
-      kind: 'photo',
-      storageKey: input.storageKey,
-      externalUrl: undefined,
-      contentType: input.contentType,
-      position: input.position,
-      isCover: input.isCover,
-      showOnWeb: true,
-      includeInPdf: true,
-      rotation: 0,
-      description: undefined,
-      width: undefined,
-      height: undefined,
-      sizeBytes: input.sizeBytes,
-      variants: {},
-      processing: 'pending',
-      processingError: undefined,
-      uploadedBy: input.uploadedBy,
-      createdAt: input.now,
-      updatedAt: input.now,
-    });
+    const item = new MediaItem(
+      input.id,
+      {
+        owner: input.owner,
+        kind: 'photo',
+        storageKey: input.storageKey,
+        externalUrl: undefined,
+        contentType: input.contentType,
+        position: input.position,
+        isCover: input.isCover,
+        showOnWeb: true,
+        includeInPdf: true,
+        rotation: 0,
+        description: undefined,
+        width: undefined,
+        height: undefined,
+        sizeBytes: input.sizeBytes,
+        variants: {},
+        processing: 'pending',
+        processingError: undefined,
+        uploadedBy: input.uploadedBy,
+        createdAt: input.now,
+        updatedAt: input.now,
+      },
+      'new',
+    );
     item.#requestVariants(input.now);
     return ok(item);
   }
@@ -192,34 +208,56 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
       return err({ type: 'InvalidMediaUrl' });
     }
     return ok(
-      new MediaItem(input.id, {
-        owner: input.owner,
-        kind: input.kind,
-        storageKey: undefined,
-        externalUrl: url,
-        contentType: undefined,
-        position: input.position,
-        isCover: false,
-        showOnWeb: true,
-        includeInPdf: false,
-        rotation: 0,
-        description: undefined,
-        width: undefined,
-        height: undefined,
-        sizeBytes: undefined,
-        variants: {},
-        processing: 'ready',
-        processingError: undefined,
-        uploadedBy: input.uploadedBy,
-        createdAt: input.now,
-        updatedAt: input.now,
-      }),
+      new MediaItem(
+        input.id,
+        {
+          owner: input.owner,
+          kind: input.kind,
+          storageKey: undefined,
+          externalUrl: url,
+          contentType: undefined,
+          position: input.position,
+          isCover: false,
+          showOnWeb: true,
+          includeInPdf: false,
+          rotation: 0,
+          description: undefined,
+          width: undefined,
+          height: undefined,
+          sizeBytes: undefined,
+          variants: {},
+          processing: 'ready',
+          processingError: undefined,
+          uploadedBy: input.uploadedBy,
+          createdAt: input.now,
+          updatedAt: input.now,
+        },
+        'new',
+      ),
     );
   }
 
   static restore(snapshot: MediaItemSnapshot): MediaItem {
     const { id, ...state } = snapshot;
-    return new MediaItem(id, state);
+    return new MediaItem(id, state, 'stored');
+  }
+
+  /**
+   * Los eventos pendientes y, si cambió algo desde lo último guardado, `media_changed`: así
+   * ningún cambio de la galería se olvida de avisarle a la web (ADR 0023).
+   */
+  override pullEvents(): readonly MediaEvent[] {
+    const { updatedAt } = this.#state;
+    if (this.#saved !== this.#state) {
+      this.record({
+        type: 'properties.media_changed',
+        aggregateId: this.id,
+        occurredAt: updatedAt,
+        payload: this.#payload(),
+      });
+      this.#saved = this.#state;
+    }
+    return super.pullEvents();
   }
 
   get owner(): MediaOwner {

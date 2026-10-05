@@ -54,6 +54,7 @@ export class ReorderMedia {
         const item = byId.get(id);
         if (item?.moveTo(position, now)) {
           await tx.media.save(item, actor.id);
+          await tx.events.publish(item.pullEvents());
           changed = true;
         }
       }

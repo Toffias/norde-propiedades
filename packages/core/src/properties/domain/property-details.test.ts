@@ -150,6 +150,7 @@ describe('Property.setOperations', () => {
     ]);
     expect(property.pullEvents().map((event) => event.type)).toEqual([
       'properties.property_price_changed',
+      'properties.property_changed',
     ]);
   });
 
@@ -162,7 +163,9 @@ describe('Property.setOperations', () => {
       ),
     );
     expect(property.priceChanges).toEqual([]);
-    expect(property.pullEvents()).toEqual([]);
+    expect(property.pullEvents().map((event) => event.type)).toEqual([
+      'properties.property_changed',
+    ]);
   });
 
   it('reports no change when the operations are the same', () => {

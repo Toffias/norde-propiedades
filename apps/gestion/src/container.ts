@@ -250,7 +250,13 @@ import {
 } from '@norde/core/properties';
 import {
   GetOwnerReport,
+  GetPendingOpportunities,
+  GetPortfolioSummary,
   GetPropertyStatistics,
+  GetUnassignedInquiries,
+  GetUpcomingSignings,
+  ListAvailableDevelopments,
+  ListAvailableProperties,
   type ReportingPropertyProfiles,
 } from '@norde/core/reporting';
 import {
@@ -318,6 +324,7 @@ import {
   DrizzlePropertyInterestQuery,
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
+  DrizzleHomeDashboardQuery,
   DrizzleReferenceCodeSequenceQuery,
   DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
@@ -1046,6 +1053,7 @@ function createDetailReadModels(
   const profiles: PropertyProfiles & ReportingPropertyProfiles = propertyProfiles(properties);
   const interest = new DrizzlePropertyInterestQuery(db);
   const statistics = new DrizzlePropertyStatisticsQuery(db);
+  const home = new DrizzleHomeDashboardQuery(db);
   return {
     clients: {
       listPropertyInterestedClients: new ListPropertyInterestedClients({
@@ -1058,6 +1066,13 @@ function createDetailReadModels(
     reporting: {
       getPropertyStatistics: new GetPropertyStatistics({ profiles, statistics, clock: deps.clock }),
       getOwnerReport: new GetOwnerReport({ profiles, statistics }),
+      // Inicio (#15): un caso de uso por widget, cada uno con su límite.
+      getUnassignedInquiries: new GetUnassignedInquiries({ home }),
+      getPendingOpportunities: new GetPendingOpportunities({ home, users: agents }),
+      getUpcomingSignings: new GetUpcomingSignings({ home, users: agents, clock: deps.clock }),
+      getPortfolioSummary: new GetPortfolioSummary({ home }),
+      listAvailableProperties: new ListAvailableProperties({ home, users: agents }),
+      listAvailableDevelopments: new ListAvailableDevelopments({ home, users: agents }),
     },
   };
 }

@@ -320,6 +320,13 @@ import {
   UploadCompanyFile,
   type FileStorage,
 } from '@norde/core/settings';
+import {
+  ConnectPortalAccount,
+  DisconnectPortalAccount,
+  ListPortalAccounts,
+  SetPortalAccountEnabled,
+  StartPortalConnection,
+} from '@norde/core/portals';
 import { Actor, err, ok, type Clock, type IdGenerator, type Result } from '@norde/core/shared';
 import {
   BetterAuthPasswordHasher,
@@ -393,11 +400,15 @@ import {
   PgBossEventBus,
   SharpImageVariantGenerator,
   WebhookTeamNotifier,
+  AesGcmSecretCipher,
+  createPortalsUnitOfWork,
+  DrizzlePortalAccountRepository,
+  MercadoLibreAuthorizer,
 } from '@norde/infra';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
-import { getEnv, type Env } from './config/env';
+import { getEnv, mercadoLibreApp, type Env } from './config/env';
 import { getLogger } from './config/logger';
 import { eventSubscriptions } from './jobs/event-subscriptions';
 
@@ -465,6 +476,8 @@ export interface Container {
   readonly appraisals: AppraisalsUseCases;
   /** Noticias: el feed de actividad de la empresa (#16). */
   readonly news: { readonly listNews: ListNews };
+  /** Difusión en portales (#14): cuentas de MercadoLibre. Sin `PORTALS_ENABLED`, no existe. */
+  readonly portals: PortalsUseCases | undefined;
 }
 
 export type SettingsUseCases = ReturnType<typeof createSettingsUseCases>;
@@ -474,6 +487,7 @@ export type ClientsUseCases = ReturnType<typeof createDetailReadModels>['clients
 export type ReportingUseCases = ReturnType<typeof createDetailReadModels>['reporting'];
 export type InquiriesUseCases = ReturnType<typeof createInquiriesUseCases>;
 export type AppraisalsUseCases = ReturnType<typeof createAppraisalsUseCases>;
+export type PortalsUseCases = NonNullable<ReturnType<typeof createPortalsUseCases>>;
 
 let container: Container | undefined;
 
@@ -529,6 +543,35 @@ function createStorage(env: Env): FileStorage {
     accessKeyId: env.S3_ACCESS_KEY_ID ?? '',
     secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
   });
+}
+
+/** Cuentas de portales (#14). Solo con `PORTALS_ENABLED`, que exige la clave de cifrado. */
+function createPortalsUseCases(
+  db: Database,
+  env: Env,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+) {
+  if (!env.PORTALS_ENABLED || env.PORTALS_SECRET_KEY === undefined) return undefined;
+  const { clock } = deps;
+  const uow = createPortalsUnitOfWork(db, {
+    ...deps,
+    cipher: new AesGcmSecretCipher(env.PORTALS_SECRET_KEY),
+  });
+  const authorizer = new MercadoLibreAuthorizer({
+    app: mercadoLibreApp(env),
+    clock,
+    logger: getLogger(),
+  });
+
+  return {
+    listAccounts: new ListPortalAccounts({
+      accounts: new DrizzlePortalAccountRepository(db, clock),
+    }),
+    startConnection: new StartPortalConnection({ authorizer }),
+    connectAccount: new ConnectPortalAccount({ uow, authorizer, clock }),
+    disconnectAccount: new DisconnectPortalAccount({ uow }),
+    setAccountEnabled: new SetPortalAccountEnabled({ uow }),
+  };
 }
 
 function createSettingsUseCases(
@@ -1229,6 +1272,7 @@ function createContainer(): Container {
       }),
     },
     news: { listNews: createListNews(database.db, clock) },
+    portals: createPortalsUseCases(database.db, env, { ids, clock }),
     identity: {
       listUsers,
       listRoles: new ListRoles({ roles: roleQuery }),

@@ -60,7 +60,29 @@ const EnvSchema = z.object({
   REFERENCE_CODES_ENABLED: z.stringbool().default(false),
   TEAMS_ENABLED: z.stringbool().default(false),
   CUSTOM_ATTRIBUTES_ENABLED: z.stringbool().default(false),
+
+  /** Difusión en portales (#14): Mi empresa → Portales y la pestaña Difusión. En construcción. */
+  PORTALS_ENABLED: z.stringbool().default(false),
+  /**
+   * Cifra los tokens de los portales en la base (AES-256-GCM). 32 bytes en base64:
+   * `openssl rand -base64 32`. Cambiarla obliga a volver a conectar las cuentas.
+   */
+  PORTALS_SECRET_KEY: z
+    .base64()
+    .refine((value) => Buffer.from(value, 'base64').length === 32, '32 bytes in base64')
+    .optional(),
+  /** App de MercadoLibre (DevCenter). Las tres o ninguna. */
+  MERCADOLIBRE_CLIENT_ID: z.string().min(1).optional(),
+  MERCADOLIBRE_CLIENT_SECRET: z.string().min(1).optional(),
+  /** La URL de vuelta registrada en la app, exacta: `<panel>/api/portals/mercadolibre/callback`. */
+  MERCADOLIBRE_REDIRECT_URI: z.url({ protocol: /^https$/ }).optional(),
 });
+
+const MERCADOLIBRE_APP = [
+  'MERCADOLIBRE_CLIENT_ID',
+  'MERCADOLIBRE_CLIENT_SECRET',
+  'MERCADOLIBRE_REDIRECT_URI',
+] as const;
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
 const S3_REQUIRED = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
@@ -73,6 +95,19 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
       path: ['STORAGE_DRIVER'],
       message: 'Required in production (local or s3)',
     });
+  }
+  if (env.PORTALS_ENABLED && env.PORTALS_SECRET_KEY === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['PORTALS_SECRET_KEY'],
+      message: 'Required with PORTALS_ENABLED=true',
+    });
+  }
+  const mercadoLibre = MERCADOLIBRE_APP.filter((key) => env[key] !== undefined);
+  if (mercadoLibre.length > 0 && mercadoLibre.length < MERCADOLIBRE_APP.length) {
+    for (const key of MERCADOLIBRE_APP.filter((k) => env[k] === undefined)) {
+      context.addIssue({ code: 'custom', path: [key], message: 'Set all MERCADOLIBRE_* or none' });
+    }
   }
   if (env.STORAGE_DRIVER !== 's3') return;
   for (const key of S3_REQUIRED) {
@@ -132,6 +167,24 @@ export function companyFeatures(): CompanyFeatures {
     teams: env.TEAMS_ENABLED,
     customAttributes: env.CUSTOM_ATTRIBUTES_ENABLED,
   };
+}
+
+/** Si se muestra la difusión en portales (#14). */
+export function portalsEnabled(): boolean {
+  return getEnv().PORTALS_ENABLED;
+}
+
+/** La app de MercadoLibre, o `undefined` si no está configurada. */
+export function mercadoLibreApp(env: Env) {
+  const {
+    MERCADOLIBRE_CLIENT_ID: clientId,
+    MERCADOLIBRE_CLIENT_SECRET: clientSecret,
+    MERCADOLIBRE_REDIRECT_URI: redirectUri,
+  } = env;
+  if (clientId === undefined || clientSecret === undefined || redirectUri === undefined) {
+    return undefined;
+  }
+  return { clientId, clientSecret, redirectUri };
 }
 
 /** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */

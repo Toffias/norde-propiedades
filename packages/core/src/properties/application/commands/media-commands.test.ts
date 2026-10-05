@@ -367,6 +367,25 @@ describe('gallery edits', () => {
       type: 'Forbidden',
     });
   });
+
+  it('serves an imported photo without a stored file from its link', async () => {
+    const { uow, storage, a } = await gallery();
+    const stored = uow.media.rows.get(a);
+    if (!stored) throw new Error('missing fixture');
+    const imported = { storageKey: undefined, variants: {} };
+    uow.media.rows.set(a, { ...stored, ...imported, externalUrl: 'https://example.com/a.jpg' });
+    const files = new GetMediaFile({ uow, storage });
+
+    expect(unwrap(await files.execute({ mediaId: a }, EDITOR))).toEqual({
+      kind: 'redirect',
+      url: 'https://example.com/a.jpg',
+    });
+
+    uow.media.rows.set(a, { ...stored, ...imported, externalUrl: undefined });
+    expect(unwrapErr(await files.execute({ mediaId: a }, EDITOR))).toEqual({
+      type: 'MediaNotFound',
+    });
+  });
 });
 
 describe('attachments', () => {

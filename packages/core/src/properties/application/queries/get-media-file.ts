@@ -35,8 +35,15 @@ export class GetMediaFile {
     const item =
       id === undefined ? undefined : await this.deps.uow.run((tx) => tx.media.findById(id));
     const snapshot = item?.toSnapshot();
-    if (snapshot?.storageKey === undefined) return err({ type: 'MediaNotFound' });
+    if (snapshot === undefined) return err({ type: 'MediaNotFound' });
     if (!canReadMedia(actor, snapshot.owner.kind)) return err({ type: 'Forbidden' });
+    if (snapshot.storageKey === undefined) {
+      // Foto importada sin archivo propio: se muestra desde su link.
+      const imported = snapshot.kind === 'photo' ? snapshot.externalUrl : undefined;
+      return imported?.startsWith('https://')
+        ? ok({ kind: 'redirect', url: imported })
+        : err({ type: 'MediaNotFound' });
+    }
 
     const { variant } = parsed.data;
     const key =

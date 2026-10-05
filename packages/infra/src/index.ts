@@ -99,6 +99,17 @@ export {
   DrizzleReferenceCodeSequenceQuery,
   DrizzleReferenceCodeUsage,
 } from './settings/drizzle-settings-queries';
+export { createPortalsUnitOfWork } from './portals/portals-unit-of-work';
+export {
+  DrizzlePortalAccountRepository,
+  DrizzlePortalCredentialStore,
+} from './portals/drizzle-portal-accounts';
+export {
+  MercadoLibreAuthorizer,
+  type MercadoLibreAppConfig,
+  type MercadoLibreAuthorizerOptions,
+} from './adapters/portals/mercadolibre/mercadolibre-authorizer';
+export { AesGcmSecretCipher, type SecretCipher } from './adapters/crypto/aes-gcm-secret-cipher';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
 export { DrizzleClientConversationErasure } from './conversations/drizzle-client-conversation-erasure';
 export {

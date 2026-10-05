@@ -139,7 +139,7 @@ describe('DrizzleNewsFeedQuery', () => {
     await db
       .insert(clientTagAssignments)
       .values({ clientId, tagId: tag, createdAt: NOW, createdBy: USER });
-    await record('client', clientId, 'client.created', '2026-10-02T02:30:00Z');
+    await record('client', clientId, 'client.created', '2026-10-02T15:00:00Z');
     await record('property', propertyId, 'property.created', '2026-10-02T12:00:00Z');
     await record('property', propertyId, 'property.status_changed', '2026-10-02T13:00:00Z', {
       status: { before: 'loading', after: 'available' },

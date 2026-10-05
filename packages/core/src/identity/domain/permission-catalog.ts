@@ -197,7 +197,10 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
       {
         resource: 'portals',
         label: 'Portales',
-        permissions: [{ permission: 'portals:publish', label: 'Publicar en portales' }],
+        permissions: [
+          { permission: 'portals:publish', label: 'Publicar en portales' },
+          { permission: 'portals:manage', label: 'Conectar y activar las cuentas de portales' },
+        ],
       },
       {
         resource: 'inquiries',

@@ -53,6 +53,13 @@ const EnvSchema = z.object({
   INQUIRY_WEBHOOK_SECRET: z.string().min(32).optional(),
   /** Pedidos por minuto por IP al webhook de consultas. */
   INQUIRY_WEBHOOK_RATE_PER_MINUTE: z.coerce.number().int().positive().default(60),
+  /**
+   * Revalidación del sitio público (ADR 0023): `https://<web>/api/revalidate` y el secreto que
+   * comparte con apps/web (HMAC-SHA256 del body). Las dos o ninguna; sin ellas, la web se
+   * refresca sola cada hora.
+   */
+  WEB_REVALIDATE_URL: z.url({ protocol: /^https?$/ }).optional(),
+  WEB_REVALIDATE_SECRET: z.string().min(32).optional(),
   /** Reglas de asignación de consultas (#48): en pausa hasta que Norde las use. */
   INQUIRY_RULES_ENABLED: z.stringbool().default(false),
   /** Funciones de Tokko que Norde no usa hoy (#50): construidas, pero ocultas hasta que las pidan. */
@@ -108,6 +115,14 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
     for (const key of MERCADOLIBRE_APP.filter((k) => env[k] === undefined)) {
       context.addIssue({ code: 'custom', path: [key], message: 'Set all MERCADOLIBRE_* or none' });
     }
+  }
+  if ((env.WEB_REVALIDATE_URL === undefined) !== (env.WEB_REVALIDATE_SECRET === undefined)) {
+    const missing = env.WEB_REVALIDATE_URL ? 'WEB_REVALIDATE_SECRET' : 'WEB_REVALIDATE_URL';
+    context.addIssue({
+      code: 'custom',
+      path: [missing],
+      message: 'Set both WEB_REVALIDATE_* or none',
+    });
   }
   if (env.STORAGE_DRIVER !== 's3') return;
   for (const key of S3_REQUIRED) {

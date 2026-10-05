@@ -260,6 +260,7 @@ import {
   GenerateMediaVariants,
   MoveMergedClientLinks,
   RenderPropertyDocument,
+  RevalidatePublicProperty,
   RunDevelopmentUnitImport,
   UnlinkErasedClients,
   type OwnerReports,
@@ -394,11 +395,13 @@ import {
   DrizzleClientRepository,
   DrizzleOpportunityRepository,
   DrizzlePropertyClientErasure,
+  LogPublicSite,
   LogTeamNotifier,
   OutboxRelay,
   PdfLibPropertyDocumentRenderer,
   PgBossEventBus,
   SharpImageVariantGenerator,
+  WebhookPublicSite,
   WebhookTeamNotifier,
   AesGcmSecretCipher,
   createPortalsUnitOfWork,
@@ -500,6 +503,7 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'properties:read',
   'properties:process-media',
   'properties:render-documents',
+  'properties:revalidate-site',
   'appraisals:process-photos',
   'appraisals:erase-client-data',
   'conversations:erase-client-data',
@@ -1544,6 +1548,15 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       clock,
     }),
     opportunities: createOpportunityJobs(db, deps),
+    revalidateSite: new RevalidatePublicProperty({
+      site:
+        env.WEB_REVALIDATE_URL && env.WEB_REVALIDATE_SECRET
+          ? new WebhookPublicSite({
+              url: env.WEB_REVALIDATE_URL,
+              secret: env.WEB_REVALIDATE_SECRET,
+            })
+          : new LogPublicSite(logger),
+    }),
     routeInquiry: new RouteInquiry({
       uow: createClientsUnitOfWork(db, deps),
       agents: activeAgents(db),

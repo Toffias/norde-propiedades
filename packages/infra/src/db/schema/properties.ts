@@ -120,6 +120,9 @@ export const developments = coreSchema.table(
     index('developments_updated_idx').on(t.updatedAt, t.id).where(notDeleted),
     index('developments_type_idx').on(t.developmentType).where(notDeleted),
     index('developments_construction_status_idx').on(t.constructionStatus).where(notDeleted),
+    // Inicio (#15): emprendimientos en comercialización del agente o de la sucursal.
+    index('developments_producer_status_idx').on(t.producerUserId, t.status).where(notDeleted),
+    index('developments_branch_status_idx').on(t.branchId, t.status).where(notDeleted),
     index('developments_deleted_idx')
       .on(t.deletedAt)
       .where(sql`deleted_at is not null`),

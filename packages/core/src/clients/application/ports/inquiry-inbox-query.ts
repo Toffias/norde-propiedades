@@ -1,5 +1,5 @@
 import type { PageSlice } from '../../../shared';
-import type { InquiryTabValue } from '../../contracts';
+import type { InquiryTabCounts, InquiryTabValue } from '../../contracts';
 import type { ContactChannel } from '../../domain/contact-channel';
 
 /** Una consulta tal como sale de la base: las otras entidades, solo por ID. */
@@ -22,14 +22,17 @@ export interface InquiryInboxItem {
   readonly deletedBy: string | undefined;
 }
 
-export interface InquiryInboxCriteria {
-  /** `deleted`: las de "Borradas"; las otras pestañas no incluyen las borradas. */
-  readonly tab: InquiryTabValue;
+export interface InquiryInboxFilters {
   readonly branchId: string | undefined;
   readonly channel: ContactChannel | undefined;
   readonly propertyId: string | undefined;
   /** Recibidas desde (inclusive) y hasta (exclusive). */
   readonly received: { readonly from: Date | undefined; readonly to: Date | undefined };
+}
+
+export interface InquiryInboxCriteria extends InquiryInboxFilters {
+  /** `deleted`: las de "Borradas"; las otras pestañas no incluyen las borradas. */
+  readonly tab: InquiryTabValue;
   readonly sort: { readonly field: 'receivedAt'; readonly direction: 'asc' | 'desc' };
   readonly offset: number;
   readonly limit: number;
@@ -38,6 +41,8 @@ export interface InquiryInboxCriteria {
 /** La bandeja de consultas, paginada, filtrada y ordenada en la base. */
 export interface InquiryInboxQuery {
   search(criteria: InquiryInboxCriteria): Promise<PageSlice<InquiryInboxItem>>;
+  /** Cuántas hay en cada pestaña con esos filtros. */
+  countByTab(filters: InquiryInboxFilters): Promise<InquiryTabCounts>;
   /** Las pendientes (sin asignar ni borrar): el contador del menú. */
   countPending(): Promise<number>;
 }

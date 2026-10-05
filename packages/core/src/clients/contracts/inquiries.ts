@@ -48,28 +48,48 @@ export type InquiryTagKindValue = (typeof INQUIRY_TAG_KIND_VALUES)[number];
 
 export const INQUIRY_SORT_FIELDS = ['receivedAt'] as const;
 
+/** Filtros de la bandeja, comunes a la lista y a los totales por pestaña. */
+const inquiryFilterFields = {
+  branchId: z.uuid().optional(),
+  channel: z.enum(CONTACT_CHANNEL_VALUES).optional(),
+  propertyId: z.uuid().optional(),
+  /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
+  receivedFrom: z.iso.date().optional(),
+  receivedTo: z.iso.date().optional(),
+};
+
+function receivedRangeIsOrdered(query: {
+  readonly receivedFrom?: string | undefined;
+  readonly receivedTo?: string | undefined;
+}): boolean {
+  return (
+    query.receivedFrom === undefined ||
+    query.receivedTo === undefined ||
+    // Las fechas ISO se comparan bien como texto.
+    query.receivedFrom <= query.receivedTo
+  );
+}
+
+const RECEIVED_RANGE_ERROR = {
+  message: 'La fecha "desde" es posterior a "hasta".',
+  path: ['receivedTo'],
+};
+
 export const ListInquiriesQuerySchema = pageQuerySchema({
   sortable: INQUIRY_SORT_FIELDS,
   defaultSort: { field: 'receivedAt', direction: 'desc' },
 })
-  .extend({
-    tab: z.enum(INQUIRY_TAB_VALUES).default('pending'),
-    branchId: z.uuid().optional(),
-    channel: z.enum(CONTACT_CHANNEL_VALUES).optional(),
-    propertyId: z.uuid().optional(),
-    /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
-    receivedFrom: z.iso.date().optional(),
-    receivedTo: z.iso.date().optional(),
-  })
-  .refine(
-    (query) =>
-      query.receivedFrom === undefined ||
-      query.receivedTo === undefined ||
-      // Las fechas ISO se comparan bien como texto.
-      query.receivedFrom <= query.receivedTo,
-    { message: 'La fecha "desde" es posterior a "hasta".', path: ['receivedTo'] },
-  );
+  .extend({ tab: z.enum(INQUIRY_TAB_VALUES).default('pending'), ...inquiryFilterFields })
+  .refine(receivedRangeIsOrdered, RECEIVED_RANGE_ERROR);
 export type ListInquiriesQuery = z.input<typeof ListInquiriesQuerySchema>;
+
+/** Los totales de las pestañas con los filtros de la bandeja (sin la pestaña). */
+export const CountInquiriesByTabQuerySchema = z
+  .object(inquiryFilterFields)
+  .refine(receivedRangeIsOrdered, RECEIVED_RANGE_ERROR);
+export type CountInquiriesByTabQuery = z.input<typeof CountInquiriesByTabQuerySchema>;
+
+export type InquiryTabCounts = Readonly<Record<InquiryTabValue, number>>;
 
 export interface InquiryTag {
   readonly kind: InquiryTagKindValue;

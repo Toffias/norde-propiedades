@@ -14,6 +14,7 @@ import {
   StubInquiryInboxQuery,
 } from '../../testing';
 
+import { CountInquiriesByTab } from './count-inquiries-by-tab';
 import { CountPendingInquiries } from './count-pending-inquiries';
 import { ListInquiries } from './list-inquiries';
 
@@ -33,6 +34,7 @@ function setup(items = [anInquiryItem()]) {
     inbox,
     list: new ListInquiries({ inbox, listings, agents: new InMemoryClientAgents(), branches }),
     count: new CountPendingInquiries({ inbox }),
+    countByTab: new CountInquiriesByTab({ inbox }),
   };
 }
 
@@ -168,5 +170,52 @@ describe('CountPendingInquiries', () => {
     expect(unwrap(await count.execute(READER))).toBe(4);
     expect(unwrap(await count.execute(OUTSIDER))).toBe(0);
     expect(unwrap(await count.execute(Actor.system('scheduler', ['inquiries:read'])))).toBe(0);
+  });
+});
+
+describe('CountInquiriesByTab', () => {
+  it('counts every tab with the inbox filters', async () => {
+    const { inbox, countByTab } = setup();
+    inbox.tabCounts = { pending: 3, assigned: 7, deleted: 1 };
+
+    const counts = unwrap(
+      await countByTab.execute(
+        {
+          branchId: BRANCH_ID,
+          channel: 'zonaprop',
+          propertyId: PROPERTY_ID.toUpperCase(),
+          receivedFrom: '2026-05-01',
+          receivedTo: '2026-05-01',
+        },
+        READER,
+      ),
+    );
+
+    expect(counts).toEqual({ pending: 3, assigned: 7, deleted: 1 });
+    expect(inbox.counts).toEqual([
+      {
+        branchId: BRANCH_ID,
+        channel: 'zonaprop',
+        propertyId: PROPERTY_ID,
+        received: {
+          from: new Date('2026-05-01T03:00:00Z'),
+          to: new Date('2026-05-02T03:00:00Z'),
+        },
+      },
+    ]);
+  });
+
+  it('rejects a reversed date range', async () => {
+    const { countByTab } = setup();
+    const error = unwrapErr(
+      await countByTab.execute({ receivedFrom: '2026-05-02', receivedTo: '2026-05-01' }, READER),
+    );
+    expect(error.type).toBe('InvalidInput');
+  });
+
+  it('requires permission to see the inquiries', async () => {
+    const { inbox, countByTab } = setup();
+    expect(unwrapErr(await countByTab.execute({}, OUTSIDER))).toEqual({ type: 'Forbidden' });
+    expect(inbox.counts).toEqual([]);
   });
 });

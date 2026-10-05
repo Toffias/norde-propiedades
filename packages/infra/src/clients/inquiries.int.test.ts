@@ -171,6 +171,28 @@ describe('DrizzleInquiryInboxQuery', () => {
     expect(await inbox.countPending()).toBe(12);
   });
 
+  it('counts each tab with the same filters as its list', async () => {
+    await seed();
+    const noFilters = { branchId: undefined, channel: undefined, propertyId: undefined };
+    const received = { from: undefined, to: undefined };
+
+    expect(await inbox.countByTab({ ...noFilters, received })).toEqual({
+      pending: 12,
+      assigned: 12,
+      deleted: 6,
+    });
+
+    const filters = { ...noFilters, branchId: BRANCH, channel: 'zonaprop' as const, received };
+    const totals = await Promise.all(
+      (['pending', 'assigned', 'deleted'] as const).map(
+        async (tab) => (await inbox.search(criteria({ tab, ...filters }))).total,
+      ),
+    );
+    const counts = await inbox.countByTab(filters);
+    expect([counts.pending, counts.assigned, counts.deleted]).toEqual(totals);
+    expect(totals.reduce((a, b) => a + b)).toBe(5);
+  });
+
   it('filters by branch, channel, property and reception date', async () => {
     await seed();
     const all = (await inbox.search(criteria())).items;

@@ -2,9 +2,11 @@ import {
   CONTACT_CHANNELS,
   INQUIRY_STATUSES,
   type InquiryInboxCriteria,
+  type InquiryInboxFilters,
   type InquiryInboxItem,
   type InquiryInboxQuery,
 } from '@norde/core/clients';
+import type { InquiryTabCounts, InquiryTabValue } from '@norde/core/clients/contracts';
 import type { PageSlice } from '@norde/core/shared';
 import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
@@ -85,6 +87,23 @@ export class DrizzleInquiryInboxQuery implements InquiryInboxQuery {
     };
   }
 
+  /** Un conteo por pestaña, cada uno por su índice parcial (como la lista de esa pestaña). */
+  async countByTab(filters: InquiryInboxFilters): Promise<InquiryTabCounts> {
+    const countTab = async (tab: InquiryTabValue) => {
+      const [row] = await this.db
+        .select({ total: count() })
+        .from(inquiries)
+        .where(and(...this.filters({ ...filters, tab })));
+      return row?.total ?? 0;
+    };
+    const [pending, assigned, deleted] = await Promise.all([
+      countTab('pending'),
+      countTab('assigned'),
+      countTab('deleted'),
+    ]);
+    return { pending, assigned, deleted };
+  }
+
   async countPending(): Promise<number> {
     const [row] = await this.db
       .select({ total: count() })
@@ -93,7 +112,7 @@ export class DrizzleInquiryInboxQuery implements InquiryInboxQuery {
     return row?.total ?? 0;
   }
 
-  private filters(c: InquiryInboxCriteria): (SQL | undefined)[] {
+  private filters(c: InquiryInboxFilters & { readonly tab: InquiryTabValue }): (SQL | undefined)[] {
     return [
       c.tab === 'deleted'
         ? isNotNull(inquiries.deletedAt)

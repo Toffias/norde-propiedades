@@ -540,6 +540,7 @@ export type { InquiryRepository } from './domain/client.repository';
 export type { BranchNames } from './application/ports/branch-names';
 export type {
   InquiryInboxCriteria,
+  InquiryInboxFilters,
   InquiryInboxItem,
   InquiryInboxQuery,
 } from './application/ports/inquiry-inbox-query';
@@ -555,6 +556,10 @@ export { DeleteInquiry, type DeleteInquiryError } from './application/commands/d
 export { RestoreInquiry, type RestoreInquiryError } from './application/commands/restore-inquiry';
 export { ListInquiries, type ListInquiriesError } from './application/queries/list-inquiries';
 export { CountPendingInquiries } from './application/queries/count-pending-inquiries';
+export {
+  CountInquiriesByTab,
+  type CountInquiriesByTabError,
+} from './application/queries/count-inquiries-by-tab';
 export {
   AssignInquiry,
   type AssignInquiryError,

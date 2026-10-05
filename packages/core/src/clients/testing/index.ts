@@ -11,6 +11,7 @@ import type {
   ClientSavedSearchRow,
   ClientTabCounts,
   ClientTagRow,
+  InquiryTabCounts,
   OpportunityStageCount,
   PropertyInterestProfile,
 } from '../contracts';
@@ -60,6 +61,7 @@ import type { OpportunityNotification, TeamNotifier } from '../application/ports
 import type { BranchNames } from '../application/ports/branch-names';
 import type {
   InquiryInboxCriteria,
+  InquiryInboxFilters,
   InquiryInboxItem,
   InquiryInboxQuery,
 } from '../application/ports/inquiry-inbox-query';
@@ -1449,7 +1451,9 @@ export function anInquiryItem(overrides: Partial<InquiryInboxItem> = {}): Inquir
 /** Devuelve las filas cargadas y registra los criterios: el filtrado real es SQL en infra. */
 export class StubInquiryInboxQuery implements InquiryInboxQuery {
   readonly searches: InquiryInboxCriteria[] = [];
+  readonly counts: InquiryInboxFilters[] = [];
   pending = 0;
+  tabCounts: InquiryTabCounts = { pending: 0, assigned: 0, deleted: 0 };
 
   constructor(public items: readonly InquiryInboxItem[] = []) {}
 
@@ -1459,6 +1463,11 @@ export class StubInquiryInboxQuery implements InquiryInboxQuery {
       items: this.items.slice(criteria.offset, criteria.offset + criteria.limit),
       total: this.items.length,
     });
+  }
+
+  countByTab(filters: InquiryInboxFilters) {
+    this.counts.push(filters);
+    return Promise.resolve(this.tabCounts);
   }
 
   countPending() {

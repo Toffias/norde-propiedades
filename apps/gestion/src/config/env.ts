@@ -37,6 +37,22 @@ const EnvSchema = z.object({
   /** Otra instancia de Nominatim. Sin valor, la pública de OpenStreetMap. */
   GEOCODER_URL: z.url({ protocol: /^https?$/ }).optional(),
 
+  /**
+   * Relay del outbox y workers de pg-boss (ADR 0021): variantes de fotos, PDF, importaciones,
+   * reglas de oportunidades, supresión y unificación. Con `false`, los eventos esperan en el outbox.
+   */
+  JOBS_ENABLED: z.stringbool().default(true),
+  /** Avisos al equipo cuando entra una oportunidad (Slack, Teams, n8n…). Sin URL, van al log. */
+  TEAM_WEBHOOK_URL: z.url().optional(),
+  TEAM_WEBHOOK_TOKEN: z.string().min(1).optional(),
+
+  /**
+   * Secreto compartido con apps/web para firmar cada consulta (HMAC-SHA256 del body crudo). Sin
+   * secreto, el webhook de consultas de la web no se expone.
+   */
+  INQUIRY_WEBHOOK_SECRET: z.string().min(32).optional(),
+  /** Pedidos por minuto por IP al webhook de consultas. */
+  INQUIRY_WEBHOOK_RATE_PER_MINUTE: z.coerce.number().int().positive().default(60),
   /** Reglas de asignación de consultas (#48): en pausa hasta que Norde las use. */
   INQUIRY_RULES_ENABLED: z.stringbool().default(false),
   /** Funciones de Tokko que Norde no usa hoy (#50): construidas, pero ocultas hasta que las pidan. */
@@ -121,4 +137,9 @@ export function companyFeatures(): CompanyFeatures {
 /** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */
 export function isNodeRuntime(): boolean {
   return process.env.NEXT_RUNTIME === 'nodejs';
+}
+
+/** `next build` también carga `instrumentation.ts`: ahí no hay base ni procesos que arrancar. */
+export function isBuildPhase(): boolean {
+  return process.env.NEXT_PHASE === 'phase-production-build';
 }

@@ -118,8 +118,8 @@ packages/core/src/
 ├── identity/                        # Usuarios, roles, permisos, sucursales, equipos
 ├── settings/                        # Configuración general de la empresa, numeración, archivos
 ├── notifications/                   # Notificaciones a usuarios y sus preferencias
-├── audit/                           # Trazabilidad de cambios: lectura del historial (la escritura,
-│                                    # `AuditLog`, está en el shared kernel)
+├── audit/                           # Trazabilidad de cambios: lectura del historial y feed de
+│                                    # Noticias (#16). La escritura, `AuditLog`, está en el shared kernel
 └── reporting/                       # Consultas de reportes (solo lectura): estadísticas de la ficha,
                                      # reporte al propietario (#6) e Inicio (#15)
 ```
@@ -206,7 +206,7 @@ packages/infra/src/
 | `identity`      | Usuarios, roles, permisos, sucursales, equipos, favoritos                                    | `UserCreated`, `RoleChanged`                                         |
 | `settings`      | Configuración general de la empresa, numeración de códigos, archivos de la empresa           | `CompanySettingsChanged`                                             |
 | `notifications` | Notificaciones a usuarios (en el panel y por mail) y sus preferencias                        | —                                                                    |
-| `audit`         | Registro de cambios (quién, qué, cuándo, antes y después)                                    | —                                                                    |
+| `audit`         | Registro de cambios (quién, qué, cuándo, antes y después) y feed de Noticias                 | —                                                                    |
 | `reporting`     | Consultas de solo lectura para reportes (ventas, orígenes, embudo, costos)                   | —                                                                    |
 
 Puertos de `settings` que usan otros módulos: `CompanySettingsReader` (valores de la configuración, por ejemplo el pie para portales y la marca de agua), `AllocateReferenceCode` (el código al dar de alta una propiedad o un emprendimiento), `FileStorage`, `Mailer` e `ImageWatermarker`.

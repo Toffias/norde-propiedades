@@ -7,6 +7,7 @@ import {
   InboxIcon,
   LandmarkIcon,
   MegaphoneIcon,
+  NewspaperIcon,
   SettingsIcon,
   TargetIcon,
   UsersIcon,
@@ -23,7 +24,10 @@ const SOON = 'Próximamente';
 export const PANEL_NAVIGATION: readonly NavGroup[] = [
   {
     label: 'General',
-    items: [{ href: '/', label: 'Inicio', icon: HomeIcon }],
+    items: [
+      { href: '/', label: 'Inicio', icon: HomeIcon },
+      { href: '/noticias', label: 'Noticias', icon: NewspaperIcon },
+    ],
   },
   {
     label: 'Comercial',

@@ -29,7 +29,15 @@ import { SoftBadge } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
 import { GripVerticalIcon, Loader2Icon, LockIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+  type KeyboardEventHandler,
+  type ReactNode,
+} from 'react';
 
 import { runAction } from '../../../lib/action-result';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
@@ -189,10 +197,16 @@ function BoardCard({
   readonly onDialog: (row: OpportunityPipelineRow, dialog: OpportunityDialog) => void;
 }) {
   const name = clientName(row.client.name);
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: row.id,
     disabled: !row.can.update,
   });
+  // Con el mouse o el dedo se arrastra desde cualquier lugar de la tarjeta: los links y botones de
+  // adentro siguen andando porque el arrastre arranca recién al mover (ver los sensores del tablero).
+  // El teclado queda en la manija: en la tarjeta, Enter sobre un link empezaría a arrastrar.
+  const { onKeyDown, ...pointerListeners } = listeners ?? {};
+  // dnd-kit tipa sus listeners como `Function`: el del teclado recibe el evento de la manija.
+  const onHandleKeyDown = onKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined;
 
   return (
     <article
@@ -200,8 +214,10 @@ function BoardCard({
       aria-label={`Oportunidad de ${name}`}
       className={cn(
         'flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-xs',
+        row.can.update && 'cursor-grab select-none active:cursor-grabbing',
         isDragging && 'opacity-40',
       )}
+      {...pointerListeners}
     >
       <CardBody
         row={row}
@@ -211,9 +227,10 @@ function BoardCard({
               type="button"
               aria-label={`Mover la oportunidad de ${name}`}
               title="Arrastrá para cambiar el estado"
+              ref={setActivatorNodeRef}
               className="-mt-1 -mr-1 inline-flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing"
               {...attributes}
-              {...listeners}
+              {...(onHandleKeyDown ? { onKeyDown: onHandleKeyDown } : {})}
             >
               <GripVerticalIcon className="h-4 w-4" />
             </button>

@@ -3,7 +3,7 @@
 import type { HistoryEntryRow } from '@norde/core/audit/contracts';
 import type { Page } from '@norde/core/shared';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
-import { Input } from '@norde/ui/components/input';
+import { DateRangePicker } from '@norde/ui/components/date-range-picker';
 import { Label } from '@norde/ui/components/label';
 import { useId } from 'react';
 
@@ -56,25 +56,20 @@ function Filters({
   const { setParams } = useListNavigation();
   return (
     <div className="flex flex-wrap items-end gap-3">
-      {[
-        { param: 'from', text: 'Desde', value: from },
-        { param: 'to', text: 'Hasta', value: to },
-      ].map((edge) => (
-        <div key={edge.param} className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-${edge.param}`} className="text-xs">
-            {edge.text}
-          </Label>
-          <Input
-            id={`${id}-${edge.param}`}
-            type="date"
-            className="h-8 w-40"
-            defaultValue={edge.value ?? ''}
-            onChange={(event) => {
-              setParams({ [edge.param]: event.target.value });
-            }}
-          />
-        </div>
-      ))}
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-period`} className="text-xs">
+          Período
+        </Label>
+        <DateRangePicker
+          id={`${id}-period`}
+          label="Período"
+          value={{ from: from ?? '', to: to ?? '' }}
+          onChange={(range) => {
+            setParams({ from: range.from, to: range.to });
+          }}
+          className="h-8 w-60"
+        />
+      </div>
     </div>
   );
 }

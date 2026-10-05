@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@norde/ui/components/dialog';
 import { Input } from '@norde/ui/components/input';
+import { DateRangePicker } from '@norde/ui/components/date-range-picker';
 import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
@@ -228,29 +229,15 @@ export function OwnerReportDialog({
           </DialogDescription>
         </DialogHeader>
         <FormAlert message={error} />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-from`}>Desde</Label>
-            <Input
-              id={`${id}-from`}
-              type="date"
-              value={period.from}
-              onChange={(event) => {
-                setPeriod({ ...period, from: event.target.value });
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-to`}>Hasta</Label>
-            <Input
-              id={`${id}-to`}
-              type="date"
-              value={period.to}
-              onChange={(event) => {
-                setPeriod({ ...period, to: event.target.value });
-              }}
-            />
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-period`}>Período</Label>
+          <DateRangePicker
+            id={`${id}-period`}
+            label="Período del reporte"
+            value={period}
+            onChange={setPeriod}
+            className="w-full"
+          />
         </div>
         <DialogFooter>
           <Button

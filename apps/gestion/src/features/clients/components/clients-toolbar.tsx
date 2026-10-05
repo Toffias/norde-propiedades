@@ -10,6 +10,7 @@ import {
 } from '@norde/core/clients/contracts';
 import { Button } from '@norde/ui/components/button';
 import { Input } from '@norde/ui/components/input';
+import { DateRangePicker } from '@norde/ui/components/date-range-picker';
 import { Label } from '@norde/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@norde/ui/components/popover';
 import {
@@ -228,30 +229,20 @@ export function DateRange({
   const id = useId();
   const { setParams } = useListNavigation();
   return (
-    <fieldset className="flex flex-col gap-1.5">
-      <legend className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</legend>
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { ...from, text: 'Desde' },
-          { ...to, text: 'Hasta' },
-        ].map((edge) => (
-          <div key={edge.param} className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-${edge.param}`} className="text-xs">
-              {edge.text}
-            </Label>
-            <Input
-              id={`${id}-${edge.param}`}
-              type="date"
-              className="h-8"
-              value={edge.value}
-              onChange={(event) => {
-                setParams({ [edge.param]: event.target.value });
-              }}
-            />
-          </div>
-        ))}
-      </div>
-    </fieldset>
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
+      <DateRangePicker
+        id={id}
+        label={label}
+        value={{ from: from.value, to: to.value }}
+        onChange={(range) => {
+          setParams({ [from.param]: range.from, [to.param]: range.to });
+        }}
+        className="w-full"
+      />
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@
 import type { HistoryEntryRow, HistoryValue } from '@norde/core/audit/contracts';
 import type { Page } from '@norde/core/shared';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
-import { Input } from '@norde/ui/components/input';
+import { DateRangePicker } from '@norde/ui/components/date-range-picker';
 import { Label } from '@norde/ui/components/label';
 import {
   Select,
@@ -102,31 +102,17 @@ function Filters({
         </div>
       )}
       <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-from`} className="text-xs">
-          Desde
+        <Label htmlFor={`${id}-period`} className="text-xs">
+          Período
         </Label>
-        <Input
-          id={`${id}-from`}
-          type="date"
-          className="h-8 w-40"
-          defaultValue={from ?? ''}
-          onChange={(event) => {
-            setParams({ from: event.target.value });
+        <DateRangePicker
+          id={`${id}-period`}
+          label="Período"
+          value={{ from: from ?? '', to: to ?? '' }}
+          onChange={(range) => {
+            setParams({ from: range.from, to: range.to });
           }}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-to`} className="text-xs">
-          Hasta
-        </Label>
-        <Input
-          id={`${id}-to`}
-          type="date"
-          className="h-8 w-40"
-          defaultValue={to ?? ''}
-          onChange={(event) => {
-            setParams({ to: event.target.value });
-          }}
+          className="h-8 w-60"
         />
       </div>
     </div>

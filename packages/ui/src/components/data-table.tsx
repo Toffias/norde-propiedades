@@ -96,6 +96,7 @@ export interface DataTableProps<T extends DataTableRow> {
   /**
    * Clic en la fila (ej. abrir la ficha). No se dispara desde los controles de la fila (links,
    * botones, casillas, menús) ni al seleccionar texto. Con teclado, la fila necesita igual un link.
+   * Sin esto, tocar la fila es como tocar el link de la primera columna (el nombre), si tiene.
    */
   readonly onRowClick?: (row: T, event: MouseEvent<HTMLTableRowElement>) => void;
 }
@@ -103,6 +104,23 @@ export interface DataTableProps<T extends DataTableRow> {
 /** Controles de la fila que tienen su propio clic. */
 const INTERACTIVE =
   'a, button, input, select, textarea, label, [role="checkbox"], [role="menuitem"]';
+
+/** Marca la celda de la primera columna: su link es el de la fila. */
+const ROW_LINK_CELL = 'data-row-link';
+
+/**
+ * Sin `onRowClick`: tocar la fila sigue el link de la primera columna. Con Ctrl o Cmd, como un
+ * link, se abre en otra pestaña.
+ */
+function followRowLink(event: MouseEvent<HTMLTableRowElement>) {
+  const link = event.currentTarget.querySelector<HTMLAnchorElement>(`[${ROW_LINK_CELL}] a[href]`);
+  if (link === null) return;
+  if (event.ctrlKey || event.metaKey) {
+    window.open(link.href, '_blank', 'noopener');
+    return;
+  }
+  link.click();
+}
 
 function isRowClick(event: MouseEvent<HTMLTableRowElement>): boolean {
   const target = event.target;
@@ -316,14 +334,16 @@ export function DataTable<T extends DataTableRow>({
                     <TableRow
                       key={row.id}
                       data-state={selected ? 'selected' : undefined}
-                      className={cn(onRowClick && 'cursor-pointer')}
-                      {...(onRowClick
-                        ? {
-                            onClick: (event: MouseEvent<HTMLTableRowElement>) => {
-                              if (isRowClick(event)) onRowClick(row.original, event);
-                            },
-                          }
-                        : {})}
+                      className={cn(
+                        onRowClick
+                          ? 'cursor-pointer'
+                          : 'has-[[data-row-link]_a[href]]:cursor-pointer',
+                      )}
+                      onClick={(event: MouseEvent<HTMLTableRowElement>) => {
+                        if (!isRowClick(event)) return;
+                        if (onRowClick) onRowClick(row.original, event);
+                        else followRowLink(event);
+                      }}
                     >
                       {selectable && (
                         <TableCell
@@ -342,11 +362,12 @@ export function DataTable<T extends DataTableRow>({
                           />
                         </TableCell>
                       )}
-                      {row.getAllCells().map((cell) => {
+                      {row.getAllCells().map((cell, index) => {
                         const column = byId.get(cell.column.id);
                         return (
                           <TableCell
                             key={cell.id}
+                            {...(index === 0 ? { [ROW_LINK_CELL]: '' } : {})}
                             className={cn(
                               column?.showFrom && SHOW_FROM[column.showFrom],
                               column?.className,

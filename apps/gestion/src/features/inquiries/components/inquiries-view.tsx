@@ -26,7 +26,6 @@ import {
   Loader2Icon,
   MailIcon,
   PhoneIcon,
-  SlidersHorizontalIcon,
   Trash2Icon,
   UserCheckIcon,
   UserIcon,
@@ -35,6 +34,7 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { useId, useState } from 'react';
 
+import { MoreFiltersButton } from '../../shared/components/more-filters-button';
 import type { ActionResult } from '../../../lib/action-result';
 import { EMPTY_VALUE, formatDateTime } from '../../../lib/format';
 import { formatPhone, userName } from '../../clients/client-format';
@@ -187,10 +187,7 @@ function Toolbar({
         )}
         <Popover>
           <PopoverTrigger asChild>
-            <Button type="button" variant="outline" className="w-full sm:w-auto">
-              <SlidersHorizontalIcon className="h-4 w-4" />
-              Más filtros{more > 0 ? ` (${String(more)})` : ''}
-            </Button>
+            <MoreFiltersButton active={more} />
           </PopoverTrigger>
           <PopoverContent align="end" className="flex w-[min(92vw,340px)] flex-col gap-4">
             {permissions.pickBranches && (

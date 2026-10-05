@@ -13,12 +13,13 @@ import { Label } from '@norde/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@norde/ui/components/popover';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { DownloadIcon, Loader2Icon, PrinterIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { DownloadIcon, Loader2Icon, PrinterIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useId, useTransition } from 'react';
 
+import { MoreFiltersButton } from '../../../shared/components/more-filters-button';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../../lib/errors';
 import { EMPTY_VALUE, formatDate, formatDateOnly } from '../../../../lib/format';
 import { DateRange } from '../../../clients/components/clients-toolbar';
@@ -140,10 +141,7 @@ function MoreFilters({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" className="w-full sm:w-auto">
-          <SlidersHorizontalIcon className="h-4 w-4" />
-          Más filtros{active > 0 ? ` (${String(active)})` : ''}
-        </Button>
+        <MoreFiltersButton active={active} />
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-[min(92vw,340px)] flex-col gap-4">
         {permissions.pickUsers && (

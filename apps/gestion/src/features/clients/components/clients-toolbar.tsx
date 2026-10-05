@@ -27,7 +27,6 @@ import {
   DownloadIcon,
   Loader2Icon,
   SearchIcon,
-  SlidersHorizontalIcon,
   TableIcon,
   TagsIcon,
   UploadIcon,
@@ -36,6 +35,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useId, useState, useTransition } from 'react';
 
+import { MoreFiltersButton } from '../../shared/components/more-filters-button';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { loadBranchOptions, loadUserOptions } from '../../identity/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
@@ -285,10 +285,7 @@ function MoreFilters({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" className="w-full sm:w-auto">
-          <SlidersHorizontalIcon className="h-4 w-4" />
-          Más filtros{active > 0 ? ` (${String(active)})` : ''}
-        </Button>
+        <MoreFiltersButton active={active} />
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-[min(92vw,340px)] flex-col gap-4">
         {permissions.pickAgents && (

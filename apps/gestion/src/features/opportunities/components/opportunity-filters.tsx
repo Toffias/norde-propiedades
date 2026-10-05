@@ -6,7 +6,6 @@ import {
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_STATUS_VALUES,
 } from '@norde/core/clients/contracts';
-import { Button } from '@norde/ui/components/button';
 import { Label } from '@norde/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@norde/ui/components/popover';
 import {
@@ -16,13 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@norde/ui/components/select';
-import { SlidersHorizontalIcon } from 'lucide-react';
 import { useId } from 'react';
 
 import { DateRange, SearchInput } from '../../clients/components/clients-toolbar';
 import { loadClientTagOptions } from '../../clients/tag-actions';
 import { loadBranchOptions, loadUserOptions } from '../../identity/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
+import { MoreFiltersButton } from '../../shared/components/more-filters-button';
 import { useListNavigation } from '../../shared/components/server-data-table';
 import { ALL_AGENTS_PARAM } from '../agent-filter';
 
@@ -79,24 +78,7 @@ function MoreFilters({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="relative"
-          aria-label={active > 0 ? `Más filtros (${String(active)} aplicados)` : 'Más filtros'}
-          title="Más filtros y orden"
-        >
-          <SlidersHorizontalIcon className="h-4 w-4" />
-          {active > 0 && (
-            <span
-              aria-hidden
-              className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none font-semibold text-primary-foreground tabular-nums"
-            >
-              {active}
-            </span>
-          )}
-        </Button>
+        <MoreFiltersButton active={active} title="Más filtros y orden" />
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-[min(92vw,340px)] flex-col gap-4">
         <div className="flex flex-col gap-1.5">

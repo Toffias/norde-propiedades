@@ -145,7 +145,8 @@ packages/infra/src/
 │   ├── geocoding/                   # Nominatim (ADR 0019)
 │   ├── exports/                     # CSV, Excel (exceljs) y PDF (pdf-lib) de propiedades
 │   ├── indec/                       # Serie IPC (datos.gob.ar)
-│   └── portals/                     # mercadolibre/, zonaprop/, argenprop/
+│   ├── crypto/                      # AES-256-GCM para los tokens de portales (ADR 0022)
+│   └── portals/                     # mercadolibre/ (ADR 0022); zonaprop/ y argenprop/ a futuro
 └── index.ts
 ```
 
@@ -430,6 +431,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 | 0019 | [Mapa con Leaflet y OpenStreetMap, geocodificación con Nominatim](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md), con puerto `Geocoder` |
 | 0020 | [Multimedia y PDF de la ficha en jobs](adr/0020-multimedia-y-pdf-en-jobs-con-descarga-firmada.md), con estado en la base y descarga por URL firmada    |
 | 0021 | [Los procesos en segundo plano corren en apps/gestion](adr/0021-procesos-en-segundo-plano-en-gestion.md): relay, workers y webhook de consultas web    |
+| 0022 | [Portales: MercadoLibre por OAuth, con dos cuentas](adr/0022-portales-mercadolibre-oauth-y-dos-cuentas.md) y los tokens cifrados en la base            |
 
 ---
 

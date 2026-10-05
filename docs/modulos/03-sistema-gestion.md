@@ -624,6 +624,21 @@ Diseño propuesto:
 
 > Riesgo: el acceso a las APIs de Zonaprop y Argenprop suele requerir un acuerdo comercial o ser partner. Conviene confirmarlo temprano; si no hay acceso, la alternativa es exportar un feed o cargar a mano.
 
+**MercadoLibre primero (#14)**: alta, edición y baja de propiedades y emprendimientos replicadas en ML. Contactos, estadísticas, el listado por portal, Zonaprop, Argenprop, el carrusel y las redes quedan para después. Se construye en cuatro etapas, detrás de `PORTALS_ENABLED` (apagado por defecto). Decisiones técnicas en el ADR 0022.
+
+1. **Cuentas** (hecha):
+   - Mi empresa → Portales muestra dos tarjetas: **MercadoLibre · Propiedades** y **MercadoLibre · Emprendimientos**.
+   - Son dos cuentas de ML porque la de emprendimientos, con su paquete, no puede publicar avisos comunes. Una misma cuenta de ML no se conecta en las dos.
+   - Cada tarjeta permite conectar, reconectar y desconectar por OAuth, y activar o desactivar la cuenta. Solo una cuenta conectada se activa, y desconectar la desactiva y borra sus credenciales, pero no toca los avisos que ya están en ML.
+   - Las acciones piden `portals:manage`. Ver las cuentas pide eso o `portals:publish`.
+   - Auditoría: `portal_account.connected` y `portal_account.disconnected` (con la cuenta de ML antes y después), y `portal_account.enabled` y `portal_account.disabled`.
+2. **Publicar propiedades**:
+   - Se publica a pedido, desde la pestaña Difusión de la ficha (simple o destacado). Después, los cambios de precio, datos, fotos y estado se sincronizan solos, por jobs con reintentos.
+   - Reservada o pausada → aviso pausado. Vendida, alquilada, retirada o borrada → aviso cerrado.
+   - Un job diario concilia lo que pasó en ML (avisos vencidos o moderados).
+3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
+4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
+
 ---
 
 ### 4.6 Buscador, alta corta y papelera (#5)

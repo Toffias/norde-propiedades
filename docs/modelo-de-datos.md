@@ -106,6 +106,8 @@ El resultado vive en la fila de la tasación: los valores sugeridos en `sale_*_c
 | `portal_listings`            | Publicación de una propiedad o un emprendimiento (`property_id`, `development_id`) |
 | `portal_listing_daily_stats` | Vistas, contactos y favoritos por día                                              |
 
+`portal_accounts` tiene una fila por portal del catálogo (`mercadolibre` y `mercadolibre_developments`), que se crea al conectar la cuenta; sin fila, la cuenta nunca se conectó. `settings` guarda la cuenta vinculada (`externalAccountId`, `accountName`) y `credentials_encrypted` los tokens de OAuth, cifrados con AES-256-GCM y `PORTALS_SECRET_KEY` (ADR 0022). `portal_listings.portal` apunta a esta tabla, así que un aviso existe solo para una cuenta conectada.
+
 ### `notifications` (`notifications.ts`)
 
 | Tabla                      | Qué es (IDs de otros módulos)                                                            |

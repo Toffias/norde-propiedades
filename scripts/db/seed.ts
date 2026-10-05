@@ -132,6 +132,43 @@ function databaseUrl(): string {
   return url;
 }
 
+/**
+ * Amenities por nombre del catálogo (`features`; los que no están en el catálogo se ignoran) y
+ * fotos como links externos, sin archivo en el storage: la web las muestra por su URL.
+ */
+async function seedFeaturesAndPhotos(
+  client: pg.Client,
+  propertyId: string,
+  p: z.infer<typeof SeedPropertySchema>,
+): Promise<void> {
+  await client.query(
+    `insert into core.property_features (property_id, feature_id, created_at, created_by)
+     select $1, f.id, now(), 'system:import'
+       from core.features f
+      where core.search_normalize(f.name) = any (
+        select core.search_normalize(name) from unnest($2::text[]) as a(name))
+     on conflict do nothing`,
+    [propertyId, p.amenities],
+  );
+  await client.query(
+    `delete from core.media_items where property_id = $1 and storage_key is null and kind = 'photo'`,
+    [propertyId],
+  );
+  for (const [position, url] of p.imageUrls.entries()) {
+    await client.query(
+      `insert into core.media_items (
+         id, property_id, kind, url, position, is_cover, uploaded_by, created_at, updated_at,
+         created_by, updated_by)
+       values ($1, $2, 'photo', $3, $4,
+         -- Portada la primera, salvo que ya tenga una subida desde el panel.
+         $5 and not exists (
+           select 1 from core.media_items where property_id = $2 and is_cover),
+         'system:import', now(), now(), 'system:import', 'system:import')`,
+      [randomUUID(), propertyId, url, position, position === 0],
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const url = databaseUrl();
   const seed = z
@@ -150,8 +187,8 @@ async function main(): Promise<void> {
            id, code, slug, title, description, operation, property_type, status, published_on_web,
            featured, address, show_exact_address, neighborhood, city, province, price_cents, currency,
            expenses_cents, rooms, bedrooms, bathrooms, surface_total_m2, surface_covered_m2,
-           amenities, image_urls, created_at, updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,now(),now())
+           created_at, updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,now(),now())
          on conflict (code) do update set
            slug = excluded.slug, title = excluded.title, description = excluded.description,
            operation = excluded.operation, property_type = excluded.property_type,
@@ -162,8 +199,7 @@ async function main(): Promise<void> {
            currency = excluded.currency, expenses_cents = excluded.expenses_cents,
            rooms = excluded.rooms, bedrooms = excluded.bedrooms, bathrooms = excluded.bathrooms,
            surface_total_m2 = excluded.surface_total_m2,
-           surface_covered_m2 = excluded.surface_covered_m2, amenities = excluded.amenities,
-           image_urls = excluded.image_urls, updated_at = now()
+           surface_covered_m2 = excluded.surface_covered_m2, updated_at = now()
          returning id`,
         [
           randomUUID(),
@@ -189,11 +225,9 @@ async function main(): Promise<void> {
           p.bathrooms,
           p.surfaceTotalM2,
           p.surfaceCoveredM2,
-          p.amenities,
-          p.imageUrls,
         ].map((value) => (typeof value === 'bigint' ? value.toString() : value)),
       );
-      // El buscador del panel lee la operación y el precio de `property_operations`.
+      // El panel, la web y el agente leen la operación y el precio de `property_operations`.
       const propertyId = saved.rows[0]?.id;
       if (propertyId === undefined) throw new Error(`No se guardó la propiedad ${p.code}`);
       await client.query(
@@ -211,6 +245,7 @@ async function main(): Promise<void> {
           p.currency,
         ],
       );
+      await seedFeaturesAndPhotos(client, propertyId, p);
     }
     const users = z
       .array(NewUserSchema)

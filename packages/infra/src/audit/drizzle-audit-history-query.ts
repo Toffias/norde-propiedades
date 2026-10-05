@@ -1,32 +1,10 @@
-import type {
-  AuditHistoryCriteria,
-  AuditHistoryEntry,
-  AuditHistoryQuery,
-  HistoryChange,
-} from '@norde/core/audit';
+import type { AuditHistoryCriteria, AuditHistoryEntry, AuditHistoryQuery } from '@norde/core/audit';
 import type { PageSlice } from '@norde/core/shared';
 import { and, asc, count, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
-import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { fromJsonb } from '../db/json';
 import { auditLog } from '../db/schema';
-
-// Los valores crudos del historial, tal como los guarda `toJsonb` (los `bigint` ya recuperados).
-const HistoryValueSchema: z.ZodType<HistoryChange['before']> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.bigint(),
-    z.null(),
-    z.array(HistoryValueSchema),
-    z.record(z.string(), HistoryValueSchema),
-  ]),
-);
-const ChangesSchema = z
-  .record(z.string(), z.object({ before: HistoryValueSchema, after: HistoryValueSchema }))
-  .catch({});
+import { parseHistoryChanges } from './history-changes';
 
 /**
  * Historial de una entidad sobre `audit_log`, con el índice `(entity_type, entity_id, occurred_at)`:
@@ -74,7 +52,7 @@ export class DrizzleAuditHistoryQuery implements AuditHistoryQuery {
         actorId: row.actorId,
         source: row.source ?? undefined,
         action: row.action,
-        changes: ChangesSchema.parse(fromJsonb(row.changes ?? {})),
+        changes: parseHistoryChanges(row.changes),
       })),
       total: totals[0]?.total ?? 0,
     };

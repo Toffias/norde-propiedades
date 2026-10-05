@@ -756,7 +756,7 @@ El contacto y la operación no se editan: si cambian, la reserva se da por caíd
 - **Exportar a Excel** (`reservations:export`; de fábrica, gerente y administrador): todas las que cumplen los filtros, hasta 10.000, con todas las columnas más las fechas de firma y caída, el motivo y las notas. Se arma por lotes y queda en la auditoría (`reservation.exported`, con los filtros y la cantidad).
 - **Imprimir**: la página que se está viendo, sin el menú, los filtros ni la paginación, siempre en tema claro. Para imprimir más filas, se agranda el tamaño de página.
 
-**No se construye**: la configuración de Reservas de Tokko (etiqueta obligatoria, gerentes de reservas, gerente obligatorio, a quién notificar); por eso el filtro de gerente ofrece cualquier usuario. El aviso de reservas por vencer va con Inicio (#15) y las notificaciones (#16).
+**No se construye**: la configuración de Reservas de Tokko (etiqueta obligatoria, gerentes de reservas, gerente obligatorio, a quién notificar); por eso el filtro de gerente ofrece cualquier usuario. Las reservas por vencer se ven en Inicio, en "Próximos vencimientos" (§7.0); el aviso por notificación va con #16.
 
 ## 5. Alquiler: gestión de contratos
 
@@ -846,6 +846,29 @@ La tasación tiene pantalla propia (no panel lateral).
 ---
 
 ## 7. Reportes
+
+### 7.0 Inicio: pendientes y estado de la cartera (#15)
+
+La pantalla de inicio del panel (`/`). Son consultas de solo lectura del módulo `reporting`: un caso de uso por widget, cada uno con su propio límite. Solo se consultan los widgets de la vista elegida.
+
+**Alcance**: Inicio muestra la cartera con el alcance de los permisos de oportunidades. Un agente ve lo suyo, un gerente lo de su sucursal (`opportunities:read-branch`) y quien ve todas las oportunidades (`opportunities:read-all`), todo. Sin ese permiso, cada usuario ve solo lo suyo. Lo "suyo" es lo que tiene a cargo: el agente de la oportunidad y de la reserva, y el captador de la propiedad y del emprendimiento. Los filtros de **agente** (con `users:read`) y **sucursal** (con `branches:read`) achican el resultado, nunca lo amplían.
+
+**Pendientes** (`/`): cada widget muestra sus primeras 5 filas y el total. "Ver todas" abre el módulo con los mismos filtros.
+
+| Widget                  | Qué muestra                                                                                                                         | Permiso                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Consultas sin asignar   | Las pendientes de la bandeja, la más vieja primero, con su antigüedad. No tienen agente: se ven todas y solo las filtra la sucursal | `inquiries:read`                        |
+| Pendientes de contactar | Oportunidades en la categoría "nuevo", la que más espera primero (desde el último cambio de estado)                                 | `opportunities:read`                    |
+| Próximos vencimientos   | Reservas activas con la firma estimada en los próximos 30 días, incluidas las vencidas (marcadas "Vencida")                         | `reservations:read` y `properties:read` |
+
+**Estado actual** (`/?vista=estado`):
+
+- Contadores: clientes con al menos una oportunidad abierta (ni ganada ni perdida), propiedades disponibles y emprendimientos en comercialización.
+- Oportunidades abiertas por canal de origen, con su porcentaje, y por estado (los estados editables activos de las categorías abiertas, en su orden). En Tokko el contacto _es_ la oportunidad; acá están separados, así que se cuentan oportunidades.
+- Propiedades por estado (sin las de la papelera).
+- Listados paginados (10 por página, cada uno con su param en la URL) de propiedades disponibles (código, título, tipo y barrio, precio por operación y captador) y de emprendimientos en comercialización (con sus unidades disponibles).
+
+Cada bloque aparece solo con el permiso de su módulo. **No se construye**: la pestaña Performance (va con Reportes), los widgets de eventos, tareas y visitas autogestionadas, y las alertas de publicaciones en portales, que se suman cuando exista el módulo `portals` (#14). Los vencimientos de contratos de alquiler se suman con `rentals`.
 
 ### 7.1 Ventas y orígenes
 

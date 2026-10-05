@@ -120,8 +120,8 @@ packages/core/src/
 ├── notifications/                   # Notificaciones a usuarios y sus preferencias
 ├── audit/                           # Trazabilidad de cambios: lectura del historial (la escritura,
 │                                    # `AuditLog`, está en el shared kernel)
-└── reporting/                       # Consultas de reportes (solo lectura): estadísticas de la ficha y
-                                     # reporte al propietario (#6)
+└── reporting/                       # Consultas de reportes (solo lectura): estadísticas de la ficha,
+                                     # reporte al propietario (#6) e Inicio (#15)
 ```
 
 ### 3.2 `@norde/infra`: implementaciones

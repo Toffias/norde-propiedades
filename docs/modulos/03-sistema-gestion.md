@@ -281,7 +281,7 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 2. Se elige qué columna va con cada dato: nombre, tipo de registro, empresa, teléfono, celular, teléfono laboral, email, otro email, tipos de cliente (separados por coma), cargo, web, dirección, país, número de documento y fecha de nacimiento. Los encabezados conocidos (los de la exportación de contactos y los habituales de una planilla) se proponen solos, con dos valores de ejemplo de cada columna. Hace falta el nombre (o la empresa) y al menos un teléfono o email.
 3. Los contactos quedan a cargo de quien importa; elegir otro agente pide `clients:reassign`.
 
-Al confirmar se guarda el archivo y un job de `apps/agent` (`clients.import_requested`) da de alta cada fila con **la misma regla de duplicados que el alta manual**: si el teléfono o el email ya existe (aunque esté en la papelera), la fila no se importa y el reporte enlaza al contacto que ya estaba. Cada fila va en su propia transacción junto con el avance: si el job se corta, retoma donde quedó, y si el evento llega dos veces no se importa de nuevo.
+Al confirmar se guarda el archivo y un job de `apps/gestion` (`clients.import_requested`, ADR 0021) da de alta cada fila con **la misma regla de duplicados que el alta manual**: si el teléfono o el email ya existe (aunque esté en la papelera), la fila no se importa y el reporte enlaza al contacto que ya estaba. Cada fila va en su propia transacción junto con el avance: si el job se corta, retoma donde quedó, y si el evento llega dos veces no se importa de nuevo.
 
 - Sin nombre ni empresa, sin teléfono ni email, o con un teléfono, email, tipo, fecha o largo inválido, la fila queda en el reporte con el dato que falló. El reporte no guarda datos personales: el número de fila, el motivo, la columna y, si era un duplicado, el ID del contacto.
 - Sin nombre pero con empresa, el contacto se crea como empresa.
@@ -400,11 +400,11 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - Emite `clients.inquiry_received`, que van a tomar el reparto automático y los avisos.
 - Se audita como `inquiry.received` **sin los datos del remitente** (canal, ID externo, fecha, propiedad, sucursal, estado y etiquetas). Mientras no se asigna, la consulta no tiene un contacto con el que suprimirlos.
 
-**Formulario de la web** → `POST /webhooks/inquiries/web` en `apps/agent`:
+**Formulario de la web** → `POST /api/webhooks/inquiries/web` en `apps/gestion` (ADR 0021):
 
 - **Body**: JSON con `externalId` (un UUID que la web genera por envío; si reintenta, manda el mismo), `name`, `email`, `phone`, `message` y `propertyId`. Hasta 16 KB.
 - **Firma**: header `x-norde-signature: sha256=<HMAC-SHA256 del body crudo>`, con el secreto compartido `INQUIRY_WEBHOOK_SECRET`. Sin esa variable el webhook no se expone.
-- **Rate limit**: `INQUIRY_WEBHOOK_RATE_PER_MINUTE` pedidos por minuto por IP (60 por defecto). Como el que llama es el servidor de la web, el límite por visitante va en `apps/web`.
+- **Rate limit**: `INQUIRY_WEBHOOK_RATE_PER_MINUTE` pedidos por minuto por IP (60 por defecto), en memoria del proceso. Como el que llama es el servidor de la web, el límite por visitante va en `apps/web`.
 - **Respuestas**:
   - 201 si la consulta es nueva, 200 si era un reintento (`{ inquiryId, duplicate }`).
   - 400 si el body no valida.
@@ -448,7 +448,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 
 **Reglas de asignación automática** (`/consultas/reglas`, con "Administrar consultas"):
 
-> **En pausa (#48).** Se prenden con `INQUIRY_RULES_ENABLED=true` en `apps/gestion` (muestra la pantalla y su link) y en `apps/agent` (`RouteInquiry` usa las reglas). Apagadas, `/consultas/reglas` responde 404 y una consulta queda pendiente hasta que se asigna a mano, salvo que su emprendimiento derive por chances (§4.1, Emprendimientos).
+> **En pausa (#48).** Se prenden con `INQUIRY_RULES_ENABLED=true` en `apps/gestion`: muestra la pantalla y su link, y `RouteInquiry` usa las reglas. Apagadas, `/consultas/reglas` responde 404 y una consulta queda pendiente hasta que se asigna a mano, salvo que su emprendimiento derive por chances (§4.1, Emprendimientos).
 
 - **Regla**: nombre, condiciones y agentes con su peso (de 1 a 10). Hasta 100 reglas y 20 agentes por regla.
 - **Condiciones**: canal, operación de la propiedad, tipo de propiedad, zona (barrios), propiedad y emprendimiento.
@@ -463,7 +463,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
   - En cada vuelta de "suma de pesos" consultas, cada agente recibe tantas como su peso, intercaladas. Con A en 2 y B en 1: A, B, A, A, B, A…
   - La regla guarda cuántas repartió (`cursor`), y la fila se bloquea al tomar el turno: dos consultas a la vez no reciben el mismo.
   - Los agentes inactivos se saltean. Si cambian los agentes o sus pesos, el reparto arranca de cero.
-- **Al entrar una consulta** (`RouteInquiry`, reacción a `clients.inquiry_received` en `apps/agent`, como `system:scheduler`):
+- **Al entrar una consulta** (`RouteInquiry`, reacción a `clients.inquiry_received` en `apps/gestion`, como `system:scheduler`):
   - Primero, la **derivación por chances** de su emprendimiento (o el de la unidad consultada), si tiene agentes; funciona con las reglas apagadas. Si ninguno de sus agentes está activo, sigue con las reglas.
   - Se asigna como con "Asignar", sin una persona: al contacto que coincide por teléfono o email o, si no hay ninguno, a uno nuevo.
   - **Si el contacto ya tiene agente**, la oportunidad sigue con él y la regla no avanza su reparto. Si no, va al agente que toca.
@@ -941,7 +941,7 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
 - **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
 - **Notificaciones**: un servicio único (panel, mail, WhatsApp) que usan los alquileres, los clientes asignados y las oportunidades.
-- **Tareas programadas**: cálculo de IPC, avisos de vencimiento, sincronización con portales y cruce de oportunidades. Corren como jobs de pg-boss en el proceso `apps/agent`.
+- **Tareas programadas**: cálculo de IPC, avisos de vencimiento, sincronización con portales y cruce de oportunidades. Corren como jobs de pg-boss en el proceso `apps/gestion` (ADR 0021).
 - **Backups** diarios de la base de datos.
 
 ---
@@ -954,7 +954,7 @@ Resumen de lo que aplica a este módulo:
 
 - **`apps/gestion`** (Next.js 16) es **solo presentación**: pantallas, Server Actions delgadas y login (Better Auth).
 - Toda la lógica de este documento (clientes, oportunidades, propiedades, alquileres, IPC, tasaciones, reportes) vive en **`@norde/core`**, organizada por módulo. La usan también el agente de IA y la web.
-- Los jobs (IPC, vencimientos, portales, alertas) y los webhooks de portales corren en **`apps/agent`**, un proceso separado.
+- El relay del outbox y los jobs (IPC, vencimientos, portales, alertas) corren en el mismo proceso de **`apps/gestion`**, arrancados desde `instrumentation.ts` (ADR 0021). Dónde entran los webhooks de portales se define en #14.
 - Específico del panel:
   - Tablas con TanStack Table y paginación del lado del servidor.
   - Formularios con react-hook-form y los mismos schemas Zod del core.

@@ -30,7 +30,7 @@
  │ Next.js + Payload│     │ Next.js            │      │ Fastify                   │
  │ sitio + blog     │     │ panel + auth       │      │ agente IA (WA + web chat) │
  │                  │     │ + agente soporte   │      │ webhooks de portales      │
- │                  │     │                    │      │ jobs en segundo plano     │
+ │                  │     │ relay + jobs       │      │                           │
  └────────┬─────────┘     └──────────┬─────────┘      └─────────────┬─────────────┘
           │  Presentación: cada app es un "composition root" que arma los  │
           │  casos de uso con sus adaptadores y los expone a su manera     │
@@ -50,11 +50,11 @@
 
 **Tres procesos independientes:**
 
-| Proceso        | Responsabilidad                                                                                                                                                                       | Por qué separado                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `apps/web`     | Sitio público, blog (Payload), formularios, SEO                                                                                                                                       | Público y cacheado; su deploy no afecta al negocio interno                                        |
-| `apps/gestion` | Panel interno del equipo, login, roles, bandeja de conversaciones, agente de soporte interno                                                                                          | Se despliega seguido (UI); si falla, no corta la atención al cliente                              |
-| `apps/agent`   | Agente de IA de WhatsApp y web chat, webhooks entrantes (Meta, MercadoLibre, portales), **jobs en segundo plano** (IPC, alertas, sincronización con portales, revalidación de la web) | Es el proceso de larga duración: tiene que estar siempre arriba y responder rápido a los webhooks |
+| Proceso        | Responsabilidad                                                                                                                                                                                                                                          | Por qué separado                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `apps/web`     | Sitio público, blog (Payload), formularios, SEO                                                                                                                                                                                                          | Público y cacheado; su deploy no afecta al negocio interno                                        |
+| `apps/gestion` | Panel interno del equipo, login, roles, bandeja de conversaciones, agente de soporte interno, webhook de consultas de la web, **jobs en segundo plano** (relay del outbox, workers de pg-boss, IPC, alertas, portales, revalidación de la web; ADR 0021) | Se despliega seguido (UI); si falla, no corta la atención al cliente                              |
+| `apps/agent`   | Agente de IA de WhatsApp y web chat, y los webhooks de sus canales (Meta)                                                                                                                                                                                | Es el proceso de larga duración: tiene que estar siempre arriba y responder rápido a los webhooks |
 
 Los tres importan el **mismo core**. No hay API HTTP interna entre ellos: cada proceso llama a los casos de uso directamente, contra la misma base. La comunicación asíncrona entre procesos se hace con **eventos de dominio** guardados en la base (outbox + pg-boss).
 
@@ -67,7 +67,7 @@ norde-propiedades/
 ├── apps/
 │   ├── web/                    # Next.js + Payload (módulo 2)
 │   ├── gestion/                # Next.js, panel interno (módulo 3)
-│   └── agent/                  # Fastify: agente IA + webhooks + jobs (módulo 1)
+│   └── agent/                  # Fastify: agente IA + webhooks de sus canales (módulo 1)
 ├── packages/
 │   ├── core/                   # @norde/core: dominio + aplicación (sin frameworks)
 │   ├── infra/                  # @norde/infra: implementaciones de los puertos
@@ -300,8 +300,8 @@ export class RegisterContact {
 ### 6.5 Transacciones, eventos y jobs
 
 - `UnitOfWork.run(fn)` abre una transacción. Los repositorios que recibe `fn` operan dentro de ella.
-- Los **eventos de dominio** se guardan en la tabla `outbox` **en la misma transacción**. Un relay en `apps/agent` los publica en **pg-boss**, y los handlers (casos de uso) reaccionan. Así no se pierde un evento si el proceso se cae.
-- Los **jobs programados** (IPC diario, alertas, sincronización con portales) son casos de uso disparados por pg-boss en `apps/agent`.
+- Los **eventos de dominio** se guardan en la tabla `outbox` **en la misma transacción**. Un relay en `apps/gestion` los publica en **pg-boss**, y los handlers (casos de uso) reaccionan (ADR 0021). Así no se pierde un evento si el proceso se cae.
+- Los **jobs programados** (IPC diario, alertas, sincronización con portales) son casos de uso disparados por pg-boss en `apps/gestion`.
 - Los handlers son **idempotentes**: un evento puede procesarse dos veces sin romper nada.
 
 ### 6.6 Autorización y auditoría
@@ -334,31 +334,31 @@ export class RegisterContact {
 
 ## 7. Stack recomendado
 
-| Pieza                   | Elección                                                                                                               | Motivo                                                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Lenguaje                | **TypeScript 6.0** estricto                                                                                            | TS 7 (compilador nativo) ya salió, pero typescript-eslint todavía no lo soporta; migrar cuando lo haga             |
-| Runtime                 | **Node.js 24 LTS**                                                                                                     | LTS vigente; soportado por Next 16 y Payload 3                                                                     |
-| Monorepo                | **pnpm workspaces + Turborepo**                                                                                        | pnpm impide importar dependencias no declaradas; Turbo cachea lint, test y build y respeta el orden entre paquetes |
-| Web pública             | **Next.js 16 + Payload 3**                                                                                             | Reutiliza DS-DESIGN-Landing                                                                                        |
-| Panel                   | **Next.js 16** (App Router, Server Actions)                                                                            | Mismo framework que la web, un solo stack de frontend                                                              |
-| Agente, webhooks y jobs | **Fastify 5**, ejecutado con **tsx** desde el código fuente (sin bundle)                                               | Reutiliza el MVP APZ-WP-BOT. Sin bundle, cada paquete del workspace resuelve sus dependencias (pnpm estricto)      |
-| Paquetes internos       | Se consumen como **TypeScript fuente** (sin build propio); Next.js los transpila con `transpilePackages`               | Cero pasos de build intermedios; los cambios en el core se ven al instante en las apps                             |
-| IA                      | **OpenAI Agents SDK** (`@openai/agents`), solo dentro de `@norde/agent-kit` (ADR 0009)                                 | Reutiliza el MVP; cambiar de proveedor es reescribir `agent-kit`, sin tocar el core ni las tools                   |
-| Base de datos           | **PostgreSQL 17+** (en desarrollo local, 18)                                                                           | Única base: esquemas `core`, `payload`, `pgboss`. En producción usar la misma versión mayor que en desarrollo      |
-| ORM                     | **Drizzle** (solo en `@norde/infra`)                                                                                   | Usado en el MVP y por Payload; SQL explícito y tipado                                                              |
-| Colas y jobs            | **pg-boss**                                                                                                            | Colas, reintentos y cron sobre la misma base; sin Redis por ahora                                                  |
-| Validación              | **Zod 4**                                                                                                              | Contracts compartidos entre UI y casos de uso; validación del entorno                                              |
-| Autenticación           | **Better Auth** (adapter de Drizzle)                                                                                   | Sesiones en base, extensible a 2FA; roles y permisos propios en `identity`                                         |
-| UI                      | **Tailwind v4 + shadcn/ui** en `@norde/ui`                                                                             | Mismos componentes en la web y el panel; un tema por app (ADR 0012, `docs/diseno-gestion.md`)                      |
-| Tablas y formularios    | TanStack Table, react-hook-form + Zod                                                                                  | Estándar para ABMs                                                                                                 |
-| Teléfonos               | `libphonenumber-js`                                                                                                    | Normalización E.164 para deduplicar                                                                                |
-| Plata e IPC             | Montos en centavos (`bigint`) más `decimal.js` para índices                                                            | Sin errores de coma flotante                                                                                       |
-| Excel                   | `exceljs`                                                                                                              | Exportaciones                                                                                                      |
-| Archivos                | S3 o Cloudflare R2 (`@payloadcms/storage-s3` en la web)                                                                | Servicio en la nube para imágenes                                                                                  |
-| Tests                   | **Vitest** (unit e integración contra Postgres real, ADR 0010), **Playwright** (E2E)                                   |                                                                                                                    |
-| Calidad                 | ESLint (flat config) + `typescript-eslint` + **`eslint-plugin-boundaries`**, Prettier, Husky + lint-staged, commitlint | Los límites de capas y módulos se verifican automáticamente                                                        |
-| Errores en producción   | Sentry (opcional desde el inicio)                                                                                      |                                                                                                                    |
-| Deploy                  | VPS Hostinger, **PM2** (los tres procesos en un `ecosystem.config.cjs`), Nginx, Certbot, GitHub Actions                | Reutiliza el pipeline de DS-DESIGN-Landing                                                                         |
+| Pieza                 | Elección                                                                                                               | Motivo                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Lenguaje              | **TypeScript 6.0** estricto                                                                                            | TS 7 (compilador nativo) ya salió, pero typescript-eslint todavía no lo soporta; migrar cuando lo haga             |
+| Runtime               | **Node.js 24 LTS**                                                                                                     | LTS vigente; soportado por Next 16 y Payload 3                                                                     |
+| Monorepo              | **pnpm workspaces + Turborepo**                                                                                        | pnpm impide importar dependencias no declaradas; Turbo cachea lint, test y build y respeta el orden entre paquetes |
+| Web pública           | **Next.js 16 + Payload 3**                                                                                             | Reutiliza DS-DESIGN-Landing                                                                                        |
+| Panel                 | **Next.js 16** (App Router, Server Actions)                                                                            | Mismo framework que la web, un solo stack de frontend                                                              |
+| Agente y sus webhooks | **Fastify 5**, ejecutado con **tsx** desde el código fuente (sin bundle)                                               | Reutiliza el MVP APZ-WP-BOT. Sin bundle, cada paquete del workspace resuelve sus dependencias (pnpm estricto)      |
+| Paquetes internos     | Se consumen como **TypeScript fuente** (sin build propio); Next.js los transpila con `transpilePackages`               | Cero pasos de build intermedios; los cambios en el core se ven al instante en las apps                             |
+| IA                    | **OpenAI Agents SDK** (`@openai/agents`), solo dentro de `@norde/agent-kit` (ADR 0009)                                 | Reutiliza el MVP; cambiar de proveedor es reescribir `agent-kit`, sin tocar el core ni las tools                   |
+| Base de datos         | **PostgreSQL 17+** (en desarrollo local, 18)                                                                           | Única base: esquemas `core`, `payload`, `pgboss`. En producción usar la misma versión mayor que en desarrollo      |
+| ORM                   | **Drizzle** (solo en `@norde/infra`)                                                                                   | Usado en el MVP y por Payload; SQL explícito y tipado                                                              |
+| Colas y jobs          | **pg-boss**, arrancado por `instrumentation.ts` de `apps/gestion` (ADR 0021)                                           | Colas, reintentos y cron sobre la misma base; sin Redis por ahora                                                  |
+| Validación            | **Zod 4**                                                                                                              | Contracts compartidos entre UI y casos de uso; validación del entorno                                              |
+| Autenticación         | **Better Auth** (adapter de Drizzle)                                                                                   | Sesiones en base, extensible a 2FA; roles y permisos propios en `identity`                                         |
+| UI                    | **Tailwind v4 + shadcn/ui** en `@norde/ui`                                                                             | Mismos componentes en la web y el panel; un tema por app (ADR 0012, `docs/diseno-gestion.md`)                      |
+| Tablas y formularios  | TanStack Table, react-hook-form + Zod                                                                                  | Estándar para ABMs                                                                                                 |
+| Teléfonos             | `libphonenumber-js`                                                                                                    | Normalización E.164 para deduplicar                                                                                |
+| Plata e IPC           | Montos en centavos (`bigint`) más `decimal.js` para índices                                                            | Sin errores de coma flotante                                                                                       |
+| Excel                 | `exceljs`                                                                                                              | Exportaciones                                                                                                      |
+| Archivos              | S3 o Cloudflare R2 (`@payloadcms/storage-s3` en la web)                                                                | Servicio en la nube para imágenes                                                                                  |
+| Tests                 | **Vitest** (unit e integración contra Postgres real, ADR 0010), **Playwright** (E2E)                                   |                                                                                                                    |
+| Calidad               | ESLint (flat config) + `typescript-eslint` + **`eslint-plugin-boundaries`**, Prettier, Husky + lint-staged, commitlint | Los límites de capas y módulos se verifican automáticamente                                                        |
+| Errores en producción | Sentry (opcional desde el inicio)                                                                                      |                                                                                                                    |
+| Deploy                | VPS Hostinger, **PM2** (los tres procesos en un `ecosystem.config.cjs`), Nginx, Certbot, GitHub Actions                | Reutiliza el pipeline de DS-DESIGN-Landing                                                                         |
 
 ---
 
@@ -391,7 +391,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 
 ## 10. Deploy
 
-- Un VPS con los tres procesos bajo **PM2**, Nginx como proxy reverso por subdominio y SSL con Certbot.
+- Un VPS con los tres procesos bajo **PM2** (`ecosystem.config.cjs`, una instancia de cada uno; `gestion` corre el relay y los jobs, ADR 0021), Nginx como proxy reverso por subdominio y SSL con Certbot.
 - **Orden del deploy**:
   1. `pnpm install --frozen-lockfile`
   2. Migraciones de core (`drizzle-kit migrate`)
@@ -414,7 +414,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 | 0003 | Gestión y agente en **procesos separados** que comparten core y base, sin API HTTP interna                                                             |
 | 0004 | Payload solo para contenido editorial (blog, páginas). El negocio vive en el core                                                                      |
 | 0005 | Una sola base PostgreSQL con esquemas separados                                                                                                        |
-| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent`                                                                           |
+| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent` (reemplazado por el ADR 0021: corren en `apps/gestion`)                   |
 | 0007 | Inyección de dependencias manual por composition root                                                                                                  |
 | 0008 | `Result` para errores esperados y excepciones para los inesperados                                                                                     |
 | 0009 | [`@norde/agent-kit` envuelve el OpenAI Agents SDK](adr/0009-agent-kit-sobre-openai-agents-sdk.md), sin puerto `LlmGateway` en el core                  |
@@ -429,6 +429,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 | 0018 | [Archivos en un storage S3 compatible y emails con Resend](adr/0018-storage-s3-r2-y-mail-resend.md), con puertos `FileStorage` y `Mailer`              |
 | 0019 | [Mapa con Leaflet y OpenStreetMap, geocodificación con Nominatim](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md), con puerto `Geocoder` |
 | 0020 | [Multimedia y PDF de la ficha en jobs](adr/0020-multimedia-y-pdf-en-jobs-con-descarga-firmada.md), con estado en la base y descarga por URL firmada    |
+| 0021 | [Los procesos en segundo plano corren en apps/gestion](adr/0021-procesos-en-segundo-plano-en-gestion.md): relay, workers y webhook de consultas web    |
 
 ---
 
@@ -441,7 +442,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 3. **Tool `search_properties`** (presentación, en `apps/agent`): valida los argumentos y llama al caso de uso `SearchProperties` del módulo `properties` con `actor = system:agent-ia`.
 4. **`SearchProperties`** (aplicación): usa el puerto `PropertySearchQuery`, que infra implementa con SQL. Devuelve DTOs.
 5. **Tool `register_client`**: llama a `RegisterContact` del módulo `clients`, que deduplica por teléfono, agrega el canal WhatsApp, abre la oportunidad (tipo alquiler, estado nuevo), guarda el evento `OpportunityCreated` en el outbox y audita.
-6. **Relay del outbox**: publica el evento en pg-boss. El handler `AssignOpportunity` asigna un agente y dispara la notificación.
+6. **Relay del outbox** (en `apps/gestion`): publica el evento en pg-boss. El handler `AssignOpportunity` asigna un agente y dispara la notificación.
 7. **`apps/gestion`**: el asesor ve la oportunidad y la conversación en la bandeja. Al tomar el control, `HandOffConversation` pausa el bot.
 
 Ninguna capa se saltea: el agente de IA no sabe que existe Drizzle, y el caso de uso no sabe que el pedido vino de WhatsApp.

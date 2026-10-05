@@ -56,7 +56,7 @@ Se construye de adentro hacia afuera. Cada paso con sus tests antes de pasar al 
   - Las confirmaciones (borrar, restaurar, suspender) siguen siendo un diálogo.
   - **Si la entidad no entra cómoda en un panel** (muchas secciones, timeline, fotos, varias grillas: la ficha de una propiedad o de un cliente), **sugerile al usuario una pantalla propia antes de construirla** y esperá su respuesta.
 - Componentes de `@norde/ui`, tokens semánticos, textos en español rioplatense con "vos".
-- Acciones masivas y exportaciones: mandar el **filtro**, no la lista de IDs; correr por lotes o como job (pg-boss en `apps/agent`).
+- Acciones masivas y exportaciones: mandar el **filtro**, no la lista de IDs; correr por lotes o como job (pg-boss en `apps/gestion`, `src/jobs/`, ADR 0021).
 
 ### 7. Verificación y cierre
 

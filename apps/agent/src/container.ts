@@ -1,91 +1,25 @@
 // Composition root: único archivo de la app que importa @norde/infra.
-// Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app.
+// Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app. Los procesos
+// en segundo plano (relay del outbox y jobs) corren en apps/gestion (ADR 0021).
 
+import { RegisterContact } from '@norde/core/clients';
 import {
-  DeleteAppraisalPhotoFiles,
-  EraseClientAppraisals,
-  MoveMergedClientAppraisals,
-} from '@norde/core/appraisals';
-import {
-  ApplyOpportunityRules,
-  RouteInquiry,
-  NotifyTeamOfOpportunity,
-  ReceiveInquiry,
-  RecordClientActivity,
-  RegisterContact,
-  RunClientImport,
-  RunOpportunityBulkOperation,
-  type ClientAgents,
-  type InquiryPropertyLookup,
-  type OpportunityRequesters,
-} from '@norde/core/clients';
-import {
-  EraseClientConversations,
-  MoveMergedClientConversations,
   ReceiveInboundMessages,
   SendReply,
   type ChannelMessenger,
   type ChannelMessengers,
   type ConversationPolicy,
 } from '@norde/core/conversations';
-import {
-  CreatePropertyFromAppraisal,
-  DeleteStoredMediaFiles,
-  GenerateMediaVariants,
-  GetPropertyDetail,
-  GetPropertyInterestProfile,
-  GetPropertySummaries,
-  RenderPropertyDocument,
-  RunDevelopmentUnitImport,
-  SearchProperties,
-  MoveMergedClientLinks,
-  UnlinkErasedClients,
-  type OwnerReports,
-  type ReferenceCodeAllocator,
-} from '@norde/core/properties';
-import {
-  MoveMergedClientFavorites,
-  RemoveErasedClientFavorites,
-  ResolveSessionActor,
-} from '@norde/core/identity';
-import { GetOwnerReport, type ReportingPropertyProfiles } from '@norde/core/reporting';
-import { AllocateReferenceCode, type FileStorage } from '@norde/core/settings';
-import { Actor, err, ok } from '@norde/core/shared';
+import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
+import { Actor } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
   createConversationsUnitOfWork,
-  createIdentityUnitOfWork,
   createDatabase,
-  createPropertiesUnitOfWork,
-  createSettingsUnitOfWork,
-  DrizzleClientConversationErasure,
-  DrizzleClientFavoriteErasure,
-  DrizzleCompanySettingsRepository,
-  DrizzleDirectory,
-  DrizzlePropertyClientErasure,
-  DrizzlePropertyDetailLookups,
-  DrizzlePropertyStatisticsQuery,
-  LocalFileStorage,
-  PdfLibPropertyDocumentRenderer,
-  S3FileStorage,
-  SharpImageVariantGenerator,
-  SharpImageWatermarker,
-  DrizzleClientRepository,
-  DrizzleOpportunityPipelineQuery,
-  DrizzleOpportunityRepository,
-  DrizzlePanelPropertyListQuery,
   DrizzlePropertySearchQuery,
-  DrizzleUserAccessQuery,
-  LogTeamNotifier,
   MetaWhatsAppMessenger,
-  OutboxRelay,
-  PgBossEventBus,
   SystemClock,
   UuidV7IdGenerator,
-  WebhookTeamNotifier,
-  XlsxSpreadsheetReader,
-  type Database,
-  createAppraisalsUnitOfWork,
 } from '@norde/infra';
 import type { Logger } from 'pino';
 
@@ -99,247 +33,16 @@ import type { WhatsAppWebhookOptions } from './channels/whatsapp/webhook-routes'
 import { WhatsAppTurnHandler } from './channels/whatsapp/whatsapp-turn-handler';
 import { whatsAppConfig, type Env } from './config/env';
 import type { HealthCheck } from './http/routes/health';
-import { eventSubscriptions } from './jobs/event-subscriptions';
-import type { WebInquiryWebhookOptions } from './webhooks/web-inquiry-routes';
 
 const HOUR_MS = 3_600_000;
 
-/** Permisos acotados de los actores de sistema de este proceso. */
+/** El único actor de este proceso: el agente de IA, con lo justo para conversar. */
 const AGENT_ACTOR = Actor.system('agent-ia', [
   'properties:read',
   'clients:create',
   'conversations:receive',
   'conversations:reply',
 ]);
-const SCHEDULER_ACTOR = Actor.system('scheduler', [
-  'clients:read',
-  'clients:record-activity',
-  'properties:read',
-  'properties:process-media',
-  'properties:render-documents',
-  'appraisals:process-photos',
-  'appraisals:erase-client-data',
-  'conversations:erase-client-data',
-  'properties:erase-client-data',
-  'identity:erase-client-data',
-  'appraisals:merge-client-data',
-  'conversations:merge-client-data',
-  'properties:merge-client-data',
-  'identity:merge-client-data',
-  'opportunities:apply-rules',
-  'opportunities:run-bulk',
-  'inquiries:route',
-]);
-/**
- * Crea la propiedad de una tasación convertida. Es el scheduler, con lo justo: el código de
- * referencia sale de la numeración, que pide `properties:create`.
- */
-const CONVERSION_ACTOR = Actor.system('scheduler', [
-  'properties:create',
-  'properties:create-from-appraisal',
-]);
-/** Las consultas del formulario web: quedan creadas y auditadas por `system:web`. */
-const WEB_ACTOR = Actor.system('web', ['inquiries:receive', 'properties:read']);
-/** Arma el actor de quien pidió una acción masiva, con sus permisos de ahora. */
-const AUTH_ACTOR = Actor.system('auth', ['sessions:resolve']);
-/** Las importaciones desde Excel: los contactos quedan creados y auditados por `system:import`. */
-/**
- * Las importaciones desde Excel: contactos y unidades de emprendimientos. Crear unidades pide un
- * código de referencia, que entrega la numeración con `properties:create`.
- */
-const IMPORT_ACTOR = Actor.system('import', [
-  'clients:run-imports',
-  'properties:run-imports',
-  'properties:create',
-]);
-
-function createStorage(env: Env): FileStorage {
-  if (env.STORAGE_DRIVER !== 's3') return new LocalFileStorage(env.STORAGE_LOCAL_DIR);
-  // `loadEnv` ya exigió estas variables con STORAGE_DRIVER=s3.
-  return new S3FileStorage({
-    endpoint: env.S3_ENDPOINT,
-    region: env.S3_REGION ?? 'auto',
-    bucket: env.S3_BUCKET ?? '',
-    accessKeyId: env.S3_ACCESS_KEY_ID ?? '',
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
-  });
-}
-
-/** Las reglas automáticas de estado y las acciones masivas encoladas de oportunidades (#9). */
-function createOpportunityJobs(
-  db: Database,
-  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
-) {
-  const { ids, clock } = deps;
-  const uow = createClientsUnitOfWork(db, { ids, clock });
-  const directory = new DrizzleDirectory(db);
-  const userAccess = new DrizzleUserAccessQuery(db);
-  const agents: ClientAgents = {
-    names: (userIds) => directory.names('user', userIds),
-    async find(userId) {
-      const user = await userAccess.findByUserId(userId);
-      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
-    },
-  };
-  const resolveActor = new ResolveSessionActor({ users: userAccess });
-  // El job procesa como quien la pidió: si ya no está activo, no hay actor y la operación falla.
-  const requesters: OpportunityRequesters = {
-    async actorFor(userId) {
-      const result = await resolveActor.execute({ userId }, AUTH_ACTOR);
-      return result.isOk() ? result.value.actor : undefined;
-    },
-  };
-  return {
-    applyRules: new ApplyOpportunityRules({ uow, ids, clock }),
-    runBulk: new RunOpportunityBulkOperation({
-      uow,
-      pipeline: new DrizzleOpportunityPipelineQuery(db),
-      agents,
-      requesters,
-      ids,
-      clock,
-    }),
-  };
-}
-
-/** El reparto automático de consultas por reglas (#10): `RouteInquiry` con los agentes activos. */
-/**
- * El reparto de consultas (#10): las chances de los emprendimientos (#7) siempre; las reglas de
- * asignación, solo con `INQUIRY_RULES_ENABLED`.
- */
-function createInquiryRouting(
-  db: Database,
-  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
-  rulesEnabled: boolean,
-) {
-  const directory = new DrizzleDirectory(db);
-  const userAccess = new DrizzleUserAccessQuery(db);
-  const agents: ClientAgents = {
-    names: (userIds) => directory.names('user', userIds),
-    async find(userId) {
-      const user = await userAccess.findByUserId(userId);
-      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
-    },
-  };
-  return new RouteInquiry({
-    uow: createClientsUnitOfWork(db, deps),
-    agents,
-    rulesEnabled,
-    ...deps,
-  });
-}
-
-/** La entrada de consultas (#10): `ReceiveInquiry` con los datos de la propiedad consultada. */
-function createInquiryIntake(
-  db: Database,
-  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
-) {
-  const directory = new DrizzleDirectory(db);
-  const userAccess = new DrizzleUserAccessQuery(db);
-  const summaries = new GetPropertySummaries({
-    properties: new DrizzlePanelPropertyListQuery(db),
-    users: { names: (userIds) => directory.names('user', userIds) },
-  });
-  // Por la API pública de properties; la sucursal de la propiedad es la de su captador.
-  const properties: InquiryPropertyLookup = {
-    async facts(propertyId) {
-      const rows = await summaries.execute({ ids: [propertyId] }, WEB_ACTOR);
-      const row = rows.isOk() ? rows.value[0] : undefined;
-      if (!row) return undefined;
-      const producer = row.producer && (await userAccess.findByUserId(row.producer.id));
-      return {
-        branchId: producer?.branchId,
-        propertyType: row.propertyType,
-        operations: row.operations.map((o) => o.operation),
-        neighborhood: row.neighborhood,
-        developmentId: row.developmentId,
-      };
-    },
-  };
-  return new ReceiveInquiry({ uow: createClientsUnitOfWork(db, deps), properties, ...deps });
-}
-
-/**
- * El código de referencia de una unidad importada sale de la numeración de Mi empresa, como el alta
- * desde el panel. Cualquier error de la numeración se informa igual: no hay código.
- */
-function referenceCodes(
-  db: Database,
-  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
-  logger: Logger,
-): ReferenceCodeAllocator {
-  const allocate = new AllocateReferenceCode({ uow: createSettingsUnitOfWork(db, deps) });
-  return {
-    async allocate(request, actor) {
-      const result = await allocate.execute(
-        {
-          target: 'property',
-          propertyType: request.kind,
-          userId: request.producerUserId,
-          branchId: request.branchId,
-        },
-        actor,
-      );
-      if (result.isErr()) {
-        logger.warn({ error: result.error.type }, 'Could not allocate a property reference code');
-        return err({ type: 'ReferenceCodeUnavailable' });
-      }
-      return ok(result.value.code);
-    },
-  };
-}
-
-/** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
-function createPropertyJobs(
-  db: Database,
-  env: Env,
-  deps: { readonly ids: UuidV7IdGenerator; readonly clock: SystemClock },
-) {
-  const { clock } = deps;
-  const uow = createPropertiesUnitOfWork(db, deps);
-  const storage = createStorage(env);
-  const settings = new DrizzleCompanySettingsRepository(db, clock);
-  const directory = new DrizzleDirectory(db);
-  const users = { names: (userIds: readonly string[]) => directory.names('user', userIds) };
-  const interestProfile = new GetPropertyInterestProfile({ uow });
-  const profiles: ReportingPropertyProfiles = {
-    async find(propertyId, actor) {
-      const profile = await interestProfile.execute({ propertyId }, actor);
-      return profile.isOk() ? profile.value : undefined;
-    },
-  };
-  const ownerReport = new GetOwnerReport({
-    profiles,
-    statistics: new DrizzlePropertyStatisticsQuery(db),
-  });
-  const ownerReports: OwnerReports = {
-    async build(propertyId, period, actor) {
-      const report = await ownerReport.execute({ propertyId, ...period }, actor);
-      return report.isOk() ? report.value : undefined;
-    },
-  };
-  return {
-    generateMediaVariants: new GenerateMediaVariants({
-      uow,
-      storage,
-      images: new SharpImageVariantGenerator(),
-      watermarker: new SharpImageWatermarker(),
-      settings,
-      clock,
-    }),
-    deleteStoredMediaFiles: new DeleteStoredMediaFiles({ storage }),
-    renderDocument: new RenderPropertyDocument({
-      uow,
-      lookups: new DrizzlePropertyDetailLookups(db),
-      users,
-      storage,
-      settings,
-      renderer: new PdfLibPropertyDocumentRenderer(),
-      ownerReports,
-      clock,
-    }),
-  };
-}
 
 export interface ContainerOverrides {
   /** Reemplaza el envío por WhatsApp (el simulador imprime en consola). */
@@ -355,10 +58,6 @@ export interface Container {
         readonly handler: WhatsAppTurnHandler;
       }
     | undefined;
-  /** `undefined` si no hay `INQUIRY_WEBHOOK_SECRET`. */
-  readonly webInquiries: WebInquiryWebhookOptions | undefined;
-  /** Arranca el relay del outbox y los workers (si `JOBS_ENABLED`). */
-  startJobs(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -380,13 +79,6 @@ export function createContainer(
     uow: createClientsUnitOfWork(db, { ids, clock }),
     ids,
     clock,
-  });
-  const notifyTeam = new NotifyTeamOfOpportunity({
-    clients: new DrizzleClientRepository(db, ids),
-    opportunities: new DrizzleOpportunityRepository(db),
-    notifier: env.TEAM_WEBHOOK_URL
-      ? new WebhookTeamNotifier({ url: env.TEAM_WEBHOOK_URL, token: env.TEAM_WEBHOOK_TOKEN })
-      : new LogTeamNotifier(logger),
   });
 
   // Canal WhatsApp
@@ -481,95 +173,6 @@ export function createContainer(
     logger.warn('WhatsApp channel disabled: set the WHATSAPP_* variables and OPENAI_API_KEY');
   }
 
-  // Consultas del formulario web
-  const receiveInquiry = createInquiryIntake(db, { ids, clock });
-  const webInquiries: WebInquiryWebhookOptions | undefined = env.INQUIRY_WEBHOOK_SECRET
-    ? {
-        secret: env.INQUIRY_WEBHOOK_SECRET,
-        ratePerMinute: env.INQUIRY_WEBHOOK_RATE_PER_MINUTE,
-        receive: (input) => receiveInquiry.execute(input, WEB_ACTOR),
-      }
-    : undefined;
-  if (!webInquiries) logger.warn('Web inquiry webhook disabled: set INQUIRY_WEBHOOK_SECRET');
-
-  // Jobs: outbox → pg-boss → handlers
-  const bus = new PgBossEventBus({
-    connectionString: env.DATABASE_URL,
-    applicationName: 'norde-agent-jobs',
-    logger,
-  });
-  for (const subscription of eventSubscriptions({
-    notifyTeam,
-    recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, { ids, clock }) }),
-    properties: createPropertyJobs(db, env, { ids, clock }),
-    appraisals: {
-      deletePhotoFiles: new DeleteAppraisalPhotoFiles({ storage: createStorage(env) }),
-      createProperty: new CreatePropertyFromAppraisal({
-        uow: createPropertiesUnitOfWork(db, { ids, clock }),
-        codes: referenceCodes(db, { ids, clock }, logger),
-        storage: createStorage(env),
-        ids,
-        clock,
-      }),
-    },
-    erasure: {
-      appraisals: new EraseClientAppraisals({
-        uow: createAppraisalsUnitOfWork(db, { ids, clock }),
-        storage: createStorage(env),
-      }),
-      conversations: new EraseClientConversations({
-        erasure: new DrizzleClientConversationErasure(db),
-      }),
-      properties: new UnlinkErasedClients({
-        erasure: new DrizzlePropertyClientErasure(db),
-        uow: createPropertiesUnitOfWork(db, { ids, clock }),
-        clock,
-      }),
-      favorites: new RemoveErasedClientFavorites({
-        favorites: new DrizzleClientFavoriteErasure(db),
-      }),
-    },
-    merge: {
-      appraisals: new MoveMergedClientAppraisals({
-        uow: createAppraisalsUnitOfWork(db, { ids, clock }),
-      }),
-      conversations: new MoveMergedClientConversations({
-        uow: createConversationsUnitOfWork(db, { ids, clock }),
-      }),
-      properties: new MoveMergedClientLinks({
-        uow: createPropertiesUnitOfWork(db, { ids, clock }),
-      }),
-      favorites: new MoveMergedClientFavorites({
-        uow: createIdentityUnitOfWork(db, { ids, clock }),
-      }),
-    },
-    runImport: new RunClientImport({
-      uow: createClientsUnitOfWork(db, { ids, clock }),
-      reader: new XlsxSpreadsheetReader(),
-      storage: createStorage(env),
-      ids,
-      clock,
-    }),
-    runUnitImport: new RunDevelopmentUnitImport({
-      uow: createPropertiesUnitOfWork(db, { ids, clock }),
-      reader: new XlsxSpreadsheetReader(),
-      storage: createStorage(env),
-      codes: referenceCodes(db, { ids, clock }, logger),
-      ids,
-      clock,
-    }),
-    opportunities: createOpportunityJobs(db, { ids, clock }),
-    routeInquiry: createInquiryRouting(db, { ids, clock }, env.INQUIRY_RULES_ENABLED),
-    actor: SCHEDULER_ACTOR,
-    importActor: IMPORT_ACTOR,
-    conversionActor: CONVERSION_ACTOR,
-    logger,
-  })) {
-    bus.subscribe(subscription);
-  }
-  const relay = new OutboxRelay({ db, logger, publish: (event) => bus.publish(event) });
-  let jobsStarted = false;
-
   return {
     healthCheck: async () => {
       try {
@@ -581,24 +184,10 @@ export function createContainer(
       }
     },
     whatsapp,
-    webInquiries,
-    startJobs: async () => {
-      if (!env.JOBS_ENABLED) {
-        logger.warn('Jobs disabled (JOBS_ENABLED=false): outbox events will wait');
-        return;
-      }
-      await bus.start();
-      relay.start();
-      jobsStarted = true;
-    },
     close: async () => {
       // Primero se termina lo que está en curso; después se liberan las conexiones.
       await batcher?.drain();
       await queue.idle();
-      if (jobsStarted) {
-        await relay.stop();
-        await bus.stop();
-      }
       await database.close();
     },
   };

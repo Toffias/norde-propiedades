@@ -10,10 +10,8 @@ const server = buildServer({
   logger,
   healthCheck: container.healthCheck,
   whatsapp: container.whatsapp?.webhook,
-  webInquiries: container.webInquiries,
 });
 
-await container.startJobs();
 await server.listen({ host: env.HOST, port: env.PORT });
 logger.info(
   { model: env.OPENAI_MODEL, whatsapp: container.whatsapp !== undefined },
@@ -28,7 +26,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   logger.info({ signal }, 'shutting down');
 
   try {
-    // Primero se deja de aceptar tráfico; después se drenan los turnos y los jobs.
+    // Primero se deja de aceptar tráfico; después se drenan los turnos.
     await server.close();
     await container.close();
     process.exit(0);

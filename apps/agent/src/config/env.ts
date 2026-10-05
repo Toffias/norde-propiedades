@@ -57,47 +57,8 @@ const EnvSchema = z
     LIMIT_CONTACT_MESSAGES_PER_DAY: positiveInt(120),
     /** Tope de mensajes enviados en 24 h. A ~0,026 USD c/u, 3000 ≈ 78 USD por día. */
     LIMIT_WHATSAPP_OUTBOUND_PER_DAY: positiveInt(3000),
-
-    // Avisos al equipo (Slack, Teams, n8n…). Sin URL, se registran en el log.
-    TEAM_WEBHOOK_URL: z.url().optional(),
-    TEAM_WEBHOOK_TOKEN: z.string().min(1).optional(),
-
-    // Consultas del formulario web (#10). Sin secreto, el webhook no se expone.
-    /** Secreto compartido con apps/web para firmar cada consulta (HMAC-SHA256 del body). */
-    INQUIRY_WEBHOOK_SECRET: z.string().min(32).optional(),
-    /** Pedidos por minuto por IP al webhook de consultas. */
-    INQUIRY_WEBHOOK_RATE_PER_MINUTE: positiveInt(60),
-    /** Reparto automático de consultas por reglas (#48): en pausa hasta que Norde las use. */
-    INQUIRY_RULES_ENABLED: z.stringbool().default(false),
-
-    /** Relay del outbox y workers de pg-boss. */
-    JOBS_ENABLED: z.stringbool().default(true),
-
-    // Storage de archivos: los jobs generan las variantes de las fotos y los PDF de la ficha.
-    /** `local` (disco, para desarrollo) o `s3` (Cloudflare R2 o AWS S3), como el panel. */
-    STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
-    /** En desarrollo, la misma carpeta que usa el panel. */
-    STORAGE_LOCAL_DIR: z.string().default('../gestion/.storage'),
-    /** R2: `https://<account>.r2.cloudflarestorage.com`. Sin valor, AWS S3. */
-    S3_ENDPOINT: z.url({ protocol: /^https$/ }).optional(),
-    S3_REGION: z.string().optional(),
-    S3_BUCKET: z.string().optional(),
-    S3_ACCESS_KEY_ID: z.string().optional(),
-    S3_SECRET_ACCESS_KEY: z.string().optional(),
   })
   .superRefine((env, ctx) => {
-    if (env.STORAGE_DRIVER === 's3') {
-      for (const key of [
-        'S3_REGION',
-        'S3_BUCKET',
-        'S3_ACCESS_KEY_ID',
-        'S3_SECRET_ACCESS_KEY',
-      ] as const) {
-        if (env[key] === undefined) {
-          ctx.addIssue({ code: 'custom', path: [key], message: 'Required with STORAGE_DRIVER=s3' });
-        }
-      }
-    }
     const present = WHATSAPP_REQUIRED.filter((key) => env[key] !== undefined);
     if (present.length > 0 && present.length < WHATSAPP_REQUIRED.length) {
       for (const key of WHATSAPP_REQUIRED.filter((k) => env[k] === undefined)) {

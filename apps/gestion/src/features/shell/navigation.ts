@@ -12,6 +12,8 @@ import {
   UsersIcon,
 } from 'lucide-react';
 
+import { COMPANY_NAV_ITEMS } from './company-navigation';
+
 // Módulos del panel (épica #1). Los que todavía no tienen pantalla se ven deshabilitados, así el
 // menú ya tiene su forma final. Los contadores de Oportunidades y Consultas los pone el layout
 // (`NavCounts`).
@@ -43,7 +45,9 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
   },
   {
     label: 'Empresa',
-    items: [{ href: '/mi-empresa', label: 'Mi empresa', icon: SettingsIcon }],
+    items: [
+      { href: '/mi-empresa', label: 'Mi empresa', icon: SettingsIcon, children: COMPANY_NAV_ITEMS },
+    ],
   },
 ];
 

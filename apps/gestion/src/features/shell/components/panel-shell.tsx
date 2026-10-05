@@ -2,18 +2,25 @@
 
 import type { SessionProfile } from '@norde/core/identity/contracts';
 import type { GlobalSearchKind } from '@norde/core/reporting/contracts';
+import type { CompanyBrandView } from '@norde/core/settings/contracts';
 import { AccountMenu } from '@norde/ui/components/account-menu';
 import { AppLogo } from '@norde/ui/components/app-logo';
 import { AppShell } from '@norde/ui/components/app-shell';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList } from '@norde/ui/components/breadcrumb';
-import { NavList, type NavLinkComponent } from '@norde/ui/components/nav-list';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+} from '@norde/ui/components/breadcrumb';
+import { isActiveSubItem, NavList, type NavLinkComponent } from '@norde/ui/components/nav-list';
 import { toast } from '@norde/ui/components/sonner';
 import { ThemeSwitcher } from '@norde/ui/components/theme-switcher';
 import { isActivePath } from '@norde/ui/lib/nav';
+import { cn } from '@norde/ui/lib/utils';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 
 import { authClient } from '../../../lib/auth-client';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
@@ -35,10 +42,31 @@ const NavLink: NavLinkComponent = ({ href, className, onClick, children, ...aria
 
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
-function currentSection(pathname: string): string | undefined {
-  return PANEL_NAVIGATION.flatMap((group) => group.items).find((item) =>
-    isActivePath(pathname, item.href),
-  )?.label;
+/** El item del menú en el que se está y, si tiene submenú, el subitem. */
+function currentSection(pathname: string): readonly string[] {
+  const item = PANEL_NAVIGATION.flatMap((group) => group.items).find((entry) =>
+    isActivePath(pathname, entry.href),
+  );
+  if (item === undefined) return [];
+  const child = item.children?.find((entry) => isActiveSubItem(pathname, entry));
+  return child === undefined ? [item.label] : [item.label, child.label];
+}
+
+/** Con un logo cargado en Mi empresa > General, reemplaza al isotipo de Norde. */
+function brandProps(brand: CompanyBrandView | undefined, size: string) {
+  if (brand?.logoVersion === undefined) return {};
+  return {
+    name: brand.name,
+    mark: (
+      // Imagen servida por el panel (autorizada por el caso de uso), no por un CDN.
+      // eslint-disable-next-line @next/next/no-img-element -- `next/image` no sirve para una ruta que exige sesión.
+      <img
+        src={`/mi-empresa/logo/company?v=${encodeURIComponent(brand.logoVersion)}`}
+        alt=""
+        className={`${size} shrink-0 rounded-md object-contain`}
+      />
+    ),
+  };
 }
 
 export function PanelShell({
@@ -46,12 +74,14 @@ export function PanelShell({
   initiallyCollapsed,
   counts,
   searchKinds,
+  brand,
   children,
 }: {
   readonly profile: SessionProfile;
   readonly initiallyCollapsed: boolean;
   readonly counts: NavCounts;
   readonly searchKinds: readonly GlobalSearchKind[];
+  readonly brand: CompanyBrandView | undefined;
   readonly children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -78,8 +108,8 @@ export function PanelShell({
 
   return (
     <AppShell
-      brand={<AppLogo onSidebar />}
-      collapsedBrand={<AppLogo variant="compact" />}
+      brand={<AppLogo onSidebar {...brandProps(brand, 'h-8 w-8')} />}
+      collapsedBrand={<AppLogo variant="compact" {...brandProps(brand, 'h-7 w-7')} />}
       collapsed={collapsed}
       onCollapsedChange={changeCollapsed}
       renderNavigation={(onNavigate, compact) => (
@@ -92,10 +122,19 @@ export function PanelShell({
         />
       )}
       breadcrumb={
-        section !== undefined && (
+        section.length > 0 && (
           <Breadcrumb>
             <BreadcrumbList className="flex-nowrap">
-              <BreadcrumbItem className="font-semibold text-foreground">{section}</BreadcrumbItem>
+              {section.map((label, index) => (
+                <Fragment key={label}>
+                  {index > 0 && <BreadcrumbSeparator />}
+                  <BreadcrumbItem
+                    className={cn(index === section.length - 1 && 'font-semibold text-foreground')}
+                  >
+                    {label}
+                  </BreadcrumbItem>
+                </Fragment>
+              ))}
             </BreadcrumbList>
           </Breadcrumb>
         )

@@ -271,6 +271,28 @@ describe('gallery edits', () => {
     ).toEqual({ type: 'InvalidMediaUrl' });
   });
 
+  it.each([
+    'https://evil.com/youtube.com',
+    'https://youtube.com@evil.com/watch',
+    'https://evil.com\\@youtube.com/watch',
+    'https://youtube.com.evil.com/watch',
+  ])('rejects %s as a video link', async (url) => {
+    const { link } = await gallery();
+    expect(unwrapErr(await link.execute({ owner: OWNER, kind: 'video', url }, EDITOR))).toEqual({
+      type: 'InvalidMediaUrl',
+    });
+  });
+
+  it.each([
+    'https://www.YouTube.com/watch?v=abc',
+    'https://vimeo.com:443/123',
+    'https://player.vimeo.com#t=1',
+    ' https://youtu.be/abc ',
+  ])('accepts %s as a video link', async (url) => {
+    const { link } = await gallery();
+    unwrap(await link.execute({ owner: OWNER, kind: 'video', url }, EDITOR));
+  });
+
   it('reorders the whole gallery', async () => {
     const { reorder, uow, a, b, video } = await gallery();
     unwrap(await reorder.execute({ owner: OWNER, mediaIds: [video, b, a] }, EDITOR));

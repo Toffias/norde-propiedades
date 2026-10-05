@@ -97,6 +97,7 @@ export {
   type GetCompanySettingsError,
 } from './application/queries/get-company-settings';
 export { GetCompanyLogo, type GetCompanyLogoError } from './application/queries/get-company-logo';
+export { GetCompanyBrand } from './application/queries/get-company-brand';
 export {
   PreviewWatermark,
   type PreviewWatermarkError,

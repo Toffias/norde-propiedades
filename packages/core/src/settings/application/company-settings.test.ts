@@ -17,6 +17,7 @@ import { UpdateEmailSender } from './commands/update-email-sender';
 import { UpdateGeneralSettings } from './commands/update-general-settings';
 import { UpdatePdfOptions } from './commands/update-pdf-options';
 import { UpdatePortalDescriptionFooter } from './commands/update-portal-description-footer';
+import { GetCompanyBrand } from './queries/get-company-brand';
 import { GetCompanyLogo } from './queries/get-company-logo';
 import { GetCompanySettings } from './queries/get-company-settings';
 import { PreviewWatermark } from './queries/preview-watermark';
@@ -60,6 +61,7 @@ function setup() {
     sendTest: new SendTestEmail({ settings, mailer, uow }),
     getSettings: new GetCompanySettings({ settings }),
     getLogo: new GetCompanyLogo({ settings, storage }),
+    getBrand: new GetCompanyBrand({ settings }),
   };
 }
 
@@ -179,6 +181,43 @@ describe('ChangeCompanyLogo', () => {
       type: 'Forbidden',
     });
     expect(storage.objects.size).toBe(0);
+  });
+});
+
+describe('GetCompanyLogo', () => {
+  it('serves the company logo to any user', async () => {
+    const { changeLogo, getLogo } = setup();
+    unwrap(await changeLogo.execute({ image: PNG }, admin));
+
+    expect(unwrap(await getLogo.execute({ which: 'company' }, agent)).bytes).toEqual(PNG.bytes);
+  });
+
+  it('requires settings:read for the watermark logo', async () => {
+    const { changeWatermarkLogo, getLogo } = setup();
+    unwrap(await changeWatermarkLogo.execute({ image: PNG }, admin));
+
+    expect(unwrapErr(await getLogo.execute({ which: 'watermark' }, agent))).toEqual({
+      type: 'Forbidden',
+    });
+    expect(unwrap(await getLogo.execute({ which: 'watermark' }, admin)).bytes).toEqual(PNG.bytes);
+  });
+});
+
+describe('GetCompanyBrand', () => {
+  it('has no logo version until a logo is uploaded', async () => {
+    const { getBrand } = setup();
+    expect(unwrap(await getBrand.execute({}, agent)).logoVersion).toBeUndefined();
+  });
+
+  it('returns the name and logo version to any user', async () => {
+    const { uow, updateGeneral, changeLogo, getBrand } = setup();
+    unwrap(await updateGeneral.execute(general, admin));
+    unwrap(await changeLogo.execute({ image: PNG }, admin));
+
+    expect(unwrap(await getBrand.execute({}, agent))).toEqual({
+      name: 'Norde Propiedades',
+      logoVersion: uow.companySettings.row.logoKey?.split('/').at(-1),
+    });
   });
 });
 

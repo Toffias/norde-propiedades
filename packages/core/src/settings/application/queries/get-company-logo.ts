@@ -5,7 +5,10 @@ import type { FileStorage } from '../ports/file-storage';
 
 export type GetCompanyLogoError = ForbiddenError | { readonly type: 'NotFound' };
 
-/** El logo de la empresa o el de la marca de agua, para mostrarlo en el panel. */
+/**
+ * El logo de la empresa o el de la marca de agua, para mostrarlo en el panel. El de la empresa va en
+ * la cabecera y lo ve cualquier usuario; el de la marca de agua pide `settings:read`.
+ */
 export class GetCompanyLogo {
   constructor(
     private readonly deps: {
@@ -18,7 +21,9 @@ export class GetCompanyLogo {
     input: { readonly which: 'company' | 'watermark' },
     actor: Actor,
   ): Promise<Result<FileContent, GetCompanyLogoError>> {
-    if (!actor.can('settings:read')) return err({ type: 'Forbidden' });
+    if (input.which === 'watermark' && !actor.can('settings:read')) {
+      return err({ type: 'Forbidden' });
+    }
     const settings = await this.deps.settings.get();
     const key = input.which === 'company' ? settings.logoKey : settings.watermark.logoKey;
     const stored = key === undefined ? undefined : await this.deps.storage.get(key);

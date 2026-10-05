@@ -166,6 +166,13 @@ export interface CompanySettingsView {
   };
 }
 
+/** Lo que la cabecera del panel muestra de la empresa. */
+export interface CompanyBrandView {
+  readonly name: string;
+  /** Sin logo, `undefined`. Cambia con cada logo nuevo, como `CompanySettingsView.logoVersion`. */
+  readonly logoVersion: string | undefined;
+}
+
 /** Un archivo leído del storage, para devolverlo en una descarga o una vista previa. */
 export interface FileContent {
   readonly fileName: string;

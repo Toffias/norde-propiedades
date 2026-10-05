@@ -16,12 +16,13 @@ export default async function PanelLayout({ children }: { readonly children: Rea
   const cookieStore = await cookies();
   const collapsed = cookieStore.get(SIDEBAR_COOKIE)?.value === SIDEBAR_COLLAPSED;
   const searchKinds = parseSearchKinds(cookieStore.get(SEARCH_KINDS_COOKIE)?.value);
-  const { clients, inquiries } = getContainer();
+  const { clients, inquiries, settings } = getContainer();
   // Las oportunidades nuevas asignadas a quien entra (lo que tiene pendiente de atender) y las
   // consultas sin asignar.
-  const [pending, unassigned] = await Promise.all([
+  const [pending, unassigned, brand] = await Promise.all([
     clients.countPendingOpportunities.execute(actor),
     inquiries.countPendingInquiries.execute(actor),
+    settings.getCompanyBrand.execute({}, actor),
   ]);
 
   return (
@@ -29,6 +30,7 @@ export default async function PanelLayout({ children }: { readonly children: Rea
       profile={profile}
       initiallyCollapsed={collapsed}
       searchKinds={searchKinds}
+      brand={brand.isOk() ? brand.value : undefined}
       counts={{
         '/oportunidades': pending.isOk() ? pending.value : 0,
         '/consultas': unassigned.isOk() ? unassigned.value : 0,

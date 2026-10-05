@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { cn } from '../lib/utils';
 
 const BRAND_NAME = 'Norde';
@@ -21,30 +23,41 @@ export interface AppLogoProps {
   readonly variant?: 'compact' | 'bar';
   /** Sobre el sidebar oscuro: wordmark blanco y bajada clara, en los dos temas. */
   readonly onSidebar?: boolean;
+  /** Isotipo propio (el logo cargado por la empresa), en lugar del de Norde. */
+  readonly mark?: ReactNode;
+  /** Nombre del wordmark; por defecto, "Norde". */
+  readonly name?: string;
   readonly className?: string;
 }
 
-export function AppLogo({ variant = 'bar', onSidebar = false, className }: AppLogoProps) {
+export function AppLogo({
+  variant = 'bar',
+  onSidebar = false,
+  mark,
+  name = BRAND_NAME,
+  className,
+}: AppLogoProps) {
   if (variant === 'compact') {
     return (
       <span className={cn('inline-flex', className)}>
-        <AppIsotype className="h-7 w-7" />
-        <span className="sr-only">{BRAND_NAME}</span>
+        {mark ?? <AppIsotype className="h-7 w-7" />}
+        <span className="sr-only">{name}</span>
       </span>
     );
   }
 
   return (
     <span className={cn('inline-flex min-w-0 items-center gap-2.5', className)}>
-      <AppIsotype className="h-8 w-8" />
+      {mark ?? <AppIsotype className="h-8 w-8" />}
       <span className="flex min-w-0 flex-col">
         <span
           className={cn(
             'font-display text-lg leading-tight font-semibold tracking-tight',
+            'truncate',
             onSidebar ? 'text-white' : 'text-black dark:text-white',
           )}
         >
-          {BRAND_NAME}
+          {name}
         </span>
         <span
           className={cn(

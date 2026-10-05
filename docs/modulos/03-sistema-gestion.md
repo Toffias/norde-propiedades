@@ -1011,15 +1011,27 @@ Módulo `settings`. Es un único registro de configuración (mono-tenant). Todo 
 
 ### 14.1 Secciones
 
-| Sección (`/mi-empresa/…`) | Qué guarda                                                                                                                                                                                                                             |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| General                   | Nombre, logo, zona horaria (por defecto `America/Argentina/Buenos_Aires`), alcance de Noticias. También guarda la URL de propiedades y de emprendimientos en la web (con `{id}` o `{slug}`), pero por ahora no se edita desde el panel |
-| Marca de agua             | Logo, tamaño (5 % a 50 % del ancho), posición (9), opacidad. Se aplica a las fotos de portales y PDF; hay vista previa sobre una foto de muestra, sin guardar                                                                          |
-| Portales                  | Pie de la descripción con variables: `{codigo}`, `{telefono_sucursal}`, `{email_sucursal}`, `{whatsapp_sucursal}`, `{url_web}`. Otra variable es un error                                                                              |
-| Email                     | Nombre del remitente y dirección de respuesta. La dirección de envío y la API key de Resend van por entorno. Botón de email de prueba (queda en el historial)                                                                          |
-| Códigos                   | Prefijos por tipo de propiedad y exclusivos por usuario, equipo o sucursal                                                                                                                                                             |
-| Ficha y PDF               | Contacto de la empresa, datos del agente, precio, dirección al enviar y al descargar (exacta, aproximada u oculta), fotos del emprendimiento en las unidades                                                                           |
-| Archivos                  | Gestor de archivos de la empresa                                                                                                                                                                                                       |
+"Mi empresa" se despliega en el sidebar con cinco grupos, y cada grupo muestra sus secciones como pestañas (un grupo de una sola sección no lleva pestañas). Cada grupo lleva a su primera sección, que nunca es una de las ocultas por flag. La config vive en `apps/gestion/src/features/shell/company-navigation.ts`.
+
+| Grupo       | Secciones                                                                 |
+| ----------- | ------------------------------------------------------------------------- |
+| General     | Datos (`/general`), Email, Marca de agua\*, Códigos\*                     |
+| Publicación | Portales, Ficha y PDF                                                     |
+| Catálogos   | Propiedades, Ubicaciones, Servicios y ambientes, Etiquetas, Oportunidades |
+| Equipo      | Usuarios, Roles, Sucursales, Equipos\*                                    |
+| Archivos    | Archivos                                                                  |
+
+\* Ocultas por flag (#50).
+
+| Sección (`/mi-empresa/…`) | Qué guarda                                                                                                                                                                                                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| General                   | Nombre, logo (si está cargado, reemplaza al isotipo de Norde en el sidebar y lo ve cualquier usuario), zona horaria (por defecto `America/Argentina/Buenos_Aires`), alcance de Noticias. También guarda la URL de propiedades y de emprendimientos en la web (con `{id}` o `{slug}`), pero por ahora no se edita desde el panel |
+| Marca de agua             | Logo, tamaño (5 % a 50 % del ancho), posición (9), opacidad. Se aplica a las fotos de portales y PDF; hay vista previa sobre una foto de muestra, sin guardar                                                                                                                                                                   |
+| Portales                  | Pie de la descripción con variables: `{codigo}`, `{telefono_sucursal}`, `{email_sucursal}`, `{whatsapp_sucursal}`, `{url_web}`. Otra variable es un error                                                                                                                                                                       |
+| Email                     | Nombre del remitente y dirección de respuesta. La dirección de envío y la API key de Resend van por entorno. Botón de email de prueba (queda en el historial)                                                                                                                                                                   |
+| Códigos                   | Prefijos por tipo de propiedad y exclusivos por usuario, equipo o sucursal                                                                                                                                                                                                                                                      |
+| Ficha y PDF               | Contacto de la empresa, datos del agente, precio, dirección al enviar y al descargar (exacta, aproximada u oculta), fotos del emprendimiento en las unidades                                                                                                                                                                    |
+| Archivos                  | Gestor de archivos de la empresa                                                                                                                                                                                                                                                                                                |
 
 > **Ocultas (#50).** Marca de agua (`WATERMARK_ENABLED`) y Códigos (`REFERENCE_CODES_ENABLED`): Norde tiene la marca de agua deshabilitada y usa solo el prefijo general. Apagadas (por defecto), la pestaña no se muestra y su ruta responde 404. Sin la pantalla de Códigos, toda alta recibe el prefijo general.
 

@@ -52,7 +52,7 @@ export async function saveCompanySettingsChange(
 }
 
 /** El último segmento de la clave (un ID nuevo por cada subida). */
-function storageVersion(key: string | undefined): string | undefined {
+export function storageVersion(key: string | undefined): string | undefined {
   return key?.split('/').at(-1);
 }
 

@@ -17,6 +17,20 @@ export interface NavItem<THref extends string = string> {
   readonly countLabel?: string;
   /** El item se ve pero no navega (ej. "Próximamente"): el motivo va en el tooltip. */
   readonly disabledReason?: string;
+  /** Submenú: se despliega debajo del item mientras se está en una de sus rutas. */
+  readonly children?: readonly NavSubItem<THref>[];
+}
+
+export interface NavSubItem<THref extends string = string> {
+  readonly href: THref;
+  readonly label: string;
+  /** Otras rutas en las que el subitem está activo (ej. las pestañas de su pantalla). */
+  readonly activePaths?: readonly string[];
+}
+
+/** El subitem está activo en su ruta, en las de `activePaths` y en las que cuelgan de ellas. */
+export function isActiveSubItem(pathname: string, item: NavSubItem): boolean {
+  return [item.href, ...(item.activePaths ?? [])].some((href) => isActivePath(pathname, href));
 }
 
 export interface NavGroup<THref extends string = string> {
@@ -33,6 +47,9 @@ export type NavLinkComponent<THref extends string = string> = ComponentType<{
   readonly onClick?: (() => void) | undefined;
   readonly children: ReactNode;
 }>;
+
+const SUB_ITEM =
+  'block truncate rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none';
 
 const ITEM =
   'flex items-center gap-2 rounded-md border border-transparent px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none';
@@ -105,6 +122,8 @@ export function NavList<THref extends string>({
           <ul className="flex flex-col gap-0.5">
             {group.items.map((item) => {
               const active = isActivePath(pathname, item.href);
+              // Con el submenú abierto, lo resaltado es el subitem: el item queda como título.
+              const expanded = active && !collapsed && (item.children?.length ?? 0) > 0;
               const Icon = item.icon;
               const content = (
                 <>
@@ -122,12 +141,14 @@ export function NavList<THref extends string>({
                   <Link
                     href={item.href}
                     onClick={onNavigate}
-                    aria-current={active ? 'page' : undefined}
+                    aria-current={active && !expanded ? 'page' : undefined}
                     className={cn(
                       layout,
-                      active
-                        ? 'bg-sidebar-primary font-semibold text-sidebar-primary-foreground'
-                        : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                      expanded
+                        ? 'font-semibold text-sidebar-foreground hover:bg-sidebar-accent'
+                        : active
+                          ? 'bg-sidebar-primary font-semibold text-sidebar-primary-foreground'
+                          : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground',
                     )}
                   >
                     {content}
@@ -162,6 +183,33 @@ export function NavList<THref extends string>({
                       </TooltipTrigger>
                       <TooltipContent side="right">{tooltip}</TooltipContent>
                     </Tooltip>
+                  )}
+                  {expanded && item.children && (
+                    <ul
+                      aria-label={item.label}
+                      className="mt-0.5 ml-5 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
+                    >
+                      {item.children.map((child) => {
+                        const childActive = isActiveSubItem(pathname, child);
+                        return (
+                          <li key={child.href}>
+                            <Link
+                              href={child.href}
+                              onClick={onNavigate}
+                              aria-current={childActive ? 'page' : undefined}
+                              className={cn(
+                                SUB_ITEM,
+                                childActive
+                                  ? 'bg-sidebar-primary font-semibold text-sidebar-primary-foreground'
+                                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                              )}
+                            >
+                              {child.label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
                 </li>
               );

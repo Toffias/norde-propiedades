@@ -270,6 +270,7 @@ import {
   CreateReferenceCodeSequence,
   DeleteFolder,
   DeleteReferenceCodeSequence,
+  GetCompanyBrand,
   GetCompanyFileDownload,
   GetCompanyLogo,
   GetCompanySettings,
@@ -456,6 +457,7 @@ function createSettingsUseCases(
   return {
     getCompanySettings: new GetCompanySettings({ settings }),
     getCompanyLogo: new GetCompanyLogo({ settings, storage }),
+    getCompanyBrand: new GetCompanyBrand({ settings }),
     updateGeneralSettings: new UpdateGeneralSettings({ uow, clock }),
     changeCompanyLogo: new ChangeCompanyLogo({ uow, storage, ids, clock }),
     configureWatermark: new ConfigureWatermark({ uow, clock }),

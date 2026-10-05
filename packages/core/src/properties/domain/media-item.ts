@@ -96,10 +96,15 @@ export type MediaEvent = MediaVariantsRequested | MediaDeleted;
 const VIDEO_HOSTS = ['youtube.com', 'www.youtube.com', 'youtu.be', 'vimeo.com', 'player.vimeo.com'];
 const TOUR_HOSTS = ['my.matterport.com', 'kuula.co', 'www.kuula.co', 'roundme.com'];
 
+/**
+ * Host de una URL `https://`, sin `URL` (el dominio no tiene DOM ni Node). Descarta el usuario
+ * (`https://youtube.com@otro.com`) y corta en la barra invertida, que el navegador trata como `/`.
+ */
+const HTTPS_HOST = /^https:\/\/(?:[^@/?#\\]*@)?([^/?#:@\\]+)(?::\d+)?(?:[/?#\\]|$)/i;
+
 function hostAllowed(url: string, hosts: readonly string[]): boolean {
-  if (!URL.canParse(url)) return false;
-  const parsed = new URL(url);
-  return parsed.protocol === 'https:' && hosts.includes(parsed.hostname);
+  const host = HTTPS_HOST.exec(url)?.[1]?.toLowerCase();
+  return host !== undefined && hosts.includes(host);
 }
 
 function isImage(kind: MediaKind): boolean {

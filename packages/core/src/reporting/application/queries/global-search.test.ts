@@ -232,6 +232,22 @@ describe('GlobalSearch', () => {
     expect(result.groups[1]?.items[0]).toMatchObject({ detail: 'Palermo, CABA' });
   });
 
+  it('does not repeat the location when the neighborhood and the city share a name', async () => {
+    const { search } = setup({
+      properties: [
+        property({
+          publishAddress: undefined,
+          neighborhood: 'Lomas de Zamora',
+          city: 'Lomas de Zamora',
+        }),
+      ],
+    });
+
+    const result = unwrap(await search.execute({ q: 'lomas', kinds: ['properties'] }, ACTOR));
+
+    expect(result.groups[0]?.items[0]?.detail).toBe('Lomas de Zamora');
+  });
+
   it('rejects a search shorter than two letters', async () => {
     const { search, calls } = setup();
 

@@ -98,9 +98,14 @@ function propertyHit(row: PanelPropertyRow): GlobalSearchHit {
     id: row.id,
     code: row.code,
     title: row.portalTitle,
-    detail:
-      row.publishAddress ?? ([row.neighborhood, row.city].filter(Boolean).join(', ') || undefined),
+    detail: row.publishAddress ?? location(row),
   };
+}
+
+/** "Barrio, localidad", sin repetir cuando se llaman igual (Lomas de Zamora). */
+function location(row: PanelPropertyRow): string | undefined {
+  const parts = [...new Set([row.neighborhood, row.city].filter((part) => part !== ''))];
+  return parts.length === 0 ? undefined : parts.join(', ');
 }
 
 function developmentHit(row: DevelopmentRow): GlobalSearchHit {

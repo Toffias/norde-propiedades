@@ -12,7 +12,11 @@ import {
   RecordingMessenger,
 } from '@norde/core/conversations/testing';
 import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
-import { aPropertyRecord, InMemoryPropertySearchQuery } from '@norde/core/properties/testing';
+import {
+  aPropertyMediaRecord,
+  aPropertyRecord,
+  InMemoryPropertySearchQuery,
+} from '@norde/core/properties/testing';
 import { Actor } from '@norde/core/shared';
 import { FixedClock, SequentialIdGenerator } from '@norde/core/shared/testing';
 import { pino } from 'pino';
@@ -35,12 +39,18 @@ const actor = Actor.system('agent-ia', [
   'conversations:reply',
 ]);
 
+// La foto se sirve por la ruta pública del sitio (`/fotos/<id>/<versión>`).
+const cover = aPropertyMediaRecord({ updatedAt: new Date('2026-10-01T12:00:00Z') });
+const COVER_URL = `https://norde.com.ar/fotos/${cover.id}/${cover.updatedAt.getTime().toString(36)}`;
+
 const palermo = aPropertyRecord({
   title: '2 ambientes en Palermo',
   slug: '2-ambientes-palermo',
   neighborhood: 'Palermo',
-  priceCents: 78_000_000n,
-  imageUrls: ['https://cdn.norde.com.ar/p1.jpg'],
+  operations: [
+    { operation: 'rent', priceCents: 78_000_000n, currency: 'ARS', priceOnRequest: false },
+  ],
+  media: [cover],
 });
 
 const NO_FILTERS = {
@@ -225,7 +235,7 @@ describe('WhatsAppTurnHandler', () => {
 
     expect(ctx.messenger.sent[0]?.message).toEqual({
       type: 'image',
-      imageUrl: 'https://cdn.norde.com.ar/p1.jpg',
+      imageUrl: COVER_URL,
       caption: 'Así es el living.',
     });
   });

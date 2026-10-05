@@ -231,16 +231,22 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 
 | Uso                                      | Caso de uso (módulo)                                                                                               | Modo                                                           |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Listado y filtros                        | `SearchPublishedProperties` (`properties`)                                                                         | Server Component, con caché                                    |
-| Ficha                                    | `GetPublishedProperty` (`properties`)                                                                              | ISR con tag `property:<id>`                                    |
+| Listado y filtros                        | `SearchProperties` (`properties`): filtros, orden y página; la misma búsqueda que usa el agente                    | Server Component, con caché                                    |
+| Ficha                                    | `GetPropertyDetail` (`properties`) por slug. `PropertyNotListed` (vendida, reservada o despublicada) → 410         | ISR con tag `property:<id>`                                    |
 | Emprendimientos                          | `GetPublishedDevelopment`, `SearchPublishedDevelopments` (`properties`)                                            | ISR                                                            |
-| Destacados                               | `GetFeaturedProperties` (`properties`)                                                                             | Con caché                                                      |
+| Destacados y similares                   | `SearchProperties` con `featuredOnly`, o con `excludePropertyId` y los filtros de la ficha                         | Con caché                                                      |
 | Modal promocional                        | `GetActivePromotion` (`promotions`)                                                                                | Con caché, tag `promotions`                                    |
 | Mapa                                     | `GetPropertiesMap` (`properties`): solo id, lat/lng, precio y tipo                                                 | Con caché                                                      |
 | Formularios (contacto, tasación, alerta) | `RegisterContact` (`clients`), `RequestAppraisal` (`appraisals`), `SubscribeToAlerts` (`clients`)                  | Server Action con rate limit y Turnstile, `actor = system:web` |
 | Revalidación                             | Evento de dominio (por ejemplo, `PropertyPriceChanged`) → job en `apps/gestion` → `POST /api/revalidate` de la web | Webhook con secreto                                            |
 
-- La web se conecta a la base con un **rol de solo lectura** sobre propiedades y promociones, más permiso de alta de contactos.
+- La web se conecta con el mismo usuario de base que las otras apps (ADR 0015). Lo que puede hacer lo limita su `Actor`: `system:web`, con `properties:read`.
+- **Qué se publica** lo decide el dominio (`properties/domain/public-listing.ts`):
+  - Solo propiedades disponibles, con "Publicar en web" y al menos una operación.
+  - El precio de cada operación, salvo que la propiedad oculte el precio en la web o la operación sea "a consultar".
+  - La dirección exacta solo si la propiedad lo permite; si no, la dirección aproximada (`publish_address`). Lo mismo con el pin del mapa, que se redondea a la manzana.
+  - Las fotos y planos marcados "Mostrar en la web" que ya tienen su versión web, con marca de agua si Mi empresa la activó. La original nunca.
+  - Las fotos se sirven en `/fotos/<id>/<versión>`. La versión cambia cuando cambia la foto, así se cachean para siempre.
 - Los datos personales **no** se guardan en Payload. La colección `ContactMessages` de DS-DESIGN-Landing no se replica.
 
 ---

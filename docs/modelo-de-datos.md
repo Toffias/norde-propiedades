@@ -153,7 +153,10 @@ Un rol asignado a algún usuario no se puede borrar (`user_roles.role_id` es `on
 
 ## Columnas a retirar en la migración contract
 
-Se dejan en la `0001` porque el agente y la web todavía las leen. Se pasan a las tablas nuevas con un backfill y se borran cuando ya nadie las lea.
+Se dejan en la `0001` porque había código que las leía. Se pasan a las tablas nuevas con un backfill y se borran cuando ya nadie las lea.
+
+- Las de `properties` ya no se leen: la búsqueda y la ficha públicas (web y agente) leen `property_operations`, `property_features` y `media_items` (#33).
+- El repositorio sigue escribiendo `operation`, `price_cents` y `currency` con la primera operación hasta la migración contract, porque son `not null`.
 
 | Columna                                                                 | Reemplazo                        |
 | ----------------------------------------------------------------------- | -------------------------------- |

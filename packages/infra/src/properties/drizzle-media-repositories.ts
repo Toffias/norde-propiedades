@@ -77,8 +77,9 @@ function toMediaItem(row: typeof mediaItems.$inferSelect): MediaItem {
     owner: ownerOf(row),
     kind: parsed.kind,
     storageKey: row.storageKey ?? undefined,
-    // Los links guardan la URL externa; las fotos, la clave de la original (la columna es NOT NULL).
-    externalUrl: isLink(parsed.kind) ? row.url : undefined,
+    // Los links guardan la URL externa; las fotos, la clave de la original (la columna es NOT NULL),
+    // salvo las importadas sin archivo propio, que guardan su link.
+    externalUrl: isLink(parsed.kind) || row.storageKey === null ? row.url : undefined,
     contentType: row.contentType ?? undefined,
     position: row.position,
     isCover: row.isCover,

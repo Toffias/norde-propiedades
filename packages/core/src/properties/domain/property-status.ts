@@ -49,11 +49,3 @@ export interface ListingVisibility {
 export function isPubliclyListed(property: ListingVisibility): boolean {
   return property.publishedOnWeb && PUBLICLY_LISTED_STATUSES.includes(property.status);
 }
-
-/** La dirección exacta solo se muestra si el equipo lo habilitó en la propiedad. */
-export function publicAddress(property: {
-  readonly address: string | null;
-  readonly showExactAddress: boolean;
-}): string | null {
-  return property.showExactAddress ? property.address : null;
-}

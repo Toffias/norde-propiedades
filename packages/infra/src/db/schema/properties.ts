@@ -227,8 +227,14 @@ export const properties = coreSchema.table(
     ...trash(),
   },
   (t) => [
-    // Búsqueda del agente y de la web: siempre filtran por estado y publicación.
+    // Columna vieja: se borra con la migración contract de #33.
     index('properties_listing_idx').on(t.status, t.publishedOnWeb, t.operation, t.propertyType),
+    // Búsqueda de la web y del agente: solo el stock publicado (unas centenas de filas), en el
+    // orden por defecto. El resto de los filtros recorre este subconjunto; el precio y la
+    // operación van por `property_operations_price_idx`.
+    index('properties_public_listing_idx')
+      .on(t.featured.desc(), t.createdAt.desc(), t.id)
+      .where(sql`published_on_web and status = 'available' and deleted_at is null`),
     index('properties_price_idx').on(t.currency, t.priceCents),
     // Grilla del panel.
     index('properties_status_updated_idx').on(t.status, t.updatedAt).where(notDeleted),

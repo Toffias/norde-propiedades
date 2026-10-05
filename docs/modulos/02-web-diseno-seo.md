@@ -229,16 +229,16 @@ Recomendación: usar un servicio transaccional para las alertas y, si más adela
 
 La web **no consume una API de la gestión**. Llama directamente a los casos de uso de `@norde/core` desde Server Components y Server Actions (ver [arquitectura.md](../arquitectura.md)).
 
-| Uso                                      | Caso de uso (módulo)                                                                                             | Modo                                                           |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Listado y filtros                        | `SearchPublishedProperties` (`properties`)                                                                       | Server Component, con caché                                    |
-| Ficha                                    | `GetPublishedProperty` (`properties`)                                                                            | ISR con tag `property:<id>`                                    |
-| Emprendimientos                          | `GetPublishedDevelopment`, `SearchPublishedDevelopments` (`properties`)                                          | ISR                                                            |
-| Destacados                               | `GetFeaturedProperties` (`properties`)                                                                           | Con caché                                                      |
-| Modal promocional                        | `GetActivePromotion` (`promotions`)                                                                              | Con caché, tag `promotions`                                    |
-| Mapa                                     | `GetPropertiesMap` (`properties`): solo id, lat/lng, precio y tipo                                               | Con caché                                                      |
-| Formularios (contacto, tasación, alerta) | `RegisterContact` (`clients`), `RequestAppraisal` (`appraisals`), `SubscribeToAlerts` (`clients`)                | Server Action con rate limit y Turnstile, `actor = system:web` |
-| Revalidación                             | Evento de dominio (por ejemplo, `PropertyPriceChanged`) → job en `apps/agent` → `POST /api/revalidate` de la web | Webhook con secreto                                            |
+| Uso                                      | Caso de uso (módulo)                                                                                               | Modo                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Listado y filtros                        | `SearchPublishedProperties` (`properties`)                                                                         | Server Component, con caché                                    |
+| Ficha                                    | `GetPublishedProperty` (`properties`)                                                                              | ISR con tag `property:<id>`                                    |
+| Emprendimientos                          | `GetPublishedDevelopment`, `SearchPublishedDevelopments` (`properties`)                                            | ISR                                                            |
+| Destacados                               | `GetFeaturedProperties` (`properties`)                                                                             | Con caché                                                      |
+| Modal promocional                        | `GetActivePromotion` (`promotions`)                                                                                | Con caché, tag `promotions`                                    |
+| Mapa                                     | `GetPropertiesMap` (`properties`): solo id, lat/lng, precio y tipo                                                 | Con caché                                                      |
+| Formularios (contacto, tasación, alerta) | `RegisterContact` (`clients`), `RequestAppraisal` (`appraisals`), `SubscribeToAlerts` (`clients`)                  | Server Action con rate limit y Turnstile, `actor = system:web` |
+| Revalidación                             | Evento de dominio (por ejemplo, `PropertyPriceChanged`) → job en `apps/gestion` → `POST /api/revalidate` de la web | Webhook con secreto                                            |
 
 - La web se conecta a la base con un **rol de solo lectura** sobre propiedades y promociones, más permiso de alta de contactos.
 - Los datos personales **no** se guardan en Payload. La colección `ContactMessages` de DS-DESIGN-Landing no se replica.

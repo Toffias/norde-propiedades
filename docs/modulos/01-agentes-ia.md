@@ -243,7 +243,7 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
   - Instrucciones del MVP adaptadas a Norde, con un bloque por canal.
   - Las tools `search_properties`, `get_property`, `show_photo`, `offer_buttons` y `register_client`.
   - Canal WhatsApp completo: firma, debounce, cola por contacto, límites, breaker y un mensaje por turno.
-- **Jobs**: outbox → pg-boss → aviso al equipo por webhook (Slack, Teams, n8n) o, sin webhook configurado, al log.
+- **Jobs**: outbox → pg-boss → aviso al equipo por webhook (Slack, Teams, n8n) o, sin webhook configurado, al log. Desde el ADR 0021 corren en `apps/gestion`, no en el agente.
 - **Herramientas**:
   - `pnpm db:seed` carga las 28 propiedades de prueba del MVP.
   - `pnpm --filter @norde/agent simulate` permite chatear por consola con el agente real, sin WhatsApp.

@@ -20,7 +20,6 @@ describe('parseEnv', () => {
       LOG_LEVEL: 'info',
       OPENAI_MODEL: 'gpt-5-mini',
       WHATSAPP_STRIP_AR_NINE: false,
-      JOBS_ENABLED: true,
     });
   });
 

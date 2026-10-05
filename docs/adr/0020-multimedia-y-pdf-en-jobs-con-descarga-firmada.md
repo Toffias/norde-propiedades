@@ -1,6 +1,6 @@
 # ADR 0020: Multimedia y PDF de la ficha en jobs, con descarga autorizada y URL firmada
 
-- **Estado**: aceptada
+- **Estado**: aceptada; reemplazada en parte por el ADR 0021 (los jobs corren en `apps/gestion`)
 - **Fecha**: 2026-10-01
 
 ## Contexto
@@ -14,7 +14,7 @@ El storage es privado (ADR 0018): hasta ahora el panel servía cada archivo pasa
 
 ## Decisión
 
-- **Variantes de fotos y PDF en jobs** de pg-boss, en `apps/agent`, disparados por eventos del outbox:
+- **Variantes de fotos y PDF en jobs** de pg-boss, en `apps/gestion` (ADR 0021; antes, `apps/agent`), disparados por eventos del outbox:
   - `properties.media_variants_requested` (alta o rotación de una foto) → `GeneratePropertyMediaVariants`.
   - `properties.media_deleted` → `DeleteStoredMediaFiles` borra la original y las variantes del storage después de confirmar el borrado.
   - `properties.document_requested` → `RenderPropertyDocument` arma el PDF con pdf-lib.
@@ -31,7 +31,7 @@ El storage es privado (ADR 0018): hasta ahora el panel servía cada archivo pasa
 ## Consecuencias
 
 - La subida y el pedido de un PDF responden enseguida; el trabajo pesado no compite con las pantallas del panel.
-- Para ver las variantes y los PDF en desarrollo hay que correr `apps/agent` además de `apps/gestion`, con el mismo storage (`STORAGE_LOCAL_DIR=../gestion/.storage`).
+- Las variantes y los PDF salen con solo `apps/gestion` levantado (ADR 0021), con su mismo storage.
 - Una foto que sharp no puede leer queda "fallida" con el motivo y sin reintentos. Un error inesperado al armar un PDF lo deja "fallido" y el job lo registra.
 - Mientras se generan las variantes, la galería muestra la original (servida por la misma ruta).
 - El sitio web (`apps/web`) y los portales todavía no leen estas variantes: lo resuelven #14 y la web, con la misma clave del storage.

@@ -57,7 +57,6 @@ if (!container.whatsapp) {
   process.exit(1);
 }
 const { handler } = container.whatsapp;
-await container.startJobs();
 
 let phone = randomPhone();
 let sequence = 0;

@@ -9,8 +9,8 @@ Antes de contribuir, leé [CLAUDE.md](CLAUDE.md) (reglas obligatorias) y [docs/a
 | Ruta                 | Qué es                                                       | Puerto dev |
 | -------------------- | ------------------------------------------------------------ | ---------- |
 | `apps/web`           | Next.js + Payload: sitio público y blog (admin en `/admin`)  | 3000       |
-| `apps/gestion`       | Next.js: panel interno                                       | 3001       |
-| `apps/agent`         | Fastify: agente IA (WhatsApp + web chat), webhooks, jobs     | 3100       |
+| `apps/gestion`       | Next.js: panel interno, relay del outbox y jobs (pg-boss)    | 3001       |
+| `apps/agent`         | Fastify: agente IA (WhatsApp + web chat) y sus webhooks      | 3100       |
 | `packages/core`      | `@norde/core`: dominio y casos de uso                        | —          |
 | `packages/infra`     | `@norde/infra`: Drizzle y adaptadores externos               | —          |
 | `packages/agent-kit` | `@norde/agent-kit`: runner de agentes IA (OpenAI Agents SDK) | —          |

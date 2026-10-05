@@ -12,7 +12,6 @@
     "simulate": "tsx scripts/simulate.ts"
   },
   "dependencies": {
-    "@fastify/rate-limit": "catalog:",
     "@norde/agent-kit": "workspace:*",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",

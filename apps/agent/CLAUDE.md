@@ -1,10 +1,11 @@
 # CLAUDE.md: apps/agent
 
-Proceso de larga duración (Fastify). Tiene tres responsabilidades:
+Proceso de larga duración (Fastify). Tiene dos responsabilidades:
 
 1. **Agente de IA** de WhatsApp y web chat.
-2. **Webhooks entrantes**: Meta, MercadoLibre, portales.
-3. **Jobs en segundo plano** (pg-boss): relay del outbox, handlers de eventos, cron de IPC, alertas y sincronización con portales.
+2. **Webhooks de sus canales**: Meta (WhatsApp).
+
+Los procesos en segundo plano (relay del outbox, workers de pg-boss, crons) y el webhook de consultas de la web corren en `apps/gestion` (ADR 0021). **No se agregan jobs acá**: si el agente necesita reaccionar a un evento, se suscribe a la cola de pg-boss que alimenta el relay de `gestion`, sin correr otro relay.
 
 Detalle funcional en [docs/modulos/01-agentes-ia.md](../../docs/modulos/01-agentes-ia.md). Base: el MVP `C:\APZ-WP-BOT`.
 
@@ -33,9 +34,6 @@ src/
 ├── channels/
 │   └── whatsapp/             # Webhook (firma, parser), batcher, cola por contacto, breaker,
 │                             # avisos, armado de la respuesta y WhatsAppTurnHandler
-├── webhooks/                 # Consultas del formulario web (firma + rate limit); MercadoLibre y portales, a crear
-└── jobs/
-    └── event-subscriptions.ts # Evento de dominio → caso de uso (ej. avisar al equipo)
 scripts/
 └── simulate.ts               # Chat por consola contra el agente real (sin WhatsApp)
 ```
@@ -44,8 +42,8 @@ scripts/
   1. `ReceiveInboundMessages` registra los mensajes (idempotente) y devuelve el **plan**: ignorar, silencio, aviso o agente.
   2. Si el plan es `agent`: corre el agente, y las tools llaman a `SearchProperties`, `GetPropertyDetail` y `RegisterContact`.
   3. `SendReply` envía **un** mensaje y guarda la memoria del agente.
-- **Eventos**: los casos de uso escriben en el outbox; el relay los pasa a pg-boss y `jobs/event-subscriptions.ts` los conecta con casos de uso (hoy: `NotifyTeamOfOpportunity`). El outbox, el relay y pg-boss viven en `@norde/infra` y se arman en `container.ts`.
-- Sin las variables `WHATSAPP_*` y `OPENAI_API_KEY`, el proceso arranca igual (health y jobs) con el canal deshabilitado.
+- **Eventos**: los casos de uso escriben en el outbox; el relay de `apps/gestion` los pasa a pg-boss y sus suscripciones reaccionan (ADR 0021).
+- Sin las variables `WHATSAPP_*` y `OPENAI_API_KEY`, el proceso arranca igual (health) con el canal deshabilitado.
 
 - **Ejecución**: corre el TypeScript fuente con `tsx`, tanto en desarrollo (`pnpm dev`) como en producción (`pnpm start`). No hay paso de build ni bundle: así cada paquete del workspace resuelve sus propias dependencias.
 - `buildServer` no escucha ni lee el entorno: recibe sus dependencias. Los tests de rutas usan `app.inject()`.
@@ -72,11 +70,7 @@ scripts/
   - No responder "ok" ni "gracias".
   - Límites por usuario y globales, y circuit breaker.
   - Nunca reintentar 4xx.
-- **Jobs**:
-  - Cada job llama un caso de uso.
-  - Son idempotentes, con reintentos y backoff configurados en pg-boss.
-  - Los cron se definen en `jobs/schedules.ts`, con horario en `America/Argentina/Buenos_Aires`.
-- **Graceful shutdown**: drenar batcher y colas, cerrar pg-boss y el pool antes de salir.
+- **Graceful shutdown**: drenar batcher y colas y cerrar el pool antes de salir.
 - **Una sola instancia** mientras batcher y colas estén en memoria. Escalar requiere un ADR.
 
 ## Tests
@@ -85,4 +79,3 @@ scripts/
 - Turnos completos con `ScriptedModel` (`@norde/agent-kit/testing`) y los fakes en memoria del core: sin OpenAI ni base (ver `whatsapp-turn-handler.test.ts`).
 - Tools: validación de argumentos y mapeo del caso de uso, con fakes del core.
 - Armado de outbound por canal.
-- Jobs: que cada worker llame el caso de uso correcto y sea idempotente.

@@ -1,9 +1,13 @@
 import 'server-only';
 
 // Composition root: único archivo de la app que importa @norde/infra.
-// Arma los casos de uso de @norde/core que usan los Server Components y las Server Actions.
+// Arma los casos de uso de @norde/core que usan los Server Components y las Server Actions, y los
+// procesos en segundo plano: el relay del outbox y los workers de pg-boss (ADR 0021).
 
 import {
+  DeleteAppraisalPhotoFiles,
+  EraseClientAppraisals,
+  MoveMergedClientAppraisals,
   ChangeAppraisalStatus,
   ConvertAppraisalToListing,
   CreateAppraisal,
@@ -57,6 +61,8 @@ import {
   UpdateRole,
   UpdateTeam,
   UpdateUser,
+  MoveMergedClientFavorites,
+  RemoveErasedClientFavorites,
 } from '@norde/core/identity';
 import {
   ChangeClientTags,
@@ -144,10 +150,23 @@ import {
   RestoreInquiry,
   SetInquiryRuleActive,
   UpdateInquiryRule,
+  ApplyOpportunityRules,
+  NotifyTeamOfOpportunity,
+  ReceiveInquiry,
+  RecordClientActivity,
+  RouteInquiry,
+  RunClientImport,
+  RunOpportunityBulkOperation,
   type ClientAgents,
   type ClientListings,
+  type InquiryPropertyLookup,
+  type OpportunityRequesters,
   type PropertyProfiles,
+  type ReceiveInquiryError,
+  type ReceiveInquiryInput,
+  type ReceiveInquiryOutput,
 } from '@norde/core/clients';
+import { EraseClientConversations, MoveMergedClientConversations } from '@norde/core/conversations';
 import {
   AddMediaLink,
   BulkEditProperties,
@@ -236,6 +255,14 @@ import {
   UpdateDevelopmentGeneral,
   UpdateDevelopmentLocation,
   type DevelopmentCodeAllocator,
+  CreatePropertyFromAppraisal,
+  DeleteStoredMediaFiles,
+  GenerateMediaVariants,
+  MoveMergedClientLinks,
+  RenderPropertyDocument,
+  RunDevelopmentUnitImport,
+  UnlinkErasedClients,
+  type OwnerReports,
   RenameLocation,
   RenameTagGroup,
   RestoreProperty,
@@ -293,7 +320,7 @@ import {
   UploadCompanyFile,
   type FileStorage,
 } from '@norde/core/settings';
-import { err, ok, type Clock, type IdGenerator } from '@norde/core/shared';
+import { Actor, err, ok, type Clock, type IdGenerator, type Result } from '@norde/core/shared';
 import {
   BetterAuthPasswordHasher,
   BetterAuthSessionReader,
@@ -354,11 +381,25 @@ import {
   createAppraisalsUnitOfWork,
   DrizzleAppraisalQuery,
   PdfLibAppraisalReportRenderer,
+  createConversationsUnitOfWork,
+  DrizzleClientConversationErasure,
+  DrizzleClientFavoriteErasure,
+  DrizzleClientRepository,
+  DrizzleOpportunityRepository,
+  DrizzlePropertyClientErasure,
+  LogTeamNotifier,
+  OutboxRelay,
+  PdfLibPropertyDocumentRenderer,
+  PgBossEventBus,
+  SharpImageVariantGenerator,
+  WebhookTeamNotifier,
 } from '@norde/infra';
 import { nextCookies } from 'better-auth/next-js';
+import type { Logger } from 'pino';
 
 import { getEnv, type Env } from './config/env';
 import { getLogger } from './config/logger';
+import { eventSubscriptions } from './jobs/event-subscriptions';
 
 export interface Container {
   readonly database: DatabaseConnection;
@@ -412,6 +453,12 @@ export interface Container {
   readonly reporting: ReportingUseCases;
   /** Bandeja de consultas de portales y de la web (#10). */
   readonly inquiries: InquiriesUseCases;
+  /** Entrada de las consultas del formulario de apps/web: `ReceiveInquiry` como `system:web`. */
+  readonly webInquiries: {
+    readonly receive: (
+      input: ReceiveInquiryInput,
+    ) => Promise<Result<ReceiveInquiryOutput, ReceiveInquiryError>>;
+  };
   /** Buscador de la barra superior: contactos, propiedades, emprendimientos y agentes. */
   readonly search: { readonly globalSearch: GlobalSearch };
   /** Tasaciones: listado, alta, edición, estados y papelera (#12). */
@@ -429,6 +476,48 @@ export type InquiriesUseCases = ReturnType<typeof createInquiriesUseCases>;
 export type AppraisalsUseCases = ReturnType<typeof createAppraisalsUseCases>;
 
 let container: Container | undefined;
+
+/** Las consultas del formulario web: quedan creadas y auditadas por `system:web`. */
+const WEB_ACTOR = Actor.system('web', ['inquiries:receive', 'properties:read']);
+/** Los jobs que reaccionan a los eventos del outbox, con los permisos justos de cada uno. */
+const SCHEDULER_ACTOR = Actor.system('scheduler', [
+  'clients:read',
+  'clients:record-activity',
+  'properties:read',
+  'properties:process-media',
+  'properties:render-documents',
+  'appraisals:process-photos',
+  'appraisals:erase-client-data',
+  'conversations:erase-client-data',
+  'properties:erase-client-data',
+  'identity:erase-client-data',
+  'appraisals:merge-client-data',
+  'conversations:merge-client-data',
+  'properties:merge-client-data',
+  'identity:merge-client-data',
+  'opportunities:apply-rules',
+  'opportunities:run-bulk',
+  'inquiries:route',
+]);
+/**
+ * Crea la propiedad de una tasación convertida. Es el scheduler, con lo justo: el código de
+ * referencia sale de la numeración, que pide `properties:create`.
+ */
+const CONVERSION_ACTOR = Actor.system('scheduler', [
+  'properties:create',
+  'properties:create-from-appraisal',
+]);
+/**
+ * Las importaciones desde Excel: contactos y unidades de emprendimientos. Crear unidades pide un
+ * código de referencia, que entrega la numeración con `properties:create`.
+ */
+const IMPORT_ACTOR = Actor.system('import', [
+  'clients:run-imports',
+  'properties:run-imports',
+  'properties:create',
+]);
+/** Arma el actor de quien pidió una acción masiva, con sus permisos de ahora. */
+const REQUESTER_RESOLVER_ACTOR = Actor.system('auth', ['sessions:resolve']);
 
 function createStorage(env: Env): FileStorage {
   if (env.STORAGE_DRIVER !== 's3') return new LocalFileStorage(env.STORAGE_LOCAL_DIR);
@@ -1128,6 +1217,7 @@ function createContainer(): Container {
     settings,
     properties,
     inquiries: createInquiriesUseCases(database.db, properties, { ids, clock }),
+    webInquiries: createWebInquiryIntake(database.db, { ids, clock }),
     appraisals: createAppraisalsUseCases(database.db, { ids, clock, storage: createStorage(env) }),
     ...withAgenda,
     search: {
@@ -1199,4 +1289,262 @@ function withClients(
 export function getContainer(): Container {
   container ??= createContainer();
   return container;
+}
+
+/** Los agentes activos (con su sucursal), para el reparto de consultas y las acciones masivas. */
+function activeAgents(db: Database): ClientAgents {
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  return {
+    names: (userIds) => directory.names('user', userIds),
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+}
+
+/** La entrada de consultas de la web (#10): `ReceiveInquiry` con los datos de la propiedad. */
+function createWebInquiryIntake(
+  db: Database,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+): Container['webInquiries'] {
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const summaries = new GetPropertySummaries({
+    properties: new DrizzlePanelPropertyListQuery(db),
+    users: { names: (userIds) => directory.names('user', userIds) },
+  });
+  // Por la API pública de properties; la sucursal de la propiedad es la de su captador.
+  const properties: InquiryPropertyLookup = {
+    async facts(propertyId) {
+      const rows = await summaries.execute({ ids: [propertyId] }, WEB_ACTOR);
+      const row = rows.isOk() ? rows.value[0] : undefined;
+      if (!row) return undefined;
+      const producer = row.producer && (await userAccess.findByUserId(row.producer.id));
+      return {
+        branchId: producer?.branchId,
+        propertyType: row.propertyType,
+        operations: row.operations.map((o) => o.operation),
+        neighborhood: row.neighborhood,
+        developmentId: row.developmentId,
+      };
+    },
+  };
+  const receiveInquiry = new ReceiveInquiry({
+    uow: createClientsUnitOfWork(db, deps),
+    properties,
+    ...deps,
+  });
+  return { receive: (input) => receiveInquiry.execute(input, WEB_ACTOR) };
+}
+
+/** Las reglas automáticas de estado y las acciones masivas encoladas de oportunidades (#9). */
+function createOpportunityJobs(
+  db: Database,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+) {
+  const { ids, clock } = deps;
+  const uow = createClientsUnitOfWork(db, deps);
+  const resolveActor = new ResolveSessionActor({ users: new DrizzleUserAccessQuery(db) });
+  // El job procesa como quien la pidió: si ya no está activo, no hay actor y la operación falla.
+  const requesters: OpportunityRequesters = {
+    async actorFor(userId) {
+      const result = await resolveActor.execute({ userId }, REQUESTER_RESOLVER_ACTOR);
+      return result.isOk() ? result.value.actor : undefined;
+    },
+  };
+  return {
+    applyRules: new ApplyOpportunityRules({ uow, ids, clock }),
+    runBulk: new RunOpportunityBulkOperation({
+      uow,
+      pipeline: new DrizzleOpportunityPipelineQuery(db),
+      agents: activeAgents(db),
+      requesters,
+      ids,
+      clock,
+    }),
+  };
+}
+
+/** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
+function createPropertyJobs(
+  db: Database,
+  storage: FileStorage,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+) {
+  const { clock } = deps;
+  const uow = createPropertiesUnitOfWork(db, deps);
+  const settings = new DrizzleCompanySettingsRepository(db, clock);
+  const directory = new DrizzleDirectory(db);
+  const interestProfile = new GetPropertyInterestProfile({ uow });
+  const profiles: ReportingPropertyProfiles = {
+    async find(propertyId, actor) {
+      const profile = await interestProfile.execute({ propertyId }, actor);
+      return profile.isOk() ? profile.value : undefined;
+    },
+  };
+  const ownerReport = new GetOwnerReport({
+    profiles,
+    statistics: new DrizzlePropertyStatisticsQuery(db),
+  });
+  const ownerReports: OwnerReports = {
+    async build(propertyId, period, actor) {
+      const report = await ownerReport.execute({ propertyId, ...period }, actor);
+      return report.isOk() ? report.value : undefined;
+    },
+  };
+  return {
+    generateMediaVariants: new GenerateMediaVariants({
+      uow,
+      storage,
+      images: new SharpImageVariantGenerator(),
+      watermarker: new SharpImageWatermarker(),
+      settings,
+      clock,
+    }),
+    deleteStoredMediaFiles: new DeleteStoredMediaFiles({ storage }),
+    renderDocument: new RenderPropertyDocument({
+      uow,
+      lookups: new DrizzlePropertyDetailLookups(db),
+      users: { names: (userIds) => directory.names('user', userIds) },
+      storage,
+      settings,
+      renderer: new PdfLibPropertyDocumentRenderer(),
+      ownerReports,
+      clock,
+    }),
+  };
+}
+
+/** El relay del outbox y los workers de pg-boss de este proceso (ADR 0021). */
+export interface JobsRuntime {
+  start(): Promise<void>;
+  /** Corta el relay, espera los jobs en curso y libera las conexiones. */
+  stop(): Promise<void>;
+}
+
+/** Outbox → pg-boss → un caso de uso por suscripción, con su propio pool de conexiones. */
+function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
+  const database = createDatabase({ url: env.DATABASE_URL, applicationName: 'norde-gestion-jobs' });
+  const { db } = database;
+  const ids = new UuidV7IdGenerator();
+  const clock = new SystemClock();
+  const deps = { ids, clock };
+  const storage = createStorage(env);
+  const referenceCodes = referenceCodesFrom(createSettingsUseCases(db, env, deps));
+
+  const bus = new PgBossEventBus({
+    connectionString: env.DATABASE_URL,
+    applicationName: 'norde-gestion-jobs',
+    logger,
+  });
+  for (const subscription of eventSubscriptions({
+    notifyTeam: new NotifyTeamOfOpportunity({
+      clients: new DrizzleClientRepository(db, ids),
+      opportunities: new DrizzleOpportunityRepository(db),
+      notifier: env.TEAM_WEBHOOK_URL
+        ? new WebhookTeamNotifier({ url: env.TEAM_WEBHOOK_URL, token: env.TEAM_WEBHOOK_TOKEN })
+        : new LogTeamNotifier(logger),
+    }),
+    recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, deps) }),
+    properties: createPropertyJobs(db, storage, deps),
+    appraisals: {
+      deletePhotoFiles: new DeleteAppraisalPhotoFiles({ storage }),
+      createProperty: new CreatePropertyFromAppraisal({
+        uow: createPropertiesUnitOfWork(db, deps),
+        codes: referenceCodes,
+        storage,
+        ids,
+        clock,
+      }),
+    },
+    erasure: {
+      appraisals: new EraseClientAppraisals({
+        uow: createAppraisalsUnitOfWork(db, deps),
+        storage,
+      }),
+      conversations: new EraseClientConversations({
+        erasure: new DrizzleClientConversationErasure(db),
+      }),
+      properties: new UnlinkErasedClients({
+        erasure: new DrizzlePropertyClientErasure(db),
+        uow: createPropertiesUnitOfWork(db, deps),
+        clock,
+      }),
+      favorites: new RemoveErasedClientFavorites({
+        favorites: new DrizzleClientFavoriteErasure(db),
+      }),
+    },
+    merge: {
+      appraisals: new MoveMergedClientAppraisals({ uow: createAppraisalsUnitOfWork(db, deps) }),
+      conversations: new MoveMergedClientConversations({
+        uow: createConversationsUnitOfWork(db, deps),
+      }),
+      properties: new MoveMergedClientLinks({ uow: createPropertiesUnitOfWork(db, deps) }),
+      favorites: new MoveMergedClientFavorites({ uow: createIdentityUnitOfWork(db, deps) }),
+    },
+    runImport: new RunClientImport({
+      uow: createClientsUnitOfWork(db, deps),
+      reader: new XlsxSpreadsheetReader(),
+      storage,
+      ids,
+      clock,
+    }),
+    runUnitImport: new RunDevelopmentUnitImport({
+      uow: createPropertiesUnitOfWork(db, deps),
+      reader: new XlsxSpreadsheetReader(),
+      storage,
+      codes: referenceCodes,
+      ids,
+      clock,
+    }),
+    opportunities: createOpportunityJobs(db, deps),
+    routeInquiry: new RouteInquiry({
+      uow: createClientsUnitOfWork(db, deps),
+      agents: activeAgents(db),
+      rulesEnabled: env.INQUIRY_RULES_ENABLED,
+      ...deps,
+    }),
+    actor: SCHEDULER_ACTOR,
+    importActor: IMPORT_ACTOR,
+    conversionActor: CONVERSION_ACTOR,
+    logger,
+  })) {
+    bus.subscribe(subscription);
+  }
+  const relay = new OutboxRelay({ db, logger, publish: (event) => bus.publish(event) });
+
+  return {
+    async start() {
+      await bus.start();
+      relay.start();
+    },
+    async stop() {
+      await relay.stop();
+      await bus.stop();
+      await database.close();
+    },
+  };
+}
+
+let jobs: JobsRuntime | undefined;
+
+/**
+ * Arranca el relay y los workers una sola vez por proceso. Devuelve `undefined` con
+ * `JOBS_ENABLED=false`: los eventos esperan en el outbox hasta que otro proceso los tome.
+ */
+export async function startJobs(): Promise<JobsRuntime | undefined> {
+  if (jobs) return jobs;
+  const env = getEnv();
+  const logger = getLogger().child({ component: 'jobs' });
+  if (!env.JOBS_ENABLED) {
+    logger.warn('Jobs disabled (JOBS_ENABLED=false): outbox events will wait');
+    return undefined;
+  }
+  const runtime = createJobsRuntime(env, logger);
+  jobs = runtime;
+  await runtime.start();
+  logger.info('Outbox relay and job workers started');
+  return runtime;
 }

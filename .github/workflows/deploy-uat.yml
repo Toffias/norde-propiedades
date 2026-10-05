@@ -79,10 +79,15 @@ jobs:
         # Lo excluido no se borra en el VPS: dependencias, `.env`, archivos subidos y cachés quedan.
         # --delay-updates deja los archivos nuevos en su lugar al final, para acortar el momento en
         # que los procesos viejos ven el `.next` a medio copiar.
+        # Solo se excluyen los node_modules de dependencias (los instala el VPS): `.next/node_modules`
+        # trae los alias de Turbopack a los paquetes externos (`pino-<hash>`) y tiene que viajar.
         run: |
           rsync -az --delete --delay-updates \
             -e "ssh -i ~/.ssh/deploy_key" \
-            --exclude node_modules \
+            --exclude /node_modules \
+            --exclude '/apps/*/node_modules' \
+            --exclude '/packages/*/node_modules' \
+            --exclude /scripts/node_modules \
             --exclude .git \
             --exclude .turbo \
             --exclude .next/cache \

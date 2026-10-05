@@ -232,6 +232,13 @@
       "when": 1791169295113,
       "tag": "0032_news_read_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791226625003,
+      "tag": "0033_public_listing_index",
+      "breakpoints": true
     }
   ]
 }

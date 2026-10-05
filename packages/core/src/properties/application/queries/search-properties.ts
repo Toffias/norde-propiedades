@@ -43,11 +43,13 @@ export class SearchProperties {
       ...toOffsetLimit({ page, pageSize }),
     });
 
-    return ok(
-      toPage(
-        { items: result.items.map(toPropertySummary), total: result.total },
-        { page, pageSize },
-      ),
-    );
+    const items = result.items.map((record) => {
+      const summary = toPropertySummary(record, filters.operation);
+      // El puerto promete propiedades con operaciones: si no, es un error de la consulta.
+      if (!summary)
+        throw new Error(`Public search returned property ${record.id} without operations`);
+      return summary;
+    });
+    return ok(toPage({ items, total: result.total }, { page, pageSize }));
   }
 }

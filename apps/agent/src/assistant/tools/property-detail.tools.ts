@@ -49,9 +49,11 @@ export function showPhotoTool(deps: AssistantToolDeps) {
         }
         return NOT_FOUND;
       }
-      // WhatsApp solo descarga imágenes por HTTPS.
-      const url = result.value.imageUrls.find((u) => u.startsWith('https://'));
-      if (!url) return { ok: false, reason: 'La propiedad no tiene fotos disponibles' };
+      // La portada, por la ruta pública del sitio. WhatsApp solo descarga imágenes por HTTPS.
+      const cover = result.value.cover;
+      const url = cover ? new URL(cover.src, deps.siteUrl).toString() : undefined;
+      if (!url?.startsWith('https://'))
+        return { ok: false, reason: 'La propiedad no tiene fotos disponibles' };
 
       context.photo = { url, propertyId: result.value.id };
       return { ok: true, title: result.value.title };

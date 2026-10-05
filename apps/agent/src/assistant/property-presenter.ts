@@ -48,6 +48,10 @@ export function presentSummary(property: PropertySummary, siteUrl: string) {
     operation: OPERATION_LABEL[property.operation],
     type: PROPERTY_TYPE_LABEL[property.propertyType],
     price: property.price ? formatMoney(property.price) : 'Consultar',
+    // Una propiedad puede estar en venta y en alquiler a la vez.
+    operations: property.operations.map(
+      (o) => `${OPERATION_LABEL[o.operation]}: ${o.price ? formatMoney(o.price) : 'Consultar'}`,
+    ),
     expenses: property.expenses ? formatMoney(property.expenses) : null,
     rooms: property.rooms,
     bedrooms: property.bedrooms,

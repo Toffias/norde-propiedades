@@ -54,6 +54,7 @@ import type {
   PropertiesUnitOfWork,
 } from '../application/ports/properties-transaction';
 import type {
+  PropertyMediaRecord,
   PropertyRecord,
   PropertySearchCriteria,
   PropertySearchQuery,
@@ -158,24 +159,66 @@ export function aPropertyRecord(overrides: Partial<PropertyRecord> = {}): Proper
     slug: `propiedad-${sequence}`,
     title: `Propiedad ${sequence}`,
     description: 'Descripción de prueba',
-    operation: 'rent',
     propertyType: 'apartment',
     status: 'available',
     publishedOnWeb: true,
-    address: 'Gurruchaga 1800',
+    featured: false,
+    showPriceOnWeb: true,
+    operations: [
+      { operation: 'rent', priceCents: 55_000_000n, currency: 'ARS', priceOnRequest: false },
+    ],
+    address: 'Gurruchaga 1834',
     showExactAddress: false,
+    publishAddress: 'Gurruchaga al 1800',
     neighborhood: 'Palermo',
     city: 'CABA',
-    priceCents: 55_000_000n,
-    currency: 'ARS',
+    province: 'Buenos Aires',
+    latitude: null,
+    longitude: null,
     expensesCents: null,
     rooms: 2,
     bedrooms: 1,
     bathrooms: 1,
+    toilets: null,
+    parkingSpaces: null,
+    ageYears: null,
+    condition: null,
+    disposition: null,
+    orientation: null,
     surfaceTotalM2: 48,
     surfaceCoveredM2: 44,
-    amenities: [],
-    imageUrls: ['https://example.com/1.jpg'],
+    surfaceSemiCoveredM2: null,
+    surfaceLandM2: null,
+    frontM: null,
+    depthM: null,
+    isFurnished: false,
+    creditEligible: false,
+    professionalUse: false,
+    developmentId: null,
+    features: [],
+    media: [aPropertyMediaRecord()],
+    updatedAt: new Date('2026-10-01T12:00:00Z'),
+    ...overrides,
+  };
+}
+
+/** Foto publicada con su versión web lista. */
+export function aPropertyMediaRecord(
+  overrides: Partial<PropertyMediaRecord> = {},
+): PropertyMediaRecord {
+  sequence += 1;
+  return {
+    id: `00000000-0000-7000-8003-${sequence.toString().padStart(12, '0')}`,
+    kind: 'photo',
+    storageKey: `media/${sequence}/original`,
+    externalUrl: null,
+    showOnWeb: true,
+    processing: 'ready',
+    variants: { thumbnail: `media/${sequence}/thumbnail`, web: `media/${sequence}/web` },
+    width: 1600,
+    height: 1200,
+    description: null,
+    updatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
   };
 }
@@ -190,9 +233,11 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
     this.criteria.push(criteria);
     const matches = this.records.filter(
       (r) =>
+        r.operations.length > 0 &&
         criteria.statuses.includes(r.status) &&
         (!criteria.publishedOnWebOnly || r.publishedOnWeb) &&
-        (criteria.operation === undefined || r.operation === criteria.operation) &&
+        (criteria.operation === undefined ||
+          r.operations.some((o) => o.operation === criteria.operation)) &&
         (criteria.propertyType === undefined || r.propertyType === criteria.propertyType) &&
         (criteria.location === undefined ||
           `${r.neighborhood} ${r.city}`.toLowerCase().includes(criteria.location.toLowerCase())),
@@ -205,6 +250,10 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
 
   findById(id: string) {
     return Promise.resolve(this.records.find((r) => r.id === id));
+  }
+
+  findBySlug(slug: string) {
+    return Promise.resolve(this.records.find((r) => r.slug === slug));
   }
 }
 

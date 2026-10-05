@@ -9,6 +9,8 @@ export {
   type PropertyStatus,
 } from './domain/property-status';
 export type {
+  PropertyMediaRecord,
+  PropertyOperationRecord,
   PropertyRecord,
   PropertySearchCriteria,
   PropertySearchQuery,

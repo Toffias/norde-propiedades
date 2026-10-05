@@ -1,0 +1,1 @@
+CREATE INDEX "properties_public_listing_idx" ON "core"."properties" USING btree ("featured" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id") WHERE published_on_web and status = 'available' and deleted_at is null;

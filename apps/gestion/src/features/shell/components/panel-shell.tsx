@@ -1,6 +1,7 @@
 'use client';
 
 import type { SessionProfile } from '@norde/core/identity/contracts';
+import type { GlobalSearchKind } from '@norde/core/reporting/contracts';
 import { AccountMenu } from '@norde/ui/components/account-menu';
 import { AppLogo } from '@norde/ui/components/app-logo';
 import { AppShell } from '@norde/ui/components/app-shell';
@@ -23,6 +24,7 @@ import {
   SIDEBAR_COOKIE,
   type NavCounts,
 } from '../navigation';
+import { GlobalSearch } from './global-search';
 
 const NavLink: NavLinkComponent = ({ href, className, onClick, children, ...aria }) => (
   // Rutas de `PANEL_NAVIGATION`: typedRoutes no puede verificar los strings del array.
@@ -43,11 +45,13 @@ export function PanelShell({
   profile,
   initiallyCollapsed,
   counts,
+  searchKinds,
   children,
 }: {
   readonly profile: SessionProfile;
   readonly initiallyCollapsed: boolean;
   readonly counts: NavCounts;
+  readonly searchKinds: readonly GlobalSearchKind[];
   readonly children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -98,6 +102,7 @@ export function PanelShell({
       }
       actions={
         <>
+          <GlobalSearch initialKinds={searchKinds} />
           <ThemeSwitcher />
           <AccountMenu
             name={profile.name}

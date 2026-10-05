@@ -255,6 +255,7 @@ import {
   GetPropertyStatistics,
   GetUnassignedInquiries,
   GetUpcomingSignings,
+  GlobalSearch,
   ListAvailableDevelopments,
   ListAvailableProperties,
   type ReportingPropertyProfiles,
@@ -407,6 +408,8 @@ export interface Container {
   readonly reporting: ReportingUseCases;
   /** Bandeja de consultas de portales y de la web (#10). */
   readonly inquiries: InquiriesUseCases;
+  /** Buscador de la barra superior: contactos, propiedades, emprendimientos y agentes. */
+  readonly search: { readonly globalSearch: GlobalSearch };
   /** Tasaciones: listado, alta, edición, estados y papelera (#12). */
   readonly appraisals: AppraisalsUseCases;
 }
@@ -1102,6 +1105,11 @@ function createContainer(): Container {
   const organization = new DrizzleOrganizationQuery(database.db);
   const settings = createSettingsUseCases(database.db, env, { ids, clock });
   const properties = createPropertiesUseCases(database.db, env, settings, { ids, clock });
+  const withAgenda = withClients(
+    createDetailReadModels(database.db, properties, { clock }),
+    createClientsUseCases(database.db, properties, { ids, clock, storage: createStorage(env) }),
+  );
+  const listUsers = new ListUsers({ users: new DrizzleUserListQuery(database.db) });
 
   return {
     database,
@@ -1113,12 +1121,17 @@ function createContainer(): Container {
     properties,
     inquiries: createInquiriesUseCases(database.db, properties, { ids, clock }),
     appraisals: createAppraisalsUseCases(database.db, { ids, clock, storage: createStorage(env) }),
-    ...withClients(
-      createDetailReadModels(database.db, properties, { clock }),
-      createClientsUseCases(database.db, properties, { ids, clock, storage: createStorage(env) }),
-    ),
+    ...withAgenda,
+    search: {
+      globalSearch: new GlobalSearch({
+        clients: withAgenda.clients.listClients,
+        properties: properties.listPanelProperties,
+        developments: properties.listDevelopments,
+        agents: listUsers,
+      }),
+    },
     identity: {
-      listUsers: new ListUsers({ users: new DrizzleUserListQuery(database.db) }),
+      listUsers,
       listRoles: new ListRoles({ roles: roleQuery }),
       createUser: new CreateUser({ uow: identityUow, hasher, ids, clock }),
       updateUser: new UpdateUser({ uow: identityUow, clock }),

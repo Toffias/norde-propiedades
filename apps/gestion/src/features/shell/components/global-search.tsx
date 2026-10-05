@@ -126,12 +126,17 @@ function useGlobalSearch(initialKinds: readonly GlobalSearchKind[]) {
     };
   }, [key, term, kinds, searchable]);
 
+  useEffect(() => {
+    storeKinds(kinds);
+  }, [kinds]);
+
   function toggleKind(kind: GlobalSearchKind) {
-    const next = kinds.includes(kind)
-      ? kinds.filter((current) => current !== kind)
-      : GLOBAL_SEARCH_KINDS.filter((current) => current === kind || kinds.includes(current));
-    setKinds(next);
-    storeKinds(next);
+    // Sobre el estado más reciente: dos clics seguidos no se pisan.
+    setKinds((chosen) =>
+      chosen.includes(kind)
+        ? chosen.filter((current) => current !== kind)
+        : GLOBAL_SEARCH_KINDS.filter((current) => current === kind || chosen.includes(current)),
+    );
   }
 
   let state: SearchState = { status: 'idle' };
@@ -450,9 +455,15 @@ export function GlobalSearch({
     setMobileOpen(false);
   }
 
+  /** Al abrir un resultado, el buscador queda vacío para la próxima búsqueda. */
+  function navigated() {
+    close();
+    search.setQ('');
+  }
+
   function submit() {
     if (active.href === undefined) return;
-    close();
+    navigated();
     // Rutas armadas en `KINDS`: typedRoutes no puede verificar strings construidos.
     router.push(active.href as Route);
   }
@@ -497,7 +508,7 @@ export function GlobalSearch({
             search={search}
             activeId={active.activeId}
             listboxId={listboxId}
-            onNavigate={close}
+            onNavigate={navigated}
           />
         </PopoverContent>
       </Popover>
@@ -530,7 +541,7 @@ export function GlobalSearch({
                 search={search}
                 activeId={active.activeId}
                 listboxId={`${listboxId}-mobile`}
-                onNavigate={close}
+                onNavigate={navigated}
               />
             </div>
           )}

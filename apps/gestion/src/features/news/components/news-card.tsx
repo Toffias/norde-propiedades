@@ -87,21 +87,26 @@ function Entry({ entry, main }: { readonly entry: NewsEntryRow; readonly main: b
       >
         <EntryIcon entry={entry} line={lines[0]} className={main ? 'size-4' : 'size-3.5'} />
       </span>
-      <div className="min-w-0 flex-1">
-        {lines.map((line, index) => (
-          <p
-            key={`${String(index)}-${line.text}`}
-            className={cn('text-sm', main ? 'font-semibold text-foreground' : 'text-foreground/90')}
-          >
-            {line.text}
-          </p>
-        ))}
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-        <Badge variant={KIND_BADGE_VARIANTS[entry.kind]}>{newsBadge(entry.kind)}</Badge>
-        <span className="text-xs text-muted-foreground">
-          Por {newsAuthor(entry)} · {formatTime(entry.occurredAt)}
-        </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3">
+        <div className="min-w-0 flex-1">
+          {lines.map((line, index) => (
+            <p
+              key={`${String(index)}-${line.text}`}
+              className={cn(
+                'text-sm',
+                main ? 'font-semibold text-foreground' : 'text-foreground/90',
+              )}
+            >
+              {line.text}
+            </p>
+          ))}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 sm:flex-col sm:items-end sm:text-right">
+          <Badge variant={KIND_BADGE_VARIANTS[entry.kind]}>{newsBadge(entry.kind)}</Badge>
+          <span className="text-xs text-muted-foreground">
+            Por {newsAuthor(entry)} · {formatTime(entry.occurredAt)}
+          </span>
+        </div>
       </div>
     </li>
   );
@@ -140,7 +145,8 @@ function Header({ card }: { readonly card: NewsCardData }) {
             {header.title}
           </Link>
           <p className="truncate text-sm text-muted-foreground">
-            {header.code} · {PROPERTY_TYPE_LABELS[header.propertyType]} en {header.neighborhood}
+            {header.code} · {PROPERTY_TYPE_LABELS[header.propertyType]}
+            {header.neighborhood.trim() === '' ? '' : ` en ${header.neighborhood}`}
           </p>
         </div>
         <ul className="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex">

@@ -79,6 +79,11 @@ No se versionan y el deploy no los toca. Generá los secretos con `openssl rand 
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
 PAYLOAD_SECRET=SECRETO_DE_32_O_MAS
 NEXT_PUBLIC_SERVER_URL=https://landingnorde.apzsoftware.online
+# Fotos de las propiedades: la misma carpeta que el panel (ADR 0023)
+STORAGE_DRIVER=local
+STORAGE_LOCAL_DIR=/var/www/norde-uat-storage
+# El mismo valor que WEB_REVALIDATE_SECRET de gestion
+REVALIDATE_SECRET=SECRETO_DE_32_O_MAS
 ```
 
 `/var/www/norde-uat/apps/gestion/.env` (lo mínimo; sumá Resend, MercadoLibre, etc. a medida que pruebes cada integración):
@@ -91,6 +96,9 @@ STORAGE_DRIVER=local
 STORAGE_LOCAL_DIR=/var/www/norde-uat-storage
 GEOCODER_USER_AGENT=NordePropiedades-UAT/1.0 (TU_EMAIL)
 JOBS_ENABLED=true
+# Avisos a la web cuando cambia una propiedad (ADR 0023)
+WEB_REVALIDATE_URL=https://landingnorde.apzsoftware.online/api/revalidate
+WEB_REVALIDATE_SECRET=SECRETO_DE_32_O_MAS
 # Para probar MercadoLibre:
 # PORTALS_ENABLED=true
 # PORTALS_SECRET_KEY=SECRETO

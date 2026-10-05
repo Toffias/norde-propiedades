@@ -14,6 +14,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Todo menos el login, la API de auth, las pantallas de desarrollo y los archivos estáticos.
-  matcher: ['/((?!ingresar|api/auth|dev|_next/static|_next/image|favicon.ico|.*\\.[a-z0-9]+$).*)'],
+  // Todo menos el login, la API de auth, los webhooks (se autentican con su firma), las pantallas
+  // de desarrollo y los archivos estáticos.
+  matcher: [
+    '/((?!ingresar|api/auth|api/webhooks|dev|_next/static|_next/image|favicon.ico|.*\\.[a-z0-9]+$).*)',
+  ],
 };

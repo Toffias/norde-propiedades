@@ -74,3 +74,4 @@ export interface OwnerReport {
 }
 
 export * from './home';
+export * from './global-search';

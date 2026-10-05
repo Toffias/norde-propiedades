@@ -912,6 +912,11 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Ver conversaciones de WhatsApp y del web chat.
   - Tomar el control, responder y devolver al bot.
   - Filtrar por agente y por estado.
+- **Buscador de la barra superior**: busca contactos, propiedades, emprendimientos y agentes desde cualquier pantalla (también con Ctrl+K).
+  - Los íconos a la derecha del input eligen dónde buscar; se pueden marcar varios. Sin ninguno marcado busca en todos. La elección se recuerda en una cookie del navegador.
+  - Desde dos letras, despliega los primeros 5 resultados de cada tipo, agrupados, con un link "Ver los N" al listado del módulo filtrado por el texto. Las flechas recorren los resultados y Enter abre la ficha (un agente abre su panel en Usuarios).
+  - Reusa el listado de cada módulo (caso de uso `GlobalSearch` en `reporting`): cada uno aplica sus permisos y su alcance (un agente ve sus contactos). Un tipo que el usuario no puede ver no aparece; los agentes requieren `users:read`.
+  - En mobile, un botón de lupa abre el buscador arriba de la pantalla.
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
 - **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
 - **Notificaciones**: un servicio único (panel, mail, WhatsApp) que usan los alquileres, los clientes asignados y las oportunidades.

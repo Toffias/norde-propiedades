@@ -59,10 +59,12 @@ import {
   ExternalLinkIcon,
   GripVerticalIcon,
   ImageOffIcon,
+  ImagesIcon,
   Loader2Icon,
   MoreVerticalIcon,
   PlayCircleIcon,
   Trash2Icon,
+  VideoIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, useTransition } from 'react';
@@ -205,7 +207,7 @@ export function MediaGallery({
 
   return (
     <div className="flex flex-col gap-4">
-      <SectionCard title={`Fotos y planos (${images.length.toString()})`}>
+      <SectionCard title={`Fotos y planos (${images.length.toString()})`} icon={ImagesIcon}>
         <div className="flex flex-col gap-4">
           {canEdit && (
             <FileDropzone
@@ -273,7 +275,7 @@ export function MediaGallery({
         </div>
       </SectionCard>
 
-      <SectionCard title="Videos y recorridos 360">
+      <SectionCard title="Videos y recorridos 360" icon={VideoIcon}>
         <MediaLinks owner={owner} links={links} canEdit={canEdit} />
       </SectionCard>
     </div>

@@ -254,6 +254,7 @@ describe('ListAvailableProperties and ListAvailableDevelopments', () => {
           propertyType: 'apartment',
           title: 'Departamento en Palermo',
           neighborhood: 'Palermo',
+          cover: undefined,
           operations: [],
           agentId: undefined,
           updatedAt: new Date('2026-09-30T12:00:00Z'),

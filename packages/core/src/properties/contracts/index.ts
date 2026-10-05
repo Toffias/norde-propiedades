@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 import { bulkSelectionSchema, pageQuerySchema } from '../../shared/contracts';
 
+import type { PropertyCover } from './media';
+
 import {
   CURRENCIES,
   MANUAL_STATUS_VALUES,
@@ -285,8 +287,8 @@ export interface PanelPropertyRow {
   readonly province: string;
   readonly operations: readonly PanelPropertyOperation[];
   readonly attributes: PanelPropertyAttributes;
-  /** Foto de portada (`media_items`). */
-  readonly coverImageUrl: string | undefined;
+  /** Portada o primera foto (`media_items`). */
+  readonly cover: PropertyCover | undefined;
   readonly coordinates: { readonly latitude: number; readonly longitude: number } | undefined;
   readonly producer: UserRef | undefined;
   readonly createdAt: Date;

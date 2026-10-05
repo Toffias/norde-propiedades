@@ -7,6 +7,7 @@ import type {
   ConstructionStatusValue,
   Currency,
   Operation,
+  PropertyCover,
   PropertyStatusValue,
   PropertyType,
 } from '../../properties/contracts';
@@ -130,6 +131,8 @@ export interface AvailablePropertyRow {
   readonly propertyType: PropertyType;
   readonly title: string;
   readonly neighborhood: string;
+  /** Portada o primera foto. */
+  readonly cover: PropertyCover | undefined;
   readonly operations: readonly {
     readonly operation: Operation;
     readonly currency: Currency;

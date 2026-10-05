@@ -28,6 +28,7 @@ const propertyHeader: NewsHeader = {
   propertyType: 'apartment',
   neighborhood: 'Villa Luro',
   status: 'available',
+  cover: undefined,
   operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_800_000n }],
   deleted: false,
 };
@@ -116,6 +117,25 @@ describe('ListNews', () => {
       assignee: undefined,
     });
     expect(property?.moreCount).toBe(0);
+  });
+
+  it('shows the property cover only to users who can see properties', async () => {
+    const cover = { mediaId: '01900000-0000-7000-8000-0000000000e1', hasThumbnail: true };
+    const feed = new InMemoryNewsFeedQuery(
+      [entry('property', PROPERTY, 'property.created', '2026-10-03T18:00:00Z')],
+      new Map([[PROPERTY, { header: { ...propertyHeader, cover }, branchId: NORTH }]]),
+    );
+    const withCover = new ListNews({
+      feed,
+      settings: new FixedNewsScope('all'),
+      users: new InMemoryNewsUserNames(new Map()),
+    });
+    const agent = Actor.user(CAMILA, ['news:read', 'properties:read']).withBranch(NORTH);
+
+    expect(unwrap(await withCover.execute({}, agent)).items[0]?.header).toMatchObject({ cover });
+    expect(unwrap(await withCover.execute({}, reader)).items[0]?.header).toMatchObject({
+      cover: undefined,
+    });
   });
 
   it('splits an entity into one card per day in Buenos Aires', async () => {

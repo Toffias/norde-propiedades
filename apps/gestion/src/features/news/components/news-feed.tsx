@@ -4,7 +4,8 @@ import type { NewsCard as NewsCardData, NewsKindValue } from '@norde/core/audit/
 import type { Page } from '@norde/core/shared';
 import { Button } from '@norde/ui/components/button';
 import { NewspaperIcon } from 'lucide-react';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { cn } from '@norde/ui/lib/utils';
+import { Fragment, useState } from 'react';
 
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { loadNewsPageAction } from '../actions';
@@ -24,8 +25,8 @@ function cardKey(card: NewsCardData): string {
 }
 
 /**
- * El feed de Noticias: tarjetas agrupadas por día, con scroll infinito. Cada tanda la pide al
- * servidor; una tarjeta que ya está (porque entraron novedades nuevas) no se repite.
+ * El feed de Noticias: tarjetas agrupadas por día. Cada tanda se pide al servidor con "Ver más";
+ * una tarjeta que ya está (porque entraron novedades nuevas) no se repite.
  */
 export function NewsFeed({
   initial,
@@ -41,11 +42,10 @@ export function NewsFeed({
     loading: false,
     error: undefined,
   });
-  const sentinel = useRef<HTMLDivElement>(null);
   const hasMore = state.page * initial.pageSize < state.total && state.error === undefined;
   const today = newsDayOf(new Date());
 
-  const loadMore = useCallback(() => {
+  function loadMore() {
     setState((current) => ({ ...current, loading: true, error: undefined }));
     void loadNewsPageAction({ page: state.page + 1, pageSize: initial.pageSize, kinds: [...kinds] })
       .then((result) => {
@@ -67,23 +67,7 @@ export function NewsFeed({
       .catch(() => {
         setState((current) => ({ ...current, loading: false, error: UNEXPECTED_ERROR_MESSAGE }));
       });
-  }, [state.page, initial.pageSize, kinds]);
-
-  // Al llegar al final de la página, pide la tanda siguiente.
-  useEffect(() => {
-    const node = sentinel.current;
-    if (!node || !hasMore || state.loading) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMore();
-      },
-      { rootMargin: '240px' },
-    );
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMore, state.loading, loadMore]);
+  }
 
   if (kinds.length === 0) {
     return <EmptyFeed text="Elegí al menos un tipo de noticia para ver el feed." />;
@@ -99,21 +83,17 @@ export function NewsFeed({
         const newDay = previous?.day !== card.day;
         return (
           <Fragment key={cardKey(card)}>
-            {newDay && (
-              <h2 className="flex items-center gap-3 pt-3 text-sm font-semibold text-muted-foreground first:pt-0">
-                {newsDayLabel(card.day, today)}
-                <span className="h-px flex-1 bg-border" aria-hidden />
-              </h2>
-            )}
+            {newDay && <DayHeading day={card.day} today={today} />}
             <NewsCard card={card} />
           </Fragment>
         );
       })}
-      <div ref={sentinel} aria-hidden />
-      {state.loading && (
-        <p role="status" className="py-4 text-center text-sm text-muted-foreground">
-          Cargando más noticias…
-        </p>
+      {hasMore && (
+        <div className="flex justify-center py-2">
+          <Button variant="outline" size="sm" onClick={loadMore} disabled={state.loading}>
+            {state.loading ? 'Cargando…' : 'Ver más noticias'}
+          </Button>
+        </div>
       )}
       {state.error !== undefined && (
         <div role="alert" className="flex flex-col items-center gap-2 py-4 text-sm">
@@ -127,6 +107,26 @@ export function NewsFeed({
         <p className="py-4 text-center text-xs text-muted-foreground">No hay más noticias.</p>
       )}
     </div>
+  );
+}
+
+/** "Hoy" lleva el color de la marca; los demás días, gris. */
+function DayHeading({ day, today }: { readonly day: string; readonly today: string }) {
+  const isToday = day === today;
+  return (
+    <h2
+      className={cn(
+        'flex items-center gap-3 pt-3 text-sm font-semibold first:pt-0',
+        isToday ? 'text-foreground' : 'text-muted-foreground',
+      )}
+    >
+      {isToday && <span className="size-2 rounded-full bg-primary-500" aria-hidden />}
+      {newsDayLabel(day, today)}
+      <span
+        className={cn('h-px flex-1', isToday ? 'bg-primary-500/30' : 'bg-border')}
+        aria-hidden
+      />
+    </h2>
   );
 }
 

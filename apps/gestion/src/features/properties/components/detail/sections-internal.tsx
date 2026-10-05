@@ -18,6 +18,7 @@ import {
 } from '@norde/ui/components/form';
 import { Label } from '@norde/ui/components/label';
 import { PagedMultiSelect } from '@norde/ui/components/paged-combobox';
+import { LockIcon } from 'lucide-react';
 import { useState, type SyntheticEvent } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -63,6 +64,7 @@ export function InternalSection({
   return (
     <InlineSection
       title="Información interna"
+      icon={LockIcon}
       canEdit={canEdit}
       view={
         <div className="flex flex-col gap-4">

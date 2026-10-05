@@ -333,12 +333,16 @@ describe('appraisals (Postgres)', () => {
       ),
     );
 
+    const rows = unwrap(await list.execute({}, PRODUCER_ACTOR));
+    expect(rows.items.find((item) => item.id === appraisalId)?.coverPhotoId).toBe(first.photoId);
+
     const get = new GetAppraisal({ appraisals: query, directory });
     const detail = unwrap(await get.execute({ appraisalId }, PRODUCER_ACTOR));
     expect(detail).toMatchObject({
       status: 'appraised',
       convertible: true,
       photoIds: [first.photoId, second.photoId],
+      coverPhotoId: first.photoId,
       convertedProperty: undefined,
       result: {
         sale: { minCents: 11_000_000n, maxCents: 12_000_000n, currency: 'USD' },

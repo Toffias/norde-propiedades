@@ -27,6 +27,7 @@ import {
   clients,
   clientTagAssignments,
   clientTags,
+  mediaItems,
   properties,
   propertyOperations,
 } from '../db/schema';
@@ -36,6 +37,7 @@ const TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
 const EntityType = z.enum(NEWS_ENTITY_TYPES);
 const Kind = z.enum(NEWS_KINDS);
+const CoverRow = z.object({ mediaId: z.string(), hasThumbnail: z.boolean() }).nullable();
 const PropertyRow = z.object({
   propertyType: z.enum(PROPERTY_TYPES),
   status: z.enum(PROPERTY_STATUS_VALUES),
@@ -266,6 +268,15 @@ export class DrizzleNewsFeedQuery implements NewsFeedQuery {
           propertyType: properties.propertyType,
           neighborhood: properties.neighborhood,
           status: properties.status,
+          // Portada o primera foto (índice `media_items_property_position_idx`). Dentro de la
+          // subconsulta drizzle no califica `id`: se nombra la tabla exterior a mano.
+          cover: sql<unknown>`(
+            select json_build_object('mediaId', m.id, 'hasThumbnail', m.variants ? 'thumbnail')
+            from ${mediaItems} m
+            where m.property_id = ${sql.raw('"properties"."id"')} and m.kind = 'photo'
+            order by m.is_cover desc, m.position asc
+            limit 1
+          )`,
           deletedAt: properties.deletedAt,
         })
         .from(properties)
@@ -303,6 +314,7 @@ export class DrizzleNewsFeedQuery implements NewsFeedQuery {
           title: row.title,
           ...PropertyRow.parse(row),
           neighborhood: row.neighborhood,
+          cover: CoverRow.parse(row.cover) ?? undefined,
           operations: byProperty.get(row.id) ?? [],
           deleted: row.deletedAt !== null,
         },

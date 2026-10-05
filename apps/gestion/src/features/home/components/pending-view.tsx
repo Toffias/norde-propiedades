@@ -7,6 +7,7 @@ import type {
 } from '@norde/core/reporting/contracts';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { StatusPill } from '@norde/ui/components/status-pill';
+import { CalendarClockIcon, InboxIcon, PhoneCallIcon, type LucideIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -26,12 +27,14 @@ function withQuery(path: string, params: Readonly<Record<string, string>>): Rout
 
 function Widget<T>({
   title,
+  icon,
   state,
   href,
   empty,
   children,
 }: {
   readonly title: string;
+  readonly icon: LucideIcon;
   readonly state: WidgetState<HomeWidget<T>>;
   readonly href: Route;
   readonly empty: string;
@@ -42,6 +45,7 @@ function Widget<T>({
   return (
     <SectionCard
       title={total === undefined ? title : `${title} (${String(total)})`}
+      icon={icon}
       action={
         <Link
           href={href}
@@ -122,6 +126,7 @@ export function PendingView({
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
       <Widget
         title="Consultas sin asignar"
+        icon={InboxIcon}
         state={inquiries}
         href={withQuery('/consultas', { branchId: filters.branchId })}
         empty="No hay consultas sin asignar."
@@ -140,6 +145,7 @@ export function PendingView({
 
       <Widget
         title="Pendientes de contactar"
+        icon={PhoneCallIcon}
         state={opportunities}
         href={withQuery('/oportunidades', { category: 'new', ...filters })}
         empty="No hay oportunidades pendientes de contactar."
@@ -172,6 +178,7 @@ export function PendingView({
 
       <Widget
         title="Próximos vencimientos"
+        icon={CalendarClockIcon}
         state={signings}
         href={withQuery('/reservas', {
           status: 'active',

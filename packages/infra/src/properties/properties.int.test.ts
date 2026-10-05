@@ -567,8 +567,13 @@ describe('DrizzlePanelPropertyListQuery', () => {
       .where(eq(properties.id, id));
     await db.insert(mediaItems).values(
       [
-        { url: 'https://cdn.example/segunda.jpg', position: 1, isCover: false },
-        { url: 'https://cdn.example/portada.jpg', position: 2, isCover: true },
+        { url: 'properties/3/segunda.jpg', position: 1, isCover: false, variants: {} },
+        {
+          url: 'properties/3/portada.jpg',
+          position: 2,
+          isCover: true,
+          variants: { thumbnail: 'properties/3/portada-thumb.jpg' },
+        },
       ].map((photo, i) => ({
         id: `00000000-0000-7000-a000-00000000000${i + 1}`,
         propertyId: id,
@@ -587,7 +592,7 @@ describe('DrizzlePanelPropertyListQuery', () => {
     expect(page.items[0]).toMatchObject({
       province: 'Buenos Aires',
       attributes: { rooms: 3, surfaceTotalM2: 70.5, bedrooms: undefined },
-      coverImageUrl: 'https://cdn.example/portada.jpg',
+      cover: { mediaId: '00000000-0000-7000-a000-000000000002', hasThumbnail: true },
       coordinates: { latitude: -34.696, longitude: -58.55 },
     });
   });

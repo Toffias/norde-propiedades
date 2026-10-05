@@ -93,11 +93,22 @@ const COLUMNS = {
   requesterName: sql<
     string | null
   >`case when ${clients.id} is null then null else coalesce(${clients.name}, ${clients.companyName}, 'Sin nombre') end`,
+  /**
+   * La primera foto (índice `appraisal_photos_appraisal_position_idx`). La columna va calificada:
+   * dentro de la subconsulta, `id` apuntaría a la foto.
+   */
+  coverPhotoId: sql<string | null>`(
+    select p.id from ${appraisalPhotos} p
+    where p.appraisal_id = ${sql.raw('"appraisals"."id"')}
+    order by p.position asc, p.id asc
+    limit 1
+  )`,
 };
 
 interface Row {
   readonly appraisal: typeof appraisals.$inferSelect;
   readonly requesterName: string | null;
+  readonly coverPhotoId: string | null;
 }
 
 function toSearchItem(row: Row): AppraisalSearchItem {
@@ -112,6 +123,7 @@ function toSearchItem(row: Row): AppraisalSearchItem {
     status: StatusSchema.parse(a.status),
     propertyType: PropertyTypeSchema.parse(a.propertyType),
     address: a.address ?? undefined,
+    coverPhotoId: row.coverPhotoId ?? undefined,
     requesterClientId: a.requesterClientId,
     requesterName: row.requesterName ?? undefined,
     producerUserId: a.producerUserId,

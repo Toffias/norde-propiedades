@@ -8,7 +8,7 @@ import type { GridColumnValue, PanelPropertyRow } from '@norde/core/properties/c
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { ArchiveRestoreIcon, Trash2Icon, UserPlusIcon } from 'lucide-react';
+import { ArchiveRestoreIcon, HomeIcon, Trash2Icon, UserPlusIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
@@ -28,6 +28,7 @@ import {
 } from '../labels';
 import { gridColumnValue, operationPrice, placeSummary, userName } from '../property-format';
 import { FavoriteToggle } from './favorite-toggle';
+import { PropertyPhoto } from './property-photo';
 import { PropertyBulkActions, type BulkPermissions } from './property-bulk-actions';
 import type { PropertyFilterValues } from './properties-toolbar';
 
@@ -154,13 +155,28 @@ export function PropertiesGrid({
         id: 'title',
         header: 'Propiedad',
         cell: (row) => (
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate font-medium" title={row.portalTitle}>
-              {row.portalTitle}
-            </span>
-            <span className="truncate text-xs text-muted-foreground">
-              {PROPERTY_TYPE_LABELS[row.propertyType]} · {placeSummary(row)}
-            </span>
+          <div className="flex min-w-0 items-center gap-3">
+            <PropertyPhoto
+              propertyId={row.id}
+              cover={row.cover}
+              className="size-10 shrink-0 rounded-md bg-muted object-cover"
+              fallback={
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+                  aria-hidden
+                >
+                  <HomeIcon className="size-4" />
+                </span>
+              }
+            />
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate font-medium" title={row.portalTitle}>
+                {row.portalTitle}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {PROPERTY_TYPE_LABELS[row.propertyType]} · {placeSummary(row)}
+              </span>
+            </div>
           </div>
         ),
       },

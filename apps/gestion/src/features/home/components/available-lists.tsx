@@ -8,11 +8,13 @@ import { HOME_LIST_PAGE_SIZE } from '@norde/core/reporting/contracts';
 import type { Page } from '@norde/core/shared';
 import { Card } from '@norde/ui/components/card';
 import { DataTable, type DataTableColumn } from '@norde/ui/components/data-table';
+import { Building2Icon, HouseIcon, type LucideIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 
 import { EMPTY_VALUE, formatMoney } from '../../../lib/format';
 import { CONSTRUCTION_STATUS_LABELS } from '../../developments/labels';
+import { PropertyPhoto } from '../../properties/components/property-photo';
 import { OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../../properties/labels';
 import {
   ListNavigationProvider,
@@ -40,10 +42,25 @@ const PROPERTY_COLUMNS: readonly DataTableColumn<AvailablePropertyRow>[] = [
     cell: (row) => (
       <Link
         href={`/propiedades/${row.id}` as Route}
-        className="flex min-w-0 flex-col underline-offset-4 hover:underline"
+        className="group flex min-w-0 items-center gap-3"
       >
-        <span className="font-medium">{row.code}</span>
-        <span className="truncate text-xs text-muted-foreground">{row.title}</span>
+        <PropertyPhoto
+          propertyId={row.id}
+          cover={row.cover}
+          className="size-10 shrink-0 rounded-md bg-muted object-cover"
+          fallback={
+            <span
+              className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+              aria-hidden
+            >
+              <HouseIcon className="size-4" />
+            </span>
+          }
+        />
+        <span className="flex min-w-0 flex-col">
+          <span className="font-medium underline-offset-4 group-hover:underline">{row.code}</span>
+          <span className="truncate text-xs text-muted-foreground">{row.title}</span>
+        </span>
       </Link>
     ),
   },
@@ -109,9 +126,11 @@ function PagedList<T extends { readonly id: string }>({
   page,
   param,
   columns,
+  icon: Icon,
   empty,
 }: {
   readonly title: string;
+  readonly icon: LucideIcon;
   readonly page: Page<T>;
   readonly param: string;
   readonly columns: readonly DataTableColumn<T>[];
@@ -120,7 +139,8 @@ function PagedList<T extends { readonly id: string }>({
   const { setParams, pending } = useListNavigation();
   return (
     <Card className="gap-0 overflow-hidden p-0">
-      <h2 className="border-b border-border px-5 py-4 text-base font-bold">
+      <h2 className="flex items-center gap-2 border-b border-border px-5 py-4 text-base font-bold">
+        <Icon className="size-4 shrink-0 text-foreground" aria-hidden />
         {title} ({page.total})
       </h2>
       <DataTable
@@ -148,6 +168,7 @@ export function AvailablePropertiesList({ page }: { readonly page: Page<Availabl
     <ListNavigationProvider>
       <PagedList
         title="Propiedades disponibles"
+        icon={HouseIcon}
         page={page}
         param={PROPERTIES_PAGE_PARAM}
         columns={PROPERTY_COLUMNS}
@@ -166,6 +187,7 @@ export function AvailableDevelopmentsList({
     <ListNavigationProvider>
       <PagedList
         title="Emprendimientos disponibles"
+        icon={Building2Icon}
         page={page}
         param={DEVELOPMENTS_PAGE_PARAM}
         columns={DEVELOPMENT_COLUMNS}

@@ -27,9 +27,9 @@ function Changes({ entry }: { readonly entry: HistoryEntryRow }) {
   const changes = Object.entries(entry.changes);
   if (changes.length === 0) return null;
   return (
-    <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+    <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
       {changes.map(([field, change]) => (
-        <li key={field} className="break-words">
+        <li key={field} className="max-w-full break-words">
           <span className="font-medium text-foreground">{clientHistoryFieldLabel(field)}:</span>{' '}
           {change.before === null ? (
             formatClientHistoryValue(field, change.after)
@@ -99,7 +99,7 @@ export function ClientHistoryGrid({
       id: 'change',
       header: 'Cambio',
       cell: (entry) => (
-        <div className="min-w-0">
+        <div className="min-w-0 whitespace-normal">
           <p className="text-sm">
             <span className="font-medium">{actorName(entry)}</span>{' '}
             {CLIENT_HISTORY_ACTION_LABELS[entry.action] ?? entry.action}

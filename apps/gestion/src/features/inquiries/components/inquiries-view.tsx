@@ -49,6 +49,7 @@ import { DateRange } from '../../clients/components/clients-toolbar';
 import { loadBranchOptions } from '../../identity/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
 import { loadPropertyOptions } from '../../properties/actions';
+import { PropertyPhoto } from '../../properties/components/property-photo';
 import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
@@ -363,18 +364,12 @@ function InquiryThumb({ row }: { readonly row: InquiryInboxRow }) {
       className={cn(frame, 'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50')}
       aria-label={`Ver ${property.code}`}
     >
-      {property.coverImageUrl === undefined ? (
-        <HomeIcon className="h-6 w-6" aria-hidden />
-      ) : (
-        // Las fotos vienen del storage (o de la importación): sin optimización de Next.
-        // eslint-disable-next-line @next/next/no-img-element -- dominio de las fotos variable
-        <img
-          src={property.coverImageUrl}
-          alt=""
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      )}
+      <PropertyPhoto
+        propertyId={property.id}
+        cover={property.cover}
+        className="absolute inset-0 h-full w-full object-cover"
+        fallback={<HomeIcon className="h-6 w-6" aria-hidden />}
+      />
       <span className="absolute bottom-1 left-1 rounded bg-card/90 px-1.5 py-0.5 text-[10px] font-semibold text-foreground tabular-nums">
         {property.code}
       </span>

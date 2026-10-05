@@ -14,7 +14,14 @@ import { describe, expect, inject, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
 import * as schema from '../db/schema';
-import { developments, features, locations, properties, propertyTags } from '../db/schema';
+import {
+  developments,
+  features,
+  locations,
+  mediaItems,
+  properties,
+  propertyTags,
+} from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzleDevelopmentListQuery } from './drizzle-development-list-query';
@@ -391,6 +398,37 @@ describe('DrizzleDevelopmentListQuery', () => {
     await propertyRepository.save(aUnit('DEP0002', development.id), PRODUCER);
     const page = await list.search(BASE);
     expect(page.items[0]).toMatchObject({ code: 'EMP9999', unitCount: 2 });
+  });
+
+  it('shows the cover of each row, or its first photo', async () => {
+    const development = await aDevelopment('EMP9998');
+    await repository.save(development, PRODUCER);
+    const [first, cover] = [ids.next(), ids.next()];
+    const photo = (id: string, position: number, isCover = false) => ({
+      id,
+      developmentId: development.id,
+      kind: 'photo',
+      storageKey: `developments/${development.id}/${id}.jpg`,
+      url: `developments/${development.id}/${id}.jpg`,
+      position,
+      isCover,
+      uploadedBy: PRODUCER,
+      createdAt: NOW,
+      updatedAt: NOW,
+      createdBy: PRODUCER,
+      updatedBy: PRODUCER,
+    });
+    await db.insert(mediaItems).values([photo(first, 0), photo(cover, 1)]);
+
+    const firstPhoto = await list.search(BASE);
+    expect(firstPhoto.items[0]?.cover).toEqual({ mediaId: first, hasThumbnail: false });
+
+    await db
+      .update(mediaItems)
+      .set({ isCover: true, variants: { thumbnail: 'thumb.jpg' } })
+      .where(sql`${mediaItems.id} = ${cover}`);
+    const withCover = await list.search(BASE);
+    expect(withCover.items[0]?.cover).toEqual({ mediaId: cover, hasThumbnail: true });
   });
 
   it('resolves every filter and sort with an index', async () => {

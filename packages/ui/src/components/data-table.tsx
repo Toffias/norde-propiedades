@@ -296,6 +296,8 @@ export function DataTable<T extends DataTableRow>({
                           className={cn(
                             column?.showFrom && SHOW_FROM[column.showFrom],
                             column?.className,
+                            // La alineación de la columna es para sus celdas: el encabezado va al medio.
+                            'align-middle',
                           )}
                         >
                           {column?.hideHeader ? (

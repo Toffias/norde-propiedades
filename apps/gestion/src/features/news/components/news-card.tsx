@@ -31,19 +31,52 @@ import {
   PROPERTY_STATUS_DISPLAY,
   PROPERTY_TYPE_LABELS,
 } from '../../properties/labels';
-import { newsAuthor, newsBadge, newsLines, type NewsLine } from '../news-format';
+import { PropertyPhoto } from '../../properties/components/property-photo';
+import {
+  newsAuthor,
+  newsBadge,
+  newsLines,
+  type NewsLine,
+  type NewsPriceChange,
+} from '../news-format';
 
-const KIND_BADGE_VARIANTS: Readonly<
-  Record<NewsKindValue, 'success' | 'warning' | 'info' | 'secondary'>
-> = {
+type NewsTone = 'success' | 'info' | 'warning' | 'neutral';
+
+const KIND_TONES: Readonly<Record<NewsKindValue, NewsTone>> = {
   'client.created': 'success',
   'client.reassigned': 'info',
-  'client.deleted': 'secondary',
+  'client.deleted': 'neutral',
   'property.created': 'success',
   'property.status_changed': 'info',
   'property.operation_changed': 'info',
   'property.price_changed': 'warning',
   'property.reservation': 'warning',
+};
+
+/** Una bajada de precio va en verde; el resto, con el tono de su tipo. */
+function entryTone(entry: NewsEntryRow, line: NewsLine | undefined): NewsTone {
+  return line?.trend === 'down' ? 'success' : KIND_TONES[entry.kind];
+}
+
+const BADGE_VARIANTS: Readonly<Record<NewsTone, 'success' | 'warning' | 'info' | 'secondary'>> = {
+  success: 'success',
+  info: 'info',
+  warning: 'warning',
+  neutral: 'secondary',
+};
+
+const ICON_TONES: Readonly<Record<NewsTone, string>> = {
+  success: 'bg-success-50 text-success-600 dark:bg-success-600/20 dark:text-success-300',
+  info: 'bg-info-50 text-info-600 dark:bg-info-600/20 dark:text-info-300',
+  warning: 'bg-warning-50 text-warning-700 dark:bg-warning-600/20 dark:text-warning-300',
+  neutral: 'bg-muted text-muted-foreground',
+};
+
+const STRIPE_TONES: Readonly<Record<NewsTone, string>> = {
+  success: 'bg-success-500',
+  info: 'bg-info-500',
+  warning: 'bg-warning-500',
+  neutral: 'bg-border',
 };
 
 function entityUrl(card: NewsCardData, tab?: 'historial'): Route {
@@ -74,13 +107,42 @@ function EntryIcon({
   return icons[entry.kind];
 }
 
+/** "US$ 115.000 ~~US$ 120.000~~ −4,2 %": el precio nuevo, el anterior y la variación. */
+function PriceChange({
+  price,
+  tone,
+}: {
+  readonly price: NewsPriceChange;
+  readonly tone: NewsTone;
+}) {
+  return (
+    <>
+      {' '}
+      <span className="whitespace-nowrap">{price.now}</span>{' '}
+      <s className="font-normal whitespace-nowrap text-muted-foreground">{price.before}</s>
+      {price.percent !== undefined && (
+        <span
+          className={cn(
+            'ml-1.5 inline-flex rounded-full px-1.5 py-px align-[1px] text-xs font-semibold tabular-nums',
+            ICON_TONES[tone],
+          )}
+        >
+          {price.percent}
+        </span>
+      )}
+    </>
+  );
+}
+
 function Entry({ entry, main }: { readonly entry: NewsEntryRow; readonly main: boolean }) {
   const lines = newsLines(entry);
+  const tone = entryTone(entry, lines[0]);
   return (
     <li className="flex items-start gap-3">
       <span
         className={cn(
-          'mt-0.5 flex shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground',
+          'mt-0.5 flex shrink-0 items-center justify-center rounded-full',
+          ICON_TONES[tone],
           main ? 'size-7' : 'size-6',
         )}
         aria-hidden
@@ -98,11 +160,14 @@ function Entry({ entry, main }: { readonly entry: NewsEntryRow; readonly main: b
               )}
             >
               {line.text}
+              {line.price !== undefined && (
+                <PriceChange price={line.price} tone={entryTone(entry, line)} />
+              )}
             </p>
           ))}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 sm:flex-col sm:items-end sm:text-right">
-          <Badge variant={KIND_BADGE_VARIANTS[entry.kind]}>{newsBadge(entry.kind)}</Badge>
+          <Badge variant={BADGE_VARIANTS[tone]}>{newsBadge(entry.kind)}</Badge>
           <span className="text-xs text-muted-foreground">
             Por {newsAuthor(entry)} · {formatTime(entry.occurredAt)}
           </span>
@@ -127,12 +192,19 @@ function Header({ card }: { readonly card: NewsCardData }) {
     const status = PROPERTY_STATUS_DISPLAY[header.status];
     return (
       <div className="flex items-start gap-3">
-        <span
-          className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
-          aria-hidden
-        >
-          <BuildingIcon className="size-5" />
-        </span>
+        <PropertyPhoto
+          propertyId={card.entityId}
+          cover={header.cover}
+          className="size-11 shrink-0 rounded-lg bg-muted object-cover"
+          fallback={
+            <span
+              className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+              aria-hidden
+            >
+              <BuildingIcon className="size-5" />
+            </span>
+          }
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={status.tone}>{status.label}</StatusPill>
@@ -205,8 +277,10 @@ export function NewsCard({ card }: { readonly card: NewsCardData }) {
   const [expanded, setExpanded] = useState(false);
   const [latest, ...older] = card.entries;
   const hidden = older.length;
+  const tone = latest === undefined ? 'neutral' : entryTone(latest, newsLines(latest)[0]);
   return (
-    <article className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+    <article className="relative overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+      <span className={cn('absolute inset-y-0 left-0 w-[3px]', STRIPE_TONES[tone])} aria-hidden />
       <div className="flex flex-col gap-4 p-4">
         <Header card={card} />
         {latest !== undefined && (

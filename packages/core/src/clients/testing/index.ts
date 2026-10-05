@@ -1205,7 +1205,7 @@ export function aListing(overrides: Partial<ClientListingSummary> = {}): ClientL
     address: 'Gorriti 4500',
     status: 'available',
     operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
-    coverImageUrl: undefined,
+    cover: undefined,
     producer: undefined,
     ...overrides,
   };

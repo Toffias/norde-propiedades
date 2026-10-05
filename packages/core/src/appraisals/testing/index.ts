@@ -289,6 +289,7 @@ export function appraisalDetailItem(
     status: snapshot.status,
     propertyType: snapshot.propertyType,
     address: snapshot.address,
+    coverPhotoId: photoIds[0],
     requesterClientId: snapshot.requesterClientId,
     requesterName,
     producerUserId: snapshot.producerUserId,

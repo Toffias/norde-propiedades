@@ -780,7 +780,7 @@ function clientListings(properties: PropertiesUseCases): ClientListings {
             address: row.publishAddress,
             status: row.status,
             operations: row.operations,
-            coverImageUrl: row.coverImageUrl,
+            cover: row.cover,
             producer: row.producer,
           },
         ]),

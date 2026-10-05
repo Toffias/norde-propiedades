@@ -14,6 +14,7 @@ import { useListNavigation } from '../../shared/components/server-data-table';
 import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../labels';
 import { attributesSummary, operationsSummary, placeSummary, userName } from '../property-format';
 import { FavoriteToggle } from './favorite-toggle';
+import { PropertyPhoto } from './property-photo';
 
 function PropertyCard({
   row,
@@ -25,27 +26,24 @@ function PropertyCard({
   const status = PROPERTY_STATUS_DISPLAY[row.status];
   const details = attributesSummary(row.attributes);
   return (
-    <article className="flex w-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card">
+    // Toda la tarjeta lleva a la ficha: el link del título se estira sobre ella (`after:`).
+    <article className="group relative flex w-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors focus-within:ring-[3px] focus-within:ring-ring/50 hover:border-primary-300 dark:hover:border-primary-700">
       <div className="relative aspect-[4/3] bg-muted">
-        {row.coverImageUrl === undefined ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <HomeIcon className="h-8 w-8" aria-hidden />
-            <span className="sr-only">Sin fotos</span>
-          </div>
-        ) : (
-          // Las fotos vienen del storage (o de la importación): sin optimización de Next.
-          // eslint-disable-next-line @next/next/no-img-element -- dominio de las fotos variable
-          <img
-            src={row.coverImageUrl}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        )}
+        <PropertyPhoto
+          propertyId={row.id}
+          cover={row.cover}
+          className="absolute inset-0 h-full w-full object-cover"
+          fallback={
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <HomeIcon className="h-8 w-8" aria-hidden />
+              <span className="sr-only">Sin fotos</span>
+            </div>
+          }
+        />
         <StatusPill tone={status.tone} className="absolute top-2 left-2 shadow-sm">
           {status.label}
         </StatusPill>
-        <div className="absolute top-1 right-1 rounded-md bg-card/90">
+        <div className="absolute top-1 right-1 z-10 rounded-md bg-card/90">
           <FavoriteToggle propertyId={row.id} code={row.code} favorite={favorite} />
         </div>
       </div>
@@ -54,7 +52,10 @@ function PropertyCard({
           {row.code} · {PROPERTY_TYPE_LABELS[row.propertyType]}
         </span>
         <h3 className="line-clamp-2 text-sm font-semibold" title={row.portalTitle}>
-          <Link href={`/propiedades/${row.id}` as Route} className="hover:underline">
+          <Link
+            href={`/propiedades/${row.id}` as Route}
+            className="outline-none after:absolute after:inset-0 group-hover:underline"
+          >
             {row.portalTitle}
           </Link>
         </h3>

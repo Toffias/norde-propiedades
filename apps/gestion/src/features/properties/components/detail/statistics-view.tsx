@@ -16,6 +16,7 @@ import { StatusPill } from '@norde/ui/components/status-pill';
 import { CATEGORICAL_COLORS } from '@norde/ui/lib/chart-colors';
 import { baseChartOptions } from '@norde/ui/lib/chart-options';
 import { useIsDark } from '@norde/ui/lib/use-is-dark';
+import { ChartColumnIcon, GlobeIcon, UsersIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { formatDate } from '../../../../lib/format';
@@ -110,6 +111,7 @@ export function StatisticsView({
 
         <ChartCard
           title="Actividad por mes"
+          icon={ChartColumnIcon}
           subtitle={`Últimos ${String(months)} meses`}
           height={280}
         >
@@ -121,7 +123,7 @@ export function StatisticsView({
         </ChartCard>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <SectionCard title="Perfil de los interesados">
+          <SectionCard title="Perfil de los interesados" icon={UsersIcon}>
             {statistics.interestedProfile.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Sin interesados con etiquetas todavía.
@@ -146,7 +148,7 @@ export function StatisticsView({
               </ul>
             )}
           </SectionCard>
-          <SectionCard title="Publicaciones en portales">
+          <SectionCard title="Publicaciones en portales" icon={GlobeIcon}>
             {statistics.publications.length === 0 ? (
               <p className="text-sm text-muted-foreground">No está publicada en portales.</p>
             ) : (

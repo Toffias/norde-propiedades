@@ -9,6 +9,7 @@ import {
   clients,
   developments,
   inquiries,
+  mediaItems,
   opportunities,
   properties,
   propertyOperations,
@@ -374,6 +375,40 @@ describe('DrizzleHomeDashboardQuery: current state', () => {
     expect(recent.items[0]?.code).toBe('NOR012');
     expect((await home.availableProperties(OWN, LIST)).total).toBe(7);
     expect((await home.availableProperties({ ...ALL, agentId: OTHER }, LIST)).total).toBe(5);
+  });
+
+  it('shows the cover of each available property, or its first photo', async () => {
+    const withCover = await insertProperty(1);
+    const withPhotos = await insertProperty(2);
+    await insertProperty(3);
+    const photo = (n: number, propertyId: string, position: number, isCover = false) => ({
+      id: id('e000', n),
+      propertyId,
+      kind: 'photo',
+      storageKey: `properties/${propertyId}/${String(n)}.jpg`,
+      url: `properties/${propertyId}/${String(n)}.jpg`,
+      position,
+      isCover,
+      uploadedBy: 'system:import',
+      ...stamps,
+    });
+    await db
+      .insert(mediaItems)
+      .values([
+        photo(1, withCover, 0),
+        { ...photo(2, withCover, 1, true), variants: { thumbnail: 'thumb.jpg' } },
+        photo(3, withPhotos, 1),
+        photo(4, withPhotos, 0),
+        { ...photo(5, withPhotos, -1), kind: 'floor_plan' },
+      ]);
+
+    const page = await home.availableProperties(ALL, LIST);
+
+    expect(page.items.map((item) => item.cover)).toEqual([
+      { mediaId: id('e000', 2), hasThumbnail: true },
+      { mediaId: id('e000', 4), hasThumbnail: false },
+      undefined,
+    ]);
   });
 
   it('lists the developments in marketing with their available units', async () => {

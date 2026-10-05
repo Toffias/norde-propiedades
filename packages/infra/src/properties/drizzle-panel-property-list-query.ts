@@ -32,6 +32,7 @@ import type { DbExecutor } from '../db/executor';
 import { mediaItems, properties, propertyOperations, propertyOwners } from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
+const CoverRow = z.object({ mediaId: z.string(), hasThumbnail: z.boolean() }).nullable();
 const RowEnums = z.object({
   propertyType: z.enum(PROPERTY_TYPES),
   status: z.enum(PROPERTY_STATUSES),
@@ -58,8 +59,9 @@ const locationText = sql`core.search_normalize(${properties.neighborhood} || ' '
 const outerPropertyId = sql.raw('"properties"."id"');
 
 /** Portada de la propiedad, o su primera foto (índice `media_items_property_position_idx`). */
-const coverImageUrl = sql<string | null>`(
-  select m.url from ${mediaItems} m
+const cover = sql<unknown>`(
+  select json_build_object('mediaId', m.id, 'hasThumbnail', m.variants ? 'thumbnail')
+  from ${mediaItems} m
   where m.property_id = ${outerPropertyId} and m.kind = 'photo'
   order by m.is_cover desc, m.position asc
   limit 1
@@ -88,7 +90,7 @@ const listColumns = {
   surfaceCoveredM2: properties.surfaceCoveredM2,
   latitude: properties.latitude,
   longitude: properties.longitude,
-  coverImageUrl,
+  cover,
   producerUserId: properties.producerUserId,
   createdAt: properties.createdAt,
   updatedAt: properties.updatedAt,
@@ -267,7 +269,7 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
           surfaceTotalM2: undefinedIfNull(row.surfaceTotalM2),
           surfaceCoveredM2: undefinedIfNull(row.surfaceCoveredM2),
         },
-        coverImageUrl: undefinedIfNull(row.coverImageUrl),
+        cover: CoverRow.parse(row.cover) ?? undefined,
         coordinates:
           row.latitude === null || row.longitude === null
             ? undefined

@@ -2,13 +2,24 @@ import type { HistoryValue, NewsEntryRow } from '@norde/core/audit/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { parseNewsKinds, serializeNewsKinds } from './news-kinds';
-import { newsAuthor, newsDayLabel, newsDayOf, newsLines } from './news-format';
+import { newsAuthor, newsDayLabel, newsDayOf, newsLines, type NewsLine } from './news-format';
 
 const USER = '00000000-0000-7000-8000-0000000000a1';
 
 /** Intl separa la moneda con un espacio duro: se compara con espacios comunes. */
-const plain = (lines: readonly { text: string; trend?: string }[]) =>
-  lines.map((line) => ({ ...line, text: line.text.replace(/\s/g, ' ') }));
+const spaces = (text: string) => text.replace(/\s/g, ' ');
+const plain = (lines: readonly NewsLine[]) =>
+  lines.map((line) => ({
+    ...line,
+    text: spaces(line.text),
+    ...(line.price && {
+      price: {
+        now: spaces(line.price.now),
+        before: spaces(line.price.before),
+        percent: line.price.percent && spaces(line.price.percent),
+      },
+    }),
+  }));
 
 function entry(overrides: Partial<NewsEntryRow>): NewsEntryRow {
   return {
@@ -40,7 +51,11 @@ describe('newsLines', () => {
         ),
       ),
     ).toEqual([
-      { text: 'El precio de venta subió a US$ 128.000 (antes US$ 120.000)', trend: 'up' },
+      {
+        text: 'El precio de venta subió a',
+        trend: 'up',
+        price: { now: 'US$ 128.000', before: 'US$ 120.000', percent: '+6,7%' },
+      },
     ]);
     expect(
       plain(
@@ -51,7 +66,11 @@ describe('newsLines', () => {
         ),
       ),
     ).toEqual([
-      { text: 'El precio de venta bajó a US$ 12.800 (antes US$ 120.000)', trend: 'down' },
+      {
+        text: 'El precio de venta bajó a',
+        trend: 'down',
+        price: { now: 'US$ 12.800', before: 'US$ 120.000', percent: '-89,3%' },
+      },
     ]);
   });
 

@@ -7,6 +7,7 @@ import { historyQuerySchema } from '../../audit/contracts';
 import { pageQuerySchema } from '../../shared/contracts';
 
 import { AmountSchema } from './amount';
+import type { PropertyCover } from './media';
 import { CURRENCIES, OPERATIONS, PROPERTY_TYPES } from './values';
 
 /** `loading`: cargando información (no se publica). `marketing`: comercializando. */
@@ -274,6 +275,8 @@ export interface DevelopmentRow {
   readonly publishAddress: string | undefined;
   readonly deliveryDate: string | undefined;
   readonly websiteUrl: string | undefined;
+  /** Portada o primera foto. */
+  readonly cover: PropertyCover | undefined;
   readonly tags: readonly DevelopmentTagRef[];
   /** Unidades activas (fuera de la papelera). */
   readonly unitCount: number;

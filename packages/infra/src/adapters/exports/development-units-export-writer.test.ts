@@ -34,7 +34,7 @@ function row(overrides: Partial<PanelPropertyRow> = {}): PanelPropertyRow {
       surfaceTotalM2: 80,
       surfaceCoveredM2: 72.5,
     },
-    coverImageUrl: undefined,
+    cover: undefined,
     coordinates: undefined,
     producer: undefined,
     createdAt: new Date('2026-09-01T12:00:00Z'),

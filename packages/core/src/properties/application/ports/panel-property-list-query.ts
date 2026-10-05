@@ -5,6 +5,7 @@ import type {
   PanelPropertyAttributes,
   PanelPropertyOperation,
   PanelPropertySortField,
+  PropertyCover,
   PropertyStatusValue,
   PropertyType,
   PropertyViewValue,
@@ -73,7 +74,7 @@ export interface PanelPropertyListItem {
   readonly province: string;
   readonly operations: readonly PanelPropertyOperation[];
   readonly attributes: PanelPropertyAttributes;
-  readonly coverImageUrl: string | undefined;
+  readonly cover: PropertyCover | undefined;
   readonly coordinates: { readonly latitude: number; readonly longitude: number } | undefined;
   readonly producerUserId: string | undefined;
   readonly createdAt: Date;

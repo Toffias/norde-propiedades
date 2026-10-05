@@ -28,7 +28,13 @@ import {
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { developments, developmentTagAssignments, properties, propertyTags } from '../db/schema';
+import {
+  developments,
+  developmentTagAssignments,
+  mediaItems,
+  properties,
+  propertyTags,
+} from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
 const RowEnums = z.object({
@@ -46,6 +52,17 @@ const unitCount = sql<number>`(
   where p.development_id = ${outerDevelopmentId} and p.deleted_at is null
 )`;
 
+/** Portada o primera foto (índice `media_items_development_position_idx`). */
+const cover = sql<unknown>`(
+  select json_build_object('mediaId', m.id, 'hasThumbnail', m.variants ? 'thumbnail')
+  from ${mediaItems} m
+  where m.development_id = ${outerDevelopmentId} and m.kind = 'photo'
+  order by m.is_cover desc, m.position asc
+  limit 1
+)`;
+
+const CoverRow = z.object({ mediaId: z.string(), hasThumbnail: z.boolean() }).nullable();
+
 const listColumns = {
   id: developments.id,
   code: developments.code,
@@ -57,6 +74,7 @@ const listColumns = {
   deliveryDate: developments.deliveryDate,
   websiteUrl: developments.websiteUrl,
   unitCount,
+  cover,
   updatedAt: developments.updatedAt,
   deletedAt: developments.deletedAt,
   deletedBy: developments.deletedBy,
@@ -107,6 +125,7 @@ export class DrizzleDevelopmentListQuery implements DevelopmentListQuery {
         publishAddress: undefinedIfNull(row.publishAddress),
         deliveryDate: undefinedIfNull(row.deliveryDate),
         websiteUrl: undefinedIfNull(row.websiteUrl),
+        cover: CoverRow.parse(row.cover) ?? undefined,
         tags: tags.get(row.id) ?? [],
         unitCount: row.unitCount,
         updatedAt: row.updatedAt,

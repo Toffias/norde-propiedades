@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type {
   Currency,
   Operation,
+  PropertyCover,
   PropertyStatusValue,
   PropertyType,
 } from '../../properties/contracts';
@@ -50,6 +51,8 @@ export interface NewsPropertyHeader {
   readonly propertyType: PropertyType;
   readonly neighborhood: string;
   readonly status: PropertyStatusValue;
+  /** La portada, o la primera foto si no se eligió portada; `hasThumbnail` cuando ya está la miniatura. */
+  readonly cover: PropertyCover | undefined;
   readonly operations: readonly {
     readonly operation: Operation;
     readonly currency: Currency;

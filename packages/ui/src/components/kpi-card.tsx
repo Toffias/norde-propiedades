@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { cn } from '../lib/utils';
@@ -16,6 +17,7 @@ const FOOT_TONE: Record<KpiTone, string> = {
 
 export interface KpiCardProps {
   readonly label: string;
+  readonly icon?: LucideIcon;
   readonly value: ReactNode;
   readonly foot?: ReactNode;
   readonly tone?: KpiTone;
@@ -26,6 +28,7 @@ export interface KpiCardProps {
 
 export function KpiCard({
   label,
+  icon: Icon,
   value,
   foot,
   tone = 'default',
@@ -34,7 +37,8 @@ export function KpiCard({
 }: KpiCardProps) {
   return (
     <Card className="gap-2 px-5 py-4">
-      <p className="text-xs leading-normal font-semibold tracking-wide text-muted-foreground uppercase">
+      <p className="flex items-center gap-1.5 text-xs leading-normal font-semibold tracking-wide text-muted-foreground uppercase">
+        {Icon !== undefined && <Icon className="size-3.5 shrink-0" aria-hidden />}
         {label}
       </p>
       {sparkline && sparkline.length > 1 && <Sparkline data={sparkline} />}

@@ -12,6 +12,7 @@ const appraisal: AppraisalDetail = {
   status: 'appraised',
   propertyType: 'apartment',
   address: 'Gurruchaga 1834 3° B',
+  coverPhotoId: undefined,
   requester: { id: '00000000-0000-7000-8000-0000000000c1', name: 'Ana Pérez' },
   producer: { id: '00000000-0000-7000-8000-0000000000a1', name: 'Camila Díaz' },
   appraiser: { id: '00000000-0000-7000-8000-0000000000a2', name: 'Juan Gómez' },

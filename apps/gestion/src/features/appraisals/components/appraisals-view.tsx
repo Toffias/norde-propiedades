@@ -12,7 +12,7 @@ import { Label } from '@norde/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@norde/ui/components/popover';
 import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { ArchiveRestoreIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { ArchiveRestoreIcon, HouseIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,7 @@ import { EMPTY_VALUE, formatDate, formatDateTime } from '../../../lib/format';
 import { DateRange } from '../../clients/components/clients-toolbar';
 import { loadBranchOptions, loadUserOptions } from '../../identity/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
+import { FallbackImage } from '../../properties/components/property-photo';
 import { PROPERTY_TYPE_LABELS } from '../../properties/labels';
 import {
   ConfirmActionDialog,
@@ -37,6 +38,7 @@ import {
 } from '../../shared/components/server-data-table';
 import { deleteAppraisalAction, restoreAppraisalAction } from '../actions';
 import { APPRAISAL_STATUS_DISPLAY, APPRAISAL_STATUS_GROUP_LABELS } from '../labels';
+import { appraisalPhotoHref } from '../paths';
 
 /** Filtros del listado tal como están en la URL (texto, sin parsear). */
 export interface AppraisalFilterValues {
@@ -299,23 +301,49 @@ export function AppraisalsView({
         header: 'Tasación',
         sortable: true,
         className: 'whitespace-normal',
-        cell: (row) => (
-          <div className="flex min-w-0 flex-col">
-            <Link
-              href={detailHref(row)}
-              className="font-medium text-primary-700 tabular-nums hover:underline dark:text-primary-400"
-            >
-              {row.code}
-            </Link>
+        cell: (row) => {
+          const fallback = (
             <span
-              className="block max-w-[160px] truncate text-xs text-muted-foreground sm:max-w-[240px]"
-              title={row.address}
+              className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+              aria-hidden
             >
-              {PROPERTY_TYPE_LABELS[row.propertyType]}
-              {row.address === undefined ? '' : ` · ${row.address}`}
+              <HouseIcon className="size-4" />
             </span>
-          </div>
-        ),
+          );
+          const photo =
+            row.coverPhotoId === undefined
+              ? undefined
+              : appraisalPhotoHref(row.id, row.coverPhotoId);
+          return (
+            <div className="flex min-w-0 items-center gap-3">
+              {photo === undefined ? (
+                fallback
+              ) : (
+                <FallbackImage
+                  key={photo}
+                  src={photo}
+                  className="size-10 shrink-0 rounded-md bg-muted object-cover"
+                  fallback={fallback}
+                />
+              )}
+              <div className="flex min-w-0 flex-col">
+                <Link
+                  href={detailHref(row)}
+                  className="font-medium text-primary-700 tabular-nums hover:underline dark:text-primary-400"
+                >
+                  {row.code}
+                </Link>
+                <span
+                  className="block max-w-[160px] truncate text-xs text-muted-foreground sm:max-w-[240px]"
+                  title={row.address}
+                >
+                  {PROPERTY_TYPE_LABELS[row.propertyType]}
+                  {row.address === undefined ? '' : ` · ${row.address}`}
+                </span>
+              </div>
+            </div>
+          );
+        },
       },
       {
         id: 'requester',

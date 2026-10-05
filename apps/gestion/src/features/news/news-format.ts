@@ -9,10 +9,19 @@ import { OPERATION_LABELS, PROPERTY_STATUS_DISPLAY } from '../properties/labels'
 
 export type NewsTrend = 'up' | 'down';
 
+/** Un precio que subió o bajó: la UI muestra el nuevo, el anterior tachado y la variación. */
+export interface NewsPriceChange {
+  readonly now: string;
+  readonly before: string;
+  /** "-4,2%"; sin valor si el precio anterior era cero. */
+  readonly percent: string | undefined;
+}
+
 export interface NewsLine {
   readonly text: string;
-  /** Si el precio subió o bajó, para el ícono. */
+  /** Si el precio subió o bajó, para el ícono y el color. */
   readonly trend?: NewsTrend;
+  readonly price?: NewsPriceChange;
 }
 
 /** El texto corto de la etiqueta de cada novedad. */
@@ -32,6 +41,18 @@ const RESERVATION_TEXTS: Readonly<Record<string, string>> = {
   'property.reservation_fallen': 'Se cayó la reserva',
   'property.reservation_signed': 'Se firmó la reserva',
 };
+
+const PERCENT = new Intl.NumberFormat('es-AR', {
+  style: 'percent',
+  maximumFractionDigits: 1,
+  signDisplay: 'exceptZero',
+});
+
+/** La variación entre dos montos en centavos, en diezmilésimos para no perder el decimal. */
+function percentChange(before: bigint, after: bigint): string | undefined {
+  if (before === 0n) return undefined;
+  return PERCENT.format(Number(((after - before) * 10_000n) / before) / 10_000);
+}
 
 const OPERATION_NAMES: Readonly<Record<string, string>> = OPERATION_LABELS;
 
@@ -155,11 +176,13 @@ function priceLines(entry: NewsEntryRow): NewsLine[] {
     if (previous.currency !== after.currency || previous.priceCents === undefined) {
       return [{ text: `El precio de ${name} pasó a ${now} (antes ${then})` }];
     }
-    const up = (after.priceCents ?? 0n) > previous.priceCents;
+    const afterCents = after.priceCents ?? 0n;
+    const up = afterCents > previous.priceCents;
     return [
       {
-        text: `El precio de ${name} ${up ? 'subió' : 'bajó'} a ${now} (antes ${then})`,
+        text: `El precio de ${name} ${up ? 'subió' : 'bajó'} a`,
         trend: up ? 'up' : 'down',
+        price: { now, before: then, percent: percentChange(previous.priceCents, afterCents) },
       },
     ];
   });

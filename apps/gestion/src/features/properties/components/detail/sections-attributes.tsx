@@ -29,6 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@norde/ui/components/select';
+import {
+  HandshakeIcon,
+  ListChecksIcon,
+  RulerIcon,
+  SlidersHorizontalIcon,
+  TagsIcon,
+} from 'lucide-react';
 import { useId, useState, type SyntheticEvent } from 'react';
 import { useForm, type FieldPath } from 'react-hook-form';
 
@@ -145,6 +152,7 @@ export function CharacteristicsSection({
   return (
     <InlineSection
       title="Características"
+      icon={RulerIcon}
       canEdit={canEdit}
       view={<Facts items={facts} columns={3} />}
       form={(controls) => (
@@ -260,6 +268,7 @@ export function DealSection({
   return (
     <InlineSection
       title="Condiciones de la operación"
+      icon={HandshakeIcon}
       canEdit={canEdit}
       view={
         <Facts
@@ -370,6 +379,7 @@ export function FeaturesSection({
   return (
     <InlineSection
       title="Servicios, ambientes y adicionales"
+      icon={ListChecksIcon}
       canEdit={canEdit}
       view={
         <div className="flex flex-col gap-3">
@@ -474,6 +484,7 @@ export function CustomAttributesSection({
   return (
     <InlineSection
       title="Atributos personalizados"
+      icon={SlidersHorizontalIcon}
       canEdit={canEdit}
       view={
         <Facts
@@ -594,6 +605,7 @@ export function TagsSection({
   return (
     <InlineSection
       title="Etiquetas"
+      icon={TagsIcon}
       canEdit={canEdit}
       view={
         detail.tags.length === 0 ? (

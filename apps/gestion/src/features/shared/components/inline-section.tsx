@@ -3,7 +3,7 @@
 import { Button } from '@norde/ui/components/button';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon, PencilIcon } from 'lucide-react';
+import { Loader2Icon, PencilIcon, type LucideIcon } from 'lucide-react';
 import { useState, useTransition, type ReactNode } from 'react';
 
 import type { ActionResult } from '../../../lib/action-result';
@@ -16,12 +16,14 @@ import { FormAlert } from './form-alert';
  */
 export function InlineSection({
   title,
+  icon,
   canEdit,
   view,
   form,
   className,
 }: {
   readonly title: string;
+  readonly icon?: LucideIcon;
   readonly canEdit: boolean;
   readonly view: ReactNode;
   /** El formulario: recibe cómo guardar y cómo cancelar. */
@@ -59,6 +61,7 @@ export function InlineSection({
   return (
     <SectionCard
       title={title}
+      {...(icon === undefined ? {} : { icon })}
       {...(className === undefined ? {} : { className })}
       {...(canEdit && !editing
         ? {

@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { pageQuerySchema } from '../../shared/contracts';
 
+import type { PropertyCover } from '../../properties/contracts';
 import type { ClientUserRef } from './clients-panel';
 import type { OpportunityActions } from './opportunity-pipeline';
 
@@ -256,7 +257,8 @@ export interface ClientListingSummary {
   readonly address: string | undefined;
   readonly status: string;
   readonly operations: readonly ClientListingOperation[];
-  readonly coverImageUrl: string | undefined;
+  /** Portada o primera foto de la propiedad. */
+  readonly cover: PropertyCover | undefined;
   /** Captador. */
   readonly producer: ClientUserRef | undefined;
 }

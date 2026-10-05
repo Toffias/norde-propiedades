@@ -44,6 +44,7 @@ import {
   clients,
   developments,
   inquiries,
+  mediaItems,
   opportunities,
   opportunityStages,
   properties,
@@ -53,6 +54,7 @@ import {
 
 const Channel = z.enum(CONTACT_CHANNEL_VALUES);
 const PropertyRowEnums = z.object({ propertyType: z.enum(PROPERTY_TYPES) });
+const CoverRow = z.object({ mediaId: z.string(), hasThumbnail: z.boolean() }).nullable();
 const OperationEnums = z.object({ operation: z.enum(OPERATIONS), currency: z.enum(CURRENCIES) });
 const PropertyStatus = z.enum(PROPERTY_STATUS_VALUES);
 const ConstructionStatus = z.enum(CONSTRUCTION_STATUS_VALUES);
@@ -345,6 +347,15 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
           propertyType: properties.propertyType,
           title: sql<string>`coalesce(${properties.portalTitle}, ${properties.title})`,
           neighborhood: properties.neighborhood,
+          // Portada o primera foto (índice `media_items_property_position_idx`). La columna va
+          // calificada: dentro de la subconsulta, `id` apuntaría a la foto.
+          cover: sql<unknown>`(
+            select json_build_object('mediaId', m.id, 'hasThumbnail', m.variants ? 'thumbnail')
+            from ${mediaItems} m
+            where m.property_id = ${sql.raw('"properties"."id"')} and m.kind = 'photo'
+            order by m.is_cover desc, m.position asc
+            limit 1
+          )`,
           agentId: properties.producerUserId,
           updatedAt: properties.updatedAt,
         })
@@ -364,6 +375,7 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
         ...PropertyRowEnums.parse(row),
         title: row.title,
         neighborhood: row.neighborhood,
+        cover: CoverRow.parse(row.cover) ?? undefined,
         operations: operations.get(row.id) ?? [],
         agentId: row.agentId ?? undefined,
         updatedAt: row.updatedAt,

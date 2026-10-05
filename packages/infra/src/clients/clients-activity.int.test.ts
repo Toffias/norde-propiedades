@@ -59,7 +59,7 @@ function listing(id: string): ClientListingSummary {
     address: undefined,
     status: 'available',
     operations: [],
-    coverImageUrl: undefined,
+    cover: undefined,
     producer: undefined,
   };
 }

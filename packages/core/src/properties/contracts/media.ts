@@ -191,3 +191,13 @@ export type StoredFileDelivery =
       readonly contentType: string;
       readonly bytes: Uint8Array;
     };
+
+/**
+ * La portada de una propiedad o de un emprendimiento, o su primera foto: la pantalla la pide a la
+ * ruta de fotos del panel (`/propiedades|emprendimientos/[id]/fotos/[mediaId]`). `hasThumbnail`
+ * cuando ya está la miniatura.
+ */
+export interface PropertyCover {
+  readonly mediaId: string;
+  readonly hasThumbnail: boolean;
+}

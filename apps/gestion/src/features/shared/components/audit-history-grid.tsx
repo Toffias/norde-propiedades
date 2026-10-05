@@ -33,7 +33,21 @@ export interface HistoryFormat {
   readonly formatValue: (field: string, value: HistoryValue) => string;
 }
 
-/** Lo que cambió, campo por campo: "Precio: US$ 120.000 → US$ 115.000". */
+/**
+ * Si todos los campos son de la misma fila hija ("Foto: tipo", "Foto: portada"), el prefijo se
+ * muestra una vez y cada campo queda con su nombre.
+ */
+function sharedPrefix(labels: readonly string[]): string | undefined {
+  const prefix = /^([^:]+): /.exec(labels[0] ?? '')?.[1];
+  if (prefix === undefined) return undefined;
+  return labels.every((label) => label.startsWith(`${prefix}: `)) ? prefix : undefined;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Lo que cambió, campo por campo y uno al lado del otro: "Precio: US$ 120.000 → US$ 115.000". */
 function Changes({
   entry,
   format,
@@ -43,11 +57,17 @@ function Changes({
 }) {
   const changes = Object.entries(entry.changes);
   if (changes.length === 0) return null;
+  const prefix = sharedPrefix(changes.map(([field]) => format.fieldLabel(field)));
+  const label = (field: string) => {
+    const full = format.fieldLabel(field);
+    return prefix === undefined ? full : capitalize(full.slice(prefix.length + 2));
+  };
   return (
-    <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+    <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+      {prefix !== undefined && <li className="font-semibold text-foreground">{prefix}</li>}
       {changes.map(([field, change]) => (
-        <li key={field} className="break-words">
-          <span className="font-medium text-foreground">{format.fieldLabel(field)}:</span>{' '}
+        <li key={field} className="max-w-full break-words">
+          <span className="font-medium text-foreground">{label(field)}:</span>{' '}
           {change.before === null ? (
             format.formatValue(field, change.after)
           ) : (
@@ -156,7 +176,7 @@ export function AuditHistoryGrid({
       id: 'change',
       header: 'Cambio',
       cell: (entry) => (
-        <div className="min-w-0">
+        <div className="min-w-0 whitespace-normal">
           <p className="text-sm">
             <span className="font-medium">{actorName(entry)}</span>{' '}
             {format.actionLabels[entry.action] ?? entry.action}

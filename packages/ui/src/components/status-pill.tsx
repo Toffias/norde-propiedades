@@ -11,7 +11,8 @@ const PILL: Record<StatusTone, string> = {
   gray: 'bg-gray-100 text-gray-600 dark:bg-surface-dark-3 dark:text-gray-400',
 };
 
-const DOT: Record<StatusTone, string> = {
+/** El color del punto de cada tono, para leyendas que acompañan a un `StatusPill`. */
+export const STATUS_DOT: Readonly<Record<StatusTone, string>> = {
   green: 'bg-success-500',
   amber: 'bg-warning-500',
   red: 'bg-danger-500',
@@ -39,7 +40,7 @@ export function StatusPill({
         className,
       )}
     >
-      <span className={cn('h-1.5 w-1.5 rounded-full', DOT[tone])} aria-hidden />
+      <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[tone])} aria-hidden />
       {children}
     </span>
   );

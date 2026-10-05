@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from '@norde/ui/components/form';
 import { toast } from '@norde/ui/components/sonner';
-import { PlusIcon, Trash2Icon } from 'lucide-react';
+import { BanknoteIcon, FileTextIcon, MapPinIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatMoney } from '../../../../lib/format';
@@ -71,6 +71,7 @@ export function LocationSection({
   return (
     <InlineSection
       title="Ubicación"
+      icon={MapPinIcon}
       canEdit={canEdit}
       view={
         <Facts
@@ -230,6 +231,7 @@ export function OperationsSection({
   return (
     <InlineSection
       title="Operaciones y precios"
+      icon={BanknoteIcon}
       canEdit={canEdit}
       view={
         <ul className="flex flex-col divide-y divide-border">
@@ -394,6 +396,7 @@ export function DescriptionSection({
   return (
     <InlineSection
       title="Título y descripción"
+      icon={FileTextIcon}
       canEdit={canEdit}
       view={
         <div className="flex flex-col gap-3">

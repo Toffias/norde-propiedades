@@ -17,6 +17,7 @@ import { StatusPill } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
 import {
   ArchiveRestoreIcon,
+  Building2Icon,
   EyeIcon,
   ListIcon,
   MapIcon,
@@ -36,6 +37,7 @@ import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
 } from '../../shared/components/confirm-action-dialog';
+import { PropertyPhoto } from '../../properties/components/property-photo';
 import { usePanel } from '../../shared/components/entity-sheet';
 import { DebouncedInput, FilterSelect, options } from '../../shared/components/list-filters';
 import {
@@ -264,20 +266,36 @@ export function DevelopmentsView({
         header: 'Emprendimiento',
         sortable: true,
         cell: (row) => (
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate font-medium" title={row.name}>
-              {row.name}
-            </span>
-            <span className="truncate text-xs text-muted-foreground">
-              {[
-                row.developmentType === undefined
-                  ? undefined
-                  : DEVELOPMENT_TYPE_LABELS[row.developmentType],
-                row.publishAddress,
-              ]
-                .filter((part) => part !== undefined && part !== '')
-                .join(' · ') || EMPTY_VALUE}
-            </span>
+          <div className="flex min-w-0 items-center gap-3">
+            <PropertyPhoto
+              propertyId={row.id}
+              owner="development"
+              cover={row.cover}
+              className="size-10 shrink-0 rounded-md bg-muted object-cover"
+              fallback={
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+                  aria-hidden
+                >
+                  <Building2Icon className="size-4" />
+                </span>
+              }
+            />
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate font-medium" title={row.name}>
+                {row.name}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {[
+                  row.developmentType === undefined
+                    ? undefined
+                    : DEVELOPMENT_TYPE_LABELS[row.developmentType],
+                  row.publishAddress,
+                ]
+                  .filter((part) => part !== undefined && part !== '')
+                  .join(' · ') || EMPTY_VALUE}
+              </span>
+            </div>
           </div>
         ),
       },

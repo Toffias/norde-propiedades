@@ -285,6 +285,8 @@ export interface AppraisalListRow {
   readonly status: AppraisalStatusValue;
   readonly propertyType: PropertyType;
   readonly address: string | undefined;
+  /** La primera foto, para la miniatura (`/tasaciones/[id]/fotos/[photoId]`). */
+  readonly coverPhotoId: string | undefined;
   /** `name` es `undefined` si el contacto ya no está (papelera o supresión). */
   readonly requester: { readonly id: string; readonly name: string | undefined };
   readonly producer: AppraisalRef;

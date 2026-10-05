@@ -25,3 +25,14 @@ export const CATEGORICAL_COLORS = [
 export function chartGridColor(isDark: boolean): string {
   return isDark ? '#26251f' : '#edeae0';
 }
+
+/** Colores del texto y del fondo de la tarjeta, para los rótulos que pinta ApexCharts. */
+export function chartTextColors(isDark: boolean): {
+  readonly foreground: string;
+  readonly muted: string;
+  readonly surface: string;
+} {
+  return isDark
+    ? { foreground: '#efede6', muted: '#a8a293', surface: '#1d1d18' }
+    : { foreground: '#1f2328', muted: '#6b7280', surface: '#ffffff' };
+}

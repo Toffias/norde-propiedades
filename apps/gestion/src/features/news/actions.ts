@@ -12,7 +12,7 @@ import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
 import { NEWS_ERROR_MESSAGES } from './messages';
 
-/** La tanda siguiente del feed (scroll infinito). */
+/** La tanda siguiente del feed ("Ver más"). */
 export async function loadNewsPageAction(
   query: ListNewsQuery,
 ): Promise<

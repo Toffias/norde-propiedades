@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
-import { clients, clientTagAssignments, clientTags } from '../db/schema';
+import { clients, clientTagAssignments, clientTags, mediaItems } from '../db/schema';
 import { DrizzlePropertyRepository } from '../properties/drizzle-property-repository';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
@@ -177,12 +177,53 @@ describe('DrizzleNewsFeedQuery', () => {
       propertyType: 'apartment',
       neighborhood: 'Villa Luro',
       status: expect.any(String) as unknown,
+      cover: undefined,
       operations: [{ operation: 'sale', currency: 'USD', priceCents: 12_800_000n }],
       deleted: false,
     });
     expect(page.items[1]?.entries[0]?.changes).toEqual({
       status: { before: 'loading', after: 'available' },
     });
+  });
+
+  it('shows the cover of each property, or its first photo', async () => {
+    const withCover = await aProperty('NEWS400');
+    const withPhotos = await aProperty('NEWS401');
+    const cover = ids.next();
+    const first = ids.next();
+    const photo = (id: string, propertyId: string, position: number, isCover = false) => ({
+      id,
+      propertyId,
+      kind: 'photo',
+      storageKey: `properties/${propertyId}/${id}.jpg`,
+      url: `properties/${propertyId}/${id}.jpg`,
+      position,
+      isCover,
+      uploadedBy: USER,
+      ...stamps,
+    });
+    await db
+      .insert(mediaItems)
+      .values([
+        photo(ids.next(), withCover, 0),
+        { ...photo(cover, withCover, 1, true), variants: { thumbnail: 'thumb.jpg' } },
+        photo(ids.next(), withPhotos, 1),
+        photo(first, withPhotos, 0),
+        { ...photo(ids.next(), withPhotos, -1), kind: 'floor_plan' },
+      ]);
+    await record('property', withCover, 'property.created', '2026-10-02T12:00:00Z');
+    await record('property', withPhotos, 'property.created', '2026-10-02T11:00:00Z');
+
+    const page = await new DrizzleNewsFeedQuery(db).list(ALL);
+
+    expect(
+      page.items.map((card) =>
+        card.header?.entityType === 'property' ? card.header.cover : 'not a property',
+      ),
+    ).toEqual([
+      { mediaId: cover, hasThumbnail: true },
+      { mediaId: first, hasThumbnail: false },
+    ]);
   });
 
   it('paginates the cards, filters by kind and caps the entries of each card', async () => {

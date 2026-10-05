@@ -12,6 +12,7 @@ import {
   NEWS_ENTRIES_PER_CARD,
   NewsFeedQuerySchema,
   type NewsCard,
+  type NewsHeader,
   type ListNewsQuery,
 } from '../../contracts';
 import type {
@@ -27,6 +28,12 @@ export interface InvalidNewsQueryError {
 }
 
 export type ListNewsError = ForbiddenError | InvalidNewsQueryError;
+
+/** La portada sale de la ruta de fotos de la propiedad: sin `properties:read`, no se muestra. */
+function headerFor(header: NewsHeader | undefined, actor: Actor): NewsHeader | undefined {
+  if (header?.entityType !== 'property' || header.cover === undefined) return header;
+  return actor.can('properties:read') ? header : { ...header, cover: undefined };
+}
 
 /** El agente que recibió un contacto reasignado, del diff de la reasignación. */
 function assigneeOf(entry: NewsEntryRecord): string | undefined {
@@ -85,7 +92,7 @@ export class ListNews {
       entityType: card.entityType,
       entityId: card.entityId,
       day: card.day,
-      header: card.header,
+      header: headerFor(card.header, actor),
       moreCount: Math.max(0, card.entryCount - card.entries.length),
       entries: card.entries.map((entry) => {
         const assignee = assigneeOf(entry);

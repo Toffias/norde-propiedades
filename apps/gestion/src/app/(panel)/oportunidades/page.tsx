@@ -20,8 +20,10 @@ import {
 } from '../../../features/opportunities/components/opportunity-filters';
 import {
   OpportunityPipeline,
+  OpportunityStageCards,
   type OpportunitySection,
 } from '../../../features/opportunities/components/opportunity-pipeline';
+import { ALL_AGENTS_PARAM } from '../../../features/opportunities/agent-filter';
 import { LIST_OPPORTUNITIES_ERROR_MESSAGES } from '../../../features/opportunities/messages';
 import { messageForError } from '../../../lib/errors';
 import { parseListParams, type SearchParams } from '../../../lib/list-params';
@@ -37,8 +39,16 @@ export default async function OpportunitiesPage({
 }: {
   readonly searchParams: Promise<SearchParams>;
 }) {
-  const { actor } = await requireSession();
+  const { actor, profile } = await requireSession();
   const params = await searchParams;
+  const canPickAgents = actor.can('users:read');
+  // Por defecto, las oportunidades de quien entra; `agentId=todos` muestra las de todos. Solo si
+  // puede elegir otro agente: si no, no tendría cómo quitar el filtro.
+  const { agentId: agentParam, ...otherParams } = params;
+  const listParams: SearchParams =
+    agentParam === ALL_AGENTS_PARAM || !canPickAgents
+      ? otherParams
+      : { ...otherParams, agentId: agentParam ?? actor.id };
   const { clients } = getContainer();
 
   const config = await clients.getOpportunityConfiguration.execute(actor);
@@ -52,26 +62,35 @@ export default async function OpportunitiesPage({
   }
   const { stages, closeReasons } = config.value;
 
-  const parsedFilter = parseListParams(OpportunityFilterSchema, params);
+  const parsedFilter = parseListParams(OpportunityFilterSchema, listParams);
   const filter = parsedFilter.value;
   const invalidKeys = new Set(parsedFilter.invalidKeys);
   const counts = await clients.countOpportunitiesByStage.execute(filter, actor);
   const board = params.vista === 'tablero';
   if (params.vista !== undefined && !board) invalidKeys.add('vista');
 
-  // La sección abierta: la de la URL, o el primer estado (por posición) que tiene oportunidades.
+  // El estado filtrado desde las tarjetas (`?estado=`): la lista muestra solo esa sección.
+  const focusRequested = typeof params.estado === 'string' ? params.estado : undefined;
+  const focusedStageId = stages.some((stage) => stage.id === focusRequested)
+    ? focusRequested
+    : undefined;
+  if (!board && focusRequested !== undefined && focusedStageId === undefined)
+    invalidKeys.add('estado');
+  // La sección abierta: la del estado filtrado, la de la URL, o el primer estado (por posición) que
+  // tiene oportunidades.
   const requested = typeof params.stageId === 'string' ? params.stageId : undefined;
   const known = stages.some((stage) => stage.id === requested);
   const firstWithRows = counts.isOk()
     ? stages.find((stage) => counts.value.some((c) => c.stageId === stage.id && c.count > 0))?.id
     : undefined;
-  const stageId = known ? requested : firstWithRows;
+  const stageId = focusedStageId ?? (known ? requested : firstWithRows);
 
   let section: OpportunitySection | undefined;
   let listError: string | undefined;
   let columns: OpportunityBoardColumn[] = [];
+  // El orden es uno para todos los estados (lista y tablero): va en la barra de filtros.
   const boardSort = parseListParams(ListOpportunitiesQuerySchema, {
-    ...params,
+    ...listParams,
     stageId: stages[0]?.id,
   });
   if (board && counts.isOk()) {
@@ -106,7 +125,7 @@ export default async function OpportunitiesPage({
   } else if (counts.isOk() && stageId !== undefined) {
     const { value: query, invalidKeys: listInvalid } = parseListParams(
       ListOpportunitiesQuerySchema,
-      { ...params, stageId },
+      { ...listParams, stageId },
     );
     for (const key of listInvalid) invalidKeys.add(key);
     const result = await clients.listOpportunities.execute(query, actor);
@@ -117,9 +136,7 @@ export default async function OpportunitiesPage({
         stageId,
         rows: result.value.items,
         total: result.value.total,
-        page: result.value.page,
-        pageSize: result.value.pageSize,
-        sort: query.sort,
+        query: { ...query, page: result.value.page, pageSize: result.value.pageSize },
       };
     }
   }
@@ -137,14 +154,15 @@ export default async function OpportunitiesPage({
     updatedFrom: filter.updatedFrom ?? '',
     updatedTo: filter.updatedTo ?? '',
   };
-  // El nombre del agente filtrado, para el selector: sale de las filas (son suyas).
+  // El nombre del agente filtrado, para el selector: quien entra, o sale de las filas (son suyas).
   const agentLabel =
     filter.agentId === undefined
       ? undefined
-      : [...(section?.rows ?? []), ...columns.flatMap((column) => column.rows)].find(
-          (row) => row.agent?.id === filter.agentId,
-        )?.agent?.name;
-  const canPickAgents = actor.can('users:read');
+      : filter.agentId === actor.id
+        ? profile.name
+        : [...(section?.rows ?? []), ...columns.flatMap((column) => column.rows)].find(
+            (row) => row.agent?.id === filter.agentId,
+          )?.agent?.name;
   // Qué acciones masivas ofrecer: el caso de uso vuelve a chequear cada oportunidad.
   const bulkPermissions = {
     update: actor.can('opportunities:update') || actor.can('opportunities:update-others'),
@@ -157,6 +175,7 @@ export default async function OpportunitiesPage({
   const toolbar = (
     <OpportunityFilters
       filters={filters}
+      sort={boardSort.value.sort}
       permissions={{ pickAgents: canPickAgents, pickBranches: actor.can('branches:read') }}
       agentLabel={agentLabel}
     />
@@ -177,6 +196,14 @@ export default async function OpportunitiesPage({
         </p>
       )}
 
+      {!board && counts.isOk() && (
+        <OpportunityStageCards
+          stages={stages}
+          counts={counts.value}
+          focusedStageId={focusedStageId}
+        />
+      )}
+
       <Card className="gap-0 overflow-hidden p-0">
         {counts.isErr() ? (
           <DataTableError
@@ -194,11 +221,11 @@ export default async function OpportunitiesPage({
           />
         ) : (
           <OpportunityPipeline
-            view={filter.category === 'referred_to_partner' ? 'referred' : 'list'}
             bulk={bulk}
             stages={stages}
             counts={counts.value}
             section={section}
+            focusedStageId={focusedStageId}
             catalog={{ stages, closeReasons }}
             canPickAgents={canPickAgents}
             toolbar={toolbar}

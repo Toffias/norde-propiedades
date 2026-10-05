@@ -27,40 +27,34 @@ import { Button } from '@norde/ui/components/button';
 import { toast } from '@norde/ui/components/sonner';
 import { SoftBadge } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
-import {
-  GripVerticalIcon,
-  HistoryIcon,
-  Loader2Icon,
-  LockIcon,
-  MessageCircleIcon,
-  StickyNoteIcon,
-} from 'lucide-react';
-import type { Route } from 'next';
+import { GripVerticalIcon, Loader2Icon, LockIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 
 import { runAction } from '../../../lib/action-result';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { formatDate, formatDateTime } from '../../../lib/format';
-import { clientName, whatsappHref } from '../../clients/client-format';
+import { clientName } from '../../clients/client-format';
 import { ListNavigationProvider } from '../../shared/components/server-data-table';
 import { changeOpportunityStageAction, loadOpportunityColumnAction } from '../pipeline-actions';
 
-import { ColorDot } from './catalog-pieces';
+import { ColorDot, stageTint } from './catalog-pieces';
 import {
   CloseDialog,
   OpportunityActionsMenu,
   type OpportunityCatalogView,
 } from './opportunity-actions';
+import { OpportunityHistoryDialog, OpportunityNoteDialog } from './opportunity-card-dialogs';
 import {
-  OpportunityHistoryDialog,
-  OpportunityNoteDialog,
-  type OpportunityCardTarget,
-} from './opportunity-card-dialogs';
+  ContactInitials,
+  OpportunityQuickActions,
+  opportunityTarget,
+  PropertyLink,
+  type OpportunityDialog,
+} from './opportunity-row-pieces';
 import {
   contactHref,
   daysLabel,
-  OpportunitySortSelect,
   PipelineToolbar,
   type OpportunitySort,
 } from './opportunity-view-controls';
@@ -123,8 +117,6 @@ function reachable(
   );
 }
 
-type CardDialog = 'note' | 'history';
-
 /** La columna bajo el puntero; con el teclado (sin puntero), la que más se superpone. */
 const columnUnderPointer: CollisionDetection = (args) => {
   const hits = pointerWithin(args);
@@ -133,10 +125,6 @@ const columnUnderPointer: CollisionDetection = (args) => {
 
 function countLabel(count: number): string {
   return `${count.toLocaleString('es-AR')} ${count === 1 ? 'oportunidad' : 'oportunidades'}`;
-}
-
-function cardTarget(row: OpportunityPipelineRow): OpportunityCardTarget {
-  return { id: row.id, clientId: row.client.id, clientName: clientName(row.client.name) };
 }
 
 function CardBody({
@@ -151,7 +139,8 @@ function CardBody({
   const name = clientName(row.client.name);
   return (
     <>
-      <div className="flex items-start gap-1">
+      <div className="flex items-start gap-2">
+        <ContactInitials name={name} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <Link
             href={contactHref(row.client.id)}
@@ -171,16 +160,7 @@ function CardBody({
         </div>
         {handle}
       </div>
-      {row.property !== undefined && (
-        <Link
-          // La ficha de la propiedad: typedRoutes no verifica un string armado.
-          href={`/propiedades/${row.property.id}` as Route}
-          className="truncate text-xs text-primary hover:underline"
-          title={row.property.title}
-        >
-          {row.property.code} · {row.property.title}
-        </Link>
-      )}
+      {row.property !== undefined && <PropertyLink property={row.property} />}
       {row.lastNote !== undefined && (
         <p className="line-clamp-2 text-xs text-muted-foreground italic">“{row.lastNote}”</p>
       )}
@@ -206,10 +186,9 @@ function BoardCard({
   readonly row: OpportunityPipelineRow;
   readonly catalog: OpportunityCatalogView;
   readonly canPickAgents: boolean;
-  readonly onDialog: (row: OpportunityPipelineRow, dialog: CardDialog) => void;
+  readonly onDialog: (row: OpportunityPipelineRow, dialog: OpportunityDialog) => void;
 }) {
   const name = clientName(row.client.name);
-  const phone = row.client.phone;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: row.id,
     disabled: !row.can.update,
@@ -242,46 +221,7 @@ function BoardCard({
         }
         footer={
           <div className="-mx-1 -mb-1 flex items-center justify-between border-t border-border pt-1">
-            <div className="flex items-center">
-              {row.can.update && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Nota a la oportunidad de ${name}`}
-                  title="Agregar nota"
-                  onClick={() => {
-                    onDialog(row, 'note');
-                  }}
-                >
-                  <StickyNoteIcon className="h-4 w-4" />
-                </Button>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Historial de la oportunidad de ${name}`}
-                title="Historial"
-                onClick={() => {
-                  onDialog(row, 'history');
-                }}
-              >
-                <HistoryIcon className="h-4 w-4" />
-              </Button>
-              {!row.client.contactMasked && phone !== undefined && (
-                <a
-                  href={whatsappHref(phone)}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`WhatsApp a ${name}`}
-                  title="WhatsApp"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <MessageCircleIcon className="h-4 w-4" />
-                </a>
-              )}
-            </div>
+            <OpportunityQuickActions row={row} onDialog={onDialog} />
             <OpportunityActionsMenu
               target={{
                 id: row.id,
@@ -316,7 +256,7 @@ function BoardColumn({
   readonly catalog: OpportunityCatalogView;
   readonly canPickAgents: boolean;
   readonly onLoadMore: (stageId: string) => void;
-  readonly onDialog: (row: OpportunityPipelineRow, dialog: CardDialog) => void;
+  readonly onDialog: (row: OpportunityPipelineRow, dialog: OpportunityDialog) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const scroller = useRef<HTMLDivElement>(null);
@@ -346,13 +286,17 @@ function BoardColumn({
       ref={setNodeRef}
       aria-label={`${stage.name}: ${countLabel(state.total)}`}
       className={cn(
-        'flex max-h-[calc(100dvh-16rem)] min-h-48 w-[85vw] max-w-[300px] shrink-0 snap-start flex-col rounded-xl border border-border bg-muted/40 transition-[opacity,box-shadow] sm:w-[280px]',
+        'flex max-h-[calc(100dvh-16rem)] min-h-48 w-[85vw] max-w-[300px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-border transition-[opacity,box-shadow] sm:w-[280px]',
         target && !allowed && 'opacity-50',
         isOver && allowed && 'ring-2 ring-primary',
         isOver && !allowed && 'ring-2 ring-destructive/60',
       )}
+      style={{ backgroundColor: stageTint(stage.color, 5) }}
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+      <header
+        className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5"
+        style={{ backgroundColor: stageTint(stage.color, 10) }}
+      >
         <span className="flex min-w-0 items-center gap-2">
           <ColorDot color={stage.color} />
           <span className="truncate text-sm font-semibold">{stage.name}</span>
@@ -448,7 +392,7 @@ function BoardBody({
     { readonly row: OpportunityPipelineRow; readonly stage: OpportunityStageRow } | undefined
   >();
   const [dialog, setDialog] = useState<
-    { readonly row: OpportunityPipelineRow; readonly kind: CardDialog } | undefined
+    { readonly row: OpportunityPipelineRow; readonly kind: OpportunityDialog } | undefined
   >();
   const [, startTransition] = useTransition();
   const loading = useRef(new Set<string>());
@@ -564,12 +508,9 @@ function BoardBody({
   return (
     <div className="flex flex-col">
       <PipelineToolbar view="board">{toolbar}</PipelineToolbar>
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
-        <p className="shrink-0 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
-          {countLabel(totalShown)}
-        </p>
-        <OpportunitySortSelect sort={query.sort} />
-      </div>
+      <p className="border-b border-border px-4 py-2 text-sm text-muted-foreground tabular-nums">
+        {countLabel(totalShown)}
+      </p>
       <DndContext
         id={dndId}
         sensors={sensors}
@@ -632,7 +573,7 @@ function BoardBody({
       )}
       {dialog?.kind === 'note' && (
         <OpportunityNoteDialog
-          target={cardTarget(dialog.row)}
+          target={opportunityTarget(dialog.row)}
           open
           onOpenChange={(open) => {
             if (!open) setDialog(undefined);
@@ -641,7 +582,7 @@ function BoardBody({
       )}
       {dialog?.kind === 'history' && (
         <OpportunityHistoryDialog
-          target={cardTarget(dialog.row)}
+          target={opportunityTarget(dialog.row)}
           open
           onOpenChange={(open) => {
             if (!open) setDialog(undefined);

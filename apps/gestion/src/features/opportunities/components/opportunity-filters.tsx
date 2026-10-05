@@ -24,6 +24,9 @@ import { loadClientTagOptions } from '../../clients/tag-actions';
 import { loadBranchOptions, loadUserOptions } from '../../identity/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
 import { useListNavigation } from '../../shared/components/server-data-table';
+import { ALL_AGENTS_PARAM } from '../agent-filter';
+
+import { OpportunitySortSelect, type OpportunitySort } from './opportunity-view-controls';
 
 /** Filtros del pipeline tal como están en la URL (texto, sin parsear). */
 export interface OpportunityFilterValues {
@@ -49,13 +52,15 @@ export interface OpportunityFilterPermissions {
 /** "Todos" en un select: sin el param en la URL. */
 const ANY = 'any';
 
-/** Agente, sucursal, etiqueta y fechas: los filtros menos usados, en un popover. */
+/** El orden, agente, sucursal, etiqueta y fechas: lo menos usado, en un popover. */
 function MoreFilters({
   filters,
+  sort,
   permissions,
   agentLabel,
 }: {
   readonly filters: OpportunityFilterValues;
+  readonly sort: OpportunitySort;
   readonly permissions: OpportunityFilterPermissions;
   readonly agentLabel: string | undefined;
 }) {
@@ -74,12 +79,30 @@ function MoreFilters({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" className="w-full sm:w-auto">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="relative"
+          aria-label={active > 0 ? `Más filtros (${String(active)} aplicados)` : 'Más filtros'}
+          title="Más filtros y orden"
+        >
           <SlidersHorizontalIcon className="h-4 w-4" />
-          Más filtros{active > 0 ? ` (${String(active)})` : ''}
+          {active > 0 && (
+            <span
+              aria-hidden
+              className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none font-semibold text-primary-foreground tabular-nums"
+            >
+              {active}
+            </span>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-[min(92vw,340px)] flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium">Ordenar por</span>
+          <OpportunitySortSelect sort={sort} className="h-9 sm:w-full" />
+        </div>
         {permissions.pickAgents && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${id}-agent`} className="text-xs">
@@ -94,7 +117,7 @@ function MoreFilters({
                   : { value: filters.agentId, label: agentLabel ?? 'Agente elegido' }
               }
               onChange={(agentId) => {
-                setParams({ agentId });
+                setParams({ agentId: agentId ?? ALL_AGENTS_PARAM });
               }}
               loadPage={loadUserOptions}
               placeholder="Todos los agentes"
@@ -160,13 +183,15 @@ function MoreFilters({
   );
 }
 
-/** Búsqueda por contacto, categoría, canal de origen y más filtros. */
+/** Búsqueda por contacto, categoría, canal de origen y más filtros (con el orden de todos los estados). */
 export function OpportunityFilters({
   filters,
+  sort,
   permissions,
   agentLabel,
 }: {
   readonly filters: OpportunityFilterValues;
+  readonly sort: OpportunitySort;
   readonly permissions: OpportunityFilterPermissions;
   /** El nombre del agente filtrado, si se conoce (para el selector). */
   readonly agentLabel: string | undefined;
@@ -174,8 +199,8 @@ export function OpportunityFilters({
   const { setParams } = useListNavigation();
 
   return (
-    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
-      <div className="col-span-2 sm:contents">
+    <div className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="col-span-3 sm:contents">
         <SearchInput
           value={filters.q}
           placeholder="Contacto: nombre, teléfono, email o DNI"
@@ -218,9 +243,12 @@ export function OpportunityFilters({
           ))}
         </SelectContent>
       </Select>
-      <div className="col-span-2 sm:contents">
-        <MoreFilters filters={filters} permissions={permissions} agentLabel={agentLabel} />
-      </div>
+      <MoreFilters
+        filters={filters}
+        sort={sort}
+        permissions={permissions}
+        agentLabel={agentLabel}
+      />
     </div>
   );
 }

@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@norde/ui/components/select';
 import { cn } from '@norde/ui/lib/utils';
-import { HandshakeIcon, ListIcon, SquareKanbanIcon } from 'lucide-react';
+import { ListIcon, SquareKanbanIcon } from 'lucide-react';
 import type { Route } from 'next';
 import type { ReactNode } from 'react';
 
@@ -74,19 +74,15 @@ export function OpportunitySortSelect({
   );
 }
 
-/** Lista, tablero, o la lista de las derivadas a socias (un filtro por categoría). */
-export type OpportunityView = 'list' | 'board' | 'referred';
+/** Lista o tablero. Las derivadas a socias se ven con su estado o su categoría. */
+export type OpportunityView = 'list' | 'board';
 
 const VIEW_OPTIONS = [
   { value: 'list', label: 'Lista', icon: ListIcon },
   { value: 'board', label: 'Tablero', icon: SquareKanbanIcon },
-  { value: 'referred', label: 'Derivadas', icon: HandshakeIcon },
 ] as const;
 
-/**
- * Lista, tablero (`?vista=tablero`) o derivadas a socias (la lista con la categoría "Aplica a otra
- * inmobiliaria"). Los demás filtros y el orden se mantienen.
- */
+/** Lista o tablero (`?vista=tablero`). Los filtros y el orden se mantienen. */
 export function OpportunityViewToggle({ view }: { readonly view: OpportunityView }) {
   const { setParams, pending } = useListNavigation();
   return (
@@ -111,16 +107,12 @@ export function OpportunityViewToggle({ view }: { readonly view: OpportunityView
             )}
             onClick={() => {
               if (active) return;
-              // Cada vista arranca sin sección abierta ni páginas (en el tablero, cada columna
-              // pagina sola). Salir de "Derivadas" quita su categoría.
+              // Cada vista arranca sin sección abierta, sin estado filtrado ni páginas (en el
+              // tablero, cada columna pagina sola).
               setParams({
                 vista: value === 'board' ? 'tablero' : undefined,
-                ...(value === 'referred'
-                  ? { category: 'referred_to_partner' }
-                  : view === 'referred'
-                    ? { category: undefined }
-                    : {}),
                 stageId: undefined,
+                estado: undefined,
                 page: undefined,
                 pageSize: undefined,
               });

@@ -31,6 +31,10 @@ describe('initials', () => {
     expect(initials('  ana ')).toBe('A');
   });
 
+  it('skips words that do not start with a letter or a number', () => {
+    expect(initials('Martín G. (prueba)')).toBe('MG');
+  });
+
   it('returns an empty string for a blank name', () => {
     expect(initials('   ')).toBe('');
   });

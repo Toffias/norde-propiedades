@@ -18,13 +18,13 @@ import {
 } from '@norde/ui/components/dialog';
 import { toast } from '@norde/ui/components/sonner';
 import { SoftBadge, StatusPill } from '@norde/ui/components/status-pill';
+import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import {
   ArchiveRestoreIcon,
   CombineIcon,
   Loader2Icon,
   LockIcon,
   MailIcon,
-  MessageCircleIcon,
   PhoneIcon,
   ShieldAlertIcon,
   StickyNoteIcon,
@@ -278,7 +278,7 @@ export function ClientDetailHeader({
           {!detail.contactMasked && mobile !== undefined && (
             <Button asChild variant="outline" size="sm">
               <a href={whatsappHref(mobile.number)} target="_blank" rel="noreferrer">
-                <MessageCircleIcon className="h-4 w-4" />
+                <WhatsAppIcon className="h-4 w-4" />
                 WhatsApp
               </a>
             </Button>

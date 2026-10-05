@@ -325,9 +325,10 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 
 **Oportunidades** (`/oportunidades`) muestra las oportunidades que el actor puede ver: las suyas, las de su sucursal (`opportunities:read-branch`) o todas (`opportunities:read-all`). La visibilidad usa el **agente y la sucursal de la oportunidad**, no los del contacto. Las de contactos en la papelera no aparecen.
 
-- **Contadores**: arriba, un contador por estado con los filtros aplicados. Se muestran los estados activos y los desactivados que todavía tienen oportunidades. Tocar uno abre su sección.
-- **Secciones**: un acordeón con una sección por estado, en el orden de Mi empresa. Hay una sola abierta a la vez (`?stageId=`), con sus oportunidades paginadas en el servidor. Sin estado en la URL se abre el primero que tiene oportunidades.
-- **Orden**: actualizadas recientemente, más tiempo en el estado (vigencia), creadas recientemente, más antiguas o por contacto (A–Z).
+- **Tarjetas por estado**: arriba de la lista, una tarjeta por estado con su total y los filtros aplicados. Se muestran los estados activos y los desactivados que todavía tienen oportunidades. Tocar una filtra la lista a ese estado (`?estado=`); tocarla otra vez lo quita y deja abierta esa sección.
+- **Secciones**: un acordeón con una sección por estado, en el orden de Mi empresa, con la cabecera tenida con el color del estado. Hay una sola abierta a la vez (`?stageId=`): trae su primera página y "Ver más" suma la siguiente (paginada en el servidor, sin tocar la URL); tocar su cabecera la colapsa. Sin estado en la URL se abre el primero que tiene oportunidades. "Seleccionar las cargadas" va en la cabecera de la sección abierta, a la izquierda del nombre.
+- **Orden**: uno solo para todos los estados, dentro de "Más filtros" (un botón de ícono, con el número de filtros aplicados), en lista y tablero: actualizadas recientemente, más tiempo en el estado (vigencia), creadas recientemente, más antiguas o por contacto (A–Z). Cambiar de sección mantiene el orden.
+- **Agente por defecto**: sin agente en la URL se ven las oportunidades de quien entra. Quitar el agente en "Más filtros" muestra las de todos (`?agentId=todos`). Solo aplica a quien puede elegir agente (`users:read`); si no, no tendría cómo quitarlo.
 - **Filtros**: texto del contacto (nombre, teléfono, email o documento), categoría, canal de origen, agente de la oportunidad, sucursal, etiqueta del contacto y rangos de creación y de última actualización.
 - **Cada fila**: el contacto (con link a su ficha), qué busca, la propiedad por la que consultó, teléfono (enmascarado si es propietario y no se tiene "Ver datos de propietarios"), canal, agente, última actualización, la última nota del contacto y los días en el estado. Atajo a WhatsApp.
 
@@ -376,7 +377,7 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 - **Para propietarios**: cuando nace la oportunidad de un contacto propietario.
 - Mueven al estado configurado solo si el dominio lo permite y la oportunidad está abierta; si no, no hacen nada. Cada evento aplica una sola vez, aunque llegue repetido. El cambio queda como hecho por el sistema.
 
-**Derivadas** (selector Lista / Tablero / Derivadas): la lista con la categoría "Aplica a otra inmobiliaria". Cada fila muestra a qué socia se derivó, la fecha y el resultado (derivada, sin opciones, volvió a Norde). "Derivación…" en el menú los carga; solo mientras la oportunidad está en esa categoría, y queda auditado (`opportunity.referral_updated`).
+**Derivadas a socias**: se ven con la tarjeta del estado o el filtro de categoría "Aplica a otra inmobiliaria" (no hay una vista aparte). Cada fila muestra a qué socia se derivó, la fecha y el resultado (derivada, sin opciones, volvió a Norde). "Derivación…" en el menú los carga; solo mientras la oportunidad está en esa categoría, y queda auditado (`opportunity.referral_updated`).
 
 ### 3.3.9 Bandeja de consultas (#10)
 

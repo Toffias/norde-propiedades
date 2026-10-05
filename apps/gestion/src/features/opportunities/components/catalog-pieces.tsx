@@ -49,6 +49,11 @@ export function ColorDot({
   );
 }
 
+/** El color de un estado apenas tenido, para fondos (cabeceras, columnas, tarjetas por estado). */
+export function stageTint(color: string, percent: number): string {
+  return `color-mix(in oklab, ${color} ${String(percent)}%, transparent)`;
+}
+
 function SortableRow({
   id,
   label,

@@ -130,6 +130,7 @@ import {
   CloseOpportunity,
   ReassignOpportunity,
   AssignInquiry,
+  CountInquiriesByTab,
   CountPendingInquiries,
   CreateInquiryRule,
   DeleteInquiry,
@@ -855,6 +856,7 @@ function createInquiriesUseCases(
       branches: { names: (branchIds) => directory.names('branch', branchIds) },
     }),
     countPendingInquiries: new CountPendingInquiries({ inbox }),
+    countInquiriesByTab: new CountInquiriesByTab({ inbox }),
     deleteInquiry: new DeleteInquiry({ uow, clock }),
     restoreInquiry: new RestoreInquiry({ uow, clock }),
     listInquiryMatches: new ListInquiryMatches({

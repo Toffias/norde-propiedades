@@ -418,13 +418,13 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 **Bandeja** (`/consultas`):
 
 - **Quién**: la ve quien tiene "Ver consultas" (`inquiries:read`): todas las consultas, no solo las suyas. Asignar, borrar y restaurar piden "Administrar consultas" (`inquiries:manage`).
-- **Pestañas**: Pendientes, Asignadas y Borradas, paginadas en el servidor. La más nueva va primero.
-- **Filtros**: canal, propiedad (selector paginado de la cartera), sucursal y fecha de recepción (días de Buenos Aires, inclusive).
-- **Cada tarjeta** muestra:
-  - el remitente y la antigüedad;
-  - el email y el celular;
-  - el mensaje y las etiquetas;
-  - la propiedad con su captador, y la sucursal.
+- **Pestañas**: Pendientes, Asignadas y Borradas, paginadas en el servidor. La más nueva va primero. Son tarjetas arriba de la bandeja con el total de cada una según los filtros aplicados (canal, propiedad, sucursal y fechas); tocar una cambia de pestaña (`?tab=`).
+- **Filtros**: canal, propiedad (selector paginado de la cartera), sucursal y fecha de recepción (un rango con calendario; días de Buenos Aires, inclusive). En pantallas anchas van todos en una fila, con "Limpiar"; en las angostas, sucursal y fecha quedan en "Más filtros".
+- **Cada tarjeta** pone la propiedad al frente:
+  - a la izquierda, la foto de portada con el código (link a la ficha), a la altura de la tarjeta;
+  - el título, la operación con su precio y, si los hay, el captador y la sucursal;
+  - debajo, el remitente (iniciales, nombre, canal y antigüedad), el email, el celular con acceso a WhatsApp, el mensaje y las etiquetas;
+  - las acciones a la derecha (abajo, en mobile).
   - En Asignadas suma el agente y el link al contacto; en Borradas, quién la borró y cuándo.
 - **Borrar** la manda a Borradas (`inquiry.deleted`). **Restaurar** la devuelve a pendiente, o a asignada si ya tenía contacto (`inquiry.restored`).
 - **Menú**: "Consultas" muestra cuántas hay sin asignar (pendientes, sin las borradas) a quien puede verlas.

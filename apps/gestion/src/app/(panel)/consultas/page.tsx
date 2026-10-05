@@ -11,6 +11,7 @@ import { inquiryRulesEnabled } from '../../../config/env';
 import { getContainer } from '../../../container';
 import {
   InquiriesView,
+  InquiryTabCards,
   type InquiryFilterValues,
 } from '../../../features/inquiries/components/inquiries-view';
 import { INQUIRY_LIST_ERROR_MESSAGES } from '../../../features/inquiries/messages';
@@ -30,7 +31,12 @@ export default async function InquiriesPage({
     ListInquiriesQuerySchema,
     await searchParams,
   );
-  const result = await getContainer().inquiries.listInquiries.execute(query, actor);
+  const { inquiries } = getContainer();
+  const { tab: _tab, page: _page, pageSize: _pageSize, sort: _sort, ...filterQuery } = query;
+  const [result, counts] = await Promise.all([
+    inquiries.listInquiries.execute(query, actor),
+    inquiries.countInquiriesByTab.execute(filterQuery, actor),
+  ]);
 
   const filters: InquiryFilterValues = {
     tab: query.tab,
@@ -70,6 +76,8 @@ export default async function InquiriesPage({
           valores por defecto.
         </p>
       )}
+
+      {counts.isOk() && <InquiryTabCards tab={query.tab} counts={counts.value} />}
 
       <Card className="gap-0 overflow-hidden p-0">
         {result.isErr() ? (

@@ -26,6 +26,7 @@
     "next-themes": "catalog:",
     "radix-ui": "catalog:",
     "react-apexcharts": "catalog:",
+    "react-day-picker": "catalog:",
     "react-hook-form": "catalog:",
     "sonner": "catalog:",
     "tailwind-merge": "catalog:",

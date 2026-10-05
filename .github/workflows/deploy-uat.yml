@@ -1,0 +1,148 @@
+name: Deploy UAT
+
+# Publica las tres apps en el VPS de Hostinger (docs/deploy.md). Lo llama CI cuando un push a `uat`
+# pasa; también se puede correr a mano desde Actions para volver a publicar la rama.
+#
+# El build corre acá y no en el VPS (1 vCPU / 4 GB compartido con otros proyectos). Se compila en
+# la misma ruta absoluta que en el VPS para que `.next` no arrastre rutas del runner. En el VPS solo
+# se instalan las dependencias, se migran las bases y se recargan los procesos.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+# Un deploy por vez; uno nuevo espera al anterior en vez de cortarlo.
+concurrency:
+  group: deploy-uat
+  cancel-in-progress: false
+
+env:
+  DEPLOY_DIR: /var/www/norde-uat
+  # Node del VPS para las apps de Norde (el del sistema lo usan otros proyectos).
+  VPS_NODE_DIR: /opt/node-24/bin
+  WEB_URL: https://landingnorde.apzsoftware.online
+  GESTION_URL: https://gestionnorde.apzsoftware.online
+  AGENT_URL: https://agentenorde.apzsoftware.online
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: uat
+      url: ${{ env.WEB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copiar el repo a la ruta del VPS
+        run: |
+          sudo mkdir -p "$DEPLOY_DIR"
+          sudo chown "$USER" "$DEPLOY_DIR"
+          rsync -a --exclude .git ./ "$DEPLOY_DIR/"
+          echo "$GITHUB_SHA" > "$DEPLOY_DIR/DEPLOYED_SHA.txt"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalar dependencias
+        working-directory: ${{ env.DEPLOY_DIR }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build de web y gestión
+        working-directory: ${{ env.DEPLOY_DIR }}
+        run: pnpm turbo run build --filter=@norde/web --filter=@norde/gestion
+        env:
+          # La web no lee la base en el build (ADR 0011): la URL y el secreto son de relleno. La URL
+          # pública sí es la real, porque Next.js la incrusta en el bundle.
+          DATABASE_URL: postgres://build:build@localhost:5432/build
+          PAYLOAD_SECRET: build-only-secret-not-used-anywhere-else-000
+          NEXT_PUBLIC_SERVER_URL: ${{ env.WEB_URL }}
+
+      - name: Configurar SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Subir el código y los builds
+        working-directory: ${{ env.DEPLOY_DIR }}
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        # Lo excluido no se borra en el VPS: dependencias, `.env`, archivos subidos y cachés quedan.
+        # --delay-updates deja los archivos nuevos en su lugar al final, para acortar el momento en
+        # que los procesos viejos ven el `.next` a medio copiar.
+        run: |
+          rsync -az --delete --delay-updates \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            --exclude node_modules \
+            --exclude .git \
+            --exclude .turbo \
+            --exclude .next/cache \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude .storage \
+            --exclude /apps/web/media \
+            --exclude '*.tsbuildinfo' \
+            ./ root@"$VPS_HOST":"$DEPLOY_DIR"/
+
+      - name: Instalar, migrar y recargar en el VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy_key root@"$VPS_HOST" bash -s <<EOF
+            set -euo pipefail
+            cd "$DEPLOY_DIR"
+            export PATH="$VPS_NODE_DIR:\$PATH"
+            export NORDE_NODE_BIN="$VPS_NODE_DIR/node"
+            export HUSKY=0
+            export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
+            corepack pnpm install --frozen-lockfile
+
+            # Migraciones, en el orden de docs/arquitectura.md §10. drizzle-kit toma la base de
+            # DATABASE_URL; se lee solo esa línea del .env de gestión (el resto puede tener espacios).
+            DATABASE_URL="\$(grep -E '^DATABASE_URL=' apps/gestion/.env | cut -d= -f2-)" \
+              corepack pnpm --filter @norde/infra db:migrate
+            # Sin TTY, un prompt de Payload colgaría el deploy: con /dev/null recibe EOF.
+            corepack pnpm --filter @norde/web migrate < /dev/null
+
+            pm2 startOrReload ecosystem.config.cjs --update-env
+            pm2 save
+          EOF
+
+      - name: Verificar el commit y las apps
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          DEPLOYED_SHA=$(ssh -i ~/.ssh/deploy_key root@"$VPS_HOST" "cat $DEPLOY_DIR/DEPLOYED_SHA.txt")
+          echo "Esperado:   $GITHUB_SHA"
+          echo "Desplegado: $DEPLOYED_SHA"
+          if [ "$DEPLOYED_SHA" != "$GITHUB_SHA" ]; then
+            echo "::error::El VPS quedó en $DEPLOYED_SHA, no en $GITHUB_SHA."
+            exit 1
+          fi
+
+          # Next.js tarda unos segundos en levantar después del reload.
+          check() {
+            for attempt in $(seq 1 12); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' "$1" || true)
+              if [ "$code" -ge 200 ] && [ "$code" -lt 400 ]; then
+                echo "$1 → $code"
+                return 0
+              fi
+              sleep 5
+            done
+            echo "::error::$1 respondió $code"
+            return 1
+          }
+          check "$WEB_URL/"
+          check "$GESTION_URL/ingresar"
+          check "$AGENT_URL/health"

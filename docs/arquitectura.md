@@ -403,6 +403,7 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 - **Un solo usuario de base** con permisos totales, compartido por la web (y Payload), el agente y el panel (ADR 0015). Lo que cada persona puede hacer lo deciden los **roles y permisos del sistema** (módulo `identity`), en los casos de uso.
 - **Extensiones** de PostgreSQL: `pg_trgm` y `unaccent` (búsqueda de texto). Las crea la migración `0001`; el dueño de la base tiene que poder crearlas (son _trusted_ desde PostgreSQL 13).
 - Backups diarios de PostgreSQL con retención.
+- **Entorno UAT** (pruebas con Norde): VPS de Hostinger compartido, publicado desde la rama `uat` por GitHub Actions, con el build en el runner. Setup y flujo en [deploy.md](deploy.md).
 
 ---
 

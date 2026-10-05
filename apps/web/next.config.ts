@@ -16,8 +16,12 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: {
-    // Imágenes del contenido editorial, servidas por Payload.
-    localPatterns: [{ pathname: '/api/media/file/**' }],
+    localPatterns: [
+      // Imágenes del contenido editorial, servidas por Payload.
+      { pathname: '/api/media/file/**' },
+      // Fotos de las propiedades (ADR 0023).
+      { pathname: '/fotos/**' },
+    ],
     formats: ['image/avif', 'image/webp'],
   },
   // Sin CSP por ahora: exige nonces para los scripts inline (JSON-LD, Next.js); va aparte.

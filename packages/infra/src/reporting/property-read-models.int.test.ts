@@ -455,9 +455,14 @@ describe('DrizzlePropertyStatisticsQuery', () => {
       .values({ portal: 'zonaprop', ...stamps })
       .onConflictDoNothing();
     const listing = ids.next();
-    await db
-      .insert(portalListings)
-      .values({ id: listing, portal: 'zonaprop', propertyId, status: 'published', ...stamps });
+    await db.insert(portalListings).values({
+      id: listing,
+      portal: 'zonaprop',
+      propertyId,
+      operation: 'sale',
+      status: 'published',
+      ...stamps,
+    });
     for (const [date, views] of [
       ['2026-08-31', 50],
       ['2026-09-01', 10],

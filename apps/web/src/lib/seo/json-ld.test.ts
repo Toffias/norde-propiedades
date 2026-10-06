@@ -1,3 +1,5 @@
+import { aPropertyDetail } from '../properties/test-fixtures';
+import { toListingDetail } from '../properties/view';
 import { describe, expect, it } from 'vitest';
 
 import { BUSINESS, type Business } from '../../constants/business';
@@ -8,6 +10,7 @@ import {
   organizationSchema,
   serializeJsonLd,
   websiteSchema,
+  realEstateListingSchema,
 } from './json-ld';
 
 const SITE = 'https://norde.com.ar';
@@ -155,5 +158,40 @@ describe('serializeJsonLd', () => {
     const json = serializeJsonLd({ headline: '</script><script>alert(1)</script>' });
     expect(json).not.toContain('<');
     expect(JSON.parse(json)).toEqual({ headline: '</script><script>alert(1)</script>' });
+  });
+});
+
+describe('realEstateListingSchema', () => {
+  const SITE = 'https://norde.example';
+
+  it('describes the listing, its offer and the place, with absolute photo URLs', () => {
+    const schema = realEstateListingSchema(SITE, toListingDetail(aPropertyDetail()));
+    expect(schema).toMatchObject({
+      '@type': 'RealEstateListing',
+      url: `${SITE}/propiedades/departamento-3-ambientes-mataderos-dep0001`,
+      name: 'Departamento 3 ambientes con balcón',
+      image: [`${SITE}/fotos/m1/abc`, `${SITE}/fotos/m2/abc`],
+      offers: { '@type': 'Offer', price: 98_000, priceCurrency: 'USD' },
+      about: {
+        '@type': 'Apartment',
+        address: { addressLocality: 'Mataderos, CABA', addressCountry: 'AR' },
+        floorSize: { value: 72, unitCode: 'MTK' },
+        numberOfRooms: 3,
+      },
+    });
+  });
+
+  it('leaves out a hidden price and approximate coordinates', () => {
+    const schema = realEstateListingSchema(
+      SITE,
+      toListingDetail(
+        aPropertyDetail({
+          price: null,
+          coordinates: { latitude: -34.65, longitude: -58.5, exact: false },
+        }),
+      ),
+    );
+    expect(schema.offers).not.toHaveProperty('price');
+    expect(schema.about).not.toHaveProperty('geo');
   });
 });

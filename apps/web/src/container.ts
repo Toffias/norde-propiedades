@@ -11,7 +11,10 @@ import {
   DrizzlePropertySearchQuery,
   LocalFileStorage,
   S3FileStorage,
+  WebInquiryClient,
   type DatabaseConnection,
+  type WebInquiry,
+  type WebInquiryOutcome,
 } from '@norde/infra';
 
 import { getEnv, type Env } from './config/env';
@@ -33,9 +36,15 @@ export interface PropertiesUseCases {
   photo(input: Parameters<GetPublicPhoto['execute']>[0]): ReturnType<GetPublicPhoto['execute']>;
 }
 
+/** Las consultas del formulario, que se mandan a apps/gestion. `undefined` si no está configurado. */
+export interface InquirySender {
+  send(inquiry: WebInquiry): Promise<WebInquiryOutcome>;
+}
+
 export interface Container {
   readonly database: DatabaseConnection;
   readonly properties: PropertiesUseCases;
+  readonly inquiries: InquirySender | undefined;
 }
 
 function createStorage(env: Env) {
@@ -64,6 +73,10 @@ function createContainer(): Container {
       detail: (input) => detail.execute(input, WEB_ACTOR),
       photo: (input) => photo.execute(input, WEB_ACTOR),
     },
+    inquiries:
+      env.INQUIRY_WEBHOOK_URL && env.INQUIRY_WEBHOOK_SECRET
+        ? new WebInquiryClient({ url: env.INQUIRY_WEBHOOK_URL, secret: env.INQUIRY_WEBHOOK_SECRET })
+        : undefined,
   };
 }
 

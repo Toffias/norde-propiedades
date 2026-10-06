@@ -1,5 +1,7 @@
 import { Building2, ClipboardCheck, House, KeyRound, type LucideIcon } from 'lucide-react';
 
+import { SectionHeading } from '../layout/section-heading';
+
 interface Service {
   readonly title: string;
   readonly description: string;
@@ -34,21 +36,20 @@ export function ServicesSection() {
     <section
       aria-labelledby="services-title"
       id="servicios"
-      className="mx-auto max-w-6xl px-4 sm:px-6"
+      className="mx-auto max-w-7xl px-4 sm:px-6"
     >
-      <div className="max-w-2xl space-y-2">
-        <h2 id="services-title" className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Cómo te ayudamos
-        </h2>
-        <p className="text-muted-foreground">
-          Ya sea que quieras mudarte, invertir o poner tu propiedad en el mercado.
-        </p>
-      </div>
+      <SectionHeading
+        id="services-title"
+        title="Cómo te ayudamos"
+        description="Ya sea que quieras mudarte, invertir o poner tu propiedad en el mercado."
+      />
       <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SERVICES.map(({ title, description, icon: Icon }) => (
-          <li key={title} className="bg-card text-card-foreground rounded-xl border p-6">
-            <Icon aria-hidden className="text-primary size-6" />
-            <h3 className="mt-4 font-semibold">{title}</h3>
+          <li key={title} className="bg-card text-card-foreground rounded-3xl border p-6">
+            <span className="bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 flex size-11 items-center justify-center rounded-2xl">
+              <Icon aria-hidden className="size-5" />
+            </span>
+            <h3 className="mt-4 font-bold">{title}</h3>
             <p className="text-muted-foreground mt-2 text-sm">{description}</p>
           </li>
         ))}

@@ -13,13 +13,13 @@ export function OwnersCta() {
   const emailHref = BUSINESS.email ? `mailto:${BUSINESS.email}` : null;
 
   return (
-    <section aria-labelledby="owners-cta-title" className="mx-auto max-w-6xl px-4 sm:px-6">
-      <div className="bg-primary text-primary-foreground flex flex-col items-start gap-6 rounded-2xl px-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+    <section aria-labelledby="owners-cta-title" className="mx-auto max-w-7xl px-4 sm:px-6">
+      <div className="bg-ink text-background flex flex-col items-start gap-6 rounded-[28px] px-6 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-10">
         <div className="max-w-xl space-y-2">
-          <h2 id="owners-cta-title" className="text-2xl font-semibold tracking-tight">
+          <h2 id="owners-cta-title" className="text-2xl font-extrabold sm:text-3xl">
             ¿Querés vender o alquilar tu propiedad?
           </h2>
-          <p className="text-primary-foreground/80">
+          <p className="text-background/75">
             Te ayudamos a definir el precio, la publicamos en los principales portales y coordinamos
             las visitas por vos.
           </p>

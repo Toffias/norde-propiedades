@@ -1,5 +1,13 @@
-@import '@norde/ui/globals.css';
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource/cinzel/700.css';
+@import '@norde/ui/themes/web.css';
 @plugin '@tailwindcss/typography';
+
+/* Fuentes autoalojadas (sin Google Fonts en el build): el tema las toma de estas variables. */
+:root {
+  --font-sans-web: 'Plus Jakarta Sans Variable';
+  --font-wordmark-web: 'Cinzel';
+}
 
 /* Tipografía de los artículos (`prose`) con los tokens semánticos: funciona en claro y oscuro. */
 .prose {

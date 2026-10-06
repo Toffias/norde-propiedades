@@ -111,7 +111,7 @@ El sitio público de Norde Propiedades:
 
 **Diseño:**
 
-- Definir la identidad de Norde (paleta, tipografía, tono) en un `DESIGN.md` propio. El de DS-DESIGN-Landing está desactualizado y describe otro producto.
+- La identidad de Norde (paleta, tipografía, tono) está en [diseno-web.md](../diseno-web.md). El `DESIGN.md` de DS-DESIGN-Landing describe otro producto y no se usa.
 - Se mantienen las reglas útiles: solo tokens semánticos (`bg-card`, `text-foreground`), extender los componentes de shadcn en lugar de reescribirlos y probar en claro y oscuro.
 
 **Performance** (impacta en SEO):
@@ -301,6 +301,14 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
   - Headers de seguridad y `X-Robots-Tag: noindex` en el admin.
 - **Home**: hero con buscador (operación, tipo y zona, hacia `/propiedades` con query params en español), servicios, últimos artículos y llamado para propietarios.
 - **Caché**: ver [ADR 0011](../adr/0011-web-render-on-demand-sin-base-en-el-build.md). Al publicar, los hooks invalidan el tag `blog` y el cambio se ve en la próxima visita.
+- **Identidad** ([diseno-web.md](../diseno-web.md)): dirección "Barrio claro" con el wordmark y la línea escalonada del logo. Tema en `packages/ui/src/themes/web.css`; fuentes autoalojadas.
+- **Header, footer y WhatsApp flotante**: el WhatsApp aparece cuando Norde confirme el número en `src/constants/business.ts`.
+- **Home**: hero con la portada de una destacada, buscador, destacadas (primero las marcadas, después las más nuevas), servicios, blog y llamado a propietarios.
+- **Listado** `/propiedades`: filtros en la URL en español (`operacion`, `tipo`, `zona`, `moneda`, `desde`, `hasta`, `ambientes`, `dormitorios`, `orden`, `pagina`), orden, paginación en el servidor con `<a href>` y estado vacío. Indexa operación, tipo, zona y página; los filtros finos llevan `noindex`.
+- **Ficha** `/propiedades/<slug>`: galería con visor, precio de cada operación, características, planos, videos y recorridos, mapa (pin exacto o zona aproximada), consulta por WhatsApp o por formulario, similares y JSON-LD `RealEstateListing` + `BreadcrumbList`.
+  - El formulario manda la consulta firmada al webhook del panel (ADR 0021), con validación, trampa para bots y límite de 5 envíos por IP cada 10 minutos.
+  - Una propiedad que ya no se ofrece muestra "ya no está disponible" con otras opciones y `noindex`. Next no permite responder 410 desde una página: responde 200 sin indexar.
+- **Sitemap**: suma el listado y cada ficha publicada.
 - **Datos de propiedades** (base de F3): `src/container.ts` arma `SearchProperties`, `GetPropertyDetail` y `GetPublicPhoto` con `system:web`. Ya están la ruta de fotos `/fotos/<id>/<versión>` y `POST /api/revalidate` ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)).
 
 **Diferencias con lo planeado:**
@@ -312,8 +320,9 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 **Pendiente:**
 
 - Datos del negocio en `src/constants/business.ts` (teléfono, WhatsApp, dirección, zonas, redes): están en `null` hasta que Norde los confirme. Sin esos datos no se muestran ni se publican en el JSON-LD.
-- Header, footer y home editables desde Payload (globals y page builder por bloques), identidad visual (`DESIGN.md`), storage en la nube para las imágenes y E2E con Playwright.
-- `/propiedades` (F3) y `/tasar-mi-propiedad` (F6): el buscador de la home ya apunta al listado.
+- Header, footer y home editables desde Payload (globals y page builder por bloques), storage en la nube para las imágenes del blog y E2E con Playwright.
+- Vista de mapa del listado, favoritos, emprendimientos (F3) y `/tasar-mi-propiedad` (F6).
+- Turnstile en el formulario de consulta (hoy: trampa para bots y límite por IP).
 
 ---
 

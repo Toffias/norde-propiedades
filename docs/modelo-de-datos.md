@@ -108,6 +108,13 @@ El resultado vive en la fila de la tasación: los valores sugeridos en `sale_*_c
 
 `portal_accounts` tiene una fila por portal del catálogo (`mercadolibre` y `mercadolibre_developments`), que se crea al conectar la cuenta; sin fila, la cuenta nunca se conectó. `settings` guarda la cuenta vinculada (`externalAccountId`, `accountName`) y `credentials_encrypted` los tokens de OAuth, cifrados con AES-256-GCM y `PORTALS_SECRET_KEY` (ADR 0022). `portal_listings.portal` apunta a esta tabla, así que un aviso existe solo para una cuenta conectada.
 
+`portal_listings` (migración `0034`, ADR 0024) es un aviso por portal, propiedad y **operación** (`operation`), con un índice único sobre los tres. Un check exige la operación cuando hay `property_id`: los emprendimientos no la llevan.
+
+- `status` dice cómo quedó en el portal: `pending`, `published`, `paused`, `error` o `unpublished`.
+- `intent` dice lo que se pidió: `active`, `paused` o `closed`.
+- `external_id` y `permalink` son el aviso en el portal, y `last_error` el último rechazo.
+- `content_hash` es la huella de lo último que se mandó: si no cambió, la sincronización no llama al portal.
+
 ### `notifications` (`notifications.ts`)
 
 | Tabla                      | Qué es (IDs de otros módulos)                                                            |

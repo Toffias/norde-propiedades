@@ -410,31 +410,32 @@ Cobertura mínima orientativa: **90% en `core/*/domain`**, **80% en `core/*/appl
 
 ## 11. Decisiones tomadas (ADRs a registrar)
 
-| #    | Decisión                                                                                                                                                |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0001 | Monorepo con pnpm workspaces + Turborepo                                                                                                                |
-| 0002 | Clean Architecture sobre un monolito modular (`@norde/core` + `@norde/infra`)                                                                           |
-| 0003 | Gestión y agente en **procesos separados** que comparten core y base, sin API HTTP interna                                                              |
-| 0004 | Payload solo para contenido editorial (blog, páginas). El negocio vive en el core                                                                       |
-| 0005 | Una sola base PostgreSQL con esquemas separados                                                                                                         |
-| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent` (reemplazado por el ADR 0021: corren en `apps/gestion`)                    |
-| 0007 | Inyección de dependencias manual por composition root                                                                                                   |
-| 0008 | `Result` para errores esperados y excepciones para los inesperados                                                                                      |
-| 0009 | [`@norde/agent-kit` envuelve el OpenAI Agents SDK](adr/0009-agent-kit-sobre-openai-agents-sdk.md), sin puerto `LlmGateway` en el core                   |
-| 0010 | [Tests de integración contra un Postgres real](adr/0010-tests-de-integracion-con-postgres-local.md), sin Testcontainers por ahora                       |
-| 0011 | [La web no lee la base en el build](adr/0011-web-render-on-demand-sin-base-en-el-build.md): ISR on-demand y caché de datos por tag                      |
-| 0012 | [El panel adopta el sistema visual de Alquilo](adr/0012-identidad-visual-del-panel-y-temas-por-app.md), con un tema por app en `@norde/ui`              |
-| 0013 | [Estados de oportunidad editables](adr/0013-estados-de-oportunidad-editables-con-categoria-fija.md), cada uno con una categoría fija del dominio        |
-| 0014 | [Atributos de propiedad en columnas tipadas](adr/0014-atributos-de-propiedad-tipados-y-eav-solo-personalizados.md); EAV solo para los personalizados    |
-| 0015 | [Un solo usuario de base compartido](adr/0015-un-usuario-de-base-y-permisos-en-el-sistema.md); los permisos se deciden en el sistema                    |
-| 0016 | [Ingreso al panel con Better Auth](adr/0016-ingreso-al-panel-con-better-auth.md); la sesión la resuelve el core                                         |
-| 0017 | [Reglas de pertenencia en el dominio](adr/0017-reglas-de-pertenencia-en-el-dominio.md), con la sucursal en el `Actor`                                   |
-| 0018 | [Archivos en un storage S3 compatible y emails con Resend](adr/0018-storage-s3-r2-y-mail-resend.md), con puertos `FileStorage` y `Mailer`               |
-| 0019 | [Mapa con Leaflet y OpenStreetMap, geocodificación con Nominatim](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md), con puerto `Geocoder`  |
-| 0020 | [Multimedia y PDF de la ficha en jobs](adr/0020-multimedia-y-pdf-en-jobs-con-descarga-firmada.md), con estado en la base y descarga por URL firmada     |
-| 0021 | [Los procesos en segundo plano corren en apps/gestion](adr/0021-procesos-en-segundo-plano-en-gestion.md): relay, workers y webhook de consultas web     |
-| 0022 | [Portales: MercadoLibre por OAuth, con dos cuentas](adr/0022-portales-mercadolibre-oauth-y-dos-cuentas.md) y los tokens cifrados en la base             |
-| 0023 | [Fotos públicas y revalidación de la web](adr/0023-fotos-publicas-y-revalidacion-de-la-web.md): `/fotos/<id>/<versión>` y avisos firmados desde gestión |
+| #    | Decisión                                                                                                                                                             |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0001 | Monorepo con pnpm workspaces + Turborepo                                                                                                                             |
+| 0002 | Clean Architecture sobre un monolito modular (`@norde/core` + `@norde/infra`)                                                                                        |
+| 0003 | Gestión y agente en **procesos separados** que comparten core y base, sin API HTTP interna                                                                           |
+| 0004 | Payload solo para contenido editorial (blog, páginas). El negocio vive en el core                                                                                    |
+| 0005 | Una sola base PostgreSQL con esquemas separados                                                                                                                      |
+| 0006 | Eventos de dominio con outbox + pg-boss; jobs y relay corren en `apps/agent` (reemplazado por el ADR 0021: corren en `apps/gestion`)                                 |
+| 0007 | Inyección de dependencias manual por composition root                                                                                                                |
+| 0008 | `Result` para errores esperados y excepciones para los inesperados                                                                                                   |
+| 0009 | [`@norde/agent-kit` envuelve el OpenAI Agents SDK](adr/0009-agent-kit-sobre-openai-agents-sdk.md), sin puerto `LlmGateway` en el core                                |
+| 0010 | [Tests de integración contra un Postgres real](adr/0010-tests-de-integracion-con-postgres-local.md), sin Testcontainers por ahora                                    |
+| 0011 | [La web no lee la base en el build](adr/0011-web-render-on-demand-sin-base-en-el-build.md): ISR on-demand y caché de datos por tag                                   |
+| 0012 | [El panel adopta el sistema visual de Alquilo](adr/0012-identidad-visual-del-panel-y-temas-por-app.md), con un tema por app en `@norde/ui`                           |
+| 0013 | [Estados de oportunidad editables](adr/0013-estados-de-oportunidad-editables-con-categoria-fija.md), cada uno con una categoría fija del dominio                     |
+| 0014 | [Atributos de propiedad en columnas tipadas](adr/0014-atributos-de-propiedad-tipados-y-eav-solo-personalizados.md); EAV solo para los personalizados                 |
+| 0015 | [Un solo usuario de base compartido](adr/0015-un-usuario-de-base-y-permisos-en-el-sistema.md); los permisos se deciden en el sistema                                 |
+| 0016 | [Ingreso al panel con Better Auth](adr/0016-ingreso-al-panel-con-better-auth.md); la sesión la resuelve el core                                                      |
+| 0017 | [Reglas de pertenencia en el dominio](adr/0017-reglas-de-pertenencia-en-el-dominio.md), con la sucursal en el `Actor`                                                |
+| 0018 | [Archivos en un storage S3 compatible y emails con Resend](adr/0018-storage-s3-r2-y-mail-resend.md), con puertos `FileStorage` y `Mailer`                            |
+| 0019 | [Mapa con Leaflet y OpenStreetMap, geocodificación con Nominatim](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md), con puerto `Geocoder`               |
+| 0020 | [Multimedia y PDF de la ficha en jobs](adr/0020-multimedia-y-pdf-en-jobs-con-descarga-firmada.md), con estado en la base y descarga por URL firmada                  |
+| 0021 | [Los procesos en segundo plano corren en apps/gestion](adr/0021-procesos-en-segundo-plano-en-gestion.md): relay, workers y webhook de consultas web                  |
+| 0022 | [Portales: MercadoLibre por OAuth, con dos cuentas](adr/0022-portales-mercadolibre-oauth-y-dos-cuentas.md) y los tokens cifrados en la base                          |
+| 0023 | [Fotos públicas y revalidación de la web](adr/0023-fotos-publicas-y-revalidacion-de-la-web.md): `/fotos/<id>/<versión>` y avisos firmados desde gestión              |
+| 0024 | [Publicación de propiedades en MercadoLibre](adr/0024-publicacion-en-mercadolibre.md): un aviso por operación, sincronización con la fila bloqueada y fotos firmadas |
 
 ---
 

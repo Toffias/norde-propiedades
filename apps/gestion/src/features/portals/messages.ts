@@ -1,8 +1,15 @@
 import type {
+  ChangeListingTypeError,
   DisconnectPortalAccountError,
+  GetPropertyListingsError,
   ListPortalAccountsError,
+  PauseListingError,
+  RequestPublicationError,
+  ResumeListingError,
+  ResyncListingError,
   SetPortalAccountEnabledError,
   StartPortalConnectionError,
+  UnpublishListingError,
 } from '@norde/core/portals';
 import type { PortalValue } from '@norde/core/portals/contracts';
 
@@ -64,3 +71,44 @@ export function connectionOutcomeMessage(value: string | undefined) {
   const entry = Object.entries(CONNECTION_OUTCOME_MESSAGES).find(([key]) => key === value);
   return entry ? { ok: value === 'ok', message: entry[1] } : undefined;
 }
+
+const FORBIDDEN_PUBLISH = 'No tenés permiso para publicar en portales.';
+const LISTING_NOT_FOUND = 'No encontramos esa publicación. Recargá la página.';
+const LISTING_CLOSED =
+  'El aviso está dado de baja: para volver a mostrarlo, publicalo de nuevo (es un aviso nuevo).';
+
+export const PUBLICATION_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN_PUBLISH,
+  ValidationFailed: 'Revisá la operación y el tipo de aviso.',
+  PortalNotEnabled:
+    'La cuenta de MercadoLibre no está conectada o está desactivada (Mi empresa → Portales).',
+  PortalNotForProperties: 'Esa cuenta publica emprendimientos, no propiedades sueltas.',
+  PropertyNotFound: 'No encontramos la propiedad. Puede que la hayan eliminado.',
+  UnitPublishedWithDevelopment:
+    'Las unidades se publican dentro de su emprendimiento, desde la ficha del emprendimiento.',
+  PropertyNotAvailable: 'Solo se publica una propiedad disponible.',
+  OperationNotOffered: 'La propiedad no ofrece esa operación.',
+  PriceRequired:
+    'MercadoLibre exige un precio: cargalo en la operación y sacale "precio a consultar".',
+  MissingListingData: (error) => `Faltan datos para MercadoLibre: ${error.problems.join(' ')}`,
+  ListingAlreadyExists: 'Esa operación ya está publicada en MercadoLibre.',
+  ListingNotClosed: 'Esa operación ya está publicada en MercadoLibre.',
+} satisfies ErrorMessages<RequestPublicationError>;
+
+export const LISTING_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN_PUBLISH,
+  ValidationFailed: LISTING_NOT_FOUND,
+  ListingNotFound: LISTING_NOT_FOUND,
+  ListingClosed: LISTING_CLOSED,
+} satisfies ErrorMessages<
+  | PauseListingError
+  | ResumeListingError
+  | UnpublishListingError
+  | ChangeListingTypeError
+  | ResyncListingError
+>;
+
+export const PROPERTY_LISTINGS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver la difusión en portales.',
+  ValidationFailed: 'No encontramos la propiedad.',
+} satisfies ErrorMessages<GetPropertyListingsError>;

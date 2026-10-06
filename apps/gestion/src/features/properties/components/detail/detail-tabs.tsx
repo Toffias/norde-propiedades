@@ -9,10 +9,13 @@ export function DetailTabs({
   propertyId,
   active,
   counts,
+  hidden = [],
 }: {
   readonly propertyId: string;
   readonly active: DetailTab;
   readonly counts: { readonly media: number; readonly attachments: number };
+  /** Pestañas que no se muestran (sin permiso o con la función apagada). */
+  readonly hidden?: readonly DetailTab[];
 }) {
   const count = (tab: DetailTab) =>
     tab === 'multimedia' ? counts.media : tab === 'archivos' ? counts.attachments : undefined;
@@ -20,7 +23,7 @@ export function DetailTabs({
   return (
     <nav aria-label="Secciones de la ficha" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <ul className="inline-flex min-w-full gap-1 rounded-xl bg-muted p-1 sm:min-w-0">
-        {DETAIL_TABS.map((tab) => {
+        {DETAIL_TABS.filter((tab) => !hidden.includes(tab)).map((tab) => {
           const current = tab === active;
           const total = count(tab);
           return (

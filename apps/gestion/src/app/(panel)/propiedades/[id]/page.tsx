@@ -30,6 +30,7 @@ import {
   SendsGrid,
 } from '../../../../features/properties/components/detail/contacts-grids';
 import { MediaGallery } from '../../../../features/media/components/media-gallery';
+import { PropertyListings } from '../../../../features/portals/components/property-listings';
 import { PropertyDetailHeader } from '../../../../features/properties/components/detail/property-detail-header';
 import { StatisticsView } from '../../../../features/properties/components/detail/statistics-view';
 import { ActiveReservationCard } from '../../../../features/properties/components/reservations/active-reservation-card';
@@ -83,6 +84,9 @@ function permissionsFor(
     reserve: detail.deletedAt === undefined && actor.can('reservations:create'),
     manageReservations: actor.can('reservations:update'),
     reservations: actor.can('reservations:read'),
+    portals:
+      getContainer().portals !== undefined &&
+      (actor.can('portals:publish') || actor.can('portals:manage')),
   };
 }
 
@@ -157,7 +161,12 @@ export default async function PropertyDetailPage({
           canManage={permissions.manageReservations}
         />
       )}
-      <DetailTabs propertyId={detail.id} active={tab} counts={detail.counts} />
+      <DetailTabs
+        propertyId={detail.id}
+        active={tab}
+        counts={detail.counts}
+        hidden={permissions.portals ? [] : ['difusion']}
+      />
 
       {await renderTab(tab, detail, permissions, actor, query)}
     </div>
@@ -171,7 +180,7 @@ async function renderTab(
   actor: SessionActor['actor'],
   query: SearchParams,
 ) {
-  const { properties, clients, reporting } = getContainer();
+  const { properties, clients, reporting, portals } = getContainer();
   const propertyId = detail.id;
   const owner = { kind: 'property', id: propertyId } as const;
 
@@ -286,6 +295,23 @@ async function renderTab(
       const statistics = await reporting.getPropertyStatistics.execute(value, actor);
       if (statistics.isErr()) return <TabError error={statistics.error} />;
       return <StatisticsView statistics={statistics.value} months={value.months} />;
+    }
+    case 'difusion': {
+      if (!permissions.portals || !portals) return <TabError error={{ type: 'Forbidden' }} />;
+      const listings = await portals.getPropertyListings.execute({ propertyId }, actor);
+      if (listings.isErr()) return <TabError error={listings.error} />;
+      return (
+        <PropertyListings
+          propertyId={propertyId}
+          operations={detail.operations.map((operation) => operation.operation)}
+          view={{
+            ...listings.value,
+            canPublish: listings.value.canPublish && detail.deletedAt === undefined,
+          }}
+          isUnit={detail.development !== undefined}
+          isAvailable={detail.status === 'available' && detail.deletedAt === undefined}
+        />
+      );
     }
   }
 }

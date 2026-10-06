@@ -45,11 +45,21 @@ export const portalListings = coreSchema.table(
     propertyId: uuid('property_id'),
     /** Emprendimiento del módulo properties: solo el ID, sin foreign key entre módulos. */
     developmentId: uuid('development_id'),
+    /**
+     * `sale` / `rent` / `temporary_rent`: un aviso por operación (son categorías distintas del
+     * portal). Vacío en los emprendimientos.
+     */
+    operation: text('operation'),
     externalId: text('external_id'),
+    permalink: text('permalink'),
     /** `simple` / `featured`. */
     listingType: text('listing_type').notNull().default('simple'),
-    /** `pending` / `published` / `paused` / `error` / `unpublished`. */
+    /** `pending` / `published` / `paused` / `error` / `unpublished`: cómo quedó en el portal. */
     status: text('status').notNull().default('pending'),
+    /** `active` / `paused` / `closed`: lo que se pidió. */
+    intent: text('intent').notNull().default('active'),
+    /** Huella de lo último que se mandó al portal: si no cambió, no se vuelve a mandar. */
+    contentHash: text('content_hash'),
     title: text('title'),
     alerts: jsonb('alerts')
       .notNull()
@@ -63,8 +73,10 @@ export const portalListings = coreSchema.table(
   },
   (t) => [
     check('portal_listings_single_owner', sql`num_nonnulls(property_id, development_id) = 1`),
-    uniqueIndex('portal_listings_portal_property_uq')
-      .on(t.portal, t.propertyId)
+    // Sin operación, dos avisos de la misma propiedad esquivarían el índice único (null ≠ null).
+    check('portal_listings_property_operation', sql`property_id is null or operation is not null`),
+    uniqueIndex('portal_listings_portal_property_operation_uq')
+      .on(t.portal, t.propertyId, t.operation)
       .where(sql`property_id is not null`),
     uniqueIndex('portal_listings_portal_development_uq')
       .on(t.portal, t.developmentId)

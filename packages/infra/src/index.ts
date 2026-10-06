@@ -104,6 +104,14 @@ export {
   DrizzlePortalAccountRepository,
   DrizzlePortalCredentialStore,
 } from './portals/drizzle-portal-accounts';
+export { DrizzleListingRepository } from './portals/drizzle-listing-repository';
+export { MercadoLibreTokens } from './portals/mercadolibre-tokens';
+export {
+  MercadoLibrePortalConnector,
+  type MercadoLibreAccessTokens,
+  type MercadoLibrePortalConnectorOptions,
+} from './adapters/portals/mercadolibre/mercadolibre-portal-connector';
+export { MercadoLibreLocations } from './adapters/portals/mercadolibre/mercadolibre-locations';
 export {
   MercadoLibreAuthorizer,
   type MercadoLibreAppConfig,

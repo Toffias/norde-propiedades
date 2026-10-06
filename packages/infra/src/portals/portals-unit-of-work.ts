@@ -11,6 +11,7 @@ import {
   DrizzlePortalAccountRepository,
   DrizzlePortalCredentialStore,
 } from './drizzle-portal-accounts';
+import { DrizzleListingRepository } from './drizzle-listing-repository';
 
 export function createPortalsUnitOfWork(
   db: Database,
@@ -19,6 +20,7 @@ export function createPortalsUnitOfWork(
   return new DrizzleUnitOfWork<PortalsTransaction>(db, (tx) => ({
     accounts: new DrizzlePortalAccountRepository(tx, deps.clock),
     credentials: new DrizzlePortalCredentialStore(tx, deps.cipher),
+    listings: new DrizzleListingRepository(tx, deps.clock),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

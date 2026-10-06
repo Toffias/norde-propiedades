@@ -223,3 +223,40 @@ describe('MercadoLibreAuthorizer.complete', () => {
     expect(requests).toHaveLength(0);
   });
 });
+
+describe('MercadoLibreAuthorizer.refresh', () => {
+  it('renews the access token with the single-use refresh token', async () => {
+    const { authorizer, requests } = setup([
+      () => Response.json({ ...TOKEN, refresh_token: 'TG-rotated-refresh-1234567' }), // gitleaks:allow
+    ]);
+
+    const credentials = unwrap(await authorizer.refresh('mercadolibre', 'TG-old-refresh'));
+
+    expect(credentials).toEqual({
+      accessToken: TOKEN.access_token,
+      refreshToken: 'TG-rotated-refresh-1234567',
+      expiresAt: new Date('2026-10-05T18:00:00Z'),
+    });
+    expect(Object.fromEntries(bodyOf(requests[0]!.init))).toEqual({
+      grant_type: 'refresh_token',
+      client_id: APP.clientId,
+      client_secret: APP.clientSecret,
+      refresh_token: 'TG-old-refresh',
+    });
+  });
+
+  it('rejects a refresh token already used or revoked', async () => {
+    const { authorizer } = setup([() => Response.json(INVALID_GRANT, { status: 400 })]);
+    expect(unwrapErr(await authorizer.refresh('mercadolibre', 'TG-used'))).toEqual({
+      type: 'PortalAuthorizationRejected',
+      reason: 'invalid_grant',
+    });
+  });
+
+  it('reports MercadoLibre as unavailable on 5xx', async () => {
+    const { authorizer } = setup([() => Response.json({}, { status: 502 })]);
+    expect(unwrapErr(await authorizer.refresh('mercadolibre', 'TG-x'))).toEqual({
+      type: 'PortalUnavailable',
+    });
+  });
+});

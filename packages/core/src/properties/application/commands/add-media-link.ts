@@ -64,6 +64,7 @@ export class AddMediaLink {
         const item = linked.value;
 
         await tx.media.save(item, actor.id);
+        await tx.events.publish(item.pullEvents());
         await tx.audit.record(
           auditAction(
             actor,

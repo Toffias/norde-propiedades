@@ -89,6 +89,7 @@ export class GenerateMediaVariants {
       );
       if (completed.isErr()) return false;
       await tx.media.save(current, actor.id);
+      await tx.events.publish(current.pullEvents());
       return true;
     });
     // Guardado: sobran las variantes anteriores. Si la foto se borró mientras tanto, las nuevas.
@@ -115,6 +116,7 @@ export class GenerateMediaVariants {
       if (!item) return 'gone';
       item.failProcessing(reason, this.deps.clock.now());
       await tx.media.save(item, actor.id);
+      await tx.events.publish(item.pullEvents());
       return 'failed';
     });
   }

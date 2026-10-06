@@ -255,6 +255,10 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
   findBySlug(slug: string) {
     return Promise.resolve(this.records.find((r) => r.slug === slug));
   }
+
+  findByMediaId(mediaId: string) {
+    return Promise.resolve(this.records.find((r) => r.media.some((m) => m.id === mediaId)));
+  }
 }
 
 // ---------- Panel de gestión ----------

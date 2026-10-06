@@ -90,7 +90,10 @@ describe('BulkEditProperties', () => {
         changes: { status: { before: 'available', after: 'paused' } },
       }),
     ]);
-    expect(uow.events.published.map((e) => e.type)).toEqual(['properties.property_status_changed']);
+    expect(uow.events.published.map((e) => e.type)).toEqual([
+      'properties.property_status_changed',
+      'properties.property_changed',
+    ]);
   });
 
   it('skips a reserved property: its reservation falls or is signed first', async () => {

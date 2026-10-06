@@ -229,16 +229,17 @@ Recomendación: usar un servicio transaccional para las alertas y, si más adela
 
 La web **no consume una API de la gestión**. Llama directamente a los casos de uso de `@norde/core` desde Server Components y Server Actions (ver [arquitectura.md](../arquitectura.md)).
 
-| Uso                                      | Caso de uso (módulo)                                                                                               | Modo                                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Listado y filtros                        | `SearchProperties` (`properties`): filtros, orden y página; la misma búsqueda que usa el agente                    | Server Component, con caché                                    |
-| Ficha                                    | `GetPropertyDetail` (`properties`) por slug. `PropertyNotListed` (vendida, reservada o despublicada) → 410         | ISR con tag `property:<id>`                                    |
-| Emprendimientos                          | `GetPublishedDevelopment`, `SearchPublishedDevelopments` (`properties`)                                            | ISR                                                            |
-| Destacados y similares                   | `SearchProperties` con `featuredOnly`, o con `excludePropertyId` y los filtros de la ficha                         | Con caché                                                      |
-| Modal promocional                        | `GetActivePromotion` (`promotions`)                                                                                | Con caché, tag `promotions`                                    |
-| Mapa                                     | `GetPropertiesMap` (`properties`): solo id, lat/lng, precio y tipo                                                 | Con caché                                                      |
-| Formularios (contacto, tasación, alerta) | `RegisterContact` (`clients`), `RequestAppraisal` (`appraisals`), `SubscribeToAlerts` (`clients`)                  | Server Action con rate limit y Turnstile, `actor = system:web` |
-| Revalidación                             | Evento de dominio (por ejemplo, `PropertyPriceChanged`) → job en `apps/gestion` → `POST /api/revalidate` de la web | Webhook con secreto                                            |
+| Uso                                      | Caso de uso (módulo)                                                                                                                        | Modo                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Listado y filtros                        | `SearchProperties` (`properties`): filtros, orden y página; la misma búsqueda que usa el agente                                             | Server Component, con caché                                    |
+| Ficha                                    | `GetPropertyDetail` (`properties`) por slug. `PropertyNotListed` (vendida, reservada o despublicada) → 410                                  | ISR con tag `property:<id>`                                    |
+| Emprendimientos                          | `GetPublishedDevelopment`, `SearchPublishedDevelopments` (`properties`)                                                                     | ISR                                                            |
+| Destacados y similares                   | `SearchProperties` con `featuredOnly`, o con `excludePropertyId` y los filtros de la ficha                                                  | Con caché                                                      |
+| Modal promocional                        | `GetActivePromotion` (`promotions`)                                                                                                         | Con caché, tag `promotions`                                    |
+| Mapa                                     | `GetPropertiesMap` (`properties`): solo id, lat/lng, precio y tipo                                                                          | Con caché                                                      |
+| Formularios (contacto, tasación, alerta) | `RegisterContact` (`clients`), `RequestAppraisal` (`appraisals`), `SubscribeToAlerts` (`clients`)                                           | Server Action con rate limit y Turnstile, `actor = system:web` |
+| Fotos                                    | `GetPublicPhoto` (`properties`) en `/fotos/<id>/<versión>`                                                                                  | Route handler, caché inmutable                                 |
+| Revalidación                             | `property_changed`, `media_changed` o `media_deleted` → job `RevalidatePublicProperty` en `apps/gestion` → `POST /api/revalidate` de la web | Webhook firmado (ADR 0023)                                     |
 
 - La web se conecta con el mismo usuario de base que las otras apps (ADR 0015). Lo que puede hacer lo limita su `Actor`: `system:web`, con `properties:read`.
 - **Qué se publica** lo decide el dominio (`properties/domain/public-listing.ts`):
@@ -246,7 +247,13 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
   - El precio de cada operación, salvo que la propiedad oculte el precio en la web o la operación sea "a consultar".
   - La dirección exacta solo si la propiedad lo permite; si no, la dirección aproximada (`publish_address`). Lo mismo con el pin del mapa, que se redondea a la manzana.
   - Las fotos y planos marcados "Mostrar en la web" que ya tienen su versión web, con marca de agua si Mi empresa la activó. La original nunca.
-  - Las fotos se sirven en `/fotos/<id>/<versión>`. La versión cambia cuando cambia la foto, así se cachean para siempre.
+  - Las fotos se sirven en `/fotos/<id>/<versión>`. La versión cambia cuando cambia la foto, así se cachean para siempre ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)).
+  - La web lee el mismo bucket privado que el panel, con su propia clave de solo lectura. El panel ve todo; la web, solo lo publicado.
+- **Revalidación** ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)):
+  - Cualquier cambio de una propiedad o de su galería emite un evento.
+  - Un job de `apps/gestion` llama a `POST /api/revalidate` de la web, firmado con el secreto compartido (`WEB_REVALIDATE_SECRET` en gestión, `REVALIDATE_SECRET` en la web).
+  - La web invalida `property:<id>` y `properties`.
+  - Como respaldo, las consultas cacheadas expiran cada hora.
 - Los datos personales **no** se guardan en Payload. La colección `ContactMessages` de DS-DESIGN-Landing no se replica.
 
 ---
@@ -294,6 +301,7 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
   - Headers de seguridad y `X-Robots-Tag: noindex` en el admin.
 - **Home**: hero con buscador (operación, tipo y zona, hacia `/propiedades` con query params en español), servicios, últimos artículos y llamado para propietarios.
 - **Caché**: ver [ADR 0011](../adr/0011-web-render-on-demand-sin-base-en-el-build.md). Al publicar, los hooks invalidan el tag `blog` y el cambio se ve en la próxima visita.
+- **Datos de propiedades** (base de F3): `src/container.ts` arma `SearchProperties`, `GetPropertyDetail` y `GetPublicPhoto` con `system:web`. Ya están la ruta de fotos `/fotos/<id>/<versión>` y `POST /api/revalidate` ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)).
 
 **Diferencias con lo planeado:**
 

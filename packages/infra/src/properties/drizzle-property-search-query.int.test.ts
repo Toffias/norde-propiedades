@@ -380,4 +380,15 @@ describe('DrizzlePropertySearchQuery', () => {
     expect((await query.findBySlug(row.slug))?.id).toBe(row.id);
     expect(await query.findById('00000000-0000-7000-8000-999999999999')).toBeUndefined();
   });
+
+  it('finds the property that owns a photo, outside the trash', async () => {
+    const row = await insertProperty();
+    const photo = await addMedia(row.id);
+    const trashed = await insertProperty({ deletedAt: new Date('2026-10-02T12:00:00Z') });
+    const trashedPhoto = await addMedia(trashed.id);
+
+    expect((await query.findByMediaId(photo))?.id).toBe(row.id);
+    expect(await query.findByMediaId(trashedPhoto)).toBeUndefined();
+    expect(await query.findByMediaId('00000000-0000-7000-8003-999999999999')).toBeUndefined();
+  });
 });

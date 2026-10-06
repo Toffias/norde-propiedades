@@ -132,8 +132,11 @@ describe('CreatePropertyFromAppraisal', () => {
       'properties.property_created',
       // La segunda operación (alquiler), como al crear una unidad con dos.
       'properties.property_price_changed',
+      'properties.property_changed',
       'properties.media_variants_requested',
+      'properties.media_changed',
       'properties.media_variants_requested',
+      'properties.media_changed',
     ]);
     expect(uow.audit.entries.map((e) => e.action)).toEqual([
       'property.created_from_appraisal',

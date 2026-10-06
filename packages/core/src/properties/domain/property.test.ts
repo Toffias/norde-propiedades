@@ -133,6 +133,12 @@ describe('Property.create', () => {
         occurredAt: NOW,
         payload: { propertyId: ID, code: 'DEP0001' },
       },
+      {
+        type: 'properties.property_changed',
+        aggregateId: ID,
+        occurredAt: NOW,
+        payload: { propertyId: ID, code: 'DEP0001' },
+      },
     ]);
   });
 
@@ -154,6 +160,28 @@ describe('Property.create', () => {
   });
 });
 
+describe('Property changes for the public site', () => {
+  it('emits one property_changed per save, whatever changed, and none without changes', () => {
+    const property = unwrap(Property.create(newProperty()));
+    property.pullEvents();
+    expect(property.pullEvents()).toEqual([]);
+
+    unwrap(property.changeStatus('available', LATER));
+    unwrap(property.changeCode('DEP0002', LATER));
+    expect(property.pullEvents().map((e) => e.type)).toEqual([
+      'properties.property_status_changed',
+      'properties.property_changed',
+    ]);
+    expect(property.pullEvents()).toEqual([]);
+  });
+
+  it('emits nothing for a stored property that was not edited', () => {
+    const property = Property.restore(unwrap(Property.create(newProperty())).toSnapshot());
+    expect(unwrap(property.changeStatus('draft', LATER))).toBe(false);
+    expect(property.pullEvents()).toEqual([]);
+  });
+});
+
 describe('Property trash', () => {
   it('records who deleted it and when, and restores it', () => {
     const property = unwrap(Property.create(newProperty()));
@@ -172,6 +200,7 @@ describe('Property trash', () => {
     expect(property.pullEvents().map((e) => e.type)).toEqual([
       'properties.property_deleted',
       'properties.property_restored',
+      'properties.property_changed',
     ]);
   });
 
@@ -196,12 +225,10 @@ describe('Property quick edits', () => {
     expect(unwrap(property.changeStatus('available', LATER))).toBe(true);
     expect(property.toSnapshot()).toMatchObject({ status: 'available', statusChangedAt: LATER });
     expect(unwrap(property.changeStatus('available', LATER))).toBe(false);
-    const events = property.pullEvents();
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      type: 'properties.property_status_changed',
-      payload: { from: 'draft', to: 'available' },
-    });
+    expect(property.pullEvents()).toMatchObject([
+      { type: 'properties.property_status_changed', payload: { from: 'draft', to: 'available' } },
+      { type: 'properties.property_changed', occurredAt: LATER },
+    ]);
   });
 
   it('rejects an invalid transition, a reservation by hand and edits in the trash', () => {
@@ -262,7 +289,10 @@ describe('Property quick edits', () => {
         changedAt: LATER,
       },
     ]);
-    expect(property.pullEvents().map((e) => e.type)).toEqual(['properties.property_price_changed']);
+    expect(property.pullEvents().map((e) => e.type)).toEqual([
+      'properties.property_price_changed',
+      'properties.property_changed',
+    ]);
   });
 
   it('does not compare prices across currencies and rejects a missing operation', () => {
@@ -318,6 +348,7 @@ describe('Property reservations', () => {
         type: 'properties.property_status_changed',
         payload: { from: 'available', to: 'reserved' },
       },
+      { type: 'properties.property_changed' },
     ]);
     expect(unwrapErr(property.markAsReserved('sale', LATER))).toEqual({
       type: 'PropertyNotAvailable',

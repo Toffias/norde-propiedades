@@ -222,6 +222,7 @@ describe('UpdatePropertyOperations', () => {
         type: 'properties.property_price_changed',
         payload: { propertyId: PROPERTY_ID, operation: 'sale', currency: 'USD' },
       },
+      { type: 'properties.property_changed', payload: { propertyId: PROPERTY_ID } },
     ]);
     const [entry] = uow.audit.entries;
     expect(entry?.action).toBe('property.updated');
@@ -274,6 +275,7 @@ describe('ChangePropertyStatus', () => {
         type: 'properties.property_status_changed',
         payload: { propertyId: PROPERTY_ID, from: 'draft', to: 'available' },
       },
+      { type: 'properties.property_changed', payload: { propertyId: PROPERTY_ID } },
     ]);
     expect(uow.audit.entries[0]).toMatchObject({
       kind: 'action',

@@ -91,6 +91,7 @@ describe('ReserveProperty', () => {
     expect(uow.reservations.savedBy.get(FIRST_ID)).toBe(PRODUCER_ID);
     expect(uow.events.published.map((e) => e.type)).toEqual([
       'properties.property_status_changed',
+      'properties.property_changed',
       'properties.reservation_created',
     ]);
     expect(uow.audit.entries).toEqual([
@@ -317,6 +318,7 @@ describe('FallReservation', () => {
     expect(uow.events.published.map((e) => e.type)).toEqual([
       'properties.reservation_fallen',
       'properties.property_status_changed',
+      'properties.property_changed',
     ]);
     expect(uow.audit.entries).toEqual([
       expect.objectContaining({

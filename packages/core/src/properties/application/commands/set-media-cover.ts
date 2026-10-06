@@ -48,8 +48,10 @@ export class SetMediaCover {
       if (previous) {
         previous.markCover(false, now);
         await tx.media.save(previous, actor.id);
+        await tx.events.publish(previous.pullEvents());
       }
       await tx.media.save(item, actor.id);
+      await tx.events.publish(item.pullEvents());
       await tx.audit.record(
         auditAction(
           actor,

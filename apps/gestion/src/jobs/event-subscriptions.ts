@@ -25,6 +25,7 @@ import {
   type UnlinkErasedClients,
   type GenerateMediaVariants,
   type RenderPropertyDocument,
+  type RevalidatePublicProperty,
   type RunDevelopmentUnitImport,
 } from '@norde/core/properties';
 import type { Actor } from '@norde/core/shared';
@@ -58,6 +59,11 @@ const ConversationLinkedPayloadSchema = z.object({
 });
 const MediaPayloadSchema = z.object({ mediaId: z.uuid() });
 const MediaDeletedPayloadSchema = z.object({ storageKeys: z.array(z.string()).max(10) });
+const PropertyPayloadSchema = z.object({ propertyId: z.uuid() });
+const MediaOwnerPayloadSchema = z.object({
+  ownerKind: z.enum(['property', 'development']),
+  ownerId: z.uuid(),
+});
 const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
 const ImportPayloadSchema = z.object({ importId: z.uuid() });
 const ErasedPayloadSchema = z.object({ erasedClientIds: z.array(z.uuid()).min(1) });
@@ -239,6 +245,44 @@ function propertySubscriptions(
   ];
 }
 
+/**
+ * La web cachea fichas y listados hasta que el sistema le avisa (ADR 0023): cada cambio de una
+ * propiedad o de su galería la revalida. Los emprendimientos todavía no tienen páginas públicas.
+ */
+function publicSiteSubscriptions(
+  revalidate: Pick<RevalidatePublicProperty, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription[] {
+  const run = async (event: DeliveredEvent, propertyId: string) => {
+    const result = await revalidate.execute({ propertyId }, actor);
+    if (result.isErr()) {
+      logger.error({ eventId: event.id, error: result.error }, 'Site revalidation skipped');
+    }
+  };
+  const media = (
+    eventType: 'properties.media_changed' | 'properties.media_deleted',
+  ): EventSubscription => ({
+    eventType,
+    name: 'revalidate-site',
+    handle: async (event) => {
+      const owner = MediaOwnerPayloadSchema.parse(event.payload);
+      if (owner.ownerKind === 'property') await run(event, owner.ownerId);
+    },
+  });
+  return [
+    {
+      eventType: 'properties.property_changed',
+      name: 'revalidate-site',
+      handle: async (event) => {
+        await run(event, PropertyPayloadSchema.parse(event.payload).propertyId);
+      },
+    },
+    media('properties.media_changed'),
+    media('properties.media_deleted'),
+  ];
+}
+
 /** La actividad de la ficha del cliente (#8): consultas y conversaciones del agente de IA. */
 function activitySubscriptions(
   recordActivity: Pick<RecordClientActivity, 'execute'>,
@@ -372,6 +416,8 @@ export function eventSubscriptions(deps: {
   /** La importación de unidades de un emprendimiento desde Excel (#7). */
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
+  /** Avisarle a la web que una propiedad cambió (ADR 0023). */
+  readonly revalidateSite: Pick<RevalidatePublicProperty, 'execute'>;
   /**
    * El reparto automático de las consultas que entran: por las chances del emprendimiento (#7) y,
    * con el flag, por las reglas (#10). Sin él, quedan pendientes.
@@ -405,6 +451,7 @@ export function eventSubscriptions(deps: {
     notifyTeam('clients.opportunity_created'),
     notifyTeam('clients.opportunity_request_added'),
     ...propertySubscriptions(deps.properties, deps.actor, deps.logger),
+    ...publicSiteSubscriptions(deps.revalidateSite, deps.actor, deps.logger),
     ...appraisalSubscriptions(deps.appraisals, deps, deps.logger),
     ...activitySubscriptions(deps.recordActivity, deps.actor, deps.logger),
     ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),

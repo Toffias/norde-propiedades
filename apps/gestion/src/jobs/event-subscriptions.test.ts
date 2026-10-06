@@ -1,5 +1,5 @@
 import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
-import type { RunDevelopmentUnitImport } from '@norde/core/properties';
+import type { RevalidatePublicProperty, RunDevelopmentUnitImport } from '@norde/core/properties';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -93,6 +93,7 @@ function clientJobs(calls: unknown[] = []): {
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
+  readonly revalidateSite: Pick<RevalidatePublicProperty, 'execute'>;
   readonly importActor: Actor;
   readonly appraisals: AppraisalJobs;
   readonly conversionActor: Actor;
@@ -154,6 +155,12 @@ function clientJobs(calls: unknown[] = []): {
         return Promise.resolve(ok({ routed: false as const, reason: 'no_rule' as const }));
       },
     },
+    revalidateSite: {
+      execute: (input, by) => {
+        calls.push(['revalidate', input, by.id]);
+        return Promise.resolve(ok(undefined));
+      },
+    },
     importActor,
     appraisals: appraisalJobs(calls),
     conversionActor,
@@ -183,6 +190,9 @@ describe('eventSubscriptions', () => {
       'properties.media_variants_requested.generate-variants',
       'properties.media_deleted.delete-files',
       'properties.document_requested.render-document',
+      'properties.property_changed.revalidate-site',
+      'properties.media_changed.revalidate-site',
+      'properties.media_deleted.revalidate-site',
       'appraisals.appraisal_photo_deleted.delete-photo-files',
       'appraisals.appraisal_converted.create-property',
       'clients.opportunity_created.record-activity',
@@ -264,6 +274,30 @@ describe('eventSubscriptions', () => {
     await expect(
       byType('properties.document_requested')?.handle({ ...event, payload: { documentId: 'x' } }),
     ).rejects.toThrow();
+  });
+
+  it('revalidates the public site when a property or its gallery changes', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(calls),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const site = subscriptions.filter((s) => s.name === 'revalidate-site');
+    const owner = { ownerKind: 'property', ownerId: PROPERTY_ID, mediaId: MEDIA_ID };
+
+    await site[0]?.handle({ ...event, payload: { propertyId: PROPERTY_ID, code: 'DEP0001' } });
+    await site[1]?.handle({ ...event, payload: owner });
+    await site[2]?.handle({ ...event, payload: { ...owner, storageKeys: ['a'] } });
+    // Los emprendimientos todavía no tienen páginas públicas.
+    await site[1]?.handle({ ...event, payload: { ...owner, ownerKind: 'development' } });
+
+    const revalidated = ['revalidate', { propertyId: PROPERTY_ID }, 'system:scheduler'];
+    expect(calls).toEqual([revalidated, revalidated, revalidated]);
+    await expect(site[0]?.handle({ ...event, payload: { propertyId: 'x' } })).rejects.toThrow();
   });
 
   it('deletes removed appraisal photos and creates the property of a converted one', async () => {

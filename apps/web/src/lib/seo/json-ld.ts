@@ -2,6 +2,7 @@
 // Funciones puras: reciben la URL del sitio y devuelven el objeto listo para serializar.
 
 import { BUSINESS, type Business } from '../../constants/business';
+import type { ListingDetail } from '../properties/view';
 import { absoluteUrl, routes } from './routes';
 
 export type JsonLd = Record<string, unknown>;
@@ -163,4 +164,66 @@ export function faqSchema(entries: readonly FaqEntry[]): JsonLd | undefined {
  */
 export function serializeJsonLd(data: JsonLd | readonly JsonLd[]): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+const RESIDENCE_TYPES: Readonly<Record<ListingDetail['propertyType'], string>> = {
+  apartment: 'Apartment',
+  house: 'SingleFamilyResidence',
+  ph: 'Residence',
+  land: 'Place',
+  office: 'Place',
+  commercial: 'Place',
+  garage: 'Place',
+  warehouse: 'Place',
+};
+
+/**
+ * `RealEstateListing` de una ficha: el aviso, su oferta y el inmueble. Solo con lo que se publica:
+ * sin precio publicado no hay `price`, y las coordenadas van solo si son exactas.
+ */
+export function realEstateListingSchema(siteUrl: string, listing: ListingDetail): JsonLd {
+  const url = absoluteUrl(siteUrl, listing.href);
+  return {
+    '@context': CONTEXT,
+    '@type': 'RealEstateListing',
+    '@id': `${url}#listing`,
+    url,
+    name: listing.title,
+    ...(listing.description.trim() !== '' && { description: listing.description.trim() }),
+    ...(listing.photos.length > 0 && {
+      image: listing.photos.slice(0, 10).map((photo) => absoluteUrl(siteUrl, photo.src)),
+    }),
+    dateModified: listing.updatedAt,
+    offers: {
+      '@type': 'Offer',
+      businessFunction:
+        listing.operation === 'sale'
+          ? 'http://purl.org/goodrelations/v1#Sell'
+          : 'http://purl.org/goodrelations/v1#LeaseOut',
+      availability: 'https://schema.org/InStock',
+      ...(listing.offer && { price: listing.offer.amount, priceCurrency: listing.offer.currency }),
+      seller: { '@id': organizationId(siteUrl) },
+    },
+    about: {
+      '@type': RESIDENCE_TYPES[listing.propertyType],
+      address: {
+        '@type': 'PostalAddress',
+        ...(listing.address && { streetAddress: listing.address }),
+        addressLocality: listing.location,
+        addressRegion: listing.province,
+        addressCountry: 'AR',
+      },
+      ...(listing.coordinates?.exact === true && {
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: listing.coordinates.latitude,
+          longitude: listing.coordinates.longitude,
+        },
+      }),
+      ...(listing.surfaceM2 !== null && {
+        floorSize: { '@type': 'QuantitativeValue', value: listing.surfaceM2, unitCode: 'MTK' },
+      }),
+      ...(listing.rooms !== null && { numberOfRooms: listing.rooms }),
+    },
+  };
 }

@@ -1,0 +1,155 @@
+/*
+ * Tema del sitio público. Dirección "Barrio claro" con detalles deco del logo (ver
+ * docs/diseno-web.md): fondo arena cálido, tarjetas blancas redondeadas, un único rojo de marca y
+ * la línea escalonada del logo como separador.
+ * Usar SIEMPRE tokens (bg-card, text-muted-foreground, bg-brand-50): nunca hex sueltos en el .tsx.
+ *
+ * Las fuentes las carga la app (@fontsource) y las publica en `--font-sans-web` y `--font-wordmark`.
+ */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Los componentes de este paquete viven fuera de la app: hay que indicárselos a Tailwind. */
+@source '../components';
+
+/* next-themes pone `data-theme="dark"` en <html>. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  --radius: 1rem;
+  --background: #faf7f2;
+  --foreground: #2a2522;
+  --card: #ffffff;
+  --card-foreground: #2a2522;
+  --popover: #ffffff;
+  --popover-foreground: #2a2522;
+  --primary: #c9302b;
+  --primary-foreground: #ffffff;
+  --secondary: #f3ede5;
+  --secondary-foreground: #2a2522;
+  --muted: #f3ede5;
+  --muted-foreground: #6b615a;
+  --accent: #f3ede5;
+  --accent-foreground: #2a2522;
+  --destructive: #b42318;
+  --border: #e9e0d5;
+  --input: #ddd2c4;
+  --ring: #c9302b;
+  /* Tinta de las líneas deco y del wordmark "PROPIEDADES". */
+  --ink: #2a2522;
+  /* WhatsApp: el verde de la marca de Meta, solo en sus botones. */
+  --whatsapp: #1f8f4e;
+}
+
+[data-theme='dark'] {
+  --background: #171412;
+  --foreground: #f3eee8;
+  --card: #211d1a;
+  --card-foreground: #f3eee8;
+  --popover: #211d1a;
+  --popover-foreground: #f3eee8;
+  --primary: #ec5a52;
+  --primary-foreground: #1a0f0e;
+  --secondary: #2b2622;
+  --secondary-foreground: #f3eee8;
+  --muted: #2b2622;
+  --muted-foreground: #b3a89e;
+  --accent: #2b2622;
+  --accent-foreground: #f3eee8;
+  --destructive: #f97066;
+  --border: #36302b;
+  --input: #443c36;
+  --ring: #ec5a52;
+  --ink: #e9e2da;
+  --whatsapp: #3fbf72;
+}
+
+@theme {
+  /* Rojo de marca: el del logo, apenas más profundo para que el texto blanco cumpla AA. */
+  --color-brand-50: #fdeeed;
+  --color-brand-100: #fadcda;
+  --color-brand-200: #f4b6b2;
+  --color-brand-300: #ec8a84;
+  --color-brand-400: #e2605a;
+  --color-brand-500: #d8312c;
+  --color-brand-600: #c9302b;
+  --color-brand-700: #a8231f;
+  --color-brand-800: #861c19;
+  --color-brand-900: #5e1311;
+
+  --z-sticky: 30;
+  --z-float: 35;
+  --z-dropdown: 40;
+  --z-overlay: 50;
+}
+
+@theme inline {
+  --font-sans: var(--font-sans-web), ui-sans-serif, system-ui, sans-serif;
+  --font-wordmark: var(--font-wordmark-web), 'Times New Roman', serif;
+  /* Hover del botón primario. */
+  --color-primary-700: color-mix(in oklab, var(--primary) 88%, black);
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ink: var(--ink);
+  --color-whatsapp: var(--whatsapp);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight text-balance;
+  }
+}
+
+/*
+ * La línea escalonada del logo: tres trazos que se acortan hacia el centro. Separa secciones y
+ * subraya títulos. `.deco-steps` ocupa el ancho del contenedor; `.deco-steps-sm`, 120 px.
+ */
+@utility deco-steps {
+  height: 9px;
+  background:
+    linear-gradient(var(--ink), var(--ink)) 0 0 / 100% 1px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) 16px 4px / calc(100% - 32px) 1px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) 32px 8px / calc(100% - 64px) 1px no-repeat;
+}
+
+@utility deco-steps-sm {
+  width: 120px;
+  height: 9px;
+  background:
+    linear-gradient(var(--color-brand-600), var(--color-brand-600)) 0 0 / 100% 2px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) 12px 4px / calc(100% - 24px) 1px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) 24px 8px / calc(100% - 48px) 1px no-repeat;
+}

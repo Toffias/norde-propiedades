@@ -11,6 +11,7 @@ export const routes = {
       ? `/blog/categoria/${encodeURIComponent(slug)}`
       : `/blog/categoria/${encodeURIComponent(slug)}/pagina/${page}`,
   properties: () => '/propiedades',
+  property: (slug: string) => `/propiedades/${encodeURIComponent(slug)}`,
   defaultOgImage: () => '/og-image.png',
 } as const;
 

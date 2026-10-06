@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import { SiteFooter } from '../../components/layout/site-footer';
 import { SiteHeader } from '../../components/layout/site-header';
+import { WhatsAppFloat } from '../../components/layout/whatsapp-float';
 import { JsonLdScript } from '../../components/seo/json-ld-script';
 import { BUSINESS, SITE_TITLE } from '../../constants/business';
 import { organizationSchema, websiteSchema } from '../../lib/seo/json-ld';
@@ -30,8 +31,9 @@ export function generateMetadata(): Metadata {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    // Los `--background` de themes/web.css.
+    { media: '(prefers-color-scheme: light)', color: '#faf7f2' },
+    { media: '(prefers-color-scheme: dark)', color: '#171412' },
   ],
 };
 
@@ -54,6 +56,7 @@ export default function FrontendLayout({ children }: { readonly children: ReactN
             {children}
           </main>
           <SiteFooter />
+          <WhatsAppFloat />
         </ThemeProvider>
       </body>
     </html>

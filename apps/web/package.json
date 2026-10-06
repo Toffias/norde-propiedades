@@ -17,6 +17,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/plus-jakarta-sans": "catalog:",
+    "@fontsource/cinzel": "catalog:",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",
     "@norde/ui": "workspace:*",
@@ -29,9 +31,11 @@
     "@payloadcms/translations": "catalog:",
     "@payloadcms/ui": "catalog:",
     "graphql": "catalog:",
+    "leaflet": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "payload": "catalog:",
+    "pino": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "server-only": "catalog:",
@@ -42,6 +46,7 @@
     "@norde/config": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@tailwindcss/typography": "catalog:",
+    "@types/leaflet": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

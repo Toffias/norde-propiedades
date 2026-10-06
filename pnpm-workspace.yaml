@@ -13,6 +13,8 @@ catalog:
   '@dnd-kit/sortable': 10.0.0
   '@dnd-kit/utilities': 3.2.2
   '@eslint/js': 10.0.1
+  '@fontsource-variable/plus-jakarta-sans': 5.3.0
+  '@fontsource/cinzel': 5.3.0
   '@hookform/resolvers': 5.9.1
   '@next/eslint-plugin-next': 16.3.6
   '@openai/agents': 0.18.0

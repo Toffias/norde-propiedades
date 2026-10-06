@@ -84,6 +84,9 @@ STORAGE_DRIVER=local
 STORAGE_LOCAL_DIR=/var/www/norde-uat-storage
 # El mismo valor que WEB_REVALIDATE_SECRET de gestion
 REVALIDATE_SECRET=SECRETO_DE_32_O_MAS
+# Formulario de consulta de la ficha: el mismo valor que INQUIRY_WEBHOOK_SECRET de gestion
+INQUIRY_WEBHOOK_URL=https://gestionnorde.apzsoftware.online/api/webhooks/inquiries/web
+INQUIRY_WEBHOOK_SECRET=SECRETO_DE_32_O_MAS
 ```
 
 `/var/www/norde-uat/apps/gestion/.env` (lo mínimo; sumá Resend, MercadoLibre, etc. a medida que pruebes cada integración):
@@ -99,6 +102,8 @@ JOBS_ENABLED=true
 # Avisos a la web cuando cambia una propiedad (ADR 0023)
 WEB_REVALIDATE_URL=https://landingnorde.apzsoftware.online/api/revalidate
 WEB_REVALIDATE_SECRET=SECRETO_DE_32_O_MAS
+# Consultas del formulario de la web
+INQUIRY_WEBHOOK_SECRET=SECRETO_DE_32_O_MAS
 # Para probar MercadoLibre:
 # PORTALS_ENABLED=true
 # PORTALS_SECRET_KEY=SECRETO

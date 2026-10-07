@@ -632,10 +632,39 @@ Diseño propuesto:
    - Cada tarjeta permite conectar, reconectar y desconectar por OAuth, y activar o desactivar la cuenta. Solo una cuenta conectada se activa, y desconectar la desactiva y borra sus credenciales, pero no toca los avisos que ya están en ML.
    - Las acciones piden `portals:manage`. Ver las cuentas pide eso o `portals:publish`.
    - Auditoría: `portal_account.connected` y `portal_account.disconnected` (con la cuenta de ML antes y después), y `portal_account.enabled` y `portal_account.disabled`.
-2. **Publicar propiedades**:
-   - Se publica a pedido, desde la pestaña Difusión de la ficha (simple o destacado). Después, los cambios de precio, datos, fotos y estado se sincronizan solos, por jobs con reintentos.
-   - Reservada o pausada → aviso pausado. Vendida, alquilada, retirada o borrada → aviso cerrado.
-   - Un job diario concilia lo que pasó en ML (avisos vencidos o moderados).
+2. **Publicar propiedades** (2a hecha; 2b pendiente). Decisiones técnicas en el ADR 0024.
+   - **Pestaña Difusión** de la ficha, con `portals:publish` o `portals:manage` y la función prendida:
+     - Una fila por operación de la propiedad (venta, alquiler) en cada cuenta activa.
+     - Cada fila muestra el estado (Publicando…, Publicada, Pausada, Con error, Dada de baja), el tipo (simple o destacado), el último error, la última sincronización y "Ver en MercadoLibre".
+     - Acciones: **Publicar** (eligiendo simple o destacado), **Pausar** y **Reactivar**, **Pasar a destacado/simple**, **Sincronizar** y **Dar de baja** (con confirmación).
+     - Mientras un aviso se publica, la pestaña se refresca sola.
+   - **Un aviso por operación**: venta y alquiler son dos avisos (son categorías distintas de ML, y cada uno consume cupo).
+   - **Antes de publicar** se revisa:
+     - Que la cuenta esté conectada y activa.
+     - Que la propiedad esté disponible y la operación tenga precio (sin precio o con "a consultar", no se publica).
+     - Que tenga al menos una foto lista y marcada "Mostrar en la web".
+     - Que la sucursal del captador tenga WhatsApp.
+     - Que tenga los datos que ML exige por tipo: superficie total y cubierta, ambientes, dormitorios y baños. Las cocheras vacías van como 0.
+     - Si falta algo, se dice qué.
+   - **Fuera de esta etapa:**
+     - Las unidades de un emprendimiento se publican con su emprendimiento (etapa 4).
+     - El alquiler temporario todavía no se publica: ML pide huéspedes, horarios y estadía mínima, que no cargamos.
+   - **Sincronización.** El aviso lo crea un job, y después los cambios de la ficha y de sus fotos llegan solos (si lo que se manda no cambió, no se llama a ML). Según el estado de la propiedad:
+     - Reservada o pausada → aviso pausado. Vuelve a disponible → se reactiva.
+     - Vendida, alquilada, retirada, borrador o en la papelera → aviso cerrado. Cerrar es definitivo en ML: volver a mostrarlo es "Volver a publicar", un aviso nuevo.
+   - **Errores.**
+     - Si ML rechaza el aviso, el motivo queda en la fila.
+     - Si ML no responde, se reintenta solo.
+     - Si ML revocó la cuenta, la fila pide reconectarla.
+   - **Qué se publica:**
+     - El título para portales y la descripción con el pie de Mi empresa → Portales.
+     - La dirección para publicar (nunca piso ni unidad), con coordenadas y la ubicación del catálogo (resuelta contra las de ML).
+     - Las fotos de la web (con marca de agua si está activa, hasta 30, portada primero).
+     - El contacto de la sucursal del captador.
+   - **Auditoría** contra la propiedad:
+     - Lo que pide el equipo: `property.portal_publish_requested`, `property.portal_pause_requested`, `property.portal_resume_requested`, `property.portal_unpublish_requested` y `property.portal_type_changed`.
+     - Lo que pasa en el portal, por `system:portal-sync`: `property.portal_published`, `property.portal_paused`, `property.portal_unpublished` y `property.portal_sync_failed` (con el motivo).
+   - **Pendiente (2b):** un job diario que concilie lo que pasó en ML (avisos vencidos o moderados) y el cupo de los paquetes en Mi empresa.
 3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
 4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
 

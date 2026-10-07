@@ -416,6 +416,10 @@ export { ListMedia, type ListMediaError } from './application/queries/list-media
 export { ListAttachments, type ListAttachmentsError } from './application/queries/list-attachments';
 export { GetMediaFile, type GetMediaFileError } from './application/queries/get-media-file';
 export {
+  ListShareablePhotos,
+  type ListShareablePhotosError,
+} from './application/queries/list-shareable-photos';
+export {
   GetAttachmentDownload,
   type GetAttachmentDownloadError,
 } from './application/queries/get-attachment-download';

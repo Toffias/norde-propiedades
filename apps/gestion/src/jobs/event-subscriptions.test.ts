@@ -520,3 +520,84 @@ describe('eventSubscriptions', () => {
     ]);
   });
 });
+
+describe('portal subscriptions', () => {
+  const portalActor = Actor.system('portal-sync', ['portals:sync']);
+  const LISTING_ID = '00000000-0000-7000-8000-0000000000a1';
+
+  function portalSetup(outcome: 'synced' | 'retry' = 'synced') {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(),
+      portals: {
+        requestSync: {
+          execute: (input, by) => {
+            calls.push(['request-sync', input, by.id]);
+            return Promise.resolve(ok({ requested: 1 }));
+          },
+        },
+        sync: {
+          execute: (input, by) => {
+            calls.push(['sync', input, by.id]);
+            return Promise.resolve(ok(outcome));
+          },
+        },
+        actor: portalActor,
+      },
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const find = (queue: string) => {
+      const found = subscriptions.find((s) => `${s.eventType}.${s.name}` === queue);
+      if (!found) throw new Error(`No subscription ${queue}`);
+      return found;
+    };
+    return { subscriptions, calls, find };
+  }
+
+  it('only subscribes with the portals jobs', () => {
+    const { subscriptions } = portalSetup();
+    expect(subscriptions.map((s) => `${s.eventType}.${s.name}`)).toEqual(
+      expect.arrayContaining([
+        'properties.property_changed.sync-portal-listings',
+        'properties.media_changed.sync-portal-listings',
+        'properties.media_deleted.sync-portal-listings',
+        'portals.listing_sync_requested.sync-listing',
+      ]),
+    );
+  });
+
+  it('asks to sync the listings when a property or its photos change', async () => {
+    const { find, calls } = portalSetup();
+    await find('properties.property_changed.sync-portal-listings').handle({
+      ...event,
+      type: 'properties.property_changed',
+      payload: { propertyId: PROPERTY_ID, code: 'DEP0001' },
+    });
+    await find('properties.media_changed.sync-portal-listings').handle({
+      ...event,
+      type: 'properties.media_changed',
+      payload: { ownerKind: 'development', ownerId: PROPERTY_ID, mediaId: MEDIA_ID },
+    });
+    expect(calls).toEqual([['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync']]);
+  });
+
+  it('syncs a listing and throws when the portal did not answer, so the queue retries', async () => {
+    const synced = portalSetup('synced');
+    const delivered = {
+      ...event,
+      type: 'portals.listing_sync_requested',
+      payload: { listingId: LISTING_ID, propertyId: PROPERTY_ID },
+    };
+    await synced.find('portals.listing_sync_requested.sync-listing').handle(delivered);
+    expect(synced.calls).toEqual([['sync', { listingId: LISTING_ID }, 'system:portal-sync']]);
+
+    const retry = portalSetup('retry');
+    await expect(
+      retry.find('portals.listing_sync_requested.sync-listing').handle(delivered),
+    ).rejects.toThrow('Portal unavailable');
+  });
+});

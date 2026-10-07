@@ -21,6 +21,7 @@ export const DETAIL_TABS = [
   'contactos',
   'reservas',
   'estadisticas',
+  'difusion',
 ] as const;
 export type DetailTab = (typeof DETAIL_TABS)[number];
 
@@ -32,6 +33,7 @@ export const DETAIL_TAB_LABELS: Readonly<Record<DetailTab, string>> = {
   contactos: 'Contactos',
   reservas: 'Reservas',
   estadisticas: 'Estadísticas',
+  difusion: 'Difusión',
 };
 
 export const ORIENTATION_LABELS: Readonly<Record<OrientationValue, string>> = {

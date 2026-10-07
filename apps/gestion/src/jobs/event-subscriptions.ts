@@ -17,6 +17,7 @@ import type {
   MoveMergedClientConversations,
 } from '@norde/core/conversations';
 import type { MoveMergedClientFavorites, RemoveErasedClientFavorites } from '@norde/core/identity';
+import type { RequestListingSync, SyncListing } from '@norde/core/portals';
 import {
   CreatePropertyFromAppraisalInputSchema,
   type CreatePropertyFromAppraisal,
@@ -283,6 +284,61 @@ function publicSiteSubscriptions(
   ];
 }
 
+/** Difusión en portales (#14): cada cambio de una propiedad o de sus fotos llega a sus avisos. */
+export interface PortalJobs {
+  readonly requestSync: Pick<RequestListingSync, 'execute'>;
+  readonly sync: Pick<SyncListing, 'execute'>;
+  /** `system:portal-sync`: sincroniza y lee la propiedad, su sucursal y Mi empresa. */
+  readonly actor: Actor;
+}
+
+const ListingPayloadSchema = z.object({ listingId: z.uuid() });
+
+function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscription[] {
+  const requestSync = async (event: DeliveredEvent, propertyId: string) => {
+    const result = await jobs.requestSync.execute({ propertyId }, jobs.actor);
+    if (result.isErr()) {
+      logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
+    }
+  };
+  const media = (
+    eventType: 'properties.media_changed' | 'properties.media_deleted',
+  ): EventSubscription => ({
+    eventType,
+    name: 'sync-portal-listings',
+    handle: async (event) => {
+      const owner = MediaOwnerPayloadSchema.parse(event.payload);
+      if (owner.ownerKind === 'property') await requestSync(event, owner.ownerId);
+    },
+  });
+  return [
+    {
+      eventType: 'properties.property_changed',
+      name: 'sync-portal-listings',
+      handle: async (event) => {
+        await requestSync(event, PropertyPayloadSchema.parse(event.payload).propertyId);
+      },
+    },
+    media('properties.media_changed'),
+    media('properties.media_deleted'),
+    {
+      eventType: 'portals.listing_sync_requested',
+      name: 'sync-listing',
+      handle: async (event) => {
+        const { listingId } = ListingPayloadSchema.parse(event.payload);
+        const result = await jobs.sync.execute({ listingId }, jobs.actor);
+        if (result.isErr()) {
+          logger.error({ eventId: event.id, error: result.error }, 'Listing sync skipped');
+          return;
+        }
+        // El portal no respondió: el error queda en la publicación y la cola reintenta con backoff.
+        if (result.value === 'retry')
+          throw new Error(`Portal unavailable for listing ${listingId}`);
+      },
+    },
+  ];
+}
+
 /** La actividad de la ficha del cliente (#8): consultas y conversaciones del agente de IA. */
 function activitySubscriptions(
   recordActivity: Pick<RecordClientActivity, 'execute'>,
@@ -423,6 +479,8 @@ export function eventSubscriptions(deps: {
    * con el flag, por las reglas (#10). Sin él, quedan pendientes.
    */
   readonly routeInquiry?: Pick<RouteInquiry, 'execute'>;
+  /** La difusión en portales (#14), solo con `PORTALS_ENABLED`. */
+  readonly portals?: PortalJobs;
   readonly actor: Actor;
   /** El de las importaciones: los contactos y las unidades quedan creados por `system:import`. */
   readonly importActor: Actor;
@@ -482,5 +540,6 @@ export function eventSubscriptions(deps: {
     ...(deps.routeInquiry
       ? [routeInquirySubscription(deps.routeInquiry, deps.actor, deps.logger)]
       : []),
+    ...(deps.portals ? portalSubscriptions(deps.portals, deps.logger) : []),
   ];
 }

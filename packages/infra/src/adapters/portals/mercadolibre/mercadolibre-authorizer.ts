@@ -5,6 +5,7 @@ import type {
   PortalAuthorizationGrant,
   PortalAuthorizationRequest,
   PortalAuthorizer,
+  PortalCredentials,
   PortalId,
   PortalNotConfiguredError,
 } from '@norde/core/portals';
@@ -143,6 +144,43 @@ export class MercadoLibreAuthorizer implements PortalAuthorizer {
       credentials: { accessToken, refreshToken, expiresAt },
       externalAccountId,
       accountName: user.value.nickname,
+    });
+  }
+
+  /**
+   * Renueva el access token. El refresh token de ML es de un solo uso: la respuesta trae otro, que
+   * hay que guardar enseguida (lo hace `MercadoLibreTokens`, con la fila bloqueada).
+   */
+  async refresh(
+    portal: PortalId,
+    refreshToken: string,
+  ): Promise<Result<PortalCredentials, PortalAuthorizationError>> {
+    const { app, clock } = this.options;
+    if (!app) return err({ type: 'PortalNotConfigured' });
+    const token = await this.#request(
+      `${this.#apiBaseUrl}/oauth/token`,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: app.clientId,
+          client_secret: app.clientSecret,
+          refresh_token: refreshToken,
+        }).toString(),
+      },
+      TokenResponseSchema,
+      portal,
+    );
+    if (token.isErr()) return err(token.error);
+    return ok({
+      accessToken: token.value.access_token,
+      // Si ML no rota el token (no debería), el anterior sigue sirviendo.
+      refreshToken: token.value.refresh_token ?? refreshToken,
+      expiresAt: new Date(clock.now().getTime() + token.value.expires_in * 1000),
     });
   }
 

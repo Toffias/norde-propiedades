@@ -123,6 +123,27 @@ export const GetMediaFileInputSchema = z.object({
 });
 export type GetMediaFileInput = z.input<typeof GetMediaFileInputSchema>;
 
+/** Una URL firmada vence a los 7 días como mucho (límite de las firmas de S3). */
+export const MAX_SHARED_PHOTO_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * Las fotos publicables de una propiedad, con un link que un tercero (un portal) puede descargar
+ * mientras dure la firma.
+ */
+export const ListShareablePhotosInputSchema = z.object({
+  propertyId: z.uuid(),
+  expiresInSeconds: z.number().int().min(60).max(MAX_SHARED_PHOTO_SECONDS),
+  limit: z.number().int().min(1).max(100),
+});
+export type ListShareablePhotosInput = z.input<typeof ListShareablePhotosInputSchema>;
+
+export interface ShareablePhoto {
+  readonly mediaId: string;
+  /** Cambia si cambia la foto (rotación, variantes nuevas): sirve para saber si hay que reenviarla. */
+  readonly version: string;
+  readonly url: string;
+}
+
 // ---------- Jobs ----------
 
 /** Solo claves de una galería: el job nunca borra otra cosa del storage. */

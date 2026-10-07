@@ -58,6 +58,11 @@ export class PortalAccount extends AggregateRoot<PortalId> {
     return this.#connection !== undefined;
   }
 
+  /** Conectada y activada: se puede publicar con ella. */
+  get canPublish(): boolean {
+    return this.#connection !== undefined && this.#isEnabled;
+  }
+
   /**
    * Vincula la cuenta del portal. Volver a conectar reemplaza la anterior (por ejemplo, cuando el
    * portal revocó el acceso). Dos cuentas de Norde del mismo proveedor no pueden usar la misma

@@ -1,6 +1,6 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
 import type { PortalId } from '../../domain/portal';
-import type { PortalAccountRepository } from '../../domain/portals.repository';
+import type { ListingRepository, PortalAccountRepository } from '../../domain/portals.repository';
 import type { PortalCredentials } from './portal-authorizer';
 
 /** Credenciales de cada cuenta, cifradas por infra. Nunca se guardan ni se loguean en claro. */
@@ -13,6 +13,7 @@ export interface PortalCredentialStore {
 export interface PortalsTransaction {
   readonly accounts: PortalAccountRepository;
   readonly credentials: PortalCredentialStore;
+  readonly listings: ListingRepository;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

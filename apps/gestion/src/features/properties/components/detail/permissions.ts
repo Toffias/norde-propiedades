@@ -19,4 +19,6 @@ export interface DetailPermissions {
   readonly manageReservations: boolean;
   /** Ver las reservas de la propiedad. */
   readonly reservations: boolean;
+  /** Ver la difusión en portales (#14): con la función prendida y permiso de portales. */
+  readonly portals: boolean;
 }

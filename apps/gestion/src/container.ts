@@ -186,6 +186,7 @@ import {
   GetPropertyInterestProfile,
   GetPropertyInterestProfiles,
   GetMediaFile,
+  ListShareablePhotos,
   ListCustomAttributes,
   ListAttachments,
   ListPropertyDocuments,
@@ -322,11 +323,20 @@ import {
   type FileStorage,
 } from '@norde/core/settings';
 import {
+  ChangeListingType,
   ConnectPortalAccount,
   DisconnectPortalAccount,
+  GetPropertyListings,
   ListPortalAccounts,
+  PauseListing,
+  RequestListingSync,
+  RequestPublication,
+  ResumeListing,
+  ResyncListing,
   SetPortalAccountEnabled,
   StartPortalConnection,
+  SyncListing,
+  UnpublishListing,
 } from '@norde/core/portals';
 import { Actor, err, ok, type Clock, type IdGenerator, type Result } from '@norde/core/shared';
 import {
@@ -407,12 +417,16 @@ import {
   createPortalsUnitOfWork,
   DrizzlePortalAccountRepository,
   MercadoLibreAuthorizer,
+  MercadoLibreLocations,
+  MercadoLibrePortalConnector,
+  MercadoLibreTokens,
 } from '@norde/infra';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
 import { getEnv, mercadoLibreApp, type Env } from './config/env';
 import { getLogger } from './config/logger';
+import { listingSourceReader } from './features/portals/listing-source-reader';
 import { eventSubscriptions } from './jobs/event-subscriptions';
 
 export interface Container {
@@ -534,6 +548,16 @@ const IMPORT_ACTOR = Actor.system('import', [
   'properties:run-imports',
   'properties:create',
 ]);
+/**
+ * Sincroniza las publicaciones con los portales (#14). Lee la ficha, sus fotos, su sucursal y Mi
+ * empresa para armar el aviso.
+ */
+const PORTAL_SYNC_ACTOR = Actor.system('portal-sync', [
+  'portals:sync',
+  'properties:read',
+  'settings:read',
+  'branches:read',
+]);
 /** Arma el actor de quien pidió una acción masiva, con sus permisos de ahora. */
 const REQUESTER_RESOLVER_ACTOR = Actor.system('auth', ['sessions:resolve']);
 
@@ -549,23 +573,49 @@ function createStorage(env: Env): FileStorage {
   });
 }
 
-/** Cuentas de portales (#14). Solo con `PORTALS_ENABLED`, que exige la clave de cifrado. */
+/**
+ * Lo que comparten el panel y los jobs de portales (#14): la unidad de trabajo, el OAuth, el
+ * conector de MercadoLibre y el lector de la propiedad. Solo con `PORTALS_ENABLED`, que exige la
+ * clave de cifrado.
+ */
+function createPortalServices(
+  db: Database,
+  env: Env,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+  modules: { readonly properties: PropertiesUseCases; readonly settings: SettingsUseCases },
+) {
+  if (!env.PORTALS_ENABLED || env.PORTALS_SECRET_KEY === undefined) return undefined;
+  const { clock } = deps;
+  const logger = getLogger();
+  const cipher = new AesGcmSecretCipher(env.PORTALS_SECRET_KEY);
+  const uow = createPortalsUnitOfWork(db, { ...deps, cipher });
+  const authorizer = new MercadoLibreAuthorizer({ app: mercadoLibreApp(env), clock, logger });
+  const connector = new MercadoLibrePortalConnector({
+    tokens: new MercadoLibreTokens({ db, cipher, authorizer, clock, logger }),
+    locations: new MercadoLibreLocations({ logger, now: () => clock.now().getTime() }),
+    logger,
+  });
+  const reader = listingSourceReader({
+    propertyDetail: modules.properties.getPanelPropertyDetail,
+    photos: modules.properties.listShareablePhotos,
+    companySettings: modules.settings.getCompanySettings,
+    branch: new GetBranch({ organization: new DrizzleOrganizationQuery(db) }),
+    actor: PORTAL_SYNC_ACTOR,
+  });
+  return { uow, authorizer, connector, reader };
+}
+
+/** Cuentas y publicaciones de portales (#14). Sin `PORTALS_ENABLED`, no existe. */
 function createPortalsUseCases(
   db: Database,
   env: Env,
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
+  modules: { readonly properties: PropertiesUseCases; readonly settings: SettingsUseCases },
 ) {
-  if (!env.PORTALS_ENABLED || env.PORTALS_SECRET_KEY === undefined) return undefined;
-  const { clock } = deps;
-  const uow = createPortalsUnitOfWork(db, {
-    ...deps,
-    cipher: new AesGcmSecretCipher(env.PORTALS_SECRET_KEY),
-  });
-  const authorizer = new MercadoLibreAuthorizer({
-    app: mercadoLibreApp(env),
-    clock,
-    logger: getLogger(),
-  });
+  const services = createPortalServices(db, env, deps, modules);
+  if (!services) return undefined;
+  const { uow, authorizer, connector, reader } = services;
+  const { ids, clock } = deps;
 
   return {
     listAccounts: new ListPortalAccounts({
@@ -575,6 +625,13 @@ function createPortalsUseCases(
     connectAccount: new ConnectPortalAccount({ uow, authorizer, clock }),
     disconnectAccount: new DisconnectPortalAccount({ uow }),
     setAccountEnabled: new SetPortalAccountEnabled({ uow }),
+    getPropertyListings: new GetPropertyListings({ uow }),
+    requestPublication: new RequestPublication({ uow, reader, connector, ids, clock }),
+    pauseListing: new PauseListing({ uow, clock }),
+    resumeListing: new ResumeListing({ uow, clock }),
+    unpublishListing: new UnpublishListing({ uow, clock }),
+    changeListingType: new ChangeListingType({ uow, clock }),
+    resyncListing: new ResyncListing({ uow, clock }),
   };
 }
 
@@ -804,6 +861,7 @@ function createPropertiesUseCases(
     // Multimedia y archivos
     listMedia: new ListMedia({ media }),
     getMediaFile: new GetMediaFile({ uow, storage }),
+    listShareablePhotos: new ListShareablePhotos({ uow, storage }),
     uploadMedia: new UploadMedia({ uow, storage, ids, clock }),
     addMediaLink: new AddMediaLink({ uow, ids, clock }),
     updateMedia: new UpdateMedia({ uow, clock }),
@@ -1276,7 +1334,7 @@ function createContainer(): Container {
       }),
     },
     news: { listNews: createListNews(database.db, clock) },
-    portals: createPortalsUseCases(database.db, env, { ids, clock }),
+    portals: createPortalsUseCases(database.db, env, { ids, clock }, { properties, settings }),
     identity: {
       listUsers,
       listRoles: new ListRoles({ roles: roleQuery }),
@@ -1480,7 +1538,12 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   const clock = new SystemClock();
   const deps = { ids, clock };
   const storage = createStorage(env);
-  const referenceCodes = referenceCodesFrom(createSettingsUseCases(db, env, deps));
+  const settings = createSettingsUseCases(db, env, deps);
+  const referenceCodes = referenceCodesFrom(settings);
+  const portals = createPortalServices(db, env, deps, {
+    properties: createPropertiesUseCases(db, env, settings, deps),
+    settings,
+  });
 
   const bus = new PgBossEventBus({
     connectionString: env.DATABASE_URL,
@@ -1563,6 +1626,15 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       rulesEnabled: env.INQUIRY_RULES_ENABLED,
       ...deps,
     }),
+    ...(portals
+      ? {
+          portals: {
+            requestSync: new RequestListingSync({ uow: portals.uow, clock }),
+            sync: new SyncListing({ ...portals, clock }),
+            actor: PORTAL_SYNC_ACTOR,
+          },
+        }
+      : {}),
     actor: SCHEDULER_ACTOR,
     importActor: IMPORT_ACTOR,
     conversionActor: CONVERSION_ACTOR,

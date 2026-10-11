@@ -3,8 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./e2e-database": "./db/e2e-database.ts"
+  },
   "scripts": {
     "db:setup": "tsx db/setup.ts",
+    "db:e2e-reset": "tsx db/e2e-reset.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

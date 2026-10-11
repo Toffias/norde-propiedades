@@ -25,3 +25,9 @@ Thumbs.db
 # Storage local de desarrollo (apps/gestion)
 .storage/
 /.claude/worktrees
+
+# Tests e2e (apps/gestion): sesiones guardadas, resultados, reporte y storage local
+/apps/gestion/e2e/.auth/
+/apps/gestion/e2e/.results/
+/apps/gestion/e2e/.report/
+.storage-e2e/

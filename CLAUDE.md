@@ -176,6 +176,7 @@ pnpm format                  # Prettier
 pnpm --filter @norde/infra db:generate   # generar migración desde el esquema Drizzle
 pnpm --filter @norde/infra db:migrate
 pnpm --filter @norde/infra test:int     # tests de integración contra Postgres real
+pnpm --filter @norde/gestion test:e2e   # e2e del panel con Playwright (recrea la base *_e2e)
 pnpm db:setup && pnpm db:seed            # base local con migraciones y propiedades de prueba
 pnpm --filter @norde/agent simulate      # chatear con el agente por consola
 ```

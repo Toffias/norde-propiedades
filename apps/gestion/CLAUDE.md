@@ -71,6 +71,6 @@ Este proceso corre el relay del outbox y los workers de pg-boss de todo el siste
 ## Tests
 
 - Server Actions críticas (crear o editar propiedad, cliente, contrato): test de integración.
-- Flujos clave con Playwright: login, cargar propiedad, tomar una conversación del bot.
+- Flujos clave con Playwright en `e2e/` (ADR 0025): login, permisos por rol y los flujos de cada módulo. Cómo correrlos y escribirlos: `e2e/README.md`.
 - Jobs: que cada suscripción llame el caso de uso correcto con el actor correcto y no reintente un `Err`.
 - Webhooks: firma, validación, tamaño y rate limit.

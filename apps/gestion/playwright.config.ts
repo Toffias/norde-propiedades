@@ -1,6 +1,8 @@
 import { readE2eEnv } from '@norde/scripts/e2e-database';
 import { defineConfig, devices } from '@playwright/test';
 
+import { E2E_INQUIRY_WEBHOOK_SECRET } from './e2e/support/inquiries';
+
 // Tests e2e del panel contra una base propia (`*_e2e`), que `pnpm test:e2e` recrea y carga con el
 // seed antes de cada corrida (ver `scripts/db/e2e-reset.ts`). Guía: `e2e/README.md`.
 
@@ -14,7 +16,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: CI,
   retries: CI ? 1 : 0,
-  ...(CI ? { workers: 2 } : {}),
+  // En dev cada ruta se compila al primer pedido: con muchos tests a la vez, las acciones esperan
+  // la compilación y vencen. El build de producción aguanta más en paralelo.
+  ...(CI || SERVER === 'dev' ? { workers: 2 } : {}),
   reporter: CI ? [['github'], ['html', { open: 'never', outputFolder: 'e2e/.report' }]] : 'list',
   // En dev cada ruta se compila la primera vez que se pide.
   timeout: SERVER === 'dev' ? 90_000 : 30_000,
@@ -61,7 +65,7 @@ export default defineConfig({
       STORAGE_LOCAL_DIR: '.storage-e2e',
       LOG_LEVEL: 'warn',
       JOBS_ENABLED: 'true',
-      INQUIRY_WEBHOOK_SECRET: 'e2e-only-inquiry-webhook-secret-00000000',
+      INQUIRY_WEBHOOK_SECRET: E2E_INQUIRY_WEBHOOK_SECRET,
       // Las funciones que Norde no usa quedan apagadas, como en producción (#50).
       INQUIRY_RULES_ENABLED: 'false',
       WATERMARK_ENABLED: 'false',

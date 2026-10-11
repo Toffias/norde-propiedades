@@ -12,7 +12,10 @@ for (const role of ROLES) {
     await page.getByLabel('Contraseña', { exact: true }).fill(user.password);
     await page.getByRole('button', { name: 'Ingresar' }).click();
 
-    await expect(page.getByRole('heading', { name: `Hola, ${firstName(role)}` })).toBeVisible();
+    // Es la primera pantalla del panel: con `next dev` y sin caché, compilarla lleva más tiempo.
+    await expect(page.getByRole('heading', { name: `Hola, ${firstName(role)}` })).toBeVisible({
+      timeout: 60_000,
+    });
     await page.context().storageState({ path: storageStateFor(role) });
   });
 }

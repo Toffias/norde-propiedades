@@ -52,7 +52,9 @@ test.describe('listado', () => {
     const grid = page.getByRole('table', { name: table });
     await expect(grid.getByRole('link', { name: 'P-001', exact: true })).toBeVisible();
     await expect(grid.getByRole('link', { name: 'P-002', exact: true })).toBeVisible();
-    await expect(grid.getByRole('row')).toHaveCount(3);
+    // Solo dos del seed (P-0xx) son de Palermo. Las unidades que crean los specs de emprendimientos
+    // también pueden estar en Palermo: se cuentan solo las del seed.
+    await expect(grid.getByRole('link', { name: /^P-\d{3}$/ })).toHaveCount(2);
   });
 
   test('sin resultados lo dice', async ({ page }) => {

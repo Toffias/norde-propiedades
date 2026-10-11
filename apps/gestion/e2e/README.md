@@ -53,3 +53,5 @@ El usuario de la base necesita permiso para crear bases (`CREATEDB`), igual que 
   - No cierres la sesión guardada: la usan los demás specs. Para probar el cierre, ingresá con una sesión nueva.
 - Datos: los del seed son de solo lectura. Lo que un spec crea o cambia, lo crea él con un nombre único (por ejemplo, con `test.info().testId`), para que los specs corran en paralelo y en cualquier orden.
 - Selectores: por rol y texto visible (`getByRole`, `getByLabel`), como los usa una persona. Nada de clases de CSS.
+- Ayudas por módulo en `e2e/support/`. Por ejemplo, `createProperty` da de alta una propiedad desde el panel (con coordenadas, para no llamar al geocodificador) y `stubPropertyPhotos` responde las miniaturas con una imagen fija (#75).
+- Si un spec encuentra un bug del panel, no se arregla en el PR de tests: se abre un issue, y el spec prueba el comportamiento válido (por ejemplo, #74).

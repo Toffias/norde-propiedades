@@ -582,7 +582,17 @@ export class InMemoryPropertyTypeSettingsRepository implements PropertyTypeSetti
   all() {
     return Promise.resolve(
       (
-        ['apartment', 'house', 'ph', 'land', 'office', 'commercial', 'garage', 'warehouse'] as const
+        [
+          'apartment',
+          'house',
+          'ph',
+          'land',
+          'office',
+          'commercial',
+          'garage',
+          'warehouse',
+          'storage',
+        ] as const
       ).map((kind) => this.rows.get(kind) ?? defaultTypeSetting(kind)),
     );
   }

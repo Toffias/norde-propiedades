@@ -159,6 +159,8 @@ describe('property type settings', () => {
   it('recommends no bedrooms for land and garages', () => {
     expect(RECOMMENDED_ATTRIBUTES.land).not.toContain('bedrooms');
     expect(RECOMMENDED_ATTRIBUTES.garage).not.toContain('bedrooms');
+    expect(RECOMMENDED_ATTRIBUTES.storage).not.toContain('bedrooms');
+    expect(defaultTypeSetting('storage')).toMatchObject({ isEnabled: true });
     expect(RECOMMENDED_ATTRIBUTES.house).toContain('surfaceLandM2');
     expect(defaultTypeSetting('office')).toMatchObject({ isEnabled: true });
   });

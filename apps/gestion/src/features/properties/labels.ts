@@ -27,6 +27,7 @@ export const PROPERTY_TYPE_LABELS: Readonly<Record<PropertyType, string>> = {
   commercial: 'Local',
   garage: 'Cochera',
   warehouse: 'Galpón',
+  storage: 'Depósito',
 };
 
 export const OPERATION_LABELS: Readonly<Record<Operation, string>> = {

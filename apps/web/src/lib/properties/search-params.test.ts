@@ -22,6 +22,8 @@ describe('search params', () => {
   it('translates URL values to core values', () => {
     expect(operationFromParam('alquiler')).toBe('rent');
     expect(propertyTypeFromParam('departamento')).toBe('apartment');
+    expect(propertyTypeFromParam('galpon')).toBe('warehouse');
+    expect(propertyTypeFromParam('deposito')).toBe('storage');
     expect(operationFromParam('otra')).toBeUndefined();
     expect(propertyTypeFromParam(undefined)).toBeUndefined();
   });

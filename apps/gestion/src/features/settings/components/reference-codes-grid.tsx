@@ -72,6 +72,7 @@ const PROPERTY_TYPE_LABELS: Readonly<Record<(typeof PROPERTY_TYPES)[number], str
   commercial: 'Local',
   garage: 'Cochera',
   warehouse: 'Galpón',
+  storage: 'Depósito',
 };
 
 function isPropertyType(value: string): value is (typeof PROPERTY_TYPES)[number] {

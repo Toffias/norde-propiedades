@@ -44,6 +44,7 @@ const KINDS: readonly ListingPropertyKind[] = [
   'commercial',
   'garage',
   'warehouse',
+  'storage',
 ];
 
 function kindOf(value: string): ListingPropertyKind {

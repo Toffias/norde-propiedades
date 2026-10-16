@@ -35,6 +35,7 @@ const SeedPropertySchema = z.object({
     'commercial',
     'garage',
     'warehouse',
+    'storage',
   ]),
   status: z.enum(['draft', 'available', 'reserved', 'sold', 'rented', 'paused', 'withdrawn']),
   publishedOnWeb: z.boolean(),

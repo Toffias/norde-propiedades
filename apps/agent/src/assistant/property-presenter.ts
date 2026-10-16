@@ -21,6 +21,7 @@ export const PROPERTY_TYPE_LABEL: Readonly<Record<PropertyType, string>> = {
   commercial: 'Local comercial',
   garage: 'Cochera',
   warehouse: 'Galpón',
+  storage: 'Depósito',
 };
 
 const NUMBER = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 });

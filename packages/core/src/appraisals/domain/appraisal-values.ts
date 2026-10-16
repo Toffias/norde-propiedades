@@ -11,6 +11,7 @@ export const APPRAISAL_PROPERTY_TYPES = [
   'commercial',
   'garage',
   'warehouse',
+  'storage',
 ] as const;
 export type AppraisalPropertyType = (typeof APPRAISAL_PROPERTY_TYPES)[number];
 

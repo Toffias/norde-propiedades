@@ -13,6 +13,7 @@ export const PROPERTY_KINDS = [
   'commercial',
   'garage',
   'warehouse',
+  'storage',
 ] as const;
 export type PropertyKind = (typeof PROPERTY_KINDS)[number];
 
@@ -29,6 +30,7 @@ export const PROPERTY_KIND_LABELS: Readonly<Record<PropertyKind, string>> = {
   commercial: 'Local',
   garage: 'Cochera',
   warehouse: 'Galpón',
+  storage: 'Depósito',
 };
 
 export const OPERATION_LABELS: Readonly<Record<PropertyOperationKind, string>> = {

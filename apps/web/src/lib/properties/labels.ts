@@ -24,6 +24,7 @@ export const PROPERTY_TYPE_LABELS: Readonly<Record<PropertyType, string>> = {
   commercial: 'Local comercial',
   garage: 'Cochera',
   warehouse: 'Galpón',
+  storage: 'Depósito',
 };
 
 /** Plural para los títulos del listado ("Departamentos en venta"). */
@@ -36,6 +37,7 @@ export const PROPERTY_TYPE_PLURALS: Readonly<Record<PropertyType, string>> = {
   commercial: 'Locales comerciales',
   garage: 'Cocheras',
   warehouse: 'Galpones',
+  storage: 'Depósitos',
 };
 
 /** "en venta", "en alquiler": para títulos. */

@@ -112,6 +112,12 @@ export class ZonapropApi {
     return this.#request('PUT', path, body, schema);
   }
 
+  /** `PUT` de configuración: alcanza con que Zonaprop lo acepte, sin leer la respuesta. */
+  async send(path: string, body: unknown): Promise<Result<void, ZonapropApiError>> {
+    const result = await this.#request('PUT', path, body, null);
+    return result.isErr() ? err(result.error) : ok(undefined);
+  }
+
   /** `DELETE` (poner offline un aviso). */
   delete<T>(path: string, schema: z.ZodType<T>): Promise<Result<T | undefined, ZonapropApiError>> {
     return this.#request('DELETE', path, undefined, schema);
@@ -121,7 +127,7 @@ export class ZonapropApi {
     method: 'GET' | 'PUT' | 'DELETE',
     path: string,
     body: unknown,
-    schema: z.ZodType<T>,
+    schema: z.ZodType<T> | null,
   ): Promise<Result<T | undefined, ZonapropApiError>> {
     const first = await this.#authorizedRequest(method, path, body, schema, false);
     if (first.isErr() && first.error.type === 'unauthorized') {
@@ -142,7 +148,8 @@ export class ZonapropApi {
     method: 'GET' | 'PUT' | 'DELETE',
     path: string,
     body: unknown,
-    schema: z.ZodType<T>,
+    /** `null`: no se lee el cuerpo de la respuesta. */
+    schema: z.ZodType<T> | null,
     retried: boolean,
   ): Promise<Result<T | undefined, ZonapropApiError | { readonly type: 'unauthorized' }>> {
     const { config, logger } = this.options;
@@ -185,6 +192,7 @@ export class ZonapropApi {
       logger.error({ endpoint: url.pathname, status, reason }, 'Zonaprop request failed');
       return err({ type: 'unavailable' });
     }
+    if (schema === null) return ok(undefined);
     return this.#parse(response.value, schema, url.pathname);
   }
 

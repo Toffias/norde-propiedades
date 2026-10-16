@@ -25,6 +25,7 @@ import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-res
 import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
 import {
+  LEAD_NOTIFICATIONS_ERROR_MESSAGES,
   LINK_LISTING_ERROR_MESSAGES,
   CODE_CONNECTION_ERROR_MESSAGES,
   LISTING_ERROR_MESSAGES,
@@ -196,5 +197,20 @@ export async function linkPortalListingAction(
   }
   revalidateProperty();
   revalidatePath(PORTALS_SETTINGS_PATH, 'layout');
+  return ACTION_OK;
+}
+
+/** Le pide al portal que avise al instante cuando llega un contacto (callbacks). */
+export async function enableLeadNotificationsAction(input: PortalInput): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const portals = getContainer().portals;
+  if (!portals) return actionFailed(HIDDEN);
+  const parsed = PortalInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+
+  const result = await portals.enableLeadNotifications.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, LEAD_NOTIFICATIONS_ERROR_MESSAGES));
+  }
   return ACTION_OK;
 }

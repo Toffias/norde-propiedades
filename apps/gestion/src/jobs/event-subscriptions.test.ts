@@ -545,6 +545,12 @@ describe('portal subscriptions', () => {
             return Promise.resolve(ok(outcome));
           },
         },
+        pullLeads: {
+          execute: (input, by) => {
+            calls.push(['pull-leads', input, by.id]);
+            return Promise.resolve(ok({ received: 1, duplicates: 0, skipped: 0, rejected: 0 }));
+          },
+        },
         actor: portalActor,
       },
       actor,
@@ -599,5 +605,15 @@ describe('portal subscriptions', () => {
     await expect(
       retry.find('portals.listing_sync_requested.sync-listing').handle(delivered),
     ).rejects.toThrow('Portal unavailable');
+  });
+
+  it('pulls the portal leads when the portal notifies a contact', async () => {
+    const { find, calls } = portalSetup();
+    await find('portals.leads_arrived.pull-portal-leads').handle({
+      ...event,
+      type: 'portals.leads_arrived',
+      payload: { portal: 'zonaprop' },
+    });
+    expect(calls).toEqual([['pull-leads', { portal: 'zonaprop' }, 'system:portal-sync']]);
   });
 });

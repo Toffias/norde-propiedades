@@ -90,6 +90,11 @@ const EnvSchema = z.object({
   ZONAPROP_API_URL: z.url({ protocol: /^https$/ }).optional(),
   ZONAPROP_CLIENT_ID: z.string().min(1).optional(),
   ZONAPROP_CLIENT_SECRET: z.string().min(1).optional(),
+  /**
+   * Token que Zonaprop manda en el header `x-norde-token` cuando avisa que llegó un contacto
+   * (callbacks). Sin token, no hay avisos: las consultas llegan igual, cada 10 minutos.
+   */
+  ZONAPROP_CALLBACK_TOKEN: z.string().min(32).optional(),
 });
 
 const MERCADOLIBRE_APP = [
@@ -228,6 +233,19 @@ export function zonapropApi(env: Env) {
     return undefined;
   }
   return { baseUrl, clientId, clientSecret };
+}
+
+/** El header con que Zonaprop autoriza sus avisos de contactos. */
+export const ZONAPROP_CALLBACK_HEADER = 'x-norde-token';
+
+/** A dónde avisa Zonaprop que llegó un contacto, o `undefined` sin token configurado. */
+export function zonapropCallbackTarget(env: Env) {
+  if (env.ZONAPROP_CALLBACK_TOKEN === undefined) return undefined;
+  return {
+    url: new URL('/api/webhooks/portals/zonaprop', env.BETTER_AUTH_URL).toString(),
+    headerName: ZONAPROP_CALLBACK_HEADER,
+    headerValue: env.ZONAPROP_CALLBACK_TOKEN,
+  };
 }
 
 /** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */

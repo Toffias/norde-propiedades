@@ -16,6 +16,16 @@ export interface EventSubscription {
   handle(event: PublishedEvent): Promise<void>;
 }
 
+/** Un trabajo que corre solo, cada tanto (cron de pg-boss). */
+export interface ScheduledJob {
+  /** Nombre único: es la cola del trabajo. */
+  readonly name: string;
+  /** Cron de 5 campos, en hora de Buenos Aires (ej. `*\/10 * * * *`, cada 10 minutos). */
+  readonly cron: string;
+  /** Si lanza, pg-boss no reintenta: la próxima corrida lo vuelve a intentar. */
+  run(): Promise<void>;
+}
+
 export interface PgBossEventBusOptions {
   readonly connectionString: string;
   readonly logger: InfraLogger;
@@ -32,6 +42,7 @@ export interface PgBossEventBusOptions {
 export class PgBossEventBus {
   readonly #boss: PgBoss;
   readonly #subscriptions = new Map<string, EventSubscription[]>();
+  readonly #scheduled: ScheduledJob[] = [];
   #started = false;
 
   constructor(private readonly options: PgBossEventBusOptions) {
@@ -54,8 +65,23 @@ export class PgBossEventBus {
     this.#subscriptions.set(subscription.eventType, list);
   }
 
+  /** Registrar antes de `start()`. pg-boss guarda el cron: con varias instancias corre una sola vez. */
+  schedule(job: ScheduledJob): void {
+    if (this.#started) throw new Error('Schedule before starting the event bus');
+    this.#scheduled.push(job);
+  }
+
   async start(): Promise<void> {
     await this.#boss.start();
+    for (const job of this.#scheduled) {
+      await this.#boss.createQueue(job.name, { retryLimit: 0 });
+      await this.#boss.schedule(job.name, job.cron, null, {
+        tz: 'America/Argentina/Buenos_Aires',
+      });
+      await this.#boss.work(job.name, async () => {
+        await job.run();
+      });
+    }
     for (const subscription of [...this.#subscriptions.values()].flat()) {
       const queue = queueName(subscription);
       await this.#boss.createQueue(queue, {

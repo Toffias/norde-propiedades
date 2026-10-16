@@ -154,6 +154,13 @@ describe('RequestPublication', () => {
     ).toEqual({ type: 'PortalNotForProperties' });
   });
 
+  it('does not publish on Zonaprop yet', async () => {
+    const { request } = setup();
+    expect(unwrapErr(await request.execute({ ...SALE, portal: 'zonaprop' }, AGENT))).toEqual({
+      type: 'PortalNotForProperties',
+    });
+  });
+
   it('fails for an unknown property', async () => {
     const { request, reader } = setup();
     reader.sources.clear();

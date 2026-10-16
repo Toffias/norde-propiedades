@@ -3,11 +3,13 @@
 
 import { z } from 'zod';
 
-export const PORTAL_VALUES = ['mercadolibre', 'mercadolibre_developments'] as const;
+export const PORTAL_VALUES = ['mercadolibre', 'mercadolibre_developments', 'zonaprop'] as const;
 export const LISTING_OWNER_KIND_VALUES = ['property', 'development'] as const;
+export const PORTAL_CONNECTION_METHOD_VALUES = ['oauth', 'account_code'] as const;
 
 export type PortalValue = (typeof PORTAL_VALUES)[number];
 export type ListingOwnerKindValue = (typeof LISTING_OWNER_KIND_VALUES)[number];
+export type PortalConnectionMethodValue = (typeof PORTAL_CONNECTION_METHOD_VALUES)[number];
 
 export const PortalSchema = z.enum(PORTAL_VALUES);
 
@@ -27,6 +29,19 @@ export const ConnectPortalAccountInputSchema = z.object({
 });
 export type ConnectPortalAccountInput = z.input<typeof ConnectPortalAccountInputSchema>;
 
+/** Conectar una cuenta por su código (en Zonaprop, el código de inmobiliaria). */
+export const ConnectPortalAccountWithCodeInputSchema = z.object({
+  portal: PortalSchema,
+  accountCode: z
+    .string()
+    .trim()
+    .min(1, 'Ingresá el código de la cuenta.')
+    .max(64, 'El código no puede superar los 64 caracteres.'),
+});
+export type ConnectPortalAccountWithCodeInput = z.input<
+  typeof ConnectPortalAccountWithCodeInputSchema
+>;
+
 export const PortalInputSchema = z.object({ portal: PortalSchema });
 export type PortalInput = z.input<typeof PortalInputSchema>;
 
@@ -39,7 +54,9 @@ export type SetPortalAccountEnabledInput = z.input<typeof SetPortalAccountEnable
 /** Una cuenta de portal para Mi empresa → Portales. */
 export interface PortalAccountView {
   readonly portal: PortalValue;
-  readonly publishes: ListingOwnerKindValue;
+  readonly connection: PortalConnectionMethodValue;
+  /** Vacío: la cuenta todavía no publica nada. */
+  readonly publishes: readonly ListingOwnerKindValue[];
   readonly paid: boolean;
   readonly isEnabled: boolean;
   readonly isConnected: boolean;
@@ -52,6 +69,13 @@ export interface PortalAccountsView {
   readonly accounts: readonly PortalAccountView[];
   /** Si quien mira puede conectar, desconectar y activar. */
   readonly canManage: boolean;
+}
+
+/** Lo disponible de un plan de publicación contratado en el portal. */
+export interface PortalCreditView {
+  readonly plan: string;
+  readonly available: number;
+  readonly contracted: number | undefined;
 }
 
 // ---------- Publicaciones ----------

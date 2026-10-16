@@ -68,9 +68,16 @@ describe('StartPortalConnection', () => {
 
   it('rejects an unknown portal', async () => {
     const { start } = setup();
-    expect(unwrapErr(await start.execute({ portal: 'zonaprop' as never }, ADMIN)).type).toBe(
+    expect(unwrapErr(await start.execute({ portal: 'argenprop' as never }, ADMIN)).type).toBe(
       'ValidationFailed',
     );
+  });
+
+  it('rejects a portal that is connected by its account code', async () => {
+    const { start } = setup();
+    expect(unwrapErr(await start.execute({ portal: 'zonaprop' }, ADMIN))).toEqual({
+      type: 'WrongConnectionMethod',
+    });
   });
 });
 
@@ -113,6 +120,14 @@ describe('ConnectPortalAccount', () => {
     ]);
     // Los tokens nunca van a la auditoría.
     expect(JSON.stringify(uow.audit.entries)).not.toContain('APP_USR');
+  });
+
+  it('rejects a portal that is connected by its account code', async () => {
+    const { connect, authorizer } = setup();
+    expect(unwrapErr(await connect.execute({ ...CALLBACK, portal: 'zonaprop' }, ADMIN))).toEqual({
+      type: 'WrongConnectionMethod',
+    });
+    expect(authorizer.completed).toHaveLength(0);
   });
 
   it('rejects a state that does not match the one saved at the start', async () => {
@@ -262,7 +277,8 @@ describe('ListPortalAccounts', () => {
       accounts: [
         {
           portal: 'mercadolibre',
-          publishes: 'property',
+          connection: 'oauth',
+          publishes: ['property'],
           paid: true,
           isEnabled: false,
           isConnected: true,
@@ -271,7 +287,18 @@ describe('ListPortalAccounts', () => {
         },
         {
           portal: 'mercadolibre_developments',
-          publishes: 'development',
+          connection: 'oauth',
+          publishes: ['development'],
+          paid: true,
+          isEnabled: false,
+          isConnected: false,
+          accountName: undefined,
+          connectedAt: undefined,
+        },
+        {
+          portal: 'zonaprop',
+          connection: 'account_code',
+          publishes: [],
           paid: true,
           isEnabled: false,
           isConnected: false,

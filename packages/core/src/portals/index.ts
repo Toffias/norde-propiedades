@@ -5,9 +5,12 @@ export * from './contracts';
 export {
   LISTING_OWNER_KINDS,
   PORTAL_CATALOG,
+  PORTAL_CONNECTION_METHODS,
   PORTALS,
   isPortalId,
+  portalPublishes,
   type ListingOwnerKind,
+  type PortalConnectionMethod,
   type PortalDefinition,
   type PortalId,
   type PortalProvider,
@@ -22,6 +25,7 @@ export {
 export type { PortalAccountRepository } from './domain/portals.repository';
 
 export type { ValidationFailedError } from './application/portals-input';
+export type { WrongConnectionMethodError } from './application/connection-method';
 export type {
   PortalAuthorizationError,
   PortalAuthorizationGrant,
@@ -32,6 +36,14 @@ export type {
   PortalNotConfiguredError,
   PortalUnavailableError,
 } from './application/ports/portal-authorizer';
+export type {
+  PortalAccountBlockedError,
+  PortalAccountDirectory,
+  PortalAccountLookupError,
+  PortalAccountMatch,
+  PortalAccountNotFoundError,
+  PortalCredit,
+} from './application/ports/portal-account-directory';
 export type {
   PortalCredentialStore,
   PortalsTransaction,
@@ -48,6 +60,10 @@ export {
   type InvalidAuthorizationStateError,
 } from './application/commands/connect-portal-account';
 export {
+  ConnectPortalAccountWithCode,
+  type ConnectPortalAccountWithCodeError,
+} from './application/commands/connect-portal-account-with-code';
+export {
   DisconnectPortalAccount,
   type DisconnectPortalAccountError,
 } from './application/commands/disconnect-portal-account';
@@ -59,6 +75,10 @@ export {
   ListPortalAccounts,
   type ListPortalAccountsError,
 } from './application/queries/list-portal-accounts';
+export {
+  GetPortalCredits,
+  type GetPortalCreditsError,
+} from './application/queries/get-portal-credits';
 
 export {
   LISTING_INTENTS,

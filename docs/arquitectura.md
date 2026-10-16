@@ -147,7 +147,7 @@ packages/infra/src/
 │   ├── indec/                       # Serie IPC (datos.gob.ar)
 │   ├── crypto/                      # AES-256-GCM para los tokens de portales (ADR 0022)
 │   ├── public-site/                 # Avisos firmados a apps/web para revalidar (ADR 0023)
-│   └── portals/                     # mercadolibre/ (ADR 0022); zonaprop/ y argenprop/ a futuro
+│   └── portals/                     # mercadolibre/ (ADR 0022), zonaprop/ (ADR 0026); argenprop/ a futuro
 └── index.ts
 ```
 

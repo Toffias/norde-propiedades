@@ -11,7 +11,7 @@ import {
 } from '../../../shared';
 import { RequestPublicationInputSchema, type RequestPublicationInput } from '../../contracts';
 import { Listing, type ListingNotClosedError } from '../../domain/listing';
-import { PORTAL_CATALOG, type PortalId } from '../../domain/portal';
+import { portalPublishes, type PortalId } from '../../domain/portal';
 import { listingAuditTarget, listingAuditValue } from '../listing-support';
 import type { ListingSourceReader } from '../ports/listing-source';
 import type { PortalConnector } from '../ports/portal-connector';
@@ -101,7 +101,7 @@ export class RequestPublication {
     const parsed = parseInput(RequestPublicationInputSchema, input);
     if (parsed.isErr()) return err(parsed.error);
     const { propertyId, portal, operation, listingType } = parsed.value;
-    if (PORTAL_CATALOG[portal].publishes !== 'property') {
+    if (!portalPublishes(portal, 'property')) {
       return err({ type: 'PortalNotForProperties' });
     }
 

@@ -609,11 +609,11 @@ Igual que en clientes: con filtros, con permiso y registrado en la auditoría.
 
 ### 4.5 Integraciones con portales
 
-| Portal           | Qué se busca                                                                                                                |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **MercadoLibre** | API oficial (OAuth). Publicar, actualizar y pausar avisos de inmuebles, y traer las **preguntas y consultas** como clientes |
-| **Zonaprop**     | Publicación automática del stock. Hay que confirmar el mecanismo de integración (API de partners o feed XML) con el portal  |
-| **Argenprop**    | Igual que Zonaprop: confirmar si hay API o feed XML para inmobiliarias                                                      |
+| Portal           | Qué se busca                                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **MercadoLibre** | API oficial (OAuth). Publicar, actualizar y pausar avisos de inmuebles, y traer las **preguntas y consultas** como clientes   |
+| **Zonaprop**     | API de Open Navent (Norde es integrador): publicar el stock, vincular los avisos de Tokko y traer las consultas por callbacks |
+| **Argenprop**    | Igual que Zonaprop: confirmar si hay API o feed XML para inmobiliarias                                                        |
 
 Diseño propuesto:
 
@@ -667,6 +667,18 @@ Diseño propuesto:
    - **Pendiente (2b):** un job diario que concilie lo que pasó en ML (avisos vencidos o moderados) y el cupo de los paquetes en Mi empresa.
 3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
 4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
+
+**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en el ADR 0026.
+
+1. **Conexión** (en curso):
+   - Mi empresa → Portales suma la tarjeta **Zonaprop**. Se conecta con el **código de inmobiliaria**; el sistema lo busca entre las inmobiliarias que Zonaprop asoció a Norde.
+   - Un código que no está asociado, o una inmobiliaria bloqueada por Zonaprop, no se conecta y se explica por qué.
+   - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta.
+   - Todavía no publica: no tiene "Activa para publicar" y no aparece en la pestaña Difusión.
+2. **Publicar propiedades**: un solo aviso por propiedad, con todas sus operaciones (consume un crédito). Se sincroniza solo, como en ML.
+3. **Vincular los avisos que hoy publica Tokko** a las propiedades, sin republicarlos.
+4. **Consultas**: las de Zonaprop entran a la bandeja con canal Zonaprop.
+5. **Emprendimientos**: el emprendimiento con todas sus unidades en un aviso.
 
 ---
 

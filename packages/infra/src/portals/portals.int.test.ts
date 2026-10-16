@@ -1,5 +1,9 @@
-import { ConnectPortalAccount, DisconnectPortalAccount } from '@norde/core/portals';
-import { FakePortalAuthorizer } from '@norde/core/portals/testing';
+import {
+  ConnectPortalAccount,
+  ConnectPortalAccountWithCode,
+  DisconnectPortalAccount,
+} from '@norde/core/portals';
+import { FakePortalAccountDirectory, FakePortalAuthorizer } from '@norde/core/portals/testing';
 import { Actor } from '@norde/core/shared';
 import { FixedClock, unwrap, unwrapErr } from '@norde/core/shared/testing';
 import { eq } from 'drizzle-orm';
@@ -36,6 +40,11 @@ function setup() {
   return {
     authorizer,
     connect: new ConnectPortalAccount({ uow, authorizer, clock }),
+    connectWithCode: new ConnectPortalAccountWithCode({
+      uow,
+      directory: new FakePortalAccountDirectory(),
+      clock,
+    }),
     disconnect: new DisconnectPortalAccount({ uow }),
     accounts: new DrizzlePortalAccountRepository(db, clock),
     credentials: new DrizzlePortalCredentialStore(db, cipher),
@@ -49,7 +58,36 @@ describe('portal accounts (Postgres)', () => {
     expect(all.map((account) => account.toSnapshot())).toEqual([
       { portal: 'mercadolibre', isEnabled: false, connection: undefined },
       { portal: 'mercadolibre_developments', isEnabled: false, connection: undefined },
+      { portal: 'zonaprop', isEnabled: false, connection: undefined },
     ]);
+  });
+
+  it('connects a Zonaprop account by its code, without credentials', async () => {
+    const { connectWithCode, accounts } = setup();
+
+    unwrap(await connectWithCode.execute({ portal: 'zonaprop', accountCode: '17310373' }, ADMIN));
+
+    expect((await accounts.get('zonaprop')).toSnapshot()).toEqual({
+      portal: 'zonaprop',
+      isEnabled: false,
+      connection: {
+        externalAccountId: '17310373',
+        accountName: 'Norde Propiedades',
+        connectedAt: new Date('2026-10-05T12:00:00Z'),
+        connectedBy: ADMIN.id,
+      },
+    });
+    const [row] = await db
+      .select()
+      .from(portalAccounts)
+      .where(eq(portalAccounts.portal, 'zonaprop'));
+    expect(row?.isPaid).toBe(true);
+    expect(row?.credentialsEncrypted).toBeNull();
+    const [entry] = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, 'portal_account.connected'));
+    expect(entry?.entityId).toBe('zonaprop');
   });
 
   it('connects an account with its credentials encrypted and audits it', async () => {

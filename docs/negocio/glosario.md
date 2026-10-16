@@ -62,12 +62,14 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 
 ## Difusión
 
-| Término                  | En el código | En Tokko         | Significado                                                          |
-| ------------------------ | ------------ | ---------------- | -------------------------------------------------------------------- |
-| Portal                   | `portal`     | Portal           | Sitio de avisos: MercadoLibre, Zonaprop, Argenprop y otros           |
-| Publicación / aviso      | `listing`    | Publicación      | Una propiedad publicada en un portal, con su estado y errores        |
-| Aviso simple / destacado | —            | Simple / Premium | Nivel de exposición pagado en el portal                              |
-| Vidriera                 | —            | Carrusel         | Monitor en la vidriera de la oficina que rota propiedades destacadas |
+| Término                  | En el código        | En Tokko         | Significado                                                                                                               |
+| ------------------------ | ------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Portal                   | `portal`            | Portal           | Sitio de avisos: MercadoLibre, Zonaprop, Argenprop y otros                                                                |
+| Código de inmobiliaria   | `externalAccountId` | —                | Identifica la cuenta de Norde en Zonaprop (en el sandbox, 17310373). Con él se conecta la cuenta en Mi empresa → Portales |
+| Crédito de publicación   | `PortalCredit`      | —                | Cupo de avisos de un plan contratado en Zonaprop (simple, destacado…). Cada aviso publicado consume uno                   |
+| Publicación / aviso      | `listing`           | Publicación      | Una propiedad publicada en un portal, con su estado y errores                                                             |
+| Aviso simple / destacado | —                   | Simple / Premium | Nivel de exposición pagado en el portal                                                                                   |
+| Vidriera                 | —                   | Carrusel         | Monitor en la vidriera de la oficina que rota propiedades destacadas                                                      |
 
 ## Alquileres
 

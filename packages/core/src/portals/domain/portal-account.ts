@@ -3,9 +3,9 @@ import { err, ok, type Result } from '../../shared/domain/result';
 
 import { PORTAL_CATALOG, type PortalId } from './portal';
 
-/** La cuenta del portal vinculada por OAuth. Las credenciales no viven acá: las guarda infra cifradas. */
+/** La cuenta del portal vinculada (por OAuth o por su código). Las credenciales no viven acá. */
 export interface PortalConnection {
-  /** ID de la cuenta en el portal (en ML, el `user_id` del vendedor). */
+  /** ID de la cuenta en el portal: en ML, el `user_id`; en Zonaprop, el código de inmobiliaria. */
   readonly externalAccountId: string;
   /** Nombre visible de la cuenta (en ML, el nickname). */
   readonly accountName: string;
@@ -72,8 +72,7 @@ export class PortalAccount extends AggregateRoot<PortalId> {
     connection: PortalConnection,
     others: readonly PortalAccount[],
   ): Result<void, PortalAccountInUseError> {
-    // Como `string`: hoy hay un solo proveedor, pero la regla vale cuando se sumen otros.
-    const provider: string = PORTAL_CATALOG[this.portal].provider;
+    const { provider } = PORTAL_CATALOG[this.portal];
     const clash = others.find(
       (other) =>
         other.portal !== this.portal &&

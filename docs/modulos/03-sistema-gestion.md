@@ -678,7 +678,7 @@ Diseño propuesto:
 2. **Publicar propiedades** (hecha):
    - Se publica **a pedido**, desde la pestaña Difusión de la ficha. Después, los cambios de precio, datos, fotos y estado se sincronizan solos, como en ML.
    - **Un solo aviso por propiedad**, con todas las operaciones que tienen precio (consume un crédito). Las operaciones "a consultar" no se publican; sin ninguna con precio, no se publica.
-   - Se elige el **plan** entre los de la cuenta para propiedades (hoy Simple y Home), con los créditos que le quedan a cada uno. No viene uno elegido de antemano. Un plan sin créditos no se puede elegir. Desarrollos home queda para los emprendimientos (etapa 5).
+   - Se elige el **plan** entre los de la cuenta para propiedades (hoy Simple y Home), con los créditos que le quedan a cada uno. No viene uno elegido de antemano. Un plan sin créditos no se puede elegir. Desarrollos home queda para los emprendimientos.
    - Se puede **cambiar el plan** de un aviso publicado: consume un crédito del plan nuevo.
    - **Reservada o pausada**, el aviso pasa a offline en Zonaprop, y vuelve online cuando la propiedad está disponible otra vez. El crédito se usa mientras el aviso está online: offline lo libera. Vendida, alquilada o dada de baja, sale de Zonaprop.
    - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección.
@@ -688,15 +688,26 @@ Diseño propuesto:
    - **Mi empresa → Portales → Avisos en Zonaprop** lista los avisos online de la cuenta, de a una página, y propone la propiedad cuyo código de referencia es la clave interna del aviso. Se vincula con un clic.
    - Los que no coinciden se vinculan **a mano desde la ficha**, en Difusión, pegando el link del aviso.
    - El aviso **queda como lo dejó Tokko** hasta que cambie algo de la propiedad en el sistema; desde ahí lo actualiza el sistema. Usa el plan con el que estaba publicado; si Zonaprop no lo informa, se elige.
-   - No se vinculan los emprendimientos (etapa 5), ni un aviso ya vinculado, ni una propiedad que ya tiene aviso en Zonaprop.
+   - Los emprendimientos se vinculan aparte (etapa 5). Tampoco se vincula un aviso ya vinculado, ni una propiedad que ya tiene aviso en Zonaprop.
    - Antes de vincular en producción hay que apagar la publicación de Tokko en Zonaprop.
    - **Pendiente:** Zonaprop tiene que habilitar "asociar avisos" para el integrador de Norde. En el sandbox responde que no hay permiso.
-4. **Consultas** (en curso): los contactos de los avisos entran a la **bandeja de consultas** con canal Zonaprop.
+4. **Consultas**: los contactos de los avisos entran a la **bandeja de consultas** con canal Zonaprop.
    - Entran solos **cada 10 minutos**, leídos de Zonaprop (los de los últimos 2 días; los que ya estaban no se repiten).
    - **Al instante**, si se activan los avisos desde Mi empresa → Portales ("Recibir las consultas al instante"). Zonaprop avisa por cada contacto y el sistema los vuelve a leer de la API.
    - Entran los que traen teléfono o email: mensajes, "que me llamen", visitas, tasaciones y "ver teléfono" o "ver WhatsApp" de usuarios con sesión. Los anónimos sin datos no entran.
    - Sin texto, la consulta dice qué pidió la persona ("Pidió que lo llamen"). Si el aviso es del sistema, la consulta queda con su propiedad.
-5. **Emprendimientos**: el emprendimiento con todas sus unidades en un aviso.
+5. **Emprendimientos** (en curso, ADR 0030): el emprendimiento con todas sus unidades en un aviso de desarrollo.
+   - Se publica a pedido desde la pestaña **Difusión** del emprendimiento, con un plan de emprendimientos (hoy Desarrollos home) con créditos.
+   - Lleva las unidades **disponibles con precio**. Las reservadas, vendidas, pausadas o "a consultar" no van.
+   - Se publica un emprendimiento **Comercializando** con al menos una unidad así. Si vuelve a "Cargando información" o se queda sin unidades, el aviso sale de Zonaprop (libera el crédito). Vuelve solo cuando hay unidades otra vez. En la papelera, se da de baja.
+   - Zonaprop pide el tipo (vertical: edificio u oficinas; horizontal: barrio, complejo o loteo), la etapa de la obra, la fecha de entrega, la ubicación en el mapa, un título de al menos 10 caracteres y una descripción de al menos 50. La ficha dice qué falta antes de publicar.
+   - Cada cambio del emprendimiento, de sus fotos o de sus unidades actualiza el aviso. Las unidades se publican solo dentro de su emprendimiento, nunca sueltas.
+   - Una consulta por el aviso entra con el emprendimiento. Una consulta por una unidad entra con la unidad.
+   - **Vincular los de Tokko**: en Mi empresa → Portales → Avisos en Zonaprop → Emprendimientos, cada emprendimiento online se empareja con el de Norde que tiene su clave interna como código. Desde la ficha se vincula pegando el link.
+     - Cada unidad del portal se toma para la unidad de Norde con el mismo código. Las que no tienen par salen del aviso en el próximo envío.
+     - Igual que con las propiedades, el aviso queda como lo dejó Tokko hasta que cambie algo del emprendimiento o de sus unidades.
+     - Necesita el mismo permiso de Zonaprop que los avisos sueltos.
+   - **Pendiente:** probar online un emprendimiento real. En el sandbox la cuenta no tiene créditos de Desarrollos home.
 
 ---
 

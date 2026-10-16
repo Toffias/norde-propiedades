@@ -17,6 +17,7 @@ function requested() {
     propertyId: PROPERTY,
     operation: 'sale',
     listingType: 'simple',
+    plan: undefined,
     now: NOW,
   });
 }
@@ -195,6 +196,35 @@ describe('Listing commands', () => {
     expect(unwrapErr(listing.changeType('featured', NOW))).toEqual({ type: 'ListingClosed' });
   });
 
+  it('changes the plan and forces a full update', () => {
+    const listing = published();
+    expect(unwrap(listing.changePlan('HOME', NOW))).toBe(true);
+    expect(listing.toSnapshot()).toMatchObject({ plan: 'HOME', contentHash: undefined });
+    expect(listing.plan('active', 'hash-1')).toMatchObject({
+      kind: 'update',
+      contentChanged: true,
+    });
+    expect(unwrap(listing.changePlan('HOME', NOW))).toBe(false);
+  });
+
+  it('cannot change the plan of a closed listing', () => {
+    const listing = published();
+    listing.unpublish(NOW);
+    expect(unwrapErr(listing.changePlan('HOME', NOW))).toEqual({ type: 'ListingClosed' });
+  });
+
+  it('republishes with a new plan', () => {
+    const listing = published();
+    listing.unpublish(NOW);
+    listing.recordClosed(NOW);
+    unwrap(listing.republish({ listingType: 'simple', plan: 'HOME' }, NOW));
+    expect(listing.toSnapshot()).toMatchObject({
+      plan: 'HOME',
+      status: 'pending',
+      intent: 'active',
+    });
+  });
+
   it('changes the type and forces a full update', () => {
     const listing = published();
     expect(unwrap(listing.changeType('featured', NOW))).toBe(true);
@@ -210,7 +240,7 @@ describe('Listing commands', () => {
     listing.recordClosed(NOW);
     listing.pullEvents();
 
-    unwrap(listing.republish('featured', LATER));
+    unwrap(listing.republish({ listingType: 'featured', plan: undefined }, LATER));
 
     expect(listing.toSnapshot()).toMatchObject({
       status: 'pending',
@@ -224,7 +254,9 @@ describe('Listing commands', () => {
   });
 
   it('only republishes a closed listing', () => {
-    expect(unwrapErr(published().republish('simple', NOW))).toEqual({ type: 'ListingNotClosed' });
+    expect(
+      unwrapErr(published().republish({ listingType: 'simple', plan: undefined }, NOW)),
+    ).toEqual({ type: 'ListingNotClosed' });
   });
 
   it('does not ask for a sync once finished', () => {

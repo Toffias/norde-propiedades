@@ -114,6 +114,8 @@ export class ZonapropAccountDirectory implements PortalAccountDirectory {
         plan: d.planDePublicacion,
         available: d.cantidadDisponible,
         contracted: d.cantidadContratado ?? undefined,
+        // Los planes de emprendimientos de Zonaprop empiezan con `DESARROLLOS_`.
+        publishes: d.planDePublicacion.startsWith('DESARROLLOS_') ? 'development' : 'property',
       })),
     );
   }

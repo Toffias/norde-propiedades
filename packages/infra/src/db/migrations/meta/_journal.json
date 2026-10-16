@@ -246,6 +246,13 @@
       "when": 1791292370267,
       "tag": "0034_portal_listings_per_operation",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792176399122,
+      "tag": "0035_zonaprop_listings_per_property",
+      "breakpoints": true
     }
   ]
 }

@@ -668,14 +668,21 @@ Diseño propuesto:
 3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
 4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
 
-**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en el ADR 0026.
+**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 y 0027.
 
-1. **Conexión** (en curso):
+1. **Conexión** (hecha):
    - Mi empresa → Portales suma la tarjeta **Zonaprop**. Se conecta con el **código de inmobiliaria**; el sistema lo busca entre las inmobiliarias que Zonaprop asoció a Norde.
    - Un código que no está asociado, o una inmobiliaria bloqueada por Zonaprop, no se conecta y se explica por qué.
    - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta.
-   - Todavía no publica: no tiene "Activa para publicar" y no aparece en la pestaña Difusión.
-2. **Publicar propiedades**: un solo aviso por propiedad, con todas sus operaciones (consume un crédito). Se sincroniza solo, como en ML.
+   - Se activa para publicar como las cuentas de ML.
+2. **Publicar propiedades** (en curso):
+   - Se publica **a pedido**, desde la pestaña Difusión de la ficha. Después, los cambios de precio, datos, fotos y estado se sincronizan solos, como en ML.
+   - **Un solo aviso por propiedad**, con todas las operaciones que tienen precio (consume un crédito). Las operaciones "a consultar" no se publican; sin ninguna con precio, no se publica.
+   - Se elige el **plan** entre los de la cuenta para propiedades (hoy Simple y Home), con los créditos que le quedan a cada uno. No viene uno elegido de antemano. Un plan sin créditos no se puede elegir. Desarrollos home queda para los emprendimientos (etapa 5).
+   - Se puede **cambiar el plan** de un aviso publicado: consume un crédito del plan nuevo.
+   - **Reservada o pausada**, el aviso pasa a offline en Zonaprop, y vuelve online cuando la propiedad está disponible otra vez. El crédito se usa mientras el aviso está online: offline lo libera. Vendida, alquilada o dada de baja, sale de Zonaprop.
+   - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección.
+   - Galpón se publica como Bodega-Galpón y Depósito como Depósito.
 3. **Vincular los avisos que hoy publica Tokko** a las propiedades, sin republicarlos.
 4. **Consultas**: las de Zonaprop entran a la bandeja con canal Zonaprop.
 5. **Emprendimientos**: el emprendimiento con todas sus unidades en un aviso.

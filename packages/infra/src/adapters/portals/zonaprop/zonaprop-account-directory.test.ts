@@ -27,6 +27,7 @@ const AVAILABILITY = {
   disponibles: [
     { planDePublicacion: 'SIMPLE', cantidadDisponible: 40, cantidadContratado: 50 },
     { planDePublicacion: 'DESTACADO_COMBO', cantidadDisponible: 5 },
+    { planDePublicacion: 'DESARROLLOS_HOME', cantidadDisponible: 0 },
   ],
   vencimientos: [],
 };
@@ -241,8 +242,9 @@ describe('ZonapropAccountDirectory.credits', () => {
     expect(
       unwrap(await directory.credits({ portal: 'zonaprop', externalAccountId: '17310373' })),
     ).toEqual([
-      { plan: 'SIMPLE', available: 40, contracted: 50 },
-      { plan: 'DESTACADO_COMBO', available: 5, contracted: undefined },
+      { plan: 'SIMPLE', available: 40, contracted: 50, publishes: 'property' },
+      { plan: 'DESTACADO_COMBO', available: 5, contracted: undefined, publishes: 'property' },
+      { plan: 'DESARROLLOS_HOME', available: 0, contracted: undefined, publishes: 'development' },
     ]);
     expect(new URL(requests[1]?.url ?? '').pathname).toBe(
       '/v1/inmobiliarias/17310373/disponibilidad',

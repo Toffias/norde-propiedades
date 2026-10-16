@@ -1,5 +1,5 @@
 import type { Result } from '../../../shared';
-import type { PortalId } from '../../domain/portal';
+import type { ListingOwnerKind, PortalId } from '../../domain/portal';
 import type { PortalNotConfiguredError, PortalUnavailableError } from './portal-authorizer';
 
 /** La cuenta que el portal encontró con ese código. */
@@ -31,6 +31,8 @@ export interface PortalCredit {
   readonly available: number;
   /** Lo contratado, si el portal lo informa. */
   readonly contracted: number | undefined;
+  /** Para qué sirve el plan: avisos de propiedades o de emprendimientos. */
+  readonly publishes: ListingOwnerKind;
 }
 
 /**

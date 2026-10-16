@@ -12,7 +12,15 @@ import {
 import { RequestPublicationInputSchema, type RequestPublicationInput } from '../../contracts';
 import { Listing, type ListingNotClosedError } from '../../domain/listing';
 import { portalPublishes, type PortalId } from '../../domain/portal';
+import {
+  checkListingShape,
+  checkPlanCredits,
+  pricedOperations,
+  type ListingPlanError,
+  type PlanRequiredError,
+} from '../listing-plan';
 import { listingAuditTarget, listingAuditValue } from '../listing-support';
+import type { PortalAccountDirectory } from '../ports/portal-account-directory';
 import type { ListingSourceReader } from '../ports/listing-source';
 import type { PortalConnector } from '../ports/portal-connector';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
@@ -58,7 +66,7 @@ export interface MissingListingDataError {
   readonly problems: readonly string[];
 }
 
-/** Ya hay un aviso de esa operación en ese portal. */
+/** Ya hay un aviso de esa operación (o de la propiedad) en ese portal. */
 export interface ListingAlreadyExistsError {
   readonly type: 'ListingAlreadyExists';
 }
@@ -74,13 +82,16 @@ export type RequestPublicationError =
   | OperationNotOfferedError
   | PriceRequiredError
   | MissingListingDataError
+  | PlanRequiredError
+  | ListingPlanError
   | ListingAlreadyExistsError
   | ListingNotClosedError;
 
 /**
- * Publicar una operación de una propiedad en un portal, a pedido del equipo. Revisa lo que exige
- * el portal antes de pedirlo: el aviso lo crea después un job (`SyncListing`). Si la operación ya
- * estuvo publicada y se dio de baja, vuelve a publicarla (un aviso nuevo).
+ * Publicar una propiedad en un portal, a pedido del equipo: una operación (MercadoLibre) o todas
+ * las que tienen precio en un solo aviso, con el plan elegido (Zonaprop). Revisa lo que exige el
+ * portal antes de pedirlo: el aviso lo crea después un job (`SyncListing`). Si ya estuvo publicada
+ * y se dio de baja, vuelve a publicarla (un aviso nuevo).
  */
 export class RequestPublication {
   constructor(
@@ -88,6 +99,7 @@ export class RequestPublication {
       readonly uow: PortalsUnitOfWork;
       readonly reader: ListingSourceReader;
       readonly connector: PortalConnector;
+      readonly directory: PortalAccountDirectory;
       readonly ids: IdGenerator;
       readonly clock: Clock;
     },
@@ -100,22 +112,47 @@ export class RequestPublication {
     if (!actor.can('portals:publish')) return err({ type: 'Forbidden' });
     const parsed = parseInput(RequestPublicationInputSchema, input);
     if (parsed.isErr()) return err(parsed.error);
-    const { propertyId, portal, operation, listingType } = parsed.value;
+    const { propertyId, portal, operation, listingType, plan } = parsed.value;
     if (!portalPublishes(portal, 'property')) {
       return err({ type: 'PortalNotForProperties' });
     }
+    const shape = checkListingShape(portal, { operation, plan });
+    if (shape.isErr()) return err(shape.error);
 
     const source = await this.deps.reader.read(propertyId);
     if (!source) return err({ type: 'PropertyNotFound' });
     if (source.developmentId !== undefined) return err({ type: 'UnitPublishedWithDevelopment' });
     if (source.availability !== 'active') return err({ type: 'PropertyNotAvailable' });
-    const offered = source.operations.find((o) => o.operation === operation);
-    if (!offered) return err({ type: 'OperationNotOffered' });
-    if (offered.priceOnRequest || offered.priceCents === undefined) {
-      return err({ type: 'PriceRequired' });
+    if (operation !== undefined && !source.operations.some((o) => o.operation === operation)) {
+      return err({ type: 'OperationNotOffered' });
     }
-    const problems = this.deps.connector.problems(portal, { source, operation, listingType });
+    if (pricedOperations(source, operation).length === 0) return err({ type: 'PriceRequired' });
+
+    // El id se elige antes: el conector lo usa como código del aviso en algunos portales.
+    const newId = parseId<'Listing'>(this.deps.ids.next());
+    if (newId.isErr()) throw new Error('The id generator returned an invalid id');
+    const problems = this.deps.connector.problems(portal, {
+      listingId: newId.value,
+      source,
+      operation,
+      listingType,
+      plan,
+    });
     if (problems.length > 0) return err({ type: 'MissingListingData', problems });
+
+    if (plan !== undefined) {
+      const account = await this.deps.uow.run((tx) => tx.accounts.get(portal));
+      const connection = account.toSnapshot().connection;
+      if (!account.canPublish || connection === undefined) {
+        return err({ type: 'PortalNotEnabled', portal });
+      }
+      const credits = await checkPlanCredits(this.deps.directory, {
+        portal,
+        externalAccountId: connection.externalAccountId,
+        plan,
+      });
+      if (credits.isErr()) return err(credits.error);
+    }
 
     const now = this.deps.clock.now();
     return this.deps.uow.run(
@@ -126,18 +163,17 @@ export class RequestPublication {
         const existing = await tx.listings.findOne(portal, propertyId, operation);
         let listing: Listing;
         if (existing) {
-          const republished = existing.republish(listingType, now);
+          const republished = existing.republish({ listingType, plan }, now);
           if (republished.isErr()) return err({ type: 'ListingAlreadyExists' });
           listing = existing;
         } else {
-          const id = parseId<'Listing'>(this.deps.ids.next());
-          if (id.isErr()) throw new Error('The id generator returned an invalid id');
           listing = Listing.request({
-            id: id.value,
+            id: newId.value,
             portal,
             propertyId,
             operation,
             listingType,
+            plan,
             now,
           });
         }

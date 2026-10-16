@@ -20,7 +20,8 @@ export interface ListingRepository {
   findOne(
     portal: PortalId,
     propertyId: string,
-    operation: ListingOperation,
+    /** Sin operación: el aviso de la propiedad con todas sus operaciones (Zonaprop). */
+    operation: ListingOperation | undefined,
   ): Promise<Listing | undefined>;
   /** Las publicaciones de una propiedad. Son pocas por construcción: una por portal y operación. */
   findForProperty(propertyId: string): Promise<readonly Listing[]>;

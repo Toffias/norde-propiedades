@@ -323,6 +323,7 @@ import {
   type FileStorage,
 } from '@norde/core/settings';
 import {
+  ChangeListingPlan,
   ChangeListingType,
   ConnectPortalAccount,
   ConnectPortalAccountWithCode,
@@ -422,8 +423,11 @@ import {
   MercadoLibreLocations,
   MercadoLibrePortalConnector,
   MercadoLibreTokens,
+  PortalConnectorsByProvider,
   ZonapropAccountDirectory,
   ZonapropApi,
+  ZonapropLocations,
+  ZonapropPortalConnector,
 } from '@norde/infra';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
@@ -594,11 +598,6 @@ function createPortalServices(
   const cipher = new AesGcmSecretCipher(env.PORTALS_SECRET_KEY);
   const uow = createPortalsUnitOfWork(db, { ...deps, cipher });
   const authorizer = new MercadoLibreAuthorizer({ app: mercadoLibreApp(env), clock, logger });
-  const connector = new MercadoLibrePortalConnector({
-    tokens: new MercadoLibreTokens({ db, cipher, authorizer, clock, logger }),
-    locations: new MercadoLibreLocations({ logger, now: () => clock.now().getTime() }),
-    logger,
-  });
   const zonaprop = new ZonapropApi({
     config: zonapropApi(env),
     logger,
@@ -606,6 +605,22 @@ function createPortalServices(
     userAgent: `NordeGestion/1.0${env.MAIL_FROM_ADDRESS ? ` (${env.MAIL_FROM_ADDRESS})` : ''}`,
   });
   const directory = new ZonapropAccountDirectory({ api: zonaprop, logger });
+  const accounts = new DrizzlePortalAccountRepository(db, clock);
+  const connector = new PortalConnectorsByProvider({
+    mercadolibre: new MercadoLibrePortalConnector({
+      tokens: new MercadoLibreTokens({ db, cipher, authorizer, clock, logger }),
+      locations: new MercadoLibreLocations({ logger, now: () => clock.now().getTime() }),
+      logger,
+    }),
+    zonaprop: new ZonapropPortalConnector({
+      api: zonaprop,
+      locations: new ZonapropLocations({ api: zonaprop }),
+      // El código de inmobiliaria de la cuenta conectada en Mi empresa → Portales.
+      agencyCode: async () =>
+        (await accounts.get('zonaprop')).toSnapshot().connection?.externalAccountId,
+      logger,
+    }),
+  });
   const reader = listingSourceReader({
     propertyDetail: modules.properties.getPanelPropertyDetail,
     photos: modules.properties.listShareablePhotos,
@@ -638,11 +653,12 @@ function createPortalsUseCases(
     disconnectAccount: new DisconnectPortalAccount({ uow }),
     setAccountEnabled: new SetPortalAccountEnabled({ uow }),
     getPropertyListings: new GetPropertyListings({ uow }),
-    requestPublication: new RequestPublication({ uow, reader, connector, ids, clock }),
+    requestPublication: new RequestPublication({ uow, reader, connector, directory, ids, clock }),
     pauseListing: new PauseListing({ uow, clock }),
     resumeListing: new ResumeListing({ uow, clock }),
     unpublishListing: new UnpublishListing({ uow, clock }),
     changeListingType: new ChangeListingType({ uow, clock }),
+    changeListingPlan: new ChangeListingPlan({ uow, directory, clock }),
     resyncListing: new ResyncListing({ uow, clock }),
   };
 }

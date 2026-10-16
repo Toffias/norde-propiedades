@@ -2,6 +2,7 @@ import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } fro
 import { ListingIdInputSchema, type ListingIdInput } from '../../contracts';
 import type { Listing } from '../../domain/listing';
 import type { PortalId } from '../../domain/portal';
+import { pricedOperations } from '../listing-plan';
 import {
   auditStatusChange,
   contentFingerprint,
@@ -86,10 +87,16 @@ export class SyncListing {
   }
 
   async #sync(listing: Listing, accountReady: boolean): Promise<SyncListingOutcome> {
-    const { portal, operation, listingType, externalId } = listing.toSnapshot();
+    const { portal, operation, listingType, plan, externalId } = listing.toSnapshot();
     const now = () => this.deps.clock.now();
     const source = await this.deps.reader.read(listing.propertyId);
-    const content: PortalListingContent | undefined = source && { source, operation, listingType };
+    const content: PortalListingContent | undefined = source && {
+      listingId: listing.id,
+      source,
+      operation,
+      listingType,
+      plan,
+    };
     const hash = content ? contentFingerprint(content) : '';
     const step = listing.plan(source?.availability ?? 'closed', hash);
 
@@ -117,7 +124,10 @@ export class SyncListing {
       if (problem !== undefined) return this.#fail(listing, problem);
     }
 
-    if (step.kind === 'create' && content) {
+    // Sin propiedad no hay contenido, y el plan ya habría cerrado el aviso.
+    if (!content) return this.#fail(listing, 'La propiedad ya no existe.');
+
+    if (step.kind === 'create') {
       const created = await this.deps.connector.create(portal, content);
       if (created.isErr()) return this.#fail(listing, reasonOf(created.error), created.error);
       listing.recordCreated({ ...created.value, contentHash: hash, now: now() });
@@ -126,7 +136,8 @@ export class SyncListing {
 
     const state = step.kind === 'pause' ? 'paused' : 'active';
     const updated = await this.deps.connector.update(portal, remoteId, {
-      content: sendsContent ? content : undefined,
+      content,
+      contentChanged: sendsContent,
       state,
     });
     if (updated.isErr()) return this.#fail(listing, reasonOf(updated.error), updated.error);
@@ -137,10 +148,14 @@ export class SyncListing {
   /** Lo que impide mandar el contenido: precio, operación o lo que exige el portal. */
   #contentProblem(portal: PortalId, content: PortalListingContent | undefined): string | undefined {
     if (!content) return 'La propiedad ya no existe.';
-    const offered = content.source.operations.find((o) => o.operation === content.operation);
-    if (!offered) return 'La propiedad ya no ofrece esta operación.';
-    if (offered.priceOnRequest || offered.priceCents === undefined) {
-      return 'El portal exige un precio: la operación está sin precio o con "precio a consultar".';
+    const { source, operation } = content;
+    if (operation !== undefined && !source.operations.some((o) => o.operation === operation)) {
+      return 'La propiedad ya no ofrece esta operación.';
+    }
+    if (pricedOperations(source, operation).length === 0) {
+      return operation === undefined
+        ? 'El portal exige un precio: ninguna operación tiene precio (o todas están "a consultar").'
+        : 'El portal exige un precio: la operación está sin precio o con "precio a consultar".';
     }
     const problems = this.deps.connector.problems(portal, content);
     return problems.length > 0 ? problems.join(' ') : undefined;

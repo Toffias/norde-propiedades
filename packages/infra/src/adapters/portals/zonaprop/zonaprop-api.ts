@@ -27,12 +27,14 @@ export interface ZonapropApiOptions {
  * - `not_configured`: faltan las credenciales, o Zonaprop las rechazó.
  * - `forbidden`: la cuenta no está asociada a Norde como integrador.
  * - `not_found`: no existe lo pedido.
+ * - `rejected`: Zonaprop rechazó lo que se mandó (400, 409 o 422); `body` trae sus códigos de error.
  * - `unavailable`: Zonaprop no respondió o respondió con un error (el sandbox se apaga de noche).
  */
 export type ZonapropApiError =
   | { readonly type: 'not_configured' }
   | { readonly type: 'forbidden' }
   | { readonly type: 'not_found' }
+  | { readonly type: 'rejected'; readonly status: number; readonly body: unknown }
   | { readonly type: 'unavailable' };
 
 const TokenResponseSchema = z.object({
@@ -49,6 +51,16 @@ const ErrorBodySchema = z.object({
   error: z.string().optional(),
   code: z.string().optional(),
 });
+
+async function jsonOrUndefined(response: Response): Promise<unknown> {
+  try {
+    // `json()` devuelve `any`: se pasa como `unknown` y el conector lo valida con Zod.
+    return await response.json();
+  } catch {
+    // Sin cuerpo JSON: el conector arma el motivo con el código HTTP.
+    return undefined;
+  }
+}
 
 const TIMEOUT_MS = 15_000;
 const REASON_MAX_LENGTH = 200;
@@ -87,14 +99,34 @@ export class ZonapropApi {
   }
 
   /** `GET` a la API. `undefined` si Zonaprop respondió sin contenido (204). */
-  async get<T>(
+  get<T>(path: string, schema: z.ZodType<T>): Promise<Result<T | undefined, ZonapropApiError>> {
+    return this.#request('GET', path, undefined, schema);
+  }
+
+  /** `PUT` con un cuerpo JSON (crear o modificar un aviso). */
+  put<T>(
     path: string,
+    body: unknown,
     schema: z.ZodType<T>,
   ): Promise<Result<T | undefined, ZonapropApiError>> {
-    const first = await this.#authorizedGet(path, schema, false);
+    return this.#request('PUT', path, body, schema);
+  }
+
+  /** `DELETE` (poner offline un aviso). */
+  delete<T>(path: string, schema: z.ZodType<T>): Promise<Result<T | undefined, ZonapropApiError>> {
+    return this.#request('DELETE', path, undefined, schema);
+  }
+
+  async #request<T>(
+    method: 'GET' | 'PUT' | 'DELETE',
+    path: string,
+    body: unknown,
+    schema: z.ZodType<T>,
+  ): Promise<Result<T | undefined, ZonapropApiError>> {
+    const first = await this.#authorizedRequest(method, path, body, schema, false);
     if (first.isErr() && first.error.type === 'unauthorized') {
       this.#token = undefined;
-      return this.#unwrapRetry(await this.#authorizedGet(path, schema, true));
+      return this.#unwrapRetry(await this.#authorizedRequest(method, path, body, schema, true));
     }
     return this.#unwrapRetry(first);
   }
@@ -106,8 +138,10 @@ export class ZonapropApi {
     return err(result.error.type === 'unauthorized' ? { type: 'not_configured' } : result.error);
   }
 
-  async #authorizedGet<T>(
+  async #authorizedRequest<T>(
+    method: 'GET' | 'PUT' | 'DELETE',
     path: string,
+    body: unknown,
     schema: z.ZodType<T>,
     retried: boolean,
   ): Promise<Result<T | undefined, ZonapropApiError | { readonly type: 'unauthorized' }>> {
@@ -118,7 +152,14 @@ export class ZonapropApi {
 
     const url = new URL(path, config.baseUrl);
     url.searchParams.set('access_token', token.value.value);
-    const response = await this.#send(url, { headers: { Accept: 'application/json' } });
+    const response = await this.#send(url, {
+      method,
+      headers:
+        body === undefined
+          ? { Accept: 'application/json' }
+          : { Accept: 'application/json', 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
     if (response.isErr()) return err(response.error);
     const { status } = response.value;
     if (status === 401) {
@@ -131,6 +172,10 @@ export class ZonapropApi {
     if (status === 403) return err({ type: 'forbidden' });
     if (status === 404) return err({ type: 'not_found' });
     if (status === 204) return ok(undefined);
+    if (status === 400 || status === 409 || status === 422) {
+      // Zonaprop rechazó lo que se mandó: el cuerpo trae los códigos de error del aviso.
+      return err({ type: 'rejected', status, body: await jsonOrUndefined(response.value) });
+    }
     if (!response.value.ok) {
       const reason = await errorReason(response.value);
       logger.error({ endpoint: url.pathname, status, reason }, 'Zonaprop request failed');
@@ -188,7 +233,11 @@ export class ZonapropApi {
 
   async #send(
     url: URL,
-    init: { readonly method?: string; readonly headers: Readonly<Record<string, string>> },
+    init: {
+      readonly method?: string;
+      readonly headers: Readonly<Record<string, string>>;
+      readonly body?: string;
+    },
   ): Promise<Result<Response, ZonapropApiError>> {
     try {
       const response = await this.#fetch(url, {

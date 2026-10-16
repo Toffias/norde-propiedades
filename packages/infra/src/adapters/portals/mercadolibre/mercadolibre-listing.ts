@@ -78,8 +78,9 @@ function numericValue(source: ListingSource, field: NumericField): number | unde
   }
 }
 
-export function categoryOf(kind: ListingPropertyKind, operation: ListingOperation) {
-  return CATEGORIES[kind][operation];
+export function categoryOf(kind: ListingPropertyKind, operation: ListingOperation | undefined) {
+  // ML publica un aviso por operación: sin operación no hay categoría.
+  return operation === undefined ? undefined : CATEGORIES[kind][operation];
 }
 
 /**

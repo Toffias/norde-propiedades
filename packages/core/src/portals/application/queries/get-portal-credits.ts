@@ -49,7 +49,12 @@ export class GetPortalCredits {
     });
     if (credits.isErr()) return err(credits.error);
     return ok(
-      credits.value.map(({ plan, available, contracted }) => ({ plan, available, contracted })),
+      credits.value.map(({ plan, available, contracted, publishes }) => ({
+        plan,
+        available,
+        contracted,
+        publishes,
+      })),
     );
   }
 }

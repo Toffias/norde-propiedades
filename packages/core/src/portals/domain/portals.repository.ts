@@ -25,5 +25,7 @@ export interface ListingRepository {
   ): Promise<Listing | undefined>;
   /** Las publicaciones de una propiedad. Son pocas por construcción: una por portal y operación. */
   findForProperty(propertyId: string): Promise<readonly Listing[]>;
+  /** Las publicaciones de esos avisos del portal (por su ID en el portal), las que haya. */
+  findByExternalIds(portal: PortalId, externalIds: readonly string[]): Promise<readonly Listing[]>;
   save(listing: Listing, actorId: string): Promise<void>;
 }

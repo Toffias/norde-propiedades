@@ -506,6 +506,10 @@ export {
   type GetPropertySummariesError,
 } from './application/queries/get-property-summaries';
 export {
+  FindPropertiesByCode,
+  type FindPropertiesByCodeError,
+} from './application/queries/find-properties-by-code';
+export {
   UnlinkErasedClients,
   type UnlinkErasedClientsError,
 } from './application/handlers/unlink-erased-clients';

@@ -138,6 +138,17 @@ describe('portal listings (Postgres)', () => {
     expect(connector.calls.filter((c) => c.method === 'create')).toHaveLength(1);
   });
 
+  it('finds listings by their portal id', async () => {
+    const { request, sync, listings } = await setup();
+    const { listingId } = unwrap(await request.execute(SALE, ADMIN));
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+
+    const found = await listings.findByExternalIds('mercadolibre', ['MLA1', 'MLA999']);
+    expect(found.map((l) => l.id)).toEqual([listingId]);
+    expect(await listings.findByExternalIds('zonaprop', ['MLA1'])).toEqual([]);
+    expect(await listings.findByExternalIds('mercadolibre', [])).toEqual([]);
+  });
+
   it('stores a Zonaprop listing of the whole property with its plan, only once', async () => {
     const { request, listings } = await setup();
     const uow = createPortalsUnitOfWork(db, { ids, clock, cipher });

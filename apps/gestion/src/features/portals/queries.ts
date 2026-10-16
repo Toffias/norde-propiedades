@@ -6,7 +6,11 @@ import { getContainer } from '../../container';
 import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
 
-import { CREDITS_ERROR_MESSAGES, PORTAL_ACCOUNT_ERROR_MESSAGES } from './messages';
+import {
+  CREDITS_ERROR_MESSAGES,
+  PORTAL_ACCOUNT_ERROR_MESSAGES,
+  REMOTE_LISTINGS_ERROR_MESSAGES,
+} from './messages';
 
 // Lecturas de portales para los Server Components. La autorización la decide el caso de uso.
 
@@ -49,4 +53,22 @@ export async function loadPortalCredits(
     }),
   );
   return Object.fromEntries(entries);
+}
+
+/** Una página de los avisos online del portal, con su propiedad por código (Mi empresa). */
+export async function loadRemoteListings(input: {
+  readonly portal: PortalValue;
+  readonly page: number;
+  readonly pageSize: number;
+}) {
+  const portals = getContainer().portals;
+  if (!portals) return { kind: 'hidden' as const };
+  const { actor } = await requireSession();
+  const result = await portals.listRemoteListings.execute(input, actor);
+  return result.isOk()
+    ? { kind: 'ok' as const, page: result.value }
+    : {
+        kind: 'error' as const,
+        message: messageForError(result.error, REMOTE_LISTINGS_ERROR_MESSAGES),
+      };
 }

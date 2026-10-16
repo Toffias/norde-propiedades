@@ -38,6 +38,8 @@ export interface PanelPropertyFilterCriteria {
     | undefined;
   /** Solo estas propiedades (selección de una acción masiva, comparador). */
   readonly ids: readonly string[] | undefined;
+  /** Solo las de estos códigos de referencia (avisos de portales que se vinculan por código). */
+  readonly codes?: readonly string[] | undefined;
   /** Solo las de este propietario (cliente del módulo clients, por ID). */
   readonly ownerClientId?: string | undefined;
   /** Solo las unidades de este emprendimiento. */

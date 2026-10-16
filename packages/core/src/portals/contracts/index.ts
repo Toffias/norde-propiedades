@@ -169,3 +169,51 @@ export interface PropertyListingsView {
   readonly portals: readonly PortalPublishingView[];
   readonly canPublish: boolean;
 }
+
+// ---------- Avisos que ya están en el portal (Tokko) ----------
+
+export const MAX_REMOTE_LISTINGS_PAGE_SIZE = 50;
+
+/** Los avisos online de la cuenta, para vincularlos (Mi empresa → Portales). */
+export const ListRemoteListingsInputSchema = z.object({
+  portal: PortalSchema,
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_REMOTE_LISTINGS_PAGE_SIZE).default(20),
+});
+export type ListRemoteListingsInput = z.input<typeof ListRemoteListingsInputSchema>;
+
+/**
+ * El aviso del portal: su ID, o el link que se copia del portal (termina en el ID:
+ * `…-59617389.html`).
+ */
+export const RemoteListingIdSchema = z
+  .string()
+  .trim()
+  .transform((value) => /(\d{4,})(?:\.html)?\/?(?:[?#].*)?$/.exec(value)?.[1])
+  .pipe(z.string({ error: 'Pegá el link del aviso o su número.' }));
+
+/** Vincular un aviso que ya está online a una propiedad, sin republicarlo. */
+export const LinkPortalListingInputSchema = z.object({
+  portal: PortalSchema,
+  propertyId: z.uuid(),
+  remoteId: RemoteListingIdSchema,
+  /** El plan, si el portal no lo informa en el aviso. */
+  plan: PortalPlanSchema.optional(),
+});
+export type LinkPortalListingInput = z.input<typeof LinkPortalListingInputSchema>;
+
+/** Un aviso online del portal, con la propiedad que le corresponde por código. */
+export interface RemoteListingView {
+  readonly remoteId: string;
+  readonly title: string;
+  readonly reference: string | undefined;
+  readonly plan: string | undefined;
+  readonly location: string | undefined;
+  readonly permalink: string | undefined;
+  readonly isDevelopment: boolean;
+  /** La propiedad con el mismo código de referencia, si hay una. */
+  readonly match:
+    { readonly propertyId: string; readonly code: string; readonly title: string } | undefined;
+  /** Ya vinculado: la publicación del sistema que lo maneja. */
+  readonly linked: { readonly listingId: string; readonly propertyId: string } | undefined;
+}

@@ -187,7 +187,7 @@ describe('MercadoLibrePortalConnector.update', () => {
       }),
     );
 
-    expect(state).toBe('paused');
+    expect(state).toEqual({ state: 'paused', permalink: undefined });
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'GET /items/MLA3879350706',
       'PUT /items/MLA3879350706',
@@ -225,7 +225,7 @@ describe('MercadoLibrePortalConnector.update', () => {
           state: 'active',
         }),
       ),
-    ).toBe('closed');
+    ).toEqual({ state: 'closed', permalink: undefined });
     expect(requests).toHaveLength(1);
   });
 });

@@ -2,7 +2,7 @@ import type {
   PortalConnector,
   PortalId,
   PortalListingContent,
-  PortalListingState,
+  PortalListingUpdate,
   PortalSyncError,
 } from '@norde/core/portals';
 import { err, ok, type Result } from '@norde/core/shared';
@@ -122,14 +122,14 @@ export class MercadoLibrePortalConnector implements PortalConnector {
       readonly contentChanged: boolean;
       readonly state: 'active' | 'paused';
     },
-  ): Promise<Result<PortalListingState, PortalSyncError>> {
+  ): Promise<Result<PortalListingUpdate, PortalSyncError>> {
     const path = `/items/${encodeURIComponent(externalId)}`;
     const current = await this.#call(portal, 'GET', path);
     if (current.isErr()) return err(current.error);
     const item = ItemSchema.safeParse(current.value);
     if (!item.success) return this.#unexpected(portal, path);
     // Vencido o dado de baja en MercadoLibre: no se puede reactivar.
-    if (item.data.status === 'closed') return ok('closed');
+    if (item.data.status === 'closed') return ok({ state: 'closed', permalink: undefined });
 
     // ML guarda el contenido aunque el aviso esté pausado: solo se manda si cambió.
     const content = change.contentChanged ? change.content : undefined;
@@ -155,7 +155,7 @@ export class MercadoLibrePortalConnector implements PortalConnector {
       const moved = await this.#call(portal, 'PUT', path, { status: change.state });
       if (moved.isErr()) return err(moved.error);
     }
-    return ok(change.state);
+    return ok({ state: change.state, permalink: undefined });
   }
 
   async close(portal: PortalId, externalId: string): Promise<Result<void, PortalSyncError>> {

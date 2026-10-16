@@ -128,6 +128,42 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     return listing;
   }
 
+  /**
+   * Un aviso que ya estaba online en el portal (lo publicó otro sistema) y Norde toma, sin
+   * republicarlo. La huella es la del contenido de hoy: el aviso queda como estaba hasta que cambie
+   * algo de la propiedad, y ahí lo actualiza Norde. No pide sincronizar.
+   */
+  static linked(input: {
+    readonly id: ListingId;
+    readonly portal: PortalId;
+    readonly propertyId: string;
+    readonly operation: ListingOperation | undefined;
+    readonly plan: string | undefined;
+    readonly externalId: string;
+    readonly permalink: string | undefined;
+    readonly contentHash: string;
+    readonly now: Date;
+  }): Listing {
+    return new Listing({
+      id: input.id,
+      portal: input.portal,
+      propertyId: input.propertyId,
+      operation: input.operation,
+      listingType: 'simple',
+      plan: input.plan,
+      status: 'published',
+      intent: 'active',
+      externalId: input.externalId,
+      permalink: input.permalink,
+      lastError: undefined,
+      retryCount: 0,
+      lastSyncedAt: input.now,
+      publishedAt: input.now,
+      contentHash: input.contentHash,
+      createdAt: input.now,
+    });
+  }
+
   static restore(snapshot: ListingSnapshot): Listing {
     return new Listing(snapshot);
   }
@@ -172,6 +208,34 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     this.#state = { ...this.#state, intent: 'closed' };
     this.requestSync(now);
     return true;
+  }
+
+  /**
+   * Toma un aviso que ya estaba online en el portal para una publicación dada de baja (como
+   * `Listing.linked`, sobre la que ya existía). Solo desde una publicación cerrada.
+   */
+  adopt(input: {
+    readonly plan: string | undefined;
+    readonly externalId: string;
+    readonly permalink: string | undefined;
+    readonly contentHash: string;
+    readonly now: Date;
+  }): Result<void, ListingNotClosedError> {
+    if (this.#state.intent !== 'closed') return err({ type: 'ListingNotClosed' });
+    this.#state = {
+      ...this.#state,
+      plan: input.plan,
+      status: 'published',
+      intent: 'active',
+      externalId: input.externalId,
+      permalink: input.permalink,
+      lastError: undefined,
+      retryCount: 0,
+      lastSyncedAt: input.now,
+      publishedAt: input.now,
+      contentHash: input.contentHash,
+    };
+    return ok(undefined);
   }
 
   /** Vuelve a publicar un aviso dado de baja: es un aviso nuevo en el portal. */
@@ -270,9 +334,14 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     };
   }
 
-  /** El aviso quedó activo con el contenido de `contentHash`. */
-  recordActive(contentHash: string, now: Date): void {
-    this.#state = { ...this.#succeeded(now), status: 'published', contentHash };
+  /** El aviso quedó activo con el contenido de `contentHash`; con `permalink`, el link nuevo. */
+  recordActive(contentHash: string, now: Date, permalink?: string): void {
+    this.#state = {
+      ...this.#succeeded(now),
+      status: 'published',
+      contentHash,
+      permalink: permalink ?? this.#state.permalink,
+    };
   }
 
   /** El aviso quedó pausado (o nunca se creó y queda en pausa). */

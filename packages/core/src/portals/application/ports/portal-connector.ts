@@ -33,6 +33,12 @@ export interface PortalListingContent {
 /** Estado del aviso en el portal después de un cambio. */
 export type PortalListingState = 'active' | 'paused' | 'closed';
 
+/** Cómo quedó el aviso, y su link si el portal lo informa (Zonaprop lo da al mandar el aviso). */
+export interface PortalListingUpdate {
+  readonly state: PortalListingState;
+  readonly permalink: string | undefined;
+}
+
 /**
  * Conector de un portal. Traduce la publicación a su API: el core decide qué hacer (crear,
  * actualizar, pausar, cerrar) y el conector cómo.
@@ -63,6 +69,6 @@ export interface PortalConnector {
       readonly contentChanged: boolean;
       readonly state: 'active' | 'paused';
     },
-  ): Promise<Result<PortalListingState, PortalSyncError>>;
+  ): Promise<Result<PortalListingUpdate, PortalSyncError>>;
   close(portal: PortalId, externalId: string): Promise<Result<void, PortalSyncError>>;
 }

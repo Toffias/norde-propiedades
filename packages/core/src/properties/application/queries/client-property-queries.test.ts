@@ -11,6 +11,7 @@ import {
   TEST_PRODUCER,
 } from '../../testing';
 
+import { FindPropertiesByCode } from './find-properties-by-code';
 import { GetPropertySummaries } from './get-property-summaries';
 import { ListOwnedProperties } from './list-owned-properties';
 
@@ -27,6 +28,7 @@ function setup() {
     properties,
     owned: new ListOwnedProperties({ properties, users }),
     summaries: new GetPropertySummaries({ properties, users }),
+    byCode: new FindPropertiesByCode({ properties, users }),
   };
 }
 
@@ -83,6 +85,28 @@ describe('GetPropertySummaries', () => {
     expect(unwrap(await summaries.execute({ ids: [] }, TEST_PRODUCER))).toEqual([]);
     expect(properties.calls).toEqual([]);
     expect(unwrapErr(await summaries.execute({ ids: [PROPERTY_ID] }, TEST_OUTSIDER))).toEqual({
+      type: 'Forbidden',
+    });
+  });
+});
+
+describe('FindPropertiesByCode', () => {
+  it('returns the portfolio properties with those reference codes', async () => {
+    const { properties, byCode } = setup();
+    const { code } = aPanelItem();
+
+    const rows = unwrap(await byCode.execute({ codes: [code, 'NOPE-1', code] }, TEST_PRODUCER));
+
+    expect(rows.map((row) => row.id)).toEqual([PROPERTY_ID]);
+    expect(properties.calls[0]).toMatchObject({ view: 'active', codes: [code, 'NOPE-1'] });
+  });
+
+  it('does not query for no codes and needs properties:read', async () => {
+    const { properties, byCode } = setup();
+
+    expect(unwrap(await byCode.execute({ codes: [] }, TEST_PRODUCER))).toEqual([]);
+    expect(properties.calls).toEqual([]);
+    expect(unwrapErr(await byCode.execute({ codes: ['P-1'] }, TEST_OUTSIDER))).toEqual({
       type: 'Forbidden',
     });
   });

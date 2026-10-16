@@ -10,6 +10,8 @@ import type {
   PropertyListingsView,
 } from '@norde/core/portals/contracts';
 import { Button } from '@norde/ui/components/button';
+import { Input } from '@norde/ui/components/input';
+import { Label } from '@norde/ui/components/label';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,7 @@ import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import {
   ExternalLinkIcon,
+  Link2Icon,
   Loader2Icon,
   PauseIcon,
   PlayIcon,
@@ -46,6 +49,7 @@ import { formatDateTime } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
 import {
   changeListingPlanAction,
+  linkPortalListingAction,
   changeListingTypeAction,
   pauseListingAction,
   requestPublicationAction,
@@ -242,6 +246,7 @@ function ListingRow({
   // Sin plan elegido de antemano: cada plan consume créditos distintos, lo decide quien publica.
   const [plan, setPlan] = useState<string | undefined>(listing?.plan);
   const [confirming, setConfirming] = useState(false);
+  const [linking, setLinking] = useState(false);
 
   function run(action: () => Promise<ActionResult>, success: string) {
     setError(undefined);
@@ -351,6 +356,29 @@ function ListingRow({
                 )}
                 {listing ? 'Volver a publicar' : 'Publicar'}
               </Button>
+              {choosesPlan && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    setLinking(true);
+                  }}
+                >
+                  <Link2Icon className="h-4 w-4" aria-hidden />
+                  Vincular un aviso existente
+                </Button>
+              )}
+              {linking && (
+                <LinkListingDialog
+                  propertyId={propertyId}
+                  portal={portal}
+                  plans={offeredPlans}
+                  onClose={() => {
+                    setLinking(false);
+                  }}
+                />
+              )}
             </>
           ) : (
             <>
@@ -524,4 +552,95 @@ function useAutoRefresh(active: boolean) {
       clearInterval(timer);
     };
   }, [active, router]);
+}
+
+/** Vincula un aviso que ya está online en el portal (lo publicó Tokko), pegando su link. */
+function LinkListingDialog({
+  propertyId,
+  portal,
+  plans,
+  onClose,
+}: {
+  readonly propertyId: string;
+  readonly portal: PortalValue;
+  readonly plans: readonly PortalCreditView[];
+  readonly onClose: () => void;
+}) {
+  const [remote, setRemote] = useState('');
+  const [plan, setPlan] = useState<string | undefined>();
+  const [error, setError] = useState<string | undefined>();
+  const [pending, startTransition] = useTransition();
+  const site = PORTAL_SITE_NAMES[portal];
+  const inputId = `${portal}-remote-listing`;
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Vincular un aviso de {site}</DialogTitle>
+          <DialogDescription>
+            Pegá el link del aviso que ya está online en {site} (lo publicó Tokko). No se republica:
+            conserva su antigüedad, sus visitas y sus consultas, y queda como está hasta que cambie
+            algo de la propiedad.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setError(undefined);
+            startTransition(async () => {
+              const message = await runAction(() =>
+                linkPortalListingAction({
+                  portal,
+                  propertyId,
+                  remoteId: remote,
+                  ...(plan === undefined ? {} : { plan }),
+                }),
+              );
+              if (message !== undefined) {
+                setError(message);
+                return;
+              }
+              toast.success('Aviso vinculado');
+              onClose();
+            });
+          }}
+        >
+          <FormAlert message={error} />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={inputId}>Link o número del aviso</Label>
+            <Input
+              id={inputId}
+              autoFocus
+              autoComplete="off"
+              placeholder={`https://www.${site.toLowerCase()}.com.ar/propiedades/…-12345678.html`}
+              value={remote}
+              onChange={(event) => {
+                setRemote(event.target.value);
+              }}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium">Plan, si {site} no lo informa (opcional)</span>
+            <PlanSelect plans={plans} value={plan} onChange={setPlan} disabled={pending} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending || remote.trim() === ''}>
+              {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
+              Vincular
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }

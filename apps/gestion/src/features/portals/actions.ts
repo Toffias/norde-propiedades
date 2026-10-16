@@ -1,6 +1,8 @@
 'use server';
 
 import {
+  LinkPortalListingInputSchema,
+  type LinkPortalListingInput,
   ChangeListingPlanInputSchema,
   ChangeListingTypeInputSchema,
   ConnectPortalAccountWithCodeInputSchema,
@@ -23,6 +25,7 @@ import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-res
 import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
 import {
+  LINK_LISTING_ERROR_MESSAGES,
   CODE_CONNECTION_ERROR_MESSAGES,
   LISTING_ERROR_MESSAGES,
   PLAN_CHANGE_ERROR_MESSAGES,
@@ -174,5 +177,24 @@ export async function changeListingPlanAction(
     return actionFailed(messageForError(result.error, PLAN_CHANGE_ERROR_MESSAGES));
   }
   revalidateProperty();
+  return ACTION_OK;
+}
+
+/** Vincula a una propiedad un aviso que ya está online en el portal (lo publicó Tokko). */
+export async function linkPortalListingAction(
+  input: LinkPortalListingInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const portals = getContainer().portals;
+  if (!portals) return actionFailed(HIDDEN);
+  const parsed = LinkPortalListingInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(parsed.error.issues[0]?.message ?? INVALID);
+
+  const result = await portals.linkListing.execute(input, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, LINK_LISTING_ERROR_MESSAGES));
+  }
+  revalidateProperty();
+  revalidatePath(PORTALS_SETTINGS_PATH, 'layout');
   return ACTION_OK;
 }

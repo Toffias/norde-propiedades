@@ -320,6 +320,14 @@ export const GetPropertySummariesInputSchema = z.object({
 });
 export type GetPropertySummariesInput = z.input<typeof GetPropertySummariesInputSchema>;
 
+/** Códigos de referencia por pedido: los de una página de avisos de un portal. */
+export const MAX_PROPERTY_CODES = 50;
+
+export const FindPropertiesByCodeInputSchema = z.object({
+  codes: z.array(z.string().trim().min(1).max(64)).max(MAX_PROPERTY_CODES),
+});
+export type FindPropertiesByCodeInput = z.input<typeof FindPropertiesByCodeInputSchema>;
+
 // ---------- Exportar ----------
 
 export const PROPERTY_EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'] as const;

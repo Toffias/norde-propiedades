@@ -2,7 +2,7 @@ import type {
   PortalConnector,
   PortalId,
   PortalListingContent,
-  PortalListingState,
+  PortalListingUpdate,
   PortalSyncError,
 } from '@norde/core/portals';
 import { err, ok, type Result } from '@norde/core/shared';
@@ -14,6 +14,7 @@ import {
   ProcessedResponseSchema,
   listingBody,
   listingCode,
+  listingPermalink,
   listingProblems,
   processedOf,
   rejectionReason,
@@ -32,7 +33,7 @@ export interface ZonapropPortalConnectorOptions {
 
 const NOT_CONNECTED: PortalSyncError = { type: 'PortalCredentialsMissing' };
 
-function syncError(error: ZonapropApiError | ZonapropLocationNotFound): PortalSyncError {
+export function syncError(error: ZonapropApiError | ZonapropLocationNotFound): PortalSyncError {
   switch (error.type) {
     case 'not_configured':
     case 'forbidden':
@@ -76,7 +77,7 @@ export class ZonapropPortalConnector implements PortalConnector {
   > {
     const sent = await this.#put(content);
     if (sent.isErr()) return err(sent.error);
-    return ok({ externalId: sent.value, permalink: undefined });
+    return ok({ externalId: sent.value.code, permalink: sent.value.permalink });
   }
 
   async update(
@@ -87,22 +88,28 @@ export class ZonapropPortalConnector implements PortalConnector {
       readonly contentChanged: boolean;
       readonly state: 'active' | 'paused';
     },
-  ): Promise<Result<PortalListingState, PortalSyncError>> {
+  ): Promise<Result<PortalListingUpdate, PortalSyncError>> {
     if (change.state === 'paused') {
       const removed = await this.#delete(externalId);
-      return removed.isErr() ? err(removed.error) : ok('paused');
+      return removed.isErr() ? err(removed.error) : ok({ state: 'paused', permalink: undefined });
     }
     // Online: con contenido nuevo o para volver a mostrarlo, se manda el aviso completo.
     const sent = await this.#put(change.content);
-    return sent.isErr() ? err(sent.error) : ok('active');
+    return sent.isErr()
+      ? err(sent.error)
+      : ok({ state: 'active', permalink: sent.value.permalink });
   }
 
   async close(_portal: PortalId, externalId: string): Promise<Result<void, PortalSyncError>> {
     return this.#delete(externalId);
   }
 
-  /** Manda el aviso completo. Devuelve el código del aviso. */
-  async #put(content: PortalListingContent): Promise<Result<string, PortalSyncError>> {
+  /** Manda el aviso completo. Devuelve el código del aviso y su link, si Zonaprop dio su ID. */
+  async #put(
+    content: PortalListingContent,
+  ): Promise<
+    Result<{ readonly code: string; readonly permalink: string | undefined }, PortalSyncError>
+  > {
     const agencyCode = await this.options.agencyCode();
     if (agencyCode === undefined) return err(NOT_CONNECTED);
     if (content.source.coordinates === undefined) {
@@ -129,7 +136,12 @@ export class ZonapropPortalConnector implements PortalConnector {
       { portal: 'zonaprop', listingCode: code, state: processed?.estado ?? null },
       'Zonaprop listing sent',
     );
-    return ok(code);
+    const remoteId = processed?.idAviso;
+    return ok({
+      code,
+      permalink:
+        remoteId === undefined || remoteId === null ? undefined : listingPermalink(remoteId),
+    });
   }
 
   /** Pone el aviso offline. Uno que Zonaprop no tiene ya está fuera del portal. */

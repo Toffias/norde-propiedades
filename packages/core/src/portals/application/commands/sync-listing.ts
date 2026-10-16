@@ -13,7 +13,7 @@ import type { ListingSourceReader } from '../ports/listing-source';
 import type {
   PortalConnector,
   PortalListingContent,
-  PortalListingState,
+  PortalListingUpdate,
   PortalSyncError,
 } from '../ports/portal-connector';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
@@ -161,11 +161,12 @@ export class SyncListing {
     return problems.length > 0 ? problems.join(' ') : undefined;
   }
 
-  #recordState(listing: Listing, state: PortalListingState, hash: string | undefined): void {
+  #recordState(listing: Listing, update: PortalListingUpdate, hash: string | undefined): void {
     const now = this.deps.clock.now();
+    const { state, permalink } = update;
     if (state === 'closed') listing.recordClosed(now);
     else if (state === 'paused') listing.recordPaused(hash, now);
-    else listing.recordActive(hash ?? listing.toSnapshot().contentHash ?? '', now);
+    else listing.recordActive(hash ?? listing.toSnapshot().contentHash ?? '', now, permalink);
   }
 
   #fail(listing: Listing, reason: string, error?: PortalSyncError): SyncListingOutcome {

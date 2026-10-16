@@ -229,7 +229,7 @@ describe('ZonapropPortalConnector', () => {
 
     expect(unwrap(await connector.create('zonaprop', content()))).toEqual({
       externalId: CODE,
-      permalink: undefined,
+      permalink: 'https://www.zonaprop.com.ar/propiedades/clasificado/-1234567.html',
     });
     expect(calls()).toEqual([
       'GET /v1/ubicaciones/latitud/-34.58890/longitud/-58.43030/countrycode/AR',
@@ -282,7 +282,7 @@ describe('ZonapropPortalConnector', () => {
           state: 'paused',
         }),
       ),
-    ).toBe('paused');
+    ).toEqual({ state: 'paused', permalink: undefined });
     expect(calls()).toEqual([`DELETE /v1/inmobiliarias/17310373/avisos/${CODE}`]);
   });
 
@@ -296,7 +296,10 @@ describe('ZonapropPortalConnector', () => {
           state: 'active',
         }),
       ),
-    ).toBe('active');
+    ).toEqual({
+      state: 'active',
+      permalink: 'https://www.zonaprop.com.ar/propiedades/clasificado/-1234567.html',
+    });
     expect(calls().at(-1)).toBe(`PUT /v1/inmobiliarias/17310373/avisos/${CODE}`);
   });
 

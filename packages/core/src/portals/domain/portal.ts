@@ -46,6 +46,11 @@ export interface PortalDefinition {
    * Zonaprop: Simple, Home…). Sin plan, el aviso es simple o destacado (MercadoLibre).
    */
   readonly choosesPlan: boolean;
+  /**
+   * Si se pueden vincular los avisos que la cuenta ya tiene online, publicados por otro sistema
+   * (Tokko), sin republicarlos.
+   */
+  readonly linksExisting: boolean;
   /** Si el portal cobra por publicar (en ML, el paquete contratado; en Zonaprop, los créditos). */
   readonly paid: boolean;
 }
@@ -57,6 +62,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     publishes: ['property'],
     listingScope: 'operation',
     choosesPlan: false,
+    linksExisting: false,
     paid: true,
   },
   mercadolibre_developments: {
@@ -65,6 +71,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     publishes: ['development'],
     listingScope: 'operation',
     choosesPlan: false,
+    linksExisting: false,
     paid: true,
   },
   // Los emprendimientos llegan en la etapa 5 de Zonaprop.
@@ -74,6 +81,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     publishes: ['property'],
     listingScope: 'property',
     choosesPlan: true,
+    linksExisting: true,
     paid: true,
   },
 };

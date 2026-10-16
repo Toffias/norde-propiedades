@@ -325,7 +325,9 @@ import {
 import {
   ChangeListingType,
   ConnectPortalAccount,
+  ConnectPortalAccountWithCode,
   DisconnectPortalAccount,
+  GetPortalCredits,
   GetPropertyListings,
   ListPortalAccounts,
   PauseListing,
@@ -420,11 +422,13 @@ import {
   MercadoLibreLocations,
   MercadoLibrePortalConnector,
   MercadoLibreTokens,
+  ZonapropAccountDirectory,
+  ZonapropApi,
 } from '@norde/infra';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
-import { getEnv, mercadoLibreApp, type Env } from './config/env';
+import { getEnv, mercadoLibreApp, zonapropApi, type Env } from './config/env';
 import { getLogger } from './config/logger';
 import { listingSourceReader } from './features/portals/listing-source-reader';
 import { eventSubscriptions } from './jobs/event-subscriptions';
@@ -574,8 +578,8 @@ function createStorage(env: Env): FileStorage {
 }
 
 /**
- * Lo que comparten el panel y los jobs de portales (#14): la unidad de trabajo, el OAuth, el
- * conector de MercadoLibre y el lector de la propiedad. Solo con `PORTALS_ENABLED`, que exige la
+ * Lo que comparten el panel y los jobs de portales (#14): la unidad de trabajo, el OAuth y el
+ * conector de MercadoLibre, el directorio de cuentas de Zonaprop y el lector de la propiedad. Solo con `PORTALS_ENABLED`, que exige la
  * clave de cifrado.
  */
 function createPortalServices(
@@ -595,6 +599,13 @@ function createPortalServices(
     locations: new MercadoLibreLocations({ logger, now: () => clock.now().getTime() }),
     logger,
   });
+  const zonaprop = new ZonapropApi({
+    config: zonapropApi(env),
+    logger,
+    now: () => clock.now().getTime(),
+    userAgent: `NordeGestion/1.0${env.MAIL_FROM_ADDRESS ? ` (${env.MAIL_FROM_ADDRESS})` : ''}`,
+  });
+  const directory = new ZonapropAccountDirectory({ api: zonaprop, logger });
   const reader = listingSourceReader({
     propertyDetail: modules.properties.getPanelPropertyDetail,
     photos: modules.properties.listShareablePhotos,
@@ -602,7 +613,7 @@ function createPortalServices(
     branch: new GetBranch({ organization: new DrizzleOrganizationQuery(db) }),
     actor: PORTAL_SYNC_ACTOR,
   });
-  return { uow, authorizer, connector, reader };
+  return { uow, authorizer, connector, directory, reader };
 }
 
 /** Cuentas y publicaciones de portales (#14). Sin `PORTALS_ENABLED`, no existe. */
@@ -614,15 +625,16 @@ function createPortalsUseCases(
 ) {
   const services = createPortalServices(db, env, deps, modules);
   if (!services) return undefined;
-  const { uow, authorizer, connector, reader } = services;
+  const { uow, authorizer, connector, directory, reader } = services;
   const { ids, clock } = deps;
+  const accounts = new DrizzlePortalAccountRepository(db, clock);
 
   return {
-    listAccounts: new ListPortalAccounts({
-      accounts: new DrizzlePortalAccountRepository(db, clock),
-    }),
+    listAccounts: new ListPortalAccounts({ accounts }),
+    getCredits: new GetPortalCredits({ accounts, directory }),
     startConnection: new StartPortalConnection({ authorizer }),
     connectAccount: new ConnectPortalAccount({ uow, authorizer, clock }),
+    connectAccountWithCode: new ConnectPortalAccountWithCode({ uow, directory, clock }),
     disconnectAccount: new DisconnectPortalAccount({ uow }),
     setAccountEnabled: new SetPortalAccountEnabled({ uow }),
     getPropertyListings: new GetPropertyListings({ uow }),

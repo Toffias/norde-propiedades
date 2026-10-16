@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { unwrap, unwrapErr } from '../../shared/testing';
 
-import { PORTAL_CATALOG, isPortalId, type PortalId } from './portal';
+import { PORTAL_CATALOG, isPortalId, portalPublishes, type PortalId } from './portal';
 import { PortalAccount, type PortalConnection } from './portal-account';
 
 const AT = new Date('2026-10-05T12:00:00Z');
@@ -19,13 +19,27 @@ function connected(portal: PortalId, externalAccountId: string) {
 
 describe('portal catalog', () => {
   it('publishes properties and developments through separate MercadoLibre accounts', () => {
-    expect(PORTAL_CATALOG.mercadolibre.publishes).toBe('property');
-    expect(PORTAL_CATALOG.mercadolibre_developments.publishes).toBe('development');
+    expect(portalPublishes('mercadolibre', 'property')).toBe(true);
+    expect(portalPublishes('mercadolibre', 'development')).toBe(false);
+    expect(portalPublishes('mercadolibre_developments', 'development')).toBe(true);
+    expect(portalPublishes('mercadolibre_developments', 'property')).toBe(false);
+  });
+
+  it('connects MercadoLibre by OAuth and Zonaprop by its account code', () => {
+    expect(PORTAL_CATALOG.mercadolibre.connection).toBe('oauth');
+    expect(PORTAL_CATALOG.mercadolibre_developments.connection).toBe('oauth');
+    expect(PORTAL_CATALOG.zonaprop.connection).toBe('account_code');
+  });
+
+  it('does not publish on Zonaprop yet', () => {
+    expect(portalPublishes('zonaprop', 'property')).toBe(false);
+    expect(portalPublishes('zonaprop', 'development')).toBe(false);
   });
 
   it('recognizes only known portals', () => {
     expect(isPortalId('mercadolibre')).toBe(true);
-    expect(isPortalId('zonaprop')).toBe(false);
+    expect(isPortalId('zonaprop')).toBe(true);
+    expect(isPortalId('argenprop')).toBe(false);
   });
 });
 
@@ -61,6 +75,14 @@ describe('PortalAccount', () => {
       portal: 'mercadolibre',
     });
     expect(developments.isConnected).toBe(false);
+  });
+
+  it('allows the same external ID on accounts of different providers', () => {
+    const mercadolibre = connected('mercadolibre', '123');
+    const zonaprop = PortalAccount.notConnected('zonaprop');
+
+    unwrap(zonaprop.connect(connection('123'), [mercadolibre]));
+    expect(zonaprop.isConnected).toBe(true);
   });
 
   it('ignores itself when it reconnects the same account', () => {

@@ -1,6 +1,8 @@
 import type {
   ChangeListingTypeError,
+  ConnectPortalAccountWithCodeError,
   DisconnectPortalAccountError,
+  GetPortalCreditsError,
   GetPropertyListingsError,
   ListPortalAccountsError,
   PauseListingError,
@@ -22,11 +24,17 @@ import type { ConnectionOutcome } from './oauth-flow';
 const FORBIDDEN = 'No tenés permiso para conectar ni activar las cuentas de portales.';
 const NOT_CONFIGURED =
   'Falta configurar la app de MercadoLibre en el servidor (MERCADOLIBRE_CLIENT_ID, MERCADOLIBRE_CLIENT_SECRET y MERCADOLIBRE_REDIRECT_URI).';
+const ZONAPROP_NOT_CONFIGURED =
+  'Faltan las credenciales de Zonaprop en el servidor (ZONAPROP_API_URL, ZONAPROP_CLIENT_ID y ZONAPROP_CLIENT_SECRET), o Zonaprop las rechazó.';
 const NOT_CONNECTED = 'La cuenta no está conectada. Conectala primero.';
+const WRONG_METHOD = 'Esa cuenta se conecta de otra forma. Recargá la página y probá de nuevo.';
+const ZONAPROP_UNAVAILABLE =
+  'Zonaprop no respondió. Probá de nuevo en unos minutos (el sandbox funciona de 7 a 21 h).';
 
 export const PORTAL_LABELS: Readonly<Record<PortalValue, string>> = {
   mercadolibre: 'MercadoLibre · Propiedades',
   mercadolibre_developments: 'MercadoLibre · Emprendimientos',
+  zonaprop: 'Zonaprop',
 };
 
 export const PORTAL_DESCRIPTIONS: Readonly<Record<PortalValue, string>> = {
@@ -34,13 +42,38 @@ export const PORTAL_DESCRIPTIONS: Readonly<Record<PortalValue, string>> = {
     'Cuenta de MercadoLibre activada como inmobiliaria, con un paquete de publicaciones. Publica las propiedades.',
   mercadolibre_developments:
     'Otra cuenta, con el paquete de emprendimientos de MercadoLibre: publica cada emprendimiento con sus unidades. Esa cuenta no puede publicar propiedades sueltas.',
+  zonaprop:
+    'La inmobiliaria de Norde en Zonaprop, con sus créditos de publicación. Se conecta con el código de inmobiliaria. Publicar desde el sistema llega más adelante: por ahora los avisos siguen saliendo por Tokko.',
 };
 
 export const START_CONNECTION_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN,
   ValidationFailed: 'Ese portal no existe.',
+  WrongConnectionMethod: WRONG_METHOD,
   PortalNotConfigured: NOT_CONFIGURED,
 } satisfies ErrorMessages<StartPortalConnectionError>;
+
+export const CODE_CONNECTION_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN,
+  ValidationFailed: (error) => error.issues[0] ?? 'Revisá el código de inmobiliaria.',
+  WrongConnectionMethod: WRONG_METHOD,
+  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
+  PortalAccountNotFound:
+    'Zonaprop no tiene una inmobiliaria con ese código asociada a Norde. Revisá el código, o pedile a Zonaprop que la asocie al integrador.',
+  PortalAccountBlocked:
+    'Zonaprop tiene bloqueada esa inmobiliaria. Hay que regularizarla con el ejecutivo de cuentas de Zonaprop.',
+  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+  PortalAccountInUse: 'Esa cuenta ya está conectada en otra tarjeta.',
+} satisfies ErrorMessages<ConnectPortalAccountWithCodeError>;
+
+export const CREDITS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver los créditos del portal.',
+  ValidationFailed: 'Ese portal no existe.',
+  WrongConnectionMethod: 'Este portal no informa créditos.',
+  PortalNotConnected: NOT_CONNECTED,
+  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
+  PortalUnavailable: 'No pudimos consultar los créditos: Zonaprop no respondió. Probá más tarde.',
+} satisfies ErrorMessages<GetPortalCreditsError>;
 
 export const PORTAL_ACCOUNT_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN,
@@ -56,6 +89,7 @@ export const CONNECTION_OUTCOME_MESSAGES: Readonly<Record<ConnectionOutcome, str
   AuthorizationDenied: 'No autorizaste a Norde en MercadoLibre, así que la cuenta no se conectó.',
   ValidationFailed: 'MercadoLibre no devolvió el código de autorización. Probá de nuevo.',
   Forbidden: FORBIDDEN,
+  WrongConnectionMethod: WRONG_METHOD,
   InvalidAuthorizationState:
     'La conexión venció o se abrió en otra pestaña. Volvé a tocar "Conectar" y autorizá en los próximos 10 minutos.',
   PortalNotConfigured: NOT_CONFIGURED,

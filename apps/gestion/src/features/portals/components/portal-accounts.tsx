@@ -1,6 +1,10 @@
 'use client';
 
-import type { PortalAccountView, PortalAccountsView } from '@norde/core/portals/contracts';
+import type {
+  PortalAccountView,
+  PortalAccountsView,
+  PortalCreditView,
+} from '@norde/core/portals/contracts';
 import { Badge } from '@norde/ui/components/badge';
 import { Button } from '@norde/ui/components/button';
 import {
@@ -11,6 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@norde/ui/components/dialog';
+import { Input } from '@norde/ui/components/input';
+import { Label } from '@norde/ui/components/label';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill, type StatusTone } from '@norde/ui/components/status-pill';
@@ -21,24 +27,45 @@ import { useState, useTransition } from 'react';
 import { runAction } from '../../../lib/action-result';
 import { formatDateTime } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
-import { disconnectPortalAccountAction, setPortalAccountEnabledAction } from '../actions';
+import {
+  connectPortalAccountWithCodeAction,
+  disconnectPortalAccountAction,
+  setPortalAccountEnabledAction,
+} from '../actions';
 import { PORTAL_DESCRIPTIONS, PORTAL_LABELS } from '../messages';
+import type { PortalCreditsResult } from '../queries';
 
 const CONNECT_PATH = '/api/portals/mercadolibre/connect';
 
 function status(account: PortalAccountView): { tone: StatusTone; label: string } {
   if (!account.isConnected) return { tone: 'gray', label: 'Sin conectar' };
+  // Una cuenta que todavía no publica nada no se activa.
+  if (account.publishes.length === 0) return { tone: 'green', label: 'Conectada' };
   return account.isEnabled
     ? { tone: 'green', label: 'Activa' }
     : { tone: 'amber', label: 'Conectada, sin activar' };
 }
 
-/** Mi empresa → Portales: una tarjeta por cuenta, con conectar, activar y desconectar. */
-export function PortalAccounts({ view }: { readonly view: PortalAccountsView }) {
+/**
+ * Mi empresa → Portales: una tarjeta por cuenta, con conectar, activar y desconectar. Las cuentas
+ * conectadas por código (Zonaprop) muestran además sus créditos.
+ */
+export function PortalAccounts({
+  view,
+  credits,
+}: {
+  readonly view: PortalAccountsView;
+  readonly credits: Readonly<Partial<Record<PortalAccountView['portal'], PortalCreditsResult>>>;
+}) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       {view.accounts.map((account) => (
-        <PortalAccountCard key={account.portal} account={account} canManage={view.canManage} />
+        <PortalAccountCard
+          key={account.portal}
+          account={account}
+          canManage={view.canManage}
+          credits={credits[account.portal]}
+        />
       ))}
     </div>
   );
@@ -47,13 +74,17 @@ export function PortalAccounts({ view }: { readonly view: PortalAccountsView }) 
 function PortalAccountCard({
   account,
   canManage,
+  credits,
 }: {
   readonly account: PortalAccountView;
   readonly canManage: boolean;
+  readonly credits: PortalCreditsResult | undefined;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const [confirming, setConfirming] = useState(false);
+  const [askingCode, setAskingCode] = useState(false);
+  const byCode = account.connection === 'account_code';
   const { tone, label } = status(account);
   const connectHref = `${CONNECT_PATH}?${new URLSearchParams({ portal: account.portal }).toString()}`;
 
@@ -89,28 +120,45 @@ function PortalAccountCard({
             <span className="text-muted-foreground">Todavía no hay una cuenta conectada.</span>
           )}
         </div>
+        {credits !== undefined && <PortalCredits result={credits} />}
         <FormAlert message={error} />
         {canManage && (
           <div className="flex flex-wrap items-center gap-3">
             {account.isConnected ? (
               <>
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <Switch
-                    checked={account.isEnabled}
-                    disabled={pending}
-                    onCheckedChange={toggle}
-                    aria-label="Activa para publicar"
-                  />
-                  Activa para publicar
-                </label>
+                {account.publishes.length > 0 && (
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <Switch
+                      checked={account.isEnabled}
+                      disabled={pending}
+                      onCheckedChange={toggle}
+                      aria-label="Activa para publicar"
+                    />
+                    Activa para publicar
+                  </label>
+                )}
                 <div className="ml-auto flex flex-wrap gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    {/* Navegación completa: la ruta redirige a MercadoLibre. */}
-                    <a href={connectHref}>
+                  {byCode ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setAskingCode(true);
+                      }}
+                    >
                       <RefreshCwIcon className="h-4 w-4" aria-hidden />
-                      Reconectar
-                    </a>
-                  </Button>
+                      Cambiar código
+                    </Button>
+                  ) : (
+                    <Button asChild variant="outline" size="sm">
+                      {/* Navegación completa: la ruta redirige a MercadoLibre. */}
+                      <a href={connectHref}>
+                        <RefreshCwIcon className="h-4 w-4" aria-hidden />
+                        Reconectar
+                      </a>
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -125,6 +173,17 @@ function PortalAccountCard({
                   </Button>
                 </div>
               </>
+            ) : byCode ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setAskingCode(true);
+                }}
+              >
+                <PlugIcon className="h-4 w-4" aria-hidden />
+                Conectar con {PORTAL_LABELS[account.portal]}
+              </Button>
             ) : (
               <Button asChild size="sm">
                 <a href={connectHref}>
@@ -137,7 +196,133 @@ function PortalAccountCard({
         )}
       </div>
       <DisconnectDialog account={account} open={confirming} onOpenChange={setConfirming} />
+      {askingCode && (
+        <AccountCodeDialog
+          account={account}
+          onClose={() => {
+            setAskingCode(false);
+          }}
+        />
+      )}
     </SectionCard>
+  );
+}
+
+/** Los créditos de publicación que le quedan a la cuenta, por plan. */
+function PortalCredits({ result }: { readonly result: PortalCreditsResult }) {
+  if (!result.ok) {
+    return <p className="text-sm text-muted-foreground">{result.message}</p>;
+  }
+  if (result.credits.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">La cuenta no tiene créditos de publicación.</p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">Créditos disponibles</h3>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {result.credits.map((credit) => (
+          <CreditItem key={credit.plan} credit={credit} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CreditItem({ credit }: { readonly credit: PortalCreditView }) {
+  return (
+    <li className="flex items-baseline justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+      <span className="min-w-0 truncate text-muted-foreground">{planLabel(credit.plan)}</span>
+      <span className="shrink-0 font-semibold tabular-nums">
+        {credit.available}
+        {credit.contracted !== undefined && (
+          <span className="font-normal text-muted-foreground"> de {credit.contracted}</span>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/** `DESTACADO_COMBO` → `Destacado combo`. Los planes los define el portal. */
+function planLabel(plan: string): string {
+  const words = plan.toLowerCase().split('_').filter(Boolean).join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Pide el código de la cuenta en el portal (en Zonaprop, el código de inmobiliaria). */
+function AccountCodeDialog({
+  account,
+  onClose,
+}: {
+  readonly account: PortalAccountView;
+  readonly onClose: () => void;
+}) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [pending, startTransition] = useTransition();
+  const label = PORTAL_LABELS[account.portal];
+  const inputId = `${account.portal}-account-code`;
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Conectar {label}</DialogTitle>
+          <DialogDescription>
+            Ingresá el código de inmobiliaria de Norde en {label}. Lo verificamos con {label}: la
+            inmobiliaria tiene que estar asociada a Norde como integrador.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setError(undefined);
+            startTransition(async () => {
+              const message = await runAction(() =>
+                connectPortalAccountWithCodeAction({ portal: account.portal, accountCode: code }),
+              );
+              if (message !== undefined) {
+                setError(message);
+                return;
+              }
+              toast.success('Cuenta conectada');
+              onClose();
+            });
+          }}
+        >
+          <FormAlert message={error} />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={inputId}>Código de inmobiliaria</Label>
+            <Input
+              id={inputId}
+              autoFocus
+              autoComplete="off"
+              maxLength={64}
+              value={code}
+              onChange={(event) => {
+                setCode(event.target.value);
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending || code.trim() === ''}>
+              {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
+              Conectar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -178,9 +363,19 @@ function DisconnectDialog({
         <DialogHeader>
           <DialogTitle>Desconectar {PORTAL_LABELS[account.portal]}</DialogTitle>
           <DialogDescription>
-            Norde deja de tener acceso a la cuenta {account.accountName} y se borran sus
-            credenciales. Los avisos que ya están en MercadoLibre no se tocan. Para volver a
-            publicar, hay que conectarla de nuevo.
+            {account.connection === 'account_code' ? (
+              <>
+                Norde deja de usar la inmobiliaria {account.accountName} en{' '}
+                {PORTAL_LABELS[account.portal]}. Los avisos que ya están publicados no se tocan.
+                Para volver a publicar, hay que conectarla de nuevo.
+              </>
+            ) : (
+              <>
+                Norde deja de tener acceso a la cuenta {account.accountName} y se borran sus
+                credenciales. Los avisos que ya están en MercadoLibre no se tocan. Para volver a
+                publicar, hay que conectarla de nuevo.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
         <FormAlert message={error} />

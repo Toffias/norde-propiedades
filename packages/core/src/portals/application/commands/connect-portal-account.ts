@@ -9,6 +9,7 @@ import {
 } from '../../../shared';
 import { ConnectPortalAccountInputSchema, type ConnectPortalAccountInput } from '../../contracts';
 import type { PortalAccountInUseError } from '../../domain/portal-account';
+import { requireConnectionMethod, type WrongConnectionMethodError } from '../connection-method';
 import { connectionAuditValue, portalAccountTarget } from '../portal-account-audit';
 import type { PortalAuthorizationError, PortalAuthorizer } from '../ports/portal-authorizer';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
@@ -22,6 +23,7 @@ export interface InvalidAuthorizationStateError {
 export type ConnectPortalAccountError =
   | ForbiddenError
   | ValidationFailedError
+  | WrongConnectionMethodError
   | InvalidAuthorizationStateError
   | PortalAuthorizationError
   | PortalAccountInUseError;
@@ -47,6 +49,8 @@ export class ConnectPortalAccount {
     const parsed = parseInput(ConnectPortalAccountInputSchema, input);
     if (parsed.isErr()) return err(parsed.error);
     const { portal, code, state, expectedState, codeVerifier } = parsed.value;
+    const method = requireConnectionMethod(portal, 'oauth');
+    if (method.isErr()) return err(method.error);
     if (state !== expectedState) return err({ type: 'InvalidAuthorizationState' });
 
     const grant = await this.deps.authorizer.complete({ portal, code, codeVerifier });

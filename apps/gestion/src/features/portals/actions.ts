@@ -2,11 +2,13 @@
 
 import {
   ChangeListingTypeInputSchema,
+  ConnectPortalAccountWithCodeInputSchema,
   ListingIdInputSchema,
   PortalInputSchema,
   RequestPublicationInputSchema,
   SetPortalAccountEnabledInputSchema,
   type ChangeListingTypeInput,
+  type ConnectPortalAccountWithCodeInput,
   type ListingIdInput,
   type PortalInput,
   type RequestPublicationInput,
@@ -19,6 +21,7 @@ import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-res
 import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
 import {
+  CODE_CONNECTION_ERROR_MESSAGES,
   LISTING_ERROR_MESSAGES,
   PORTAL_ACCOUNT_ERROR_MESSAGES,
   PUBLICATION_ERROR_MESSAGES,
@@ -30,6 +33,26 @@ import { PORTALS_SETTINGS_PATH } from './oauth-flow';
 
 const INVALID = messageForError({ type: 'ValidationFailed' });
 const HIDDEN = 'La difusión en portales no está activa.';
+
+/** Conecta la cuenta de un portal donde Norde es integrador, por su código (Zonaprop). */
+export async function connectPortalAccountWithCodeAction(
+  input: ConnectPortalAccountWithCodeInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const portals = getContainer().portals;
+  if (!portals) return actionFailed(HIDDEN);
+  const parsed = ConnectPortalAccountWithCodeInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return actionFailed(parsed.error.issues[0]?.message ?? INVALID);
+  }
+
+  const result = await portals.connectAccountWithCode.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, CODE_CONNECTION_ERROR_MESSAGES));
+  }
+  revalidatePath(PORTALS_SETTINGS_PATH);
+  return ACTION_OK;
+}
 
 export async function disconnectPortalAccountAction(input: PortalInput): Promise<ActionResult> {
   const { actor } = await requireSession();

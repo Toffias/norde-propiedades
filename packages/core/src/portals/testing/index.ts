@@ -11,6 +11,12 @@ import type {
   PortalNotConfiguredError,
 } from '../application/ports/portal-authorizer';
 import type {
+  PortalAccountDirectory,
+  PortalAccountLookupError,
+  PortalAccountMatch,
+  PortalCredit,
+} from '../application/ports/portal-account-directory';
+import type {
   PortalCredentialStore,
   PortalsTransaction,
   PortalsUnitOfWork,
@@ -145,6 +151,37 @@ export class FakePortalAuthorizer implements PortalAuthorizer {
     if (this.notConfigured) return Promise.resolve(err({ type: 'PortalNotConfigured' }));
     if (this.failWith) return Promise.resolve(err(this.failWith));
     return Promise.resolve(ok(this.grant));
+  }
+}
+
+/**
+ * Directorio de prueba: encuentra solo la cuenta `accounts` por su código y devuelve `availableCredits`.
+ * Con `failWith` o `creditsFailWith`, falla como el portal real.
+ */
+export class FakePortalAccountDirectory implements PortalAccountDirectory {
+  readonly accounts = new Map<string, PortalAccountMatch>([
+    ['17310373', { externalAccountId: '17310373', accountName: 'Norde Propiedades' }],
+  ]);
+  availableCredits: readonly PortalCredit[] = [
+    { plan: 'SIMPLE', available: 40, contracted: 50 },
+    { plan: 'DESTACADO', available: 3, contracted: 5 },
+  ];
+  failWith: PortalAccountLookupError | undefined;
+  creditsFailWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
+  readonly lookups: { portal: PortalId; accountCode: string }[] = [];
+  readonly creditReads: { portal: PortalId; externalAccountId: string }[] = [];
+
+  find(input: { readonly portal: PortalId; readonly accountCode: string }) {
+    this.lookups.push({ ...input });
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    const match = this.accounts.get(input.accountCode);
+    return Promise.resolve(match ? ok(match) : err({ type: 'PortalAccountNotFound' as const }));
+  }
+
+  credits(input: { readonly portal: PortalId; readonly externalAccountId: string }) {
+    this.creditReads.push({ ...input });
+    if (this.creditsFailWith) return Promise.resolve(err(this.creditsFailWith));
+    return Promise.resolve(ok(this.availableCredits));
   }
 }
 

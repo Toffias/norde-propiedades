@@ -117,6 +117,13 @@ export {
   type MercadoLibreAppConfig,
   type MercadoLibreAuthorizerOptions,
 } from './adapters/portals/mercadolibre/mercadolibre-authorizer';
+export {
+  ZonapropApi,
+  type ZonapropApiConfig,
+  type ZonapropApiError,
+  type ZonapropApiOptions,
+} from './adapters/portals/zonaprop/zonaprop-api';
+export { ZonapropAccountDirectory } from './adapters/portals/zonaprop/zonaprop-account-directory';
 export { AesGcmSecretCipher, type SecretCipher } from './adapters/crypto/aes-gcm-secret-cipher';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
 export { DrizzleClientConversationErasure } from './conversations/drizzle-client-conversation-erasure';

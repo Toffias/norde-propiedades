@@ -24,6 +24,7 @@ export class ListPortalAccounts {
         const definition = PORTAL_CATALOG[portal];
         return {
           portal,
+          connection: definition.connection,
           publishes: definition.publishes,
           paid: definition.paid,
           isEnabled,

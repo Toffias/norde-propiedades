@@ -83,6 +83,13 @@ const EnvSchema = z.object({
   MERCADOLIBRE_CLIENT_SECRET: z.string().min(1).optional(),
   /** La URL de vuelta registrada en la app, exacta: `<panel>/api/portals/mercadolibre/callback`. */
   MERCADOLIBRE_REDIRECT_URI: z.url({ protocol: /^https$/ }).optional(),
+  /**
+   * API de Open Navent para Zonaprop, con las credenciales de integrador de Norde. Las tres o
+   * ninguna. Producción: `https://api-zp-open.navent.com`; el sandbox tiene otra URL.
+   */
+  ZONAPROP_API_URL: z.url({ protocol: /^https$/ }).optional(),
+  ZONAPROP_CLIENT_ID: z.string().min(1).optional(),
+  ZONAPROP_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 const MERCADOLIBRE_APP = [
@@ -90,6 +97,8 @@ const MERCADOLIBRE_APP = [
   'MERCADOLIBRE_CLIENT_SECRET',
   'MERCADOLIBRE_REDIRECT_URI',
 ] as const;
+
+const ZONAPROP_API = ['ZONAPROP_API_URL', 'ZONAPROP_CLIENT_ID', 'ZONAPROP_CLIENT_SECRET'] as const;
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
 const S3_REQUIRED = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
@@ -114,6 +123,12 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
   if (mercadoLibre.length > 0 && mercadoLibre.length < MERCADOLIBRE_APP.length) {
     for (const key of MERCADOLIBRE_APP.filter((k) => env[k] === undefined)) {
       context.addIssue({ code: 'custom', path: [key], message: 'Set all MERCADOLIBRE_* or none' });
+    }
+  }
+  const zonaprop = ZONAPROP_API.filter((key) => env[key] !== undefined);
+  if (zonaprop.length > 0 && zonaprop.length < ZONAPROP_API.length) {
+    for (const key of ZONAPROP_API.filter((k) => env[k] === undefined)) {
+      context.addIssue({ code: 'custom', path: [key], message: 'Set all ZONAPROP_* or none' });
     }
   }
   if ((env.WEB_REVALIDATE_URL === undefined) !== (env.WEB_REVALIDATE_SECRET === undefined)) {
@@ -200,6 +215,19 @@ export function mercadoLibreApp(env: Env) {
     return undefined;
   }
   return { clientId, clientSecret, redirectUri };
+}
+
+/** Las credenciales de integrador de Zonaprop, o `undefined` si no están configuradas. */
+export function zonapropApi(env: Env) {
+  const {
+    ZONAPROP_API_URL: baseUrl,
+    ZONAPROP_CLIENT_ID: clientId,
+    ZONAPROP_CLIENT_SECRET: clientSecret,
+  } = env;
+  if (baseUrl === undefined || clientId === undefined || clientSecret === undefined) {
+    return undefined;
+  }
+  return { baseUrl, clientId, clientSecret };
 }
 
 /** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */

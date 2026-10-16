@@ -731,7 +731,11 @@ function LinkListingDialog({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Plan, si {site} no lo informa (opcional)</span>
+            <span className="text-sm font-medium">
+              {owner.kind === 'development'
+                ? `Plan (opcional: sin elegir, el que informa ${site})`
+                : `Plan, si ${site} no lo informa (opcional)`}
+            </span>
             <PlanSelect plans={plans} value={plan} onChange={setPlan} disabled={pending} />
           </div>
           <DialogFooter>

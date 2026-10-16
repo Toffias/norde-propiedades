@@ -438,6 +438,14 @@ describe('LinkDevelopmentListing', () => {
     expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('unchanged');
   });
 
+  it('keeps the chosen plan over the one the portal reports', async () => {
+    const { link, uow } = setup();
+    const { listingId } = unwrap(
+      await link.execute({ ...LINK, plan: 'DESARROLLOS_SIMPLE' }, AGENT),
+    );
+    expect(uow.listings.rows.get(listingId)?.plan).toBe('DESARROLLOS_SIMPLE');
+  });
+
   it('does not link a development twice', async () => {
     const { link, catalog, developments } = setup();
     const { listingId } = unwrap(await link.execute(LINK, AGENT));

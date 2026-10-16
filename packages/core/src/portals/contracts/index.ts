@@ -275,7 +275,7 @@ export const LinkDevelopmentListingInputSchema = z.object({
   portal: PortalSchema,
   developmentId: z.uuid(),
   remoteId: RemoteListingIdSchema,
-  /** El plan, si el portal no lo informa en el aviso. */
+  /** El plan del aviso; sin elegir, el que informa el portal. */
   plan: PortalPlanSchema.optional(),
 });
 export type LinkDevelopmentListingInput = z.input<typeof LinkDevelopmentListingInputSchema>;

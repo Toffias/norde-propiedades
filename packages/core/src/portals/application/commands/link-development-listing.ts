@@ -121,7 +121,9 @@ export class LinkDevelopmentListing {
         return err({ type: 'RemoteListingAlreadyLinked', owner: linked.owner });
       }
     }
-    const plan = remote.plan ?? parsed.value.plan;
+    // El plan elegido manda: Tokko informa planes de emprendimientos que la API no acepta al
+    // publicar (`DESARROLLO_SUPER_DESTACADOS`).
+    const plan = parsed.value.plan ?? remote.plan;
     if (definition.choosesPlan && plan === undefined) return err({ type: 'PlanRequired' });
 
     // Cada unidad del portal, con la unidad de Norde del mismo código.

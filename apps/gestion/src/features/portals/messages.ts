@@ -1,4 +1,5 @@
 import type {
+  EnablePortalLeadNotificationsError,
   LinkPortalListingError,
   ListRemoteListingsError,
   ChangeListingPlanError,
@@ -214,3 +215,12 @@ export const LINK_LISTING_ERROR_MESSAGES = {
   PortalRejected: (error) => error.reason,
   PortalCredentialsMissing: 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).',
 } satisfies ErrorMessages<LinkPortalListingError>;
+
+export const LEAD_NOTIFICATIONS_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN,
+  ValidationFailed: (error) => error.issues[0] ?? 'Ese portal no trae consultas.',
+  PortalNotConnected: NOT_CONNECTED,
+  PortalNotConfigured:
+    'Falta configurar en el servidor el token de los avisos (ZONAPROP_CALLBACK_TOKEN), o Zonaprop rechazó las credenciales.',
+  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+} satisfies ErrorMessages<EnablePortalLeadNotificationsError>;

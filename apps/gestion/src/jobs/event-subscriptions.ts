@@ -17,7 +17,13 @@ import type {
   MoveMergedClientConversations,
 } from '@norde/core/conversations';
 import type { MoveMergedClientFavorites, RemoveErasedClientFavorites } from '@norde/core/identity';
-import type { RequestListingSync, SyncListing } from '@norde/core/portals';
+import {
+  PORTALS,
+  PORTAL_CATALOG,
+  type PullPortalLeads,
+  type RequestListingSync,
+  type SyncListing,
+} from '@norde/core/portals';
 import {
   CreatePropertyFromAppraisalInputSchema,
   type CreatePropertyFromAppraisal,
@@ -288,11 +294,36 @@ function publicSiteSubscriptions(
 export interface PortalJobs {
   readonly requestSync: Pick<RequestListingSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
+  readonly pullLeads: Pick<PullPortalLeads, 'execute'>;
   /** `system:portal-sync`: sincroniza y lee la propiedad, su sucursal y Mi empresa. */
   readonly actor: Actor;
 }
 
 const ListingPayloadSchema = z.object({ listingId: z.uuid() });
+const LeadsPayloadSchema = z.object({ portal: z.enum(PORTALS) });
+
+/** Los portales que traen consultas a la bandeja (hoy, Zonaprop). */
+const LEAD_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].leadChannel !== undefined);
+
+/**
+ * Trae a la bandeja los contactos de los avisos de cada portal. Devuelve `false` si algún portal
+ * no respondió, para que el job lo reintente.
+ */
+export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise<boolean> {
+  let allAnswered = true;
+  for (const portal of LEAD_PORTALS) {
+    const result = await jobs.pullLeads.execute({ portal }, jobs.actor);
+    if (result.isErr()) {
+      logger.error({ portal, error: result.error }, 'Portal leads pull failed');
+      if (result.error.type === 'PortalUnavailable') allAnswered = false;
+      continue;
+    }
+    if (result.value.received > 0 || result.value.rejected > 0) {
+      logger.info({ portal, ...result.value }, 'Portal leads pulled');
+    }
+  }
+  return allAnswered;
+}
 
 function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscription[] {
   const requestSync = async (event: DeliveredEvent, propertyId: string) => {
@@ -334,6 +365,21 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
         // El portal no respondió: el error queda en la publicación y la cola reintenta con backoff.
         if (result.value === 'retry')
           throw new Error(`Portal unavailable for listing ${listingId}`);
+      },
+    },
+    {
+      // El portal avisó que llegó un contacto: se leen sus contactos (no lo que trajo el aviso).
+      eventType: 'portals.leads_arrived',
+      name: 'pull-portal-leads',
+      handle: async (event) => {
+        const { portal } = LeadsPayloadSchema.parse(event.payload);
+        const result = await jobs.pullLeads.execute({ portal }, jobs.actor);
+        if (result.isErr()) {
+          logger.error({ eventId: event.id, error: result.error }, 'Portal leads pull failed');
+          if (result.error.type === 'PortalUnavailable') {
+            throw new Error(`Portal unavailable while pulling ${portal} leads`);
+          }
+        }
       },
     },
   ];

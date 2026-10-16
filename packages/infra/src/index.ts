@@ -126,6 +126,7 @@ export {
 export { ZonapropAccountDirectory } from './adapters/portals/zonaprop/zonaprop-account-directory';
 export { ZonapropLocations } from './adapters/portals/zonaprop/zonaprop-locations';
 export { ZonapropListingCatalog } from './adapters/portals/zonaprop/zonaprop-listing-catalog';
+export { ZonapropLeads } from './adapters/portals/zonaprop/zonaprop-leads';
 export {
   ZonapropPortalConnector,
   type ZonapropAgencyCode,
@@ -167,5 +168,6 @@ export {
   PgBossEventBus,
   type EventSubscription,
   type PgBossEventBusOptions,
+  type ScheduledJob,
 } from './jobs/pg-boss-event-bus';
 export type { PublishedEvent } from './jobs/published-event';

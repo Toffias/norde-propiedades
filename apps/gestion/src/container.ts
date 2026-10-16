@@ -331,7 +331,10 @@ import {
   DisconnectPortalAccount,
   GetPortalCredits,
   GetPropertyListings,
+  EnablePortalLeadNotifications,
   LinkPortalListing,
+  NotifyPortalLeads,
+  PullPortalLeads,
   ListPortalAccounts,
   ListRemoteListings,
   PauseListing,
@@ -429,6 +432,7 @@ import {
   PortalConnectorsByProvider,
   ZonapropAccountDirectory,
   ZonapropApi,
+  ZonapropLeads,
   ZonapropListingCatalog,
   ZonapropLocations,
   ZonapropPortalConnector,
@@ -436,11 +440,18 @@ import {
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
-import { getEnv, mercadoLibreApp, zonapropApi, type Env } from './config/env';
+import {
+  getEnv,
+  mercadoLibreApp,
+  zonapropApi,
+  zonapropCallbackTarget,
+  type Env,
+} from './config/env';
 import { getLogger } from './config/logger';
 import { listingSourceReader } from './features/portals/listing-source-reader';
+import { portalLeadSink } from './features/portals/portal-lead-sink';
 import { propertyCodeLookup } from './features/portals/property-code-lookup';
-import { eventSubscriptions } from './jobs/event-subscriptions';
+import { eventSubscriptions, pullPortalLeads } from './jobs/event-subscriptions';
 
 export interface Container {
   readonly database: DatabaseConnection;
@@ -523,6 +534,8 @@ let container: Container | undefined;
 
 /** Las consultas del formulario web: quedan creadas y auditadas por `system:web`. */
 const WEB_ACTOR = Actor.system('web', ['inquiries:receive', 'properties:read']);
+/** Los contactos de los avisos de los portales entran a la bandeja como `system:portal-sync`. */
+const PORTAL_LEADS_ACTOR = Actor.system('portal-sync', ['inquiries:receive', 'properties:read']);
 /** Los jobs que reaccionan a los eventos del outbox, con los permisos justos de cada uno. */
 const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'clients:read',
@@ -587,9 +600,9 @@ function createStorage(env: Env): FileStorage {
 }
 
 /**
- * Lo que comparten el panel y los jobs de portales (#14): la unidad de trabajo, el OAuth y el
- * conector de MercadoLibre, el directorio de cuentas de Zonaprop y el lector de la propiedad. Solo con `PORTALS_ENABLED`, que exige la
- * clave de cifrado.
+ * Lo que comparten el panel y los jobs de portales (#14): la unidad de trabajo, el OAuth, los
+ * conectores, el directorio y los contactos de Zonaprop, el lector de la propiedad y la bandeja de
+ * consultas. Solo con `PORTALS_ENABLED`, que exige la clave de cifrado.
  */
 function createPortalServices(
   db: Database,
@@ -634,11 +647,13 @@ function createPortalServices(
     actor: PORTAL_SYNC_ACTOR,
   });
   const catalog = new ZonapropListingCatalog({ api: zonaprop, logger });
+  const leads = new ZonapropLeads({ api: zonaprop, logger });
+  const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR));
   const codes = propertyCodeLookup({
     findByCode: modules.properties.findPropertiesByCode,
     actor: PORTAL_SYNC_ACTOR,
   });
-  return { uow, authorizer, connector, directory, reader, catalog, codes };
+  return { uow, authorizer, connector, directory, reader, catalog, codes, leads, sink };
 }
 
 /** Cuentas y publicaciones de portales (#14). Sin `PORTALS_ENABLED`, no existe. */
@@ -650,7 +665,7 @@ function createPortalsUseCases(
 ) {
   const services = createPortalServices(db, env, deps, modules);
   if (!services) return undefined;
-  const { uow, authorizer, connector, directory, reader, catalog, codes } = services;
+  const { uow, authorizer, connector, directory, reader, catalog, codes, leads } = services;
   const { ids, clock } = deps;
   const accounts = new DrizzlePortalAccountRepository(db, clock);
 
@@ -666,6 +681,14 @@ function createPortalsUseCases(
     requestPublication: new RequestPublication({ uow, reader, connector, directory, ids, clock }),
     listRemoteListings: new ListRemoteListings({ uow, catalog, properties: codes }),
     linkListing: new LinkPortalListing({ uow, catalog, reader, ids, clock }),
+    /** El portal avisó que llegó un contacto (webhook): se pide leerlos. */
+    notifyZonapropLeads: () =>
+      new NotifyPortalLeads({ uow, clock }).execute({ portal: 'zonaprop' }, PORTAL_SYNC_ACTOR),
+    enableLeadNotifications: new EnablePortalLeadNotifications({
+      uow,
+      notifications: leads,
+      target: zonapropCallbackTarget(env),
+    }),
     pauseListing: new PauseListing({ uow, clock }),
     resumeListing: new ResumeListing({ uow, clock }),
     unpublishListing: new UnpublishListing({ uow, clock }),
@@ -1363,7 +1386,7 @@ function createContainer(): Container {
     settings,
     properties,
     inquiries: createInquiriesUseCases(database.db, properties, { ids, clock }),
-    webInquiries: createWebInquiryIntake(database.db, { ids, clock }),
+    webInquiries: createInquiryIntake(database.db, { ids, clock }, WEB_ACTOR),
     appraisals: createAppraisalsUseCases(database.db, { ids, clock, storage: createStorage(env) }),
     ...withAgenda,
     search: {
@@ -1452,9 +1475,11 @@ function activeAgents(db: Database): ClientAgents {
 }
 
 /** La entrada de consultas de la web (#10): `ReceiveInquiry` con los datos de la propiedad. */
-function createWebInquiryIntake(
+/** `ReceiveInquiry` con un actor de ingreso: el de la web o el de los portales. */
+function createInquiryIntake(
   db: Database,
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
+  actor: Actor,
 ): Container['webInquiries'] {
   const directory = new DrizzleDirectory(db);
   const userAccess = new DrizzleUserAccessQuery(db);
@@ -1465,7 +1490,7 @@ function createWebInquiryIntake(
   // Por la API pública de properties; la sucursal de la propiedad es la de su captador.
   const properties: InquiryPropertyLookup = {
     async facts(propertyId) {
-      const rows = await summaries.execute({ ids: [propertyId] }, WEB_ACTOR);
+      const rows = await summaries.execute({ ids: [propertyId] }, actor);
       const row = rows.isOk() ? rows.value[0] : undefined;
       if (!row) return undefined;
       const producer = row.producer && (await userAccess.findByUserId(row.producer.id));
@@ -1483,7 +1508,7 @@ function createWebInquiryIntake(
     properties,
     ...deps,
   });
-  return { receive: (input) => receiveInquiry.execute(input, WEB_ACTOR) };
+  return { receive: (input) => receiveInquiry.execute(input, actor) };
 }
 
 /** Las reglas automáticas de estado y las acciones masivas encoladas de oportunidades (#9). */
@@ -1591,6 +1616,17 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     applicationName: 'norde-gestion-jobs',
     logger,
   });
+  const portalJobs = portals && {
+    requestSync: new RequestListingSync({ uow: portals.uow, clock }),
+    sync: new SyncListing({ ...portals, clock }),
+    pullLeads: new PullPortalLeads({
+      uow: portals.uow,
+      source: portals.leads,
+      sink: portals.sink,
+      clock,
+    }),
+    actor: PORTAL_SYNC_ACTOR,
+  };
   for (const subscription of eventSubscriptions({
     notifyTeam: new NotifyTeamOfOpportunity({
       clients: new DrizzleClientRepository(db, ids),
@@ -1667,21 +1703,23 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       rulesEnabled: env.INQUIRY_RULES_ENABLED,
       ...deps,
     }),
-    ...(portals
-      ? {
-          portals: {
-            requestSync: new RequestListingSync({ uow: portals.uow, clock }),
-            sync: new SyncListing({ ...portals, clock }),
-            actor: PORTAL_SYNC_ACTOR,
-          },
-        }
-      : {}),
+    ...(portalJobs ? { portals: portalJobs } : {}),
     actor: SCHEDULER_ACTOR,
     importActor: IMPORT_ACTOR,
     conversionActor: CONVERSION_ACTOR,
     logger,
   })) {
     bus.subscribe(subscription);
+  }
+  if (portalJobs) {
+    // Los contactos de los avisos de los portales, aunque el portal no avise (o el aviso se pierda).
+    bus.schedule({
+      name: 'portals.pull-leads',
+      cron: '*/10 * * * *',
+      run: async () => {
+        await pullPortalLeads(portalJobs, logger);
+      },
+    });
   }
   const relay = new OutboxRelay({ db, logger, publish: (event) => bus.publish(event) });
 

@@ -21,7 +21,14 @@ import { SectionCard } from '@norde/ui/components/section-card';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill, type StatusTone } from '@norde/ui/components/status-pill';
 import { Switch } from '@norde/ui/components/switch';
-import { Link2Icon, Loader2Icon, PlugIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
+import {
+  BellRingIcon,
+  Link2Icon,
+  Loader2Icon,
+  PlugIcon,
+  RefreshCwIcon,
+  UnplugIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
@@ -29,6 +36,7 @@ import { runAction } from '../../../lib/action-result';
 import { formatDateTime } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
 import {
+  enableLeadNotificationsAction,
   connectPortalAccountWithCodeAction,
   disconnectPortalAccountAction,
   setPortalAccountEnabledAction,
@@ -122,6 +130,7 @@ function PortalAccountCard({
           )}
         </div>
         {credits !== undefined && <PortalCredits result={credits} />}
+        {byCode && account.isConnected && canManage && <LeadNotifications account={account} />}
         {byCode && account.isConnected && (
           <Link
             href="/mi-empresa/portales/avisos"
@@ -400,5 +409,52 @@ function DisconnectDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Las consultas del portal entran solas a la bandeja cada 10 minutos; con los avisos activados,
+ * llegan al instante.
+ */
+function LeadNotifications({ account }: { readonly account: PortalAccountView }) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | undefined>();
+  const label = PORTAL_LABELS[account.portal];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border px-3 py-2">
+      <p className="text-sm text-muted-foreground">
+        Las consultas de {label} entran solas a la bandeja cada 10 minutos. Para que lleguen al
+        instante, activá los avisos: {label} le avisa al sistema cada vez que llega un contacto.
+      </p>
+      <FormAlert message={error} />
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="self-start"
+        disabled={pending}
+        onClick={() => {
+          setError(undefined);
+          startTransition(async () => {
+            const message = await runAction(() =>
+              enableLeadNotificationsAction({ portal: account.portal }),
+            );
+            if (message !== undefined) {
+              setError(message);
+              return;
+            }
+            toast.success(`Avisos de ${label} activados`);
+          });
+        }}
+      >
+        {pending ? (
+          <Loader2Icon className="h-4 w-4 animate-spin" />
+        ) : (
+          <BellRingIcon className="h-4 w-4" aria-hidden />
+        )}
+        Recibir las consultas al instante
+      </Button>
+    </div>
   );
 }

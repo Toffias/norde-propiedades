@@ -20,3 +20,9 @@ export type ListingSyncFailed = DomainEvent<
 >;
 
 export type ListingEvent = ListingSyncRequested | ListingSyncFailed;
+
+/** El portal avisó que hay contactos nuevos: un job los trae a la bandeja. */
+export type PortalLeadsArrived = DomainEvent<
+  'portals.leads_arrived',
+  { readonly portal: PortalId }
+>;

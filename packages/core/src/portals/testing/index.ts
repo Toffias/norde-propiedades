@@ -17,6 +17,13 @@ import type {
   PortalCredit,
 } from '../application/ports/portal-account-directory';
 import type {
+  PortalLeadNotifications,
+  PortalLeadRejected,
+  PortalLeadSink,
+  PortalLeadSource,
+} from '../application/ports/portal-leads';
+import type { PortalLead } from '../domain/portal-lead';
+import type {
   PortalListingCatalog,
   PropertyByCode,
   PropertyCodeLookup,
@@ -433,5 +440,69 @@ export class FakePropertyCodeLookup implements PropertyCodeLookup {
   byCodes(codes: readonly string[]) {
     this.calls.push(codes);
     return Promise.resolve(this.properties.filter((p) => codes.includes(p.code)));
+  }
+}
+
+/** Un contacto de prueba que llegó por un aviso de Zonaprop. */
+export function portalLead(overrides: Partial<PortalLead> = {}): PortalLead {
+  return {
+    externalId: '236161673',
+    kind: 'message',
+    receivedAt: new Date('2026-10-16T11:30:00Z'),
+    name: 'Juli',
+    email: 'juli@example.test',
+    phone: '+5491165889654',
+    message: 'Hola, me interesa esta propiedad.',
+    listingCode: undefined,
+    ...overrides,
+  };
+}
+
+/** Los contactos que devuelve el portal, de a páginas. */
+export class FakePortalLeadSource implements PortalLeadSource {
+  leads: PortalLead[] = [portalLead()];
+  failWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
+  readonly calls: { since: Date; offset: number; limit: number }[] = [];
+
+  recent(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly since: Date;
+    readonly offset: number;
+    readonly limit: number;
+  }) {
+    this.calls.push({ since: input.since, offset: input.offset, limit: input.limit });
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    return Promise.resolve(
+      ok({
+        items: this.leads.slice(input.offset, input.offset + input.limit),
+        total: this.leads.length,
+      }),
+    );
+  }
+}
+
+/** Bandeja de prueba: guarda lo que recibe y no duplica por `externalId`. */
+export class FakePortalLeadSink implements PortalLeadSink {
+  readonly received: Parameters<PortalLeadSink['receive']>[0][] = [];
+  rejectWith: PortalLeadRejected | undefined;
+
+  receive(input: Parameters<PortalLeadSink['receive']>[0]) {
+    if (this.rejectWith) return Promise.resolve(err(this.rejectWith));
+    const duplicate = this.received.some((r) => r.externalId === input.externalId);
+    if (!duplicate) this.received.push(input);
+    return Promise.resolve(ok({ duplicate }));
+  }
+}
+
+/** Avisos del portal de prueba: guarda a dónde se suscribió. */
+export class FakePortalLeadNotifications implements PortalLeadNotifications {
+  readonly subscriptions: Parameters<PortalLeadNotifications['subscribe']>[0][] = [];
+  failWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
+
+  subscribe(input: Parameters<PortalLeadNotifications['subscribe']>[0]) {
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    this.subscriptions.push(input);
+    return Promise.resolve(ok(undefined));
   }
 }

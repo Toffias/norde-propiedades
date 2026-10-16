@@ -104,6 +104,7 @@ export type {
   ListingEvent,
   ListingSyncFailed,
   ListingSyncRequested,
+  PortalLeadsArrived,
 } from './domain/listing.events';
 export type { ListingRepository } from './domain/portals.repository';
 export type {
@@ -147,6 +148,33 @@ export {
   ChangeListingType,
   type ChangeListingTypeError,
 } from './application/commands/change-listing-type';
+export {
+  PORTAL_LEAD_KINDS,
+  leadInquiry,
+  type PortalLead,
+  type PortalLeadInquiry,
+  type PortalLeadKind,
+} from './domain/portal-lead';
+export type {
+  PortalLeadNotifications,
+  PortalLeadRejected,
+  PortalLeadSink,
+  PortalLeadSource,
+} from './application/ports/portal-leads';
+export {
+  LEADS_LOOKBACK_DAYS,
+  PullPortalLeads,
+  type PullPortalLeadsError,
+  type PullPortalLeadsOutcome,
+} from './application/commands/pull-portal-leads';
+export {
+  NotifyPortalLeads,
+  type NotifyPortalLeadsError,
+} from './application/commands/notify-portal-leads';
+export {
+  EnablePortalLeadNotifications,
+  type EnablePortalLeadNotificationsError,
+} from './application/commands/enable-portal-lead-notifications';
 export {
   LinkPortalListing,
   type LinkPortalListingError,

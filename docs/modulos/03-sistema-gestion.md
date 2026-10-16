@@ -413,7 +413,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
   - 422 si el caso de uso la rechaza (sin teléfono ni email, teléfono o email inválido).
   - 429 si se pasa del límite.
 - Se procesa en el momento, no en segundo plano: guardar la consulta es una inserción y la web necesita saber si entró.
-- Los conectores de portales (#14) van a llamar al mismo caso de uso con `system:portal-sync`.
+- Los conectores de portales (#14) llaman al mismo caso de uso con `system:portal-sync`. Zonaprop ya lo hace (ADR 0029).
 
 **Bandeja** (`/consultas`):
 
@@ -668,7 +668,7 @@ Diseño propuesto:
 3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
 4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
 
-**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026, 0027 y 0028.
+**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 a 0029.
 
 1. **Conexión** (hecha):
    - Mi empresa → Portales suma la tarjeta **Zonaprop**. Se conecta con el **código de inmobiliaria**; el sistema lo busca entre las inmobiliarias que Zonaprop asoció a Norde.
@@ -684,14 +684,18 @@ Diseño propuesto:
    - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección.
    - Galpón se publica como Bodega-Galpón y Depósito como Depósito.
    - La ficha muestra **"Ver en Zonaprop"** con el link del aviso.
-3. **Vincular los avisos que hoy publica Tokko** (en curso), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
+3. **Vincular los avisos que hoy publica Tokko** (hecha), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
    - **Mi empresa → Portales → Avisos en Zonaprop** lista los avisos online de la cuenta, de a una página, y propone la propiedad cuyo código de referencia es la clave interna del aviso. Se vincula con un clic.
    - Los que no coinciden se vinculan **a mano desde la ficha**, en Difusión, pegando el link del aviso.
    - El aviso **queda como lo dejó Tokko** hasta que cambie algo de la propiedad en el sistema; desde ahí lo actualiza el sistema. Usa el plan con el que estaba publicado; si Zonaprop no lo informa, se elige.
    - No se vinculan los emprendimientos (etapa 5), ni un aviso ya vinculado, ni una propiedad que ya tiene aviso en Zonaprop.
    - Antes de vincular en producción hay que apagar la publicación de Tokko en Zonaprop.
    - **Pendiente:** Zonaprop tiene que habilitar "asociar avisos" para el integrador de Norde. En el sandbox responde que no hay permiso.
-4. **Consultas**: las de Zonaprop entran a la bandeja con canal Zonaprop.
+4. **Consultas** (en curso): los contactos de los avisos entran a la **bandeja de consultas** con canal Zonaprop.
+   - Entran solos **cada 10 minutos**, leídos de Zonaprop (los de los últimos 2 días; los que ya estaban no se repiten).
+   - **Al instante**, si se activan los avisos desde Mi empresa → Portales ("Recibir las consultas al instante"). Zonaprop avisa por cada contacto y el sistema los vuelve a leer de la API.
+   - Entran los que traen teléfono o email: mensajes, "que me llamen", visitas, tasaciones y "ver teléfono" o "ver WhatsApp" de usuarios con sesión. Los anónimos sin datos no entran.
+   - Sin texto, la consulta dice qué pidió la persona ("Pidió que lo llamen"). Si el aviso es del sistema, la consulta queda con su propiedad.
 5. **Emprendimientos**: el emprendimiento con todas sus unidades en un aviso.
 
 ---

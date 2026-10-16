@@ -51,6 +51,11 @@ export interface PortalDefinition {
    * (Tokko), sin republicarlos.
    */
   readonly linksExisting: boolean;
+  /**
+   * El canal de la bandeja de consultas con que entran los contactos de sus avisos, si el sistema
+   * ya los trae (Zonaprop). Sin canal, el portal todavía no trae consultas.
+   */
+  readonly leadChannel: 'zonaprop' | undefined;
   /** Si el portal cobra por publicar (en ML, el paquete contratado; en Zonaprop, los créditos). */
   readonly paid: boolean;
 }
@@ -63,6 +68,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     listingScope: 'operation',
     choosesPlan: false,
     linksExisting: false,
+    leadChannel: undefined,
     paid: true,
   },
   mercadolibre_developments: {
@@ -72,6 +78,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     listingScope: 'operation',
     choosesPlan: false,
     linksExisting: false,
+    leadChannel: undefined,
     paid: true,
   },
   // Los emprendimientos llegan en la etapa 5 de Zonaprop.
@@ -82,6 +89,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     listingScope: 'property',
     choosesPlan: true,
     linksExisting: true,
+    leadChannel: 'zonaprop',
     paid: true,
   },
 };

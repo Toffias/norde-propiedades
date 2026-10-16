@@ -4,6 +4,7 @@ import { Actor } from '../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../shared/testing';
 import { PortalAccount } from '../domain/portal-account';
 import {
+  FakeDevelopmentListingSourceReader,
   FakeListingSourceReader,
   FakePortalAccountDirectory,
   FakePortalConnector,
@@ -50,7 +51,8 @@ function setup() {
   const connector = new FakePortalConnector();
   const directory = new FakePortalAccountDirectory();
   const clock = new FixedClock(NOW);
-  const deps = { uow, reader, connector, clock };
+  const developments = new FakeDevelopmentListingSourceReader();
+  const deps = { uow, reader, developments, connector, clock };
   return {
     ...deps,
     directory,
@@ -204,8 +206,12 @@ describe('SyncListing on Zonaprop', () => {
     unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
 
     expect(connector.calls.map((c) => c.method)).toEqual(['create']);
-    expect(connector.calls[0]?.content).toMatchObject({ listingId, plan: 'SIMPLE' });
-    expect(connector.calls[0]?.content?.operation).toBeUndefined();
+    expect(connector.calls[0]?.content).toMatchObject({
+      kind: 'property',
+      listingId,
+      plan: 'SIMPLE',
+      operation: undefined,
+    });
   });
 
   it('pauses and resumes through the connector with the full content', async () => {

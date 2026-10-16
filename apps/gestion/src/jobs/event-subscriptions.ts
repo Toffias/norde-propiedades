@@ -290,7 +290,10 @@ function publicSiteSubscriptions(
   ];
 }
 
-/** Difusión en portales (#14): cada cambio de una propiedad o de sus fotos llega a sus avisos. */
+/**
+ * Difusión en portales (#14): cada cambio de una propiedad, de un emprendimiento, de sus unidades o
+ * de sus fotos llega a sus avisos.
+ */
 export interface PortalJobs {
   readonly requestSync: Pick<RequestListingSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
@@ -300,6 +303,15 @@ export interface PortalJobs {
 }
 
 const ListingPayloadSchema = z.object({ listingId: z.uuid() });
+/**
+ * Lo que trae `property_changed` para los portales: la propiedad y, si es una unidad, sus
+ * emprendimientos (los eventos de antes no los traen).
+ */
+const UnitPayloadSchema = z.object({
+  propertyId: z.uuid(),
+  developmentIds: z.array(z.uuid()).default([]),
+});
+const DevelopmentPayloadSchema = z.object({ developmentId: z.uuid() });
 const LeadsPayloadSchema = z.object({ portal: z.enum(PORTALS) });
 
 /** Los portales que traen consultas a la bandeja (hoy, Zonaprop). */
@@ -326,8 +338,11 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
 }
 
 function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscription[] {
-  const requestSync = async (event: DeliveredEvent, propertyId: string) => {
-    const result = await jobs.requestSync.execute({ propertyId }, jobs.actor);
+  const requestSync = async (
+    event: DeliveredEvent,
+    owner: { readonly propertyId: string } | { readonly developmentId: string },
+  ) => {
+    const result = await jobs.requestSync.execute(owner, jobs.actor);
     if (result.isErr()) {
       logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
     }
@@ -339,15 +354,31 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     name: 'sync-portal-listings',
     handle: async (event) => {
       const owner = MediaOwnerPayloadSchema.parse(event.payload);
-      if (owner.ownerKind === 'property') await requestSync(event, owner.ownerId);
+      await requestSync(
+        event,
+        owner.ownerKind === 'property'
+          ? { propertyId: owner.ownerId }
+          : { developmentId: owner.ownerId },
+      );
     },
   });
   return [
     {
+      // Una unidad que cambia también cambia el aviso de su emprendimiento.
       eventType: 'properties.property_changed',
       name: 'sync-portal-listings',
       handle: async (event) => {
-        await requestSync(event, PropertyPayloadSchema.parse(event.payload).propertyId);
+        const { propertyId, developmentIds } = UnitPayloadSchema.parse(event.payload);
+        await requestSync(event, { propertyId });
+        for (const developmentId of developmentIds) await requestSync(event, { developmentId });
+      },
+    },
+    {
+      eventType: 'properties.development_changed',
+      name: 'sync-portal-listings',
+      handle: async (event) => {
+        const { developmentId } = DevelopmentPayloadSchema.parse(event.payload);
+        await requestSync(event, { developmentId });
       },
     },
     media('properties.media_changed'),

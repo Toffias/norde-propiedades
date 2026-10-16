@@ -2,6 +2,7 @@ import {
   PORTAL_CATALOG,
   type PortalConnector,
   type PortalId,
+  type ListingOwnerKind,
   type PortalListingContent,
   type PortalProvider,
 } from '@norde/core/portals';
@@ -25,8 +26,8 @@ export class PortalConnectorsByProvider implements PortalConnector {
     return this.#of(portal).update(portal, externalId, change);
   }
 
-  close(portal: PortalId, externalId: string) {
-    return this.#of(portal).close(portal, externalId);
+  close(portal: PortalId, externalId: string, kind: ListingOwnerKind) {
+    return this.#of(portal).close(portal, externalId, kind);
   }
 
   #of(portal: PortalId): PortalConnector {

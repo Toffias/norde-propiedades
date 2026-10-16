@@ -9,6 +9,7 @@ import { requireSession } from '../../lib/session';
 import {
   CREDITS_ERROR_MESSAGES,
   PORTAL_ACCOUNT_ERROR_MESSAGES,
+  REMOTE_DEVELOPMENTS_ERROR_MESSAGES,
   REMOTE_LISTINGS_ERROR_MESSAGES,
 } from './messages';
 
@@ -70,5 +71,23 @@ export async function loadRemoteListings(input: {
     : {
         kind: 'error' as const,
         message: messageForError(result.error, REMOTE_LISTINGS_ERROR_MESSAGES),
+      };
+}
+
+/** Una página de los emprendimientos online del portal, con el de Norde por código (Mi empresa). */
+export async function loadRemoteDevelopments(input: {
+  readonly portal: PortalValue;
+  readonly page: number;
+  readonly pageSize: number;
+}) {
+  const portals = getContainer().portals;
+  if (!portals) return { kind: 'hidden' as const };
+  const { actor } = await requireSession();
+  const result = await portals.listRemoteDevelopments.execute(input, actor);
+  return result.isOk()
+    ? { kind: 'ok' as const, page: result.value }
+    : {
+        kind: 'error' as const,
+        message: messageForError(result.error, REMOTE_DEVELOPMENTS_ERROR_MESSAGES),
       };
 }

@@ -19,6 +19,8 @@ export interface DevelopmentListCriteria {
   readonly developmentType: DevelopmentType | undefined;
   readonly constructionStatus: ConstructionStatusValue | undefined;
   readonly tagId: string | undefined;
+  /** Solo los que tienen alguno de estos códigos (por `developments_code_uq`). */
+  readonly codes?: readonly string[];
   readonly sort: { readonly field: DevelopmentSortField; readonly direction: 'asc' | 'desc' };
   readonly offset: number;
   readonly limit: number;

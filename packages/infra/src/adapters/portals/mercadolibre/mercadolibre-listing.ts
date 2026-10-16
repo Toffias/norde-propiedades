@@ -3,7 +3,7 @@ import type {
   ListingPropertyKind,
   ListingSource,
   ListingType,
-  PortalListingContent,
+  PropertyListingContent,
 } from '@norde/core/portals';
 
 // Traducción pura de una publicación al aviso de MercadoLibre (categoría, atributos, contacto). Los
@@ -87,7 +87,7 @@ export function categoryOf(kind: ListingPropertyKind, operation: ListingOperatio
  * Lo que le falta a la publicación para MercadoLibre, en español para la ficha. Vacío: se puede
  * mandar.
  */
-export function listingProblems(content: PortalListingContent): string[] {
+export function listingProblems(content: PropertyListingContent): string[] {
   const { source, operation } = content;
   const problems: string[] = [];
   if (operation === 'temporary_rent') {
@@ -156,7 +156,7 @@ function area(value: number): string {
 }
 
 /** Los atributos del aviso: los obligatorios de la categoría y los opcionales que tenemos. */
-export function listingAttributes(content: PortalListingContent): MlAttribute[] {
+export function listingAttributes(content: PropertyListingContent): MlAttribute[] {
   const { source, operation } = content;
   const c = source.characteristics;
   const attributes: MlAttribute[] = [];
@@ -232,7 +232,7 @@ export function listingTitle(source: ListingSource): string {
 }
 
 /** El precio de la operación, en unidades enteras de la moneda. */
-export function listingPrice(content: PortalListingContent) {
+export function listingPrice(content: PropertyListingContent) {
   const offered = content.source.operations.find((o) => o.operation === content.operation);
   if (offered?.priceCents === undefined) return undefined;
   return { price: Math.round(Number(offered.priceCents) / 100), currency: offered.currency };

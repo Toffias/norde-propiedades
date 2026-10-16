@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { PortalConnectorsByProvider } from './portal-connectors';
 
 const CONTENT = {
+  kind: 'property',
   listingId: '01920000-0000-7000-8000-00000000a001',
   source: listingSource(),
   operation: undefined,
@@ -21,7 +22,7 @@ describe('PortalConnectorsByProvider', () => {
 
     unwrap(await connector.create('zonaprop', CONTENT));
     unwrap(await connector.create('mercadolibre_developments', CONTENT));
-    unwrap(await connector.close('mercadolibre', 'MLA1'));
+    unwrap(await connector.close('mercadolibre', 'MLA1', 'property'));
 
     expect(zonaprop.calls.map((c) => c.method)).toEqual(['create']);
     expect(mercadolibre.calls.map((c) => c.method)).toEqual(['create', 'close']);

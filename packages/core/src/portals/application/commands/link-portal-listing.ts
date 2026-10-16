@@ -10,7 +10,7 @@ import {
   type Result,
 } from '../../../shared';
 import { LinkPortalListingInputSchema, type LinkPortalListingInput } from '../../contracts';
-import { Listing } from '../../domain/listing';
+import { Listing, type ListingOwner } from '../../domain/listing';
 import { PORTAL_CATALOG } from '../../domain/portal';
 import type { PlanRequiredError } from '../listing-plan';
 import { contentFingerprint, listingAuditTarget, listingAuditValue } from '../listing-support';
@@ -40,7 +40,7 @@ export interface RemoteListingIsDevelopmentError {
 /** Ese aviso ya está vinculado a una publicación del sistema. */
 export interface RemoteListingAlreadyLinkedError {
   readonly type: 'RemoteListingAlreadyLinked';
-  readonly propertyId: string;
+  readonly owner: ListingOwner;
 }
 
 export type LinkPortalListingError =
@@ -93,7 +93,7 @@ export class LinkPortalListing {
 
     const { account, existing } = await this.deps.uow.run(async (tx) => ({
       account: await tx.accounts.get(portal),
-      existing: await tx.listings.findOne(portal, propertyId, undefined),
+      existing: await tx.listings.findOne(portal, { kind: 'property', id: propertyId }, undefined),
     }));
     const connection = account.toSnapshot().connection;
     if (!account.canPublish || connection === undefined) {
@@ -123,7 +123,7 @@ export class LinkPortalListing {
         tx.listings.findByExternalIds(portal, [remote.code ?? '']),
       );
       if (linked && linked.toSnapshot().intent !== 'closed') {
-        return err({ type: 'RemoteListingAlreadyLinked', propertyId: linked.propertyId });
+        return err({ type: 'RemoteListingAlreadyLinked', owner: linked.owner });
       }
     }
     const plan = remote.plan ?? parsed.value.plan;
@@ -151,6 +151,7 @@ export class LinkPortalListing {
       permalink: taken.value.permalink ?? remote.permalink,
       // La huella de hoy: el aviso no se reenvía hasta que cambie algo de la propiedad.
       contentHash: contentFingerprint({
+        kind: 'property',
         listingId,
         source,
         operation: undefined,
@@ -168,7 +169,7 @@ export class LinkPortalListing {
       listing = Listing.linked({
         id: listingId,
         portal,
-        propertyId,
+        owner: { kind: 'property', id: propertyId },
         operation: undefined,
         ...adopted,
       });
@@ -179,7 +180,7 @@ export class LinkPortalListing {
         await tx.listings.save(listing, actor.id);
         await tx.events.publish(listing.pullEvents());
         await tx.audit.record(
-          auditAction(actor, listingAuditTarget('property.portal_listing_linked', listing), {
+          auditAction(actor, listingAuditTarget('portal_listing_linked', listing), {
             [`listings.${listing.id}`]: {
               before: null,
               after: { ...listingAuditValue(listing), remoteId },

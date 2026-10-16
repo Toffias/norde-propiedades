@@ -20,6 +20,7 @@ import {
   TEST_NOW,
   TEST_OUTSIDER,
 } from '../../testing';
+import { FindDevelopmentsByCode } from './find-developments-by-code';
 import { GetDevelopmentDetail } from './get-development-detail';
 import { GetDevelopmentMap } from './get-development-map';
 import { ListDevelopmentHistory } from './list-development-history';
@@ -80,6 +81,34 @@ describe('ListDevelopments', () => {
     );
     expect(unwrapErr(await query.execute({}, TEST_OUTSIDER))).toEqual({ type: 'Forbidden' });
     expect(unwrapErr(await query.execute({ view: 'trash' }, TEST_DEVELOPER))).toEqual({
+      type: 'Forbidden',
+    });
+  });
+});
+
+describe('FindDevelopmentsByCode', () => {
+  it('finds the active developments with those codes, once each', async () => {
+    const developments = new StubDevelopmentListQuery({ items: [aDevelopmentItem()], total: 1 });
+    const query = new FindDevelopmentsByCode({ developments });
+
+    const rows = unwrap(
+      await query.execute({ codes: ['EMP0009', 'EMP0009', 'NBU1'] }, TEST_DEVELOPER),
+    );
+
+    expect(developments.calls).toEqual([
+      expect.objectContaining({ view: 'active', codes: ['EMP0009', 'NBU1'], offset: 0 }),
+    ]);
+    expect(rows).toEqual([
+      { id: aDevelopmentItem().id, code: aDevelopmentItem().code, name: aDevelopmentItem().name },
+    ]);
+  });
+
+  it('does not search without codes and needs developments:read', async () => {
+    const developments = new StubDevelopmentListQuery();
+    const query = new FindDevelopmentsByCode({ developments });
+    expect(unwrap(await query.execute({ codes: [] }, TEST_DEVELOPER))).toEqual([]);
+    expect(developments.calls).toEqual([]);
+    expect(unwrapErr(await query.execute({ codes: ['A'] }, TEST_OUTSIDER))).toEqual({
       type: 'Forbidden',
     });
   });

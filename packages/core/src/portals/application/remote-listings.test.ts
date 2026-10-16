@@ -4,6 +4,7 @@ import { Actor } from '../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../shared/testing';
 import { PortalAccount } from '../domain/portal-account';
 import {
+  FakeDevelopmentListingSourceReader,
   FakeListingSourceReader,
   FakePortalAccountDirectory,
   FakePortalConnector,
@@ -63,7 +64,13 @@ function setup() {
     connector,
     list: new ListRemoteListings({ uow, catalog, properties }),
     link: new LinkPortalListing({ uow, catalog, reader, ids, clock }),
-    sync: new SyncListing({ uow, reader, connector, clock }),
+    sync: new SyncListing({
+      uow,
+      reader,
+      developments: new FakeDevelopmentListingSourceReader(),
+      connector,
+      clock,
+    }),
     unpublish: new UnpublishListing({ uow, clock }),
     request: new RequestPublication({
       uow,
@@ -112,7 +119,10 @@ describe('ListRemoteListings', () => {
 
     const page = unwrap(await list.execute({ portal: 'zonaprop' }, MANAGER));
 
-    expect(page.items[0]?.linked).toEqual({ listingId, propertyId: LISTED_PROPERTY_ID });
+    expect(page.items[0]?.linked).toEqual({
+      listingId,
+      owner: { kind: 'property', id: LISTED_PROPERTY_ID },
+    });
   });
 
   it('needs a connected account and portals:manage', async () => {
@@ -151,7 +161,7 @@ describe('LinkPortalListing', () => {
     expect(catalog.links).toEqual([{ remoteId: '50044229', listingId }]);
     expect(uow.listings.rows.get(listingId)).toMatchObject({
       portal: 'zonaprop',
-      propertyId: LISTED_PROPERTY_ID,
+      owner: { kind: 'property', id: LISTED_PROPERTY_ID },
       operation: undefined,
       plan: 'HOME',
       status: 'published',
@@ -217,7 +227,7 @@ describe('LinkPortalListing', () => {
     expect(catalog.links).toEqual([]);
   });
 
-  it('leaves developments for the developments stage', async () => {
+  it('links developments from the development, not from a property', async () => {
     const { link, catalog } = setup();
     catalog.listings = [remoteListing({ isDevelopment: true })];
     expect(unwrapErr(await link.execute(LINK, AGENT))).toEqual({
@@ -234,7 +244,7 @@ describe('LinkPortalListing', () => {
 
     expect(unwrapErr(await link.execute({ ...LINK, propertyId: other }, AGENT))).toEqual({
       type: 'RemoteListingAlreadyLinked',
-      propertyId: LISTED_PROPERTY_ID,
+      owner: { kind: 'property', id: LISTED_PROPERTY_ID },
     });
   });
 

@@ -11,6 +11,7 @@ import {
 } from '../../shared';
 import type { PropertyListingView } from '../contracts';
 import type { Listing, ListingId, ListingStatus } from '../domain/listing';
+import type { ListingSourcePhoto } from './ports/listing-source';
 import type { PortalListingContent } from './ports/portal-connector';
 import type { PortalsTransaction, PortalsUnitOfWork } from './ports/portals-transaction';
 import type { ValidationFailedError } from './portals-input';
@@ -25,11 +26,13 @@ export function listingIdOf(raw: string): ListingId | undefined {
 }
 
 /**
- * Las publicaciones se auditan contra la propiedad, para que aparezcan en su historial
- * (`property.portal_published`). No tienen datos de clientes.
+ * Las publicaciones se auditan contra la propiedad o el emprendimiento, para que aparezcan en su
+ * historial: `action` es lo que pasó (`portal_published`) y queda `property.portal_published` o
+ * `development.portal_published`. No tienen datos de clientes.
  */
 export function listingAuditTarget(action: string, listing: Listing): AuditTarget {
-  return { action, entityType: 'property', entityId: listing.propertyId, clientIds: [] };
+  const { kind, id } = listing.owner;
+  return { action: `${kind}.${action}`, entityType: kind, entityId: id, clientIds: [] };
 }
 
 /**
@@ -51,10 +54,10 @@ export function listingAuditValue(listing: Listing) {
 /** La acción del historial cuando la publicación cambia de estado en el portal. */
 const STATUS_ACTIONS: Readonly<Record<ListingStatus, string | undefined>> = {
   pending: undefined,
-  published: 'property.portal_published',
-  paused: 'property.portal_paused',
-  unpublished: 'property.portal_unpublished',
-  error: 'property.portal_sync_failed',
+  published: 'portal_published',
+  paused: 'portal_paused',
+  unpublished: 'portal_unpublished',
+  error: 'portal_sync_failed',
 };
 
 /** Audita el cambio de estado de una publicación; sin cambio de estado, no registra nada. */
@@ -97,17 +100,35 @@ export function toListingView(listing: Listing): PropertyListingView {
   };
 }
 
+/** Las fotos en la huella: su ID y su versión, sin la URL firmada. */
+function comparablePhotos(photos: readonly ListingSourcePhoto[]) {
+  return photos.map((photo) => [photo.id, photo.version]);
+}
+
 /**
  * Huella de lo que se manda al portal. Deja afuera las URLs firmadas (cambian en cada lectura) y
  * el ID de la publicación (no cambia), y usa la versión de cada foto. FNV-1a de 64 bits sobre el
  * JSON con las claves ordenadas: no es criptográfica, alcanza para saber si algo cambió. Un campo
  * sin valor no entra, así que sumar campos opcionales no cambia la huella de los avisos de antes.
+ * La de una propiedad no lleva el tipo de contenido: es la misma que antes de los emprendimientos.
  */
 export function contentFingerprint(content: PortalListingContent): string {
+  if (content.kind === 'development') {
+    const { source, listingType, plan } = content;
+    return fnv1a64(
+      canonicalJson({
+        ...source,
+        photos: comparablePhotos(source.photos),
+        units: source.units.map((unit) => ({ ...unit, photos: comparablePhotos(unit.photos) })),
+        listingType,
+        plan,
+      }),
+    );
+  }
   const { source, operation, listingType, plan } = content;
   const comparable = {
     ...source,
-    photos: source.photos.map((photo) => [photo.id, photo.version]),
+    photos: comparablePhotos(source.photos),
     operation,
     listingType,
     plan,
@@ -147,7 +168,8 @@ export type ListingEditError = ForbiddenError | ValidationFailedError | ListingN
 
 /**
  * Un cambio del equipo sobre una publicación (pausar, reactivar, dar de baja, cambiar el tipo):
- * permiso `portals:publish`, se guarda, se piden los eventos y se audita con la acción dada.
+ * permiso `portals:publish`, se guarda, se piden los eventos y se audita con la acción dada
+ * (`portal_paused`), contra la propiedad o el emprendimiento.
  */
 export async function editListing<E>(input: {
   readonly uow: PortalsUnitOfWork;

@@ -571,6 +571,7 @@ describe('portal subscriptions', () => {
         'properties.property_changed.sync-portal-listings',
         'properties.media_changed.sync-portal-listings',
         'properties.media_deleted.sync-portal-listings',
+        'properties.development_changed.sync-portal-listings',
         'portals.listing_sync_requested.sync-listing',
       ]),
     );
@@ -586,9 +587,38 @@ describe('portal subscriptions', () => {
     await find('properties.media_changed.sync-portal-listings').handle({
       ...event,
       type: 'properties.media_changed',
-      payload: { ownerKind: 'development', ownerId: PROPERTY_ID, mediaId: MEDIA_ID },
+      payload: { ownerKind: 'property', ownerId: PROPERTY_ID, mediaId: MEDIA_ID },
     });
-    expect(calls).toEqual([['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync']]);
+    expect(calls).toEqual([
+      ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
+      ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
+    ]);
+  });
+
+  it('asks to sync the development listings when it, its photos or its units change', async () => {
+    const { find, calls } = portalSetup();
+    const developmentId = '00000000-0000-7000-8000-0000000000d1';
+    await find('properties.development_changed.sync-portal-listings').handle({
+      ...event,
+      type: 'properties.development_changed',
+      payload: { developmentId, code: 'EMP0001' },
+    });
+    await find('properties.media_changed.sync-portal-listings').handle({
+      ...event,
+      type: 'properties.media_changed',
+      payload: { ownerKind: 'development', ownerId: developmentId, mediaId: MEDIA_ID },
+    });
+    await find('properties.property_changed.sync-portal-listings').handle({
+      ...event,
+      type: 'properties.property_changed',
+      payload: { propertyId: PROPERTY_ID, code: 'DEP0001', developmentIds: [developmentId] },
+    });
+    expect(calls).toEqual([
+      ['request-sync', { developmentId }, 'system:portal-sync'],
+      ['request-sync', { developmentId }, 'system:portal-sync'],
+      ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
+      ['request-sync', { developmentId }, 'system:portal-sync'],
+    ]);
   });
 
   it('syncs a listing and throws when the portal did not answer, so the queue retries', async () => {

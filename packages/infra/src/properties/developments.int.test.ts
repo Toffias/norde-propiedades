@@ -389,6 +389,9 @@ describe('DrizzleDevelopmentListQuery', () => {
     const tagged = await list.search({ ...BASE, tagId: tag });
     expect(tagged.total).toBe(90);
     expect(tagged.items[0]?.tags).toEqual([{ id: tag, name: 'Pozo' }]);
+
+    const byCode = await list.search({ ...BASE, codes: ['EMP0042', 'EMP0007', 'NBU1'] });
+    expect(byCode.items.map((item) => item.code).sort()).toEqual(['EMP0007', 'EMP0042']);
   });
 
   it('counts the active units of each row', async () => {
@@ -442,6 +445,7 @@ describe('DrizzleDevelopmentListQuery', () => {
       { ...BASE, developmentType: 'lots' },
       { ...BASE, constructionStatus: 'finished' },
       { ...BASE, tagId: tag },
+      { ...BASE, codes: ['EMP0042', 'EMP0007'] },
       { ...BASE, sort: { field: 'name', direction: 'asc' } },
       { ...BASE, sort: { field: 'code', direction: 'desc' } },
       { ...BASE, sort: { field: 'deliveryDate', direction: 'asc' } },

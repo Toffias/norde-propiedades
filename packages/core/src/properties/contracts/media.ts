@@ -130,11 +130,19 @@ export const MAX_SHARED_PHOTO_SECONDS = 7 * 24 * 60 * 60;
  * Las fotos publicables de una propiedad, con un link que un tercero (un portal) puede descargar
  * mientras dure la firma.
  */
-export const ListShareablePhotosInputSchema = z.object({
-  propertyId: z.uuid(),
-  expiresInSeconds: z.number().int().min(60).max(MAX_SHARED_PHOTO_SECONDS),
-  limit: z.number().int().min(1).max(100),
-});
+/** Las fotos de una propiedad o, con `developmentId`, las de un emprendimiento. */
+export const ListShareablePhotosInputSchema = z.union([
+  z.object({
+    propertyId: z.uuid(),
+    expiresInSeconds: z.number().int().min(60).max(MAX_SHARED_PHOTO_SECONDS),
+    limit: z.number().int().min(1).max(100),
+  }),
+  z.object({
+    developmentId: z.uuid(),
+    expiresInSeconds: z.number().int().min(60).max(MAX_SHARED_PHOTO_SECONDS),
+    limit: z.number().int().min(1).max(100),
+  }),
+]);
 export type ListShareablePhotosInput = z.input<typeof ListShareablePhotosInputSchema>;
 
 export interface ShareablePhoto {

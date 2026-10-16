@@ -18,7 +18,7 @@ export class PauseListing {
       uow: this.deps.uow,
       actor,
       listingId: parsed.value.listingId,
-      action: 'property.portal_pause_requested',
+      action: 'portal_pause_requested',
       change: (listing) =>
         listing
           .pause(this.deps.clock.now())

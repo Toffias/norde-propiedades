@@ -2,6 +2,7 @@ import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } fro
 import { PortalInputSchema, type PortalInput } from '../../contracts';
 import { PORTAL_CATALOG } from '../../domain/portal';
 import { leadInquiry, type PortalLead } from '../../domain/portal-lead';
+import type { ListingOwner } from '../../domain/listing';
 import type { PortalNotConfiguredError, PortalUnavailableError } from '../ports/portal-authorizer';
 import type { PortalLeadSink, PortalLeadSource } from '../ports/portal-leads';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
@@ -73,7 +74,7 @@ export class PullPortalLeads {
       });
       if (slice.isErr()) return err(slice.error);
       const leads = slice.value.items;
-      const properties = await this.#propertiesOf(portal, leads);
+      const owners = await this.#ownersOf(portal, leads);
 
       for (const lead of leads) {
         const inquiry = leadInquiry(lead);
@@ -84,7 +85,7 @@ export class PullPortalLeads {
         const received = await this.deps.sink.receive({
           channel,
           ...inquiry,
-          propertyId: lead.listingCode === undefined ? undefined : properties.get(lead.listingCode),
+          ...this.#about(lead, owners),
         });
         if (received.isErr()) totals.rejected += 1;
         else if (received.value.duplicate) totals.duplicates += 1;
@@ -97,11 +98,28 @@ export class PullPortalLeads {
     return ok(totals);
   }
 
-  /** La propiedad de cada aviso de Norde, por el código con que lo maneja. */
-  async #propertiesOf(
+  /**
+   * De qué es la consulta: la unidad por la que llegó, o la propiedad o el emprendimiento del aviso.
+   */
+  #about(
+    lead: PortalLead,
+    owners: ReadonlyMap<string, ListingOwner>,
+  ): { readonly propertyId: string | undefined; readonly developmentId: string | undefined } {
+    if (lead.unitPropertyId !== undefined) {
+      return { propertyId: lead.unitPropertyId, developmentId: undefined };
+    }
+    const owner = lead.listingCode === undefined ? undefined : owners.get(lead.listingCode);
+    return {
+      propertyId: owner?.kind === 'property' ? owner.id : undefined,
+      developmentId: owner?.kind === 'development' ? owner.id : undefined,
+    };
+  }
+
+  /** De qué es cada aviso de Norde, por el código con que lo maneja. */
+  async #ownersOf(
     portal: PortalInput['portal'],
     leads: readonly PortalLead[],
-  ): Promise<ReadonlyMap<string, string>> {
+  ): Promise<ReadonlyMap<string, ListingOwner>> {
     const codes = [
       ...new Set(leads.flatMap((l) => (l.listingCode === undefined ? [] : [l.listingCode]))),
     ];
@@ -110,7 +128,7 @@ export class PullPortalLeads {
     return new Map(
       listings.flatMap((l) => {
         const { externalId } = l.toSnapshot();
-        return externalId === undefined ? [] : [[externalId, l.propertyId] as const];
+        return externalId === undefined ? [] : [[externalId, l.owner] as const];
       }),
     );
   }

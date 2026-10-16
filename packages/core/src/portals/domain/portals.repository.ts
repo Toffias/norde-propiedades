@@ -1,4 +1,4 @@
-import type { Listing, ListingId, ListingOperation } from './listing';
+import type { Listing, ListingId, ListingOperation, ListingOwner } from './listing';
 import type { PortalId } from './portal';
 import type { PortalAccount } from './portal-account';
 
@@ -19,12 +19,17 @@ export interface ListingRepository {
   lockById(id: ListingId): Promise<Listing | undefined>;
   findOne(
     portal: PortalId,
-    propertyId: string,
-    /** Sin operación: el aviso de la propiedad con todas sus operaciones (Zonaprop). */
+    owner: ListingOwner,
+    /**
+     * Sin operación: el aviso de la propiedad con todas sus operaciones (Zonaprop), o el del
+     * emprendimiento.
+     */
     operation: ListingOperation | undefined,
   ): Promise<Listing | undefined>;
   /** Las publicaciones de una propiedad. Son pocas por construcción: una por portal y operación. */
   findForProperty(propertyId: string): Promise<readonly Listing[]>;
+  /** Las publicaciones de un emprendimiento: como mucho una por portal. */
+  findForDevelopment(developmentId: string): Promise<readonly Listing[]>;
   /** Las publicaciones de esos avisos del portal (por su ID en el portal), las que haya. */
   findByExternalIds(portal: PortalId, externalIds: readonly string[]): Promise<readonly Listing[]>;
   save(listing: Listing, actorId: string): Promise<void>;

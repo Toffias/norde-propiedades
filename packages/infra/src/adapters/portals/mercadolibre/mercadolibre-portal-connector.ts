@@ -4,6 +4,7 @@ import type {
   PortalListingContent,
   PortalListingUpdate,
   PortalSyncError,
+  PropertyListingContent,
 } from '@norde/core/portals';
 import { err, ok, type Result } from '@norde/core/shared';
 import { z } from 'zod';
@@ -21,6 +22,9 @@ import {
   sellerContact,
 } from './mercadolibre-listing';
 import type { MercadoLibreLocations } from './mercadolibre-locations';
+
+/** Los emprendimientos de MercadoLibre (unidades como variantes) todavía no se publican. */
+const NO_DEVELOPMENTS = 'MercadoLibre todavía no publica emprendimientos desde Norde.';
 
 /** De dónde sale el token de cada cuenta (`MercadoLibreTokens`, con refresh bajo lock). */
 export interface MercadoLibreAccessTokens {
@@ -76,7 +80,7 @@ export class MercadoLibrePortalConnector implements PortalConnector {
   }
 
   problems(_portal: PortalId, content: PortalListingContent): readonly string[] {
-    return listingProblems(content);
+    return content.kind === 'development' ? [NO_DEVELOPMENTS] : listingProblems(content);
   }
 
   async create(
@@ -85,6 +89,8 @@ export class MercadoLibrePortalConnector implements PortalConnector {
   ): Promise<
     Result<{ readonly externalId: string; readonly permalink: string | undefined }, PortalSyncError>
   > {
+    if (content.kind === 'development')
+      return err({ type: 'PortalRejected', reason: NO_DEVELOPMENTS });
     const category = categoryOf(content.source.kind, content.operation);
     if (category === undefined) {
       return err({
@@ -133,6 +139,9 @@ export class MercadoLibrePortalConnector implements PortalConnector {
 
     // ML guarda el contenido aunque el aviso esté pausado: solo se manda si cambió.
     const content = change.contentChanged ? change.content : undefined;
+    if (content?.kind === 'development') {
+      return err({ type: 'PortalRejected', reason: NO_DEVELOPMENTS });
+    }
     if (content) {
       const body = await this.#itemBody(content);
       if (body.isErr()) return err(body.error);
@@ -169,7 +178,7 @@ export class MercadoLibrePortalConnector implements PortalConnector {
   }
 
   /** Lo que comparten el alta y la edición: título, precio, fotos, atributos, ubicación, contacto. */
-  async #itemBody(content: PortalListingContent): Promise<Result<object, PortalSyncError>> {
+  async #itemBody(content: PropertyListingContent): Promise<Result<object, PortalSyncError>> {
     const { source } = content;
     const price = listingPrice(content);
     if (price === undefined) {

@@ -45,6 +45,7 @@ const CODE = '0192000000007000800000000000a001';
 
 function content(overrides: Parameters<typeof listingSource>[0] = {}) {
   return {
+    kind: 'property',
     listingId: LISTING_ID,
     source: listingSource({
       coordinates: { latitude: -34.5889, longitude: -58.4303 },
@@ -309,8 +310,8 @@ describe('ZonapropPortalConnector', () => {
       json(OFFLINE),
       () => new Response(null, { status: 404 }),
     ]);
-    unwrap(await connector.close('zonaprop', CODE));
-    unwrap(await connector.close('zonaprop', CODE));
+    unwrap(await connector.close('zonaprop', CODE, 'property'));
+    unwrap(await connector.close('zonaprop', CODE, 'property'));
   });
 
   it('asks to reconnect without a connected agency', async () => {

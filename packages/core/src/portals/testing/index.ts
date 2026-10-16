@@ -24,11 +24,18 @@ import type {
 } from '../application/ports/portal-leads';
 import type { PortalLead } from '../domain/portal-lead';
 import type {
+  DevelopmentByCode,
+  DevelopmentCodeLookup,
   PortalListingCatalog,
   PropertyByCode,
   PropertyCodeLookup,
+  RemoteDevelopment,
   RemoteListing,
 } from '../application/ports/portal-listing-catalog';
+import type {
+  DevelopmentListingSource,
+  DevelopmentListingSourceReader,
+} from '../application/ports/development-listing-source';
 import type {
   PortalCredentialStore,
   PortalsTransaction,
@@ -46,9 +53,10 @@ import {
   Listing,
   type ListingId,
   type ListingOperation,
+  type ListingOwner,
   type ListingSnapshot,
 } from '../domain/listing';
-import { PORTALS, type PortalId } from '../domain/portal';
+import { PORTALS, type ListingOwnerKind, type PortalId } from '../domain/portal';
 import { PortalAccount, type PortalAccountSnapshot } from '../domain/portal-account';
 import type { ListingRepository, PortalAccountRepository } from '../domain/portals.repository';
 
@@ -212,9 +220,13 @@ export class InMemoryListingRepository implements ListingRepository {
     return this.findById(id);
   }
 
-  findOne(portal: PortalId, propertyId: string, operation: ListingOperation | undefined) {
+  findOne(portal: PortalId, owner: ListingOwner, operation: ListingOperation | undefined) {
     const row = [...this.rows.values()].find(
-      (r) => r.portal === portal && r.propertyId === propertyId && r.operation === operation,
+      (r) =>
+        r.portal === portal &&
+        r.owner.kind === owner.kind &&
+        r.owner.id === owner.id &&
+        r.operation === operation,
     );
     return Promise.resolve(row && Listing.restore(row));
   }
@@ -233,7 +245,15 @@ export class InMemoryListingRepository implements ListingRepository {
   findForProperty(propertyId: string) {
     return Promise.resolve(
       [...this.rows.values()]
-        .filter((r) => r.propertyId === propertyId)
+        .filter((r) => r.owner.kind === 'property' && r.owner.id === propertyId)
+        .map((r) => Listing.restore(r)),
+    );
+  }
+
+  findForDevelopment(developmentId: string) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((r) => r.owner.kind === 'development' && r.owner.id === developmentId)
         .map((r) => Listing.restore(r)),
     );
   }
@@ -299,6 +319,52 @@ export class FakeListingSourceReader implements ListingSourceReader {
   }
 }
 
+export const LISTED_DEVELOPMENT_ID = '01920000-0000-7000-8000-0000000000d1';
+export const LISTED_UNIT_ID = '01920000-0000-7000-8000-0000000000c1';
+
+/** Un emprendimiento comercializando, con una unidad disponible en venta. */
+export function developmentListingSource(
+  overrides: Partial<DevelopmentListingSource> = {},
+): DevelopmentListingSource {
+  return {
+    developmentId: LISTED_DEVELOPMENT_ID,
+    code: 'EMP0001',
+    kind: 'building',
+    availability: 'active',
+    title: 'Torre Mataderos',
+    description: 'Un edificio de 10 pisos con amenities, a metros de la avenida y del parque.',
+    address: 'Murguiondo al 2000',
+    coordinates: { latitude: -34.65, longitude: -58.5 },
+    location: { province: 'Capital Federal', city: 'Capital Federal', neighborhood: 'Mataderos' },
+    stage: 'under_construction',
+    deliveryDate: '2027-12-01',
+    photos: [{ id: 'render-1', version: '2026-10-01T00:00:00.000Z', url: 'https://signed/r1' }],
+    contact: {
+      name: 'Casa central',
+      email: 'ventas@norde.test',
+      phone: '+541148000000',
+      whatsapp: '+5491166000000',
+    },
+    units: [
+      listingSource({
+        propertyId: LISTED_UNIT_ID,
+        code: 'AP0001',
+        developmentId: LISTED_DEVELOPMENT_ID,
+        title: 'Departamento 2 ambientes con balcón',
+      }),
+    ],
+    ...overrides,
+  };
+}
+
+export class FakeDevelopmentListingSourceReader implements DevelopmentListingSourceReader {
+  readonly sources = new Map<string, DevelopmentListingSource>();
+
+  read(developmentId: string) {
+    return Promise.resolve(this.sources.get(developmentId));
+  }
+}
+
 /**
  * Portal de prueba: guarda las llamadas, crea avisos `MLA<n>` y devuelve el estado pedido. Con
  * `failWith`, falla como el portal real; `problemsFound` simula datos faltantes.
@@ -309,6 +375,7 @@ export class FakePortalConnector implements PortalConnector {
     externalId?: string;
     content?: PortalListingContent;
     state?: string;
+    kind?: ListingOwnerKind;
   }[] = [];
   failWith: PortalSyncError | undefined;
   problemsFound: string[] = [];
@@ -353,8 +420,12 @@ export class FakePortalConnector implements PortalConnector {
     );
   }
 
-  close(_portal: PortalId, externalId: string): Promise<Result<void, PortalSyncError>> {
-    this.calls.push({ method: 'close', externalId });
+  close(
+    _portal: PortalId,
+    externalId: string,
+    kind: ListingOwnerKind,
+  ): Promise<Result<void, PortalSyncError>> {
+    this.calls.push({ method: 'close', externalId, kind });
     if (this.failWith) return Promise.resolve(err(this.failWith));
     return Promise.resolve(ok(undefined));
   }
@@ -375,9 +446,43 @@ export function remoteListing(overrides: Partial<RemoteListing> = {}): RemoteLis
   };
 }
 
+/** Un emprendimiento online del portal, de Tokko, con dos unidades. */
+export function remoteDevelopment(overrides: Partial<RemoteDevelopment> = {}): RemoteDevelopment {
+  return {
+    remoteId: '59677897',
+    code: 'DEV53838',
+    reference: 'EMP0001',
+    title: 'Torre Mataderos en construcción',
+    plan: 'DESARROLLOS_HOME',
+    location: 'Mataderos, Capital Federal, Argentina',
+    permalink: 'https://portal.test/propiedades/clasificado/-59677897.html',
+    units: [
+      {
+        remoteId: '59677898',
+        code: 'DEV53838-EMP0001 AP0001',
+        reference: 'AP0001',
+        title: '2 amb',
+      },
+      {
+        remoteId: '59677899',
+        code: 'DEV53838-EMP0001 AP0002',
+        reference: 'AP0002',
+        title: '3 amb',
+      },
+    ],
+    ...overrides,
+  };
+}
+
 /** Catálogo de prueba: los avisos de `online` y lo que se vinculó con `link`. */
 export class FakePortalListingCatalog implements PortalListingCatalog {
   listings: RemoteListing[] = [remoteListing()];
+  developments: RemoteDevelopment[] = [remoteDevelopment()];
+  readonly developmentLinks: {
+    remoteId: string;
+    listingId: string;
+    units: readonly { readonly remoteId: string; readonly propertyId: string }[];
+  }[] = [];
   total: number | undefined;
   failWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
   linkFailWith: PortalSyncError | undefined;
@@ -423,6 +528,63 @@ export class FakePortalListingCatalog implements PortalListingCatalog {
       }),
     );
   }
+
+  onlineDevelopments(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly offset: number;
+    readonly limit: number;
+    readonly remoteId?: string;
+  }) {
+    this.pages.push({
+      offset: input.offset,
+      limit: input.limit,
+      ...(input.remoteId === undefined ? {} : { remoteId: input.remoteId }),
+    });
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    const all = this.developments.filter(
+      (r) => input.remoteId === undefined || r.remoteId === input.remoteId,
+    );
+    return Promise.resolve(
+      ok({
+        items: all.slice(input.offset, input.offset + input.limit),
+        total: this.total ?? all.length,
+      }),
+    );
+  }
+
+  linkDevelopment(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly remoteId: string;
+    readonly listingId: string;
+    readonly units: readonly { readonly remoteId: string; readonly propertyId: string }[];
+  }) {
+    this.developmentLinks.push({
+      remoteId: input.remoteId,
+      listingId: input.listingId,
+      units: input.units,
+    });
+    if (this.linkFailWith) return Promise.resolve(err(this.linkFailWith));
+    return Promise.resolve(
+      ok({
+        externalId: input.listingId.replaceAll('-', ''),
+        permalink: `https://portal.test/propiedades/clasificado/-${input.remoteId}.html`,
+        linkedUnits: input.units.length,
+      }),
+    );
+  }
+}
+
+/** Emprendimientos de prueba por código. */
+export class FakeDevelopmentCodeLookup implements DevelopmentCodeLookup {
+  readonly developments: DevelopmentByCode[] = [
+    { developmentId: LISTED_DEVELOPMENT_ID, code: 'EMP0001', name: 'Torre Mataderos' },
+  ];
+
+  byCodes(codes: readonly string[]) {
+    return Promise.resolve(this.developments.filter((d) => codes.includes(d.code)));
+  }
 }
 
 /** Propiedades de prueba por código de referencia. */
@@ -454,6 +616,7 @@ export function portalLead(overrides: Partial<PortalLead> = {}): PortalLead {
     phone: '+5491165889654',
     message: 'Hola, me interesa esta propiedad.',
     listingCode: undefined,
+    unitPropertyId: undefined,
     ...overrides,
   };
 }

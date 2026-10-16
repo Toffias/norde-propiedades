@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseId } from '../../shared/domain/id';
 import { unwrap, unwrapErr } from '../../shared/testing';
 
-import { Listing, ownerAvailability } from './listing';
+import { Listing, developmentAvailability, ownerAvailability } from './listing';
 
 const NOW = new Date('2026-10-06T12:00:00Z');
 const LATER = new Date('2026-10-06T13:00:00Z');
@@ -14,7 +14,7 @@ function requested() {
   return Listing.request({
     id: ID,
     portal: 'mercadolibre',
-    propertyId: PROPERTY,
+    owner: { kind: 'property', id: PROPERTY },
     operation: 'sale',
     listingType: 'simple',
     plan: undefined,
@@ -50,6 +50,17 @@ describe('ownerAvailability', () => {
   });
 });
 
+describe('developmentAvailability', () => {
+  it.each([
+    ['marketing', false, 2, 'active'],
+    ['marketing', false, 0, 'paused'],
+    ['loading', false, 2, 'paused'],
+    ['marketing', true, 2, 'closed'],
+  ] as const)('%s, deleted %s, %d units: %s', (status, isDeleted, publishableUnits, expected) => {
+    expect(developmentAvailability({ status, isDeleted, publishableUnits })).toBe(expected);
+  });
+});
+
 describe('Listing.request', () => {
   it('starts pending and asks for a sync', () => {
     const listing = requested();
@@ -61,7 +72,7 @@ describe('Listing.request', () => {
     expect(listing.pullEvents()).toEqual([
       expect.objectContaining({
         type: 'portals.listing_sync_requested',
-        payload: { listingId: ID, propertyId: PROPERTY },
+        payload: { listingId: ID, ownerKind: 'property', ownerId: PROPERTY },
       }),
     ]);
   });

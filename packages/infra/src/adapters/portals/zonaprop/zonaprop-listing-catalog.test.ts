@@ -39,7 +39,38 @@ const SUMMARY = {
   ],
 };
 
+const DEVELOPMENTS = {
+  number: 0,
+  size: 1,
+  total: 12,
+  content: [
+    {
+      desarrollos: [
+        {
+          idAvisoNavplat: 59677897,
+          codigoAviso: 'DEV53838',
+          codigoDesarrollo: 'DEV53838',
+          titulo: 'Torre en construcción',
+          tipoDePublicacion: 'DESARROLLO_SUPER_DESTACADOS',
+          claveInterna: 'EMP0001',
+          ubicacion: { ubicacion: 'Ciudadela, Tres de Febrero, GBA Oeste, Argentina' },
+          unidades: [
+            {
+              idAvisoNavplat: 59677898,
+              codigoAviso: 'DEV53838-EMP0001 AP0001',
+              titulo: 'Departamento 2 ambientes',
+              claveInterna: null,
+            },
+            { idAvisoNavplat: 59677899, codigoAviso: 'U-SIN-CODIGO', titulo: null },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 const LISTING_ID = '01920000-0000-7000-8000-00000000a001';
+const UNIT_ID = '01920000-0000-7000-8000-0000000000c1';
 
 function setup(responses: (() => Response | Promise<Response>)[]) {
   const requests: { method: string; url: URL }[] = [];
@@ -66,7 +97,7 @@ function setup(responses: (() => Response | Promise<Response>)[]) {
   });
   const catalog = new ZonapropListingCatalog({ api, logger });
   const last = () => requests.at(-1);
-  return { catalog, last };
+  return { catalog, last, requests };
 }
 
 const json =
@@ -174,5 +205,92 @@ describe('ZonapropListingCatalog.link', () => {
     const error = unwrapErr(await catalog.link(LINK));
     expect(error.type).toBe('PortalRejected');
     expect(error.type === 'PortalRejected' && error.reason).toContain('asociar avisos');
+  });
+});
+
+describe('ZonapropListingCatalog.onlineDevelopments', () => {
+  it('reads a page of the online developments with their units', async () => {
+    const { catalog, last } = setup([json(TOKEN), json(DEVELOPMENTS)]);
+
+    const page = unwrap(await catalog.onlineDevelopments(ONLINE));
+
+    expect(last()?.url.pathname).toBe('/v1/inmobiliarias/17310373/desarrollos/online/resumen');
+    expect(last()?.url.searchParams.get('pageable.page')).toBe('2');
+    expect(page).toEqual({
+      total: 12,
+      items: [
+        {
+          remoteId: '59677897',
+          code: 'DEV53838',
+          reference: 'EMP0001',
+          title: 'Torre en construcción',
+          plan: 'DESARROLLO_SUPER_DESTACADOS',
+          location: 'Ciudadela, Tres de Febrero, GBA Oeste, Argentina',
+          permalink: 'https://www.zonaprop.com.ar/propiedades/clasificado/-59677897.html',
+          units: [
+            {
+              remoteId: '59677898',
+              code: 'DEV53838-EMP0001 AP0001',
+              reference: 'AP0001',
+              title: 'Departamento 2 ambientes',
+            },
+            {
+              remoteId: '59677899',
+              code: 'U-SIN-CODIGO',
+              reference: undefined,
+              title: 'Unidad 59677899',
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('reads no developments (204) as an empty page', async () => {
+    const { catalog } = setup([json(TOKEN), () => new Response(null, { status: 204 })]);
+    expect(unwrap(await catalog.onlineDevelopments(ONLINE))).toEqual({ items: [], total: 0 });
+  });
+});
+
+describe('ZonapropListingCatalog.linkDevelopment', () => {
+  const LINK = {
+    portal: 'zonaprop',
+    externalAccountId: '17310373',
+    remoteId: '59677897',
+    listingId: LISTING_ID,
+    units: [
+      { remoteId: '59677898', propertyId: UNIT_ID },
+      { remoteId: '59677899', propertyId: '01920000-0000-7000-8000-0000000000c2' },
+    ],
+  } as const;
+
+  it('associates the development and each unit it can, with the Norde codes', async () => {
+    const { catalog, requests } = setup([
+      json(TOKEN),
+      json({ code: 'ok' }),
+      json({ code: 'ok' }),
+      json({ code: 'error_inesperado', message: 'No existe' }),
+    ]);
+
+    expect(unwrap(await catalog.linkDevelopment(LINK))).toEqual({
+      externalId: '0192000000007000800000000000a001',
+      permalink: 'https://www.zonaprop.com.ar/propiedades/clasificado/-59677897.html',
+      linkedUnits: 1,
+    });
+    expect(requests.slice(1).map((r) => r.url.pathname)).toEqual([
+      '/v1/inmobiliarias/17310373/avisos/0192000000007000800000000000a001/asociar/59677897',
+      '/v1/inmobiliarias/17310373/avisos/U019200000000700080000000000000c1/asociar/59677898',
+      '/v1/inmobiliarias/17310373/avisos/U019200000000700080000000000000c2/asociar/59677899',
+    ]);
+  });
+
+  it('does not link the units when the development cannot be linked', async () => {
+    const { catalog, requests } = setup([
+      json(TOKEN),
+      json({ error: 'no_permission', error_description: 'Access is denied' }, 403),
+    ]);
+    const error = unwrapErr(await catalog.linkDevelopment(LINK));
+    expect(error.type === 'PortalRejected' && error.reason).toContain('asociar avisos');
+    expect(requests).toHaveLength(2);
   });
 });

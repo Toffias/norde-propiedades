@@ -25,6 +25,7 @@ export function portalLeadSink(intake: Intake): PortalLeadSink {
         ...(input.email === undefined ? {} : { email: input.email }),
         ...(input.phone === undefined ? {} : { phone: input.phone }),
         ...(input.propertyId === undefined ? {} : { propertyId: input.propertyId }),
+        ...(input.developmentId === undefined ? {} : { developmentId: input.developmentId }),
       });
       if (result.isOk()) return ok({ duplicate: result.value.duplicate });
       // `Forbidden` es un actor mal armado en el container: un error de programación.

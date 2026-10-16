@@ -138,6 +138,29 @@ export type ChangeListingPlanInput = z.input<typeof ChangeListingPlanInputSchema
 export const PropertyListingsInputSchema = z.object({ propertyId: z.uuid() });
 export type PropertyListingsInput = z.input<typeof PropertyListingsInputSchema>;
 
+export const DevelopmentListingsInputSchema = z.object({ developmentId: z.uuid() });
+export type DevelopmentListingsInput = z.input<typeof DevelopmentListingsInputSchema>;
+
+/** Las publicaciones de una propiedad o de un emprendimiento. */
+export const ListingOwnerInputSchema = z.union([
+  PropertyListingsInputSchema,
+  DevelopmentListingsInputSchema,
+]);
+export type ListingOwnerInput = z.input<typeof ListingOwnerInputSchema>;
+
+/**
+ * Publicar un emprendimiento con sus unidades disponibles en un portal (o volver a publicarlo), con
+ * el plan elegido entre los de emprendimientos de la cuenta.
+ */
+export const RequestDevelopmentPublicationInputSchema = z.object({
+  developmentId: z.uuid(),
+  portal: PortalSchema,
+  plan: PortalPlanSchema.optional(),
+});
+export type RequestDevelopmentPublicationInput = z.input<
+  typeof RequestDevelopmentPublicationInputSchema
+>;
+
 /** Un portal donde se puede publicar la propiedad. */
 export interface PortalPublishingView {
   readonly portal: PortalValue;
@@ -162,10 +185,13 @@ export interface PropertyListingView {
   readonly publishedAt: Date | undefined;
 }
 
-/** La pestaña Difusión: las publicaciones y los portales donde se puede publicar esta propiedad. */
+/**
+ * La pestaña Difusión: las publicaciones y los portales donde se puede publicar esta propiedad (o
+ * este emprendimiento).
+ */
 export interface PropertyListingsView {
   readonly listings: readonly PropertyListingView[];
-  /** Cuentas activas que publican propiedades sueltas, y cómo se arma su aviso. */
+  /** Cuentas activas que publican ese tipo de aviso, y cómo se arma su aviso. */
   readonly portals: readonly PortalPublishingView[];
   readonly canPublish: boolean;
 }
@@ -214,6 +240,42 @@ export interface RemoteListingView {
   /** La propiedad con el mismo código de referencia, si hay una. */
   readonly match:
     { readonly propertyId: string; readonly code: string; readonly title: string } | undefined;
-  /** Ya vinculado: la publicación del sistema que lo maneja. */
-  readonly linked: { readonly listingId: string; readonly propertyId: string } | undefined;
+  /** Ya vinculado: la publicación del sistema que lo maneja, y de qué es. */
+  readonly linked: { readonly listingId: string; readonly owner: ListingOwnerView } | undefined;
 }
+
+/** De qué es una publicación: una propiedad o un emprendimiento. */
+export interface ListingOwnerView {
+  readonly kind: ListingOwnerKindValue;
+  readonly id: string;
+}
+
+/** Los emprendimientos online de la cuenta, para vincularlos (Mi empresa → Portales). */
+export const ListRemoteDevelopmentsInputSchema = ListRemoteListingsInputSchema;
+export type ListRemoteDevelopmentsInput = z.input<typeof ListRemoteDevelopmentsInputSchema>;
+
+/** Un emprendimiento online del portal, con el de Norde que le corresponde por código. */
+export interface RemoteDevelopmentView {
+  readonly remoteId: string;
+  readonly title: string;
+  readonly reference: string | undefined;
+  readonly plan: string | undefined;
+  readonly location: string | undefined;
+  readonly permalink: string | undefined;
+  readonly unitCount: number;
+  /** El emprendimiento con el mismo código, si hay uno. */
+  readonly match:
+    { readonly developmentId: string; readonly code: string; readonly name: string } | undefined;
+  /** Ya vinculado: la publicación del sistema que lo maneja. */
+  readonly linked: { readonly listingId: string; readonly developmentId: string } | undefined;
+}
+
+/** Vincular un emprendimiento que ya está online, con sus unidades, sin republicarlo. */
+export const LinkDevelopmentListingInputSchema = z.object({
+  portal: PortalSchema,
+  developmentId: z.uuid(),
+  remoteId: RemoteListingIdSchema,
+  /** El plan, si el portal no lo informa en el aviso. */
+  plan: PortalPlanSchema.optional(),
+});
+export type LinkDevelopmentListingInput = z.input<typeof LinkDevelopmentListingInputSchema>;

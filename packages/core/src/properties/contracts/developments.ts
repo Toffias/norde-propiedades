@@ -209,6 +209,14 @@ export const ListDevelopmentsQuerySchema = pageQuerySchema({
 });
 export type ListDevelopmentsQuery = z.input<typeof ListDevelopmentsQuerySchema>;
 
+/** Cuántos códigos se buscan de una vez: dos por aviso de una página de un portal. */
+export const MAX_DEVELOPMENT_CODES = 100;
+
+export const FindDevelopmentsByCodeInputSchema = z.object({
+  codes: z.array(z.string().trim().min(1).max(64)).max(MAX_DEVELOPMENT_CODES),
+});
+export type FindDevelopmentsByCodeInput = z.input<typeof FindDevelopmentsByCodeInputSchema>;
+
 /** Lista o mapa: la vista va en la URL (`?layout=map`), con los mismos filtros. */
 export const DEVELOPMENT_LAYOUT_VALUES = ['list', 'map'] as const;
 export type DevelopmentLayoutValue = (typeof DEVELOPMENT_LAYOUT_VALUES)[number];

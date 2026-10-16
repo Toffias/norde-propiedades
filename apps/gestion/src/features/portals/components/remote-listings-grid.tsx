@@ -109,10 +109,14 @@ function PropertyCell({
       <div className="flex flex-col items-start gap-1">
         <StatusPill tone="green">Vinculado</StatusPill>
         <Link
-          href={`/propiedades/${row.linked.propertyId}?tab=difusion`}
+          href={
+            row.linked.owner.kind === 'development'
+              ? `/emprendimientos/${row.linked.owner.id}?tab=difusion`
+              : `/propiedades/${row.linked.owner.id}?tab=difusion`
+          }
           className="text-xs font-medium text-primary hover:underline"
         >
-          Ver la propiedad
+          {row.linked.owner.kind === 'development' ? 'Ver el emprendimiento' : 'Ver la propiedad'}
         </Link>
       </div>
     );
@@ -120,7 +124,7 @@ function PropertyCell({
   if (row.isDevelopment) {
     return (
       <span className="text-sm text-muted-foreground">
-        Emprendimiento: se vincula con los emprendimientos.
+        Emprendimiento o unidad: se vincula en la pestaña Emprendimientos.
       </span>
     );
   }

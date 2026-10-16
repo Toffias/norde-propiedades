@@ -5,7 +5,11 @@ import {
   type ListingSource,
   type ListingSourceReader,
 } from '@norde/core/portals';
-import type { PanelPropertyDetail, ShareablePhoto } from '@norde/core/properties/contracts';
+import type {
+  ListShareablePhotosInput,
+  PanelPropertyDetail,
+  ShareablePhoto,
+} from '@norde/core/properties/contracts';
 import { DescriptionFooterTemplate, WebUrlTemplate } from '@norde/core/settings';
 import type { CompanySettingsView } from '@norde/core/settings/contracts';
 import type { Actor, Result } from '@norde/core/shared';
@@ -19,16 +23,13 @@ export const PORTAL_PHOTO_SECONDS = 24 * 60 * 60;
 /** El máximo de fotos de los portales: Zonaprop toma 50 (MercadoLibre, 30: su conector recorta). */
 export const PORTAL_PHOTO_LIMIT = 50;
 
-interface UseCase<I, O> {
+export interface UseCase<I, O> {
   execute(input: I, actor: Actor): Promise<Result<O, { readonly type: string }>>;
 }
 
 export interface ListingSourceDeps {
   readonly propertyDetail: UseCase<{ readonly propertyId: string }, PanelPropertyDetail>;
-  readonly photos: UseCase<
-    { readonly propertyId: string; readonly expiresInSeconds: number; readonly limit: number },
-    readonly ShareablePhoto[]
-  >;
+  readonly photos: UseCase<ListShareablePhotosInput, readonly ShareablePhoto[]>;
   readonly companySettings: UseCase<Record<string, never>, CompanySettingsView>;
   readonly branch: UseCase<{ readonly branchId: string }, BranchDetail>;
   /** `system:portal-sync`, con `properties:read`, `settings:read` y `branches:read`. */
@@ -64,25 +65,43 @@ function locationOf(detail: PanelPropertyDetail): ListingSource['location'] {
   };
 }
 
-/** La descripción con el pie para portales de Mi empresa (código, contacto de la sucursal, web). */
-function descriptionOf(
-  detail: PanelPropertyDetail,
+/**
+ * La descripción con el pie para portales de Mi empresa (código, contacto de la sucursal y, si es
+ * una propiedad, su ficha en la web).
+ */
+export function descriptionWithFooter(
+  item: {
+    readonly description: string;
+    readonly code: string;
+    /** La ficha en la web: solo las propiedades tienen una. */
+    readonly web: { readonly id: string; readonly slug: string } | undefined;
+  },
   settings: CompanySettingsView | undefined,
   branch: BranchDetail | undefined,
 ): string {
   const raw = settings?.portalDescriptionFooter;
   const footer = raw === undefined ? undefined : DescriptionFooterTemplate.create(raw);
-  if (footer === undefined || footer.isErr()) return detail.description;
-  const template = settings?.webPropertyUrlTemplate;
+  if (footer === undefined || footer.isErr()) return item.description;
+  const template = item.web === undefined ? undefined : settings?.webPropertyUrlTemplate;
   const web = template === undefined ? undefined : WebUrlTemplate.create(template);
   const text = footer.value.render({
-    codigo: detail.code,
+    codigo: item.code,
     ...(branch?.phone ? { telefono_sucursal: branch.phone } : {}),
     ...(branch?.email ? { email_sucursal: branch.email } : {}),
     ...(branch?.whatsapp ? { whatsapp_sucursal: branch.whatsapp } : {}),
-    ...(web?.isOk() ? { url_web: web.value.render({ id: detail.id, slug: detail.slug }) } : {}),
+    ...(web?.isOk() && item.web ? { url_web: web.value.render(item.web) } : {}),
   });
-  return text === '' ? detail.description : `${detail.description}\n\n${text}`;
+  return text === '' ? item.description : `${item.description}\n\n${text}`;
+}
+
+/** El contacto del aviso: el de la sucursal del captador. */
+export function contactOf(branch: BranchDetail | undefined): ListingSource['contact'] {
+  return {
+    name: branch?.name ?? 'Norde Propiedades',
+    email: branch?.email,
+    phone: branch?.phone,
+    whatsapp: branch?.whatsapp,
+  };
 }
 
 export function listingSourceReader(deps: ListingSourceDeps): ListingSourceReader {
@@ -116,8 +135,12 @@ export function listingSourceReader(deps: ListingSourceDeps): ListingSourceReade
         availability: ownerAvailability(property.status, property.deletedAt !== undefined),
         developmentId: property.development?.id,
         title: property.portalTitle,
-        description: descriptionOf(
-          property,
+        description: descriptionWithFooter(
+          {
+            description: property.description,
+            code: property.code,
+            web: { id: property.id, slug: property.slug },
+          },
           settings.isOk() ? settings.value : undefined,
           branchDetail,
         ),
@@ -148,12 +171,7 @@ export function listingSourceReader(deps: ListingSourceDeps): ListingSourceReade
         expensesCents: property.deal.expensesCents,
         creditEligible: property.deal.creditEligible,
         photos: photos.value.map((p) => ({ id: p.mediaId, version: p.version, url: p.url })),
-        contact: {
-          name: branchDetail?.name ?? 'Norde Propiedades',
-          email: branchDetail?.email,
-          phone: branchDetail?.phone,
-          whatsapp: branchDetail?.whatsapp,
-        },
+        contact: contactOf(branchDetail),
       };
     },
   };

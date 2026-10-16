@@ -32,6 +32,11 @@ export interface PortalLead {
   readonly message: string | undefined;
   /** El código del aviso con que lo maneja Norde, si es uno suyo (publicado o vinculado). */
   readonly listingCode: string | undefined;
+  /**
+   * La unidad, si el contacto llegó por una unidad de un emprendimiento publicado por Norde: el
+   * conector traduce el código con que la manda al portal.
+   */
+  readonly unitPropertyId: string | undefined;
 }
 
 /** El texto de la consulta cuando la persona no escribió nada: qué pidió. */

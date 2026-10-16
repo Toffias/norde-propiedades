@@ -17,6 +17,9 @@ describe('categoryOf', () => {
     expect(categoryOf('apartment', 'sale')).toBe('MLA401686');
     expect(categoryOf('house', 'rent')).toBe('MLA1467');
     expect(categoryOf('garage', 'sale')).toBe('MLA50543');
+    // ML no separa depósitos de galpones.
+    expect(categoryOf('storage', 'sale')).toBe(categoryOf('warehouse', 'sale'));
+    expect(categoryOf('storage', 'rent')).toBe(categoryOf('warehouse', 'rent'));
   });
 
   it('has no temporary rent for land, offices and the like', () => {

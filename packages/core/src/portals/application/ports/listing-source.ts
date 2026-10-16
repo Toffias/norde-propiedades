@@ -1,7 +1,15 @@
 import type { ListingOperation, OwnerAvailability } from '../../domain/listing';
 
 export type ListingPropertyKind =
-  'apartment' | 'house' | 'ph' | 'land' | 'office' | 'commercial' | 'garage' | 'warehouse';
+  | 'apartment'
+  | 'house'
+  | 'ph'
+  | 'land'
+  | 'office'
+  | 'commercial'
+  | 'garage'
+  | 'warehouse'
+  | 'storage';
 
 export interface ListingSourceOperation {
   readonly operation: ListingOperation;

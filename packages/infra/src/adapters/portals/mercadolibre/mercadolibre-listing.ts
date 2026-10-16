@@ -21,6 +21,8 @@ const CATEGORIES: Readonly<Record<ListingPropertyKind, Partial<Record<ListingOpe
     commercial: { sale: 'MLA79244', rent: 'MLA79243' },
     garage: { sale: 'MLA50543', rent: 'MLA50542' },
     warehouse: { sale: 'MLA1477', rent: 'MLA1476' },
+    // ML no separa depósitos de galpones: van a la misma categoría.
+    storage: { sale: 'MLA1477', rent: 'MLA1476' },
   };
 
 /** Simple: el paquete de publicaciones. Destacado: el de mayor exposición. */
@@ -45,6 +47,7 @@ const REQUIRED: Readonly<Record<ListingPropertyKind, readonly NumericField[]>> =
   office: ['surfaceTotal', 'surfaceCovered', 'bathrooms', 'parkingSpaces'],
   commercial: ['surfaceTotal', 'surfaceCovered', 'bathrooms', 'parkingSpaces'],
   warehouse: ['surfaceTotal', 'surfaceCovered', 'bathrooms', 'parkingSpaces'],
+  storage: ['surfaceTotal', 'surfaceCovered', 'bathrooms', 'parkingSpaces'],
   garage: ['surfaceTotal'],
 };
 

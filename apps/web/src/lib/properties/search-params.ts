@@ -32,6 +32,7 @@ export const PROPERTY_TYPE_OPTIONS: readonly Option<PropertyType>[] = [
   { value: 'commercial', param: 'local', label: 'Local comercial' },
   { value: 'garage', param: 'cochera', label: 'Cochera' },
   { value: 'warehouse', param: 'galpon', label: 'Galpón' },
+  { value: 'storage', param: 'deposito', label: 'Depósito' },
 ];
 
 export function operationFromParam(param: string | undefined): Operation | undefined {

@@ -175,6 +175,7 @@ const RESIDENCE_TYPES: Readonly<Record<ListingDetail['propertyType'], string>> =
   commercial: 'Place',
   garage: 'Place',
   warehouse: 'Place',
+  storage: 'Place',
 };
 
 /**

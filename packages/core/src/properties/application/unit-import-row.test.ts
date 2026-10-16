@@ -115,6 +115,11 @@ describe('readUnitImportRow', () => {
       ),
     ).toMatchObject({ propertyType: 'warehouse', status: 'sold' });
     expect(
+      unwrap(
+        readUnitImportRow(row({ unit: 'B', propertyType: 'Depósito', status: 'VENDIDA' }), MAPPING),
+      ),
+    ).toMatchObject({ propertyType: 'storage' });
+    expect(
       unwrap(readUnitImportRow(row({ unit: 'A', propertyType: 'ph', status: 'paused' }), MAPPING)),
     ).toMatchObject({ propertyType: 'ph', status: 'paused' });
   });

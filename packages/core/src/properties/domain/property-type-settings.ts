@@ -114,6 +114,7 @@ export const RECOMMENDED_ATTRIBUTES: Readonly<Record<PropertyKind, readonly Prop
     commercial: ALL.filter((key) => key !== 'bedrooms'),
     garage: GARAGE,
     warehouse: ALL.filter((key) => key !== 'bedrooms'),
+    storage: ALL.filter((key) => key !== 'bedrooms'),
   };
 
 export interface PropertyTypeSetting {

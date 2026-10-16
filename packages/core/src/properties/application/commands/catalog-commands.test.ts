@@ -267,6 +267,7 @@ describe('property type settings', () => {
       'commercial',
       'garage',
       'warehouse',
+      'storage',
     ] as const) {
       uow.typeSettings.rows.set(kind, { kind, isEnabled: false, visibleAttributes: [] });
     }

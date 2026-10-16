@@ -536,7 +536,7 @@ Las tres comparten el mismo modelo base, con campos específicos según la opera
 Campos comunes:
 
 - **Identificación**: código interno, título, descripción, operación (venta / alquiler / alquiler temporario).
-- **Tipo**: departamento, casa, PH, terreno, local, oficina, cochera, galpón.
+- **Tipo**: departamento, casa, PH, terreno, local, oficina, cochera, galpón, depósito. Galpón y depósito son tipos distintos porque Zonaprop los publica en tipos distintos (Bodega-Galpón y Depósito); MercadoLibre los publica en la misma categoría.
 - **Ubicación**: dirección, barrio, localidad, provincia y **latitud/longitud** (para el mapa). Opción de mostrar la dirección exacta o aproximada en la web.
 - **Precio**: monto, moneda (ARS/USD), expensas, "precio a consultar".
 - **Características**: ambientes, dormitorios, baños, cocheras, superficie total y cubierta, antigüedad, orientación, amenities, apto crédito, apto profesional.

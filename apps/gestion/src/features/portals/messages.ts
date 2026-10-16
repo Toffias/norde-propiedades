@@ -1,4 +1,6 @@
 import type {
+  LinkPortalListingError,
+  ListRemoteListingsError,
   ChangeListingPlanError,
   ChangeListingTypeError,
   ConnectPortalAccountWithCodeError,
@@ -183,3 +185,32 @@ export const PROPERTY_LISTINGS_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver la difusión en portales.',
   ValidationFailed: 'No encontramos la propiedad.',
 } satisfies ErrorMessages<GetPropertyListingsError>;
+
+export const REMOTE_LISTINGS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver los avisos del portal.',
+  ValidationFailed: (error) => error.issues[0] ?? 'Revisá la página.',
+  PortalNotConnected: NOT_CONNECTED,
+  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
+  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+} satisfies ErrorMessages<ListRemoteListingsError>;
+
+export const LINK_LISTING_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN_PUBLISH,
+  ValidationFailed: (error) => error.issues[0] ?? 'Revisá el link del aviso.',
+  PortalNotEnabled: (error) =>
+    `La cuenta de ${PORTAL_LABELS[error.portal]} no está conectada o está desactivada (Mi empresa → Portales).`,
+  PropertyNotFound: 'No encontramos la propiedad. Puede que la hayan eliminado.',
+  UnitPublishedWithDevelopment:
+    'Las unidades se vinculan con su emprendimiento, desde la ficha del emprendimiento.',
+  RemoteListingNotFound:
+    'Zonaprop no tiene online un aviso con ese número en la cuenta de Norde. Revisá el link.',
+  RemoteListingIsDevelopment:
+    'Ese aviso es un emprendimiento: se vincula con los emprendimientos, más adelante.',
+  RemoteListingAlreadyLinked: 'Ese aviso ya está vinculado a otra propiedad.',
+  ListingAlreadyExists: 'La propiedad ya tiene un aviso en este portal.',
+  PlanRequired: 'Zonaprop no informa el plan de ese aviso: elegilo.',
+  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
+  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+  PortalRejected: (error) => error.reason,
+  PortalCredentialsMissing: 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).',
+} satisfies ErrorMessages<LinkPortalListingError>;

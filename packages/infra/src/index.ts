@@ -125,6 +125,7 @@ export {
 } from './adapters/portals/zonaprop/zonaprop-api';
 export { ZonapropAccountDirectory } from './adapters/portals/zonaprop/zonaprop-account-directory';
 export { ZonapropLocations } from './adapters/portals/zonaprop/zonaprop-locations';
+export { ZonapropListingCatalog } from './adapters/portals/zonaprop/zonaprop-listing-catalog';
 export {
   ZonapropPortalConnector,
   type ZonapropAgencyCode,

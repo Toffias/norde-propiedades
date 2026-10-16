@@ -620,6 +620,15 @@ describe('DrizzlePanelPropertyListQuery', () => {
     expect(new Set(seen).size).toBe(total);
   });
 
+  it('finds portfolio properties by reference code with the code index (portal links)', async () => {
+    await seedPortfolio();
+    // La P00001 está en la papelera: no vuelve.
+    const page = await query.search({ ...BASE, codes: ['P00001', 'P00002', 'P00004', 'NOPE'] });
+    expect(page.items.map((item) => item.code).sort()).toEqual(['P00002', 'P00004']);
+    expect(await query.count({ ...FILTER, codes: [] })).toBe(0);
+    expect(scansWithIndex(await pagePlan({ ...BASE, codes: ['P00002'] }))).toBe(true);
+  });
+
   it('lists the active properties of an owner with an index (contact detail, #8)', async () => {
     await seedPortfolio();
     const owner = '00000000-0000-7000-8000-00000000c0de';

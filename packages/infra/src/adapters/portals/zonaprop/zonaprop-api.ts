@@ -169,7 +169,11 @@ export class ZonapropApi {
       }
       return err({ type: 'unauthorized' });
     }
-    if (status === 403) return err({ type: 'forbidden' });
+    if (status === 403) {
+      const reason = await errorReason(response.value);
+      logger.warn({ endpoint: url.pathname, method, reason }, 'Zonaprop forbade the request');
+      return err({ type: 'forbidden' });
+    }
     if (status === 404) return err({ type: 'not_found' });
     if (status === 204) return ok(undefined);
     if (status === 400 || status === 409 || status === 422) {

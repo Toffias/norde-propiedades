@@ -17,6 +17,12 @@ import type {
   PortalCredit,
 } from '../application/ports/portal-account-directory';
 import type {
+  PortalListingCatalog,
+  PropertyByCode,
+  PropertyCodeLookup,
+  RemoteListing,
+} from '../application/ports/portal-listing-catalog';
+import type {
   PortalCredentialStore,
   PortalsTransaction,
   PortalsUnitOfWork,
@@ -26,6 +32,7 @@ import type {
   PortalConnector,
   PortalListingContent,
   PortalListingState,
+  PortalListingUpdate,
   PortalSyncError,
 } from '../application/ports/portal-connector';
 import {
@@ -205,6 +212,17 @@ export class InMemoryListingRepository implements ListingRepository {
     return Promise.resolve(row && Listing.restore(row));
   }
 
+  findByExternalIds(portal: PortalId, externalIds: readonly string[]) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(
+          (r) =>
+            r.portal === portal && r.externalId !== undefined && externalIds.includes(r.externalId),
+        )
+        .map((r) => Listing.restore(r)),
+    );
+  }
+
   findForProperty(propertyId: string) {
     return Promise.resolve(
       [...this.rows.values()]
@@ -289,6 +307,8 @@ export class FakePortalConnector implements PortalConnector {
   problemsFound: string[] = [];
   /** Lo que devuelve `update`: por ejemplo `closed` si el aviso venció en el portal. */
   remoteState: PortalListingState | undefined;
+  /** El link que devuelve `update`, si el portal lo informa. */
+  remotePermalink: string | undefined;
   #next = 0;
 
   problems() {
@@ -312,7 +332,7 @@ export class FakePortalConnector implements PortalConnector {
       readonly contentChanged: boolean;
       readonly state: 'active' | 'paused';
     },
-  ): Promise<Result<PortalListingState, PortalSyncError>> {
+  ): Promise<Result<PortalListingUpdate, PortalSyncError>> {
     // Registra el contenido solo cuando cambió: es lo que el portal tiene que recibir.
     this.calls.push({
       method: 'update',
@@ -321,12 +341,97 @@ export class FakePortalConnector implements PortalConnector {
       state: change.state,
     });
     if (this.failWith) return Promise.resolve(err(this.failWith));
-    return Promise.resolve(ok(this.remoteState ?? change.state));
+    return Promise.resolve(
+      ok({ state: this.remoteState ?? change.state, permalink: this.remotePermalink }),
+    );
   }
 
   close(_portal: PortalId, externalId: string): Promise<Result<void, PortalSyncError>> {
     this.calls.push({ method: 'close', externalId });
     if (this.failWith) return Promise.resolve(err(this.failWith));
     return Promise.resolve(ok(undefined));
+  }
+}
+
+/** Un aviso online del portal, de Tokko, para los tests de vinculación. */
+export function remoteListing(overrides: Partial<RemoteListing> = {}): RemoteListing {
+  return {
+    remoteId: '50044229',
+    code: 'PRO3621230',
+    reference: 'NHO1142594',
+    title: 'Casa 5 ambientes en Mataderos',
+    plan: 'HOME',
+    location: 'Mataderos, Capital Federal, Argentina',
+    permalink: 'https://portal.test/propiedades/clasificado/-50044229.html',
+    isDevelopment: false,
+    ...overrides,
+  };
+}
+
+/** Catálogo de prueba: los avisos de `online` y lo que se vinculó con `link`. */
+export class FakePortalListingCatalog implements PortalListingCatalog {
+  listings: RemoteListing[] = [remoteListing()];
+  total: number | undefined;
+  failWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
+  linkFailWith: PortalSyncError | undefined;
+  readonly pages: { offset: number; limit: number; remoteId?: string }[] = [];
+  readonly links: { remoteId: string; listingId: string }[] = [];
+
+  online(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly offset: number;
+    readonly limit: number;
+    readonly remoteId?: string;
+  }) {
+    this.pages.push({
+      offset: input.offset,
+      limit: input.limit,
+      ...(input.remoteId === undefined ? {} : { remoteId: input.remoteId }),
+    });
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    const all = this.listings.filter(
+      (r) => input.remoteId === undefined || r.remoteId === input.remoteId,
+    );
+    return Promise.resolve(
+      ok({
+        items: all.slice(input.offset, input.offset + input.limit),
+        total: this.total ?? all.length,
+      }),
+    );
+  }
+
+  link(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly remoteId: string;
+    readonly listingId: string;
+  }) {
+    this.links.push({ remoteId: input.remoteId, listingId: input.listingId });
+    if (this.linkFailWith) return Promise.resolve(err(this.linkFailWith));
+    return Promise.resolve(
+      ok({
+        externalId: input.listingId.replaceAll('-', ''),
+        permalink: `https://portal.test/propiedades/clasificado/-${input.remoteId}.html`,
+      }),
+    );
+  }
+}
+
+/** Propiedades de prueba por código de referencia. */
+export class FakePropertyCodeLookup implements PropertyCodeLookup {
+  readonly properties: PropertyByCode[] = [
+    {
+      propertyId: LISTED_PROPERTY_ID,
+      code: 'NHO1142594',
+      title: 'Casa en Mataderos',
+      developmentId: undefined,
+    },
+  ];
+  readonly calls: (readonly string[])[] = [];
+
+  byCodes(codes: readonly string[]) {
+    this.calls.push(codes);
+    return Promise.resolve(this.properties.filter((p) => codes.includes(p.code)));
   }
 }

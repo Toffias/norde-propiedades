@@ -186,6 +186,12 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
         : c.ids.length === 0
           ? sql`false`
           : inArray(properties.id, [...c.ids]),
+      // Por código de referencia: el índice único de `code`.
+      c.codes === undefined
+        ? undefined
+        : c.codes.length === 0
+          ? sql`false`
+          : inArray(properties.code, [...c.codes]),
       // Propiedades de un propietario: `property_owners_client_idx`.
       c.ownerClientId === undefined
         ? undefined

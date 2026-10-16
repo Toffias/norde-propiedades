@@ -119,6 +119,7 @@ export type {
   PortalCredentialsMissingError,
   PortalListingContent,
   PortalListingState,
+  PortalListingUpdate,
   PortalRejectedError,
   PortalSyncError,
 } from './application/ports/portal-connector';
@@ -146,6 +147,23 @@ export {
   ChangeListingType,
   type ChangeListingTypeError,
 } from './application/commands/change-listing-type';
+export {
+  LinkPortalListing,
+  type LinkPortalListingError,
+  type RemoteListingAlreadyLinkedError,
+  type RemoteListingIsDevelopmentError,
+  type RemoteListingNotFoundError,
+} from './application/commands/link-portal-listing';
+export {
+  ListRemoteListings,
+  type ListRemoteListingsError,
+} from './application/queries/list-remote-listings';
+export type {
+  PortalListingCatalog,
+  PropertyByCode,
+  PropertyCodeLookup,
+  RemoteListing,
+} from './application/ports/portal-listing-catalog';
 export {
   ChangeListingPlan,
   type ChangeListingPlanError,

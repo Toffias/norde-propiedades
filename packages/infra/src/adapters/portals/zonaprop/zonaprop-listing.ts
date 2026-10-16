@@ -79,6 +79,14 @@ export function listingCode(listingId: string): string {
   return listingId.replaceAll('-', '');
 }
 
+/**
+ * El link público del aviso. La API no lo devuelve, pero Zonaprop redirige
+ * `/propiedades/clasificado/-{idAviso}.html` a la URL del aviso con su título.
+ */
+export function listingPermalink(remoteId: string | number): string {
+  return `https://www.zonaprop.com.ar/propiedades/clasificado/-${String(remoteId)}.html`;
+}
+
 /** Lo que le falta a la publicación para Zonaprop, en español para la ficha. Vacío: se manda. */
 export function listingProblems(content: PortalListingContent): string[] {
   const { source } = content;
@@ -209,6 +217,7 @@ const MessageSchema = z.object({
 
 /** La respuesta de un `PUT` o `DELETE` de aviso (un objeto, o una lista con uno). */
 const ProcessedSchema = z.object({
+  idAviso: z.union([z.number(), z.string()]).nullish(),
   codigoAviso: z.string().nullish(),
   estado: z.string().nullish(),
   errors: z.array(MessageSchema).nullish(),

@@ -21,7 +21,8 @@ import { SectionCard } from '@norde/ui/components/section-card';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill, type StatusTone } from '@norde/ui/components/status-pill';
 import { Switch } from '@norde/ui/components/switch';
-import { Loader2Icon, PlugIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
+import { Link2Icon, Loader2Icon, PlugIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -121,6 +122,15 @@ function PortalAccountCard({
           )}
         </div>
         {credits !== undefined && <PortalCredits result={credits} />}
+        {byCode && account.isConnected && (
+          <Link
+            href="/mi-empresa/portales/avisos"
+            className="inline-flex items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
+          >
+            <Link2Icon className="h-4 w-4" aria-hidden />
+            Vincular los avisos que ya están en {PORTAL_LABELS[account.portal]}
+          </Link>
+        )}
         <FormAlert message={error} />
         {canManage && (
           <div className="flex flex-wrap items-center gap-3">

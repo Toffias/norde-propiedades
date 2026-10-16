@@ -804,15 +804,19 @@ export class StubPanelPropertyListQuery implements PanelPropertyListQuery {
   constructor(private readonly slice: PageSlice<PanelPropertyListItem> = { items: [], total: 0 }) {}
 
   private matching(criteria: PanelPropertyFilterCriteria): readonly PanelPropertyListItem[] {
-    const { ids } = criteria;
-    return ids === undefined
-      ? this.slice.items
-      : this.slice.items.filter((i) => ids.includes(i.id));
+    const { ids, codes } = criteria;
+    return this.slice.items.filter(
+      (i) =>
+        (ids === undefined || ids.includes(i.id)) &&
+        (codes === undefined || codes.includes(i.code)),
+    );
   }
 
   search(criteria: PanelPropertyListCriteria) {
     this.calls.push(criteria);
-    if (criteria.ids === undefined) return Promise.resolve(this.slice);
+    if (criteria.ids === undefined && criteria.codes === undefined) {
+      return Promise.resolve(this.slice);
+    }
     const items = this.matching(criteria);
     return Promise.resolve({
       items: items.slice(criteria.offset, criteria.offset + criteria.limit),

@@ -175,6 +175,7 @@ import {
   ChangePropertyStatus,
   ChangePropertyTags,
   CompareProperties,
+  FindPropertiesByCode,
   GetPropertySummaries,
   ListOwnedProperties,
   CreateCustomAttribute,
@@ -330,7 +331,9 @@ import {
   DisconnectPortalAccount,
   GetPortalCredits,
   GetPropertyListings,
+  LinkPortalListing,
   ListPortalAccounts,
+  ListRemoteListings,
   PauseListing,
   RequestListingSync,
   RequestPublication,
@@ -426,6 +429,7 @@ import {
   PortalConnectorsByProvider,
   ZonapropAccountDirectory,
   ZonapropApi,
+  ZonapropListingCatalog,
   ZonapropLocations,
   ZonapropPortalConnector,
 } from '@norde/infra';
@@ -435,6 +439,7 @@ import type { Logger } from 'pino';
 import { getEnv, mercadoLibreApp, zonapropApi, type Env } from './config/env';
 import { getLogger } from './config/logger';
 import { listingSourceReader } from './features/portals/listing-source-reader';
+import { propertyCodeLookup } from './features/portals/property-code-lookup';
 import { eventSubscriptions } from './jobs/event-subscriptions';
 
 export interface Container {
@@ -628,7 +633,12 @@ function createPortalServices(
     branch: new GetBranch({ organization: new DrizzleOrganizationQuery(db) }),
     actor: PORTAL_SYNC_ACTOR,
   });
-  return { uow, authorizer, connector, directory, reader };
+  const catalog = new ZonapropListingCatalog({ api: zonaprop, logger });
+  const codes = propertyCodeLookup({
+    findByCode: modules.properties.findPropertiesByCode,
+    actor: PORTAL_SYNC_ACTOR,
+  });
+  return { uow, authorizer, connector, directory, reader, catalog, codes };
 }
 
 /** Cuentas y publicaciones de portales (#14). Sin `PORTALS_ENABLED`, no existe. */
@@ -640,7 +650,7 @@ function createPortalsUseCases(
 ) {
   const services = createPortalServices(db, env, deps, modules);
   if (!services) return undefined;
-  const { uow, authorizer, connector, directory, reader } = services;
+  const { uow, authorizer, connector, directory, reader, catalog, codes } = services;
   const { ids, clock } = deps;
   const accounts = new DrizzlePortalAccountRepository(db, clock);
 
@@ -654,6 +664,8 @@ function createPortalsUseCases(
     setAccountEnabled: new SetPortalAccountEnabled({ uow }),
     getPropertyListings: new GetPropertyListings({ uow }),
     requestPublication: new RequestPublication({ uow, reader, connector, directory, ids, clock }),
+    listRemoteListings: new ListRemoteListings({ uow, catalog, properties: codes }),
+    linkListing: new LinkPortalListing({ uow, catalog, reader, ids, clock }),
     pauseListing: new PauseListing({ uow, clock }),
     resumeListing: new ResumeListing({ uow, clock }),
     unpublishListing: new UnpublishListing({ uow, clock }),
@@ -808,6 +820,7 @@ function createPropertiesUseCases(
     compareProperties: new CompareProperties({ properties: list, users }),
     listOwnedProperties: new ListOwnedProperties({ properties: list, users }),
     getPropertySummaries: new GetPropertySummaries({ properties: list, users }),
+    findPropertiesByCode: new FindPropertiesByCode({ properties: list, users }),
     createProperty: new CreateProperty({
       uow,
       codes: referenceCodesFrom(settings),

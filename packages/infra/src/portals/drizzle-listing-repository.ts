@@ -11,7 +11,7 @@ import {
   type PortalId,
 } from '@norde/core/portals';
 import { parseId, type Clock } from '@norde/core/shared';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -100,6 +100,25 @@ export class DrizzleListingRepository implements ListingRepository {
       )
       .limit(1);
     return row && toListing(row);
+  }
+
+  async findByExternalIds(
+    portal: PortalId,
+    externalIds: readonly string[],
+  ): Promise<readonly Listing[]> {
+    if (externalIds.length === 0) return [];
+    // `portal_listings_portal_external_uq`: como mucho una por ID.
+    const rows = await this.db
+      .select()
+      .from(portalListings)
+      .where(
+        and(
+          eq(portalListings.portal, portal),
+          inArray(portalListings.externalId, [...externalIds]),
+        ),
+      )
+      .limit(externalIds.length);
+    return rows.map(toListing);
   }
 
   async findForProperty(propertyId: string): Promise<readonly Listing[]> {

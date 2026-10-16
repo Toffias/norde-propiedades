@@ -124,6 +124,13 @@ export {
   type ZonapropApiOptions,
 } from './adapters/portals/zonaprop/zonaprop-api';
 export { ZonapropAccountDirectory } from './adapters/portals/zonaprop/zonaprop-account-directory';
+export { ZonapropLocations } from './adapters/portals/zonaprop/zonaprop-locations';
+export {
+  ZonapropPortalConnector,
+  type ZonapropAgencyCode,
+  type ZonapropPortalConnectorOptions,
+} from './adapters/portals/zonaprop/zonaprop-portal-connector';
+export { PortalConnectorsByProvider } from './adapters/portals/portal-connectors';
 export { AesGcmSecretCipher, type SecretCipher } from './adapters/crypto/aes-gcm-secret-cipher';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
 export { DrizzleClientConversationErasure } from './conversations/drizzle-client-conversation-erasure';

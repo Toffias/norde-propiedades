@@ -154,8 +154,9 @@ describe('GetPortalCredits', () => {
     const { credits, directory } = await connected();
 
     expect(unwrap(await credits.execute({ portal: 'zonaprop' }, PUBLISHER))).toEqual([
-      { plan: 'SIMPLE', available: 40, contracted: 50 },
-      { plan: 'DESTACADO', available: 3, contracted: 5 },
+      { plan: 'SIMPLE', available: 40, contracted: 50, publishes: 'property' },
+      { plan: 'HOME', available: 0, contracted: 5, publishes: 'property' },
+      { plan: 'DESARROLLOS_HOME', available: 2, contracted: 2, publishes: 'development' },
     ]);
     expect(directory.creditReads).toEqual([{ portal: 'zonaprop', externalAccountId: '17310373' }]);
   });

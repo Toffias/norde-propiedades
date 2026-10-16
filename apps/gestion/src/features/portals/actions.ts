@@ -1,12 +1,14 @@
 'use server';
 
 import {
+  ChangeListingPlanInputSchema,
   ChangeListingTypeInputSchema,
   ConnectPortalAccountWithCodeInputSchema,
   ListingIdInputSchema,
   PortalInputSchema,
   RequestPublicationInputSchema,
   SetPortalAccountEnabledInputSchema,
+  type ChangeListingPlanInput,
   type ChangeListingTypeInput,
   type ConnectPortalAccountWithCodeInput,
   type ListingIdInput,
@@ -23,6 +25,7 @@ import { requireSession } from '../../lib/session';
 import {
   CODE_CONNECTION_ERROR_MESSAGES,
   LISTING_ERROR_MESSAGES,
+  PLAN_CHANGE_ERROR_MESSAGES,
   PORTAL_ACCOUNT_ERROR_MESSAGES,
   PUBLICATION_ERROR_MESSAGES,
 } from './messages';
@@ -152,6 +155,24 @@ export async function changeListingTypeAction(
 
   const result = await portals.changeListingType.execute(parsed.data, actor);
   if (result.isErr()) return actionFailed(messageForError(result.error, LISTING_ERROR_MESSAGES));
+  revalidateProperty();
+  return ACTION_OK;
+}
+
+/** Cambia el plan del aviso en los portales con plan (Zonaprop): consume un crédito del plan nuevo. */
+export async function changeListingPlanAction(
+  input: ChangeListingPlanInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const portals = getContainer().portals;
+  if (!portals) return actionFailed(HIDDEN);
+  const parsed = ChangeListingPlanInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+
+  const result = await portals.changeListingPlan.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, PLAN_CHANGE_ERROR_MESSAGES));
+  }
   revalidateProperty();
   return ACTION_OK;
 }

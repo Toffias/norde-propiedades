@@ -27,7 +27,13 @@ const PICTURE_REQUIRED = {
 };
 
 const TOKEN = 'APP_USR-test-access-token'; // gitleaks:allow
-const CONTENT = { source: listingSource(), operation: 'sale', listingType: 'simple' } as const;
+const CONTENT = {
+  listingId: '01920000-0000-7000-8000-00000000a001',
+  source: listingSource(),
+  operation: 'sale',
+  listingType: 'simple',
+  plan: undefined,
+} as const;
 
 function setup(
   responses: (() => Response | Promise<Response>)[],
@@ -176,6 +182,7 @@ describe('MercadoLibrePortalConnector.update', () => {
     const state = unwrap(
       await connector.update('mercadolibre', 'MLA3879350706', {
         content: { ...CONTENT, listingType: 'featured' },
+        contentChanged: true,
         state: 'paused',
       }),
     );
@@ -199,7 +206,8 @@ describe('MercadoLibrePortalConnector.update', () => {
     ]);
     unwrap(
       await connector.update('mercadolibre', 'MLA3879350706', {
-        content: undefined,
+        content: CONTENT,
+        contentChanged: false,
         state: 'active',
       }),
     );
@@ -213,6 +221,7 @@ describe('MercadoLibrePortalConnector.update', () => {
       unwrap(
         await connector.update('mercadolibre', 'MLA3879350706', {
           content: CONTENT,
+          contentChanged: true,
           state: 'active',
         }),
       ),

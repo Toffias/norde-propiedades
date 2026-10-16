@@ -298,7 +298,7 @@ describe('ListPortalAccounts', () => {
         {
           portal: 'zonaprop',
           connection: 'account_code',
-          publishes: [],
+          publishes: ['property'],
           paid: true,
           isEnabled: false,
           isConnected: false,

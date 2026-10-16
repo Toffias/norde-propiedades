@@ -25,11 +25,27 @@ export const PORTAL_CONNECTION_METHODS = ['oauth', 'account_code'] as const;
 
 export type PortalConnectionMethod = (typeof PORTAL_CONNECTION_METHODS)[number];
 
+/**
+ * Cómo se arma el aviso de una propiedad:
+ * - `operation`: un aviso por operación (en MercadoLibre, venta y alquiler van en categorías
+ *   distintas).
+ * - `property`: un solo aviso con todas las operaciones con precio (Zonaprop: consume un crédito).
+ */
+export const LISTING_SCOPES = ['operation', 'property'] as const;
+
+export type ListingScope = (typeof LISTING_SCOPES)[number];
+
 export interface PortalDefinition {
   readonly provider: PortalProvider;
   readonly connection: PortalConnectionMethod;
   /** Lo que se publica con la cuenta. Vacío: todavía no publica nada. */
   readonly publishes: readonly ListingOwnerKind[];
+  readonly listingScope: ListingScope;
+  /**
+   * Si el aviso lleva un plan del portal, elegido entre los que tiene contratados la cuenta (en
+   * Zonaprop: Simple, Home…). Sin plan, el aviso es simple o destacado (MercadoLibre).
+   */
+  readonly choosesPlan: boolean;
   /** Si el portal cobra por publicar (en ML, el paquete contratado; en Zonaprop, los créditos). */
   readonly paid: boolean;
 }
@@ -39,16 +55,27 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     provider: 'mercadolibre',
     connection: 'oauth',
     publishes: ['property'],
+    listingScope: 'operation',
+    choosesPlan: false,
     paid: true,
   },
   mercadolibre_developments: {
     provider: 'mercadolibre',
     connection: 'oauth',
     publishes: ['development'],
+    listingScope: 'operation',
+    choosesPlan: false,
     paid: true,
   },
-  // La publicación llega en la etapa 2 de Zonaprop: por ahora la cuenta solo se conecta.
-  zonaprop: { provider: 'zonaprop', connection: 'account_code', publishes: [], paid: true },
+  // Los emprendimientos llegan en la etapa 5 de Zonaprop.
+  zonaprop: {
+    provider: 'zonaprop',
+    connection: 'account_code',
+    publishes: ['property'],
+    listingScope: 'property',
+    choosesPlan: true,
+    paid: true,
+  },
 };
 
 export function isPortalId(value: string): value is PortalId {

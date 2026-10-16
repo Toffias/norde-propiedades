@@ -4,7 +4,7 @@ import {
   type PropertyListingsInput,
   type PropertyListingsView,
 } from '../../contracts';
-import { portalPublishes } from '../../domain/portal';
+import { PORTAL_CATALOG, portalPublishes } from '../../domain/portal';
 import { toListingView } from '../listing-support';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
 import { parseInput, type ValidationFailedError } from '../portals-input';
@@ -35,7 +35,10 @@ export class GetPropertyListings {
       listings: listings.map(toListingView),
       portals: accounts
         .filter((a) => a.canPublish && portalPublishes(a.portal, 'property'))
-        .map((a) => a.portal),
+        .map((a) => {
+          const { listingScope, choosesPlan } = PORTAL_CATALOG[a.portal];
+          return { portal: a.portal, listingScope, choosesPlan };
+        }),
       canPublish,
     });
   }

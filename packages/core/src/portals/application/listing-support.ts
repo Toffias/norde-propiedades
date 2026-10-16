@@ -32,10 +32,20 @@ export function listingAuditTarget(action: string, listing: Listing): AuditTarge
   return { action, entityType: 'property', entityId: listing.propertyId, clientIds: [] };
 }
 
-/** Qué publicación es, para el historial: portal, operación, tipo y el ID en el portal. */
+/**
+ * Qué publicación es, para el historial: portal, operación (`null` si el aviso lleva todas), tipo,
+ * plan (solo en los portales con plan) y el ID en el portal.
+ */
 export function listingAuditValue(listing: Listing) {
-  const { id, portal, operation, listingType, externalId } = listing.toSnapshot();
-  return { listingId: id, portal, operation, listingType, externalId: externalId ?? null };
+  const { id, portal, operation, listingType, plan, externalId } = listing.toSnapshot();
+  return {
+    listingId: id,
+    portal,
+    operation: operation ?? null,
+    listingType,
+    ...(plan === undefined ? {} : { plan }),
+    externalId: externalId ?? null,
+  };
 }
 
 /** La acción del historial cuando la publicación cambia de estado en el portal. */
@@ -76,6 +86,7 @@ export function toListingView(listing: Listing): PropertyListingView {
     portal: s.portal,
     operation: s.operation,
     listingType: s.listingType,
+    plan: s.plan,
     status: s.status,
     intent: s.intent,
     externalId: s.externalId,
@@ -88,16 +99,18 @@ export function toListingView(listing: Listing): PropertyListingView {
 
 /**
  * Huella de lo que se manda al portal. Deja afuera las URLs firmadas (cambian en cada lectura) y
- * usa la versión de cada foto. FNV-1a de 64 bits sobre el JSON con las claves ordenadas: no es
- * criptográfica, alcanza para saber si algo cambió.
+ * el ID de la publicación (no cambia), y usa la versión de cada foto. FNV-1a de 64 bits sobre el
+ * JSON con las claves ordenadas: no es criptográfica, alcanza para saber si algo cambió. Un campo
+ * sin valor no entra, así que sumar campos opcionales no cambia la huella de los avisos de antes.
  */
 export function contentFingerprint(content: PortalListingContent): string {
-  const { source, operation, listingType } = content;
+  const { source, operation, listingType, plan } = content;
   const comparable = {
     ...source,
     photos: source.photos.map((photo) => [photo.id, photo.version]),
     operation,
     listingType,
+    plan,
   };
   return fnv1a64(canonicalJson(comparable));
 }

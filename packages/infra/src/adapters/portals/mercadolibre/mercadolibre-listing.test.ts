@@ -10,7 +10,13 @@ import {
   splitPhone,
 } from './mercadolibre-listing';
 
-const SALE = { source: listingSource(), operation: 'sale', listingType: 'simple' } as const;
+const SALE = {
+  listingId: '01920000-0000-7000-8000-00000000a001',
+  source: listingSource(),
+  operation: 'sale',
+  listingType: 'simple',
+  plan: undefined,
+} as const;
 
 describe('categoryOf', () => {
   it('uses the individual-property leaf, never developments', () => {

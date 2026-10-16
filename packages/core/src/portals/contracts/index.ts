@@ -76,6 +76,7 @@ export interface PortalCreditView {
   readonly plan: string;
   readonly available: number;
   readonly contracted: number | undefined;
+  readonly publishes: ListingOwnerKindValue;
 }
 
 // ---------- Publicaciones ----------
@@ -96,12 +97,26 @@ export type ListingIntentValue = (typeof LISTING_INTENT_VALUES)[number];
 export type ListingTypeValue = (typeof LISTING_TYPE_VALUES)[number];
 export type ListingOperationValue = (typeof LISTING_OPERATION_VALUES)[number];
 
-/** Publicar una operación de una propiedad en un portal (o volver a publicarla). */
+export const LISTING_SCOPE_VALUES = ['operation', 'property'] as const;
+export type ListingScopeValue = (typeof LISTING_SCOPE_VALUES)[number];
+
+/** El código de un plan del portal (en Zonaprop, `SIMPLE`, `HOME`…). */
+export const PortalPlanSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Z0-9_]{1,64}$/, 'Ese plan no existe en el portal.');
+
+/**
+ * Publicar una propiedad en un portal (o volver a publicarla). En los portales con un aviso por
+ * operación (ML) se elige la operación y simple o destacado; en los de un aviso por propiedad
+ * (Zonaprop), el plan.
+ */
 export const RequestPublicationInputSchema = z.object({
   propertyId: z.uuid(),
   portal: PortalSchema.default('mercadolibre'),
-  operation: z.enum(LISTING_OPERATION_VALUES),
+  operation: z.enum(LISTING_OPERATION_VALUES).optional(),
   listingType: z.enum(LISTING_TYPE_VALUES).default('simple'),
+  plan: PortalPlanSchema.optional(),
 });
 export type RequestPublicationInput = z.input<typeof RequestPublicationInputSchema>;
 
@@ -114,15 +129,30 @@ export const ChangeListingTypeInputSchema = z.object({
 });
 export type ChangeListingTypeInput = z.input<typeof ChangeListingTypeInputSchema>;
 
+export const ChangeListingPlanInputSchema = z.object({
+  listingId: z.uuid(),
+  plan: PortalPlanSchema,
+});
+export type ChangeListingPlanInput = z.input<typeof ChangeListingPlanInputSchema>;
+
 export const PropertyListingsInputSchema = z.object({ propertyId: z.uuid() });
 export type PropertyListingsInput = z.input<typeof PropertyListingsInputSchema>;
+
+/** Un portal donde se puede publicar la propiedad. */
+export interface PortalPublishingView {
+  readonly portal: PortalValue;
+  readonly listingScope: ListingScopeValue;
+  readonly choosesPlan: boolean;
+}
 
 /** Una publicación en la pestaña Difusión de la ficha. */
 export interface PropertyListingView {
   readonly id: string;
   readonly portal: PortalValue;
-  readonly operation: ListingOperationValue;
+  /** Sin operación: el aviso lleva todas las operaciones de la propiedad. */
+  readonly operation: ListingOperationValue | undefined;
   readonly listingType: ListingTypeValue;
+  readonly plan: string | undefined;
   readonly status: ListingStatusValue;
   readonly intent: ListingIntentValue;
   readonly externalId: string | undefined;
@@ -135,7 +165,7 @@ export interface PropertyListingView {
 /** La pestaña Difusión: las publicaciones y los portales donde se puede publicar esta propiedad. */
 export interface PropertyListingsView {
   readonly listings: readonly PropertyListingView[];
-  /** Cuentas activas que publican propiedades sueltas. */
-  readonly portals: readonly PortalValue[];
+  /** Cuentas activas que publican propiedades sueltas, y cómo se arma su aviso. */
+  readonly portals: readonly PortalPublishingView[];
   readonly canPublish: boolean;
 }

@@ -16,8 +16,8 @@ import type { Actor, Result } from '@norde/core/shared';
 
 /** Lo que el portal tiene para descargar las fotos: un día alcanza para una sincronización. */
 export const PORTAL_PHOTO_SECONDS = 24 * 60 * 60;
-/** MercadoLibre acepta hasta 30 fotos por aviso de inmuebles. */
-export const PORTAL_PHOTO_LIMIT = 30;
+/** El máximo de fotos de los portales: Zonaprop toma 50 (MercadoLibre, 30: su conector recorta). */
+export const PORTAL_PHOTO_LIMIT = 50;
 
 interface UseCase<I, O> {
   execute(input: I, actor: Actor): Promise<Result<O, { readonly type: string }>>;

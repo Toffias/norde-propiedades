@@ -32,7 +32,7 @@ import {
   disconnectPortalAccountAction,
   setPortalAccountEnabledAction,
 } from '../actions';
-import { PORTAL_DESCRIPTIONS, PORTAL_LABELS } from '../messages';
+import { PORTAL_DESCRIPTIONS, PORTAL_LABELS, planLabel } from '../messages';
 import type { PortalCreditsResult } from '../queries';
 
 const CONNECT_PATH = '/api/portals/mercadolibre/connect';
@@ -242,12 +242,6 @@ function CreditItem({ credit }: { readonly credit: PortalCreditView }) {
       </span>
     </li>
   );
-}
-
-/** `DESTACADO_COMBO` → `Destacado combo`. Los planes los define el portal. */
-function planLabel(plan: string): string {
-  const words = plan.toLowerCase().split('_').filter(Boolean).join(' ');
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /** Pide el código de la cuenta en el portal (en Zonaprop, el código de inmobiliaria). */

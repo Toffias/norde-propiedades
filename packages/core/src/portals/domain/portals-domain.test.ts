@@ -31,9 +31,14 @@ describe('portal catalog', () => {
     expect(PORTAL_CATALOG.zonaprop.connection).toBe('account_code');
   });
 
-  it('does not publish on Zonaprop yet', () => {
-    expect(portalPublishes('zonaprop', 'property')).toBe(false);
+  it('publishes Zonaprop properties in a single listing with a plan, not developments yet', () => {
+    expect(portalPublishes('zonaprop', 'property')).toBe(true);
     expect(portalPublishes('zonaprop', 'development')).toBe(false);
+    expect(PORTAL_CATALOG.zonaprop).toMatchObject({ listingScope: 'property', choosesPlan: true });
+    expect(PORTAL_CATALOG.mercadolibre).toMatchObject({
+      listingScope: 'operation',
+      choosesPlan: false,
+    });
   });
 
   it('recognizes only known portals', () => {

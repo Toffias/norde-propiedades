@@ -3,6 +3,8 @@
 import type {
   ListingOperationValue,
   ListingTypeValue,
+  PortalCreditView,
+  PortalPublishingView,
   PortalValue,
   PropertyListingView,
   PropertyListingsView,
@@ -43,6 +45,7 @@ import { runAction, type ActionResult } from '../../../lib/action-result';
 import { formatDateTime } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
 import {
+  changeListingPlanAction,
   changeListingTypeAction,
   pauseListingAction,
   requestPublicationAction,
@@ -51,15 +54,18 @@ import {
   unpublishListingAction,
 } from '../actions';
 import { LISTING_OPERATION_LABELS, LISTING_STATUS_LABELS, LISTING_TYPE_LABELS } from '../labels';
-import { PORTAL_LABELS } from '../messages';
+import { PORTAL_LABELS, PORTAL_SITE_NAMES, planLabel } from '../messages';
+import type { PortalCreditsResult } from '../queries';
 
 /** Mientras haya avisos publicándose, la pestaña se refresca sola cada tanto. */
 const REFRESH_MS = 5000;
 const MAX_REFRESHES = 24;
 
 /**
- * La pestaña Difusión de la ficha: una fila por operación de la propiedad en cada portal activo,
- * con publicar, pausar, reactivar, sincronizar, cambiar el tipo y dar de baja.
+ * La pestaña Difusión de la ficha. En los portales con un aviso por operación (MercadoLibre), una
+ * fila por operación; en los de un aviso por propiedad (Zonaprop), una sola fila con todas las
+ * operaciones con precio y el plan elegido. Publicar, pausar, reactivar, sincronizar, cambiar el
+ * tipo o el plan y dar de baja.
  */
 export function PropertyListings({
   propertyId,
@@ -67,12 +73,15 @@ export function PropertyListings({
   view,
   isUnit,
   isAvailable,
+  plans,
 }: {
   readonly propertyId: string;
   readonly operations: readonly ListingOperationValue[];
   readonly view: PropertyListingsView;
   readonly isUnit: boolean;
   readonly isAvailable: boolean;
+  /** Los planes y créditos de los portales con plan, leídos del portal. */
+  readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
 }) {
   const pending = view.listings.some((listing) => listing.status === 'pending');
   useAutoRefresh(pending);
@@ -87,7 +96,10 @@ export function PropertyListings({
     );
   }
   const portals = [
-    ...new Set<PortalValue>([...view.portals, ...view.listings.map((l) => l.portal)]),
+    ...new Set<PortalValue>([
+      ...view.portals.map((p) => p.portal),
+      ...view.listings.map((l) => l.portal),
+    ]),
   ];
   if (portals.length === 0) {
     return (
@@ -95,7 +107,7 @@ export function PropertyListings({
         <p className="text-sm text-muted-foreground">
           No hay cuentas de portales activas.{' '}
           <Link href="/mi-empresa/portales" className="font-medium text-primary hover:underline">
-            Conectá MercadoLibre en Mi empresa → Portales
+            Conectá un portal en Mi empresa → Portales
           </Link>
           .
         </p>
@@ -105,53 +117,130 @@ export function PropertyListings({
 
   return (
     <div className="flex flex-col gap-5">
-      {portals.map((portal) => (
-        <SectionCard key={portal} title={PORTAL_LABELS[portal]}>
-          <ul className="flex flex-col divide-y divide-border">
-            {operations.map((operation) => (
-              <ListingRow
-                key={operation}
-                propertyId={propertyId}
-                portal={portal}
-                operation={operation}
-                listing={view.listings.find(
-                  (l) => l.portal === portal && l.operation === operation,
-                )}
-                canPublish={view.canPublish && view.portals.includes(portal)}
-                isAvailable={isAvailable}
-              />
-            ))}
-          </ul>
-          {!isAvailable && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Solo se publica una propiedad disponible. Si está reservada o pausada, sus avisos
-              quedan en pausa; vendida, alquilada o dada de baja, se cierran.
-            </p>
-          )}
-        </SectionCard>
-      ))}
+      {portals.map((portal) => {
+        const option = publishingOf(portal, view);
+        const canPublish = view.canPublish && view.portals.some((p) => p.portal === portal);
+        const rows = option.listingScope === 'property' ? [undefined] : operations;
+        return (
+          <SectionCard key={portal} title={PORTAL_LABELS[portal]}>
+            <ul className="flex flex-col divide-y divide-border">
+              {rows.map((operation) => (
+                <ListingRow
+                  key={operation ?? 'all'}
+                  propertyId={propertyId}
+                  portal={portal}
+                  operation={operation}
+                  operations={operations}
+                  listing={view.listings.find(
+                    (l) => l.portal === portal && l.operation === operation,
+                  )}
+                  canPublish={canPublish}
+                  isAvailable={isAvailable}
+                  plans={option.choosesPlan ? (plans[portal] ?? NO_PLANS) : undefined}
+                />
+              ))}
+            </ul>
+            {option.listingScope === 'property' && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Un solo aviso con todas las operaciones con precio: usa un crédito mientras está
+                online. Pausar lo saca del portal y libera el crédito; reactivarlo vuelve a usar
+                uno.
+              </p>
+            )}
+            {!isAvailable && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Solo se publica una propiedad disponible. Si está reservada o pausada, sus avisos
+                quedan en pausa; vendida, alquilada o dada de baja, se cierran.
+              </p>
+            )}
+          </SectionCard>
+        );
+      })}
     </div>
   );
+}
+
+const NO_PLANS: PortalCreditsResult = {
+  ok: false,
+  message: 'No pudimos leer los planes del portal. Recargá la página.',
+};
+
+/**
+ * Cómo se arma el aviso en el portal. Una cuenta desactivada ya no viene en la vista: se deduce
+ * de sus publicaciones (sin operación, el aviso es de la propiedad).
+ */
+function publishingOf(portal: PortalValue, view: PropertyListingsView): PortalPublishingView {
+  const option = view.portals.find((p) => p.portal === portal);
+  if (option) return option;
+  const whole = view.listings.some((l) => l.portal === portal && l.operation === undefined);
+  return { portal, listingScope: whole ? 'property' : 'operation', choosesPlan: whole };
+}
+
+/** Los planes para avisos de propiedades (sin los de emprendimientos), con lo que queda. */
+function propertyPlans(plans: PortalCreditsResult | undefined): readonly PortalCreditView[] {
+  return plans?.ok ? plans.credits.filter((c) => c.publishes === 'property') : [];
+}
+
+function PlanSelect({
+  plans,
+  value,
+  onChange,
+  disabled,
+}: {
+  readonly plans: readonly PortalCreditView[];
+  readonly value: string | undefined;
+  readonly onChange: (plan: string) => void;
+  readonly disabled: boolean;
+}) {
+  return (
+    <Select value={value ?? ''} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger className="w-[220px]" aria-label="Plan del aviso">
+        <SelectValue placeholder="Elegí el plan" />
+      </SelectTrigger>
+      <SelectContent>
+        {plans.map((credit) => (
+          <SelectItem key={credit.plan} value={credit.plan} disabled={credit.available <= 0}>
+            {planLabel(credit.plan)} · {creditsLabel(credit.available)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function creditsLabel(available: number): string {
+  if (available <= 0) return 'sin créditos';
+  return available === 1 ? '1 crédito' : `${String(available)} créditos`;
 }
 
 function ListingRow({
   propertyId,
   portal,
   operation,
+  operations,
   listing,
   canPublish,
   isAvailable,
+  plans,
 }: {
   readonly propertyId: string;
   readonly portal: PortalValue;
-  readonly operation: ListingOperationValue;
+  /** Sin operación: el aviso lleva todas las de la propiedad. */
+  readonly operation: ListingOperationValue | undefined;
+  readonly operations: readonly ListingOperationValue[];
   readonly listing: PropertyListingView | undefined;
   readonly canPublish: boolean;
   readonly isAvailable: boolean;
+  /** Solo en los portales con plan. */
+  readonly plans: PortalCreditsResult | undefined;
 }) {
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const [type, setType] = useState<ListingTypeValue>(listing?.listingType ?? 'simple');
+  const choosesPlan = plans !== undefined;
+  const offeredPlans = propertyPlans(plans);
+  // Sin plan elegido de antemano: cada plan consume créditos distintos, lo decide quien publica.
+  const [plan, setPlan] = useState<string | undefined>(listing?.plan);
   const [confirming, setConfirming] = useState(false);
 
   function run(action: () => Promise<ActionResult>, success: string) {
@@ -172,7 +261,12 @@ function ListingRow({
   return (
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold">{LISTING_OPERATION_LABELS[operation]}</span>
+        <span className="font-semibold">
+          {operation === undefined
+            ? operations.map((o) => LISTING_OPERATION_LABELS[o]).join(' · ') ||
+              'Todas las operaciones'
+            : LISTING_OPERATION_LABELS[operation]}
+        </span>
         {status ? (
           <StatusPill tone={status.tone}>{status.label}</StatusPill>
         ) : (
@@ -180,7 +274,9 @@ function ListingRow({
         )}
         {listing && !closed && (
           <span className="text-sm text-muted-foreground">
-            {LISTING_TYPE_LABELS[listing.listingType]}
+            {listing.plan === undefined
+              ? LISTING_TYPE_LABELS[listing.listingType]
+              : `Plan ${planLabel(listing.plan)}`}
           </span>
         )}
         {listing?.intent === 'paused' && listing.status !== 'paused' && (
@@ -193,7 +289,7 @@ function ListingRow({
             rel="noreferrer"
             className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
-            Ver en MercadoLibre
+            Ver en {PORTAL_SITE_NAMES[portal]}
             <ExternalLinkIcon className="h-3.5 w-3.5" aria-hidden />
           </a>
         )}
@@ -206,37 +302,43 @@ function ListingRow({
         </p>
       )}
       <FormAlert message={error} />
+      {canPublish && plans !== undefined && !plans.ok && <FormAlert message={plans.message} />}
 
       {canPublish && (
         <div className="flex flex-wrap items-center gap-2">
           {closed ? (
             <>
-              <Select
-                value={type}
-                onValueChange={(next) => {
-                  setType(next === 'featured' ? 'featured' : 'simple');
-                }}
-                disabled={busy}
-              >
-                <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
-                  <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
-                </SelectContent>
-              </Select>
+              {choosesPlan ? (
+                <PlanSelect plans={offeredPlans} value={plan} onChange={setPlan} disabled={busy} />
+              ) : (
+                <Select
+                  value={type}
+                  onValueChange={(next) => {
+                    setType(next === 'featured' ? 'featured' : 'simple');
+                  }}
+                  disabled={busy}
+                >
+                  <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
+                    <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               <Button
                 size="sm"
-                disabled={busy || !isAvailable}
+                disabled={busy || !isAvailable || (choosesPlan && plan === undefined)}
                 onClick={() => {
                   run(
                     () =>
                       requestPublicationAction({
                         propertyId,
                         portal,
-                        operation,
+                        ...(operation === undefined ? {} : { operation }),
                         listingType: type,
+                        ...(choosesPlan && plan !== undefined ? { plan } : {}),
                       }),
                     'Publicación pedida: el aviso se crea en unos segundos',
                   );
@@ -277,23 +379,49 @@ function ListingRow({
                   Pausar
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  run(
-                    () =>
-                      changeListingTypeAction({
-                        listingId: listing.id,
-                        listingType: listing.listingType === 'simple' ? 'featured' : 'simple',
-                      }),
-                    'Tipo de aviso cambiado',
-                  );
-                }}
-              >
-                {listing.listingType === 'simple' ? 'Pasar a destacado' : 'Pasar a simple'}
-              </Button>
+              {choosesPlan ? (
+                <>
+                  <PlanSelect
+                    plans={offeredPlans}
+                    value={plan}
+                    onChange={setPlan}
+                    disabled={busy}
+                  />
+                  {plan !== undefined && plan !== listing.plan && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        run(
+                          () => changeListingPlanAction({ listingId: listing.id, plan }),
+                          'Plan cambiado',
+                        );
+                      }}
+                    >
+                      Cambiar plan
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    run(
+                      () =>
+                        changeListingTypeAction({
+                          listingId: listing.id,
+                          listingType: listing.listingType === 'simple' ? 'featured' : 'simple',
+                        }),
+                      'Tipo de aviso cambiado',
+                    );
+                  }}
+                >
+                  {listing.listingType === 'simple' ? 'Pasar a destacado' : 'Pasar a simple'}
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -321,6 +449,7 @@ function ListingRow({
                 Dar de baja
               </Button>
               <UnpublishDialog
+                portal={portal}
                 open={confirming}
                 onOpenChange={setConfirming}
                 onConfirm={() => {
@@ -337,10 +466,12 @@ function ListingRow({
 }
 
 function UnpublishDialog({
+  portal,
   open,
   onOpenChange,
   onConfirm,
 }: {
+  readonly portal: PortalValue;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onConfirm: () => void;
@@ -351,9 +482,9 @@ function UnpublishDialog({
         <DialogHeader>
           <DialogTitle>Dar de baja el aviso</DialogTitle>
           <DialogDescription>
-            El aviso se cierra en MercadoLibre y no se puede reactivar: para volver a mostrarlo hay
-            que publicarlo de nuevo, como un aviso nuevo (con otra antigüedad y sin sus visitas). Si
-            solo querés sacarlo un tiempo, pausalo.
+            {portal === 'zonaprop'
+              ? 'El aviso sale de Zonaprop y libera su crédito. Para volver a mostrarlo hay que publicarlo de nuevo. Si solo querés sacarlo un tiempo, pausalo.'
+              : 'El aviso se cierra en MercadoLibre y no se puede reactivar: para volver a mostrarlo hay que publicarlo de nuevo, como un aviso nuevo (con otra antigüedad y sin sus visitas). Si solo querés sacarlo un tiempo, pausalo.'}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

@@ -5,6 +5,7 @@ import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../shar
 import { PortalAccount } from '../domain/portal-account';
 import {
   FakeListingSourceReader,
+  FakePortalAccountDirectory,
   FakePortalConnector,
   InMemoryPortalsUnitOfWork,
   LISTED_PROPERTY_ID,
@@ -53,7 +54,11 @@ function setup() {
   const deps = { uow, reader, connector, clock };
   return {
     ...deps,
-    request: new RequestPublication({ ...deps, ids: new SequentialIdGenerator() }),
+    request: new RequestPublication({
+      ...deps,
+      directory: new FakePortalAccountDirectory(),
+      ids: new SequentialIdGenerator(),
+    }),
     sync: new SyncListing(deps),
     syncProperty: new RequestListingSync({ uow, clock }),
     pause: new PauseListing({ uow, clock }),
@@ -152,13 +157,6 @@ describe('RequestPublication', () => {
     expect(
       unwrapErr(await request.execute({ ...SALE, portal: 'mercadolibre_developments' }, AGENT)),
     ).toEqual({ type: 'PortalNotForProperties' });
-  });
-
-  it('does not publish on Zonaprop yet', async () => {
-    const { request } = setup();
-    expect(unwrapErr(await request.execute({ ...SALE, portal: 'zonaprop' }, AGENT))).toEqual({
-      type: 'PortalNotForProperties',
-    });
   });
 
   it('fails for an unknown property', async () => {
@@ -504,7 +502,7 @@ describe('GetPropertyListings', () => {
     const view = unwrap(await list.execute({ propertyId: LISTED_PROPERTY_ID }, AGENT));
     expect(view).toMatchObject({
       canPublish: true,
-      portals: ['mercadolibre'],
+      portals: [{ portal: 'mercadolibre', listingScope: 'operation', choosesPlan: false }],
       listings: [{ id: listingId, status: 'published', permalink: 'https://ml.test/MLA1' }],
     });
   });

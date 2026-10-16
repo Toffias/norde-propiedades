@@ -118,7 +118,8 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     portal: PortalId,
     externalId: string,
     change: {
-      readonly content: PortalListingContent | undefined;
+      readonly content: PortalListingContent;
+      readonly contentChanged: boolean;
       readonly state: 'active' | 'paused';
     },
   ): Promise<Result<PortalListingState, PortalSyncError>> {
@@ -130,7 +131,8 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     // Vencido o dado de baja en MercadoLibre: no se puede reactivar.
     if (item.data.status === 'closed') return ok('closed');
 
-    const { content } = change;
+    // ML guarda el contenido aunque el aviso esté pausado: solo se manda si cambió.
+    const content = change.contentChanged ? change.content : undefined;
     if (content) {
       const body = await this.#itemBody(content);
       if (body.isErr()) return err(body.error);

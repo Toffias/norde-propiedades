@@ -5,11 +5,13 @@ export * from './contracts';
 export {
   LISTING_OWNER_KINDS,
   PORTAL_CATALOG,
+  LISTING_SCOPES,
   PORTAL_CONNECTION_METHODS,
   PORTALS,
   isPortalId,
   portalPublishes,
   type ListingOwnerKind,
+  type ListingScope,
   type PortalConnectionMethod,
   type PortalDefinition,
   type PortalId,
@@ -144,6 +146,16 @@ export {
   ChangeListingType,
   type ChangeListingTypeError,
 } from './application/commands/change-listing-type';
+export {
+  ChangeListingPlan,
+  type ChangeListingPlanError,
+} from './application/commands/change-listing-plan';
+export type {
+  ListingPlanError,
+  NoCreditsLeftError,
+  PlanNotOfferedError,
+  PlanRequiredError,
+} from './application/listing-plan';
 export { ResyncListing, type ResyncListingError } from './application/commands/resync-listing';
 export {
   RequestListingSync,

@@ -20,7 +20,11 @@ export type ListingIntent = (typeof LISTING_INTENTS)[number];
 export const LISTING_TYPES = ['simple', 'featured'] as const;
 export type ListingType = (typeof LISTING_TYPES)[number];
 
-/** Un aviso por operación: venta y alquiler van en categorías distintas del portal. */
+/**
+ * Las operaciones que puede llevar un aviso. En los portales con un aviso por operación (ML), cada
+ * publicación tiene la suya; en los de un aviso por propiedad (Zonaprop), no tiene ninguna y lleva
+ * todas las operaciones con precio.
+ */
 export const LISTING_OPERATIONS = ['sale', 'rent', 'temporary_rent'] as const;
 export type ListingOperation = (typeof LISTING_OPERATIONS)[number];
 
@@ -45,8 +49,11 @@ export interface ListingSnapshot {
   readonly portal: PortalId;
   /** Propiedad del módulo properties: solo el ID. */
   readonly propertyId: string;
-  readonly operation: ListingOperation;
+  /** Sin operación: el aviso lleva todas las operaciones de la propiedad (Zonaprop). */
+  readonly operation: ListingOperation | undefined;
   readonly listingType: ListingType;
+  /** El plan del portal, en los que se elige entre los contratados (en Zonaprop, `SIMPLE`…). */
+  readonly plan: string | undefined;
   readonly status: ListingStatus;
   readonly intent: ListingIntent;
   /** ID del aviso en el portal, una vez creado. */
@@ -80,7 +87,7 @@ export interface ListingNotClosedError {
   readonly type: 'ListingNotClosed';
 }
 
-/** Publicación de una propiedad, en una operación, en un portal. */
+/** Publicación de una propiedad en un portal: de una operación, o de todas en un solo aviso. */
 export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   #state: ListingSnapshot;
 
@@ -94,8 +101,9 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     readonly id: ListingId;
     readonly portal: PortalId;
     readonly propertyId: string;
-    readonly operation: ListingOperation;
+    readonly operation: ListingOperation | undefined;
     readonly listingType: ListingType;
+    readonly plan: string | undefined;
     readonly now: Date;
   }): Listing {
     const listing = new Listing({
@@ -104,6 +112,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
       propertyId: input.propertyId,
       operation: input.operation,
       listingType: input.listingType,
+      plan: input.plan,
       status: 'pending',
       intent: 'active',
       externalId: undefined,
@@ -166,11 +175,15 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   }
 
   /** Vuelve a publicar un aviso dado de baja: es un aviso nuevo en el portal. */
-  republish(listingType: ListingType, now: Date): Result<void, ListingNotClosedError> {
+  republish(
+    exposure: { readonly listingType: ListingType; readonly plan: string | undefined },
+    now: Date,
+  ): Result<void, ListingNotClosedError> {
     if (this.#state.intent !== 'closed') return err({ type: 'ListingNotClosed' });
     this.#state = {
       ...this.#state,
-      listingType,
+      listingType: exposure.listingType,
+      plan: exposure.plan,
       intent: 'active',
       status: 'pending',
       externalId: undefined,
@@ -189,6 +202,15 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     if (this.#state.intent === 'closed') return err({ type: 'ListingClosed' });
     if (this.#state.listingType === listingType) return ok(false);
     this.#state = { ...this.#state, listingType, contentHash: undefined };
+    this.requestSync(now);
+    return ok(true);
+  }
+
+  /** Cambia el plan (en Zonaprop, consume un crédito del plan nuevo). Sin cambios, `false`. */
+  changePlan(plan: string, now: Date): Result<boolean, ListingClosedError> {
+    if (this.#state.intent === 'closed') return err({ type: 'ListingClosed' });
+    if (this.#state.plan === plan) return ok(false);
+    this.#state = { ...this.#state, plan, contentHash: undefined };
     this.requestSync(now);
     return ok(true);
   }

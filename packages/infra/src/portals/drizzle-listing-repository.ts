@@ -11,7 +11,7 @@ import {
   type PortalId,
 } from '@norde/core/portals';
 import { parseId, type Clock } from '@norde/core/shared';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -19,13 +19,13 @@ import { portalListings } from '../db/schema';
 
 const ListingRowSchema = z.object({
   portal: z.enum(PORTALS),
-  operation: z.enum(LISTING_OPERATIONS),
+  operation: z.enum(LISTING_OPERATIONS).nullable(),
   listingType: z.enum(LISTING_TYPES),
   status: z.enum(LISTING_STATUSES),
   intent: z.enum(LISTING_INTENTS),
 });
 
-/** Tope de publicaciones de una propiedad: una por portal y operación. */
+/** Tope de publicaciones de una propiedad: una por portal y operación (o una por portal). */
 const MAX_LISTINGS_PER_PROPERTY = PORTALS.length * LISTING_OPERATIONS.length;
 
 function toListing(row: typeof portalListings.$inferSelect): Listing {
@@ -39,8 +39,9 @@ function toListing(row: typeof portalListings.$inferSelect): Listing {
     id: id.value,
     portal: values.portal,
     propertyId: row.propertyId,
-    operation: values.operation,
+    operation: values.operation ?? undefined,
     listingType: values.listingType,
+    plan: row.plan ?? undefined,
     status: values.status,
     intent: values.intent,
     externalId: row.externalId ?? undefined,
@@ -83,7 +84,7 @@ export class DrizzleListingRepository implements ListingRepository {
   async findOne(
     portal: PortalId,
     propertyId: string,
-    operation: ListingOperation,
+    operation: ListingOperation | undefined,
   ): Promise<Listing | undefined> {
     const [row] = await this.db
       .select()
@@ -92,7 +93,9 @@ export class DrizzleListingRepository implements ListingRepository {
         and(
           eq(portalListings.portal, portal),
           eq(portalListings.propertyId, propertyId),
-          eq(portalListings.operation, operation),
+          operation === undefined
+            ? isNull(portalListings.operation)
+            : eq(portalListings.operation, operation),
         ),
       )
       .limit(1);
@@ -114,6 +117,7 @@ export class DrizzleListingRepository implements ListingRepository {
     const now = this.clock.now();
     const values = {
       listingType: s.listingType,
+      plan: s.plan ?? null,
       status: s.status,
       intent: s.intent,
       externalId: s.externalId ?? null,
@@ -132,7 +136,7 @@ export class DrizzleListingRepository implements ListingRepository {
         id: s.id,
         portal: s.portal,
         propertyId: s.propertyId,
-        operation: s.operation,
+        operation: s.operation ?? null,
         ...values,
         createdAt: s.createdAt,
         createdBy: actorId,

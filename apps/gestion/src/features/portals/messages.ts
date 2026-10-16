@@ -1,4 +1,5 @@
 import type {
+  ChangeListingPlanError,
   ChangeListingTypeError,
   ConnectPortalAccountWithCodeError,
   DisconnectPortalAccountError,
@@ -37,13 +38,20 @@ export const PORTAL_LABELS: Readonly<Record<PortalValue, string>> = {
   zonaprop: 'Zonaprop',
 };
 
+/** El nombre del sitio, para "Ver en …". */
+export const PORTAL_SITE_NAMES: Readonly<Record<PortalValue, string>> = {
+  mercadolibre: 'MercadoLibre',
+  mercadolibre_developments: 'MercadoLibre',
+  zonaprop: 'Zonaprop',
+};
+
 export const PORTAL_DESCRIPTIONS: Readonly<Record<PortalValue, string>> = {
   mercadolibre:
     'Cuenta de MercadoLibre activada como inmobiliaria, con un paquete de publicaciones. Publica las propiedades.',
   mercadolibre_developments:
     'Otra cuenta, con el paquete de emprendimientos de MercadoLibre: publica cada emprendimiento con sus unidades. Esa cuenta no puede publicar propiedades sueltas.',
   zonaprop:
-    'La inmobiliaria de Norde en Zonaprop, con sus créditos de publicación. Se conecta con el código de inmobiliaria. Publicar desde el sistema llega más adelante: por ahora los avisos siguen saliendo por Tokko.',
+    'La inmobiliaria de Norde en Zonaprop, con sus créditos de publicación. Se conecta con el código de inmobiliaria. Cada propiedad se publica como un solo aviso con todas sus operaciones, con el plan que se elija en la ficha.',
 };
 
 export const START_CONNECTION_ERROR_MESSAGES = {
@@ -111,11 +119,28 @@ const LISTING_NOT_FOUND = 'No encontramos esa publicación. Recargá la página.
 const LISTING_CLOSED =
   'El aviso está dado de baja: para volver a mostrarlo, publicalo de nuevo (es un aviso nuevo).';
 
+/** `DESTACADO_COMBO` → `Destacado combo`. Los planes los define el portal. */
+export function planLabel(plan: string): string {
+  const words = plan.toLowerCase().split('_').filter(Boolean).join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+const PLAN_MESSAGES = {
+  PlanNotOffered: (error: { readonly plan: string }) =>
+    `La cuenta no tiene el plan ${planLabel(error.plan)} para propiedades. Elegí otro.`,
+  NoCreditsLeft: (error: { readonly plan: string }) =>
+    `No quedan créditos del plan ${planLabel(error.plan)}. Elegí otro plan o cargá créditos en el portal.`,
+  PortalNotConfigured:
+    'Faltan las credenciales del portal en el servidor, o el portal las rechazó (Mi empresa → Portales).',
+  PortalUnavailable:
+    'El portal no respondió al consultar los créditos. Probá de nuevo en unos minutos.',
+} as const;
+
 export const PUBLICATION_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN_PUBLISH,
-  ValidationFailed: 'Revisá la operación y el tipo de aviso.',
-  PortalNotEnabled:
-    'La cuenta de MercadoLibre no está conectada o está desactivada (Mi empresa → Portales).',
+  ValidationFailed: (error) => error.issues[0] ?? 'Revisá la operación y el tipo de aviso.',
+  PortalNotEnabled: (error) =>
+    `La cuenta de ${PORTAL_LABELS[error.portal]} no está conectada o está desactivada (Mi empresa → Portales).`,
   PortalNotForProperties: 'Esa cuenta publica emprendimientos, no propiedades sueltas.',
   PropertyNotFound: 'No encontramos la propiedad. Puede que la hayan eliminado.',
   UnitPublishedWithDevelopment:
@@ -123,10 +148,12 @@ export const PUBLICATION_ERROR_MESSAGES = {
   PropertyNotAvailable: 'Solo se publica una propiedad disponible.',
   OperationNotOffered: 'La propiedad no ofrece esa operación.',
   PriceRequired:
-    'MercadoLibre exige un precio: cargalo en la operación y sacale "precio a consultar".',
-  MissingListingData: (error) => `Faltan datos para MercadoLibre: ${error.problems.join(' ')}`,
-  ListingAlreadyExists: 'Esa operación ya está publicada en MercadoLibre.',
-  ListingNotClosed: 'Esa operación ya está publicada en MercadoLibre.',
+    'El portal exige un precio: cargalo en la operación y sacale "precio a consultar".',
+  MissingListingData: (error) => `Faltan datos para el portal: ${error.problems.join(' ')}`,
+  PlanRequired: 'Elegí el plan del aviso.',
+  ...PLAN_MESSAGES,
+  ListingAlreadyExists: 'Esa propiedad ya está publicada en ese portal.',
+  ListingNotClosed: 'Esa propiedad ya está publicada en ese portal.',
 } satisfies ErrorMessages<RequestPublicationError>;
 
 export const LISTING_ERROR_MESSAGES = {
@@ -141,6 +168,16 @@ export const LISTING_ERROR_MESSAGES = {
   | ChangeListingTypeError
   | ResyncListingError
 >;
+
+export const PLAN_CHANGE_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN_PUBLISH,
+  ValidationFailed: (error) => error.issues[0] ?? LISTING_NOT_FOUND,
+  ListingNotFound: LISTING_NOT_FOUND,
+  ListingClosed: LISTING_CLOSED,
+  PortalNotEnabled: (error) =>
+    `La cuenta de ${PORTAL_LABELS[error.portal]} no está conectada o está desactivada (Mi empresa → Portales).`,
+  ...PLAN_MESSAGES,
+} satisfies ErrorMessages<ChangeListingPlanError>;
 
 export const PROPERTY_LISTINGS_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver la difusión en portales.',

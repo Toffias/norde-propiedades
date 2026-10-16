@@ -163,8 +163,9 @@ export class FakePortalAccountDirectory implements PortalAccountDirectory {
     ['17310373', { externalAccountId: '17310373', accountName: 'Norde Propiedades' }],
   ]);
   availableCredits: readonly PortalCredit[] = [
-    { plan: 'SIMPLE', available: 40, contracted: 50 },
-    { plan: 'DESTACADO', available: 3, contracted: 5 },
+    { plan: 'SIMPLE', available: 40, contracted: 50, publishes: 'property' },
+    { plan: 'HOME', available: 0, contracted: 5, publishes: 'property' },
+    { plan: 'DESARROLLOS_HOME', available: 2, contracted: 2, publishes: 'development' },
   ];
   failWith: PortalAccountLookupError | undefined;
   creditsFailWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
@@ -197,7 +198,7 @@ export class InMemoryListingRepository implements ListingRepository {
     return this.findById(id);
   }
 
-  findOne(portal: PortalId, propertyId: string, operation: ListingOperation) {
+  findOne(portal: PortalId, propertyId: string, operation: ListingOperation | undefined) {
     const row = [...this.rows.values()].find(
       (r) => r.portal === portal && r.propertyId === propertyId && r.operation === operation,
     );
@@ -307,14 +308,16 @@ export class FakePortalConnector implements PortalConnector {
     _portal: PortalId,
     externalId: string,
     change: {
-      readonly content: PortalListingContent | undefined;
+      readonly content: PortalListingContent;
+      readonly contentChanged: boolean;
       readonly state: 'active' | 'paused';
     },
   ): Promise<Result<PortalListingState, PortalSyncError>> {
+    // Registra el contenido solo cuando cambió: es lo que el portal tiene que recibir.
     this.calls.push({
       method: 'update',
       externalId,
-      ...(change.content === undefined ? {} : { content: change.content }),
+      ...(change.contentChanged ? { content: change.content } : {}),
       state: change.state,
     });
     if (this.failWith) return Promise.resolve(err(this.failWith));

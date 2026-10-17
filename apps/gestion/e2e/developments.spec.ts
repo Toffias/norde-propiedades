@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { changeStatus } from './support/menus';
 import { detailSection, uniqueTag } from './support/properties';
 import { storageStateFor } from './support/users';
 
@@ -86,10 +87,7 @@ test.describe('ficha', () => {
   test('pasa a comercializando', async ({ page }) => {
     await createDevelopment(page);
 
-    await page.getByRole('button', { name: 'Cambiar estado' }).click();
-    await page.getByRole('menuitem', { name: 'Comercializando' }).click();
-
-    await expect(page.getByText('Ahora está comercializando.')).toBeVisible();
+    await changeStatus(page, 'Comercializando', 'Ahora está comercializando.');
   });
 
   test('edita la obra y la entrega', async ({ page }) => {

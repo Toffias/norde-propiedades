@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { pickOption } from './support/appraisals';
 import { createContact, type CreatedContact } from './support/clients';
+import { changeStatus } from './support/menus';
 import {
   createProperty,
   openProperty,
@@ -23,9 +24,8 @@ test.beforeEach(async ({ page }) => {
 async function availableProperty(page: Page): Promise<CreatedProperty> {
   const property = await createProperty(page, { price: '150000' });
   await openProperty(page, property.code);
-  await page.getByRole('button', { name: 'Cambiar estado' }).click();
-  await page.getByRole('menuitem', { name: 'Disponible' }).click();
-  await expect(page.getByText('Ahora está disponible.')).toBeVisible();
+  await changeStatus(page, 'Disponible', 'Ahora está disponible.');
+
   return property;
 }
 

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+import { changeStatus } from './support/menus';
 import {
   createProperty,
   detailSection,
@@ -156,12 +157,9 @@ test.describe('ficha', () => {
     await openProperty(page, created.code);
 
     // Un borrador pasa a disponible y, recién ahí, se puede pausar.
-    await page.getByRole('button', { name: 'Cambiar estado' }).click();
-    await page.getByRole('menuitem', { name: 'Disponible' }).click();
-    await expect(page.getByText('Ahora está disponible.')).toBeVisible();
-    await page.getByRole('button', { name: 'Cambiar estado' }).click();
-    await page.getByRole('menuitem', { name: 'Pausada' }).click();
-    await expect(page.getByText('Ahora está pausada.')).toBeVisible();
+    await changeStatus(page, 'Disponible', 'Ahora está disponible.');
+    await changeStatus(page, 'Pausada', 'Ahora está pausada.');
+
     await page
       .getByRole('navigation', { name: 'Secciones de la ficha' })
       .getByRole('link', { name: 'Historial' })

@@ -54,6 +54,7 @@ function createStorage(env: Env) {
     endpoint: env.S3_ENDPOINT,
     region: env.S3_REGION ?? 'auto',
     bucket: env.S3_BUCKET ?? '',
+    prefix: env.S3_PREFIX,
     accessKeyId: env.S3_ACCESS_KEY_ID ?? '',
     secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
   });

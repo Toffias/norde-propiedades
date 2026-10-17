@@ -19,6 +19,11 @@ const EnvSchema = z.object({
   S3_ENDPOINT: z.url({ protocol: /^https$/ }).optional(),
   S3_REGION: z.string().optional(),
   S3_BUCKET: z.string().optional(),
+  /** Carpeta del bucket, para compartirlo con otros proyectos (`norde-uat`). Sin valor, la raíz. */
+  S3_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)*$/, 'A folder like norde-uat')
+    .optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
 

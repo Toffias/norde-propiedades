@@ -14,6 +14,11 @@ export interface S3FileStorageOptions {
   /** R2 usa `auto`. */
   readonly region: string;
   readonly bucket: string;
+  /**
+   * Carpeta del bucket donde viven los archivos, para compartirlo con otros proyectos
+   * (`norde-uat`). Las claves que ve el sistema no la llevan. Sin valor, la raíz del bucket.
+   */
+  readonly prefix?: string | undefined;
   readonly accessKeyId: string;
   readonly secretAccessKey: string;
   /** Tiempo máximo de cada operación. */
@@ -33,6 +38,7 @@ function attachment(fileName: string): string {
 export class S3FileStorage implements FileStorage {
   readonly #client: S3Client;
   readonly #bucket: string;
+  readonly #prefix: string;
   readonly #timeoutMs: number;
 
   constructor(options: S3FileStorageOptions) {
@@ -45,6 +51,8 @@ export class S3FileStorage implements FileStorage {
       },
     });
     this.#bucket = options.bucket;
+    const folder = (options.prefix ?? '').replace(/^\/+|\/+$/g, '');
+    this.#prefix = folder === '' ? '' : `${folder}/`;
     this.#timeoutMs = options.timeoutMs ?? 30_000;
   }
 
@@ -52,7 +60,7 @@ export class S3FileStorage implements FileStorage {
     await this.#client.send(
       new PutObjectCommand({
         Bucket: this.#bucket,
-        Key: object.key,
+        Key: this.#objectKey(object.key),
         Body: object.bytes,
         ContentType: object.contentType,
       }),
@@ -63,7 +71,7 @@ export class S3FileStorage implements FileStorage {
   async get(key: string): Promise<StoredObject | undefined> {
     try {
       const response = await this.#client.send(
-        new GetObjectCommand({ Bucket: this.#bucket, Key: key }),
+        new GetObjectCommand({ Bucket: this.#bucket, Key: this.#objectKey(key) }),
         { abortSignal: AbortSignal.timeout(this.#timeoutMs) },
       );
       if (!response.Body) return undefined;
@@ -85,7 +93,7 @@ export class S3FileStorage implements FileStorage {
       this.#client,
       new GetObjectCommand({
         Bucket: this.#bucket,
-        Key: key,
+        Key: this.#objectKey(key),
         ...(options.downloadName === undefined
           ? {}
           : { ResponseContentDisposition: attachment(options.downloadName) }),
@@ -95,8 +103,13 @@ export class S3FileStorage implements FileStorage {
   }
 
   async delete(key: string): Promise<void> {
-    await this.#client.send(new DeleteObjectCommand({ Bucket: this.#bucket, Key: key }), {
-      abortSignal: AbortSignal.timeout(this.#timeoutMs),
-    });
+    await this.#client.send(
+      new DeleteObjectCommand({ Bucket: this.#bucket, Key: this.#objectKey(key) }),
+      { abortSignal: AbortSignal.timeout(this.#timeoutMs) },
+    );
+  }
+
+  #objectKey(key: string): string {
+    return `${this.#prefix}${key}`;
   }
 }

@@ -110,6 +110,22 @@ INQUIRY_WEBHOOK_SECRET=SECRETO_DE_32_O_MAS
 # MERCADOLIBRE_REDIRECT_URI=https://gestionnorde.apzsoftware.online/api/portals/mercadolibre/callback
 ```
 
+**Fotos en S3.** MercadoLibre descarga las fotos con links firmados, y eso pide `STORAGE_DRIVER=s3`. Con `local` no se puede publicar en ML. UAT usa el bucket compartido `apzsoftware.online` (AWS, `us-east-2`), en la carpeta `norde-uat/`:
+
+- Un usuario IAM para gestión, con `s3:GetObject`, `s3:PutObject` y `s3:DeleteObject`, y otro para la web, solo con `s3:GetObject`. Los dos sobre `arn:aws:s3:::apzsoftware.online/norde-uat/*`, sin acceso al resto del bucket.
+- En los dos `.env`, cada uno con su clave:
+
+```bash
+STORAGE_DRIVER=s3
+S3_REGION=us-east-2
+S3_BUCKET=apzsoftware.online
+S3_PREFIX=norde-uat
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+```
+
+- Las fotos que ya estaban en `/var/www/norde-uat-storage` no se mueven solas. Se suben con las mismas rutas: `aws s3 sync /var/www/norde-uat-storage s3://apzsoftware.online/norde-uat/`.
+
 `/var/www/norde-uat/apps/agent/.env`:
 
 ```bash

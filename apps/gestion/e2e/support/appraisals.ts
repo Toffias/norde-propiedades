@@ -60,7 +60,11 @@ export async function saveSaleValue(
   await expect(page.getByText('Resultado guardado.')).toBeVisible();
 }
 
-/** Cambia el estado desde el menú de la cabecera y espera el aviso. */
+/**
+ * Cambia el estado desde el menú de la cabecera y espera el aviso y a que el menú se desmonte: se
+ * cierra con una animación y, mientras dura, toma como de afuera el clic que lo vuelve a abrir y
+ * se cierra solo.
+ */
 export async function changeAppraisalStatus(
   page: Page,
   item: string,
@@ -69,4 +73,5 @@ export async function changeAppraisalStatus(
   await page.getByRole('button', { name: 'Cambiar estado' }).click();
   await page.getByRole('menuitem', { name: item }).click();
   await expect(page.getByText(toast)).toBeVisible();
+  await expect(page.getByRole('menu')).toHaveCount(0);
 }

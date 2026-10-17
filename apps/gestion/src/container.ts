@@ -175,6 +175,7 @@ import {
   ChangePropertyStatus,
   ChangePropertyTags,
   CompareProperties,
+  FindDevelopmentsByCode,
   FindPropertiesByCode,
   GetPropertySummaries,
   ListOwnedProperties,
@@ -329,15 +330,19 @@ import {
   ConnectPortalAccount,
   ConnectPortalAccountWithCode,
   DisconnectPortalAccount,
+  GetDevelopmentListings,
   GetPortalCredits,
   GetPropertyListings,
   EnablePortalLeadNotifications,
+  LinkDevelopmentListing,
   LinkPortalListing,
   NotifyPortalLeads,
   PullPortalLeads,
   ListPortalAccounts,
+  ListRemoteDevelopments,
   ListRemoteListings,
   PauseListing,
+  RequestDevelopmentPublication,
   RequestListingSync,
   RequestPublication,
   ResumeListing,
@@ -448,6 +453,8 @@ import {
   type Env,
 } from './config/env';
 import { getLogger } from './config/logger';
+import { developmentCodeLookup } from './features/portals/development-code-lookup';
+import { developmentListingSourceReader } from './features/portals/development-listing-source-reader';
 import { listingSourceReader } from './features/portals/listing-source-reader';
 import { portalLeadSink } from './features/portals/portal-lead-sink';
 import { propertyCodeLookup } from './features/portals/property-code-lookup';
@@ -575,12 +582,13 @@ const IMPORT_ACTOR = Actor.system('import', [
   'properties:create',
 ]);
 /**
- * Sincroniza las publicaciones con los portales (#14). Lee la ficha, sus fotos, su sucursal y Mi
- * empresa para armar el aviso.
+ * Sincroniza las publicaciones con los portales (#14). Lee la ficha (de la propiedad o del
+ * emprendimiento y sus unidades), sus fotos, su sucursal y Mi empresa para armar el aviso.
  */
 const PORTAL_SYNC_ACTOR = Actor.system('portal-sync', [
   'portals:sync',
   'properties:read',
+  'developments:read',
   'settings:read',
   'branches:read',
 ]);
@@ -639,12 +647,23 @@ function createPortalServices(
       logger,
     }),
   });
+  const branch = new GetBranch({ organization: new DrizzleOrganizationQuery(db) });
   const reader = listingSourceReader({
     propertyDetail: modules.properties.getPanelPropertyDetail,
     photos: modules.properties.listShareablePhotos,
     companySettings: modules.settings.getCompanySettings,
-    branch: new GetBranch({ organization: new DrizzleOrganizationQuery(db) }),
+    branch,
     actor: PORTAL_SYNC_ACTOR,
+  });
+  const developments = developmentListingSourceReader({
+    developmentDetail: modules.properties.getDevelopmentDetail,
+    units: modules.properties.listPanelProperties,
+    unit: reader,
+    photos: modules.properties.listShareablePhotos,
+    companySettings: modules.settings.getCompanySettings,
+    branch,
+    actor: PORTAL_SYNC_ACTOR,
+    logger,
   });
   const catalog = new ZonapropListingCatalog({ api: zonaprop, logger });
   const leads = new ZonapropLeads({ api: zonaprop, logger });
@@ -653,7 +672,23 @@ function createPortalServices(
     findByCode: modules.properties.findPropertiesByCode,
     actor: PORTAL_SYNC_ACTOR,
   });
-  return { uow, authorizer, connector, directory, reader, catalog, codes, leads, sink };
+  const developmentCodes = developmentCodeLookup({
+    findByCode: modules.properties.findDevelopmentsByCode,
+    actor: PORTAL_SYNC_ACTOR,
+  });
+  return {
+    uow,
+    authorizer,
+    connector,
+    directory,
+    reader,
+    developments,
+    catalog,
+    codes,
+    developmentCodes,
+    leads,
+    sink,
+  };
 }
 
 /** Cuentas y publicaciones de portales (#14). Sin `PORTALS_ENABLED`, no existe. */
@@ -665,7 +700,18 @@ function createPortalsUseCases(
 ) {
   const services = createPortalServices(db, env, deps, modules);
   if (!services) return undefined;
-  const { uow, authorizer, connector, directory, reader, catalog, codes, leads } = services;
+  const {
+    uow,
+    authorizer,
+    connector,
+    directory,
+    reader,
+    developments,
+    catalog,
+    codes,
+    developmentCodes,
+    leads,
+  } = services;
   const { ids, clock } = deps;
   const accounts = new DrizzlePortalAccountRepository(db, clock);
 
@@ -681,6 +727,21 @@ function createPortalsUseCases(
     requestPublication: new RequestPublication({ uow, reader, connector, directory, ids, clock }),
     listRemoteListings: new ListRemoteListings({ uow, catalog, properties: codes }),
     linkListing: new LinkPortalListing({ uow, catalog, reader, ids, clock }),
+    getDevelopmentListings: new GetDevelopmentListings({ uow }),
+    requestDevelopmentPublication: new RequestDevelopmentPublication({
+      uow,
+      developments,
+      connector,
+      directory,
+      ids,
+      clock,
+    }),
+    listRemoteDevelopments: new ListRemoteDevelopments({
+      uow,
+      catalog,
+      developments: developmentCodes,
+    }),
+    linkDevelopmentListing: new LinkDevelopmentListing({ uow, catalog, developments, ids, clock }),
     /** El portal avisó que llegó un contacto (webhook): se pide leerlos. */
     notifyZonapropLeads: () =>
       new NotifyPortalLeads({ uow, clock }).execute({ portal: 'zonaprop' }, PORTAL_SYNC_ACTOR),
@@ -844,6 +905,9 @@ function createPropertiesUseCases(
     listOwnedProperties: new ListOwnedProperties({ properties: list, users }),
     getPropertySummaries: new GetPropertySummaries({ properties: list, users }),
     findPropertiesByCode: new FindPropertiesByCode({ properties: list, users }),
+    findDevelopmentsByCode: new FindDevelopmentsByCode({
+      developments: new DrizzleDevelopmentListQuery(db),
+    }),
     createProperty: new CreateProperty({
       uow,
       codes: referenceCodesFrom(settings),

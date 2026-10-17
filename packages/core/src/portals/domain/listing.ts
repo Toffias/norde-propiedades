@@ -3,7 +3,7 @@ import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { ListingEvent } from './listing.events';
-import type { PortalId } from './portal';
+import type { ListingOwnerKind, PortalId } from './portal';
 
 /** Lo que muestra el panel de una publicación: en qué quedó en el portal. */
 export const LISTING_STATUSES = ['pending', 'published', 'paused', 'error', 'unpublished'] as const;
@@ -42,13 +42,34 @@ export function ownerAvailability(status: string, isDeleted: boolean): OwnerAvai
   return 'closed';
 }
 
+/**
+ * Qué permite hoy el emprendimiento: se ofrece mientras está "comercializando" y tiene alguna
+ * unidad para publicar; cargando información o sin unidades, queda en pausa (vuelve solo cuando hay
+ * unidades). En la papelera, nada.
+ */
+export function developmentAvailability(input: {
+  readonly status: string;
+  readonly isDeleted: boolean;
+  readonly publishableUnits: number;
+}): OwnerAvailability {
+  if (input.isDeleted) return 'closed';
+  if (input.status !== 'marketing' || input.publishableUnits === 0) return 'paused';
+  return 'active';
+}
+
 export type ListingId = Id<'Listing'>;
+
+/** Lo que se publica: una propiedad suelta o un emprendimiento con sus unidades (por ID). */
+export interface ListingOwner {
+  readonly kind: ListingOwnerKind;
+  readonly id: string;
+}
 
 export interface ListingSnapshot {
   readonly id: ListingId;
   readonly portal: PortalId;
-  /** Propiedad del módulo properties: solo el ID. */
-  readonly propertyId: string;
+  /** La propiedad o el emprendimiento del módulo properties: solo el ID. */
+  readonly owner: ListingOwner;
   /** Sin operación: el aviso lleva todas las operaciones de la propiedad (Zonaprop). */
   readonly operation: ListingOperation | undefined;
   readonly listingType: ListingType;
@@ -87,7 +108,10 @@ export interface ListingNotClosedError {
   readonly type: 'ListingNotClosed';
 }
 
-/** Publicación de una propiedad en un portal: de una operación, o de todas en un solo aviso. */
+/**
+ * Publicación de una propiedad en un portal (de una operación, o de todas en un solo aviso) o de un
+ * emprendimiento con sus unidades.
+ */
 export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   #state: ListingSnapshot;
 
@@ -100,7 +124,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   static request(input: {
     readonly id: ListingId;
     readonly portal: PortalId;
-    readonly propertyId: string;
+    readonly owner: ListingOwner;
     readonly operation: ListingOperation | undefined;
     readonly listingType: ListingType;
     readonly plan: string | undefined;
@@ -109,7 +133,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     const listing = new Listing({
       id: input.id,
       portal: input.portal,
-      propertyId: input.propertyId,
+      owner: input.owner,
       operation: input.operation,
       listingType: input.listingType,
       plan: input.plan,
@@ -136,7 +160,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   static linked(input: {
     readonly id: ListingId;
     readonly portal: PortalId;
-    readonly propertyId: string;
+    readonly owner: ListingOwner;
     readonly operation: ListingOperation | undefined;
     readonly plan: string | undefined;
     readonly externalId: string;
@@ -147,7 +171,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     return new Listing({
       id: input.id,
       portal: input.portal,
-      propertyId: input.propertyId,
+      owner: input.owner,
       operation: input.operation,
       listingType: 'simple',
       plan: input.plan,
@@ -172,8 +196,8 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     return this.#state.portal;
   }
 
-  get propertyId(): string {
-    return this.#state.propertyId;
+  get owner(): ListingOwner {
+    return this.#state.owner;
   }
 
   /** Cerrado en el portal y sin pedido de volver a publicar: no hay nada más que sincronizar. */
@@ -188,7 +212,11 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
       type: 'portals.listing_sync_requested',
       aggregateId: this.id,
       occurredAt: now,
-      payload: { listingId: this.id, propertyId: this.#state.propertyId },
+      payload: {
+        listingId: this.id,
+        ownerKind: this.#state.owner.kind,
+        ownerId: this.#state.owner.id,
+      },
     });
   }
 
@@ -373,7 +401,8 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
       occurredAt: now,
       payload: {
         listingId: this.id,
-        propertyId: this.#state.propertyId,
+        ownerKind: this.#state.owner.kind,
+        ownerId: this.#state.owner.id,
         portal: this.#state.portal,
         reason,
       },

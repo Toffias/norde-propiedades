@@ -137,7 +137,7 @@ describe('Property.create', () => {
         type: 'properties.property_changed',
         aggregateId: ID,
         occurredAt: NOW,
-        payload: { propertyId: ID, code: 'DEP0001' },
+        payload: { propertyId: ID, code: 'DEP0001', developmentIds: [] },
       },
     ]);
   });
@@ -173,6 +173,17 @@ describe('Property changes for the public site', () => {
       'properties.property_changed',
     ]);
     expect(property.pullEvents()).toEqual([]);
+  });
+
+  it('tells the development of a unit that it changed', () => {
+    const developmentId = '01920000-0000-7000-8000-0000000000d1';
+    const unit = Property.restore(
+      unwrap(Property.create(newProperty({ developmentId }))).toSnapshot(),
+    );
+    unwrap(unit.changeStatus('available', LATER));
+    expect(
+      unit.pullEvents().find((e) => e.type === 'properties.property_changed')?.payload,
+    ).toEqual({ propertyId: ID, code: 'DEP0001', developmentIds: [developmentId] });
   });
 
   it('emits nothing for a stored property that was not edited', () => {

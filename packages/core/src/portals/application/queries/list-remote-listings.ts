@@ -99,7 +99,7 @@ export class ListRemoteListings {
           code: property.code,
           title: property.title,
         },
-        linked: listing && { listingId: listing.id, propertyId: listing.propertyId },
+        linked: listing && { listingId: listing.id, owner: listing.owner },
       };
     });
     return ok(toPage({ items, total: slice.value.total }, { page, pageSize }));

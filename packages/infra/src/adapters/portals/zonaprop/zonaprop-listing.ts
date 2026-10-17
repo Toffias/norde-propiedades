@@ -2,7 +2,9 @@ import type {
   ListingOperation,
   ListingPropertyKind,
   ListingSource,
-  PortalListingContent,
+  ListingSourceContact,
+  ListingSourcePhoto,
+  PropertyListingContent,
 } from '@norde/core/portals';
 import { z } from 'zod';
 
@@ -68,8 +70,8 @@ const DISPOSITIONS: Readonly<Record<string, string>> = {
 
 /** Zonaprop toma las primeras 50 fotos válidas. */
 export const ZONAPROP_MAX_PICTURES = 50;
-const TITLE_MAX = 80;
-const DESCRIPTION_MIN = 50;
+export const TITLE_MAX = 80;
+export const DESCRIPTION_MIN = 50;
 
 /**
  * El código del aviso en Zonaprop: lo elige Norde. Es el ID de la publicación sin guiones, así no
@@ -88,7 +90,7 @@ export function listingPermalink(remoteId: string | number): string {
 }
 
 /** Lo que le falta a la publicación para Zonaprop, en español para la ficha. Vacío: se manda. */
-export function listingProblems(content: PortalListingContent): string[] {
+export function listingProblems(content: PropertyListingContent): string[] {
   const { source } = content;
   const problems: string[] = [];
   if (content.plan === undefined) problems.push('Elegí el plan de Zonaprop.');
@@ -152,7 +154,7 @@ export function listingCharacteristics(source: ListingSource): Characteristic[] 
 }
 
 /** Los precios: la operación pedida, o todas las que tienen precio (sin las "a consultar"). */
-export function listingPrices(content: PortalListingContent) {
+export function listingPrices(content: PropertyListingContent) {
   return content.source.operations
     .filter(
       (o) =>
@@ -167,44 +169,63 @@ export function listingPrices(content: PortalListingContent) {
     }));
 }
 
+/** Quién publica: la inmobiliaria y el contacto de la sucursal. */
+export function listingPublisher(contact: ListingSourceContact, agencyCode: string) {
+  return {
+    codigoInmobiliaria: agencyCode,
+    nombreDeContacto: contact.name,
+    ...(contact.email === undefined ? {} : { emailDeContacto: contact.email }),
+    ...(contact.phone === undefined ? {} : { telefonoDeContacto: contact.phone }),
+  };
+}
+
+/** Dónde está: la ubicación de Zonaprop, la dirección publicada y las coordenadas. */
+export function listingLocation(
+  place: {
+    readonly address: string | undefined;
+    readonly coordinates: { readonly latitude: number; readonly longitude: number } | undefined;
+  },
+  locationId: string,
+) {
+  return {
+    idUbicacion: locationId,
+    ...(place.address === undefined ? {} : { direccion: place.address }),
+    ...(place.coordinates === undefined
+      ? {}
+      : {
+          latitud: String(place.coordinates.latitude),
+          longitud: String(place.coordinates.longitude),
+        }),
+    // Con la dirección publicada, el mapa la muestra; sin ella, solo la zona.
+    muestraMapa: place.address === undefined ? 'APROXIMADO' : 'EXACTO',
+  };
+}
+
+export function listingImages(photos: readonly ListingSourcePhoto[]) {
+  return {
+    imagenes: photos
+      .slice(0, ZONAPROP_MAX_PICTURES)
+      .map((photo) => ({ urlImagenOriginal: photo.url })),
+  };
+}
+
 /** El cuerpo del `PUT /v1/inmobiliarias/{codigo}/avisos/{codigoAviso}`. */
 export function listingBody(
-  content: PortalListingContent,
+  content: PropertyListingContent,
   context: { readonly agencyCode: string; readonly locationId: string },
 ) {
   const { source } = content;
-  const { contact } = source;
   return {
     codigoAviso: listingCode(content.listingId),
-    publicador: {
-      codigoInmobiliaria: context.agencyCode,
-      nombreDeContacto: contact.name,
-      ...(contact.email === undefined ? {} : { emailDeContacto: contact.email }),
-      ...(contact.phone === undefined ? {} : { telefonoDeContacto: contact.phone }),
-    },
+    publicador: listingPublisher(source.contact, context.agencyCode),
     publicacion: { tipoDePublicacion: content.plan },
     titulo: source.title.slice(0, TITLE_MAX),
     descripcion: source.description,
     tipoDePropiedad: { idTipo: PROPERTY_TYPE_IDS[source.kind] },
-    localizacion: {
-      idUbicacion: context.locationId,
-      ...(source.address === undefined ? {} : { direccion: source.address }),
-      ...(source.coordinates === undefined
-        ? {}
-        : {
-            latitud: String(source.coordinates.latitude),
-            longitud: String(source.coordinates.longitude),
-          }),
-      // Con la dirección publicada, el mapa la muestra; sin ella, solo la zona.
-      muestraMapa: source.address === undefined ? 'APROXIMADO' : 'EXACTO',
-    },
+    localizacion: listingLocation(source, context.locationId),
     precios: listingPrices(content),
     caracteristicas: listingCharacteristics(source),
-    multimedia: {
-      imagenes: source.photos
-        .slice(0, ZONAPROP_MAX_PICTURES)
-        .map((photo) => ({ urlImagenOriginal: photo.url })),
-    },
+    multimedia: listingImages(source.photos),
     // La clave con la que Norde identifica la propiedad en el panel de Zonaprop.
     claveReferencia: source.code,
   };
@@ -215,7 +236,10 @@ const MessageSchema = z.object({
   messageText: z.string().nullish(),
 });
 
-/** La respuesta de un `PUT` o `DELETE` de aviso (un objeto, o una lista con uno). */
+/**
+ * La respuesta de un `PUT` o `DELETE` de aviso (un objeto, o una lista con uno; la de un
+ * emprendimiento trae uno por el emprendimiento y uno por cada unidad).
+ */
 const ProcessedSchema = z.object({
   idAviso: z.union([z.number(), z.string()]).nullish(),
   codigoAviso: z.string().nullish(),
@@ -232,13 +256,23 @@ export function processedOf(body: z.infer<typeof ProcessedResponseSchema> | unde
   return Array.isArray(body) ? body[0] : body;
 }
 
+/** Todos los avisos de la respuesta: el emprendimiento y sus unidades, o el aviso solo. */
+export function processedAll(
+  body: z.infer<typeof ProcessedResponseSchema> | undefined,
+): readonly ProcessedListing[] {
+  if (body === undefined) return [];
+  return Array.isArray(body) ? body : [body];
+}
+
 /** Sin créditos para el plan: Zonaprop lo informa con `ERR-0502`. */
 const NO_CREDITS = 'ERR-0502';
 
 /** El motivo del rechazo para la ficha, con los mensajes de Zonaprop (vienen en español). */
 export function rejectionReason(body: unknown): string | undefined {
-  const processed = processedOf(ProcessedResponseSchema.safeParse(body).data);
-  const errors = processed?.errors ?? [];
+  // Un emprendimiento trae los errores de cada unidad en su propio aviso.
+  const errors = processedAll(ProcessedResponseSchema.safeParse(body).data).flatMap(
+    (processed) => processed.errors ?? [],
+  );
   if (errors.length === 0) return undefined;
   if (errors.some((e) => e.messageCode === NO_CREDITS)) {
     return 'Zonaprop rechazó el aviso: no quedan créditos de este plan. Elegí otro plan o cargá créditos.';

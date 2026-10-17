@@ -615,6 +615,11 @@ export {
   type ListDevelopmentsError,
 } from './application/queries/list-developments';
 export {
+  FindDevelopmentsByCode,
+  type DevelopmentByCodeRow,
+  type FindDevelopmentsByCodeError,
+} from './application/queries/find-developments-by-code';
+export {
   GetDevelopmentDetail,
   type GetDevelopmentDetailError,
 } from './application/queries/get-development-detail';

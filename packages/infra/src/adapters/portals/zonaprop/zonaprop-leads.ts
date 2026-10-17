@@ -13,6 +13,7 @@ import { z } from 'zod';
 import type { InfraLogger } from '../../../shared/logger';
 
 import type { ZonapropApi, ZonapropApiError } from './zonaprop-api';
+import { unitPropertyId } from './zonaprop-development';
 
 const MessageSchema = z.object({
   id: z.union([z.number(), z.string()]).nullish(),
@@ -76,6 +77,7 @@ function readError(error: ZonapropApiError): PortalNotConfiguredError | PortalUn
 function toLead(message: z.infer<typeof MessageSchema>): PortalLead | undefined {
   const id = message.idMensaje ?? message.id;
   if (id === undefined || id === null) return undefined;
+  const code = blank(message.codigoAviso);
   return {
     externalId: String(id),
     kind: KINDS[message.idContactoAccion ?? 1] ?? 'other',
@@ -84,7 +86,9 @@ function toLead(message: z.infer<typeof MessageSchema>): PortalLead | undefined 
     email: blank(message.email),
     phone: blank(message.telefono),
     message: blank(message.textoMensaje),
-    listingCode: blank(message.codigoAviso),
+    listingCode: code,
+    // Una unidad de un emprendimiento de Norde: su código es el de la propiedad.
+    unitPropertyId: code === undefined ? undefined : unitPropertyId(code),
   };
 }
 

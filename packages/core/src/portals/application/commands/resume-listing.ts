@@ -21,7 +21,7 @@ export class ResumeListing {
       uow: this.deps.uow,
       actor,
       listingId: parsed.value.listingId,
-      action: 'property.portal_resume_requested',
+      action: 'portal_resume_requested',
       change: (listing) =>
         listing
           .resume(this.deps.clock.now())

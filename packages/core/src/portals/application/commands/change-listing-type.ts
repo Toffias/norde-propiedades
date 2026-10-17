@@ -22,7 +22,7 @@ export class ChangeListingType {
       uow: this.deps.uow,
       actor,
       listingId,
-      action: 'property.portal_type_changed',
+      action: 'portal_type_changed',
       change: (listing) => {
         const before = listing.toSnapshot().listingType;
         return listing

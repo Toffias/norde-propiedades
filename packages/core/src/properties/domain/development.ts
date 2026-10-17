@@ -188,46 +188,57 @@ function sameCoordinates(a: Coordinates | undefined, b: Coordinates | undefined)
  */
 export class Development extends AggregateRoot<DevelopmentId, DevelopmentEvent> {
   #state: Omit<DevelopmentSnapshot, 'id'>;
+  /** El estado guardado; `undefined` mientras es nuevo. Cada cambio reemplaza `#state`. */
+  #saved: Omit<DevelopmentSnapshot, 'id'> | undefined;
 
-  private constructor(id: DevelopmentId, state: Omit<DevelopmentSnapshot, 'id'>) {
+  private constructor(
+    id: DevelopmentId,
+    state: Omit<DevelopmentSnapshot, 'id'>,
+    saved: 'stored' | 'new',
+  ) {
     super(id);
     this.#state = state;
+    this.#saved = saved === 'stored' ? state : undefined;
   }
 
   static create(input: NewDevelopment): Development {
     const name = input.name.trim();
     const privateAddress = input.privateAddress.trim();
-    const development = new Development(input.id, {
-      code: input.code,
-      slug: propertySlug(name, input.code),
-      name,
-      kind: input.kind,
-      status: 'loading',
-      constructionStatus: undefined,
-      deliveryDate: undefined,
-      privateAddress,
-      publishAddress:
-        optionalText(input.publishAddress) ?? suggestDevelopmentPublishAddress(privateAddress),
-      portalTitle: optionalText(input.portalTitle) ?? name,
-      locationId: input.locationId,
-      coordinates: input.coordinates,
-      developerName: optionalText(input.developerName),
-      commercialContactClientId: input.commercialContactClientId,
-      websiteUrl: undefined,
-      description: '',
-      financingDetails: undefined,
-      deal: EMPTY_DEVELOPMENT_DEAL,
-      featureIds: [],
-      tagIds: [],
-      producerUserId: input.producerUserId,
-      branchId: input.branchId,
-      chances: [],
-      inquiryRouteCursor: 0n,
-      deletedAt: undefined,
-      deletedBy: undefined,
-      createdAt: input.now,
-      updatedAt: input.now,
-    });
+    const development = new Development(
+      input.id,
+      {
+        code: input.code,
+        slug: propertySlug(name, input.code),
+        name,
+        kind: input.kind,
+        status: 'loading',
+        constructionStatus: undefined,
+        deliveryDate: undefined,
+        privateAddress,
+        publishAddress:
+          optionalText(input.publishAddress) ?? suggestDevelopmentPublishAddress(privateAddress),
+        portalTitle: optionalText(input.portalTitle) ?? name,
+        locationId: input.locationId,
+        coordinates: input.coordinates,
+        developerName: optionalText(input.developerName),
+        commercialContactClientId: input.commercialContactClientId,
+        websiteUrl: undefined,
+        description: '',
+        financingDetails: undefined,
+        deal: EMPTY_DEVELOPMENT_DEAL,
+        featureIds: [],
+        tagIds: [],
+        producerUserId: input.producerUserId,
+        branchId: input.branchId,
+        chances: [],
+        inquiryRouteCursor: 0n,
+        deletedAt: undefined,
+        deletedBy: undefined,
+        createdAt: input.now,
+        updatedAt: input.now,
+      },
+      'new',
+    );
     development.record({
       type: 'properties.development_created',
       aggregateId: input.id,
@@ -239,7 +250,25 @@ export class Development extends AggregateRoot<DevelopmentId, DevelopmentEvent> 
 
   static restore(snapshot: DevelopmentSnapshot): Development {
     const { id, ...state } = snapshot;
-    return new Development(id, state);
+    return new Development(id, state, 'stored');
+  }
+
+  /**
+   * Los eventos pendientes y, si cambió algo desde lo último guardado, `development_changed`: así
+   * ninguna edición se olvida de avisarles a los portales.
+   */
+  override pullEvents(): readonly DevelopmentEvent[] {
+    const { updatedAt, code } = this.#state;
+    if (this.#saved !== this.#state) {
+      this.record({
+        type: 'properties.development_changed',
+        aggregateId: this.id,
+        occurredAt: updatedAt,
+        payload: { developmentId: this.id, code },
+      });
+      this.#saved = this.#state;
+    }
+    return super.pullEvents();
   }
 
   get code(): string {

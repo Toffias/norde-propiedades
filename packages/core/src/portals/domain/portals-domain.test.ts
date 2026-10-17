@@ -18,10 +18,10 @@ function connected(portal: PortalId, externalAccountId: string) {
 }
 
 describe('portal catalog', () => {
-  it('publishes properties and developments through separate MercadoLibre accounts', () => {
+  it('publishes properties through MercadoLibre and nothing yet through its developments account', () => {
     expect(portalPublishes('mercadolibre', 'property')).toBe(true);
     expect(portalPublishes('mercadolibre', 'development')).toBe(false);
-    expect(portalPublishes('mercadolibre_developments', 'development')).toBe(true);
+    expect(portalPublishes('mercadolibre_developments', 'development')).toBe(false);
     expect(portalPublishes('mercadolibre_developments', 'property')).toBe(false);
   });
 
@@ -31,9 +31,9 @@ describe('portal catalog', () => {
     expect(PORTAL_CATALOG.zonaprop.connection).toBe('account_code');
   });
 
-  it('publishes Zonaprop properties in a single listing with a plan, not developments yet', () => {
+  it('publishes Zonaprop properties in a single listing with a plan, and developments', () => {
     expect(portalPublishes('zonaprop', 'property')).toBe(true);
-    expect(portalPublishes('zonaprop', 'development')).toBe(false);
+    expect(portalPublishes('zonaprop', 'development')).toBe(true);
     expect(PORTAL_CATALOG.zonaprop).toMatchObject({ listingScope: 'property', choosesPlan: true });
     expect(PORTAL_CATALOG.mercadolibre).toMatchObject({
       listingScope: 'operation',

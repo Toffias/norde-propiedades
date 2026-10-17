@@ -1,6 +1,6 @@
 import { err, ok, type Result } from '../../shared';
 import type { ListingOperation } from '../domain/listing';
-import { PORTAL_CATALOG, type PortalId } from '../domain/portal';
+import { PORTAL_CATALOG, type ListingOwnerKind, type PortalId } from '../domain/portal';
 import type { PortalAccountDirectory } from './ports/portal-account-directory';
 import type { ListingSource } from './ports/listing-source';
 import type { PortalNotConfiguredError, PortalUnavailableError } from './ports/portal-authorizer';
@@ -11,7 +11,7 @@ export interface PlanRequiredError {
   readonly type: 'PlanRequired';
 }
 
-/** La cuenta no tiene ese plan para avisos de propiedades. */
+/** La cuenta no tiene ese plan para ese tipo de aviso (propiedades o emprendimientos). */
 export interface PlanNotOfferedError {
   readonly type: 'PlanNotOffered';
   readonly plan: string;
@@ -63,7 +63,17 @@ export function pricedOperations(source: ListingSource, operation: ListingOperat
 }
 
 /**
- * Que la cuenta tenga ese plan para propiedades y le queden créditos. Los lee del portal: es una
+ * Las unidades de un emprendimiento que van en su aviso: las disponibles con alguna operación con
+ * precio (los portales exigen precio; una unidad "a consultar" no se publica).
+ */
+export function publishableUnits(units: readonly ListingSource[]): readonly ListingSource[] {
+  return units.filter(
+    (unit) => unit.availability === 'active' && pricedOperations(unit, undefined).length > 0,
+  );
+}
+
+/**
+ * Que la cuenta tenga ese plan para ese tipo de aviso y le queden créditos. Los lee del portal: es una
  * llamada externa, va fuera de la transacción.
  */
 export async function checkPlanCredits(
@@ -72,6 +82,7 @@ export async function checkPlanCredits(
     readonly portal: PortalId;
     readonly externalAccountId: string;
     readonly plan: string;
+    readonly publishes: ListingOwnerKind;
   },
 ): Promise<Result<void, ListingPlanError>> {
   const credits = await directory.credits({
@@ -79,7 +90,9 @@ export async function checkPlanCredits(
     externalAccountId: input.externalAccountId,
   });
   if (credits.isErr()) return err(credits.error);
-  const credit = credits.value.find((c) => c.plan === input.plan && c.publishes === 'property');
+  const credit = credits.value.find(
+    (c) => c.plan === input.plan && c.publishes === input.publishes,
+  );
   if (!credit) return err({ type: 'PlanNotOffered', plan: input.plan });
   if (credit.available <= 0) return err({ type: 'NoCreditsLeft', plan: input.plan });
   return ok(undefined);

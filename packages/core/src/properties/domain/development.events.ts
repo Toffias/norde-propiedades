@@ -16,5 +16,15 @@ export type DevelopmentStatusChanged = DomainEvent<
   DevelopmentPayload & { readonly from: string; readonly to: string }
 >;
 
+/**
+ * Algo del emprendimiento cambió (cualquier edición, alta, baja o cambio de estado): sus avisos en
+ * los portales se actualizan. Uno por guardado, sin importar cuántos campos cambiaron.
+ */
+export type DevelopmentChanged = DomainEvent<'properties.development_changed', DevelopmentPayload>;
+
 export type DevelopmentEvent =
-  DevelopmentCreated | DevelopmentDeleted | DevelopmentRestored | DevelopmentStatusChanged;
+  | DevelopmentCreated
+  | DevelopmentDeleted
+  | DevelopmentRestored
+  | DevelopmentStatusChanged
+  | DevelopmentChanged;

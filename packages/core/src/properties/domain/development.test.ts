@@ -92,7 +92,12 @@ describe('Development.create', () => {
         type: 'properties.development_created',
         payload: { developmentId: development.id, code: 'EMP0009' },
       }),
+      expect.objectContaining({
+        type: 'properties.development_changed',
+        payload: { developmentId: development.id, code: 'EMP0009' },
+      }),
     ]);
+    expect(development.pullEvents()).toEqual([]);
   });
 
   it('keeps the publish address and portal title that were typed', () => {
@@ -116,6 +121,7 @@ describe('Development status', () => {
     expect(development.pullEvents().map((event) => event.type)).toEqual([
       'properties.development_status_changed',
       'properties.development_status_changed',
+      'properties.development_changed',
     ]);
   });
 
@@ -239,6 +245,7 @@ describe('Development trash', () => {
     expect(development.pullEvents().map((event) => event.type)).toEqual([
       'properties.development_deleted',
       'properties.development_restored',
+      'properties.development_changed',
     ]);
   });
 

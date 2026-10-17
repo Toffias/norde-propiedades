@@ -1,15 +1,18 @@
 import type {
-  EnablePortalLeadNotificationsError,
-  LinkPortalListingError,
-  ListRemoteListingsError,
   ChangeListingPlanError,
   ChangeListingTypeError,
   ConnectPortalAccountWithCodeError,
   DisconnectPortalAccountError,
+  EnablePortalLeadNotificationsError,
   GetPortalCreditsError,
   GetPropertyListingsError,
+  LinkDevelopmentListingError,
+  LinkPortalListingError,
   ListPortalAccountsError,
+  ListRemoteDevelopmentsError,
+  ListRemoteListingsError,
   PauseListingError,
+  RequestDevelopmentPublicationError,
   RequestPublicationError,
   ResumeListingError,
   ResyncListingError,
@@ -130,7 +133,7 @@ export function planLabel(plan: string): string {
 
 const PLAN_MESSAGES = {
   PlanNotOffered: (error: { readonly plan: string }) =>
-    `La cuenta no tiene el plan ${planLabel(error.plan)} para propiedades. Elegí otro.`,
+    `La cuenta no tiene el plan ${planLabel(error.plan)} para este tipo de aviso. Elegí otro.`,
   NoCreditsLeft: (error: { readonly plan: string }) =>
     `No quedan créditos del plan ${planLabel(error.plan)}. Elegí otro plan o cargá créditos en el portal.`,
   PortalNotConfigured:
@@ -158,6 +161,27 @@ export const PUBLICATION_ERROR_MESSAGES = {
   ListingAlreadyExists: 'Esa propiedad ya está publicada en ese portal.',
   ListingNotClosed: 'Esa propiedad ya está publicada en ese portal.',
 } satisfies ErrorMessages<RequestPublicationError>;
+
+const DEVELOPMENT_NOT_FOUND = 'No encontramos el emprendimiento. Puede que lo hayan eliminado.';
+const NOT_FOR_DEVELOPMENTS = 'Esa cuenta no publica emprendimientos.';
+
+export const DEVELOPMENT_PUBLICATION_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN_PUBLISH,
+  ValidationFailed: (error) => error.issues[0] ?? 'Revisá el plan del aviso.',
+  PortalNotEnabled: (error) =>
+    `La cuenta de ${PORTAL_LABELS[error.portal]} no está conectada o está desactivada (Mi empresa → Portales).`,
+  PortalNotForDevelopments: NOT_FOR_DEVELOPMENTS,
+  DevelopmentNotFound: DEVELOPMENT_NOT_FOUND,
+  DevelopmentNotMarketing:
+    'Solo se publica un emprendimiento "Comercializando". Cambiale el estado en la ficha.',
+  NoPublishableUnits:
+    'El emprendimiento no tiene unidades disponibles con precio: el portal pide al menos una.',
+  MissingListingData: (error) => `Faltan datos para el portal: ${error.problems.join(' ')}`,
+  PlanRequired: 'Elegí el plan del aviso.',
+  ...PLAN_MESSAGES,
+  ListingAlreadyExists: 'Ese emprendimiento ya está publicado en ese portal.',
+  ListingNotClosed: 'Ese emprendimiento ya está publicado en ese portal.',
+} satisfies ErrorMessages<RequestDevelopmentPublicationError>;
 
 export const LISTING_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN_PUBLISH,
@@ -206,8 +230,11 @@ export const LINK_LISTING_ERROR_MESSAGES = {
   RemoteListingNotFound:
     'Zonaprop no tiene online un aviso con ese número en la cuenta de Norde. Revisá el link.',
   RemoteListingIsDevelopment:
-    'Ese aviso es un emprendimiento: se vincula con los emprendimientos, más adelante.',
-  RemoteListingAlreadyLinked: 'Ese aviso ya está vinculado a otra propiedad.',
+    'Ese aviso es un emprendimiento: vinculalo desde la ficha del emprendimiento, en Difusión.',
+  RemoteListingAlreadyLinked: (error) =>
+    error.owner.kind === 'development'
+      ? 'Ese aviso ya está vinculado a un emprendimiento.'
+      : 'Ese aviso ya está vinculado a otra propiedad.',
   ListingAlreadyExists: 'La propiedad ya tiene un aviso en este portal.',
   PlanRequired: 'Zonaprop no informa el plan de ese aviso: elegilo.',
   PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
@@ -215,6 +242,35 @@ export const LINK_LISTING_ERROR_MESSAGES = {
   PortalRejected: (error) => error.reason,
   PortalCredentialsMissing: 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).',
 } satisfies ErrorMessages<LinkPortalListingError>;
+
+export const REMOTE_DEVELOPMENTS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver los emprendimientos del portal.',
+  ValidationFailed: (error) => error.issues[0] ?? 'Revisá la página.',
+  PortalNotConnected: NOT_CONNECTED,
+  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
+  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+} satisfies ErrorMessages<ListRemoteDevelopmentsError>;
+
+export const LINK_DEVELOPMENT_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN_PUBLISH,
+  ValidationFailed: (error) => error.issues[0] ?? 'Revisá el link del aviso.',
+  PortalNotEnabled: (error) =>
+    `La cuenta de ${PORTAL_LABELS[error.portal]} no está conectada o está desactivada (Mi empresa → Portales).`,
+  PortalNotForDevelopments: NOT_FOR_DEVELOPMENTS,
+  DevelopmentNotFound: DEVELOPMENT_NOT_FOUND,
+  RemoteListingNotFound:
+    'Zonaprop no tiene online un emprendimiento con ese número en la cuenta de Norde. Revisá el link.',
+  RemoteListingAlreadyLinked: (error) =>
+    error.owner.kind === 'development'
+      ? 'Ese aviso ya está vinculado a otro emprendimiento.'
+      : 'Ese aviso ya está vinculado a una propiedad.',
+  ListingAlreadyExists: 'El emprendimiento ya tiene un aviso en este portal.',
+  PlanRequired: 'Zonaprop no informa el plan de ese aviso: elegilo.',
+  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
+  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+  PortalRejected: (error) => error.reason,
+  PortalCredentialsMissing: 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).',
+} satisfies ErrorMessages<LinkDevelopmentListingError>;
 
 export const LEAD_NOTIFICATIONS_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN,

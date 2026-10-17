@@ -54,6 +54,7 @@ export class ChangeListingPlan {
         portal,
         externalAccountId: connection.externalAccountId,
         plan,
+        publishes: found.listing.owner.kind,
       });
       if (credits.isErr()) return err(credits.error);
     }
@@ -62,7 +63,7 @@ export class ChangeListingPlan {
       uow: this.deps.uow,
       actor,
       listingId,
-      action: 'property.portal_plan_changed',
+      action: 'portal_plan_changed',
       change: (listing) => {
         const before = listing.toSnapshot().plan ?? null;
         return listing

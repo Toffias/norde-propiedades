@@ -17,7 +17,7 @@ export class UnpublishListing {
       uow: this.deps.uow,
       actor,
       listingId: parsed.value.listingId,
-      action: 'property.portal_unpublish_requested',
+      action: 'portal_unpublish_requested',
       change: (listing) => {
         const before = listing.toSnapshot().intent;
         return ok(

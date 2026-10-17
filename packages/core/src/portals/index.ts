@@ -88,9 +88,11 @@ export {
   LISTING_STATUSES,
   LISTING_TYPES,
   Listing,
+  developmentAvailability,
   ownerAvailability,
   type ListingClosedError,
   type ListingId,
+  type ListingOwner,
   type ListingIntent,
   type ListingNotClosedError,
   type ListingOperation,
@@ -116,6 +118,14 @@ export type {
   ListingSourceReader,
 } from './application/ports/listing-source';
 export type {
+  DevelopmentListingSource,
+  DevelopmentListingSourceReader,
+  ListingConstructionStage,
+  ListingDevelopmentKind,
+} from './application/ports/development-listing-source';
+export type {
+  DevelopmentListingContent,
+  PropertyListingContent,
   PortalConnector,
   PortalCredentialsMissingError,
   PortalListingContent,
@@ -187,15 +197,40 @@ export {
   type ListRemoteListingsError,
 } from './application/queries/list-remote-listings';
 export type {
+  DevelopmentByCode,
+  DevelopmentCodeLookup,
   PortalListingCatalog,
   PropertyByCode,
   PropertyCodeLookup,
+  RemoteDevelopment,
+  RemoteDevelopmentUnit,
   RemoteListing,
 } from './application/ports/portal-listing-catalog';
+export {
+  RequestDevelopmentPublication,
+  type DevelopmentNotMarketingError,
+  type ListingDevelopmentNotFoundError,
+  type NoPublishableUnitsError,
+  type PortalNotForDevelopmentsError,
+  type RequestDevelopmentPublicationError,
+} from './application/commands/request-development-publication';
+export {
+  LinkDevelopmentListing,
+  type LinkDevelopmentListingError,
+} from './application/commands/link-development-listing';
+export {
+  ListRemoteDevelopments,
+  type ListRemoteDevelopmentsError,
+} from './application/queries/list-remote-developments';
+export {
+  GetDevelopmentListings,
+  type GetDevelopmentListingsError,
+} from './application/queries/get-development-listings';
 export {
   ChangeListingPlan,
   type ChangeListingPlanError,
 } from './application/commands/change-listing-plan';
+export { publishableUnits } from './application/listing-plan';
 export type {
   ListingPlanError,
   NoCreditsLeftError,

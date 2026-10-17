@@ -301,13 +301,16 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
    * ninguna edición se olvida de avisarle a la web (ADR 0023).
    */
   override pullEvents(): readonly PropertyEvent[] {
-    const { updatedAt, code } = this.#state;
+    const { updatedAt, code, developmentId } = this.#state;
     if (this.#saved !== this.#state) {
+      const developmentIds = [
+        ...new Set([developmentId, this.#saved?.developmentId].filter((id) => id !== undefined)),
+      ];
       this.record({
         type: 'properties.property_changed',
         aggregateId: this.id,
         occurredAt: updatedAt,
-        payload: { propertyId: this.id, code },
+        payload: { propertyId: this.id, code, developmentIds },
       });
       this.#saved = this.#state;
     }

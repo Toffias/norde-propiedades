@@ -36,6 +36,7 @@ export const DEVELOPMENT_TABS = [
   'multimedia',
   'archivos',
   'derivacion',
+  'difusion',
   'historial',
 ] as const;
 export type DevelopmentTab = (typeof DEVELOPMENT_TABS)[number];
@@ -46,6 +47,7 @@ export const DEVELOPMENT_TAB_LABELS: Readonly<Record<DevelopmentTab, string>> = 
   multimedia: 'Multimedia',
   archivos: 'Archivos',
   derivacion: 'Derivación',
+  difusion: 'Difusión',
   historial: 'Historial',
 };
 

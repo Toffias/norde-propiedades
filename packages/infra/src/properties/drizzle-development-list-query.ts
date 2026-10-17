@@ -191,10 +191,12 @@ export class DrizzleDevelopmentListQuery implements DevelopmentListQuery {
   }
 
   private filters(
-    c: DevelopmentFilterCriteria & Pick<DevelopmentListCriteria, 'view'>,
+    c: DevelopmentFilterCriteria & Pick<DevelopmentListCriteria, 'view' | 'codes'>,
   ): (SQL | undefined)[] {
     return [
       c.view === 'trash' ? isNotNull(developments.deletedAt) : isNull(developments.deletedAt),
+      // Por `developments_code_uq`.
+      c.codes === undefined ? undefined : inArray(developments.code, [...c.codes]),
       c.text === undefined ? undefined : matchesSearchText(developments.searchText, c.text),
       c.status === undefined ? undefined : eq(developments.status, c.status),
       c.developmentType === undefined

@@ -132,6 +132,7 @@ export class RequestPublication {
     const newId = parseId<'Listing'>(this.deps.ids.next());
     if (newId.isErr()) throw new Error('The id generator returned an invalid id');
     const problems = this.deps.connector.problems(portal, {
+      kind: 'property',
       listingId: newId.value,
       source,
       operation,
@@ -150,6 +151,7 @@ export class RequestPublication {
         portal,
         externalAccountId: connection.externalAccountId,
         plan,
+        publishes: 'property',
       });
       if (credits.isErr()) return err(credits.error);
     }
@@ -160,7 +162,8 @@ export class RequestPublication {
         const account = await tx.accounts.get(portal);
         if (!account.canPublish) return err({ type: 'PortalNotEnabled', portal });
 
-        const existing = await tx.listings.findOne(portal, propertyId, operation);
+        const owner = { kind: 'property', id: propertyId } as const;
+        const existing = await tx.listings.findOne(portal, owner, operation);
         let listing: Listing;
         if (existing) {
           const republished = existing.republish({ listingType, plan }, now);
@@ -170,7 +173,7 @@ export class RequestPublication {
           listing = Listing.request({
             id: newId.value,
             portal,
-            propertyId,
+            owner,
             operation,
             listingType,
             plan,
@@ -181,7 +184,7 @@ export class RequestPublication {
         await tx.listings.save(listing, actor.id);
         await tx.events.publish(listing.pullEvents());
         await tx.audit.record(
-          auditAction(actor, listingAuditTarget('property.portal_publish_requested', listing), {
+          auditAction(actor, listingAuditTarget('portal_publish_requested', listing), {
             [`listings.${listing.id}`]: { before: null, after: listingAuditValue(listing) },
           }),
         );

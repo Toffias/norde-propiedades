@@ -288,7 +288,7 @@ describe('ListPortalAccounts', () => {
         {
           portal: 'mercadolibre_developments',
           connection: 'oauth',
-          publishes: ['development'],
+          publishes: [],
           paid: true,
           isEnabled: false,
           isConnected: false,
@@ -298,7 +298,7 @@ describe('ListPortalAccounts', () => {
         {
           portal: 'zonaprop',
           connection: 'account_code',
-          publishes: ['property'],
+          publishes: ['property', 'development'],
           paid: true,
           isEnabled: false,
           isConnected: false,

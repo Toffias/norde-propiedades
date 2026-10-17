@@ -23,6 +23,9 @@ import { DevelopmentHistoryGrid } from '../../../../features/developments/compon
 import { DevelopmentSections } from '../../../../features/developments/components/development-sections';
 import { DevelopmentTabs } from '../../../../features/developments/components/development-tabs';
 import { UnitsGrid } from '../../../../features/developments/components/units-grid';
+import { DevelopmentListings } from '../../../../features/portals/components/property-listings';
+import { PROPERTY_LISTINGS_ERROR_MESSAGES } from '../../../../features/portals/messages';
+import { loadPortalCredits } from '../../../../features/portals/queries';
 import { DEVELOPMENT_TABS, type DevelopmentTab } from '../../../../features/developments/labels';
 import { DEVELOPMENT_READ_ERROR_MESSAGES } from '../../../../features/developments/messages';
 import { AttachmentsGrid } from '../../../../features/media/components/attachments-grid';
@@ -62,6 +65,14 @@ function permissionsFor(
     addUnits: edit && actor.can('properties:create'),
     history: canActOn(actor, OWNERSHIP_RULES.auditRead, ownership),
   };
+}
+
+/** La pestaña Difusión: con la difusión activa y permiso para publicar o administrar cuentas. */
+function canSeePortals(actor: SessionActor['actor']): boolean {
+  return (
+    getContainer().portals !== undefined &&
+    (actor.can('portals:publish') || actor.can('portals:manage'))
+  );
 }
 
 export async function generateMetadata({
@@ -127,6 +138,7 @@ export default async function DevelopmentDetailPage({
         active={tab}
         unitCount={detail.unitCount}
         showHistory={permissions.history}
+        showDiffusion={canSeePortals(actor)}
       />
 
       {await renderTab(tab, detail, permissions, actor, query)}
@@ -234,6 +246,44 @@ async function renderTab(
     }
     case 'derivacion':
       return <DevelopmentChancesSection detail={detail} canEdit={permissions.edit} />;
+    case 'difusion': {
+      const { portals } = getContainer();
+      if (!portals || !canSeePortals(actor)) {
+        return (
+          <Card className="gap-0 overflow-hidden p-0">
+            <DataTableError
+              message={messageForError({ type: 'Forbidden' }, PROPERTY_LISTINGS_ERROR_MESSAGES)}
+            />
+          </Card>
+        );
+      }
+      const listings = await portals.getDevelopmentListings.execute({ developmentId }, actor);
+      if (listings.isErr()) {
+        return (
+          <Card className="gap-0 overflow-hidden p-0">
+            <DataTableError
+              message={messageForError(listings.error, PROPERTY_LISTINGS_ERROR_MESSAGES)}
+            />
+          </Card>
+        );
+      }
+      // Los planes (y sus créditos) de los portales que los piden, leídos del portal en el momento.
+      const plans = await loadPortalCredits(
+        listings.value.portals.filter((p) => p.choosesPlan).map((p) => p.portal),
+      );
+      return (
+        <DevelopmentListings
+          developmentId={developmentId}
+          publishableUnits={detail.availableUnitCount}
+          isMarketing={detail.status === 'marketing' && detail.deletedAt === undefined}
+          view={{
+            ...listings.value,
+            canPublish: listings.value.canPublish && detail.deletedAt === undefined,
+          }}
+          plans={plans}
+        />
+      );
+    }
     case 'historial': {
       if (!permissions.history) {
         return (

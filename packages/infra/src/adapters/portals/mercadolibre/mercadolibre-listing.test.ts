@@ -11,6 +11,7 @@ import {
 } from './mercadolibre-listing';
 
 const SALE = {
+  kind: 'property',
   listingId: '01920000-0000-7000-8000-00000000a001',
   source: listingSource(),
   operation: 'sale',

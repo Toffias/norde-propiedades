@@ -2,6 +2,7 @@
 
 import type {
   ListingOperationValue,
+  ListingOwnerKindValue,
   ListingTypeValue,
   PortalCreditView,
   PortalPublishingView,
@@ -49,9 +50,11 @@ import { formatDateTime } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
 import {
   changeListingPlanAction,
+  linkDevelopmentListingAction,
   linkPortalListingAction,
   changeListingTypeAction,
   pauseListingAction,
+  requestDevelopmentPublicationAction,
   requestPublicationAction,
   resumeListingAction,
   resyncListingAction,
@@ -64,6 +67,12 @@ import type { PortalCreditsResult } from '../queries';
 /** Mientras haya avisos publicándose, la pestaña se refresca sola cada tanto. */
 const REFRESH_MS = 5000;
 const MAX_REFRESHES = 24;
+
+/** De qué es la pestaña: una propiedad o un emprendimiento. */
+interface ListingOwner {
+  readonly kind: ListingOwnerKindValue;
+  readonly id: string;
+}
 
 /**
  * La pestaña Difusión de la ficha. En los portales con un aviso por operación (MercadoLibre), una
@@ -99,6 +108,85 @@ export function PropertyListings({
       </SectionCard>
     );
   }
+  return (
+    <ListingsPanel
+      owner={{ kind: 'property', id: propertyId }}
+      label={
+        operations.map((o) => LISTING_OPERATION_LABELS[o]).join(' · ') || 'Todas las operaciones'
+      }
+      operations={operations}
+      view={view}
+      isAvailable={isAvailable}
+      plans={plans}
+      wholeNote="Un solo aviso con todas las operaciones con precio: usa un crédito mientras está online. Pausar lo saca del portal y libera el crédito; reactivarlo vuelve a usar uno."
+      unavailableNote="Solo se publica una propiedad disponible. Si está reservada o pausada, sus avisos quedan en pausa; vendida, alquilada o dada de baja, se cierran."
+    />
+  );
+}
+
+/**
+ * La pestaña Difusión del emprendimiento: un aviso por portal con todas sus unidades disponibles
+ * con precio, y el plan elegido entre los de emprendimientos.
+ */
+export function DevelopmentListings({
+  developmentId,
+  publishableUnits,
+  isMarketing,
+  view,
+  plans,
+}: {
+  readonly developmentId: string;
+  /** Unidades disponibles: las que van en el aviso (si tienen precio). */
+  readonly publishableUnits: number;
+  readonly isMarketing: boolean;
+  readonly view: PropertyListingsView;
+  readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
+}) {
+  const pending = view.listings.some((listing) => listing.status === 'pending');
+  useAutoRefresh(pending);
+  const units =
+    publishableUnits === 1
+      ? '1 unidad disponible'
+      : `${String(publishableUnits)} unidades disponibles`;
+
+  return (
+    <ListingsPanel
+      owner={{ kind: 'development', id: developmentId }}
+      label={`Emprendimiento · ${units}`}
+      operations={[]}
+      view={view}
+      isAvailable={isMarketing && publishableUnits > 0}
+      plans={plans}
+      wholeNote="Un solo aviso con todas las unidades disponibles con precio: las reservadas, vendidas o pausadas no van, y si no queda ninguna el aviso sale del portal hasta que haya una. Cada cambio del emprendimiento o de sus unidades actualiza el aviso."
+      unavailableNote={
+        isMarketing
+          ? 'Para publicar hace falta al menos una unidad disponible con precio.'
+          : 'Solo se publica un emprendimiento "Comercializando": mientras está cargando información, su aviso queda en pausa.'
+      }
+    />
+  );
+}
+
+function ListingsPanel({
+  owner,
+  label,
+  operations,
+  view,
+  isAvailable,
+  plans,
+  wholeNote,
+  unavailableNote,
+}: {
+  readonly owner: ListingOwner;
+  /** Qué lleva el aviso de todo el dueño (las operaciones, o las unidades). */
+  readonly label: string;
+  readonly operations: readonly ListingOperationValue[];
+  readonly view: PropertyListingsView;
+  readonly isAvailable: boolean;
+  readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
+  readonly wholeNote: string;
+  readonly unavailableNote: string;
+}) {
   const portals = [
     ...new Set<PortalValue>([
       ...view.portals.map((p) => p.portal),
@@ -109,7 +197,9 @@ export function PropertyListings({
     return (
       <SectionCard title="Difusión en portales">
         <p className="text-sm text-muted-foreground">
-          No hay cuentas de portales activas.{' '}
+          {owner.kind === 'development'
+            ? 'No hay cuentas activas que publiquen emprendimientos. '
+            : 'No hay cuentas de portales activas. '}
           <Link href="/mi-empresa/portales" className="font-medium text-primary hover:underline">
             Conectá un portal en Mi empresa → Portales
           </Link>
@@ -131,10 +221,10 @@ export function PropertyListings({
               {rows.map((operation) => (
                 <ListingRow
                   key={operation ?? 'all'}
-                  propertyId={propertyId}
+                  owner={owner}
+                  label={operation === undefined ? label : LISTING_OPERATION_LABELS[operation]}
                   portal={portal}
                   operation={operation}
-                  operations={operations}
                   listing={view.listings.find(
                     (l) => l.portal === portal && l.operation === operation,
                   )}
@@ -145,17 +235,10 @@ export function PropertyListings({
               ))}
             </ul>
             {option.listingScope === 'property' && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Un solo aviso con todas las operaciones con precio: usa un crédito mientras está
-                online. Pausar lo saca del portal y libera el crédito; reactivarlo vuelve a usar
-                uno.
-              </p>
+              <p className="mt-3 text-xs text-muted-foreground">{wholeNote}</p>
             )}
             {!isAvailable && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Solo se publica una propiedad disponible. Si está reservada o pausada, sus avisos
-                quedan en pausa; vendida, alquilada o dada de baja, se cierran.
-              </p>
+              <p className="mt-3 text-xs text-muted-foreground">{unavailableNote}</p>
             )}
           </SectionCard>
         );
@@ -180,9 +263,15 @@ function publishingOf(portal: PortalValue, view: PropertyListingsView): PortalPu
   return { portal, listingScope: whole ? 'property' : 'operation', choosesPlan: whole };
 }
 
-/** Los planes para avisos de propiedades (sin los de emprendimientos), con lo que queda. */
-function propertyPlans(plans: PortalCreditsResult | undefined): readonly PortalCreditView[] {
-  return plans?.ok ? plans.credits.filter((c) => c.publishes === 'property') : [];
+/**
+ * Los planes para ese tipo de aviso (los de propiedades o los de emprendimientos), con lo que
+ * queda de cada uno.
+ */
+function plansFor(
+  plans: PortalCreditsResult | undefined,
+  kind: ListingOwnerKindValue,
+): readonly PortalCreditView[] {
+  return plans?.ok ? plans.credits.filter((c) => c.publishes === kind) : [];
 }
 
 function PlanSelect({
@@ -218,20 +307,20 @@ function creditsLabel(available: number): string {
 }
 
 function ListingRow({
-  propertyId,
+  owner,
+  label,
   portal,
   operation,
-  operations,
   listing,
   canPublish,
   isAvailable,
   plans,
 }: {
-  readonly propertyId: string;
+  readonly owner: ListingOwner;
+  readonly label: string;
   readonly portal: PortalValue;
-  /** Sin operación: el aviso lleva todas las de la propiedad. */
+  /** Sin operación: el aviso lleva todas las de la propiedad (o es el del emprendimiento). */
   readonly operation: ListingOperationValue | undefined;
-  readonly operations: readonly ListingOperationValue[];
   readonly listing: PropertyListingView | undefined;
   readonly canPublish: boolean;
   readonly isAvailable: boolean;
@@ -242,7 +331,7 @@ function ListingRow({
   const [error, setError] = useState<string | undefined>();
   const [type, setType] = useState<ListingTypeValue>(listing?.listingType ?? 'simple');
   const choosesPlan = plans !== undefined;
-  const offeredPlans = propertyPlans(plans);
+  const offeredPlans = plansFor(plans, owner.kind);
   // Sin plan elegido de antemano: cada plan consume créditos distintos, lo decide quien publica.
   const [plan, setPlan] = useState<string | undefined>(listing?.plan);
   const [confirming, setConfirming] = useState(false);
@@ -266,12 +355,7 @@ function ListingRow({
   return (
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold">
-          {operation === undefined
-            ? operations.map((o) => LISTING_OPERATION_LABELS[o]).join(' · ') ||
-              'Todas las operaciones'
-            : LISTING_OPERATION_LABELS[operation]}
-        </span>
+        <span className="font-semibold">{label}</span>
         {status ? (
           <StatusPill tone={status.tone}>{status.label}</StatusPill>
         ) : (
@@ -336,15 +420,22 @@ function ListingRow({
                 size="sm"
                 disabled={busy || !isAvailable || (choosesPlan && plan === undefined)}
                 onClick={() => {
+                  const chosen = choosesPlan && plan !== undefined ? { plan } : {};
                   run(
                     () =>
-                      requestPublicationAction({
-                        propertyId,
-                        portal,
-                        ...(operation === undefined ? {} : { operation }),
-                        listingType: type,
-                        ...(choosesPlan && plan !== undefined ? { plan } : {}),
-                      }),
+                      owner.kind === 'development'
+                        ? requestDevelopmentPublicationAction({
+                            developmentId: owner.id,
+                            portal,
+                            ...chosen,
+                          })
+                        : requestPublicationAction({
+                            propertyId: owner.id,
+                            portal,
+                            ...(operation === undefined ? {} : { operation }),
+                            listingType: type,
+                            ...chosen,
+                          }),
                     'Publicación pedida: el aviso se crea en unos segundos',
                   );
                 }}
@@ -371,7 +462,7 @@ function ListingRow({
               )}
               {linking && (
                 <LinkListingDialog
-                  propertyId={propertyId}
+                  owner={owner}
                   portal={portal}
                   plans={offeredPlans}
                   onClose={() => {
@@ -556,12 +647,12 @@ function useAutoRefresh(active: boolean) {
 
 /** Vincula un aviso que ya está online en el portal (lo publicó Tokko), pegando su link. */
 function LinkListingDialog({
-  propertyId,
+  owner,
   portal,
   plans,
   onClose,
 }: {
-  readonly propertyId: string;
+  readonly owner: ListingOwner;
   readonly portal: PortalValue;
   readonly plans: readonly PortalCreditView[];
   readonly onClose: () => void;
@@ -586,7 +677,12 @@ function LinkListingDialog({
           <DialogDescription>
             Pegá el link del aviso que ya está online en {site} (lo publicó Tokko). No se republica:
             conserva su antigüedad, sus visitas y sus consultas, y queda como está hasta que cambie
-            algo de la propiedad.
+            algo{' '}
+            {owner.kind === 'development'
+              ? 'del emprendimiento o de sus unidades.'
+              : 'de la propiedad.'}
+            {owner.kind === 'development' &&
+              ' Cada unidad del aviso se toma para la unidad con el mismo código; las que no tienen par salen en el próximo envío.'}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -595,13 +691,21 @@ function LinkListingDialog({
             event.preventDefault();
             setError(undefined);
             startTransition(async () => {
+              const chosen = plan === undefined ? {} : { plan };
               const message = await runAction(() =>
-                linkPortalListingAction({
-                  portal,
-                  propertyId,
-                  remoteId: remote,
-                  ...(plan === undefined ? {} : { plan }),
-                }),
+                owner.kind === 'development'
+                  ? linkDevelopmentListingAction({
+                      portal,
+                      developmentId: owner.id,
+                      remoteId: remote,
+                      ...chosen,
+                    })
+                  : linkPortalListingAction({
+                      portal,
+                      propertyId: owner.id,
+                      remoteId: remote,
+                      ...chosen,
+                    }),
               );
               if (message !== undefined) {
                 setError(message);
@@ -627,7 +731,11 @@ function LinkListingDialog({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Plan, si {site} no lo informa (opcional)</span>
+            <span className="text-sm font-medium">
+              {owner.kind === 'development'
+                ? `Plan (opcional: sin elegir, el que informa ${site})`
+                : `Plan, si ${site} no lo informa (opcional)`}
+            </span>
             <PlanSelect plans={plans} value={plan} onChange={setPlan} disabled={pending} />
           </div>
           <DialogFooter>

@@ -35,6 +35,7 @@ export interface PortalLeadSink {
     readonly phone: string | undefined;
     readonly message: string;
     readonly propertyId: string | undefined;
+    readonly developmentId: string | undefined;
   }): Promise<Result<{ readonly duplicate: boolean }, PortalLeadRejected>>;
 }
 

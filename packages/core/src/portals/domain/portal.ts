@@ -71,21 +71,22 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     leadChannel: undefined,
     paid: true,
   },
+  // Los emprendimientos de MercadoLibre (un aviso con las unidades como variantes) todavía no se
+  // publican desde Norde: la cuenta se conecta, pero no publica nada.
   mercadolibre_developments: {
     provider: 'mercadolibre',
     connection: 'oauth',
-    publishes: ['development'],
+    publishes: [],
     listingScope: 'operation',
     choosesPlan: false,
     linksExisting: false,
     leadChannel: undefined,
     paid: true,
   },
-  // Los emprendimientos llegan en la etapa 5 de Zonaprop.
   zonaprop: {
     provider: 'zonaprop',
     connection: 'account_code',
-    publishes: ['property'],
+    publishes: ['property', 'development'],
     listingScope: 'property',
     choosesPlan: true,
     linksExisting: true,

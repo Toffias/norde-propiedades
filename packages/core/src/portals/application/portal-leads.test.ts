@@ -133,7 +133,7 @@ describe('PullPortalLeads', () => {
     const listing = Listing.linked({
       id: id.value,
       portal: 'zonaprop',
-      propertyId: LISTED_PROPERTY_ID,
+      owner: { kind: 'property', id: LISTED_PROPERTY_ID },
       operation: undefined,
       plan: 'SIMPLE',
       externalId: '0192000000007000800000000000a001',
@@ -150,6 +150,37 @@ describe('PullPortalLeads', () => {
     unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
 
     expect(sink.received.map((r) => r.propertyId)).toEqual([LISTED_PROPERTY_ID, undefined]);
+  });
+
+  it('links the inquiry to the development of its listing, or to the unit it came from', async () => {
+    const { pull, source, sink, uow } = setup();
+    const id = parseId<'Listing'>('01920000-0000-7000-8000-00000000a002');
+    if (id.isErr()) throw new Error('bad id');
+    const developmentId = '01920000-0000-7000-8000-0000000000d1';
+    const unitId = '01920000-0000-7000-8000-0000000000c1';
+    const listing = Listing.linked({
+      id: id.value,
+      portal: 'zonaprop',
+      owner: { kind: 'development', id: developmentId },
+      operation: undefined,
+      plan: 'DESARROLLOS_HOME',
+      externalId: '0192000000007000800000000000a002',
+      permalink: undefined,
+      contentHash: 'h',
+      now: new Date(NOW),
+    });
+    uow.listings.rows.set(listing.id, listing.toSnapshot());
+    source.leads = [
+      portalLead({ listingCode: '0192000000007000800000000000a002' }),
+      portalLead({ externalId: '2', listingCode: 'U01920000', unitPropertyId: unitId }),
+    ];
+
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+
+    expect(sink.received.map((r) => [r.propertyId, r.developmentId])).toEqual([
+      [undefined, developmentId],
+      [unitId, undefined],
+    ]);
   });
 
   it('counts the contacts without data and the ones the inbox rejects', async () => {

@@ -1,15 +1,19 @@
 import {
   ConnectPortalAccount,
   ConnectPortalAccountWithCode,
+  RequestDevelopmentPublication,
   RequestPublication,
   SetPortalAccountEnabled,
   SyncListing,
 } from '@norde/core/portals';
 import {
+  FakeDevelopmentListingSourceReader,
   FakeListingSourceReader,
   FakePortalAuthorizer,
   FakePortalConnector,
+  LISTED_DEVELOPMENT_ID,
   LISTED_PROPERTY_ID,
+  developmentListingSource,
   listingSource,
   FakePortalAccountDirectory,
 } from '@norde/core/portals/testing';
@@ -65,10 +69,20 @@ async function setup() {
   );
   const reader = new FakeListingSourceReader();
   reader.sources.set(LISTED_PROPERTY_ID, listingSource());
+  const developments = new FakeDevelopmentListingSourceReader();
+  developments.sources.set(LISTED_DEVELOPMENT_ID, developmentListingSource());
   const connector = new FakePortalConnector();
   return {
     reader,
     connector,
+    requestDevelopment: new RequestDevelopmentPublication({
+      uow,
+      developments,
+      connector,
+      directory: new FakePortalAccountDirectory(),
+      ids,
+      clock,
+    }),
     listings: new DrizzleListingRepository(db, clock),
     request: new RequestPublication({
       uow,
@@ -78,8 +92,25 @@ async function setup() {
       ids,
       clock,
     }),
-    sync: new SyncListing({ uow, reader, connector, clock }),
+    sync: new SyncListing({ uow, reader, developments, connector, clock }),
   };
+}
+
+async function connectZonaprop() {
+  const uow = createPortalsUnitOfWork(db, { ids, clock, cipher });
+  const directory = new FakePortalAccountDirectory();
+  unwrap(
+    await new ConnectPortalAccountWithCode({ uow, directory, clock }).execute(
+      { portal: 'zonaprop', accountCode: '17310373' },
+      ADMIN,
+    ),
+  );
+  unwrap(
+    await new SetPortalAccountEnabled({ uow }).execute(
+      { portal: 'zonaprop', enabled: true },
+      ADMIN,
+    ),
+  );
 }
 
 describe('portal listings (Postgres)', () => {
@@ -151,20 +182,7 @@ describe('portal listings (Postgres)', () => {
 
   it('stores a Zonaprop listing of the whole property with its plan, only once', async () => {
     const { request, listings } = await setup();
-    const uow = createPortalsUnitOfWork(db, { ids, clock, cipher });
-    const directory = new FakePortalAccountDirectory();
-    unwrap(
-      await new ConnectPortalAccountWithCode({ uow, directory, clock }).execute(
-        { portal: 'zonaprop', accountCode: '17310373' },
-        ADMIN,
-      ),
-    );
-    unwrap(
-      await new SetPortalAccountEnabled({ uow }).execute(
-        { portal: 'zonaprop', enabled: true },
-        ADMIN,
-      ),
-    );
+    await connectZonaprop();
     const zonaprop = {
       propertyId: LISTED_PROPERTY_ID,
       portal: 'zonaprop',
@@ -176,13 +194,19 @@ describe('portal listings (Postgres)', () => {
 
     const [row] = await db.select().from(portalListings).where(eq(portalListings.id, listingId));
     expect(row).toMatchObject({ portal: 'zonaprop', operation: null, plan: 'SIMPLE' });
-    const found = await listings.findOne('zonaprop', LISTED_PROPERTY_ID, undefined);
+    const found = await listings.findOne(
+      'zonaprop',
+      { kind: 'property', id: LISTED_PROPERTY_ID },
+      undefined,
+    );
     expect(found?.toSnapshot()).toMatchObject({
       id: listingId,
       operation: undefined,
       plan: 'SIMPLE',
     });
-    expect(await listings.findOne('zonaprop', LISTED_PROPERTY_ID, 'sale')).toBeUndefined();
+    expect(
+      await listings.findOne('zonaprop', { kind: 'property', id: LISTED_PROPERTY_ID }, 'sale'),
+    ).toBeUndefined();
 
     const again = await request.execute(zonaprop, ADMIN);
     expect(again.isErr() && again.error.type).toBe('ListingAlreadyExists');
@@ -192,6 +216,53 @@ describe('portal listings (Postgres)', () => {
         id: ids.next(),
         portal: 'zonaprop',
         propertyId: LISTED_PROPERTY_ID,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: ADMIN.id,
+        updatedBy: ADMIN.id,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('stores the listing of a development, one per portal', async () => {
+    const { requestDevelopment, sync, listings } = await setup();
+    await connectZonaprop();
+    const publish = {
+      developmentId: LISTED_DEVELOPMENT_ID,
+      portal: 'zonaprop',
+      plan: 'DESARROLLOS_HOME',
+    } as const;
+
+    const { listingId } = unwrap(await requestDevelopment.execute(publish, ADMIN));
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+
+    const [row] = await db.select().from(portalListings).where(eq(portalListings.id, listingId));
+    expect(row).toMatchObject({
+      portal: 'zonaprop',
+      propertyId: null,
+      developmentId: LISTED_DEVELOPMENT_ID,
+      operation: null,
+      plan: 'DESARROLLOS_HOME',
+      status: 'published',
+    });
+    const owner = { kind: 'development', id: LISTED_DEVELOPMENT_ID } as const;
+    expect((await listings.findOne('zonaprop', owner, undefined))?.id).toBe(listingId);
+    expect((await listings.findForDevelopment(LISTED_DEVELOPMENT_ID)).map((l) => l.id)).toEqual([
+      listingId,
+    ]);
+    expect(await listings.findForProperty(LISTED_DEVELOPMENT_ID)).toEqual([]);
+    const [audit] = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, 'development.portal_publish_requested'));
+    expect(audit).toMatchObject({ entityType: 'development', entityId: LISTED_DEVELOPMENT_ID });
+
+    // La base no deja dos avisos del mismo emprendimiento en el mismo portal.
+    await expect(
+      db.insert(portalListings).values({
+        id: ids.next(),
+        portal: 'zonaprop',
+        developmentId: LISTED_DEVELOPMENT_ID,
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: ADMIN.id,

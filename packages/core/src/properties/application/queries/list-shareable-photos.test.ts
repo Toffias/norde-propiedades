@@ -6,6 +6,8 @@ import { CompanySettings, Watermark } from '../../../settings';
 import { FakeImageWatermarker, InMemoryFileStorage } from '../../../settings/testing';
 import {
   BRANCH_ID,
+  DEVELOPMENT_ID,
+  developmentSnapshot,
   FakeImageVariantGenerator,
   InMemoryPropertiesUnitOfWork,
   PRODUCER_ID,
@@ -19,11 +21,14 @@ import { UpdateMedia } from '../commands/update-media';
 import { UploadMedia } from '../commands/upload-media';
 import { ListShareablePhotos } from './list-shareable-photos';
 
-const EDITOR = Actor.user(PRODUCER_ID, ['properties:read', 'properties:update']).withBranch(
-  BRANCH_ID,
-);
+const EDITOR = Actor.user(PRODUCER_ID, [
+  'properties:read',
+  'properties:update',
+  'developments:read',
+  'developments:update',
+]).withBranch(BRANCH_ID);
 const JOBS = Actor.system('scheduler', ['properties:process-media']);
-const PORTALS = Actor.system('portal-sync', ['properties:read']);
+const PORTALS = Actor.system('portal-sync', ['properties:read', 'developments:read']);
 const OWNER = { kind: 'property', id: PROPERTY_ID } as const;
 const PHOTO = { fileName: 'living.jpg', contentType: 'image/jpeg', bytes: new Uint8Array([9]) };
 const DAY = 24 * 60 * 60;
@@ -31,6 +36,7 @@ const DAY = 24 * 60 * 60;
 function setup() {
   const uow = new InMemoryPropertiesUnitOfWork();
   uow.properties.rows.set(PROPERTY_ID, propertySnapshot());
+  uow.developments.rows.set(DEVELOPMENT_ID, developmentSnapshot());
   const storage = new InMemoryFileStorage();
   storage.signing = true;
   const clock = new FixedClock(TEST_NOW);
@@ -47,8 +53,10 @@ function setup() {
   const upload = new UploadMedia({ uow, storage, ids: new SequentialIdGenerator(), clock });
 
   /** Sube una foto y genera sus variantes, como el job. */
-  async function readyPhoto() {
-    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
+  async function readyPhoto(
+    owner: { readonly kind: 'property' | 'development'; readonly id: string } = OWNER,
+  ) {
+    const { mediaId } = unwrap(await upload.execute({ owner, ...PHOTO }, EDITOR));
     unwrap(await variants.execute({ mediaId }, JOBS));
     return mediaId;
   }
@@ -102,6 +110,28 @@ describe('ListShareablePhotos', () => {
       await list.execute({ propertyId: PROPERTY_ID, expiresInSeconds: DAY, limit: 1 }, PORTALS),
     );
     expect(photos).toHaveLength(1);
+  });
+
+  it('signs the photos of a development, with developments:read', async () => {
+    const { readyPhoto, list } = setup();
+    const render = await readyPhoto({ kind: 'development', id: DEVELOPMENT_ID });
+    await readyPhoto();
+    const input = { developmentId: DEVELOPMENT_ID, expiresInSeconds: DAY, limit: 30 };
+
+    const photos = unwrap(await list.execute(input, PORTALS));
+
+    expect(photos.map((photo) => photo.mediaId)).toEqual([render]);
+    expect(
+      unwrapErr(await list.execute(input, Actor.system('portal-sync', ['properties:read']))),
+    ).toEqual({ type: 'Forbidden' });
+    expect(
+      unwrapErr(
+        await list.execute(
+          { ...input, developmentId: '01920000-0000-7000-8000-00000000ffff' },
+          PORTALS,
+        ),
+      ),
+    ).toEqual({ type: 'DevelopmentNotFound' });
   });
 
   it('has no photos when the storage cannot sign', async () => {

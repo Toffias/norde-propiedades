@@ -7,6 +7,7 @@ import {
   PORTALS,
   type ListingId,
   type ListingOperation,
+  type ListingOwner,
   type ListingRepository,
   type PortalId,
 } from '@norde/core/portals';
@@ -28,17 +29,24 @@ const ListingRowSchema = z.object({
 /** Tope de publicaciones de una propiedad: una por portal y operación (o una por portal). */
 const MAX_LISTINGS_PER_PROPERTY = PORTALS.length * LISTING_OPERATIONS.length;
 
+/** La propiedad o el emprendimiento de la fila (`portal_listings_single_owner`: uno de los dos). */
+function ownerOf(row: typeof portalListings.$inferSelect): ListingOwner | undefined {
+  if (row.propertyId !== null) return { kind: 'property', id: row.propertyId };
+  if (row.developmentId !== null) return { kind: 'development', id: row.developmentId };
+  return undefined;
+}
+
 function toListing(row: typeof portalListings.$inferSelect): Listing {
   const id = parseId<'Listing'>(row.id);
-  // Este repositorio solo maneja publicaciones de propiedades (las de emprendimientos llegan después).
-  if (id.isErr() || row.propertyId === null) {
-    throw new Error(`Invalid property listing stored in the database: ${row.id}`);
+  const owner = ownerOf(row);
+  if (id.isErr() || owner === undefined) {
+    throw new Error(`Invalid listing stored in the database: ${row.id}`);
   }
   const values = ListingRowSchema.parse(row);
   return Listing.restore({
     id: id.value,
     portal: values.portal,
-    propertyId: row.propertyId,
+    owner,
     operation: values.operation ?? undefined,
     listingType: values.listingType,
     plan: row.plan ?? undefined,
@@ -55,7 +63,7 @@ function toListing(row: typeof portalListings.$inferSelect): Listing {
   });
 }
 
-/** Publicaciones de propiedades en portales (`portal_listings`). */
+/** Publicaciones de propiedades y emprendimientos en portales (`portal_listings`). */
 export class DrizzleListingRepository implements ListingRepository {
   constructor(
     private readonly db: DbExecutor,
@@ -83,7 +91,7 @@ export class DrizzleListingRepository implements ListingRepository {
 
   async findOne(
     portal: PortalId,
-    propertyId: string,
+    owner: ListingOwner,
     operation: ListingOperation | undefined,
   ): Promise<Listing | undefined> {
     const [row] = await this.db
@@ -92,7 +100,9 @@ export class DrizzleListingRepository implements ListingRepository {
       .where(
         and(
           eq(portalListings.portal, portal),
-          eq(portalListings.propertyId, propertyId),
+          owner.kind === 'property'
+            ? eq(portalListings.propertyId, owner.id)
+            : eq(portalListings.developmentId, owner.id),
           operation === undefined
             ? isNull(portalListings.operation)
             : eq(portalListings.operation, operation),
@@ -131,6 +141,17 @@ export class DrizzleListingRepository implements ListingRepository {
     return rows.map(toListing);
   }
 
+  async findForDevelopment(developmentId: string): Promise<readonly Listing[]> {
+    // `portal_listings_portal_development_uq`: como mucho una por portal.
+    const rows = await this.db
+      .select()
+      .from(portalListings)
+      .where(eq(portalListings.developmentId, developmentId))
+      .orderBy(asc(portalListings.portal), asc(portalListings.createdAt), asc(portalListings.id))
+      .limit(PORTALS.length);
+    return rows.map(toListing);
+  }
+
   async save(listing: Listing, actorId: string): Promise<void> {
     const s = listing.toSnapshot();
     const now = this.clock.now();
@@ -154,7 +175,8 @@ export class DrizzleListingRepository implements ListingRepository {
       .values({
         id: s.id,
         portal: s.portal,
-        propertyId: s.propertyId,
+        propertyId: s.owner.kind === 'property' ? s.owner.id : null,
+        developmentId: s.owner.kind === 'development' ? s.owner.id : null,
         operation: s.operation ?? null,
         ...values,
         createdAt: s.createdAt,

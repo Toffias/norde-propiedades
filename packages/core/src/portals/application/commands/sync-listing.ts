@@ -1,7 +1,7 @@
 import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
 import { ListingIdInputSchema, type ListingIdInput } from '../../contracts';
-import type { Listing } from '../../domain/listing';
-import type { PortalId } from '../../domain/portal';
+import type { Listing, OwnerAvailability } from '../../domain/listing';
+import type { ListingOwnerKind, PortalId } from '../../domain/portal';
 import { pricedOperations } from '../listing-plan';
 import {
   auditStatusChange,
@@ -9,6 +9,7 @@ import {
   listingIdOf,
   type ListingNotFoundError,
 } from '../listing-support';
+import type { DevelopmentListingSourceReader } from '../ports/development-listing-source';
 import type { ListingSourceReader } from '../ports/listing-source';
 import type {
   PortalConnector,
@@ -32,6 +33,12 @@ const NOT_ENABLED =
   'La cuenta del portal no está conectada o está desactivada (Mi empresa → Portales).';
 const RECONNECT = 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).';
 const UNAVAILABLE = 'El portal no respondió. Se vuelve a intentar en unos minutos.';
+const GONE: Readonly<Record<ListingOwnerKind, string>> = {
+  property: 'La propiedad ya no existe.',
+  development: 'El emprendimiento ya no existe.',
+};
+const NO_UNITS =
+  'El emprendimiento no tiene unidades disponibles con precio: el portal pide al menos una.';
 
 function reasonOf(error: PortalSyncError): string {
   switch (error.type) {
@@ -46,7 +53,7 @@ function reasonOf(error: PortalSyncError): string {
 
 /**
  * El job que lleva una publicación al portal. Decide qué hacer (crear, actualizar, pausar, cerrar)
- * con lo que se pidió y el estado de la propiedad, y lo hace. La publicación queda bloqueada
+ * con lo que se pidió y el estado de la propiedad (o del emprendimiento y sus unidades), y lo hace. La publicación queda bloqueada
  * mientras dura: dos sincronizaciones a la vez podrían crear dos avisos.
  */
 export class SyncListing {
@@ -54,6 +61,7 @@ export class SyncListing {
     private readonly deps: {
       readonly uow: PortalsUnitOfWork;
       readonly reader: ListingSourceReader;
+      readonly developments: DevelopmentListingSourceReader;
       readonly connector: PortalConnector;
       readonly clock: Clock;
     },
@@ -86,19 +94,43 @@ export class SyncListing {
     });
   }
 
+  /** Lo que se manda hoy al portal y lo que permite el dueño; sin dueño, el aviso se cierra. */
+  async #content(listing: Listing): Promise<{
+    readonly content: PortalListingContent | undefined;
+    readonly availability: OwnerAvailability;
+  }> {
+    const { owner, operation, listingType, plan } = listing.toSnapshot();
+    if (owner.kind === 'development') {
+      const source = await this.deps.developments.read(owner.id);
+      return source
+        ? {
+            content: { kind: 'development', listingId: listing.id, source, listingType, plan },
+            availability: source.availability,
+          }
+        : { content: undefined, availability: 'closed' };
+    }
+    const source = await this.deps.reader.read(owner.id);
+    return source
+      ? {
+          content: {
+            kind: 'property',
+            listingId: listing.id,
+            source,
+            operation,
+            listingType,
+            plan,
+          },
+          availability: source.availability,
+        }
+      : { content: undefined, availability: 'closed' };
+  }
+
   async #sync(listing: Listing, accountReady: boolean): Promise<SyncListingOutcome> {
-    const { portal, operation, listingType, plan, externalId } = listing.toSnapshot();
+    const { portal, externalId, owner } = listing.toSnapshot();
     const now = () => this.deps.clock.now();
-    const source = await this.deps.reader.read(listing.propertyId);
-    const content: PortalListingContent | undefined = source && {
-      listingId: listing.id,
-      source,
-      operation,
-      listingType,
-      plan,
-    };
+    const { content, availability } = await this.#content(listing);
     const hash = content ? contentFingerprint(content) : '';
-    const step = listing.plan(source?.availability ?? 'closed', hash);
+    const step = listing.plan(availability, hash);
 
     if (step.kind === 'none') return 'unchanged';
     if (step.kind === 'mark') {
@@ -111,21 +143,21 @@ export class SyncListing {
     const remoteId = externalId ?? '';
 
     if (step.kind === 'close') {
-      const closed = await this.deps.connector.close(portal, remoteId);
+      const closed = await this.deps.connector.close(portal, remoteId, owner.kind);
       if (closed.isErr()) return this.#fail(listing, reasonOf(closed.error), closed.error);
       listing.recordClosed(now());
       return 'synced';
     }
 
+    // Sin dueño no hay contenido, y el plan ya habría cerrado el aviso.
+    if (!content) return this.#fail(listing, GONE[owner.kind]);
+
     // Crear o mandar contenido: lo que el portal exige se revisa antes de llamarlo.
     const sendsContent = step.kind === 'create' || step.contentChanged;
     if (sendsContent) {
-      const problem = this.#contentProblem(portal, content);
+      const problem = this.#contentProblem(portal, content, step.kind !== 'pause');
       if (problem !== undefined) return this.#fail(listing, problem);
     }
-
-    // Sin propiedad no hay contenido, y el plan ya habría cerrado el aviso.
-    if (!content) return this.#fail(listing, 'La propiedad ya no existe.');
 
     if (step.kind === 'create') {
       const created = await this.deps.connector.create(portal, content);
@@ -145,17 +177,27 @@ export class SyncListing {
     return 'synced';
   }
 
-  /** Lo que impide mandar el contenido: precio, operación o lo que exige el portal. */
-  #contentProblem(portal: PortalId, content: PortalListingContent | undefined): string | undefined {
-    if (!content) return 'La propiedad ya no existe.';
-    const { source, operation } = content;
-    if (operation !== undefined && !source.operations.some((o) => o.operation === operation)) {
-      return 'La propiedad ya no ofrece esta operación.';
-    }
-    if (pricedOperations(source, operation).length === 0) {
-      return operation === undefined
-        ? 'El portal exige un precio: ninguna operación tiene precio (o todas están "a consultar").'
-        : 'El portal exige un precio: la operación está sin precio o con "precio a consultar".';
+  /**
+   * Lo que impide mandar el contenido: precio, operación, unidades o lo que exige el portal. Un
+   * emprendimiento que se pausa por quedarse sin unidades se puede pausar igual (`online` falso).
+   */
+  #contentProblem(
+    portal: PortalId,
+    content: PortalListingContent,
+    online: boolean,
+  ): string | undefined {
+    if (content.kind === 'development') {
+      if (online && content.source.units.length === 0) return NO_UNITS;
+    } else {
+      const { source, operation } = content;
+      if (operation !== undefined && !source.operations.some((o) => o.operation === operation)) {
+        return 'La propiedad ya no ofrece esta operación.';
+      }
+      if (pricedOperations(source, operation).length === 0) {
+        return operation === undefined
+          ? 'El portal exige un precio: ninguna operación tiene precio (o todas están "a consultar").'
+          : 'El portal exige un precio: la operación está sin precio o con "precio a consultar".';
+      }
     }
     const problems = this.deps.connector.problems(portal, content);
     return problems.length > 0 ? problems.join(' ') : undefined;

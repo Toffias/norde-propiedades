@@ -1,6 +1,7 @@
 import type { Result } from '../../../shared';
 import type { ListingOperation, ListingType } from '../../domain/listing';
-import type { PortalId } from '../../domain/portal';
+import type { ListingOwnerKind, PortalId } from '../../domain/portal';
+import type { DevelopmentListingSource } from './development-listing-source';
 import type { PortalUnavailableError } from './portal-authorizer';
 import type { ListingSource } from './listing-source';
 
@@ -18,8 +19,9 @@ export interface PortalCredentialsMissingError {
 export type PortalSyncError =
   PortalRejectedError | PortalUnavailableError | PortalCredentialsMissingError;
 
-/** Lo que se manda al portal: la propiedad, la operación que se publica y el tipo de aviso. */
-export interface PortalListingContent {
+/** Lo que se manda al portal de una propiedad: la operación que se publica y el tipo de aviso. */
+export interface PropertyListingContent {
+  readonly kind: 'property';
   /** La publicación: los portales donde Norde elige el código del aviso (Zonaprop) lo usan. */
   readonly listingId: string;
   readonly source: ListingSource;
@@ -29,6 +31,17 @@ export interface PortalListingContent {
   /** El plan del portal, si el portal lo pide (Zonaprop). */
   readonly plan: string | undefined;
 }
+
+/** Lo que se manda al portal de un emprendimiento: un aviso con todas sus unidades publicables. */
+export interface DevelopmentListingContent {
+  readonly kind: 'development';
+  readonly listingId: string;
+  readonly source: DevelopmentListingSource;
+  readonly listingType: ListingType;
+  readonly plan: string | undefined;
+}
+
+export type PortalListingContent = PropertyListingContent | DevelopmentListingContent;
 
 /** Estado del aviso en el portal después de un cambio. */
 export type PortalListingState = 'active' | 'paused' | 'closed';
@@ -45,8 +58,8 @@ export interface PortalListingUpdate {
  */
 export interface PortalConnector {
   /**
-   * Lo que le falta a la propiedad para este portal ("Falta la superficie cubierta"), sin
-   * llamarlo. Vacío: se puede publicar.
+   * Lo que le falta a la propiedad o al emprendimiento para este portal ("Falta la superficie
+   * cubierta"), sin llamarlo. Vacío: se puede publicar.
    */
   problems(portal: PortalId, content: PortalListingContent): readonly string[];
   create(
@@ -70,5 +83,10 @@ export interface PortalConnector {
       readonly state: 'active' | 'paused';
     },
   ): Promise<Result<PortalListingUpdate, PortalSyncError>>;
-  close(portal: PortalId, externalId: string): Promise<Result<void, PortalSyncError>>;
+  /** Lo da de baja. `kind` dice si es el aviso de una propiedad o el de un emprendimiento. */
+  close(
+    portal: PortalId,
+    externalId: string,
+    kind: ListingOwnerKind,
+  ): Promise<Result<void, PortalSyncError>>;
 }

@@ -159,6 +159,7 @@ describe('CreateDevelopment', () => {
     });
     expect(uow.events.published.map((event) => event.type)).toEqual([
       'properties.development_created',
+      'properties.development_changed',
     ]);
     const [entry] = uow.audit.entries;
     expect(entry).toMatchObject({
@@ -352,6 +353,7 @@ describe('Development edits', () => {
     ]);
     expect(uow.events.published.map((event) => event.type)).toEqual([
       'properties.development_status_changed',
+      'properties.development_changed',
     ]);
 
     withDevelopment(uow, { deletedAt: TEST_NOW });

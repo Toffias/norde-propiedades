@@ -4,6 +4,7 @@ import { Actor } from '../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../shared/testing';
 import { PortalAccount } from '../domain/portal-account';
 import {
+  FakeDevelopmentListingSourceReader,
   FakeListingSourceReader,
   FakePortalAccountDirectory,
   FakePortalConnector,
@@ -51,7 +52,8 @@ function setup() {
   reader.sources.set(LISTED_PROPERTY_ID, listingSource());
   const connector = new FakePortalConnector();
   const clock = new FixedClock(NOW);
-  const deps = { uow, reader, connector, clock };
+  const developments = new FakeDevelopmentListingSourceReader();
+  const deps = { uow, reader, developments, connector, clock };
   return {
     ...deps,
     request: new RequestPublication({
@@ -89,7 +91,7 @@ describe('RequestPublication', () => {
 
     expect(uow.listings.rows.get(listingId)).toMatchObject({
       portal: 'mercadolibre',
-      propertyId: LISTED_PROPERTY_ID,
+      owner: { kind: 'property', id: LISTED_PROPERTY_ID },
       operation: 'sale',
       listingType: 'featured',
       status: 'pending',
@@ -98,7 +100,7 @@ describe('RequestPublication', () => {
     expect(uow.events.published).toEqual([
       expect.objectContaining({
         type: 'portals.listing_sync_requested',
-        payload: { listingId, propertyId: LISTED_PROPERTY_ID },
+        payload: { listingId, ownerKind: 'property', ownerId: LISTED_PROPERTY_ID },
       }),
     ]);
     expect(uow.audit.entries).toEqual([
@@ -290,7 +292,7 @@ describe('SyncListing', () => {
 
     unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
 
-    expect(connector.calls).toEqual([{ method: 'close', externalId: 'MLA1' }]);
+    expect(connector.calls).toEqual([{ method: 'close', externalId: 'MLA1', kind: 'property' }]);
     expect(uow.listings.rows.get(listingId)).toMatchObject({
       status: 'unpublished',
       intent: 'closed',

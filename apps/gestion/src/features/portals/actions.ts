@@ -1,8 +1,12 @@
 'use server';
 
 import {
+  LinkDevelopmentListingInputSchema,
   LinkPortalListingInputSchema,
+  RequestDevelopmentPublicationInputSchema,
+  type LinkDevelopmentListingInput,
   type LinkPortalListingInput,
+  type RequestDevelopmentPublicationInput,
   ChangeListingPlanInputSchema,
   ChangeListingTypeInputSchema,
   ConnectPortalAccountWithCodeInputSchema,
@@ -25,7 +29,9 @@ import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-res
 import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
 import {
+  DEVELOPMENT_PUBLICATION_ERROR_MESSAGES,
   LEAD_NOTIFICATIONS_ERROR_MESSAGES,
+  LINK_DEVELOPMENT_ERROR_MESSAGES,
   LINK_LISTING_ERROR_MESSAGES,
   CODE_CONNECTION_ERROR_MESSAGES,
   LISTING_ERROR_MESSAGES,
@@ -95,9 +101,13 @@ export async function setPortalAccountEnabledAction(
 
 // ---------- Publicaciones (pestaña Difusión de la ficha) ----------
 
-/** Todas las fichas: la publicación es de una propiedad, y la acción no recibe la URL. */
+/**
+ * Todas las fichas: la publicación es de una propiedad o de un emprendimiento, y la acción no
+ * recibe la URL.
+ */
 function revalidateProperty() {
   revalidatePath('/propiedades/[id]', 'page');
+  revalidatePath('/emprendimientos/[id]', 'page');
 }
 
 export async function requestPublicationAction(
@@ -112,6 +122,24 @@ export async function requestPublicationAction(
   const result = await portals.requestPublication.execute(parsed.data, actor);
   if (result.isErr()) {
     return actionFailed(messageForError(result.error, PUBLICATION_ERROR_MESSAGES));
+  }
+  revalidateProperty();
+  return ACTION_OK;
+}
+
+/** Publicar un emprendimiento con sus unidades disponibles (Zonaprop). */
+export async function requestDevelopmentPublicationAction(
+  input: RequestDevelopmentPublicationInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const portals = getContainer().portals;
+  if (!portals) return actionFailed(HIDDEN);
+  const parsed = RequestDevelopmentPublicationInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+
+  const result = await portals.requestDevelopmentPublication.execute(parsed.data, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, DEVELOPMENT_PUBLICATION_ERROR_MESSAGES));
   }
   revalidateProperty();
   return ACTION_OK;
@@ -194,6 +222,25 @@ export async function linkPortalListingAction(
   const result = await portals.linkListing.execute(input, actor);
   if (result.isErr()) {
     return actionFailed(messageForError(result.error, LINK_LISTING_ERROR_MESSAGES));
+  }
+  revalidateProperty();
+  revalidatePath(PORTALS_SETTINGS_PATH, 'layout');
+  return ACTION_OK;
+}
+
+/** Vincula a un emprendimiento el aviso que ya está online en el portal, con sus unidades. */
+export async function linkDevelopmentListingAction(
+  input: LinkDevelopmentListingInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const portals = getContainer().portals;
+  if (!portals) return actionFailed(HIDDEN);
+  const parsed = LinkDevelopmentListingInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(parsed.error.issues[0]?.message ?? INVALID);
+
+  const result = await portals.linkDevelopmentListing.execute(input, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, LINK_DEVELOPMENT_ERROR_MESSAGES));
   }
   revalidateProperty();
   revalidatePath(PORTALS_SETTINGS_PATH, 'layout');

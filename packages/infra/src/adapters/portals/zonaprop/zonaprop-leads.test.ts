@@ -39,6 +39,14 @@ const MESSAGES = {
       fecha: 'no es una fecha',
     },
     { id: null, idMensaje: null, idContactoAccion: 6 },
+    {
+      id: 4,
+      idMensaje: 236161699,
+      idContactoAccion: 2,
+      codigoAviso: 'U019200000000700080000000000000c1',
+      nombre: 'Ana',
+      email: 'ana@example.test',
+    },
   ],
 };
 
@@ -105,6 +113,7 @@ describe('ZonapropLeads.recent', () => {
         phone: '1165889654',
         message: 'Hola, me interesa esta propiedad.',
         listingCode: '0192000000007000800000000000a001',
+        unitPropertyId: undefined,
       },
       {
         externalId: '2',
@@ -115,6 +124,18 @@ describe('ZonapropLeads.recent', () => {
         phone: '+5491150001111',
         message: undefined,
         listingCode: undefined,
+        unitPropertyId: undefined,
+      },
+      {
+        externalId: '236161699',
+        kind: 'call_me',
+        receivedAt: undefined,
+        name: 'Ana',
+        email: 'ana@example.test',
+        phone: undefined,
+        message: undefined,
+        listingCode: 'U019200000000700080000000000000c1',
+        unitPropertyId: '01920000-0000-7000-8000-0000000000c1',
       },
     ]);
   });

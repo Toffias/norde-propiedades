@@ -1,4 +1,5 @@
 import type {
+  ListingOwnerKind,
   PortalConnector,
   PortalId,
   PortalListingContent,
@@ -10,12 +11,14 @@ import { err, ok, type Result } from '@norde/core/shared';
 import type { InfraLogger } from '../../../shared/logger';
 
 import type { ZonapropApi, ZonapropApiError } from './zonaprop-api';
+import { developmentBody, developmentProblems } from './zonaprop-development';
 import {
   ProcessedResponseSchema,
   listingBody,
   listingCode,
   listingPermalink,
   listingProblems,
+  processedAll,
   processedOf,
   rejectionReason,
 } from './zonaprop-listing';
@@ -57,16 +60,31 @@ export function syncError(error: ZonapropApiError | ZonapropLocationNotFound): P
 }
 
 /**
- * Conector de Zonaprop (API de Open Navent). Un aviso por propiedad con todas sus operaciones, y
- * el código del aviso lo elige Norde (el ID de la publicación). La API es "crear o modificar" con
- * `PUT`, y `DELETE` lo pone offline: Zonaprop no pausa, así que pausar es sacarlo y reactivar es
- * volver a mandarlo completo.
+ * Zonaprop no da de baja lo que ya está offline: lo informa como error ("El aviso … no esta
+ * online"). Para Norde, el aviso ya está fuera del portal.
+ */
+function alreadyOffline(body: unknown): boolean {
+  const reason = rejectionReason(body);
+  return reason !== undefined && /no est[aá] online/i.test(reason);
+}
+
+/** Dónde vive cada tipo de aviso en la API: los avisos sueltos y los emprendimientos. */
+const RESOURCES: Readonly<Record<ListingOwnerKind, string>> = {
+  property: 'avisos',
+  development: 'desarrollos',
+};
+
+/**
+ * Conector de Zonaprop (API de Open Navent). Un aviso por propiedad con todas sus operaciones, o
+ * uno por emprendimiento con todas sus unidades; el código del aviso lo elige Norde (el ID de la
+ * publicación). La API es "crear o modificar" con `PUT`, y `DELETE` lo pone offline: Zonaprop no
+ * pausa, así que pausar es sacarlo y reactivar es volver a mandarlo completo.
  */
 export class ZonapropPortalConnector implements PortalConnector {
   constructor(private readonly options: ZonapropPortalConnectorOptions) {}
 
   problems(_portal: PortalId, content: PortalListingContent): readonly string[] {
-    return listingProblems(content);
+    return content.kind === 'development' ? developmentProblems(content) : listingProblems(content);
   }
 
   async create(
@@ -90,7 +108,7 @@ export class ZonapropPortalConnector implements PortalConnector {
     },
   ): Promise<Result<PortalListingUpdate, PortalSyncError>> {
     if (change.state === 'paused') {
-      const removed = await this.#delete(externalId);
+      const removed = await this.#delete(externalId, change.content.kind);
       return removed.isErr() ? err(removed.error) : ok({ state: 'paused', permalink: undefined });
     }
     // Online: con contenido nuevo o para volver a mostrarlo, se manda el aviso completo.
@@ -100,8 +118,12 @@ export class ZonapropPortalConnector implements PortalConnector {
       : ok({ state: 'active', permalink: sent.value.permalink });
   }
 
-  async close(_portal: PortalId, externalId: string): Promise<Result<void, PortalSyncError>> {
-    return this.#delete(externalId);
+  async close(
+    _portal: PortalId,
+    externalId: string,
+    kind: ListingOwnerKind,
+  ): Promise<Result<void, PortalSyncError>> {
+    return this.#delete(externalId, kind);
   }
 
   /** Manda el aviso completo. Devuelve el código del aviso y su link, si Zonaprop dio su ID. */
@@ -113,27 +135,37 @@ export class ZonapropPortalConnector implements PortalConnector {
     const agencyCode = await this.options.agencyCode();
     if (agencyCode === undefined) return err(NOT_CONNECTED);
     if (content.source.coordinates === undefined) {
-      return err({ type: 'PortalRejected', reason: listingProblems(content).join(' ') });
+      return err({ type: 'PortalRejected', reason: this.problems('zonaprop', content).join(' ') });
     }
     const location = await this.options.locations.resolve(content.source.coordinates);
     if (location.isErr()) return err(syncError(location.error));
 
     const code = listingCode(content.listingId);
+    const context = { agencyCode, locationId: location.value };
     const result = await this.options.api.put(
-      `/v1/inmobiliarias/${encodeURIComponent(agencyCode)}/avisos/${encodeURIComponent(code)}`,
-      listingBody(content, { agencyCode, locationId: location.value }),
+      `/v1/inmobiliarias/${encodeURIComponent(agencyCode)}/${RESOURCES[content.kind]}/${encodeURIComponent(code)}`,
+      content.kind === 'development'
+        ? developmentBody(content, context)
+        : listingBody(content, context),
       ProcessedResponseSchema,
     );
     if (result.isErr()) return err(syncError(result.error));
-    const processed = processedOf(result.value);
-    if (processed?.error === true || (processed?.errors?.length ?? 0) > 0) {
+    // El de un emprendimiento viene junto con uno por unidad: cualquier error lo rechaza.
+    const all = processedAll(result.value);
+    const processed = all.find((p) => p.codigoAviso === code) ?? processedOf(result.value);
+    if (all.some((p) => p.error === true || (p.errors?.length ?? 0) > 0)) {
       return err({
         type: 'PortalRejected',
         reason: rejectionReason(result.value) ?? 'Zonaprop rechazó el aviso.',
       });
     }
     this.options.logger.info(
-      { portal: 'zonaprop', listingCode: code, state: processed?.estado ?? null },
+      {
+        portal: 'zonaprop',
+        kind: content.kind,
+        listingCode: code,
+        state: processed?.estado ?? null,
+      },
       'Zonaprop listing sent',
     );
     const remoteId = processed?.idAviso;
@@ -144,18 +176,28 @@ export class ZonapropPortalConnector implements PortalConnector {
     });
   }
 
-  /** Pone el aviso offline. Uno que Zonaprop no tiene ya está fuera del portal. */
-  async #delete(externalId: string): Promise<Result<void, PortalSyncError>> {
+  /**
+   * Pone el aviso offline (el de un emprendimiento, con sus unidades). Uno que Zonaprop no tiene ya
+   * está fuera del portal.
+   */
+  async #delete(
+    externalId: string,
+    kind: ListingOwnerKind,
+  ): Promise<Result<void, PortalSyncError>> {
     const agencyCode = await this.options.agencyCode();
     if (agencyCode === undefined) return err(NOT_CONNECTED);
     const result = await this.options.api.delete(
-      `/v1/inmobiliarias/${encodeURIComponent(agencyCode)}/avisos/${encodeURIComponent(externalId)}`,
+      `/v1/inmobiliarias/${encodeURIComponent(agencyCode)}/${RESOURCES[kind]}/${encodeURIComponent(externalId)}`,
       ProcessedResponseSchema,
     );
     if (result.isErr()) {
-      return result.error.type === 'not_found' ? ok(undefined) : err(syncError(result.error));
+      const { error } = result;
+      if (error.type === 'not_found') return ok(undefined);
+      if (error.type === 'rejected' && alreadyOffline(error.body)) return ok(undefined);
+      return err(syncError(error));
     }
     const processed = processedOf(result.value);
+    if (alreadyOffline(result.value)) return ok(undefined);
     if ((processed?.errors?.length ?? 0) > 0) {
       return err({
         type: 'PortalRejected',

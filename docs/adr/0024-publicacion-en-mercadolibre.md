@@ -71,6 +71,4 @@ La etapa 2 de #14 publica las propiedades del panel en MercadoLibre: el equipo p
 - Una propiedad publicada se actualiza en ML segundos después de cada cambio: lo que tardan el relay del outbox y el job. Reordenar la galería dispara varias sincronizaciones, pero solo la primera llama a ML.
 - Si el job se cae entre el alta en ML y el guardado de la publicación, el reintento crearía otro aviso. Es poco probable: el alta y el guardado van seguidos. Si pasa, se ve en la cuenta de ML y se cierra a mano.
 - El pie de la descripción puede llevar teléfono y WhatsApp. ML modera los datos de contacto en la descripción, así que conviene un pie sin teléfonos para los portales.
-- Pendiente para la etapa 2b:
-  - Un job diario que concilie los avisos que ML venció o pausó por moderación.
-  - El cupo de los paquetes en Mi empresa.
+- La etapa 2b (conciliación diaria de los avisos y cupo de los paquetes en Mi empresa) está en el ADR 0031.

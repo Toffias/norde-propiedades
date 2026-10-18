@@ -633,7 +633,7 @@ Diseño propuesto:
    - Cada tarjeta permite conectar, reconectar y desconectar por OAuth, y activar o desactivar la cuenta. Solo una cuenta conectada se activa, y desconectar la desactiva y borra sus credenciales, pero no toca los avisos que ya están en ML.
    - Las acciones piden `portals:manage`. Ver las cuentas pide eso o `portals:publish`.
    - Auditoría: `portal_account.connected` y `portal_account.disconnected` (con la cuenta de ML antes y después), y `portal_account.enabled` y `portal_account.disabled`.
-2. **Publicar propiedades** (2a hecha; 2b pendiente). Decisiones técnicas en el ADR 0024.
+2. **Publicar propiedades** (hecha). Decisiones técnicas en los ADR 0024 y 0031.
    - **Pestaña Difusión** de la ficha, con `portals:publish` o `portals:manage` y la función prendida:
      - Una fila por operación de la propiedad (venta, alquiler) en cada cuenta activa.
      - Cada fila muestra el estado (Publicando…, Publicada, Pausada, Con error, Dada de baja), el tipo (simple o destacado), el último error, la última sincronización y "Ver en MercadoLibre".
@@ -665,7 +665,12 @@ Diseño propuesto:
    - **Auditoría** contra la propiedad:
      - Lo que pide el equipo: `property.portal_publish_requested`, `property.portal_pause_requested`, `property.portal_resume_requested`, `property.portal_unpublish_requested` y `property.portal_type_changed`.
      - Lo que pasa en el portal, por `system:portal-sync`: `property.portal_published`, `property.portal_paused`, `property.portal_unpublished` y `property.portal_sync_failed` (con el motivo).
-   - **Pendiente (2b):** un job diario que concilie lo que pasó en ML (avisos vencidos o moderados) y el cupo de los paquetes en Mi empresa.
+   - **Conciliación diaria (2b).** Todos los días a las 6 se lee de MercadoLibre cómo están los avisos publicados, y la fila de Difusión refleja lo que pasó allá:
+     - **Vencido, borrado o dado de baja por ML**: queda "Dada de baja", con el motivo ("MercadoLibre venció el aviso: terminó su vigencia."). Volver a mostrarlo es "Volver a publicar".
+     - **Pausado por moderación, por falta de pago o desde el sitio de ML**: queda "Pausada", con el motivo que da ML ("Reportada como no disponible."). No se reactiva sola: se resuelve en MercadoLibre y se toca **Sincronizar**.
+     - **Reactivado en ML**: vuelve a "Publicada". Si el equipo lo había pausado, se vuelve a pausar.
+     - Se audita contra la propiedad por `system:portal-sync` (`property.portal_unpublished` o `property.portal_paused`, con el motivo).
+   - **Cupo de los paquetes (2b).** Las tarjetas de MercadoLibre de Mi empresa → Portales muestran los paquetes activos de la cuenta: nombre, para qué sirven (publicaciones, destaques, emprendimientos), vencimiento y el cupo libre de cada tipo de aviso (Plata, Oro, Oro Premium). Se lee de MercadoLibre en el momento. Sin paquetes, la tarjeta avisa que no se puede publicar.
 3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
 4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
 

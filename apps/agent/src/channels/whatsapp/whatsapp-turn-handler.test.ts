@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createCustomerAssistant } from '../../assistant/customer-assistant';
 
-import { FailureBreaker } from './failure-breaker';
+import { FailureBreaker } from '../shared/failure-breaker';
 import type { WhatsAppInbound } from './inbound';
 import { NOTICE_TEXT, NoticeThrottle } from './notices';
 import { FALLBACK_TEXT } from './reply-builder';

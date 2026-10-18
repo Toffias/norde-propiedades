@@ -24,9 +24,9 @@ import {
 import type { Logger } from 'pino';
 
 import { createCustomerAssistant } from './assistant/customer-assistant';
-import { FailureBreaker } from './channels/whatsapp/failure-breaker';
+import { FailureBreaker } from './channels/shared/failure-breaker';
 import type { WhatsAppInbound } from './channels/whatsapp/inbound';
-import { KeyedQueue } from './channels/whatsapp/keyed-queue';
+import { KeyedQueue } from './channels/shared/keyed-queue';
 import { MessageBatcher } from './channels/whatsapp/message-batcher';
 import { NoticeThrottle } from './channels/whatsapp/notices';
 import type { WhatsAppWebhookOptions } from './channels/whatsapp/webhook-routes';

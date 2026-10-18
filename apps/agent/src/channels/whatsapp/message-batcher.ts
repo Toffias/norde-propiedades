@@ -1,4 +1,4 @@
-import type { KeyedQueue } from './keyed-queue';
+import type { KeyedQueue } from '../shared/keyed-queue';
 
 export interface MessageBatcherOptions<T> {
   readonly queue: KeyedQueue;

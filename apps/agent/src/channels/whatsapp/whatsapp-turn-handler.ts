@@ -11,7 +11,7 @@ import type { Logger } from 'pino';
 import type { CustomerAssistant } from '../../assistant/customer-assistant';
 import { createTurnContext } from '../../assistant/turn-context';
 
-import type { FailureBreaker } from './failure-breaker';
+import type { FailureBreaker } from '../shared/failure-breaker';
 import type { WhatsAppInbound } from './inbound';
 import { NOTICE_TEXT, type NoticeThrottle } from './notices';
 import { buildWhatsAppReply, FALLBACK_TEXT } from './reply-builder';

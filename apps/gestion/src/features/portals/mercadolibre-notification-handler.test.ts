@@ -23,6 +23,7 @@ const LEAD = {
 
 function setup(options: { ratePerMinute?: number; fail?: boolean; unknownAccount?: boolean } = {}) {
   const notified: string[] = [];
+  const items: [string, string][] = [];
   const handle = createMercadoLibreNotificationHandler({
     applicationId: APP_ID,
     ratePerMinute: options.ratePerMinute ?? 240,
@@ -31,6 +32,10 @@ function setup(options: { ratePerMinute?: number; fail?: boolean; unknownAccount
     notify: (userId) => {
       notified.push(userId);
       if (options.fail) return Promise.resolve(err({ type: 'ValidationFailed' }));
+      return Promise.resolve(ok({ portal: options.unknownAccount ? undefined : 'mercadolibre' }));
+    },
+    notifyItem: (userId, itemId) => {
+      items.push([userId, itemId]);
       return Promise.resolve(ok({ portal: options.unknownAccount ? undefined : 'mercadolibre' }));
     },
   });
@@ -42,7 +47,7 @@ function setup(options: { ratePerMinute?: number; fail?: boolean; unknownAccount
         body: typeof body === 'string' ? body : JSON.stringify(body),
       }),
     );
-  return { post, notified };
+  return { post, notified, items };
 }
 
 describe('MercadoLibre notifications', () => {
@@ -67,10 +72,25 @@ describe('MercadoLibre notifications', () => {
     expect(notified).toEqual(['3773207548']);
   });
 
+  it('asks to reconcile the listing when one of its items changes', async () => {
+    const { post, notified, items } = setup();
+    const response = await post({ ...LEAD, topic: 'items', resource: '/items/MLA686791111' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: true });
+    expect(items).toEqual([['3773207548', 'MLA686791111']]);
+    expect(notified).toEqual([]);
+
+    const notOurs = setup({ unknownAccount: true });
+    const ignored = await notOurs.post({ ...LEAD, topic: 'items', resource: '/items/MLA1' });
+    expect(await ignored.json()).toEqual({ ignored: true });
+  });
+
   it('accepts and ignores other topics and accounts Norde has not connected', async () => {
     const other = setup();
-    expect((await other.post({ ...LEAD, topic: 'items' })).status).toBe(200);
+    expect((await other.post({ ...LEAD, topic: 'orders_v2' })).status).toBe(200);
+    expect((await other.post({ ...LEAD, topic: 'items', resource: '/items/x' })).status).toBe(200);
     expect(other.notified).toEqual([]);
+    expect(other.items).toEqual([]);
 
     const unknown = setup({ unknownAccount: true });
     const response = await unknown.post(LEAD);

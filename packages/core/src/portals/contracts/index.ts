@@ -57,6 +57,15 @@ export const PortalAccountNoticeInputSchema = z.object({
 });
 export type PortalAccountNoticeInput = z.input<typeof PortalAccountNoticeInputSchema>;
 
+/** El portal avisó que cambió un aviso de una de sus cuentas (MercadoLibre: `MLA…`). */
+export const PortalListingNoticeInputSchema = PortalAccountNoticeInputSchema.extend({
+  remoteId: z
+    .string()
+    .trim()
+    .regex(/^[A-Z]{3}\d{1,20}$/),
+});
+export type PortalListingNoticeInput = z.input<typeof PortalListingNoticeInputSchema>;
+
 export const SetPortalAccountEnabledInputSchema = z.object({
   portal: PortalSchema,
   enabled: z.boolean(),

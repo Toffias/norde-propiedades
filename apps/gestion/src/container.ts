@@ -338,8 +338,10 @@ import {
   LinkDevelopmentListing,
   LinkPortalListing,
   NotifyAccountLeads,
+  NotifyListingChanged,
   NotifyPortalLeads,
   PullPortalLeads,
+  ReconcileListing,
   ReconcileListings,
   ListPortalAccounts,
   ListRemoteDevelopments,
@@ -773,6 +775,12 @@ function createPortalsUseCases(
     notifyMercadoLibreLeads: (userId: string) =>
       new NotifyAccountLeads({ uow, clock }).execute(
         { provider: 'mercadolibre', externalAccountId: userId },
+        PORTAL_SYNC_ACTOR,
+      ),
+    /** MercadoLibre avisó que cambió el aviso `itemId` de la cuenta `userId`: se pide conciliarlo. */
+    notifyMercadoLibreItem: (userId: string, itemId: string) =>
+      new NotifyListingChanged({ uow, clock }).execute(
+        { provider: 'mercadolibre', externalAccountId: userId, remoteId: itemId },
         PORTAL_SYNC_ACTOR,
       ),
     enableLeadNotifications: new EnablePortalLeadNotifications({
@@ -1720,6 +1728,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       clock,
     }),
     reconcile: new ReconcileListings({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
+    reconcileOne: new ReconcileListing({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
     actor: PORTAL_SYNC_ACTOR,
   };
   for (const subscription of eventSubscriptions({

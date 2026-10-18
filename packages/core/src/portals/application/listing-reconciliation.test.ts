@@ -11,6 +11,8 @@ import {
   InMemoryPortalsUnitOfWork,
   LISTED_PROPERTY_ID,
 } from '../testing';
+import { NotifyListingChanged } from './commands/notify-listing-changed';
+import { ReconcileListing } from './commands/reconcile-listing';
 import { ReconcileListings } from './commands/reconcile-listings';
 import { GetPortalPackages } from './queries/get-portal-packages';
 
@@ -184,6 +186,110 @@ describe('ReconcileListings', () => {
   it('requires portals:sync', async () => {
     const { reconcile } = setup();
     expect(unwrapErr(await reconcile.execute({ portal: 'mercadolibre' }, ADMIN))).toEqual({
+      type: 'Forbidden',
+    });
+  });
+});
+
+describe('NotifyListingChanged', () => {
+  const NOTICE = { provider: 'mercadolibre', externalAccountId: '3773207548' } as const;
+
+  function notifySetup() {
+    const { uow } = setup();
+    return { uow, notify: new NotifyListingChanged({ uow, clock: new FixedClock(NOW) }) };
+  }
+
+  it('asks to reconcile a live listing of a connected account', async () => {
+    const { uow, notify } = notifySetup();
+    const id = seedPublished(uow, 7);
+
+    const result = unwrap(await notify.execute({ ...NOTICE, remoteId: 'MLA7' }, PORTAL_SYNC));
+
+    expect(result).toEqual({ portal: 'mercadolibre' });
+    expect(uow.events.published).toEqual([
+      expect.objectContaining({
+        type: 'portals.listing_changed_on_portal',
+        aggregateId: id,
+        payload: { listingId: id },
+      }),
+    ]);
+  });
+
+  it('ignores items that are not Norde listings or accounts that are not connected', async () => {
+    const { uow, notify } = notifySetup();
+    seedPublished(uow, 7);
+
+    expect(unwrap(await notify.execute({ ...NOTICE, remoteId: 'MLA8' }, PORTAL_SYNC))).toEqual({
+      portal: undefined,
+    });
+    expect(
+      unwrap(
+        await notify.execute(
+          { ...NOTICE, externalAccountId: '999', remoteId: 'MLA7' },
+          PORTAL_SYNC,
+        ),
+      ),
+    ).toEqual({ portal: undefined });
+    expect(uow.events.published).toEqual([]);
+  });
+
+  it('validates the item ID and requires portals:sync', async () => {
+    const { notify } = notifySetup();
+    expect(
+      unwrapErr(await notify.execute({ ...NOTICE, remoteId: '/items/1' }, PORTAL_SYNC)),
+    ).toMatchObject({ type: 'ValidationFailed' });
+    expect(unwrapErr(await notify.execute({ ...NOTICE, remoteId: 'MLA7' }, AGENT))).toEqual({
+      type: 'Forbidden',
+    });
+  });
+});
+
+describe('ReconcileListing', () => {
+  function oneSetup() {
+    const { uow, reader } = setup();
+    return {
+      uow,
+      reader,
+      reconcile: new ReconcileListing({ uow, reader, clock: new FixedClock(NOW) }),
+    };
+  }
+
+  it('reflects what the portal did to that listing and audits it', async () => {
+    const { uow, reader, reconcile } = oneSetup();
+    const id = seedPublished(uow, 3);
+    seedPublished(uow, 4);
+    reader.remote.set('MLA3', EXPIRED);
+
+    expect(unwrap(await reconcile.execute({ listingId: id }, PORTAL_SYNC))).toBe(true);
+
+    expect(reader.reads).toEqual([['MLA3']]);
+    expect(uow.listings.rows.get(id)).toMatchObject({ status: 'unpublished', intent: 'closed' });
+    expect(uow.audit.entries[0]?.action).toBe('property.portal_unpublished');
+  });
+
+  it('does nothing when the portal reports the same state, or nothing', async () => {
+    const { uow, reader, reconcile } = oneSetup();
+    const id = seedPublished(uow, 3);
+    reader.remote.set('MLA3', { state: 'active', reason: undefined });
+    expect(unwrap(await reconcile.execute({ listingId: id }, PORTAL_SYNC))).toBe(false);
+    reader.remote.clear();
+    expect(unwrap(await reconcile.execute({ listingId: id }, PORTAL_SYNC))).toBe(false);
+    expect(
+      unwrap(
+        await reconcile.execute({ listingId: '01920000-0000-7000-8000-0000000009ff' }, PORTAL_SYNC),
+      ),
+    ).toBe(false);
+    expect(uow.audit.entries).toEqual([]);
+  });
+
+  it('reports a portal that does not answer, and requires portals:sync', async () => {
+    const { uow, reader, reconcile } = oneSetup();
+    const id = seedPublished(uow, 3);
+    reader.failWith = { type: 'PortalUnavailable' };
+    expect(unwrapErr(await reconcile.execute({ listingId: id }, PORTAL_SYNC))).toEqual({
+      type: 'PortalUnavailable',
+    });
+    expect(unwrapErr(await reconcile.execute({ listingId: id }, AGENT))).toEqual({
       type: 'Forbidden',
     });
   });

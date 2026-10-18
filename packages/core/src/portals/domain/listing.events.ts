@@ -22,6 +22,12 @@ export type ListingSyncFailed = DomainEvent<
 
 export type ListingEvent = ListingSyncRequested | ListingSyncFailed;
 
+/** El portal avisó que cambió el aviso de la publicación: un job lee cómo quedó. */
+export type ListingChangedOnPortal = DomainEvent<
+  'portals.listing_changed_on_portal',
+  { readonly listingId: string }
+>;
+
 /** El portal avisó que hay contactos nuevos: un job los trae a la bandeja. */
 export type PortalLeadsArrived = DomainEvent<
   'portals.leads_arrived',

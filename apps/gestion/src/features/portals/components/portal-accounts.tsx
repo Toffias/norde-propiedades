@@ -4,6 +4,7 @@ import type {
   PortalAccountView,
   PortalAccountsView,
   PortalCreditView,
+  PortalPackageView,
 } from '@norde/core/portals/contracts';
 import { Badge } from '@norde/ui/components/badge';
 import { Button } from '@norde/ui/components/button';
@@ -33,7 +34,7 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
-import { formatDateTime } from '../../../lib/format';
+import { formatDate, formatDateTime } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
 import {
   enableLeadNotificationsAction,
@@ -41,8 +42,14 @@ import {
   disconnectPortalAccountAction,
   setPortalAccountEnabledAction,
 } from '../actions';
-import { PORTAL_DESCRIPTIONS, PORTAL_LABELS, planLabel } from '../messages';
-import type { PortalCreditsResult } from '../queries';
+import {
+  PACKAGE_CONTENT_LABELS,
+  PORTAL_DESCRIPTIONS,
+  PORTAL_LABELS,
+  packageTierLabel,
+  planLabel,
+} from '../messages';
+import type { PortalCreditsResult, PortalPackagesResult } from '../queries';
 
 const CONNECT_PATH = '/api/portals/mercadolibre/connect';
 
@@ -57,14 +64,17 @@ function status(account: PortalAccountView): { tone: StatusTone; label: string }
 
 /**
  * Mi empresa → Portales: una tarjeta por cuenta, con conectar, activar y desconectar. Las cuentas
- * conectadas por código (Zonaprop) muestran además sus créditos.
+ * conectadas por código (Zonaprop) muestran además sus créditos, y las de MercadoLibre el cupo de
+ * sus paquetes.
  */
 export function PortalAccounts({
   view,
   credits,
+  packages,
 }: {
   readonly view: PortalAccountsView;
   readonly credits: Readonly<Partial<Record<PortalAccountView['portal'], PortalCreditsResult>>>;
+  readonly packages: Readonly<Partial<Record<PortalAccountView['portal'], PortalPackagesResult>>>;
 }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -74,6 +84,7 @@ export function PortalAccounts({
           account={account}
           canManage={view.canManage}
           credits={credits[account.portal]}
+          packages={packages[account.portal]}
         />
       ))}
     </div>
@@ -84,10 +95,12 @@ function PortalAccountCard({
   account,
   canManage,
   credits,
+  packages,
 }: {
   readonly account: PortalAccountView;
   readonly canManage: boolean;
   readonly credits: PortalCreditsResult | undefined;
+  readonly packages: PortalPackagesResult | undefined;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
@@ -130,6 +143,7 @@ function PortalAccountCard({
           )}
         </div>
         {credits !== undefined && <PortalCredits result={credits} />}
+        {packages !== undefined && <PortalPackages result={packages} />}
         {byCode && account.isConnected && canManage && <LeadNotifications account={account} />}
         {byCode && account.isConnected && (
           <Link
@@ -259,6 +273,65 @@ function CreditItem({ credit }: { readonly credit: PortalCreditView }) {
           <span className="font-normal text-muted-foreground"> de {credit.contracted}</span>
         )}
       </span>
+    </li>
+  );
+}
+
+/** El cupo que le queda a cada paquete activo de la cuenta de MercadoLibre. */
+function PortalPackages({ result }: { readonly result: PortalPackagesResult }) {
+  if (!result.ok) {
+    return <p className="text-sm text-muted-foreground">{result.message}</p>;
+  }
+  if (result.packages.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        La cuenta no tiene paquetes activos: MercadoLibre no deja publicar inmuebles sin un paquete.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">Cupo de los paquetes</h3>
+      <ul className="flex flex-col gap-2">
+        {result.packages.map((pack) => (
+          <PackageItem key={pack.id} pack={pack} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PackageItem({ pack }: { readonly pack: PortalPackageView }) {
+  return (
+    <li className="flex flex-col gap-1.5 rounded-md border px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+        <span className="min-w-0 font-medium">
+          {pack.name}{' '}
+          <span className="font-normal text-muted-foreground">
+            · {PACKAGE_CONTENT_LABELS[pack.content]}
+          </span>
+        </span>
+        {pack.expiresAt !== undefined && (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            Vence el {formatDate(pack.expiresAt)}
+          </span>
+        )}
+      </div>
+      {pack.quotas.length === 0 ? (
+        <span className="text-muted-foreground">Sin límite de avisos.</span>
+      ) : (
+        pack.quotas.map((quota) => (
+          <div key={quota.tier} className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate text-muted-foreground">
+              {packageTierLabel(quota.tier)}
+            </span>
+            <span className="shrink-0 font-semibold tabular-nums">
+              {quota.remaining}
+              <span className="font-normal text-muted-foreground"> libres de {quota.total}</span>
+            </span>
+          </div>
+        ))
+      )}
     </li>
   );
 }

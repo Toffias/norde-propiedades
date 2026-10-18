@@ -332,12 +332,14 @@ import {
   DisconnectPortalAccount,
   GetDevelopmentListings,
   GetPortalCredits,
+  GetPortalPackages,
   GetPropertyListings,
   EnablePortalLeadNotifications,
   LinkDevelopmentListing,
   LinkPortalListing,
   NotifyPortalLeads,
   PullPortalLeads,
+  ReconcileListings,
   ListPortalAccounts,
   ListRemoteDevelopments,
   ListRemoteListings,
@@ -431,6 +433,7 @@ import {
   createPortalsUnitOfWork,
   DrizzlePortalAccountRepository,
   MercadoLibreAuthorizer,
+  MercadoLibreAccountReader,
   MercadoLibreLocations,
   MercadoLibrePortalConnector,
   MercadoLibreTokens,
@@ -458,7 +461,11 @@ import { developmentListingSourceReader } from './features/portals/development-l
 import { listingSourceReader } from './features/portals/listing-source-reader';
 import { portalLeadSink } from './features/portals/portal-lead-sink';
 import { propertyCodeLookup } from './features/portals/property-code-lookup';
-import { eventSubscriptions, pullPortalLeads } from './jobs/event-subscriptions';
+import {
+  eventSubscriptions,
+  pullPortalLeads,
+  reconcilePortalListings,
+} from './jobs/event-subscriptions';
 
 export interface Container {
   readonly database: DatabaseConnection;
@@ -633,9 +640,10 @@ function createPortalServices(
   });
   const directory = new ZonapropAccountDirectory({ api: zonaprop, logger });
   const accounts = new DrizzlePortalAccountRepository(db, clock);
+  const tokens = new MercadoLibreTokens({ db, cipher, authorizer, clock, logger });
   const connector = new PortalConnectorsByProvider({
     mercadolibre: new MercadoLibrePortalConnector({
-      tokens: new MercadoLibreTokens({ db, cipher, authorizer, clock, logger }),
+      tokens,
       locations: new MercadoLibreLocations({ logger, now: () => clock.now().getTime() }),
       logger,
     }),
@@ -682,6 +690,7 @@ function createPortalServices(
     authorizer,
     connector,
     directory,
+    mercadoLibre: new MercadoLibreAccountReader({ tokens, logger }),
     reader,
     developments,
     catalog,
@@ -706,6 +715,7 @@ function createPortalsUseCases(
     authorizer,
     connector,
     directory,
+    mercadoLibre,
     reader,
     developments,
     catalog,
@@ -719,6 +729,7 @@ function createPortalsUseCases(
   return {
     listAccounts: new ListPortalAccounts({ accounts }),
     getCredits: new GetPortalCredits({ accounts, directory }),
+    getPackages: new GetPortalPackages({ accounts, reader: mercadoLibre }),
     startConnection: new StartPortalConnection({ authorizer }),
     connectAccount: new ConnectPortalAccount({ uow, authorizer, clock }),
     connectAccountWithCode: new ConnectPortalAccountWithCode({ uow, directory, clock }),
@@ -1690,6 +1701,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       sink: portals.sink,
       clock,
     }),
+    reconcile: new ReconcileListings({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
     actor: PORTAL_SYNC_ACTOR,
   };
   for (const subscription of eventSubscriptions({
@@ -1783,6 +1795,14 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       cron: '*/10 * * * *',
       run: async () => {
         await pullPortalLeads(portalJobs, logger);
+      },
+    });
+    // Lo que el portal venció, cerró o pausó por moderación, antes de que empiece el día.
+    bus.schedule({
+      name: 'portals.reconcile-listings',
+      cron: '0 6 * * *',
+      run: async () => {
+        await reconcilePortalListings(portalJobs, logger);
       },
     });
   }

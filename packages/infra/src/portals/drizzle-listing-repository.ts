@@ -12,7 +12,7 @@ import {
   type PortalId,
 } from '@norde/core/portals';
 import { parseId, type Clock } from '@norde/core/shared';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -25,6 +25,9 @@ const ListingRowSchema = z.object({
   status: z.enum(LISTING_STATUSES),
   intent: z.enum(LISTING_INTENTS),
 });
+
+/** Las publicaciones con un aviso vivo en el portal (`portal_listings_portal_status_idx`). */
+const LIVE_STATUSES = ['published', 'paused', 'error'] as const;
 
 /** Tope de publicaciones de una propiedad: una por portal y operación (o una por portal). */
 const MAX_LISTINGS_PER_PROPERTY = PORTALS.length * LISTING_OPERATIONS.length;
@@ -149,6 +152,26 @@ export class DrizzleListingRepository implements ListingRepository {
       .where(eq(portalListings.developmentId, developmentId))
       .orderBy(asc(portalListings.portal), asc(portalListings.createdAt), asc(portalListings.id))
       .limit(PORTALS.length);
+    return rows.map(toListing);
+  }
+
+  async findLiveOnPortal(
+    portal: PortalId,
+    page: { readonly after: ListingId | undefined; readonly limit: number },
+  ): Promise<readonly Listing[]> {
+    const rows = await this.db
+      .select()
+      .from(portalListings)
+      .where(
+        and(
+          eq(portalListings.portal, portal),
+          inArray(portalListings.status, [...LIVE_STATUSES]),
+          isNotNull(portalListings.externalId),
+          page.after === undefined ? undefined : gt(portalListings.id, page.after),
+        ),
+      )
+      .orderBy(asc(portalListings.id))
+      .limit(page.limit);
     return rows.map(toListing);
   }
 

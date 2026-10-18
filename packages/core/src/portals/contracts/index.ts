@@ -79,6 +79,26 @@ export interface PortalCreditView {
   readonly publishes: ListingOwnerKindValue;
 }
 
+export const PORTAL_PACKAGE_CONTENT_VALUES = ['publications', 'upgrades', 'developments'] as const;
+export type PortalPackageContentValue = (typeof PORTAL_PACKAGE_CONTENT_VALUES)[number];
+
+/** El cupo de un tipo de aviso dentro de un paquete (en MercadoLibre: silver, gold, gold_premium). */
+export interface PortalPackageQuotaView {
+  readonly tier: string;
+  readonly total: number;
+  readonly used: number;
+  readonly remaining: number;
+}
+
+/** Un paquete activo de una cuenta conectada por OAuth (MercadoLibre), leído del portal. */
+export interface PortalPackageView {
+  readonly id: string;
+  readonly name: string;
+  readonly content: PortalPackageContentValue;
+  readonly expiresAt: Date | undefined;
+  readonly quotas: readonly PortalPackageQuotaView[];
+}
+
 // ---------- Publicaciones ----------
 
 export const LISTING_STATUS_VALUES = [

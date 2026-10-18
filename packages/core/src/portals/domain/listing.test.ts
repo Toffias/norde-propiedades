@@ -277,3 +277,76 @@ describe('Listing commands', () => {
     expect(listing.pullEvents()).toEqual([]);
   });
 });
+
+describe('Listing.reconcile', () => {
+  const EXPIRED = { state: 'closed', reason: 'MercadoLibre venció el aviso.' } as const;
+  const MODERATED = { state: 'paused', reason: 'MercadoLibre pausó el aviso.' } as const;
+  const ACTIVE = { state: 'active', reason: undefined } as const;
+
+  it('closes a listing the portal closed, keeping the reason', () => {
+    const listing = published();
+    expect(listing.reconcile(EXPIRED, LATER)).toBe(true);
+    expect(listing.toSnapshot()).toMatchObject({
+      status: 'unpublished',
+      intent: 'closed',
+      lastError: 'MercadoLibre venció el aviso.',
+      lastSyncedAt: LATER,
+    });
+    expect(listing.isFinished).toBe(true);
+    expect(listing.pullEvents()).toEqual([]);
+  });
+
+  it('pauses a listing the portal paused, with the reason', () => {
+    const listing = published();
+    expect(listing.reconcile(MODERATED, LATER)).toBe(true);
+    expect(listing.toSnapshot()).toMatchObject({
+      status: 'paused',
+      intent: 'active',
+      lastError: 'MercadoLibre pausó el aviso.',
+    });
+    expect(listing.reconcile(MODERATED, LATER)).toBe(false);
+  });
+
+  it('keeps a paused listing the team paused without a reason', () => {
+    const listing = published();
+    unwrap(listing.pause(NOW));
+    listing.recordPaused(undefined, NOW);
+    listing.pullEvents();
+    expect(listing.reconcile(MODERATED, LATER)).toBe(false);
+    expect(listing.toSnapshot().lastError).toBeUndefined();
+  });
+
+  it('marks as published again a listing the portal reactivated', () => {
+    const listing = published();
+    listing.reconcile(MODERATED, NOW);
+    expect(listing.reconcile(ACTIVE, LATER)).toBe(true);
+    expect(listing.toSnapshot()).toMatchObject({ status: 'published', lastError: undefined });
+    expect(listing.pullEvents()).toEqual([]);
+  });
+
+  it('asks to pause again a listing reactivated in the portal that the team had paused', () => {
+    const listing = published();
+    unwrap(listing.pause(NOW));
+    listing.recordPaused(undefined, NOW);
+    listing.pullEvents();
+    expect(listing.reconcile(ACTIVE, LATER)).toBe(true);
+    expect(listing.toSnapshot().status).toBe('published');
+    expect(listing.pullEvents().map((e) => e.type)).toEqual(['portals.listing_sync_requested']);
+    expect(listing.plan('active', 'hash-1')).toEqual({ kind: 'pause', contentChanged: false });
+  });
+
+  it('leaves an active listing, or one with an error about its content, as it is', () => {
+    const listing = published();
+    expect(listing.reconcile(ACTIVE, LATER)).toBe(false);
+    listing.recordFailure('Falta la foto.', NOW);
+    expect(listing.reconcile(ACTIVE, LATER)).toBe(false);
+    expect(listing.toSnapshot().lastError).toBe('Falta la foto.');
+  });
+
+  it('ignores listings that never reached the portal or are already closed', () => {
+    expect(requested().reconcile(EXPIRED, LATER)).toBe(false);
+    const listing = published();
+    listing.recordClosed(NOW);
+    expect(listing.reconcile(ACTIVE, LATER)).toBe(false);
+  });
+});

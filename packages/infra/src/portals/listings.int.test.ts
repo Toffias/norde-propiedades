@@ -1,6 +1,7 @@
 import {
   ConnectPortalAccount,
   ConnectPortalAccountWithCode,
+  ReconcileListings,
   RequestDevelopmentPublication,
   RequestPublication,
   SetPortalAccountEnabled,
@@ -11,6 +12,7 @@ import {
   FakeListingSourceReader,
   FakePortalAuthorizer,
   FakePortalConnector,
+  FakePortalListingStateReader,
   LISTED_DEVELOPMENT_ID,
   LISTED_PROPERTY_ID,
   developmentListingSource,
@@ -178,6 +180,54 @@ describe('portal listings (Postgres)', () => {
     expect(found.map((l) => l.id)).toEqual([listingId]);
     expect(await listings.findByExternalIds('zonaprop', ['MLA1'])).toEqual([]);
     expect(await listings.findByExternalIds('mercadolibre', [])).toEqual([]);
+  });
+
+  it('reads the live listings of a portal in batches, after the given id', async () => {
+    const { request, sync, listings } = await setup();
+    const { listingId } = unwrap(await request.execute(SALE, ADMIN));
+    expect(
+      await listings.findLiveOnPortal('mercadolibre', { after: undefined, limit: 10 }),
+    ).toEqual([]);
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+
+    const live = await listings.findLiveOnPortal('mercadolibre', { after: undefined, limit: 10 });
+    expect(live.map((l) => l.id)).toEqual([listingId]);
+    expect(
+      await listings.findLiveOnPortal('mercadolibre', { after: live[0]?.id, limit: 10 }),
+    ).toEqual([]);
+    expect(await listings.findLiveOnPortal('zonaprop', { after: undefined, limit: 10 })).toEqual(
+      [],
+    );
+  });
+
+  it('reconciles a listing the portal expired, with its audit', async () => {
+    const { request, sync } = await setup();
+    const { listingId } = unwrap(await request.execute(SALE, ADMIN));
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+    const reader = new FakePortalListingStateReader();
+    reader.remote.set('MLA1', { state: 'closed', reason: 'MercadoLibre venció el aviso.' });
+    const uow = createPortalsUnitOfWork(db, { ids, clock, cipher });
+
+    const outcome = unwrap(
+      await new ReconcileListings({ uow, reader, clock }).execute(
+        { portal: 'mercadolibre' },
+        PORTAL_SYNC,
+      ),
+    );
+
+    expect(outcome).toEqual({ checked: 1, changed: 1 });
+    const [row] = await db.select().from(portalListings).where(eq(portalListings.id, listingId));
+    expect(row).toMatchObject({
+      status: 'unpublished',
+      intent: 'closed',
+      lastError: 'MercadoLibre venció el aviso.',
+      updatedBy: 'system:portal-sync',
+    });
+    const audits = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.entityId, LISTED_PROPERTY_ID));
+    expect(audits.map((a) => a.action)).toContain('property.portal_unpublished');
   });
 
   it('stores a Zonaprop listing of the whole property with its plan, only once', async () => {

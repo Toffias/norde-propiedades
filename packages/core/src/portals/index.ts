@@ -81,6 +81,16 @@ export {
   GetPortalCredits,
   type GetPortalCreditsError,
 } from './application/queries/get-portal-credits';
+export {
+  GetPortalPackages,
+  type GetPortalPackagesError,
+} from './application/queries/get-portal-packages';
+export type {
+  PortalPackage,
+  PortalPackageContent,
+  PortalPackageQuota,
+  PortalPackageReader,
+} from './application/ports/portal-packages';
 
 export {
   LISTING_INTENTS,
@@ -101,6 +111,7 @@ export {
   type ListingSyncStep,
   type ListingType,
   type OwnerAvailability,
+  type RemoteListingState,
 } from './domain/listing';
 export type {
   ListingEvent,
@@ -242,6 +253,12 @@ export {
   RequestListingSync,
   type RequestListingSyncError,
 } from './application/commands/request-listing-sync';
+export {
+  ReconcileListings,
+  type ReconcileListingsError,
+  type ReconcileListingsOutcome,
+} from './application/commands/reconcile-listings';
+export type { PortalListingStateReader } from './application/ports/portal-listing-states';
 export {
   SyncListing,
   type SyncListingError,

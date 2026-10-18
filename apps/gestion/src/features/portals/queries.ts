@@ -1,6 +1,10 @@
 import 'server-only';
 
-import type { PortalCreditView, PortalValue } from '@norde/core/portals/contracts';
+import type {
+  PortalCreditView,
+  PortalPackageView,
+  PortalValue,
+} from '@norde/core/portals/contracts';
 
 import { getContainer } from '../../container';
 import { messageForError } from '../../lib/errors';
@@ -8,6 +12,7 @@ import { requireSession } from '../../lib/session';
 
 import {
   CREDITS_ERROR_MESSAGES,
+  PACKAGES_ERROR_MESSAGES,
   PORTAL_ACCOUNT_ERROR_MESSAGES,
   REMOTE_DEVELOPMENTS_ERROR_MESSAGES,
   REMOTE_LISTINGS_ERROR_MESSAGES,
@@ -50,6 +55,30 @@ export async function loadPortalCredits(
       const value: PortalCreditsResult = result.isOk()
         ? { ok: true, credits: result.value }
         : { ok: false, message: messageForError(result.error, CREDITS_ERROR_MESSAGES) };
+      return [portal, value] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
+/** Paquetes de una cuenta conectada por OAuth (MercadoLibre), leídos del portal en el momento. */
+export type PortalPackagesResult =
+  | { readonly ok: true; readonly packages: readonly PortalPackageView[] }
+  | { readonly ok: false; readonly message: string };
+
+/** Los paquetes de cada cuenta de MercadoLibre conectada. Un portal caído no rompe la página. */
+export async function loadPortalPackages(
+  portals: readonly PortalValue[],
+): Promise<Partial<Record<PortalValue, PortalPackagesResult>>> {
+  const useCases = getContainer().portals;
+  if (!useCases || portals.length === 0) return {};
+  const { actor } = await requireSession();
+  const entries = await Promise.all(
+    portals.map(async (portal) => {
+      const result = await useCases.getPackages.execute({ portal }, actor);
+      const value: PortalPackagesResult = result.isOk()
+        ? { ok: true, packages: result.value }
+        : { ok: false, message: messageForError(result.error, PACKAGES_ERROR_MESSAGES) };
       return [portal, value] as const;
     }),
   );

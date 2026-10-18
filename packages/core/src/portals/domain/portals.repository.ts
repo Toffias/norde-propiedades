@@ -32,5 +32,14 @@ export interface ListingRepository {
   findForDevelopment(developmentId: string): Promise<readonly Listing[]>;
   /** Las publicaciones de esos avisos del portal (por su ID en el portal), las que haya. */
   findByExternalIds(portal: PortalId, externalIds: readonly string[]): Promise<readonly Listing[]>;
+  /**
+   * Una tanda de las publicaciones del portal que tienen aviso y no están dadas de baja
+   * (publicadas, pausadas o con error), ordenadas por ID y a partir de `after`: la conciliación
+   * diaria las recorre por lotes.
+   */
+  findLiveOnPortal(
+    portal: PortalId,
+    page: { readonly after: ListingId | undefined; readonly limit: number },
+  ): Promise<readonly Listing[]>;
   save(listing: Listing, actorId: string): Promise<void>;
 }

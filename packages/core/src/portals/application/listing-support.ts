@@ -60,12 +60,16 @@ const STATUS_ACTIONS: Readonly<Record<ListingStatus, string | undefined>> = {
   error: 'portal_sync_failed',
 };
 
-/** Audita el cambio de estado de una publicación; sin cambio de estado, no registra nada. */
+/**
+ * Audita el cambio de estado de una publicación; sin cambio de estado, no registra nada. Con
+ * `previousError` (la conciliación), suma el motivo que dejó el portal si cambió.
+ */
 export async function auditStatusChange(
   tx: PortalsTransaction,
   actor: Actor,
   listing: Listing,
   before: ListingStatus,
+  previous?: { readonly lastError: string | undefined },
 ): Promise<void> {
   const { id, status, lastError, externalId, permalink } = listing.toSnapshot();
   const action = STATUS_ACTIONS[status];
@@ -75,6 +79,12 @@ export async function auditStatusChange(
   };
   if (status === 'error')
     changes[`listings.${id}.lastError`] = { before: null, after: lastError ?? null };
+  else if (previous && previous.lastError !== lastError) {
+    changes[`listings.${id}.lastError`] = {
+      before: previous.lastError ?? null,
+      after: lastError ?? null,
+    };
+  }
   if (status === 'published' && before === 'pending') {
     changes[`listings.${id}.externalId`] = { before: null, after: externalId ?? null };
     changes[`listings.${id}.permalink`] = { before: null, after: permalink ?? null };

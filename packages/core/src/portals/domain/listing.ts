@@ -57,6 +57,16 @@ export function developmentAvailability(input: {
   return 'active';
 }
 
+/**
+ * Cómo está el aviso en el portal, leído del portal (la conciliación diaria): activo, pausado
+ * (por el portal o por alguien en su sitio) o cerrado (vencido, dado de baja allá).
+ */
+export interface RemoteListingState {
+  readonly state: 'active' | 'paused' | 'closed';
+  /** Por qué lo pausó o lo cerró el portal ("MercadoLibre venció el aviso."), para mostrarlo. */
+  readonly reason: string | undefined;
+}
+
 export type ListingId = Id<'Listing'>;
 
 /** Lo que se publica: una propiedad suelta o un emprendimiento con sus unidades (por ID). */
@@ -384,6 +394,54 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   /** El aviso quedó cerrado. Cerrar es definitivo: la intención pasa a cerrado. */
   recordClosed(now: Date): void {
     this.#state = { ...this.#succeeded(now), status: 'unpublished', intent: 'closed' };
+  }
+
+  /**
+   * Refleja lo que pasó en el portal sin que Norde lo pidiera (la conciliación diaria). Devuelve si
+   * la publicación cambió.
+   * - Cerrado allá (vencido, dado de baja): queda dada de baja, con el motivo. Volver a mostrarlo
+   *   es "Volver a publicar", como cualquier aviso cerrado.
+   * - Pausado allá (moderación, o alguien lo pausó en el portal): queda pausada, con el motivo si el
+   *   equipo lo quería activo. No se reactiva sola: hay que resolverlo en el portal y sincronizar.
+   * - Activo allá: si estaba pausada por el portal, vuelve a publicada; si el equipo la había
+   *   pausado, se pide sincronizar para pausarlo otra vez. Un error de la última sincronización
+   *   queda a la vista: es sobre el contenido, no sobre el estado.
+   * Las que nunca llegaron al portal o ya están dadas de baja no se tocan.
+   */
+  reconcile(remote: RemoteListingState, now: Date): boolean {
+    const { externalId, status, intent, lastError } = this.#state;
+    if (externalId === undefined || status === 'pending' || status === 'unpublished') return false;
+
+    if (remote.state === 'closed') {
+      this.#state = {
+        ...this.#state,
+        status: 'unpublished',
+        intent: 'closed',
+        lastError: remote.reason,
+        lastSyncedAt: now,
+      };
+      return true;
+    }
+    if (remote.state === 'paused') {
+      const reason = intent === 'paused' ? undefined : remote.reason;
+      if (status === 'paused' && lastError === reason) return false;
+      this.#state = { ...this.#state, status: 'paused', lastError: reason, lastSyncedAt: now };
+      return true;
+    }
+    if (intent === 'paused') {
+      if (status === 'published') return false;
+      this.#state = {
+        ...this.#state,
+        status: 'published',
+        lastError: undefined,
+        lastSyncedAt: now,
+      };
+      this.requestSync(now);
+      return true;
+    }
+    if (status !== 'paused') return false;
+    this.#state = { ...this.#state, status: 'published', lastError: undefined, lastSyncedAt: now };
+    return true;
   }
 
   /** El portal rechazó el cambio o no respondió. Queda el motivo a la vista. */

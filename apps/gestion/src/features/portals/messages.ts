@@ -5,6 +5,7 @@ import type {
   DisconnectPortalAccountError,
   EnablePortalLeadNotificationsError,
   GetPortalCreditsError,
+  GetPortalPackagesError,
   GetPropertyListingsError,
   LinkDevelopmentListingError,
   LinkPortalListingError,
@@ -20,7 +21,7 @@ import type {
   StartPortalConnectionError,
   UnpublishListingError,
 } from '@norde/core/portals';
-import type { PortalValue } from '@norde/core/portals/contracts';
+import type { PortalPackageContentValue, PortalValue } from '@norde/core/portals/contracts';
 
 import type { ErrorMessages } from '../../lib/errors';
 
@@ -88,6 +89,33 @@ export const CREDITS_ERROR_MESSAGES = {
   PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
   PortalUnavailable: 'No pudimos consultar los créditos: Zonaprop no respondió. Probá más tarde.',
 } satisfies ErrorMessages<GetPortalCreditsError>;
+
+export const PACKAGES_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver los paquetes del portal.',
+  ValidationFailed: 'Ese portal no existe.',
+  WrongConnectionMethod: 'Este portal no informa paquetes.',
+  PortalNotConnected: NOT_CONNECTED,
+  PortalUnavailable: 'No pudimos consultar el cupo: MercadoLibre no respondió. Probá más tarde.',
+  PortalCredentialsMissing:
+    'MercadoLibre pide volver a conectar la cuenta para consultar el cupo de sus paquetes.',
+} satisfies ErrorMessages<GetPortalPackagesError>;
+
+/** Para qué sirve cada paquete de MercadoLibre. */
+export const PACKAGE_CONTENT_LABELS: Readonly<Record<PortalPackageContentValue, string>> = {
+  publications: 'Publicaciones',
+  upgrades: 'Destaques',
+  developments: 'Emprendimientos',
+};
+
+/** El tipo de aviso de un cupo de MercadoLibre (`listing_type_id`). */
+export function packageTierLabel(tier: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    silver: 'Plata (simple)',
+    gold: 'Oro',
+    gold_premium: 'Oro Premium (destacado)',
+  };
+  return labels[tier] ?? planLabel(tier);
+}
 
 export const PORTAL_ACCOUNT_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN,

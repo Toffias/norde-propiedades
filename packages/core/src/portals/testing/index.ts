@@ -49,8 +49,11 @@ import type {
   PortalListingUpdate,
   PortalSyncError,
 } from '../application/ports/portal-connector';
+import type { PortalListingStateReader } from '../application/ports/portal-listing-states';
+import type { PortalPackage, PortalPackageReader } from '../application/ports/portal-packages';
 import {
   Listing,
+  type RemoteListingState,
   type ListingId,
   type ListingOperation,
   type ListingOwner,
@@ -254,6 +257,27 @@ export class InMemoryListingRepository implements ListingRepository {
     return Promise.resolve(
       [...this.rows.values()]
         .filter((r) => r.owner.kind === 'development' && r.owner.id === developmentId)
+        .map((r) => Listing.restore(r)),
+    );
+  }
+
+  findLiveOnPortal(
+    portal: PortalId,
+    page: { readonly after: ListingId | undefined; readonly limit: number },
+  ) {
+    const { after, limit } = page;
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(
+          (r) =>
+            r.portal === portal &&
+            r.externalId !== undefined &&
+            r.status !== 'pending' &&
+            r.status !== 'unpublished' &&
+            (after === undefined || r.id > after),
+        )
+        .sort((a, b) => (a.id < b.id ? -1 : 1))
+        .slice(0, limit)
         .map((r) => Listing.restore(r)),
     );
   }
@@ -669,5 +693,51 @@ export class FakePortalLeadNotifications implements PortalLeadNotifications {
     if (this.failWith) return Promise.resolve(err(this.failWith));
     this.subscriptions.push(input);
     return Promise.resolve(ok(undefined));
+  }
+}
+
+/**
+ * Estados de prueba de los avisos en el portal, por ID. Lo que no está en `remote` el portal no lo
+ * informa. Con `failWith`, falla como el portal real.
+ */
+export class FakePortalListingStateReader implements PortalListingStateReader {
+  readonly remote = new Map<string, RemoteListingState>();
+  failWith: { readonly type: 'PortalUnavailable' | 'PortalCredentialsMissing' } | undefined;
+  readonly reads: (readonly string[])[] = [];
+
+  states(_portal: PortalId, externalIds: readonly string[]) {
+    this.reads.push(externalIds);
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    return Promise.resolve(
+      ok(
+        new Map(
+          externalIds.flatMap((id) => {
+            const state = this.remote.get(id);
+            return state === undefined ? [] : [[id, state] as const];
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+/** Paquetes de prueba de una cuenta de MercadoLibre. Con `failWith`, falla como el portal real. */
+export class FakePortalPackageReader implements PortalPackageReader {
+  available: readonly PortalPackage[] = [
+    {
+      id: '754985',
+      name: 'Paquete 15 Básico',
+      content: 'publications',
+      expiresAt: new Date('2026-11-22T18:34:47.544Z'),
+      quotas: [{ tier: 'silver', total: 15, used: 3, remaining: 12 }],
+    },
+  ];
+  failWith: { readonly type: 'PortalUnavailable' | 'PortalCredentialsMissing' } | undefined;
+  readonly reads: { portal: PortalId; externalAccountId: string }[] = [];
+
+  packages(input: { readonly portal: PortalId; readonly externalAccountId: string }) {
+    this.reads.push({ ...input });
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    return Promise.resolve(ok(this.available));
   }
 }

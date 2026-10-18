@@ -6,7 +6,11 @@ import type { Metadata } from 'next';
 import { PortalAccounts } from '../../../../features/portals/components/portal-accounts';
 import { connectionOutcomeMessage } from '../../../../features/portals/messages';
 import { CONNECTION_PARAM } from '../../../../features/portals/oauth-flow';
-import { loadPortalAccounts, loadPortalCredits } from '../../../../features/portals/queries';
+import {
+  loadPortalAccounts,
+  loadPortalCredits,
+  loadPortalPackages,
+} from '../../../../features/portals/queries';
 import { PortalFooterForm } from '../../../../features/settings/components/portal-footer-form';
 import { loadCompanySettings } from '../../../../features/settings/queries';
 import { FormAlert } from '../../../../features/shared/components/form-alert';
@@ -26,14 +30,16 @@ export default async function PortalsSettingsPage({
   if (!loaded.ok) {
     return <ErrorState title="No podés ver esta sección" description={loaded.message} />;
   }
-  const credits =
+  const connected = (method: 'account_code' | 'oauth') =>
     accounts.kind === 'ok'
-      ? await loadPortalCredits(
-          accounts.view.accounts
-            .filter((a) => a.connection === 'account_code' && a.isConnected)
-            .map((a) => a.portal),
-        )
-      : {};
+      ? accounts.view.accounts
+          .filter((a) => a.connection === method && a.isConnected)
+          .map((a) => a.portal)
+      : [];
+  const [credits, packages] = await Promise.all([
+    loadPortalCredits(connected('account_code')),
+    loadPortalPackages(connected('oauth')),
+  ]);
   const raw = params[CONNECTION_PARAM];
   const notice = connectionOutcomeMessage(typeof raw === 'string' ? raw : undefined);
 
@@ -42,7 +48,9 @@ export default async function PortalsSettingsPage({
       {accounts.kind !== 'hidden' && notice !== undefined && (
         <ConnectionNotice ok={notice.ok} message={notice.message} />
       )}
-      {accounts.kind === 'ok' && <PortalAccounts view={accounts.view} credits={credits} />}
+      {accounts.kind === 'ok' && (
+        <PortalAccounts view={accounts.view} credits={credits} packages={packages} />
+      )}
       {accounts.kind === 'error' && <FormAlert message={accounts.message} />}
       <SectionCard title="Descripción en portales">
         <PortalFooterForm

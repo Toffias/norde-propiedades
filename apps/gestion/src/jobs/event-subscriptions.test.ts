@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   eventSubscriptions,
+  reconcilePortalListings,
   type AppraisalJobs,
   type ErasureJobs,
   type MergeJobs,
@@ -551,6 +552,16 @@ describe('portal subscriptions', () => {
             return Promise.resolve(ok({ received: 1, duplicates: 0, skipped: 0, rejected: 0 }));
           },
         },
+        reconcile: {
+          execute: (input, by) => {
+            calls.push(['reconcile', input, by.id]);
+            return Promise.resolve(
+              input.portal === 'mercadolibre'
+                ? ok({ checked: 3, changed: 1 })
+                : err({ type: 'PortalUnavailable' as const }),
+            );
+          },
+        },
         actor: portalActor,
       },
       actor,
@@ -645,5 +656,35 @@ describe('portal subscriptions', () => {
       payload: { portal: 'zonaprop' },
     });
     expect(calls).toEqual([['pull-leads', { portal: 'zonaprop' }, 'system:portal-sync']]);
+  });
+});
+
+describe('reconcilePortalListings', () => {
+  it('reconciles each MercadoLibre account as system:portal-sync, and goes on when one fails', async () => {
+    const calls: unknown[] = [];
+    const unused = () => Promise.reject(new Error('not used'));
+    await reconcilePortalListings(
+      {
+        requestSync: { execute: unused },
+        sync: { execute: unused },
+        pullLeads: { execute: unused },
+        reconcile: {
+          execute: (input, by) => {
+            calls.push([input.portal, by.id]);
+            return Promise.resolve(
+              input.portal === 'mercadolibre'
+                ? err({ type: 'PortalUnavailable' as const })
+                : ok({ checked: 0, changed: 0 }),
+            );
+          },
+        },
+        actor: Actor.system('portal-sync', ['portals:sync']),
+      },
+      pino({ level: 'silent' }),
+    );
+    expect(calls).toEqual([
+      ['mercadolibre', 'system:portal-sync'],
+      ['mercadolibre_developments', 'system:portal-sync'],
+    ]);
   });
 });

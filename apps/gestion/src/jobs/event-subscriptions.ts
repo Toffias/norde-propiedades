@@ -21,6 +21,7 @@ import {
   PORTALS,
   PORTAL_CATALOG,
   type PullPortalLeads,
+  type ReconcileListings,
   type RequestListingSync,
   type SyncListing,
 } from '@norde/core/portals';
@@ -298,6 +299,7 @@ export interface PortalJobs {
   readonly requestSync: Pick<RequestListingSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
   readonly pullLeads: Pick<PullPortalLeads, 'execute'>;
+  readonly reconcile: Pick<ReconcileListings, 'execute'>;
   /** `system:portal-sync`: sincroniza y lee la propiedad, su sucursal y Mi empresa. */
   readonly actor: Actor;
 }
@@ -335,6 +337,23 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
     }
   }
   return allAnswered;
+}
+
+const RECONCILED_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].reconciles);
+
+/**
+ * La conciliación diaria: refleja en las publicaciones lo que cada portal venció, cerró o pausó por
+ * moderación. Un portal que no responde se loguea y se vuelve a intentar al día siguiente.
+ */
+export async function reconcilePortalListings(jobs: PortalJobs, logger: Logger): Promise<void> {
+  for (const portal of RECONCILED_PORTALS) {
+    const result = await jobs.reconcile.execute({ portal }, jobs.actor);
+    if (result.isErr()) {
+      logger.error({ portal, error: result.error }, 'Portal listings reconciliation failed');
+      continue;
+    }
+    logger.info({ portal, ...result.value }, 'Portal listings reconciled');
+  }
 }
 
 function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscription[] {

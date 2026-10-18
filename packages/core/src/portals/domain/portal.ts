@@ -58,6 +58,11 @@ export interface PortalDefinition {
   readonly leadChannel: 'zonaprop' | undefined;
   /** Si el portal cobra por publicar (en ML, el paquete contratado; en Zonaprop, los créditos). */
   readonly paid: boolean;
+  /**
+   * Si una vez por día se lee del portal cómo están los avisos, para reflejar los que el portal
+   * venció, cerró o pausó por moderación (MercadoLibre). Zonaprop no vence ni modera avisos.
+   */
+  readonly reconciles: boolean;
 }
 
 export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
@@ -70,6 +75,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     linksExisting: false,
     leadChannel: undefined,
     paid: true,
+    reconciles: true,
   },
   // Los emprendimientos de MercadoLibre (un aviso con las unidades como variantes) todavía no se
   // publican desde Norde: la cuenta se conecta, pero no publica nada.
@@ -82,6 +88,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     linksExisting: false,
     leadChannel: undefined,
     paid: true,
+    reconciles: true,
   },
   zonaprop: {
     provider: 'zonaprop',
@@ -92,6 +99,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     linksExisting: true,
     leadChannel: 'zonaprop',
     paid: true,
+    reconciles: false,
   },
 };
 

@@ -113,6 +113,10 @@ export {
 } from './adapters/portals/mercadolibre/mercadolibre-portal-connector';
 export { MercadoLibreLocations } from './adapters/portals/mercadolibre/mercadolibre-locations';
 export {
+  MercadoLibreAccountReader,
+  type MercadoLibreAccountReaderOptions,
+} from './adapters/portals/mercadolibre/mercadolibre-account-reader';
+export {
   MercadoLibreAuthorizer,
   type MercadoLibreAppConfig,
   type MercadoLibreAuthorizerOptions,

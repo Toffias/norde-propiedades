@@ -670,6 +670,7 @@ Diseño propuesto:
      - **Pausado por moderación, por falta de pago o desde el sitio de ML**: queda "Pausada", con el motivo que da ML ("Reportada como no disponible."). No se reactiva sola: se resuelve en MercadoLibre y se toca **Sincronizar**.
      - **Reactivado en ML**: vuelve a "Publicada". Si el equipo lo había pausado, se vuelve a pausar.
      - Se audita contra la propiedad por `system:portal-sync` (`property.portal_unpublished` o `property.portal_paused`, con el motivo).
+     - **Al instante** (ADR 0035): MercadoLibre avisa cada cambio de un aviso (tópico `items` de la app). El sistema lee cómo quedó ese aviso y lo refleja enseguida, con la misma regla. La corrida diaria sigue como respaldo.
    - **Cupo de los paquetes (2b).** Las tarjetas de MercadoLibre de Mi empresa → Portales muestran los paquetes activos de la cuenta: nombre, para qué sirven (publicaciones, destaques, emprendimientos), vencimiento y el cupo libre de cada tipo de aviso (Plata, Oro, Oro Premium). Se lee de MercadoLibre en el momento. Sin paquetes, la tarjeta avisa que no se puede publicar.
 3. **Vincular los avisos que hoy publica Tokko** (hecha, ADR 0033), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
    - **Mi empresa → Portales → Avisos en MercadoLibre** lista los avisos activos de la cuenta de propiedades, con su operación, y propone la propiedad que tiene el código que Tokko cargó en el aviso. Se vincula con un clic.
@@ -694,7 +695,7 @@ Diseño propuesto:
 **Consultas de MercadoLibre** (hecha, ADR 0032): los contactos de los avisos de las dos cuentas entran a la **bandeja de consultas** con canal MercadoLibre.
 
 - Entran solos **cada 10 minutos**, leídos de MercadoLibre (los de los últimos 2 días; los que ya estaban no se repiten).
-- **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y el tópico `vis_leads`. MercadoLibre avisa y el sistema vuelve a leer de la API.
+- **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y los tópicos `vis_leads` e `items` (este, para los cambios de los avisos). MercadoLibre avisa y el sistema vuelve a leer de la API.
 - Entran preguntas (con su texto), WhatsApp, llamadas, pedidos de contacto, visitas y cotizaciones de usuarios con sesión (la de un emprendimiento publicado por el sistema, con su unidad). Los anónimos no traen datos y no entran.
 - Si el aviso es del sistema, la consulta queda con su propiedad. Los avisos de Tokko, hasta vincularlos, entran sin propiedad.
 

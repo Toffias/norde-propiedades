@@ -89,6 +89,7 @@ export class ListRemoteListings {
       return {
         remoteId: r.remoteId,
         title: r.title,
+        operation: r.operation,
         reference: r.reference,
         plan: r.plan,
         location: r.location,

@@ -36,6 +36,11 @@ const ZONAPROP_NOT_CONFIGURED =
   'Faltan las credenciales de Zonaprop en el servidor (ZONAPROP_API_URL, ZONAPROP_CLIENT_ID y ZONAPROP_CLIENT_SECRET), o Zonaprop las rechazó.';
 const NOT_CONNECTED = 'La cuenta no está conectada. Conectala primero.';
 const WRONG_METHOD = 'Esa cuenta se conecta de otra forma. Recargá la página y probá de nuevo.';
+/** Los avisos online se leen de Zonaprop o de MercadoLibre: el mensaje no nombra el portal. */
+const PORTAL_READ_NOT_CONFIGURED =
+  'Faltan las credenciales del portal en el servidor, o el portal las rechazó: revisá la cuenta en Mi empresa → Portales.';
+const PORTAL_READ_UNAVAILABLE =
+  'El portal no respondió. Probá de nuevo en unos minutos (el sandbox de Zonaprop funciona de 7 a 21 h).';
 const ZONAPROP_UNAVAILABLE =
   'Zonaprop no respondió. Probá de nuevo en unos minutos (el sandbox funciona de 7 a 21 h).';
 
@@ -243,8 +248,8 @@ export const REMOTE_LISTINGS_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver los avisos del portal.',
   ValidationFailed: (error) => error.issues[0] ?? 'Revisá la página.',
   PortalNotConnected: NOT_CONNECTED,
-  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
-  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+  PortalNotConfigured: PORTAL_READ_NOT_CONFIGURED,
+  PortalUnavailable: PORTAL_READ_UNAVAILABLE,
 } satisfies ErrorMessages<ListRemoteListingsError>;
 
 export const LINK_LISTING_ERROR_MESSAGES = {
@@ -256,17 +261,21 @@ export const LINK_LISTING_ERROR_MESSAGES = {
   UnitPublishedWithDevelopment:
     'Las unidades se vinculan con su emprendimiento, desde la ficha del emprendimiento.',
   RemoteListingNotFound:
-    'Zonaprop no tiene online un aviso con ese número en la cuenta de Norde. Revisá el link.',
+    'El portal no tiene online (ni pausado) un aviso con ese número en la cuenta de Norde. Revisá el link.',
   RemoteListingIsDevelopment:
     'Ese aviso es un emprendimiento: vinculalo desde la ficha del emprendimiento, en Difusión.',
+  RemoteListingOperationUnknown:
+    'MercadoLibre no dice si el aviso es de venta o de alquiler: no se puede vincular. Revisá la categoría del aviso en MercadoLibre.',
+  OperationNotOffered: 'La propiedad no ofrece la operación de ese aviso (venta o alquiler).',
   RemoteListingAlreadyLinked: (error) =>
     error.owner.kind === 'development'
       ? 'Ese aviso ya está vinculado a un emprendimiento.'
       : 'Ese aviso ya está vinculado a otra propiedad.',
-  ListingAlreadyExists: 'La propiedad ya tiene un aviso en este portal.',
+  ListingAlreadyExists:
+    'La propiedad ya tiene un aviso en este portal (para esa operación, en MercadoLibre).',
   PlanRequired: 'Zonaprop no informa el plan de ese aviso: elegilo.',
-  PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
-  PortalUnavailable: ZONAPROP_UNAVAILABLE,
+  PortalNotConfigured: PORTAL_READ_NOT_CONFIGURED,
+  PortalUnavailable: PORTAL_READ_UNAVAILABLE,
   PortalRejected: (error) => error.reason,
   PortalCredentialsMissing: 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).',
 } satisfies ErrorMessages<LinkPortalListingError>;

@@ -1,9 +1,10 @@
-import type {
-  ListingOperation,
-  ListingPropertyKind,
-  ListingSource,
-  ListingType,
-  PropertyListingContent,
+import {
+  LISTING_OPERATIONS,
+  type ListingOperation,
+  type ListingPropertyKind,
+  type ListingSource,
+  type ListingType,
+  type PropertyListingContent,
 } from '@norde/core/portals';
 
 // Traducción pura de una publicación al aviso de MercadoLibre (categoría, atributos, contacto). Los
@@ -76,6 +77,19 @@ function numericValue(source: ListingSource, field: NumericField): number | unde
     case 'parkingSpaces':
       return c.parkingSpaces ?? 0;
   }
+}
+
+/**
+ * La operación de una categoría de "Propiedades individuales" (la inversa de `categoryOf`), para
+ * los avisos que publicó otro sistema. Una categoría que no está en la tabla no se sabe.
+ */
+export function operationOfCategory(categoryId: string): ListingOperation | undefined {
+  for (const operations of Object.values(CATEGORIES)) {
+    for (const [operation, category] of Object.entries(operations)) {
+      if (category === categoryId) return LISTING_OPERATIONS.find((o) => o === operation);
+    }
+  }
+  return undefined;
 }
 
 export function categoryOf(kind: ListingPropertyKind, operation: ListingOperation | undefined) {

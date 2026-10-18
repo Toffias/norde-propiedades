@@ -365,7 +365,13 @@ describe('GetDevelopmentListings', () => {
 
     expect(view.listings.map((l) => l.id)).toEqual([listingId]);
     expect(view.portals).toEqual([
-      { portal: 'zonaprop', listingScope: 'property', choosesPlan: true },
+      {
+        portal: 'zonaprop',
+        listingScope: 'property',
+        choosesPlan: true,
+        linksExisting: true,
+        unitsAsListings: false,
+      },
     ]);
     expect(view.canPublish).toBe(true);
   });

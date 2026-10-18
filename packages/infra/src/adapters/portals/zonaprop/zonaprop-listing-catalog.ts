@@ -70,6 +70,9 @@ function toRemote(summary: z.infer<typeof SummarySchema>): RemoteListing {
     code: blankToUndefined(summary.codigoAviso),
     reference: blankToUndefined(summary.claveInterna),
     title: blankToUndefined(summary.titulo) ?? `Aviso ${remoteId}`,
+    // Un solo aviso con todas las operaciones; el plan dice la exposición.
+    operation: undefined,
+    listingType: undefined,
     plan: blankToUndefined(summary.tipoDePublicacion),
     location: blankToUndefined(summary.ubicacion?.ubicacion),
     permalink: listingPermalink(remoteId),

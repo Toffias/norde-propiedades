@@ -138,9 +138,9 @@ describe('ListRemoteListings', () => {
 
   it('only works on portals that link existing listings', async () => {
     const { list } = setup();
-    expect(unwrapErr(await list.execute({ portal: 'mercadolibre' }, MANAGER)).type).toBe(
-      'ValidationFailed',
-    );
+    expect(
+      unwrapErr(await list.execute({ portal: 'mercadolibre_developments' }, MANAGER)).type,
+    ).toBe('ValidationFailed');
   });
 
   it('returns the portal error', async () => {

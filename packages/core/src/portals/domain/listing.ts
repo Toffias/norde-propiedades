@@ -172,6 +172,8 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     readonly portal: PortalId;
     readonly owner: ListingOwner;
     readonly operation: ListingOperation | undefined;
+    /** Simple o destacado, como está en el portal; si el portal no lo informa, simple. */
+    readonly listingType?: ListingType;
     readonly plan: string | undefined;
     readonly externalId: string;
     readonly permalink: string | undefined;
@@ -183,7 +185,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
       portal: input.portal,
       owner: input.owner,
       operation: input.operation,
-      listingType: 'simple',
+      listingType: input.listingType ?? 'simple',
       plan: input.plan,
       status: 'published',
       intent: 'active',
@@ -253,6 +255,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
    * `Listing.linked`, sobre la que ya existía). Solo desde una publicación cerrada.
    */
   adopt(input: {
+    readonly listingType?: ListingType;
     readonly plan: string | undefined;
     readonly externalId: string;
     readonly permalink: string | undefined;
@@ -262,6 +265,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     if (this.#state.intent !== 'closed') return err({ type: 'ListingNotClosed' });
     this.#state = {
       ...this.#state,
+      listingType: input.listingType ?? this.#state.listingType,
       plan: input.plan,
       status: 'published',
       intent: 'active',

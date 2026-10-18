@@ -1,4 +1,5 @@
 import type { PageSlice, Result } from '../../../shared';
+import type { ListingOperation, ListingType } from '../../domain/listing';
 import type { PortalId } from '../../domain/portal';
 import type { PortalSyncError } from './portal-connector';
 import type { PortalNotConfiguredError, PortalUnavailableError } from './portal-authorizer';
@@ -12,6 +13,13 @@ export interface RemoteListing {
   /** La clave interna con la que lo cargó la inmobiliaria (en Tokko, el código de referencia). */
   readonly reference: string | undefined;
   readonly title: string;
+  /**
+   * La operación del aviso, en los portales con un aviso por operación (en MercadoLibre, la de su
+   * categoría). Sin operación: el aviso lleva todas (Zonaprop), o el portal no la informa.
+   */
+  readonly operation: ListingOperation | undefined;
+  /** Simple o destacado, si el portal lo informa (en MercadoLibre, `listing_type_id`). */
+  readonly listingType: ListingType | undefined;
   /** El plan con el que está publicado. */
   readonly plan: string | undefined;
   /** La ubicación como la muestra el portal ("Mataderos, Capital Federal"). */

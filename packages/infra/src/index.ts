@@ -138,6 +138,11 @@ export {
 } from './adapters/portals/zonaprop/zonaprop-portal-connector';
 export { PortalConnectorsByProvider } from './adapters/portals/portal-connectors';
 export { PortalLeadSourcesByProvider } from './adapters/portals/portal-lead-sources';
+export { PortalListingCatalogsByProvider } from './adapters/portals/portal-listing-catalogs';
+export {
+  MercadoLibreListingCatalog,
+  type MercadoLibreListingCatalogOptions,
+} from './adapters/portals/mercadolibre/mercadolibre-listing-catalog';
 export {
   MercadoLibreLeads,
   type MercadoLibreLeadsOptions,

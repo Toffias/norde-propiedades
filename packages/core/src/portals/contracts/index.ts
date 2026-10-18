@@ -70,6 +70,8 @@ export interface PortalAccountView {
   /** Vacío: la cuenta todavía no publica nada. */
   readonly publishes: readonly ListingOwnerKindValue[];
   readonly paid: boolean;
+  /** Si se pueden vincular los avisos que la cuenta ya tiene online (Mi empresa → Avisos). */
+  readonly linksExisting: boolean;
   readonly isEnabled: boolean;
   readonly isConnected: boolean;
   readonly accountName: string | undefined;
@@ -198,6 +200,10 @@ export interface PortalPublishingView {
   readonly portal: PortalValue;
   readonly listingScope: ListingScopeValue;
   readonly choosesPlan: boolean;
+  /** Si se puede vincular un aviso que ya está online (lo publicó Tokko). */
+  readonly linksExisting: boolean;
+  /** Si una unidad de un emprendimiento puede tener su propio aviso (MercadoLibre). */
+  readonly unitsAsListings: boolean;
 }
 
 /** Una publicación en la pestaña Difusión de la ficha. */
@@ -241,13 +247,18 @@ export const ListRemoteListingsInputSchema = z.object({
 export type ListRemoteListingsInput = z.input<typeof ListRemoteListingsInputSchema>;
 
 /**
- * El aviso del portal: su ID, o el link que se copia del portal (termina en el ID:
- * `…-59617389.html`).
+ * El aviso del portal: su ID, o el link que se copia del portal.
+ * - MercadoLibre: `MLA1592938055`, o un link con `MLA-1592938055-…` (queda `MLA1592938055`).
+ * - Zonaprop: el número, o el link que termina en él (`…-59617389.html`).
  */
 export const RemoteListingIdSchema = z
   .string()
   .trim()
-  .transform((value) => /(\d{4,})(?:\.html)?\/?(?:[?#].*)?$/.exec(value)?.[1])
+  .transform((value) => {
+    const mercadoLibre = /\b(ML[A-Z])-?(\d{6,})/i.exec(value);
+    if (mercadoLibre) return `${(mercadoLibre[1] ?? '').toUpperCase()}${mercadoLibre[2] ?? ''}`;
+    return /(\d{4,})(?:\.html)?\/?(?:[?#].*)?$/.exec(value)?.[1];
+  })
   .pipe(z.string({ error: 'Pegá el link del aviso o su número.' }));
 
 /** Vincular un aviso que ya está online a una propiedad, sin republicarlo. */
@@ -264,6 +275,8 @@ export type LinkPortalListingInput = z.input<typeof LinkPortalListingInputSchema
 export interface RemoteListingView {
   readonly remoteId: string;
   readonly title: string;
+  /** La operación del aviso, en los portales con un aviso por operación (MercadoLibre). */
+  readonly operation: ListingOperationValue | undefined;
   readonly reference: string | undefined;
   readonly plan: string | undefined;
   readonly location: string | undefined;

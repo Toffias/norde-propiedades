@@ -107,9 +107,13 @@ export function listingProblems(content: PropertyListingContent): string[] {
       'MercadoLibre exige al menos una foto lista y marcada "Mostrar en la web" (en desarrollo, el storage tiene que ser S3 para firmar los links).',
     );
   }
-  if (source.contact.whatsapp === undefined) {
+  if (!source.contact.fromBranch) {
     problems.push(
-      'La sucursal de la propiedad no tiene WhatsApp: MercadoLibre lo exige en cada aviso.',
+      'La propiedad no tiene sucursal, y MercadoLibre exige el WhatsApp de la sucursal en cada aviso. La propiedad toma la sucursal de su captador: volvé a elegirlo en "Cambiar captador".',
+    );
+  } else if (source.contact.whatsapp === undefined) {
+    problems.push(
+      `La sucursal ${source.contact.name} no tiene WhatsApp: cargalo en Mi empresa → Sucursales. MercadoLibre lo exige en cada aviso.`,
     );
   }
   if (source.location.city === undefined && source.location.neighborhood === undefined) {

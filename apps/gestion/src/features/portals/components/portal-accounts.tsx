@@ -145,6 +145,12 @@ function PortalAccountCard({
         {credits !== undefined && <PortalCredits result={credits} />}
         {packages !== undefined && <PortalPackages result={packages} />}
         {byCode && account.isConnected && canManage && <LeadNotifications account={account} />}
+        {!byCode && account.isConnected && (
+          <p className="text-sm text-muted-foreground">
+            Las consultas de los avisos de esta cuenta entran solas a la bandeja cada 10 minutos, y
+            al instante con las notificaciones de la app de MercadoLibre.
+          </p>
+        )}
         {byCode && account.isConnected && (
           <Link
             href="/mi-empresa/portales/avisos"

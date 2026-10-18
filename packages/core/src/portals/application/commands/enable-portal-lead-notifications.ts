@@ -9,6 +9,7 @@ import {
 import { PortalInputSchema, type PortalInput } from '../../contracts';
 import { PORTAL_CATALOG } from '../../domain/portal';
 import type { PortalNotConnectedError } from '../../domain/portal-account';
+import { requireConnectionMethod, type WrongConnectionMethodError } from '../connection-method';
 import { portalAccountTarget } from '../portal-account-audit';
 import type { PortalNotConfiguredError, PortalUnavailableError } from '../ports/portal-authorizer';
 import type { PortalLeadNotifications } from '../ports/portal-leads';
@@ -18,6 +19,7 @@ import { parseInput, type ValidationFailedError } from '../portals-input';
 export type EnablePortalLeadNotificationsError =
   | ForbiddenError
   | ValidationFailedError
+  | WrongConnectionMethodError
   | PortalNotConnectedError
   | PortalNotConfiguredError
   | PortalUnavailableError;
@@ -54,6 +56,9 @@ export class EnablePortalLeadNotifications {
     if (PORTAL_CATALOG[portal].leadChannel === undefined) {
       return err({ type: 'ValidationFailed', issues: ['Este portal no trae consultas.'] });
     }
+    // Los avisos de MercadoLibre se configuran en su app, no por la API.
+    const method = requireConnectionMethod(portal, 'account_code');
+    if (method.isErr()) return err(method.error);
     const { target } = this.deps;
     if (target === undefined) return err({ type: 'PortalNotConfigured' });
 

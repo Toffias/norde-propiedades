@@ -1,5 +1,5 @@
 import type { PageSlice, Result } from '../../../shared';
-import type { PortalId } from '../../domain/portal';
+import type { PortalId, PortalLeadChannel } from '../../domain/portal';
 import type { PortalLead } from '../../domain/portal-lead';
 import type { PortalNotConfiguredError, PortalUnavailableError } from './portal-authorizer';
 
@@ -27,7 +27,7 @@ export interface PortalLeadRejected {
  */
 export interface PortalLeadSink {
   receive(input: {
-    readonly channel: 'zonaprop';
+    readonly channel: PortalLeadChannel;
     readonly externalId: string;
     readonly receivedAt: Date | undefined;
     readonly name: string | undefined;

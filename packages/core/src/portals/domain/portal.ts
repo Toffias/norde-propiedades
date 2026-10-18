@@ -35,6 +35,9 @@ export const LISTING_SCOPES = ['operation', 'property'] as const;
 
 export type ListingScope = (typeof LISTING_SCOPES)[number];
 
+/** Los canales de la bandeja (módulo clients) con que entran las consultas de los portales. */
+export type PortalLeadChannel = 'mercadolibre' | 'zonaprop';
+
 export interface PortalDefinition {
   readonly provider: PortalProvider;
   readonly connection: PortalConnectionMethod;
@@ -53,9 +56,9 @@ export interface PortalDefinition {
   readonly linksExisting: boolean;
   /**
    * El canal de la bandeja de consultas con que entran los contactos de sus avisos, si el sistema
-   * ya los trae (Zonaprop). Sin canal, el portal todavía no trae consultas.
+   * ya los trae. Sin canal, el portal todavía no trae consultas.
    */
-  readonly leadChannel: 'zonaprop' | undefined;
+  readonly leadChannel: PortalLeadChannel | undefined;
   /** Si el portal cobra por publicar (en ML, el paquete contratado; en Zonaprop, los créditos). */
   readonly paid: boolean;
   /**
@@ -73,7 +76,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     listingScope: 'operation',
     choosesPlan: false,
     linksExisting: false,
-    leadChannel: undefined,
+    leadChannel: 'mercadolibre',
     paid: true,
     reconciles: true,
   },
@@ -86,7 +89,8 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     listingScope: 'operation',
     choosesPlan: false,
     linksExisting: false,
-    leadChannel: undefined,
+    // Sus consultas entran aunque todavía no publique: los avisos que hoy publica Tokko.
+    leadChannel: 'mercadolibre',
     paid: true,
     reconciles: true,
   },

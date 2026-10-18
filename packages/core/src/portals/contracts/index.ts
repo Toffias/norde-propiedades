@@ -45,6 +45,18 @@ export type ConnectPortalAccountWithCodeInput = z.input<
 export const PortalInputSchema = z.object({ portal: PortalSchema });
 export type PortalInput = z.input<typeof PortalInputSchema>;
 
+export const PORTAL_PROVIDER_VALUES = ['mercadolibre', 'zonaprop'] as const;
+
+/**
+ * Un aviso del portal sobre una de sus cuentas (en MercadoLibre, el `user_id` de la notificación):
+ * el proveedor y el ID de la cuenta en el portal.
+ */
+export const PortalAccountNoticeInputSchema = z.object({
+  provider: z.enum(PORTAL_PROVIDER_VALUES),
+  externalAccountId: z.string().trim().min(1).max(64),
+});
+export type PortalAccountNoticeInput = z.input<typeof PortalAccountNoticeInputSchema>;
+
 export const SetPortalAccountEnabledInputSchema = z.object({
   portal: PortalSchema,
   enabled: z.boolean(),

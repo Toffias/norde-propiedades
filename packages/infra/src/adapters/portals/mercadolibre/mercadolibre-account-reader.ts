@@ -1,32 +1,24 @@
 import type {
-  PortalCredentialsMissingError,
   PortalId,
   PortalListingStateReader,
   PortalPackage,
   PortalPackageContent,
   PortalPackageReader,
-  PortalUnavailableError,
   RemoteListingState,
 } from '@norde/core/portals';
 import { err, ok, type Result } from '@norde/core/shared';
 import { z } from 'zod';
 
-import type { InfraLogger } from '../../../shared/logger';
+import {
+  MercadoLibreReads,
+  type MercadoLibreReadError as ReadError,
+  type MercadoLibreReadsOptions,
+} from './mercadolibre-reads';
 
-import type { MercadoLibreAccessTokens } from './mercadolibre-portal-connector';
-
-export interface MercadoLibreAccountReaderOptions {
-  readonly tokens: MercadoLibreAccessTokens;
-  readonly logger: InfraLogger;
-  readonly apiBaseUrl?: string;
-  readonly fetch?: typeof fetch;
-}
-
-type ReadError = PortalUnavailableError | PortalCredentialsMissingError;
+export type MercadoLibreAccountReaderOptions = MercadoLibreReadsOptions;
 
 /** Lo que acepta el multiget de items (`/items?ids=`) por pedido. */
 const MULTIGET_SIZE = 20;
-const TIMEOUT_MS = 20_000;
 
 /** Cada respuesta del multiget: el código y el ítem (o el error) en `body`. */
 const MultigetSchema = z.array(z.object({ code: z.number(), body: z.unknown() }));
@@ -105,12 +97,10 @@ const PROCESSING_PICTURES = 'picture_download_pending';
  * token de la cuenta. Nunca loguea tokens.
  */
 export class MercadoLibreAccountReader implements PortalListingStateReader, PortalPackageReader {
-  readonly #fetch: typeof fetch;
-  readonly #baseUrl: string;
+  readonly #api: MercadoLibreReads;
 
   constructor(private readonly options: MercadoLibreAccountReaderOptions) {
-    this.#fetch = options.fetch ?? fetch;
-    this.#baseUrl = options.apiBaseUrl ?? 'https://api.mercadolibre.com';
+    this.#api = new MercadoLibreReads(options);
   }
 
   async states(
@@ -124,10 +114,10 @@ export class MercadoLibreAccountReader implements PortalListingStateReader, Port
         ids: ids.join(','),
         attributes: 'id,status,sub_status,tags',
       });
-      const read = await this.#get(portal, `/items?${query.toString()}`);
+      const read = await this.#api.get(portal, `/items?${query.toString()}`);
       if (read.isErr()) return err(read.error);
       const parsed = MultigetSchema.safeParse(read.value);
-      if (!parsed.success) return this.#unexpected(portal, '/items');
+      if (!parsed.success) return this.#api.unexpected(portal, '/items');
 
       for (const [index, entry] of parsed.data.entries()) {
         // El multiget responde en el orden de los IDs pedidos.
@@ -160,10 +150,10 @@ export class MercadoLibreAccountReader implements PortalListingStateReader, Port
     const { portal, externalAccountId } = input;
     const path = `/users/${encodeURIComponent(externalAccountId)}/classifieds_promotion_packs`;
     const query = new URLSearchParams({ package_content: 'ALL', status: 'active' });
-    const read = await this.#get(portal, `${path}?${query.toString()}`);
+    const read = await this.#api.get(portal, `${path}?${query.toString()}`);
     if (read.isErr()) return err(read.error);
     const parsed = PackagesSchema.safeParse(read.value);
-    if (!parsed.success) return this.#unexpected(portal, path);
+    if (!parsed.success) return this.#api.unexpected(portal, path);
 
     return ok(
       parsed.data.flatMap((pack): PortalPackage[] => {
@@ -247,7 +237,7 @@ export class MercadoLibreAccountReader implements PortalListingStateReader, Port
     what: string,
   ): Promise<Result<RemoteListingState, ReadError>> {
     const path = `/moderations/last_moderation/${encodeURIComponent(externalId)}-ITM`;
-    const read = await this.#get(portal, path);
+    const read = await this.#api.get(portal, path);
     if (read.isErr() && read.error.type === 'PortalCredentialsMissing') return err(read.error);
     const reason = read.isOk()
       ? ModerationSchema.safeParse(read.value)
@@ -268,40 +258,4 @@ export class MercadoLibreAccountReader implements PortalListingStateReader, Port
           : `${what}: ${reason}`,
     });
   }
-
-  async #get(portal: PortalId, path: string): Promise<Result<unknown, ReadError>> {
-    const { logger, tokens } = this.options;
-    const token = await tokens.accessToken(portal);
-    if (token.isErr()) return err(token.error);
-
-    let response: Response;
-    try {
-      response = await this.#fetch(`${this.#baseUrl}${path}`, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token.value}` },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-    } catch (error) {
-      logger.error({ err: error, portal, path: pathOnly(path) }, 'MercadoLibre unreachable');
-      return err({ type: 'PortalUnavailable' });
-    }
-    const payload: unknown = await response.json().catch(() => undefined);
-    if (response.ok) return ok(payload);
-    logger.warn(
-      { portal, path: pathOnly(path), status: response.status },
-      'MercadoLibre rejected a read',
-    );
-    return response.status === 401
-      ? err({ type: 'PortalCredentialsMissing' })
-      : err({ type: 'PortalUnavailable' });
-  }
-
-  #unexpected<T>(portal: PortalId, path: string): Result<T, ReadError> {
-    this.options.logger.error({ portal, path: pathOnly(path) }, 'Unexpected MercadoLibre response');
-    return err({ type: 'PortalUnavailable' });
-  }
-}
-
-/** La ruta sin la query: los IDs de los avisos no aportan al log. */
-function pathOnly(path: string): string {
-  return path.split('?')[0] ?? path;
 }

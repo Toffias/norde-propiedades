@@ -251,11 +251,8 @@ describe('NotifyPortalLeads', () => {
     ]);
   });
 
-  it('only for portals that bring leads, with portals:sync', async () => {
+  it('requires portals:sync', async () => {
     const { notify } = setup();
-    expect(unwrapErr(await notify.execute({ portal: 'mercadolibre' }, PORTAL_SYNC)).type).toBe(
-      'ValidationFailed',
-    );
     expect(unwrapErr(await notify.execute({ portal: 'zonaprop' }, PUBLISHER))).toEqual({
       type: 'Forbidden',
     });

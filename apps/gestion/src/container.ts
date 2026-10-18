@@ -337,6 +337,7 @@ import {
   EnablePortalLeadNotifications,
   LinkDevelopmentListing,
   LinkPortalListing,
+  NotifyAccountLeads,
   NotifyPortalLeads,
   PullPortalLeads,
   ReconcileListings,
@@ -434,10 +435,12 @@ import {
   DrizzlePortalAccountRepository,
   MercadoLibreAuthorizer,
   MercadoLibreAccountReader,
+  MercadoLibreLeads,
   MercadoLibreLocations,
   MercadoLibrePortalConnector,
   MercadoLibreTokens,
   PortalConnectorsByProvider,
+  PortalLeadSourcesByProvider,
   ZonapropAccountDirectory,
   ZonapropApi,
   ZonapropLeads,
@@ -697,6 +700,10 @@ function createPortalServices(
     codes,
     developmentCodes,
     leads,
+    leadSource: new PortalLeadSourcesByProvider({
+      zonaprop: leads,
+      mercadolibre: new MercadoLibreLeads({ tokens, logger }),
+    }),
     sink,
   };
 }
@@ -757,6 +764,12 @@ function createPortalsUseCases(
     /** El portal avisó que llegó un contacto (webhook): se pide leerlos. */
     notifyZonapropLeads: () =>
       new NotifyPortalLeads({ uow, clock }).execute({ portal: 'zonaprop' }, PORTAL_SYNC_ACTOR),
+    /** MercadoLibre avisó que llegó un contacto a la cuenta `userId` (webhook): se pide leerlos. */
+    notifyMercadoLibreLeads: (userId: string) =>
+      new NotifyAccountLeads({ uow, clock }).execute(
+        { provider: 'mercadolibre', externalAccountId: userId },
+        PORTAL_SYNC_ACTOR,
+      ),
     enableLeadNotifications: new EnablePortalLeadNotifications({
       uow,
       notifications: leads,
@@ -1697,7 +1710,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     sync: new SyncListing({ ...portals, clock }),
     pullLeads: new PullPortalLeads({
       uow: portals.uow,
-      source: portals.leads,
+      source: portals.leadSource,
       sink: portals.sink,
       clock,
     }),

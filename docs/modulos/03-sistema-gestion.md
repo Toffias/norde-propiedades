@@ -675,17 +675,27 @@ Diseño propuesto:
    - **Mi empresa → Portales → Avisos en MercadoLibre** lista los avisos activos de la cuenta de propiedades, con su operación, y propone la propiedad que tiene el código que Tokko cargó en el aviso. Se vincula con un clic.
    - Los que no traen código, o están pausados, se vinculan **a mano desde la ficha**, en Difusión, pegando el link del aviso (Tokko lo muestra en cada propiedad).
    - **Un aviso por operación:** el aviso de venta se vincula a la venta de la propiedad y el de alquiler, al alquiler. El aviso queda simple o destacado, como estaba.
-   - **Las unidades de los emprendimientos** que Tokko publicó sueltas se vinculan a la unidad, desde su ficha. Se sincronizan como cualquier propiedad. Una unidad no se publica suelta desde el sistema: eso sigue siendo con su emprendimiento (etapa 4).
+   - **Las unidades de los emprendimientos** que Tokko publicó sueltas se vinculan a la unidad, desde su ficha. Se sincronizan como cualquier propiedad. Una unidad no se publica suelta desde el sistema: va con su emprendimiento (etapa 4). Los avisos sueltos conviven con el del emprendimiento.
    - El aviso **queda como lo dejó Tokko** hasta que cambie algo de la propiedad en el sistema; desde ahí lo actualiza el sistema.
    - Antes de vincular en producción hay que apagar la publicación de Tokko en MercadoLibre.
    - **Pendiente:** confirmar con la cuenta real dónde guarda Tokko el código en el aviso (hoy se busca en el campo del vendedor y en el SKU).
-4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
+4. **Emprendimientos** (hecha, ADR 0034): un aviso por emprendimiento, en la cuenta **MercadoLibre · Emprendimientos**, con las unidades como variaciones.
+   - Se publica **a pedido**, desde la pestaña Difusión del emprendimiento, como en Zonaprop pero sin plan. Después se sincroniza solo: cada cambio del emprendimiento o de sus unidades actualiza el aviso, y si no queda ninguna unidad, se pausa.
+   - **Qué unidades van:** las disponibles, en venta y con precio, del **tipo más común** entre departamentos, casas, oficinas y lotes (ML solo tiene emprendimientos de esos tipos, y solo en venta). Ese tipo da la categoría. Las cocheras, los locales y las unidades solo en alquiler no entran.
+   - **Cada unidad** es una variante con su precio, su nombre (piso y unidad, "Piso 3 · B"; sin ellos, su código), su tipología ("2 ambientes"), sus superficies, ambientes, dormitorios, baños y cocheras, y hasta 3 fotos. Si no tiene fotos, lleva la portada del emprendimiento.
+   - **Antes de publicar** se revisa:
+     - Que todas las unidades del aviso tengan el precio en la misma moneda.
+     - Que cada unidad tenga lo que ML exige para su tipo (se dice qué le falta a cuál).
+     - Que haya una foto para cada unidad, la etapa de la obra, el WhatsApp de la sucursal y la ubicación.
+   - **El tipo de aviso lo da el paquete de emprendimientos** de la cuenta; no se elige simple o destacado. ML activa ese paquete a pedido, para **un solo emprendimiento** por activación. Sin paquete con cupo, la fila lo dice.
+   - **Cotizaciones:** cuando alguien pide la cotización de una unidad, entra a la bandeja como consulta ("Pidió la cotización de una unidad.") con esa unidad.
+   - **Pendiente:** confirmar con la cuenta real el tipo de lead de las cotizaciones y que ML tome las fotos de las variantes por link.
 
 **Consultas de MercadoLibre** (hecha, ADR 0032): los contactos de los avisos de las dos cuentas entran a la **bandeja de consultas** con canal MercadoLibre.
 
 - Entran solos **cada 10 minutos**, leídos de MercadoLibre (los de los últimos 2 días; los que ya estaban no se repiten).
 - **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y el tópico `vis_leads`. MercadoLibre avisa y el sistema vuelve a leer de la API.
-- Entran preguntas (con su texto), WhatsApp, llamadas, pedidos de contacto, visitas y cotizaciones de usuarios con sesión. Los anónimos no traen datos y no entran.
+- Entran preguntas (con su texto), WhatsApp, llamadas, pedidos de contacto, visitas y cotizaciones de usuarios con sesión (la de un emprendimiento publicado por el sistema, con su unidad). Los anónimos no traen datos y no entran.
 - Si el aviso es del sistema, la consulta queda con su propiedad. Los avisos de Tokko, hasta vincularlos, entran sin propiedad.
 
 **Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 a 0029.

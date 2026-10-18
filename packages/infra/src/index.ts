@@ -137,6 +137,11 @@ export {
   type ZonapropPortalConnectorOptions,
 } from './adapters/portals/zonaprop/zonaprop-portal-connector';
 export { PortalConnectorsByProvider } from './adapters/portals/portal-connectors';
+export { PortalLeadSourcesByProvider } from './adapters/portals/portal-lead-sources';
+export {
+  MercadoLibreLeads,
+  type MercadoLibreLeadsOptions,
+} from './adapters/portals/mercadolibre/mercadolibre-leads';
 export { AesGcmSecretCipher, type SecretCipher } from './adapters/crypto/aes-gcm-secret-cipher';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
 export { DrizzleClientConversationErasure } from './conversations/drizzle-client-conversation-erasure';

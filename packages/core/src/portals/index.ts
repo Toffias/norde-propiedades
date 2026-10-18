@@ -15,6 +15,7 @@ export {
   type PortalConnectionMethod,
   type PortalDefinition,
   type PortalId,
+  type PortalLeadChannel,
   type PortalProvider,
 } from './domain/portal';
 export {
@@ -192,6 +193,10 @@ export {
   NotifyPortalLeads,
   type NotifyPortalLeadsError,
 } from './application/commands/notify-portal-leads';
+export {
+  NotifyAccountLeads,
+  type NotifyAccountLeadsError,
+} from './application/commands/notify-account-leads';
 export {
   EnablePortalLeadNotifications,
   type EnablePortalLeadNotificationsError,

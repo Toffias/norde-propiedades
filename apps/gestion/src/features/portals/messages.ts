@@ -303,6 +303,8 @@ export const LINK_DEVELOPMENT_ERROR_MESSAGES = {
 export const LEAD_NOTIFICATIONS_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN,
   ValidationFailed: (error) => error.issues[0] ?? 'Ese portal no trae consultas.',
+  WrongConnectionMethod:
+    'Los avisos de MercadoLibre se configuran en la app de MercadoLibre, no desde acá.',
   PortalNotConnected: NOT_CONNECTED,
   PortalNotConfigured:
     'Falta configurar en el servidor el token de los avisos (ZONAPROP_CALLBACK_TOKEN), o Zonaprop rechazó las credenciales.',

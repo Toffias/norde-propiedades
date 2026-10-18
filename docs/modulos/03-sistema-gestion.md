@@ -625,7 +625,7 @@ Diseño propuesto:
 
 > Riesgo: el acceso a las APIs de Zonaprop y Argenprop suele requerir un acuerdo comercial o ser partner. Conviene confirmarlo temprano; si no hay acceso, la alternativa es exportar un feed o cargar a mano.
 
-**MercadoLibre primero (#14)**: alta, edición y baja de propiedades y emprendimientos replicadas en ML. Contactos, estadísticas, el listado por portal, Zonaprop, Argenprop, el carrusel y las redes quedan para después. Se construye en cuatro etapas, detrás de `PORTALS_ENABLED` (apagado por defecto). Decisiones técnicas en el ADR 0022.
+**MercadoLibre primero (#14)**: alta, edición y baja de propiedades y emprendimientos replicadas en ML, y sus consultas en la bandeja. Estadísticas, el listado por portal, Zonaprop, Argenprop, el carrusel y las redes quedan para después. Se construye en cuatro etapas, detrás de `PORTALS_ENABLED` (apagado por defecto). Decisiones técnicas en el ADR 0022.
 
 1. **Cuentas** (hecha):
    - Mi empresa → Portales muestra dos tarjetas: **MercadoLibre · Propiedades** y **MercadoLibre · Emprendimientos**.
@@ -673,6 +673,13 @@ Diseño propuesto:
    - **Cupo de los paquetes (2b).** Las tarjetas de MercadoLibre de Mi empresa → Portales muestran los paquetes activos de la cuenta: nombre, para qué sirven (publicaciones, destaques, emprendimientos), vencimiento y el cupo libre de cada tipo de aviso (Plata, Oro, Oro Premium). Se lee de MercadoLibre en el momento. Sin paquetes, la tarjeta avisa que no se puede publicar.
 3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
 4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
+
+**Consultas de MercadoLibre** (hecha, ADR 0032): los contactos de los avisos de las dos cuentas entran a la **bandeja de consultas** con canal MercadoLibre.
+
+- Entran solos **cada 10 minutos**, leídos de MercadoLibre (los de los últimos 2 días; los que ya estaban no se repiten).
+- **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y el tópico `vis_leads`. MercadoLibre avisa y el sistema vuelve a leer de la API.
+- Entran preguntas (con su texto), WhatsApp, llamadas, pedidos de contacto, visitas y cotizaciones de usuarios con sesión. Los anónimos no traen datos y no entran.
+- Si el aviso es del sistema, la consulta queda con su propiedad. Los avisos de Tokko, hasta vincularlos, entran sin propiedad.
 
 **Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 a 0029.
 

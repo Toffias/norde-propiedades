@@ -119,6 +119,14 @@ export interface ListingNotClosedError {
 }
 
 /**
+ * El aviso de un emprendimiento no se pasa a simple o destacado: el tipo lo da el paquete de
+ * emprendimientos (MercadoLibre) o el plan (Zonaprop).
+ */
+export interface ListingTypeFixedError {
+  readonly type: 'ListingTypeFixed';
+}
+
+/**
  * Publicación de una propiedad en un portal (de una operación, o de todas en un solo aviso) o de un
  * emprendimiento con sus unidades.
  */
@@ -304,7 +312,11 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   }
 
   /** Simple o destacado. Sin cambios, devuelve `false`. */
-  changeType(listingType: ListingType, now: Date): Result<boolean, ListingClosedError> {
+  changeType(
+    listingType: ListingType,
+    now: Date,
+  ): Result<boolean, ListingClosedError | ListingTypeFixedError> {
+    if (this.#state.owner.kind === 'development') return err({ type: 'ListingTypeFixed' });
     if (this.#state.intent === 'closed') return err({ type: 'ListingClosed' });
     if (this.#state.listingType === listingType) return ok(false);
     this.#state = { ...this.#state, listingType, contentHash: undefined };

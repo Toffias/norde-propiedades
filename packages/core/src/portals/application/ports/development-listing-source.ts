@@ -17,6 +17,8 @@ export interface DevelopmentListingSource {
   readonly developmentId: string;
   readonly code: string;
   readonly kind: ListingDevelopmentKind | undefined;
+  /** El nombre del emprendimiento ("Torre Mataderos"); el título del aviso es otro texto. */
+  readonly name: string;
   /**
    * Lo que permite el emprendimiento por sí mismo (`developmentAvailability` con las unidades que
    * trae). Sin unidades para publicar, queda en pausa.

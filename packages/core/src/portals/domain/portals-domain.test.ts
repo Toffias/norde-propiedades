@@ -18,10 +18,10 @@ function connected(portal: PortalId, externalAccountId: string) {
 }
 
 describe('portal catalog', () => {
-  it('publishes properties through MercadoLibre and nothing yet through its developments account', () => {
+  it('publishes properties through MercadoLibre and developments through its other account', () => {
     expect(portalPublishes('mercadolibre', 'property')).toBe(true);
     expect(portalPublishes('mercadolibre', 'development')).toBe(false);
-    expect(portalPublishes('mercadolibre_developments', 'development')).toBe(false);
+    expect(portalPublishes('mercadolibre_developments', 'development')).toBe(true);
     expect(portalPublishes('mercadolibre_developments', 'property')).toBe(false);
   });
 

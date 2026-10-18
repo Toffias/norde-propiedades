@@ -87,17 +87,15 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     paid: true,
     reconciles: true,
   },
-  // Los emprendimientos de MercadoLibre (un aviso con las unidades como variantes) todavía no se
-  // publican desde Norde: la cuenta se conecta, pero no publica nada.
+  // Un aviso por emprendimiento, con sus unidades en venta como variaciones (ADR 0034).
   mercadolibre_developments: {
     provider: 'mercadolibre',
     connection: 'oauth',
-    publishes: [],
+    publishes: ['development'],
     listingScope: 'operation',
     choosesPlan: false,
     linksExisting: false,
     unitsAsListings: false,
-    // Sus consultas entran aunque todavía no publique: los avisos que hoy publica Tokko.
     leadChannel: 'mercadolibre',
     paid: true,
     reconciles: true,

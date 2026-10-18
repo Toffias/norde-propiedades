@@ -221,6 +221,8 @@ export const LISTING_ERROR_MESSAGES = {
   ValidationFailed: LISTING_NOT_FOUND,
   ListingNotFound: LISTING_NOT_FOUND,
   ListingClosed: LISTING_CLOSED,
+  ListingTypeFixed:
+    'El aviso de un emprendimiento no se pasa a simple o destacado: lo define el paquete o el plan del portal.',
 } satisfies ErrorMessages<
   | PauseListingError
   | ResumeListingError

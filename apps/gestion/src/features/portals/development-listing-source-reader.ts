@@ -111,6 +111,7 @@ export function developmentListingSourceReader(
         developmentId: development.id,
         code: development.code,
         kind: development.developmentType,
+        name: development.name,
         availability: developmentAvailability({
           status: development.status,
           isDeleted: development.deletedAt !== undefined,

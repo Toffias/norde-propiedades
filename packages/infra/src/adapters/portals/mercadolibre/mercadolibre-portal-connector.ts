@@ -1,4 +1,7 @@
 import type {
+  DevelopmentListingContent,
+  ListingSource,
+  ListingSourceContact,
   PortalConnector,
   PortalId,
   PortalListingContent,
@@ -12,6 +15,13 @@ import { z } from 'zod';
 import type { InfraLogger } from '../../../shared/logger';
 
 import {
+  developmentCategory,
+  developmentItem,
+  developmentProblems,
+  developmentUnits,
+  type ExistingVariation,
+} from './mercadolibre-development';
+import {
   ML_LISTING_TYPES,
   categoryOf,
   listingAttributes,
@@ -23,8 +33,8 @@ import {
 } from './mercadolibre-listing';
 import type { MercadoLibreLocations } from './mercadolibre-locations';
 
-/** Los emprendimientos de MercadoLibre (unidades como variantes) todavía no se publican. */
-const NO_DEVELOPMENTS = 'MercadoLibre todavía no publica emprendimientos desde Norde.';
+const NO_DEVELOPMENT_PACKAGE =
+  'La cuenta no tiene un paquete de emprendimientos activo con cupo: MercadoLibre lo activa a pedido, para un solo emprendimiento por paquete.';
 
 /** De dónde sale el token de cada cuenta (`MercadoLibreTokens`, con refresh bajo lock). */
 export interface MercadoLibreAccessTokens {
@@ -51,7 +61,27 @@ const ItemSchema = z.object({
   id: z.string(),
   status: z.string(),
   listing_type_id: z.string(),
+  variations: z
+    .array(z.object({ id: z.number(), seller_custom_field: z.string().nullish() }).loose())
+    .nullish(),
 });
+const MeSchema = z.object({ id: z.union([z.number(), z.string()]).transform(String) });
+const DevelopmentPacksSchema = z.array(
+  z
+    .object({
+      listing_details: z
+        .array(
+          z
+            .object({
+              listing_type_id: z.string(),
+              remaining_listings: z.number().nullish(),
+            })
+            .loose(),
+        )
+        .nullish(),
+    })
+    .loose(),
+);
 const ErrorSchema = z.object({
   message: z.string().optional(),
   error: z.string().optional(),
@@ -80,7 +110,7 @@ export class MercadoLibrePortalConnector implements PortalConnector {
   }
 
   problems(_portal: PortalId, content: PortalListingContent): readonly string[] {
-    return content.kind === 'development' ? [NO_DEVELOPMENTS] : listingProblems(content);
+    return content.kind === 'development' ? developmentProblems(content) : listingProblems(content);
   }
 
   async create(
@@ -89,8 +119,7 @@ export class MercadoLibrePortalConnector implements PortalConnector {
   ): Promise<
     Result<{ readonly externalId: string; readonly permalink: string | undefined }, PortalSyncError>
   > {
-    if (content.kind === 'development')
-      return err({ type: 'PortalRejected', reason: NO_DEVELOPMENTS });
+    if (content.kind === 'development') return this.#createDevelopment(portal, content);
     const category = categoryOf(content.source.kind, content.operation);
     if (category === undefined) {
       return err({
@@ -140,9 +169,16 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     // ML guarda el contenido aunque el aviso esté pausado: solo se manda si cambió.
     const content = change.contentChanged ? change.content : undefined;
     if (content?.kind === 'development') {
-      return err({ type: 'PortalRejected', reason: NO_DEVELOPMENTS });
-    }
-    if (content) {
+      // Sin unidades el emprendimiento solo se pausa: ML no admite un aviso sin variaciones.
+      if (developmentUnits(content.source).length > 0) {
+        const existing = (item.data.variations ?? []).map((v) => ({
+          id: v.id,
+          unitId: v.seller_custom_field ?? undefined,
+        }));
+        const sent = await this.#sendDevelopment(portal, path, content, existing);
+        if (sent.isErr()) return err(sent.error);
+      }
+    } else if (content) {
       const body = await this.#itemBody(content);
       if (body.isErr()) return err(body.error);
       const updated = await this.#call(portal, 'PUT', path, body.value);
@@ -184,6 +220,25 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     if (price === undefined) {
       return err({ type: 'PortalRejected', reason: 'La operación no tiene precio.' });
     }
+    const place = await this.#place(source);
+    if (place.isErr()) return err(place.error);
+    return ok({
+      title: listingTitle(source),
+      price: price.price,
+      currency_id: price.currency,
+      pictures: listingPictures(source),
+      attributes: listingAttributes(content),
+      ...place.value,
+    });
+  }
+
+  /** La ubicación (contra el árbol de ML) y el contacto del aviso. */
+  async #place(source: {
+    readonly location: ListingSource['location'];
+    readonly address: string | undefined;
+    readonly coordinates: ListingSource['coordinates'];
+    readonly contact: ListingSourceContact;
+  }): Promise<Result<object, PortalSyncError>> {
     const location = await this.options.locations.resolve(source.location);
     if (location.isErr()) {
       return err(
@@ -193,11 +248,6 @@ export class MercadoLibrePortalConnector implements PortalConnector {
       );
     }
     return ok({
-      title: listingTitle(source),
-      price: price.price,
-      currency_id: price.currency,
-      pictures: listingPictures(source),
-      attributes: listingAttributes(content),
       location: {
         ...location.value,
         ...(source.address === undefined ? {} : { address_line: source.address }),
@@ -207,6 +257,97 @@ export class MercadoLibrePortalConnector implements PortalConnector {
       },
       seller_contact: sellerContact(source),
     });
+  }
+
+  /**
+   * Publica el emprendimiento: un ítem en "Emprendimientos" con las unidades como variaciones. El
+   * tipo de aviso es el del paquete de emprendimientos de la cuenta (ML lo da a pedido).
+   */
+  async #createDevelopment(
+    portal: PortalId,
+    content: DevelopmentListingContent,
+  ): Promise<
+    Result<{ readonly externalId: string; readonly permalink: string | undefined }, PortalSyncError>
+  > {
+    const category = developmentCategory(content.source);
+    if (category === undefined) {
+      return err({
+        type: 'PortalRejected',
+        reason: 'MercadoLibre no tiene categoría de emprendimientos para estas unidades.',
+      });
+    }
+    const listingType = await this.#developmentListingType(portal);
+    if (listingType.isErr()) return err(listingType.error);
+    const place = await this.#place(content.source);
+    if (place.isErr()) return err(place.error);
+    const item = developmentItem(content);
+    const created = await this.#call(portal, 'POST', '/items', {
+      ...item,
+      ...place.value,
+      category_id: category,
+      available_quantity: item.variations.length,
+      buying_mode: 'classified',
+      condition: 'new',
+      listing_type_id: listingType.value,
+      channels: ['marketplace'],
+      description: { plain_text: content.source.description },
+    });
+    if (created.isErr()) return err(created.error);
+    const parsed = CreatedSchema.safeParse(created.value);
+    if (!parsed.success) return this.#unexpected(portal, '/items');
+    this.options.logger.info(
+      { portal, externalId: parsed.data.id, units: item.variations.length },
+      'MercadoLibre development listing created',
+    );
+    return ok({ externalId: parsed.data.id, permalink: parsed.data.permalink });
+  }
+
+  /**
+   * Manda el contenido del emprendimiento: las variaciones ya publicadas van con su ID (se
+   * reconocen por la unidad), las nuevas sin ID y las que no van, ML las borra. El precio lo lleva
+   * cada variación.
+   */
+  async #sendDevelopment(
+    portal: PortalId,
+    path: string,
+    content: DevelopmentListingContent,
+    existing: readonly ExistingVariation[],
+  ): Promise<Result<void, PortalSyncError>> {
+    const place = await this.#place(content.source);
+    if (place.isErr()) return err(place.error);
+    const { title, pictures, attributes, variations } = developmentItem(content, existing);
+    const updated = await this.#call(portal, 'PUT', path, {
+      title,
+      pictures,
+      attributes,
+      variations,
+      ...place.value,
+    });
+    if (updated.isErr()) return err(updated.error);
+    const description = await this.#call(portal, 'PUT', `${path}/description`, {
+      plain_text: content.source.description,
+    });
+    return description.isErr() ? err(description.error) : ok(undefined);
+  }
+
+  /** El tipo de aviso de un paquete de emprendimientos activo y con cupo. */
+  async #developmentListingType(portal: PortalId): Promise<Result<string, PortalSyncError>> {
+    const me = await this.#call(portal, 'GET', '/users/me');
+    if (me.isErr()) return err(me.error);
+    const user = MeSchema.safeParse(me.value);
+    if (!user.success) return this.#unexpected(portal, '/users/me');
+    const query = new URLSearchParams({ package_content: 'developments', status: 'active' });
+    const packsPath = `/users/${encodeURIComponent(user.data.id)}/classifieds_promotion_packs?${query.toString()}`;
+    const packs = await this.#call(portal, 'GET', packsPath);
+    if (packs.isErr()) return err(packs.error);
+    const parsed = DevelopmentPacksSchema.safeParse(packs.value);
+    if (!parsed.success) return this.#unexpected(portal, '/classifieds_promotion_packs');
+    const detail = parsed.data
+      .flatMap((pack) => pack.listing_details ?? [])
+      .find((d) => (d.remaining_listings ?? 0) > 0);
+    return detail === undefined
+      ? err({ type: 'PortalRejected', reason: NO_DEVELOPMENT_PACKAGE })
+      : ok(detail.listing_type_id);
   }
 
   async #call(

@@ -105,6 +105,13 @@ export function contactOf(branch: BranchDetail | undefined): ListingSource['cont
   };
 }
 
+/** Piso y unidad de una unidad de emprendimiento; en blanco, sin dato. */
+function designationOf(address: PanelPropertyDetail['address']) {
+  const text = (value: string | undefined) =>
+    value === undefined || value.trim() === '' ? undefined : value.trim();
+  return { floor: text(address.floor), unit: text(address.unit) };
+}
+
 export function listingSourceReader(deps: ListingSourceDeps): ListingSourceReader {
   return {
     async read(propertyId) {
@@ -135,6 +142,9 @@ export function listingSourceReader(deps: ListingSourceDeps): ListingSourceReade
         kind: kindOf(property.propertyType),
         availability: ownerAvailability(property.status, property.deletedAt !== undefined),
         developmentId: property.development?.id,
+        // Solo en una unidad: la nombra dentro del aviso del emprendimiento.
+        unitDesignation:
+          property.development === undefined ? undefined : designationOf(property.address),
         title: property.portalTitle,
         description: descriptionWithFooter(
           {

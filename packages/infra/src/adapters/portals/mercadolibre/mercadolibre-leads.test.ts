@@ -139,8 +139,45 @@ describe('MercadoLibreLeads.recent', () => {
       ['call', 'contact_data', undefined],
       ['visit', 'visit', undefined],
       ['callback', 'call_me', undefined],
-      ['quote', 'other', undefined],
+      ['quote', 'quote', undefined],
     ]);
+  });
+
+  it('takes the quoted unit from the variation Norde published', async () => {
+    const UNIT = '01920000-0000-7000-8000-0000000000e1';
+    const { leads, requests } = setup([
+      () =>
+        Response.json({
+          results: [
+            buyer(1, [
+              {
+                ...WHATSAPP_LEAD,
+                id: 'quote-1',
+                contact_type: 'quotation',
+                external_id: '5992689',
+              },
+              {
+                ...WHATSAPP_LEAD,
+                id: 'quote-2',
+                contact_type: 'quotation',
+                external_id: '5992690',
+              },
+            ]),
+          ],
+          paging: { total: 1 },
+        }),
+      () => Response.json({ id: 5992689, variation: { id: 1, seller_custom_field: UNIT } }),
+      () => Response.json({ id: 5992690, variation: { id: 2, seller_custom_field: 'NPH456198' } }),
+    ]);
+
+    const page = unwrap(await leads.recent({ ...ACCOUNT, offset: 0, limit: 100 }));
+
+    expect(page.items.map((l) => [l.kind, l.unitPropertyId])).toEqual([
+      ['quote', UNIT],
+      ['quote', undefined],
+    ]);
+    expect(requests[1]?.path).toBe('/quotations/5992689');
+    expect(requests[1]?.query.get('caller.type')).toBe('seller');
   });
 
   it('keeps asking when MercadoLibre returns fewer buyers than requested', async () => {

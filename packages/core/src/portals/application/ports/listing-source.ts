@@ -53,6 +53,12 @@ export interface ListingSource {
   readonly availability: OwnerAvailability;
   /** Las unidades se publican con su emprendimiento. */
   readonly developmentId: string | undefined;
+  /**
+   * Piso y unidad, solo en las unidades de un emprendimiento: identifican la unidad dentro del
+   * aviso del emprendimiento (MercadoLibre la nombra así). Nunca van en el aviso de una propiedad.
+   */
+  readonly unitDesignation:
+    { readonly floor: string | undefined; readonly unit: string | undefined } | undefined;
   readonly title: string;
   /** Descripción con el pie para portales de Mi empresa. */
   readonly description: string;

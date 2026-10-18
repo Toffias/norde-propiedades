@@ -1,9 +1,11 @@
 import 'server-only';
 
 import type {
+  ListingStatsView,
   PortalCreditView,
   PortalPackageView,
   PortalValue,
+  PropertyListingView,
 } from '@norde/core/portals/contracts';
 
 import { getContainer } from '../../container';
@@ -12,6 +14,7 @@ import { requireSession } from '../../lib/session';
 
 import {
   CREDITS_ERROR_MESSAGES,
+  LISTING_STATS_ERROR_MESSAGES,
   PACKAGES_ERROR_MESSAGES,
   PORTAL_ACCOUNT_ERROR_MESSAGES,
   REMOTE_DEVELOPMENTS_ERROR_MESSAGES,
@@ -83,6 +86,35 @@ export async function loadPortalPackages(
     }),
   );
   return Object.fromEntries(entries);
+}
+
+/** Las visitas y contactos de un aviso, leídos del portal en el momento. */
+export type ListingStatsResult =
+  | { readonly ok: true; readonly stats: ListingStatsView }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * Las estadísticas de las publicaciones que ya tienen aviso (pestaña Difusión), por ID de
+ * publicación. Las de un portal que no las informa no vienen; un portal caído no rompe la página.
+ */
+export async function loadListingStats(
+  listings: readonly PropertyListingView[],
+): Promise<Readonly<Record<string, ListingStatsResult>>> {
+  const useCases = getContainer().portals;
+  const withItem = listings.filter((l) => l.externalId !== undefined);
+  if (!useCases || withItem.length === 0) return {};
+  const { actor } = await requireSession();
+  const entries = await Promise.all(
+    withItem.map(async (listing) => {
+      const result = await useCases.getListingStats.execute({ listingId: listing.id }, actor);
+      if (result.isErr() && result.error.type === 'ListingStatsNotAvailable') return [];
+      const value: ListingStatsResult = result.isOk()
+        ? { ok: true, stats: result.value }
+        : { ok: false, message: messageForError(result.error, LISTING_STATS_ERROR_MESSAGES) };
+      return [[listing.id, value] as const];
+    }),
+  );
+  return Object.fromEntries(entries.flat());
 }
 
 /** Una página de los avisos online del portal, con su propiedad por código (Mi empresa). */

@@ -31,7 +31,7 @@ import {
 } from '../../../../features/properties/components/detail/contacts-grids';
 import { MediaGallery } from '../../../../features/media/components/media-gallery';
 import { PropertyListings } from '../../../../features/portals/components/property-listings';
-import { loadPortalCredits } from '../../../../features/portals/queries';
+import { loadListingStats, loadPortalCredits } from '../../../../features/portals/queries';
 import { PropertyDetailHeader } from '../../../../features/properties/components/detail/property-detail-header';
 import { StatisticsView } from '../../../../features/properties/components/detail/statistics-view';
 import { ActiveReservationCard } from '../../../../features/properties/components/reservations/active-reservation-card';
@@ -302,9 +302,11 @@ async function renderTab(
       const listings = await portals.getPropertyListings.execute({ propertyId }, actor);
       if (listings.isErr()) return <TabError error={listings.error} />;
       // Los planes (y sus créditos) de los portales que los piden, leídos del portal en el momento.
-      const plans = await loadPortalCredits(
-        listings.value.portals.filter((p) => p.choosesPlan).map((p) => p.portal),
-      );
+      // Los planes y las visitas de cada aviso, leídos de los portales en el momento.
+      const [plans, stats] = await Promise.all([
+        loadPortalCredits(listings.value.portals.filter((p) => p.choosesPlan).map((p) => p.portal)),
+        loadListingStats(listings.value.listings),
+      ]);
       return (
         <PropertyListings
           propertyId={propertyId}
@@ -316,6 +318,7 @@ async function renderTab(
           isUnit={detail.development !== undefined}
           isAvailable={detail.status === 'available' && detail.deletedAt === undefined}
           plans={plans}
+          stats={stats}
         />
       );
     }

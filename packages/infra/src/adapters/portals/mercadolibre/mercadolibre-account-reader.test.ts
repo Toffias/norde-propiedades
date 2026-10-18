@@ -268,3 +268,75 @@ describe('MercadoLibreAccountReader.packages', () => {
     ).toEqual({ type: 'PortalUnavailable' });
   });
 });
+
+describe('MercadoLibreAccountReader.stats', () => {
+  const INPUT = {
+    portal: 'mercadolibre',
+    externalId: 'MLA473861358',
+    endingAt: new Date('2026-10-18T15:00:00Z'),
+    days: 30,
+  } as const;
+
+  it('reads the total visits and the visits and contacts of the period', async () => {
+    const { reader, requests } = setup([
+      () => Response.json({ MLA473861358: 950 }),
+      () =>
+        Response.json({
+          item_id: 'MLA473861358',
+          date_from: '2026-09-18T00:00:00Z',
+          date_to: '2026-10-18T00:00:00Z',
+          total_visits: 120,
+          visits_detail: [{ company: 'mercadolibre', quantity: 120 }],
+        }),
+      () => Response.json({ item_id: 'MLA473861358', total: 3 }),
+      () => Response.json({ item_id: 'MLA473861358', total: 5 }),
+      () => Response.json({ item_id: 'MLA473861358', total: 8 }),
+    ]);
+
+    const stats = unwrap(await reader.stats(INPUT));
+
+    expect(stats).toEqual({
+      totalVisits: 950,
+      visits: 120,
+      questions: 3,
+      phoneViews: 5,
+      whatsapp: 8,
+    });
+    expect(requests.map((r) => r.path)).toEqual([
+      '/visits/items',
+      '/items/visits',
+      '/items/MLA473861358/contacts/questions',
+      '/items/MLA473861358/contacts/phone_views',
+      '/items/MLA473861358/contacts/whatsapp',
+    ]);
+    expect(requests[1]?.query.get('date_from')).toBe('2026-09-18');
+    expect(requests[1]?.query.get('date_to')).toBe('2026-10-18');
+    expect(requests[4]?.query.get('date_from')).toBe('2026-09-18');
+  });
+
+  it('counts 0 for a listing ML has no visits for, and takes the visits as a list', async () => {
+    const { reader } = setup([
+      () => Response.json({}),
+      () => Response.json([{ item_id: 'MLA473861358', total_visits: 0 }]),
+      () => Response.json({ total: 0 }),
+      () => Response.json({ total: 0 }),
+      () => Response.json({ total: 0 }),
+    ]);
+    expect(unwrap(await reader.stats(INPUT))).toMatchObject({ totalVisits: 0, visits: 0 });
+  });
+
+  it('reports ML not answering and asks to reconnect without credentials', async () => {
+    const down = setup([() => new Response(null, { status: 503 })]);
+    expect(unwrapErr(await down.reader.stats(INPUT))).toEqual({ type: 'PortalUnavailable' });
+
+    const unexpected = setup([() => Response.json({ MLA473861358: 'many' })]);
+    expect(unwrapErr(await unexpected.reader.stats(INPUT))).toEqual({
+      type: 'PortalUnavailable',
+    });
+
+    const missing = setup([], { tokenMissing: true });
+    expect(unwrapErr(await missing.reader.stats(INPUT))).toEqual({
+      type: 'PortalCredentialsMissing',
+    });
+  });
+});

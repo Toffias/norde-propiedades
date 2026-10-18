@@ -625,7 +625,7 @@ Diseño propuesto:
 
 > Riesgo: el acceso a las APIs de Zonaprop y Argenprop suele requerir un acuerdo comercial o ser partner. Conviene confirmarlo temprano; si no hay acceso, la alternativa es exportar un feed o cargar a mano.
 
-**MercadoLibre primero (#14)**: alta, edición y baja de propiedades y emprendimientos replicadas en ML, y sus consultas en la bandeja. Estadísticas, el listado por portal, Zonaprop, Argenprop, el carrusel y las redes quedan para después. Se construye en cuatro etapas, detrás de `PORTALS_ENABLED` (apagado por defecto). Decisiones técnicas en el ADR 0022.
+**MercadoLibre primero (#14)**: alta, edición y baja de propiedades y emprendimientos replicadas en ML, y sus consultas en la bandeja. El listado por portal, Zonaprop, Argenprop, el carrusel y las redes quedan para después. Se construye en cuatro etapas, detrás de `PORTALS_ENABLED` (apagado por defecto). Decisiones técnicas en el ADR 0022.
 
 1. **Cuentas** (hecha):
    - Mi empresa → Portales muestra dos tarjetas: **MercadoLibre · Propiedades** y **MercadoLibre · Emprendimientos**.
@@ -671,6 +671,7 @@ Diseño propuesto:
      - **Reactivado en ML**: vuelve a "Publicada". Si el equipo lo había pausado, se vuelve a pausar.
      - Se audita contra la propiedad por `system:portal-sync` (`property.portal_unpublished` o `property.portal_paused`, con el motivo).
      - **Al instante** (ADR 0035): MercadoLibre avisa cada cambio de un aviso (tópico `items` de la app). El sistema lee cómo quedó ese aviso y lo refleja enseguida, con la misma regla. La corrida diaria sigue como respaldo.
+   - **Estadísticas de cada aviso** (ADR 0036): en Difusión, cada aviso de MercadoLibre muestra las visitas, preguntas, vistas del teléfono y WhatsApp de los últimos 30 días, y las visitas desde que se publicó. Se leen de MercadoLibre al abrir la pestaña. Si ML no responde, la fila lo dice.
    - **Cupo de los paquetes (2b).** Las tarjetas de MercadoLibre de Mi empresa → Portales muestran los paquetes activos de la cuenta: nombre, para qué sirven (publicaciones, destaques, emprendimientos), vencimiento y el cupo libre de cada tipo de aviso (Plata, Oro, Oro Premium). Se lee de MercadoLibre en el momento. Sin paquetes, la tarjeta avisa que no se puede publicar.
 3. **Vincular los avisos que hoy publica Tokko** (hecha, ADR 0033), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
    - **Mi empresa → Portales → Avisos en MercadoLibre** lista los avisos activos de la cuenta de propiedades, con su operación, y propone la propiedad que tiene el código que Tokko cargó en el aviso. Se vincula con un clic.

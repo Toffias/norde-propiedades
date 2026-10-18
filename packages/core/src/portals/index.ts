@@ -275,6 +275,16 @@ export {
   type ReconcileListingsOutcome,
 } from './application/commands/reconcile-listings';
 export type { PortalListingStateReader } from './application/ports/portal-listing-states';
+export type {
+  PortalListingStats,
+  PortalListingStatsReader,
+} from './application/ports/portal-listing-stats';
+export {
+  GetListingStats,
+  LISTING_STATS_DAYS,
+  type GetListingStatsError,
+  type ListingStatsNotAvailableError,
+} from './application/queries/get-listing-stats';
 export {
   SyncListing,
   type SyncListingError,

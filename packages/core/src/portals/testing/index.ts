@@ -50,6 +50,10 @@ import type {
   PortalSyncError,
 } from '../application/ports/portal-connector';
 import type { PortalListingStateReader } from '../application/ports/portal-listing-states';
+import type {
+  PortalListingStats,
+  PortalListingStatsReader,
+} from '../application/ports/portal-listing-stats';
 import type { PortalPackage, PortalPackageReader } from '../application/ports/portal-packages';
 import {
   Listing,
@@ -705,6 +709,28 @@ export class FakePortalLeadNotifications implements PortalLeadNotifications {
  * Estados de prueba de los avisos en el portal, por ID. Lo que no está en `remote` el portal no lo
  * informa. Con `failWith`, falla como el portal real.
  */
+export class FakePortalListingStatsReader implements PortalListingStatsReader {
+  result: PortalListingStats = {
+    totalVisits: 950,
+    visits: 120,
+    questions: 3,
+    phoneViews: 5,
+    whatsapp: 8,
+  };
+  failWith: { readonly type: 'PortalUnavailable' | 'PortalCredentialsMissing' } | undefined;
+  readonly reads: {
+    readonly portal: PortalId;
+    readonly externalId: string;
+    readonly endingAt: Date;
+    readonly days: number;
+  }[] = [];
+
+  stats(input: (typeof this.reads)[number]) {
+    this.reads.push(input);
+    return Promise.resolve(this.failWith ? err(this.failWith) : ok(this.result));
+  }
+}
+
 export class FakePortalListingStateReader implements PortalListingStateReader {
   readonly remote = new Map<string, RemoteListingState>();
   failWith: { readonly type: 'PortalUnavailable' | 'PortalCredentialsMissing' } | undefined;

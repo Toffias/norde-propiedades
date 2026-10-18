@@ -25,7 +25,7 @@ import { DevelopmentTabs } from '../../../../features/developments/components/de
 import { UnitsGrid } from '../../../../features/developments/components/units-grid';
 import { DevelopmentListings } from '../../../../features/portals/components/property-listings';
 import { PROPERTY_LISTINGS_ERROR_MESSAGES } from '../../../../features/portals/messages';
-import { loadPortalCredits } from '../../../../features/portals/queries';
+import { loadListingStats, loadPortalCredits } from '../../../../features/portals/queries';
 import { DEVELOPMENT_TABS, type DevelopmentTab } from '../../../../features/developments/labels';
 import { DEVELOPMENT_READ_ERROR_MESSAGES } from '../../../../features/developments/messages';
 import { AttachmentsGrid } from '../../../../features/media/components/attachments-grid';
@@ -268,9 +268,11 @@ async function renderTab(
         );
       }
       // Los planes (y sus créditos) de los portales que los piden, leídos del portal en el momento.
-      const plans = await loadPortalCredits(
-        listings.value.portals.filter((p) => p.choosesPlan).map((p) => p.portal),
-      );
+      // Los planes y las visitas de cada aviso, leídos de los portales en el momento.
+      const [plans, stats] = await Promise.all([
+        loadPortalCredits(listings.value.portals.filter((p) => p.choosesPlan).map((p) => p.portal)),
+        loadListingStats(listings.value.listings),
+      ]);
       return (
         <DevelopmentListings
           developmentId={developmentId}
@@ -281,6 +283,7 @@ async function renderTab(
             canPublish: listings.value.canPublish && detail.deletedAt === undefined,
           }}
           plans={plans}
+          stats={stats}
         />
       );
     }

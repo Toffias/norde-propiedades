@@ -62,7 +62,7 @@ import {
 } from '../actions';
 import { LISTING_OPERATION_LABELS, LISTING_STATUS_LABELS, LISTING_TYPE_LABELS } from '../labels';
 import { PORTAL_LABELS, PORTAL_SITE_NAMES, planLabel } from '../messages';
-import type { PortalCreditsResult } from '../queries';
+import type { ListingStatsResult, PortalCreditsResult } from '../queries';
 
 /** Mientras haya avisos publicándose, la pestaña se refresca sola cada tanto. */
 const REFRESH_MS = 5000;
@@ -87,6 +87,7 @@ export function PropertyListings({
   isUnit,
   isAvailable,
   plans,
+  stats = NO_STATS,
 }: {
   readonly propertyId: string;
   readonly operations: readonly ListingOperationValue[];
@@ -95,6 +96,8 @@ export function PropertyListings({
   readonly isAvailable: boolean;
   /** Los planes y créditos de los portales con plan, leídos del portal. */
   readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
+  /** Visitas y contactos de cada aviso, por ID de publicación (los portales que los informan). */
+  readonly stats?: Readonly<Record<string, ListingStatsResult>>;
 }) {
   const pending = view.listings.some((listing) => listing.status === 'pending');
   useAutoRefresh(pending);
@@ -131,6 +134,7 @@ export function PropertyListings({
           view={unitView}
           isAvailable={isAvailable}
           plans={plans}
+          stats={stats}
           publishes={false}
           wholeNote=""
           unavailableNote="Si la unidad está reservada o pausada, su aviso queda en pausa; vendida, alquilada o dada de baja, se cierra."
@@ -148,6 +152,7 @@ export function PropertyListings({
       view={view}
       isAvailable={isAvailable}
       plans={plans}
+      stats={stats}
       publishes
       wholeNote="Un solo aviso con todas las operaciones con precio: usa un crédito mientras está online. Pausar lo saca del portal y libera el crédito; reactivarlo vuelve a usar uno."
       unavailableNote="Solo se publica una propiedad disponible. Si está reservada o pausada, sus avisos quedan en pausa; vendida, alquilada o dada de baja, se cierran."
@@ -165,6 +170,7 @@ export function DevelopmentListings({
   isMarketing,
   view,
   plans,
+  stats = NO_STATS,
 }: {
   readonly developmentId: string;
   /** Unidades disponibles: las que van en el aviso (si tienen precio). */
@@ -172,6 +178,7 @@ export function DevelopmentListings({
   readonly isMarketing: boolean;
   readonly view: PropertyListingsView;
   readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
+  readonly stats?: Readonly<Record<string, ListingStatsResult>>;
 }) {
   const pending = view.listings.some((listing) => listing.status === 'pending');
   useAutoRefresh(pending);
@@ -188,6 +195,7 @@ export function DevelopmentListings({
       view={view}
       isAvailable={isMarketing && publishableUnits > 0}
       plans={plans}
+      stats={stats}
       publishes
       wholeNote="Un solo aviso con todas las unidades disponibles con precio: las reservadas, vendidas o pausadas no van, y si no queda ninguna el aviso sale del portal hasta que haya una. Cada cambio del emprendimiento o de sus unidades actualiza el aviso."
       unavailableNote={
@@ -206,6 +214,7 @@ function ListingsPanel({
   view,
   isAvailable,
   plans,
+  stats,
   publishes,
   wholeNote,
   unavailableNote,
@@ -217,6 +226,7 @@ function ListingsPanel({
   readonly view: PropertyListingsView;
   readonly isAvailable: boolean;
   readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
+  readonly stats: Readonly<Record<string, ListingStatsResult>>;
   /** Si se puede publicar un aviso nuevo; si no (una unidad), solo vincular uno existente. */
   readonly publishes: boolean;
   readonly wholeNote: string;
@@ -255,23 +265,27 @@ function ListingsPanel({
         return (
           <SectionCard key={portal} title={PORTAL_LABELS[portal]}>
             <ul className="flex flex-col divide-y divide-border">
-              {rows.map((operation) => (
-                <ListingRow
-                  key={operation ?? 'all'}
-                  owner={owner}
-                  label={operation === undefined ? label : LISTING_OPERATION_LABELS[operation]}
-                  portal={portal}
-                  operation={operation}
-                  listing={view.listings.find(
-                    (l) => l.portal === portal && l.operation === operation,
-                  )}
-                  canPublish={canPublish}
-                  publishes={publishes}
-                  linksExisting={option.linksExisting}
-                  isAvailable={isAvailable}
-                  plans={option.choosesPlan ? (plans[portal] ?? NO_PLANS) : undefined}
-                />
-              ))}
+              {rows.map((operation) => {
+                const listing = view.listings.find(
+                  (l) => l.portal === portal && l.operation === operation,
+                );
+                return (
+                  <ListingRow
+                    key={operation ?? 'all'}
+                    owner={owner}
+                    label={operation === undefined ? label : LISTING_OPERATION_LABELS[operation]}
+                    portal={portal}
+                    operation={operation}
+                    listing={listing}
+                    stats={listing === undefined ? undefined : stats[listing.id]}
+                    canPublish={canPublish}
+                    publishes={publishes}
+                    linksExisting={option.linksExisting}
+                    isAvailable={isAvailable}
+                    plans={option.choosesPlan ? (plans[portal] ?? NO_PLANS) : undefined}
+                  />
+                );
+              })}
             </ul>
             {whole && (
               <p className="mt-3 text-xs text-muted-foreground">
@@ -293,6 +307,8 @@ function ListingsPanel({
 /** En MercadoLibre, el emprendimiento va con las unidades en venta de un solo tipo. */
 const ML_DEVELOPMENT_NOTE =
   'Un solo aviso con las unidades disponibles en venta, cada una como una variante con su precio. MercadoLibre publica emprendimientos de departamentos, casas, oficinas o lotes: van las del tipo más común, y las demás (cocheras, locales, alquileres) no entran. Todas tienen que tener el precio en la misma moneda. El tipo de aviso lo da el paquete de emprendimientos de la cuenta, que alcanza para un solo emprendimiento. Cada cambio del emprendimiento o de sus unidades actualiza el aviso; si no queda ninguna, se pausa.';
+
+const NO_STATS: Readonly<Record<string, ListingStatsResult>> = {};
 
 const NO_PLANS: PortalCreditsResult = {
   ok: false,
@@ -365,6 +381,7 @@ function ListingRow({
   portal,
   operation,
   listing,
+  stats,
   canPublish,
   publishes,
   linksExisting,
@@ -377,6 +394,8 @@ function ListingRow({
   /** Sin operación: el aviso lleva todas las de la propiedad (o es el del emprendimiento). */
   readonly operation: ListingOperationValue | undefined;
   readonly listing: PropertyListingView | undefined;
+  /** Visitas y contactos del aviso, si el portal los informa. */
+  readonly stats: ListingStatsResult | undefined;
   readonly canPublish: boolean;
   /** Si se puede publicar un aviso nuevo (una unidad solo vincula). */
   readonly publishes: boolean;
@@ -453,6 +472,7 @@ function ListingRow({
           Última sincronización: {formatDateTime(listing.lastSyncedAt)}
         </p>
       )}
+      {stats && <ListingStatsLine stats={stats} />}
       <FormAlert message={error} />
       {canPublish && plans !== undefined && !plans.ok && <FormAlert message={plans.message} />}
 
@@ -833,5 +853,35 @@ function LinkListingDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function count(value: number, one: string, many: string): string {
+  return `${value.toLocaleString('es-AR')} ${value === 1 ? one : many}`;
+}
+
+/**
+ * Las visitas y los contactos del aviso, leídos del portal: los del último mes y las visitas desde
+ * que se publicó. Si el portal no respondió, el motivo, sin romper la fila.
+ */
+function ListingStatsLine({ stats }: { readonly stats: ListingStatsResult }) {
+  if (!stats.ok) return <p className="text-xs text-muted-foreground">{stats.message}</p>;
+  const { days, totalVisits, visits, questions, phoneViews, whatsapp } = stats.stats;
+  const items = [
+    count(visits, 'visita', 'visitas'),
+    count(questions, 'pregunta', 'preguntas'),
+    count(phoneViews, 'vio el teléfono', 'vieron el teléfono'),
+    count(whatsapp, 'fue al WhatsApp', 'fueron al WhatsApp'),
+  ];
+  return (
+    <div className="flex flex-col gap-1 rounded-md bg-muted/50 px-3 py-2 text-sm">
+      <p>
+        <span className="text-muted-foreground">Últimos {days} días: </span>
+        {items.join(' · ')}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {count(totalVisits, 'visita', 'visitas')} desde que se publicó.
+      </p>
+    </div>
   );
 }

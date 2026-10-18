@@ -129,6 +129,30 @@ describe('MercadoLibrePortalConnector.create', () => {
     });
   });
 
+  it('explains a rejection MercadoLibre sends without a body, by its status', async () => {
+    const { connector } = setup([() => new Response(null, { status: 402 })]);
+    expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
+      type: 'PortalRejected',
+      reason:
+        'MercadoLibre rechazó el aviso: la cuenta no tiene un paquete de publicaciones de inmuebles con cupo para este tipo de aviso (HTTP 402).',
+    });
+  });
+
+  it('falls back to the error code, and then to the status alone', async () => {
+    const { connector } = setup([
+      () => Response.json({ error: 'seller.unable_to_list', cause: [] }, { status: 400 }),
+      () => new Response(null, { status: 409 }),
+    ]);
+    expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
+      type: 'PortalRejected',
+      reason: 'MercadoLibre rechazó el aviso: seller.unable_to_list (HTTP 400).',
+    });
+    expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
+      type: 'PortalRejected',
+      reason: 'MercadoLibre rechazó el aviso (HTTP 409).',
+    });
+  });
+
   it('rejects a location MercadoLibre does not have, without posting', async () => {
     const { connector, requests } = setup([], { locationMissing: true });
     expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({

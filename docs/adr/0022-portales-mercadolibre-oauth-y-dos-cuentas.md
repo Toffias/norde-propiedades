@@ -41,7 +41,7 @@ La difusión en portales (#14) arranca solo con MercadoLibre: dar de alta, edita
   - **Sin `offline_access`** (no hay refresh token), la conexión se rechaza: la cuenta se caería a las pocas horas.
 - **El refresh corre bajo `select … for update`** sobre la fila de la cuenta (etapa 2), para que dos jobs no gasten el mismo refresh token. Si ML responde `invalid_grant`, la cuenta queda para reconectar.
 - **Fotos por URL firmada** generada al sincronizar (etapa 2): la variante con marca de agua si Mi empresa la activó, y si no la `web`. La firma dura lo suficiente para que ML las descargue (unas horas). No hay rutas públicas ni bucket público.
-- **Sin webhooks de ML por ahora.** Las notificaciones no tienen firma y esta etapa no trae consultas. El estado real de cada aviso (vencidos, pausados por moderación) se concilia con un job diario. Cuando se traigan preguntas y leads, un ADR decide cómo autenticarlos.
+- **Sin webhooks de ML por ahora** (reemplazado por el ADR 0032, que trae las consultas). Las notificaciones no tienen firma y esta etapa no trae consultas. El estado real de cada aviso (vencidos, pausados por moderación) se concilia con un job diario. Cuando se traigan preguntas y leads, un ADR decide cómo autenticarlos.
 - **Detrás de `PORTALS_ENABLED`** (apagado por defecto, exige `PORTALS_SECRET_KEY`). Mientras está apagado, el container no arma el módulo, y el catálogo de Roles y Usuarios no ofrece los permisos de portales.
 
 ## Consecuencias

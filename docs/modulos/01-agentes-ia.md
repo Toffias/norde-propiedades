@@ -108,15 +108,19 @@ Es el del MVP sin cambios: webhook, firma, parser de entrada, batcher, cola por 
 
 La diferencia con WhatsApp es que **no hay costo por mensaje**. Solo se paga el uso del LLM, así que se pueden relajar algunas restricciones: mostrar más de una foto, varias tarjetas por respuesta, etc.
 
-| Tema               | Propuesta                                                                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Transporte         | `POST /chat/messages` con respuesta en streaming (SSE), para ver el texto a medida que se genera                                       |
-| Identidad          | ID de sesión anónimo en cookie o `localStorage`. Cuando el cliente deja teléfono o email, la conversación se vincula a ese cliente     |
-| Widget             | Componente React en el sitio Next.js (módulo 2): burbuja flotante y, opcionalmente, un botón "Consultar" en la ficha de cada propiedad |
-| Contexto de página | Si el chat se abre desde la ficha de una propiedad, se pasa su `propertyId` al agente                                                  |
-| Anti-abuso         | Rate limit por IP y por sesión, largo máximo de mensaje, y Cloudflare Turnstile si aparece spam                                        |
-| Debounce           | No hace falta: en web el usuario envía mensajes completos                                                                              |
-| Pasar a WhatsApp   | Al derivar, ofrecer "seguir por WhatsApp" con un link `wa.me` y un texto que incluya un código de conversación                         |
+Primera versión hecha (ADR 0037):
+
+| Tema               | Cómo quedó                                                                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Transporte         | El navegador llama a una Server Action de `apps/web`, que manda el mensaje firmado (HMAC) a `POST /chat/messages` de `apps/agent`. La respuesta vuelve entera, sin streaming (por ahora) |
+| Identidad          | Sesión anónima en una cookie `httpOnly` de la web (`norde_chat`, 30 días). Cuando el visitante deja teléfono o email, `register_client` vincula la conversación al cliente               |
+| Widget             | Burbuja flotante abajo a la derecha en todas las páginas. En desktop abre una tarjeta; en mobile, el chat ocupa la pantalla                                                              |
+| Respuesta          | Texto con markdown liviano (negrita, listas, links a las fichas), la foto de `show_photo` y los botones de `offer_buttons` como respuestas rápidas                                       |
+| Historial visible  | Lo guarda el navegador (`localStorage`, últimos 50 mensajes). La memoria del agente está en la conversación, como en WhatsApp. "Conversación nueva" borra los dos                        |
+| Anti-abuso         | 20 mensajes por IP cada 10 minutos (web), los límites por sesión del core (`LIMIT_CONTACT_MESSAGES_*`) y un tope diario de respuestas del canal (`LIMIT_WEB_CHAT_REPLIES_PER_DAY`)       |
+| Debounce           | No hace falta: en web el usuario envía mensajes completos. La cola por sesión evita dos turnos a la vez                                                                                  |
+| Contexto de página | Pendiente: pasar el `propertyId` cuando el chat se abre desde una ficha                                                                                                                  |
+| Pasar a WhatsApp   | Pendiente: al derivar, ofrecer "seguir por WhatsApp" con un link `wa.me` y un código de conversación                                                                                     |
 
 ---
 
@@ -212,7 +216,7 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 | **F2: Conexión al core** ✅    | Tools que llaman a `SearchProperties` y `RegisterContact` de `@norde/core`, en lugar del provider mock                 |
 | **F3: WhatsApp en producción** | Número de Norde, app de Meta en Live, token de System User, deploy en el VPS                                           |
 | **F4: Handoff**                | Estado respetado por el bot, bandeja en el panel, responder desde el panel, devolver al bot                            |
-| **F5: Web Chat**               | Endpoint con SSE, widget React en el sitio, sesión anónima, contexto de propiedad                                      |
+| **F5: Web Chat** ◐             | Endpoint, widget React en el sitio y sesión anónima (ADR 0037). Falta streaming y contexto de propiedad                |
 | **F6: Mejoras**                | Tasaciones por chat, audios, templates de seguimiento, alertas de propiedades nuevas                                   |
 
 ---
@@ -223,7 +227,7 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 2. **Asignación de agente**: ¿round-robin, por zona, por tipo de operación o manual desde el panel?
 3. **Canal de aviso al asesor**: ¿email, WhatsApp personal del asesor, notificación en el panel o varias?
 4. **Horario**: ¿el bot responde siempre, o fuera de horario promete contacto al día hábil siguiente?
-5. **Web chat anónimo**: ¿se pide teléfono o email antes de empezar, o recién al derivar? Recomendación: al derivar, para no cortar la conversación.
+5. **Web chat anónimo**: ✅ Definido. El teléfono o el email se piden recién al derivar, para no cortar la conversación (ADR 0037).
 6. **Número de WhatsApp**: ¿se usa un número nuevo o el actual de Norde? El número no puede seguir usándose en la app de WhatsApp.
 
 ---
@@ -243,6 +247,7 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
   - Instrucciones del MVP adaptadas a Norde, con un bloque por canal.
   - Las tools `search_properties`, `get_property`, `show_photo`, `offer_buttons` y `register_client`.
   - Canal WhatsApp completo: firma, debounce, cola por contacto, límites, breaker y un mensaje por turno.
+  - Canal web chat (F5, ADR 0037): `POST /chat/messages` firmado por `apps/web`, cola por sesión, los mismos límites y breaker, y la respuesta en la misma petición. El widget vive en `apps/web`.
 - **Jobs**: outbox → pg-boss → aviso al equipo por webhook (Slack, Teams, n8n) o, sin webhook configurado, al log. Desde el ADR 0021 corren en `apps/gestion`, no en el agente.
 - **Herramientas**:
   - `pnpm db:seed` carga las 28 propiedades de prueba del MVP.
@@ -265,6 +270,6 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | **F3: WhatsApp en producción** | Número de Norde, app de Meta en modo Live, token de System User, webhook en `https://<dominio>/webhooks/whatsapp`, deploy |
 | **F4: Handoff**                | Bandeja en `apps/gestion`, `HandOffConversation` y `ReturnConversationToBot`, responder desde el panel                    |
-| **F5: Web Chat**               | Endpoint con SSE y widget. El agente ya tiene el bloque de instrucciones del canal `web_chat`                             |
+| **F5: Web Chat**               | Hecho lo básico (ADR 0037). Falta: respuesta en streaming, contexto de la ficha y "seguir por WhatsApp" al derivar        |
 | Asignación de asesor           | Pregunta abierta 2 (sección 7). Hoy la oportunidad nace sin asesor y el aviso va al canal del equipo                      |
 | Alta de propiedades            | El stock sale del seed de desarrollo hasta que el panel tenga el ABM de propiedades                                       |

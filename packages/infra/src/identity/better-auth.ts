@@ -70,6 +70,9 @@ export function createAuth(options: AuthOptions) {
       schema: { users, sessions, accounts, verifications },
     }),
     emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 10 },
+    // Better Auth no da de alta usuarios (lo hace `CreateUser`), pero valida que conoce toda
+    // columna obligatoria de `users`.
+    user: { additionalFields: { branchId: { type: 'string', required: true, input: false } } },
     advanced: { database: { generateId: () => options.ids.next() } },
     // En memoria: alcanza con un solo proceso del panel. Con varios, pasar a `database`.
     rateLimit: {

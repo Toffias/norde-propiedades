@@ -78,7 +78,7 @@ export class DrizzleOrganizationQuery implements OrganizationQuery {
       address: row.address ?? undefined,
       email: row.email ?? undefined,
       phone: row.phoneE164 ?? undefined,
-      whatsapp: row.whatsappE164 ?? undefined,
+      whatsapp: row.whatsappE164,
       isMain: row.isMain,
       deletedAt: row.deletedAt ?? undefined,
     };

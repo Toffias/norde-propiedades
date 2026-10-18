@@ -39,7 +39,7 @@ export class DrizzleUserRepository implements UserRepository {
       name: s.name,
       email: s.email.value,
       phoneE164: s.phone?.e164 ?? null,
-      branchId: s.branchId ?? null,
+      branchId: s.branchId,
       status: s.status,
       mustChangePassword: s.mustChangePassword,
       createdAt: s.createdAt,
@@ -119,7 +119,7 @@ export class DrizzleUserRepository implements UserRepository {
       email: storedValue(Email.create(row.email)),
       phone: row.phoneE164 === null ? undefined : storedValue(Phone.create(row.phoneE164)),
       status: Status.parse(row.status),
-      branchId: row.branchId ?? undefined,
+      branchId: row.branchId,
       roleIds: roles.map((r) => r.roleId),
       permissions: own.map(({ permission, effect }) => {
         if (!isKnownPermission(permission)) throw new Error(`Unknown permission: ${permission}`);

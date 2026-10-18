@@ -12,7 +12,7 @@ import { FixedClock } from '@norde/core/shared/testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { useTestDatabase } from '../../test/database';
+import { insertTestBranch, useTestDatabase } from '../../test/database';
 import { auditLog, rolePermissions, roles, userPermissions, users } from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
@@ -45,7 +45,16 @@ async function newUser(email: string, roleIds: readonly string[]) {
     hasher: new BetterAuthPasswordHasher(),
     ids,
     clock,
-  }).execute({ name: 'Camila', email, roleIds: [...roleIds], temporaryPassword: TEMPORARY }, ADMIN);
+  }).execute(
+    {
+      name: 'Camila',
+      email,
+      branchId: await insertTestBranch(db),
+      roleIds: [...roleIds],
+      temporaryPassword: TEMPORARY,
+    },
+    ADMIN,
+  );
   if (result.isErr()) throw new Error(`could not create the user: ${result.error.type}`);
   return result.value.userId;
 }

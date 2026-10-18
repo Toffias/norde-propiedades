@@ -39,7 +39,10 @@ const listBase = {
 } as const;
 
 async function newBranch(name: string) {
-  const result = await new CreateBranch({ uow, ids, clock }).execute({ name }, ADMIN);
+  const result = await new CreateBranch({ uow, ids, clock }).execute(
+    { name, whatsapp: '+5491140001000' },
+    ADMIN,
+  );
   if (result.isErr()) throw new Error(`could not create the branch: ${result.error.type}`);
   return result.value.branchId;
 }
@@ -53,7 +56,7 @@ async function newTeam(name: string, branchId?: string) {
   return result.value.teamId;
 }
 
-async function newUser(email: string, branchId?: string) {
+async function newUser(email: string, branchId: string) {
   const roleId = ids.next();
   await db.insert(roles).values({
     id: roleId,
@@ -75,7 +78,7 @@ async function newUser(email: string, branchId?: string) {
       email,
       roleIds: [roleId],
       temporaryPassword: TEMPORARY,
-      ...(branchId === undefined ? {} : { branchId }),
+      branchId,
     },
     ADMIN,
   );
@@ -110,7 +113,10 @@ describe('branches against Postgres', () => {
     await newBranch('Casa central');
     const nunez = await newBranch('Núñez');
 
-    const repeated = await new CreateBranch({ uow, ids, clock }).execute({ name: 'NUNEZ' }, ADMIN);
+    const repeated = await new CreateBranch({ uow, ids, clock }).execute(
+      { name: 'NUNEZ', whatsapp: '+5491140001000' },
+      ADMIN,
+    );
     const deleted = await new DeleteBranch({ uow, clock }).execute({ branchId: nunez }, ADMIN);
 
     expect(repeated.isErr() && repeated.error).toEqual({ type: 'NameTaken' });
@@ -126,9 +132,10 @@ describe('branches against Postgres', () => {
 describe('teams against Postgres', () => {
   it('adds and removes members, and lists them paged through the users query', async () => {
     const central = await newBranch('Casa central');
+    const belgrano = await newBranch('Belgrano');
     const teamId = await newTeam('Alquileres', central);
     const camila = await newUser('camila@norde.com.ar', central);
-    const bruno = await newUser('bruno@norde.com.ar');
+    const bruno = await newUser('bruno@norde.com.ar', belgrano);
     const add = new AddTeamMember({ uow, clock });
     await add.execute({ teamId, userId: camila }, ADMIN);
     await add.execute({ teamId, userId: bruno }, ADMIN);
@@ -144,7 +151,7 @@ describe('teams against Postgres', () => {
       limit: 10,
     });
     expect(members.items.map((u) => [u.email, u.branch?.name])).toEqual([
-      ['bruno@norde.com.ar', undefined],
+      ['bruno@norde.com.ar', 'Belgrano'],
       ['camila@norde.com.ar', 'Casa central'],
     ]);
     const teams = await query.searchTeams({ ...listBase, view: 'active', branchId: central });

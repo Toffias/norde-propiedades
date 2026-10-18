@@ -3,7 +3,7 @@ import { hashPassword } from 'better-auth/crypto';
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { useTestDatabase } from '../../test/database';
+import { insertTestBranch, useTestDatabase } from '../../test/database';
 import {
   accounts,
   auditLog,
@@ -56,6 +56,7 @@ async function insertUser(email: string, status: 'active' | 'suspended' = 'activ
     email,
     name: 'Camila Pérez',
     status,
+    branchId: await insertTestBranch(db),
     createdAt: now,
     updatedAt: now,
     createdBy: 'system:import',

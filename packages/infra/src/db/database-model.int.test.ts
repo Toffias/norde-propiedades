@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { useTestDatabase } from '../../test/database';
+import { insertTestBranch, useTestDatabase } from '../../test/database';
 
 import { clients, rolePermissions, roles, userPermissions, userRoles, users } from './schema';
 
@@ -71,9 +71,13 @@ describe('roles and permissions', () => {
   const link = { createdAt: AT, createdBy: 'test' };
 
   async function userWithRole() {
-    await db
-      .insert(users)
-      .values({ id: ID, email: 'camila@example.com', name: 'Camila', ...audit });
+    await db.insert(users).values({
+      id: ID,
+      email: 'camila@example.com',
+      name: 'Camila',
+      branchId: await insertTestBranch(db),
+      ...audit,
+    });
     await db.insert(roles).values({ id: ROLE_ID, key: 'agent', name: 'Agente', ...audit });
     await db
       .insert(rolePermissions)

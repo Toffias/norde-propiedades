@@ -100,12 +100,42 @@ export function PropertyListings({
   useAutoRefresh(pending);
 
   if (isUnit) {
+    // Una unidad va dentro del aviso de su emprendimiento. En MercadoLibre, Tokko publicó cada
+    // unidad suelta: esos avisos se vinculan a la unidad y se sincronizan como una propiedad.
+    const unitPortals = view.portals.filter((p) => p.unitsAsListings);
+    const unitView: PropertyListingsView = {
+      ...view,
+      portals: unitPortals,
+      listings: view.listings.filter((l) => l.operation !== undefined),
+    };
+    if (unitView.portals.length === 0 && unitView.listings.length === 0) {
+      return (
+        <SectionCard title="Difusión en portales">
+          <p className="text-sm text-muted-foreground">
+            Las unidades se publican dentro de su emprendimiento, desde la ficha del emprendimiento.
+          </p>
+        </SectionCard>
+      );
+    }
     return (
-      <SectionCard title="Difusión en portales">
+      <div className="flex flex-col gap-5">
         <p className="text-sm text-muted-foreground">
           Las unidades se publican dentro de su emprendimiento, desde la ficha del emprendimiento.
+          En MercadoLibre, el aviso suelto que publicó Tokko se puede vincular a la unidad: se
+          sincroniza como el de cualquier propiedad.
         </p>
-      </SectionCard>
+        <ListingsPanel
+          owner={{ kind: 'property', id: propertyId }}
+          label={operations.map((o) => LISTING_OPERATION_LABELS[o]).join(' · ')}
+          operations={operations}
+          view={unitView}
+          isAvailable={isAvailable}
+          plans={plans}
+          publishes={false}
+          wholeNote=""
+          unavailableNote="Si la unidad está reservada o pausada, su aviso queda en pausa; vendida, alquilada o dada de baja, se cierra."
+        />
+      </div>
     );
   }
   return (
@@ -118,6 +148,7 @@ export function PropertyListings({
       view={view}
       isAvailable={isAvailable}
       plans={plans}
+      publishes
       wholeNote="Un solo aviso con todas las operaciones con precio: usa un crédito mientras está online. Pausar lo saca del portal y libera el crédito; reactivarlo vuelve a usar uno."
       unavailableNote="Solo se publica una propiedad disponible. Si está reservada o pausada, sus avisos quedan en pausa; vendida, alquilada o dada de baja, se cierran."
     />
@@ -157,6 +188,7 @@ export function DevelopmentListings({
       view={view}
       isAvailable={isMarketing && publishableUnits > 0}
       plans={plans}
+      publishes
       wholeNote="Un solo aviso con todas las unidades disponibles con precio: las reservadas, vendidas o pausadas no van, y si no queda ninguna el aviso sale del portal hasta que haya una. Cada cambio del emprendimiento o de sus unidades actualiza el aviso."
       unavailableNote={
         isMarketing
@@ -174,6 +206,7 @@ function ListingsPanel({
   view,
   isAvailable,
   plans,
+  publishes,
   wholeNote,
   unavailableNote,
 }: {
@@ -184,6 +217,8 @@ function ListingsPanel({
   readonly view: PropertyListingsView;
   readonly isAvailable: boolean;
   readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
+  /** Si se puede publicar un aviso nuevo; si no (una unidad), solo vincular uno existente. */
+  readonly publishes: boolean;
   readonly wholeNote: string;
   readonly unavailableNote: string;
 }) {
@@ -229,6 +264,8 @@ function ListingsPanel({
                     (l) => l.portal === portal && l.operation === operation,
                   )}
                   canPublish={canPublish}
+                  publishes={publishes}
+                  linksExisting={option.linksExisting}
                   isAvailable={isAvailable}
                   plans={option.choosesPlan ? (plans[portal] ?? NO_PLANS) : undefined}
                 />
@@ -260,7 +297,13 @@ function publishingOf(portal: PortalValue, view: PropertyListingsView): PortalPu
   const option = view.portals.find((p) => p.portal === portal);
   if (option) return option;
   const whole = view.listings.some((l) => l.portal === portal && l.operation === undefined);
-  return { portal, listingScope: whole ? 'property' : 'operation', choosesPlan: whole };
+  return {
+    portal,
+    listingScope: whole ? 'property' : 'operation',
+    choosesPlan: whole,
+    linksExisting: false,
+    unitsAsListings: false,
+  };
 }
 
 /**
@@ -313,6 +356,8 @@ function ListingRow({
   operation,
   listing,
   canPublish,
+  publishes,
+  linksExisting,
   isAvailable,
   plans,
 }: {
@@ -323,6 +368,10 @@ function ListingRow({
   readonly operation: ListingOperationValue | undefined;
   readonly listing: PropertyListingView | undefined;
   readonly canPublish: boolean;
+  /** Si se puede publicar un aviso nuevo (una unidad solo vincula). */
+  readonly publishes: boolean;
+  /** Si se puede vincular un aviso que ya está online (lo publicó Tokko). */
+  readonly linksExisting: boolean;
   readonly isAvailable: boolean;
   /** Solo en los portales con plan. */
   readonly plans: PortalCreditsResult | undefined;
@@ -397,57 +446,66 @@ function ListingRow({
         <div className="flex flex-wrap items-center gap-2">
           {closed ? (
             <>
-              {choosesPlan ? (
-                <PlanSelect plans={offeredPlans} value={plan} onChange={setPlan} disabled={busy} />
-              ) : (
-                <Select
-                  value={type}
-                  onValueChange={(next) => {
-                    setType(next === 'featured' ? 'featured' : 'simple');
-                  }}
-                  disabled={busy}
-                >
-                  <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
-                    <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
-                  </SelectContent>
-                </Select>
+              {publishes && (
+                <>
+                  {choosesPlan ? (
+                    <PlanSelect
+                      plans={offeredPlans}
+                      value={plan}
+                      onChange={setPlan}
+                      disabled={busy}
+                    />
+                  ) : (
+                    <Select
+                      value={type}
+                      onValueChange={(next) => {
+                        setType(next === 'featured' ? 'featured' : 'simple');
+                      }}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
+                        <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Button
+                    size="sm"
+                    disabled={busy || !isAvailable || (choosesPlan && plan === undefined)}
+                    onClick={() => {
+                      const chosen = choosesPlan && plan !== undefined ? { plan } : {};
+                      run(
+                        () =>
+                          owner.kind === 'development'
+                            ? requestDevelopmentPublicationAction({
+                                developmentId: owner.id,
+                                portal,
+                                ...chosen,
+                              })
+                            : requestPublicationAction({
+                                propertyId: owner.id,
+                                portal,
+                                ...(operation === undefined ? {} : { operation }),
+                                listingType: type,
+                                ...chosen,
+                              }),
+                        'Publicación pedida: el aviso se crea en unos segundos',
+                      );
+                    }}
+                  >
+                    {busy ? (
+                      <Loader2Icon className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <SendIcon className="h-4 w-4" aria-hidden />
+                    )}
+                    {listing ? 'Volver a publicar' : 'Publicar'}
+                  </Button>
+                </>
               )}
-              <Button
-                size="sm"
-                disabled={busy || !isAvailable || (choosesPlan && plan === undefined)}
-                onClick={() => {
-                  const chosen = choosesPlan && plan !== undefined ? { plan } : {};
-                  run(
-                    () =>
-                      owner.kind === 'development'
-                        ? requestDevelopmentPublicationAction({
-                            developmentId: owner.id,
-                            portal,
-                            ...chosen,
-                          })
-                        : requestPublicationAction({
-                            propertyId: owner.id,
-                            portal,
-                            ...(operation === undefined ? {} : { operation }),
-                            listingType: type,
-                            ...chosen,
-                          }),
-                    'Publicación pedida: el aviso se crea en unos segundos',
-                  );
-                }}
-              >
-                {busy ? (
-                  <Loader2Icon className="h-4 w-4 animate-spin" />
-                ) : (
-                  <SendIcon className="h-4 w-4" aria-hidden />
-                )}
-                {listing ? 'Volver a publicar' : 'Publicar'}
-              </Button>
-              {choosesPlan && (
+              {linksExisting && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -464,7 +522,7 @@ function ListingRow({
                 <LinkListingDialog
                   owner={owner}
                   portal={portal}
-                  plans={offeredPlans}
+                  plans={choosesPlan ? offeredPlans : undefined}
                   onClose={() => {
                     setLinking(false);
                   }}
@@ -654,7 +712,8 @@ function LinkListingDialog({
 }: {
   readonly owner: ListingOwner;
   readonly portal: PortalValue;
-  readonly plans: readonly PortalCreditView[];
+  /** Los planes, en los portales con plan; si no, no se elige. */
+  readonly plans: readonly PortalCreditView[] | undefined;
   readonly onClose: () => void;
 }) {
   const [remote, setRemote] = useState('');
@@ -723,21 +782,27 @@ function LinkListingDialog({
               id={inputId}
               autoFocus
               autoComplete="off"
-              placeholder={`https://www.${site.toLowerCase()}.com.ar/propiedades/…-12345678.html`}
+              placeholder={
+                portal === 'zonaprop'
+                  ? 'https://www.zonaprop.com.ar/propiedades/…-12345678.html'
+                  : 'https://inmueble.mercadolibre.com.ar/MLA-1234567890-…'
+              }
               value={remote}
               onChange={(event) => {
                 setRemote(event.target.value);
               }}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">
-              {owner.kind === 'development'
-                ? `Plan (opcional: sin elegir, el que informa ${site})`
-                : `Plan, si ${site} no lo informa (opcional)`}
-            </span>
-            <PlanSelect plans={plans} value={plan} onChange={setPlan} disabled={pending} />
-          </div>
+          {plans !== undefined && (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">
+                {owner.kind === 'development'
+                  ? `Plan (opcional: sin elegir, el que informa ${site})`
+                  : `Plan, si ${site} no lo informa (opcional)`}
+              </span>
+              <PlanSelect plans={plans} value={plan} onChange={setPlan} disabled={pending} />
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar

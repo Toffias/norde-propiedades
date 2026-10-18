@@ -34,7 +34,7 @@ La etapa 2 de #14 publica las propiedades del panel en MercadoLibre: el equipo p
 
 - **Publicar es un command** (`RequestPublication`). Antes de pedir el job revisa:
   - Que la cuenta esté conectada y activa.
-  - Que la propiedad esté disponible y no sea una unidad (las unidades van con su emprendimiento, etapa 4).
+  - Que la propiedad esté disponible y no sea una unidad (las unidades van con su emprendimiento, etapa 4; las que Tokko publicó sueltas se vinculan, ADR 0033).
   - Que la operación tenga precio (sin precio o con "a consultar", no se publica).
   - Que tenga lo que exige ML (`PortalConnector.problems`).
 - **El job `SyncListing`** (`system:portal-sync`, en `apps/gestion`) lleva la publicación al portal **con la fila bloqueada** (`select … for update`) mientras dura. Así dos sincronizaciones de la misma publicación no crean dos avisos.

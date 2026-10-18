@@ -36,8 +36,9 @@ export class GetPropertyListings {
       portals: accounts
         .filter((a) => a.canPublish && portalPublishes(a.portal, 'property'))
         .map((a) => {
-          const { listingScope, choosesPlan } = PORTAL_CATALOG[a.portal];
-          return { portal: a.portal, listingScope, choosesPlan };
+          const { listingScope, choosesPlan, linksExisting, unitsAsListings } =
+            PORTAL_CATALOG[a.portal];
+          return { portal: a.portal, listingScope, choosesPlan, linksExisting, unitsAsListings };
         }),
       canPublish,
     });

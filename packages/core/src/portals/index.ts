@@ -206,6 +206,7 @@ export {
   type LinkPortalListingError,
   type RemoteListingAlreadyLinkedError,
   type RemoteListingIsDevelopmentError,
+  type RemoteListingOperationUnknownError,
   type RemoteListingNotFoundError,
 } from './application/commands/link-portal-listing';
 export {

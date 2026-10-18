@@ -464,6 +464,8 @@ export function remoteListing(overrides: Partial<RemoteListing> = {}): RemoteLis
     code: 'PRO3621230',
     reference: 'NHO1142594',
     title: 'Casa 5 ambientes en Mataderos',
+    operation: undefined,
+    listingType: undefined,
     plan: 'HOME',
     location: 'Mataderos, Capital Federal, Argentina',
     permalink: 'https://portal.test/propiedades/clasificado/-50044229.html',

@@ -40,6 +40,8 @@ export class GetDevelopmentListings {
           // Un emprendimiento es un solo aviso con todas sus unidades.
           listingScope: 'property' as const,
           choosesPlan: PORTAL_CATALOG[a.portal].choosesPlan,
+          linksExisting: PORTAL_CATALOG[a.portal].linksExisting,
+          unitsAsListings: PORTAL_CATALOG[a.portal].unitsAsListings,
         })),
       canPublish,
     });

@@ -436,11 +436,13 @@ import {
   MercadoLibreAuthorizer,
   MercadoLibreAccountReader,
   MercadoLibreLeads,
+  MercadoLibreListingCatalog,
   MercadoLibreLocations,
   MercadoLibrePortalConnector,
   MercadoLibreTokens,
   PortalConnectorsByProvider,
   PortalLeadSourcesByProvider,
+  PortalListingCatalogsByProvider,
   ZonapropAccountDirectory,
   ZonapropApi,
   ZonapropLeads,
@@ -677,7 +679,10 @@ function createPortalServices(
     actor: PORTAL_SYNC_ACTOR,
     logger,
   });
-  const catalog = new ZonapropListingCatalog({ api: zonaprop, logger });
+  const catalog = new PortalListingCatalogsByProvider({
+    zonaprop: new ZonapropListingCatalog({ api: zonaprop, logger }),
+    mercadolibre: new MercadoLibreListingCatalog({ tokens, logger }),
+  });
   const leads = new ZonapropLeads({ api: zonaprop, logger });
   const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR));
   const codes = propertyCodeLookup({

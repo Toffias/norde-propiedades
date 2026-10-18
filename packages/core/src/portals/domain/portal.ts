@@ -55,6 +55,12 @@ export interface PortalDefinition {
    */
   readonly linksExisting: boolean;
   /**
+   * Si una unidad de un emprendimiento puede tener su propio aviso, vinculado (en MercadoLibre,
+   * Tokko publica cada unidad suelta en la cuenta de propiedades). Si no, las unidades van solo
+   * dentro del aviso de su emprendimiento.
+   */
+  readonly unitsAsListings: boolean;
+  /**
    * El canal de la bandeja de consultas con que entran los contactos de sus avisos, si el sistema
    * ya los trae. Sin canal, el portal todavía no trae consultas.
    */
@@ -75,7 +81,8 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     publishes: ['property'],
     listingScope: 'operation',
     choosesPlan: false,
-    linksExisting: false,
+    linksExisting: true,
+    unitsAsListings: true,
     leadChannel: 'mercadolibre',
     paid: true,
     reconciles: true,
@@ -89,6 +96,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     listingScope: 'operation',
     choosesPlan: false,
     linksExisting: false,
+    unitsAsListings: false,
     // Sus consultas entran aunque todavía no publique: los avisos que hoy publica Tokko.
     leadChannel: 'mercadolibre',
     paid: true,
@@ -101,6 +109,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     listingScope: 'property',
     choosesPlan: true,
     linksExisting: true,
+    unitsAsListings: false,
     leadChannel: 'zonaprop',
     paid: true,
     reconciles: false,

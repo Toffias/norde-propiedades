@@ -14,6 +14,7 @@ import { runAction } from '../../../lib/action-result';
 import { FormAlert } from '../../shared/components/form-alert';
 import { ServerDataTable } from '../../shared/components/server-data-table';
 import { linkPortalListingAction } from '../actions';
+import { LISTING_OPERATION_LABELS } from '../labels';
 import { PORTAL_SITE_NAMES, planLabel } from '../messages';
 
 /**
@@ -56,21 +57,33 @@ export function RemoteListingsGrid({
     },
     {
       id: 'reference',
-      header: 'Clave interna',
+      header: portal === 'zonaprop' ? 'Clave interna' : 'Código',
       showFrom: 'md',
       cell: (row) => row.reference ?? <span className="text-muted-foreground">—</span>,
     },
-    {
-      id: 'plan',
-      header: 'Plan',
-      showFrom: 'lg',
-      cell: (row) =>
-        row.plan === undefined ? (
-          <span className="text-muted-foreground">—</span>
-        ) : (
-          planLabel(row.plan)
-        ),
-    },
+    portal === 'zonaprop'
+      ? {
+          id: 'plan',
+          header: 'Plan',
+          showFrom: 'lg',
+          cell: (row) =>
+            row.plan === undefined ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              planLabel(row.plan)
+            ),
+        }
+      : {
+          id: 'operation',
+          header: 'Operación',
+          showFrom: 'lg',
+          cell: (row) =>
+            row.operation === undefined ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              LISTING_OPERATION_LABELS[row.operation]
+            ),
+        },
     {
       id: 'property',
       header: 'Propiedad',

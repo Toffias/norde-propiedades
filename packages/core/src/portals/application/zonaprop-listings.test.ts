@@ -114,7 +114,13 @@ describe('RequestPublication on Zonaprop', () => {
   it('offers Zonaprop on the property with its listing shape', async () => {
     const { list } = setup();
     expect(unwrap(await list.execute({ propertyId: LISTED_PROPERTY_ID }, AGENT)).portals).toEqual([
-      { portal: 'zonaprop', listingScope: 'property', choosesPlan: true },
+      {
+        portal: 'zonaprop',
+        listingScope: 'property',
+        choosesPlan: true,
+        linksExisting: true,
+        unitsAsListings: false,
+      },
     ]);
   });
 

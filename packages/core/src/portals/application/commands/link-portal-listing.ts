@@ -23,6 +23,7 @@ import { parseInput, type ValidationFailedError } from '../portals-input';
 import type {
   ListingAlreadyExistsError,
   ListingPropertyNotFoundError,
+  OperationNotOfferedError,
   PortalNotEnabledError,
   UnitPublishedWithDevelopmentError,
 } from './request-publication';
@@ -35,6 +36,14 @@ export interface RemoteListingNotFoundError {
 /** Es un emprendimiento: se vincula con los emprendimientos, no con una propiedad. */
 export interface RemoteListingIsDevelopmentError {
   readonly type: 'RemoteListingIsDevelopment';
+}
+
+/**
+ * El portal publica un aviso por operación (MercadoLibre) y no se pudo saber la del aviso: ni su
+ * categoría ni sus atributos la dicen.
+ */
+export interface RemoteListingOperationUnknownError {
+  readonly type: 'RemoteListingOperationUnknown';
 }
 
 /** Ese aviso ya está vinculado a una publicación del sistema. */
@@ -51,6 +60,8 @@ export type LinkPortalListingError =
   | UnitPublishedWithDevelopmentError
   | RemoteListingNotFoundError
   | RemoteListingIsDevelopmentError
+  | RemoteListingOperationUnknownError
+  | OperationNotOfferedError
   | RemoteListingAlreadyLinkedError
   | ListingAlreadyExistsError
   | PlanRequiredError
@@ -60,9 +71,10 @@ export type LinkPortalListingError =
 
 /**
  * Vincula a una propiedad un aviso que ya está online en el portal (lo publicó Tokko), sin
- * republicarlo: conserva su antigüedad, visitas y consultas. El portal pasa a manejarlo con el
- * código de Norde. El aviso queda como está hasta que cambie algo de la propiedad; ahí lo actualiza
- * la sincronización de siempre. Las llamadas al portal van antes de la transacción.
+ * republicarlo: conserva su antigüedad, visitas y consultas. En Zonaprop, el portal pasa a manejarlo
+ * con el código de Norde; en MercadoLibre, el aviso es de una operación (la de su categoría) y queda
+ * con su tipo (simple o destacado). El aviso queda como está hasta que cambie algo de la propiedad;
+ * ahí lo actualiza la sincronización de siempre. Las llamadas al portal van antes de la transacción.
  */
 export class LinkPortalListing {
   constructor(
@@ -91,21 +103,17 @@ export class LinkPortalListing {
       });
     }
 
-    const { account, existing } = await this.deps.uow.run(async (tx) => ({
-      account: await tx.accounts.get(portal),
-      existing: await tx.listings.findOne(portal, { kind: 'property', id: propertyId }, undefined),
-    }));
+    const account = await this.deps.uow.run((tx) => tx.accounts.get(portal));
     const connection = account.toSnapshot().connection;
     if (!account.canPublish || connection === undefined) {
       return err({ type: 'PortalNotEnabled', portal });
     }
-    if (existing && existing.toSnapshot().intent !== 'closed') {
-      return err({ type: 'ListingAlreadyExists' });
-    }
 
     const source = await this.deps.reader.read(propertyId);
     if (!source) return err({ type: 'PropertyNotFound' });
-    if (source.developmentId !== undefined) return err({ type: 'UnitPublishedWithDevelopment' });
+    if (source.developmentId !== undefined && !definition.unitsAsListings) {
+      return err({ type: 'UnitPublishedWithDevelopment' });
+    }
 
     const found = await this.deps.catalog.online({
       portal,
@@ -118,6 +126,21 @@ export class LinkPortalListing {
     const remote = found.value.items.find((r) => r.remoteId === remoteId);
     if (!remote) return err({ type: 'RemoteListingNotFound' });
     if (remote.isDevelopment) return err({ type: 'RemoteListingIsDevelopment' });
+
+    // Un aviso por operación (MercadoLibre): la publicación es la de la operación del aviso.
+    const operation = definition.listingScope === 'operation' ? remote.operation : undefined;
+    if (definition.listingScope === 'operation' && operation === undefined) {
+      return err({ type: 'RemoteListingOperationUnknown' });
+    }
+    if (operation !== undefined && !source.operations.some((o) => o.operation === operation)) {
+      return err({ type: 'OperationNotOffered' });
+    }
+    const existing = await this.deps.uow.run((tx) =>
+      tx.listings.findOne(portal, { kind: 'property', id: propertyId }, operation),
+    );
+    if (existing && existing.toSnapshot().intent !== 'closed') {
+      return err({ type: 'ListingAlreadyExists' });
+    }
     if (remote.code !== undefined) {
       const [linked] = await this.deps.uow.run((tx) =>
         tx.listings.findByExternalIds(portal, [remote.code ?? '']),
@@ -145,7 +168,9 @@ export class LinkPortalListing {
     if (taken.isErr()) return err(taken.error);
 
     const now = this.deps.clock.now();
+    const listingType = remote.listingType ?? 'simple';
     const adopted = {
+      listingType,
       plan,
       externalId: taken.value.externalId,
       permalink: taken.value.permalink ?? remote.permalink,
@@ -154,8 +179,8 @@ export class LinkPortalListing {
         kind: 'property',
         listingId,
         source,
-        operation: undefined,
-        listingType: 'simple',
+        operation,
+        listingType,
         plan,
       }),
       now,
@@ -170,7 +195,7 @@ export class LinkPortalListing {
         id: listingId,
         portal,
         owner: { kind: 'property', id: propertyId },
-        operation: undefined,
+        operation,
         ...adopted,
       });
     }

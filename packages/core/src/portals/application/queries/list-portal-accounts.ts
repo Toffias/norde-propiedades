@@ -27,6 +27,7 @@ export class ListPortalAccounts {
           connection: definition.connection,
           publishes: definition.publishes,
           paid: definition.paid,
+          linksExisting: definition.linksExisting,
           isEnabled,
           isConnected: connection !== undefined,
           accountName: connection?.accountName,

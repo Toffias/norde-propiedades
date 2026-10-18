@@ -151,9 +151,9 @@ function PortalAccountCard({
             al instante con las notificaciones de la app de MercadoLibre.
           </p>
         )}
-        {byCode && account.isConnected && (
+        {account.linksExisting && account.isConnected && (
           <Link
-            href="/mi-empresa/portales/avisos"
+            href={`/mi-empresa/portales/avisos?portal=${account.portal}`}
             className="inline-flex items-center gap-1 self-start text-sm font-medium text-primary hover:underline"
           >
             <Link2Icon className="h-4 w-4" aria-hidden />

@@ -671,7 +671,14 @@ Diseño propuesto:
      - **Reactivado en ML**: vuelve a "Publicada". Si el equipo lo había pausado, se vuelve a pausar.
      - Se audita contra la propiedad por `system:portal-sync` (`property.portal_unpublished` o `property.portal_paused`, con el motivo).
    - **Cupo de los paquetes (2b).** Las tarjetas de MercadoLibre de Mi empresa → Portales muestran los paquetes activos de la cuenta: nombre, para qué sirven (publicaciones, destaques, emprendimientos), vencimiento y el cupo libre de cada tipo de aviso (Plata, Oro, Oro Premium). Se lee de MercadoLibre en el momento. Sin paquetes, la tarjeta avisa que no se puede publicar.
-3. **Vincular los avisos que hoy publica Tokko**: se emparejan por código de referencia y no se republican. Antes hay que apagar la sincronización de Tokko con ML.
+3. **Vincular los avisos que hoy publica Tokko** (hecha, ADR 0033), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
+   - **Mi empresa → Portales → Avisos en MercadoLibre** lista los avisos activos de la cuenta de propiedades, con su operación, y propone la propiedad que tiene el código que Tokko cargó en el aviso. Se vincula con un clic.
+   - Los que no traen código, o están pausados, se vinculan **a mano desde la ficha**, en Difusión, pegando el link del aviso (Tokko lo muestra en cada propiedad).
+   - **Un aviso por operación:** el aviso de venta se vincula a la venta de la propiedad y el de alquiler, al alquiler. El aviso queda simple o destacado, como estaba.
+   - **Las unidades de los emprendimientos** que Tokko publicó sueltas se vinculan a la unidad, desde su ficha. Se sincronizan como cualquier propiedad. Una unidad no se publica suelta desde el sistema: eso sigue siendo con su emprendimiento (etapa 4).
+   - El aviso **queda como lo dejó Tokko** hasta que cambie algo de la propiedad en el sistema; desde ahí lo actualiza el sistema.
+   - Antes de vincular en producción hay que apagar la publicación de Tokko en MercadoLibre.
+   - **Pendiente:** confirmar con la cuenta real dónde guarda Tokko el código en el aviso (hoy se busca en el campo del vendedor y en el SKU).
 4. **Emprendimientos**: un aviso por emprendimiento, en la cuenta de emprendimientos, con las unidades disponibles como variaciones.
 
 **Consultas de MercadoLibre** (hecha, ADR 0032): los contactos de los avisos de las dos cuentas entran a la **bandeja de consultas** con canal MercadoLibre.

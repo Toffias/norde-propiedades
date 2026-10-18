@@ -206,7 +206,7 @@ El push dispara CI y el deploy. El primer `pnpm install` en el VPS tarda varios 
 
 ```bash
 cd /var/www/norde-uat
-PATH=/opt/node-24/bin:$PATH corepack pnpm user:create-admin   # primer usuario del panel
+PATH=/opt/node-24/bin:$PATH corepack pnpm user:create-admin --whatsapp +54911...   # primer usuario del panel y casa central
 pm2 status
 ```
 

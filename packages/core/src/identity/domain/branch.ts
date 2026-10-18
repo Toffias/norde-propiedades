@@ -15,7 +15,8 @@ export interface BranchContact {
   readonly address: string | undefined;
   readonly email: Email | undefined;
   readonly phone: Phone | undefined;
-  readonly whatsapp: Phone | undefined;
+  /** Obligatorio: es el contacto que se publica en los portales y en las fichas. */
+  readonly whatsapp: Phone;
 }
 
 export interface BranchSnapshot extends BranchContact {

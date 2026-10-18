@@ -20,14 +20,66 @@ export const NewUserSchema = z.object({
 
 export type NewUser = z.infer<typeof NewUserSchema>;
 
+/** WhatsApp en E.164 (`+5491140001000`): es obligatorio en toda sucursal. */
+export const WhatsappSchema = z
+  .string()
+  .trim()
+  .regex(/^\+[1-9]\d{7,14}$/, 'El WhatsApp va en formato E.164, por ejemplo +5491140001000');
+
 /** Los scripts actúan como el actor de sistema de importación (`audit_log.source = 'import'`). */
 const SCRIPT_ACTOR = 'system:import';
+
+/**
+ * Devuelve la casa central. En una base nueva no hay ninguna sucursal: la crea con ese WhatsApp,
+ * porque todo usuario tiene que estar en una. Sin WhatsApp y sin casa central, falla.
+ */
+export async function ensureMainBranch(
+  client: pg.Client,
+  whatsapp: string | undefined,
+): Promise<string> {
+  const main = await client.query<{ id: string }>(
+    'select id from core.branches where is_main and deleted_at is null limit 1',
+  );
+  const existing = main.rows[0]?.id;
+  if (existing !== undefined) return existing;
+  if (whatsapp === undefined) {
+    throw new Error('No existe la casa central: pasá su WhatsApp con --whatsapp para crearla');
+  }
+
+  const id = uuidv7();
+  const name = 'Casa central';
+  const e164 = WhatsappSchema.parse(whatsapp);
+  await client.query(
+    `insert into core.branches (id, name, whatsapp_e164, is_main, created_at, updated_at, created_by, updated_by)
+     values ($1, $2, $3, true, now(), now(), $4, $4)`,
+    [id, name, e164, SCRIPT_ACTOR],
+  );
+  await client.query(
+    `insert into core.audit_log (id, actor_id, action, entity_type, entity_id, changes, source, occurred_at)
+     values ($1, $2, 'branch.created', 'branch', $3, $4, 'import', now())`,
+    [
+      uuidv7(),
+      SCRIPT_ACTOR,
+      id,
+      JSON.stringify({
+        name: { before: null, after: name },
+        whatsapp: { before: null, after: e164 },
+        isMain: { before: null, after: true },
+      }),
+    ],
+  );
+  return id;
+}
 
 /**
  * Crea el usuario, su contraseña (cuenta `credential` de Better Auth) y sus roles, y lo audita.
  * Devuelve `undefined` si ya existía un usuario con ese email: no se pisa nada.
  */
-export async function createUser(client: pg.Client, user: NewUser): Promise<string | undefined> {
+export async function createUser(
+  client: pg.Client,
+  user: NewUser,
+  branchId: string,
+): Promise<string | undefined> {
   const existing = await client.query<{ id: string }>(
     'select id from core.users where email = $1',
     [user.email],
@@ -43,9 +95,9 @@ export async function createUser(client: pg.Client, user: NewUser): Promise<stri
 
   const id = uuidv7();
   await client.query(
-    `insert into core.users (id, email, name, status, created_at, updated_at, created_by, updated_by)
-     values ($1, $2, $3, 'active', now(), now(), $4, $4)`,
-    [id, user.email, user.name, SCRIPT_ACTOR],
+    `insert into core.users (id, email, name, branch_id, status, created_at, updated_at, created_by, updated_by)
+     values ($1, $2, $3, $4, 'active', now(), now(), $5, $5)`,
+    [id, user.email, user.name, branchId, SCRIPT_ACTOR],
   );
   // Better Auth busca la contraseña en la cuenta `credential` cuyo `account_id` es el usuario.
   await client.query(
@@ -71,6 +123,7 @@ export async function createUser(client: pg.Client, user: NewUser): Promise<stri
       id,
       JSON.stringify({
         name: { before: null, after: user.name },
+        branchId: { before: null, after: branchId },
         roles: { before: null, after: [...user.roles].sort() },
       }),
     ],

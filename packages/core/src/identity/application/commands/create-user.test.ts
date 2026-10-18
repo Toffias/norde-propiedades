@@ -25,6 +25,7 @@ const INPUT: CreateUserInput = {
   name: 'Lucía Gómez',
   email: 'Lucia@Norde.com.ar',
   phone: '+54 9 11 6689-9124',
+  branchId: MAIN_BRANCH_ID,
   roleIds: [ROLE_MANAGER_ID, ROLE_AGENT_ID],
   temporaryPassword: TEMPORARY_PASSWORD,
 };
@@ -33,6 +34,7 @@ function setup() {
   const uow = new InMemoryIdentityUnitOfWork();
   seedRole(uow, roleSnapshot({ id: ROLE_AGENT_ID, key: 'agent' }));
   seedRole(uow, roleSnapshot({ id: ROLE_MANAGER_ID, key: 'manager' }));
+  seedBranch(uow, branchSnapshot());
   const useCase = new CreateUser({
     uow,
     hasher: new FakePasswordHasher(),
@@ -78,6 +80,7 @@ describe('CreateUser', () => {
           email: { before: null, after: 'lucia@norde.com.ar' },
           phone: { before: null, after: '+5491166899124' },
           status: { before: null, after: 'active' },
+          branchId: { before: null, after: MAIN_BRANCH_ID },
           roleIds: { before: null, after: [ROLE_AGENT_ID, ROLE_MANAGER_ID] },
         },
       },
@@ -107,13 +110,18 @@ describe('CreateUser', () => {
     expect(uow.users.rows.size).toBe(0);
   });
 
-  it('assigns the branch, which has to exist', async () => {
+  it('assigns the branch, which is required and has to exist', async () => {
     const { uow, useCase } = setup();
-    seedBranch(uow, branchSnapshot());
+    const { branchId: _branchId, ...withoutBranch } = INPUT;
 
-    const inBranch = await useCase.execute({ ...INPUT, branchId: MAIN_BRANCH_ID }, TEST_ADMIN);
+    const inBranch = await useCase.execute(INPUT, TEST_ADMIN);
     const missing = await useCase.execute(
       { ...INPUT, email: 'otra@norde.com.ar', branchId: '00000000-0000-7000-8000-0000000000ff' },
+      TEST_ADMIN,
+    );
+    const none = await useCase.execute(
+      // @ts-expect-error -- llega sin sucursal desde un cliente que no usa el contract.
+      { ...withoutBranch, email: 'sin@norde.com.ar' },
       TEST_ADMIN,
     );
 
@@ -121,6 +129,8 @@ describe('CreateUser', () => {
       MAIN_BRANCH_ID,
     );
     expect(missing.isErr() && missing.error).toEqual({ type: 'BranchNotFound' });
+    expect(none.isErr() && none.error.type).toBe('InvalidInput');
+    expect(uow.users.rows.size).toBe(1);
   });
 
   it('rejects an invalid phone or input', async () => {

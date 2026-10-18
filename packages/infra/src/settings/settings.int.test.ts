@@ -281,7 +281,9 @@ describe('DrizzleDirectory', () => {
     const now = clock.now();
     const audit = { createdAt: now, updatedAt: now, createdBy: ACTOR, updatedBy: ACTOR };
     const branchId = ids.next();
-    await db.insert(branches).values({ id: branchId, name: 'Casa central', ...audit });
+    await db
+      .insert(branches)
+      .values({ id: branchId, name: 'Casa central', whatsappE164: '+5491140001000', ...audit });
     await db.insert(teams).values([
       { id: ids.next(), name: 'Ventas', branchId, ...audit },
       // En la papelera: no se elige para un prefijo exclusivo.
@@ -296,13 +298,14 @@ describe('DrizzleDirectory', () => {
     ]);
     const ana = ids.next();
     await db.insert(users).values([
-      { id: ana, email: 'ana@norde.com.ar', name: 'Ana Gómez', ...audit },
-      { id: ids.next(), email: 'beto@norde.com.ar', name: 'Beto Ruiz', ...audit },
+      { id: ana, email: 'ana@norde.com.ar', name: 'Ana Gómez', branchId, ...audit },
+      { id: ids.next(), email: 'beto@norde.com.ar', name: 'Beto Ruiz', branchId, ...audit },
       {
         id: ids.next(),
         email: 'old@norde.com.ar',
         name: 'Gomez suspendido',
         status: 'suspended',
+        branchId,
         ...audit,
       },
     ]);

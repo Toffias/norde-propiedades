@@ -24,7 +24,7 @@ const DETAIL: BranchDetail = {
   address: undefined,
   email: undefined,
   phone: undefined,
-  whatsapp: undefined,
+  whatsapp: '+5491140001000',
   isMain: true,
   deletedAt: undefined,
 };

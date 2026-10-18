@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { useTestDatabase } from '../../test/database';
+import { insertTestBranch, useTestDatabase } from '../../test/database';
 import { users } from '../db/schema';
 
 import { DrizzleClientFavoriteErasure, DrizzleUserFavorites } from './drizzle-user-favorites';
@@ -18,6 +18,7 @@ async function aUser(id: string, email: string): Promise<void> {
     id,
     email,
     name: 'Usuario de prueba',
+    branchId: await insertTestBranch(db),
     createdAt: NOW,
     updatedAt: NOW,
     createdBy: 'system:import',

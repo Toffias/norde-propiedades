@@ -11,7 +11,7 @@ import { FixedClock } from '@norde/core/shared/testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { useTestDatabase } from '../../test/database';
+import { insertTestBranch, useTestDatabase } from '../../test/database';
 import { auditLog, branches, outbox, roles, sessions, userRoles, users } from '../db/schema';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import type { InfraLogger } from '../shared/logger';
@@ -68,7 +68,13 @@ async function insertRole(key: string, name: string) {
 
 async function createUser(email: string, roleIds: readonly string[], name = 'Camila Pérez') {
   const result = await new CreateUser({ uow, hasher, ids, clock }).execute(
-    { name, email, roleIds: [...roleIds], temporaryPassword: TEMPORARY },
+    {
+      name,
+      email,
+      branchId: await insertTestBranch(db),
+      roleIds: [...roleIds],
+      temporaryPassword: TEMPORARY,
+    },
     ADMIN,
   );
   if (result.isErr()) throw new Error(`could not create the user: ${result.error.type}`);
@@ -124,6 +130,7 @@ describe('identity users against Postgres', () => {
       {
         name: 'Otra',
         email: 'camila@norde.com.ar',
+        branchId: await insertTestBranch(db),
         roleIds: [agent],
         temporaryPassword: TEMPORARY,
       },
@@ -193,6 +200,7 @@ describe('DrizzleUserRepository', () => {
       id: id.value,
       name: 'Camila',
       email: email.value,
+      branchId: await insertTestBranch(db),
       roleIds: [agent, manager],
       now,
     });
@@ -327,6 +335,7 @@ describe('DrizzleUserAccessQuery with a branch', () => {
     await db.insert(branches).values({
       id: branchId,
       name: 'Casa central',
+      whatsappE164: '+5491140001000',
       createdAt: now,
       updatedAt: now,
       createdBy: 'system:import',

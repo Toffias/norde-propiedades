@@ -25,7 +25,9 @@ export const users = coreSchema.table(
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
     phoneE164: text('phone_e164'),
-    branchId: uuid('branch_id').references(() => branches.id, { onDelete: 'restrict' }),
+    branchId: uuid('branch_id')
+      .notNull()
+      .references(() => branches.id, { onDelete: 'restrict' }),
     /** `active` / `suspended`. */
     status: text('status').notNull().default('active'),
     /** `none` / `supervised` / `supervisor`. */
@@ -204,7 +206,7 @@ export const branches = coreSchema.table(
     address: text('address'),
     email: text('email'),
     phoneE164: text('phone_e164'),
-    whatsappE164: text('whatsapp_e164'),
+    whatsappE164: text('whatsapp_e164').notNull(),
     isMain: boolean('is_main').notNull().default(false),
     ...timestamps(),
     ...authorship(),

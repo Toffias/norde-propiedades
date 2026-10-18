@@ -72,8 +72,14 @@ describe('CreateBranch', () => {
     const { uow, create } = setup();
     seedBranch(uow, branchSnapshot());
 
-    const second = await create.execute({ name: 'Belgrano' }, TEST_ADMIN);
-    const repeated = await create.execute({ name: 'CASA CENTRAL' }, TEST_ADMIN);
+    const second = await create.execute(
+      { name: 'Belgrano', whatsapp: '+5491140002000' },
+      TEST_ADMIN,
+    );
+    const repeated = await create.execute(
+      { name: 'CASA CENTRAL', whatsapp: '+5491140002000' },
+      TEST_ADMIN,
+    );
 
     expect(second.isOk() && uow.branches.rows.get(second.value.branchId)?.isMain).toBe(false);
     expect(repeated.isErr() && repeated.error).toEqual({ type: 'NameTaken' });
@@ -82,11 +88,28 @@ describe('CreateBranch', () => {
   it('rejects an invalid phone and needs branches:create', async () => {
     const { create } = setup();
 
-    const phone = await create.execute({ name: 'Belgrano', phone: '123' }, TEST_ADMIN);
-    const forbidden = await create.execute({ name: 'Belgrano' }, TEST_AGENT);
+    const phone = await create.execute(
+      { name: 'Belgrano', phone: '123', whatsapp: '+5491140002000' },
+      TEST_ADMIN,
+    );
+    const forbidden = await create.execute(
+      { name: 'Belgrano', whatsapp: '+5491140002000' },
+      TEST_AGENT,
+    );
 
     expect(phone.isErr() && phone.error).toEqual({ type: 'InvalidPhone' });
     expect(forbidden.isErr() && forbidden.error).toEqual({ type: 'Forbidden' });
+  });
+
+  it('needs a valid WhatsApp', async () => {
+    const { uow, create } = setup();
+
+    const missing = await create.execute({ name: 'Belgrano', whatsapp: '  ' }, TEST_ADMIN);
+    const invalid = await create.execute({ name: 'Belgrano', whatsapp: '123' }, TEST_ADMIN);
+
+    expect(missing.isErr() && missing.error.type).toBe('InvalidInput');
+    expect(invalid.isErr() && invalid.error).toEqual({ type: 'InvalidPhone' });
+    expect(uow.branches.rows.size).toBe(0);
   });
 });
 
@@ -96,7 +119,12 @@ describe('UpdateBranch', () => {
     seedBranch(uow, branchSnapshot());
 
     await update.execute(
-      { branchId: MAIN_BRANCH_ID, name: 'Casa central', address: 'Av. Cabildo 1500, CABA' },
+      {
+        branchId: MAIN_BRANCH_ID,
+        name: 'Casa central',
+        address: 'Av. Cabildo 1500, CABA',
+        whatsapp: '+5491140001000',
+      },
       TEST_ADMIN,
     );
 
@@ -114,8 +142,14 @@ describe('UpdateBranch', () => {
     const { uow, update } = setup();
     seedBranch(uow, branchSnapshot());
 
-    const missing = await update.execute({ branchId: OTHER_ID, name: 'X' }, TEST_ADMIN);
-    const forbidden = await update.execute({ branchId: MAIN_BRANCH_ID, name: 'X' }, TEST_AGENT);
+    const missing = await update.execute(
+      { branchId: OTHER_ID, name: 'X', whatsapp: '+5491140002000' },
+      TEST_ADMIN,
+    );
+    const forbidden = await update.execute(
+      { branchId: MAIN_BRANCH_ID, name: 'X', whatsapp: '+5491140002000' },
+      TEST_AGENT,
+    );
 
     expect(missing.isErr() && missing.error).toEqual({ type: 'BranchNotFound' });
     expect(forbidden.isErr() && forbidden.error).toEqual({ type: 'Forbidden' });

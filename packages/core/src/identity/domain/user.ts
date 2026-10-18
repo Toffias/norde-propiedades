@@ -16,8 +16,8 @@ export interface UserSnapshot {
   readonly email: Email;
   readonly phone: Phone | undefined;
   readonly status: UserStatus;
-  /** Sucursal donde trabaja, si tiene. La usan las reglas de pertenencia. */
-  readonly branchId: string | undefined;
+  /** Sucursal donde trabaja: todo usuario está en una. La usan las reglas de pertenencia. */
+  readonly branchId: string;
   /** Roles del usuario (al menos uno). IDs de `roles`, ordenados. */
   readonly roleIds: readonly string[];
   /**
@@ -75,7 +75,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
     readonly name: string;
     readonly email: Email;
     readonly phone?: Phone | undefined;
-    readonly branchId?: string | undefined;
+    readonly branchId: string;
     readonly roleIds: readonly string[];
     readonly now: Date;
   }): Result<User, UserNeedsRoleError> {
@@ -133,7 +133,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
       readonly name: string;
       readonly email: Email;
       readonly phone: Phone | undefined;
-      readonly branchId: string | undefined;
+      readonly branchId: string;
     },
     now: Date,
   ): void {

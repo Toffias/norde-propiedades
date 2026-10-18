@@ -25,7 +25,7 @@ export function branchAuditState(branch: Branch): AuditState {
     address,
     email: email?.value,
     phone: phone?.e164,
-    whatsapp: whatsapp?.e164,
+    whatsapp: whatsapp.e164,
     isMain,
   };
 }
@@ -68,13 +68,13 @@ export function branchContact(data: {
   readonly address?: string | undefined;
   readonly email?: string | undefined;
   readonly phone?: string | undefined;
-  readonly whatsapp?: string | undefined;
+  readonly whatsapp: string;
 }): Result<BranchContact, InvalidEmailError | InvalidPhoneError> {
   const email = optional(data.email, (value) => Email.create(value));
   if (email.isErr()) return err(email.error);
   const phone = optional(data.phone, (value) => Phone.create(value));
   if (phone.isErr()) return err(phone.error);
-  const whatsapp = optional(data.whatsapp, (value) => Phone.create(value));
+  const whatsapp = Phone.create(data.whatsapp);
   if (whatsapp.isErr()) return err(whatsapp.error);
 
   return ok({

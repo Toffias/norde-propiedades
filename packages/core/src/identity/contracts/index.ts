@@ -29,8 +29,8 @@ const UserProfileFields = {
   name: z.string().trim().min(1).max(120),
   email: EmailSchema,
   phone: z.string().trim().min(1).max(40).optional(),
-  /** Sin valor: el usuario no está en ninguna sucursal. */
-  branchId: z.uuid().optional(),
+  /** Sucursal donde trabaja: todo usuario está en una. */
+  branchId: z.uuid(),
   roleIds: z.array(z.uuid()).min(1).max(MAX_ROLES_PER_USER),
 };
 
@@ -199,7 +199,8 @@ const BranchFields = {
   address: OptionalText(200),
   email: z.string().trim().toLowerCase().max(254).pipe(z.email()).optional(),
   phone: OptionalText(40),
-  whatsapp: OptionalText(40),
+  /** Obligatorio: es el contacto que se publica en los portales y en las fichas. */
+  whatsapp: z.string().trim().min(1).max(40),
 };
 
 export const CreateBranchInputSchema = z.object(BranchFields);
@@ -266,7 +267,7 @@ export interface BranchDetail {
   readonly address: string | undefined;
   readonly email: string | undefined;
   readonly phone: string | undefined;
-  readonly whatsapp: string | undefined;
+  readonly whatsapp: string;
   readonly isMain: boolean;
   readonly deletedAt: Date | undefined;
 }

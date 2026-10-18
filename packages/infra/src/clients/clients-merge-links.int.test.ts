@@ -15,7 +15,7 @@ import { FixedClock } from '@norde/core/shared/testing';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { useTestDatabase } from '../../test/database';
+import { insertTestBranch, useTestDatabase } from '../../test/database';
 import { DrizzleAuditHistoryQuery } from '../audit/drizzle-audit-history-query';
 import { createConversationsUnitOfWork } from '../conversations/conversations-unit-of-work';
 import {
@@ -73,6 +73,7 @@ async function aUser(id: string, email: string): Promise<void> {
     id,
     email,
     name: 'Usuario de prueba',
+    branchId: await insertTestBranch(db),
     createdAt: NOW,
     updatedAt: NOW,
     createdBy: 'system:import',

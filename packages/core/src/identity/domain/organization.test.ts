@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseId } from '../../shared/domain/id';
 import { Email } from '../../shared/domain/value-objects/email';
+import { Phone } from '../../shared/domain/value-objects/phone';
 
 import { Branch } from './branch';
 import { Team } from './team';
@@ -22,7 +23,7 @@ function newBranch(isFirst: boolean) {
     address: '  ',
     email: unwrap(Email.create('belgrano@norde.com.ar')),
     phone: undefined,
-    whatsapp: undefined,
+    whatsapp: unwrap(Phone.create('+5491140002000')),
     isFirst,
     now: NOW,
   });

@@ -44,13 +44,14 @@ type BranchValues = CreateBranchInput;
 const TEXT_FIELDS: readonly {
   readonly name: Exclude<keyof BranchValues, 'name'>;
   readonly label: string;
+  readonly required?: boolean;
   readonly type?: string;
   readonly description?: string;
 }[] = [
   { name: 'address', label: 'Dirección' },
   { name: 'email', label: 'Email', type: 'email' },
   { name: 'phone', label: 'Teléfono', type: 'tel' },
-  { name: 'whatsapp', label: 'WhatsApp', type: 'tel' },
+  { name: 'whatsapp', label: 'WhatsApp', type: 'tel', required: true },
   {
     name: 'logoUrl',
     label: 'Logo (URL)',
@@ -218,7 +219,7 @@ function BranchForm({
               )}
             />
             <div className="grid gap-4 sm:grid-cols-2">
-              {TEXT_FIELDS.map(({ name, label, type, description }) => (
+              {TEXT_FIELDS.map(({ name, label, type, required, description }) => (
                 <FormField
                   key={name}
                   control={form.control}
@@ -227,7 +228,7 @@ function BranchForm({
                     <FormItem
                       className={name === 'address' || name === 'logoUrl' ? 'sm:col-span-2' : ''}
                     >
-                      <FormLabel>{label} (opcional)</FormLabel>
+                      <FormLabel>{required === true ? label : `${label} (opcional)`}</FormLabel>
                       <FormControl>
                         <Input
                           type={type ?? 'text'}

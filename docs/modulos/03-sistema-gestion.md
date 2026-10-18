@@ -91,7 +91,7 @@ Roles propuestos (a validar con Norde):
 **Implementado (#3, reglas de pertenencia, ADR 0017):**
 
 - "Lo suyo", "lo de su sucursal" y "lo de cualquiera" se deciden en el dominio (`identity/domain/ownership.ts`) con el dueño del registro, no solo con el permiso. Cada acción declara qué permiso cubre cada alcance (`OWNERSHIP_RULES`): por ejemplo, ver contactos usa `clients:read` (los suyos), `clients:read-branch` (su sucursal) y `clients:read-all` (todos).
-- Un registro sin dueño es "de otros". Un usuario sin sucursal queda en lo suyo. Un `deny` corta el alcance más amplio.
+- Un registro sin dueño es "de otros". Un `deny` corta el alcance más amplio.
 - Los listados reciben el alcance como filtro (`visibilityFilter`) y lo resuelven en SQL.
 - La sesión lleva la sucursal del usuario (`Actor.branchId`).
 - Lo aplican los casos de uso de cada módulo a medida que se construyen (#5 a #12). El criterio "un agente sin `clients:export` no exporta" queda para la exportación de #8.
@@ -99,7 +99,8 @@ Roles propuestos (a validar con Norde):
 **Implementado (#3, sucursales y equipos):**
 
 - **Mi empresa → Sucursales** (`/mi-empresa/sucursales`): grilla paginada con búsqueda, cantidad de usuarios y papelera.
-  - Cada sucursal tiene nombre, dirección, email, teléfono, WhatsApp y logo. Se usan en portales y PDF. El logo es una URL hasta que exista la subida de archivos.
+  - Cada sucursal tiene nombre, dirección, email, teléfono, WhatsApp y logo. Se usan en portales y PDF. El nombre y el WhatsApp son obligatorios. El logo es una URL hasta que exista la subida de archivos.
+  - Todo usuario está en una sucursal (obligatoria en su alta y edición). La migración `0036` mandó a la casa central a los que no tenían y les copió el teléfono como WhatsApp a las sucursales sin él. `pnpm user:create-admin` y `pnpm db:seed` crean la casa central si la base no tiene ninguna (el primero pide `--whatsapp`).
   - La primera sucursal es la **casa central**; desde la grilla se puede marcar otra (la anterior deja de serlo).
   - La casa central no se borra, ni una sucursal con usuarios o equipos.
   - "Ver usuarios" abre el panel lateral de la sucursal en la pestaña "Usuarios": sus usuarios activos, paginados. Se cambian de sucursal desde el panel de cada usuario.

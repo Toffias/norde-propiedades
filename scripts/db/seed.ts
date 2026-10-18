@@ -16,9 +16,11 @@ import pg from 'pg';
 import { z } from 'zod';
 
 import { parseDatabaseUrl } from './database-url';
-import { createUser, NewUserSchema } from './users';
+import { createUser, ensureMainBranch, NewUserSchema } from './users';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
+/** WhatsApp de prueba de la casa central que crea el seed en una base vacía. */
+const SEED_BRANCH_WHATSAPP = '+5491140001000';
 
 const SeedPropertySchema = z.object({
   code: z.string().min(1),
@@ -251,9 +253,10 @@ async function main(): Promise<void> {
     const users = z
       .array(NewUserSchema)
       .parse(JSON.parse(readFileSync(path.join(import.meta.dirname, 'seed/users.json'), 'utf8')));
+    const branchId = await ensureMainBranch(client, SEED_BRANCH_WHATSAPP);
     let created = 0;
     for (const user of users) {
-      if ((await createUser(client, user)) !== undefined) created += 1;
+      if ((await createUser(client, user, branchId)) !== undefined) created += 1;
     }
     const inquiries = await seedInquiries(client);
     await client.query('commit');

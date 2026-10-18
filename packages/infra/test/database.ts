@@ -1,5 +1,7 @@
 // Conexión compartida por los tests de integración de un archivo.
 
+import { randomUUID } from 'node:crypto';
+
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeEach, inject } from 'vitest';
 
@@ -72,4 +74,15 @@ export function useTestDatabase() {
   afterAll(() => connection.close());
 
   return connection.db;
+}
+
+/** Inserta una sucursal (con un nombre único) y devuelve su ID: todo usuario tiene que estar en una. */
+export async function insertTestBranch(db: Database): Promise<string> {
+  const id = randomUUID();
+  const name = `Sucursal ${id}`;
+  await db.execute(sql`
+    insert into core.branches (id, name, whatsapp_e164, created_at, updated_at, created_by, updated_by)
+    values (${id}, ${name}, '+5491140001000', now(), now(), 'system:import', 'system:import')
+  `);
+  return id;
 }

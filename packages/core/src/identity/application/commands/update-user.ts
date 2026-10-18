@@ -69,10 +69,8 @@ export class UpdateUser {
       }
       const existing = await tx.roles.findExistingIds(data.roleIds);
       if (data.roleIds.some((id) => !existing.includes(id))) return err({ type: 'RoleNotFound' });
-      if (data.branchId !== undefined) {
-        const branches = await tx.branches.findExistingIds([data.branchId]);
-        if (branches.length === 0) return err({ type: 'BranchNotFound' });
-      }
+      const branches = await tx.branches.findExistingIds([data.branchId]);
+      if (branches.length === 0) return err({ type: 'BranchNotFound' });
 
       const before = userAuditState(user);
       user.updateProfile(

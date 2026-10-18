@@ -75,10 +75,8 @@ export class CreateUser {
         if (await tx.users.findByEmail(email.value)) return err({ type: 'EmailTaken' });
         const existing = await tx.roles.findExistingIds(data.roleIds);
         if (data.roleIds.some((id) => !existing.includes(id))) return err({ type: 'RoleNotFound' });
-        if (data.branchId !== undefined) {
-          const branches = await tx.branches.findExistingIds([data.branchId]);
-          if (branches.length === 0) return err({ type: 'BranchNotFound' });
-        }
+        const branches = await tx.branches.findExistingIds([data.branchId]);
+        if (branches.length === 0) return err({ type: 'BranchNotFound' });
 
         const created = User.create({
           id: nextId<'User'>(this.deps.ids),

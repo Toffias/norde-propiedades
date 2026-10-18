@@ -11,6 +11,7 @@ const ID = userId('00000000-0000-7000-8000-000000000001');
 const ADMIN_ID = '00000000-0000-7000-8000-0000000000aa';
 const ROLE_A = '00000000-0000-7000-8000-00000000000a';
 const ROLE_B = '00000000-0000-7000-8000-00000000000b';
+const BRANCH_ID = '00000000-0000-7000-8000-0000000000b1';
 
 function userId(raw: string) {
   const id = parseId<'User'>(raw);
@@ -29,6 +30,7 @@ function newUser(roleIds: readonly string[] = [ROLE_A]) {
     id: ID,
     name: '  Camila Pérez ',
     email: email('camila@norde.com.ar'),
+    branchId: BRANCH_ID,
     roleIds,
     now: NOW,
   });
@@ -62,6 +64,7 @@ describe('User.create', () => {
       id: ID,
       name: 'Camila',
       email: email('camila@norde.com.ar'),
+      branchId: BRANCH_ID,
       roleIds: [],
       now: NOW,
     });

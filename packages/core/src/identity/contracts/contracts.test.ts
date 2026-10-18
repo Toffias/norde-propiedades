@@ -35,6 +35,7 @@ describe('identity contracts', () => {
     const input = {
       name: 'Camila',
       email: 'Camila@Norde.com.ar ',
+      branchId: '00000000-0000-7000-8000-0000000000b1',
       roleIds: ['00000000-0000-7000-8000-00000000000a'],
       temporaryPassword: 'x'.repeat(MIN_PASSWORD_LENGTH - 1),
     };

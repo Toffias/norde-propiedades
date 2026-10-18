@@ -7,6 +7,7 @@ import type { PortalId } from '../domain/portal';
 import { PortalAccount } from '../domain/portal-account';
 import {
   FakePortalListingStateReader,
+  FakePortalListingStatsReader,
   FakePortalPackageReader,
   InMemoryPortalsUnitOfWork,
   LISTED_PROPERTY_ID,
@@ -14,6 +15,7 @@ import {
 import { NotifyListingChanged } from './commands/notify-listing-changed';
 import { ReconcileListing } from './commands/reconcile-listing';
 import { ReconcileListings } from './commands/reconcile-listings';
+import { GetListingStats } from './queries/get-listing-stats';
 import { GetPortalPackages } from './queries/get-portal-packages';
 
 const PORTAL_SYNC = Actor.system('portal-sync', ['portals:sync']);
@@ -355,5 +357,72 @@ describe('GetPortalPackages', () => {
     expect(unwrapErr(await get.execute({ portal: 'mercadolibre' }, VIEWER))).toEqual({
       type: 'Forbidden',
     });
+  });
+});
+
+describe('GetListingStats', () => {
+  function statsSetup() {
+    const { uow } = setup();
+    const reader = new FakePortalListingStatsReader();
+    return { uow, reader, get: new GetListingStats({ uow, reader, clock: new FixedClock(NOW) }) };
+  }
+
+  it('reads the visits and contacts of the last 30 days from the portal', async () => {
+    const { uow, reader, get } = statsSetup();
+    const id = seedPublished(uow, 5);
+
+    const stats = unwrap(await get.execute({ listingId: id }, AGENT));
+
+    expect(stats).toEqual({
+      listingId: id,
+      days: 30,
+      totalVisits: 950,
+      visits: 120,
+      questions: 3,
+      phoneViews: 5,
+      whatsapp: 8,
+    });
+    expect(reader.reads).toEqual([
+      { portal: 'mercadolibre', externalId: 'MLA5', endingAt: new Date(NOW), days: 30 },
+    ]);
+    expect(unwrap(await get.execute({ listingId: id }, ADMIN)).visits).toBe(120);
+  });
+
+  it('says when the portal gives no stats or the listing has no item yet', async () => {
+    const { uow, reader, get } = statsSetup();
+    const zonaprop = seedPublished(uow, 6, 'zonaprop');
+    const pending = unwrap(parseId<'Listing'>('01920000-0000-7000-8000-0000000000f1'));
+    uow.listings.rows.set(
+      pending,
+      Listing.request({
+        id: pending,
+        portal: 'mercadolibre',
+        owner: { kind: 'property', id: LISTED_PROPERTY_ID },
+        operation: 'sale',
+        listingType: 'simple',
+        plan: undefined,
+        now: new Date(NOW),
+      }).toSnapshot(),
+    );
+
+    for (const listingId of [zonaprop, pending]) {
+      expect(unwrapErr(await get.execute({ listingId }, AGENT))).toEqual({
+        type: 'ListingStatsNotAvailable',
+      });
+    }
+    expect(
+      unwrapErr(await get.execute({ listingId: '01920000-0000-7000-8000-0000000009ff' }, AGENT)),
+    ).toEqual({ type: 'ListingNotFound' });
+    expect(reader.reads).toEqual([]);
+  });
+
+  it('reports a portal that does not answer, and requires a portals permission', async () => {
+    const { uow, reader, get } = statsSetup();
+    const id = seedPublished(uow, 5);
+    reader.failWith = { type: 'PortalUnavailable' };
+    expect(unwrapErr(await get.execute({ listingId: id }, AGENT))).toEqual({
+      type: 'PortalUnavailable',
+    });
+    expect(unwrapErr(await get.execute({ listingId: id }, VIEWER))).toEqual({ type: 'Forbidden' });
   });
 });

@@ -5,6 +5,7 @@ import type {
   DisconnectPortalAccountError,
   EnablePortalLeadNotificationsError,
   GetPortalCreditsError,
+  GetListingStatsError,
   GetPortalPackagesError,
   GetPropertyListingsError,
   LinkDevelopmentListingError,
@@ -104,6 +105,16 @@ export const PACKAGES_ERROR_MESSAGES = {
   PortalCredentialsMissing:
     'MercadoLibre pide volver a conectar la cuenta para consultar el cupo de sus paquetes.',
 } satisfies ErrorMessages<GetPortalPackagesError>;
+
+export const LISTING_STATS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para ver las estadísticas del aviso.',
+  ValidationFailed: 'No encontramos la publicación.',
+  ListingNotFound: 'No encontramos la publicación.',
+  ListingStatsNotAvailable: 'Este portal no informa estadísticas.',
+  PortalUnavailable: 'No pudimos leer las visitas: el portal no respondió. Probá más tarde.',
+  PortalCredentialsMissing:
+    'El portal pide volver a conectar la cuenta para leer las visitas (Mi empresa → Portales).',
+} satisfies ErrorMessages<GetListingStatsError>;
 
 /** Para qué sirve cada paquete de MercadoLibre. */
 export const PACKAGE_CONTENT_LABELS: Readonly<Record<PortalPackageContentValue, string>> = {

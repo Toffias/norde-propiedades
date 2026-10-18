@@ -233,6 +233,20 @@ export interface PropertyListingView {
 }
 
 /**
+ * Las visitas y los contactos de un aviso, leídos del portal: los de los últimos `days` días y las
+ * visitas desde que se publicó.
+ */
+export interface ListingStatsView {
+  readonly listingId: string;
+  readonly days: number;
+  readonly totalVisits: number;
+  readonly visits: number;
+  readonly questions: number;
+  readonly phoneViews: number;
+  readonly whatsapp: number;
+}
+
+/**
  * La pestaña Difusión: las publicaciones y los portales donde se puede publicar esta propiedad (o
  * este emprendimiento).
  */

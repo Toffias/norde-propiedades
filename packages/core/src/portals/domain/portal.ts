@@ -72,6 +72,11 @@ export interface PortalDefinition {
    * venció, cerró o pausó por moderación (MercadoLibre). Zonaprop no vence ni modera avisos.
    */
   readonly reconciles: boolean;
+  /**
+   * Si el portal da las visitas y los contactos de cada aviso (MercadoLibre). Se leen en el
+   * momento, para la pestaña Difusión.
+   */
+  readonly stats: boolean;
 }
 
 export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
@@ -86,6 +91,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     leadChannel: 'mercadolibre',
     paid: true,
     reconciles: true,
+    stats: true,
   },
   // Un aviso por emprendimiento, con sus unidades en venta como variaciones (ADR 0034).
   mercadolibre_developments: {
@@ -99,6 +105,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     leadChannel: 'mercadolibre',
     paid: true,
     reconciles: true,
+    stats: true,
   },
   zonaprop: {
     provider: 'zonaprop',
@@ -111,6 +118,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     leadChannel: 'zonaprop',
     paid: true,
     reconciles: false,
+    stats: false,
   },
 };
 

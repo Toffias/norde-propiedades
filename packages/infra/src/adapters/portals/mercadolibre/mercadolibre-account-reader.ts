@@ -1,6 +1,8 @@
 import type {
   PortalId,
   PortalListingStateReader,
+  PortalListingStats,
+  PortalListingStatsReader,
   PortalPackage,
   PortalPackageContent,
   PortalPackageReader,
@@ -70,6 +72,25 @@ const PackagesSchema = z.array(
     .loose(),
 );
 
+/** Las visitas de toda la vida de los avisos (`/visits/items?ids=`): `{ "MLA…": 98 }`. */
+const TotalVisitsSchema = z.record(z.string(), z.number().int().nonnegative());
+/** Las visitas de un aviso en un rango (`/items/visits`): ML lo da como objeto o como lista. */
+const RangeVisitsSchema = z.union([
+  z.object({ total_visits: z.number().int().nonnegative() }).loose(),
+  z.array(z.object({ total_visits: z.number().int().nonnegative() }).loose()).length(1),
+]);
+/** Los contactos de un aviso en un rango (preguntas, teléfono, WhatsApp): `{ "total": 9 }`. */
+const ContactsSchema = z.object({ total: z.number().int().nonnegative() }).loose();
+/** Las métricas de contactos de un aviso, en `/items/{id}/contacts/{metric}`. */
+const CONTACT_METRICS = ['questions', 'phone_views', 'whatsapp'] as const;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** `AAAA-MM-DD`, como pide ML en `date_from` y `date_to`. */
+function isoDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 const NOT_FOUND = 'El aviso ya no existe en MercadoLibre.';
 const CLOSED_REASONS: Readonly<Record<string, string>> = {
   expired: 'MercadoLibre venció el aviso: terminó su vigencia.',
@@ -93,10 +114,12 @@ const PROCESSING_PICTURES = 'picture_download_pending';
 
 /**
  * Lecturas de una cuenta de MercadoLibre que no son la publicación en sí: cómo están los avisos
- * (para la conciliación diaria) y el cupo de los paquetes de inmuebles. Por HTTP y sin SDK, con el
- * token de la cuenta. Nunca loguea tokens.
+ * (para la conciliación), el cupo de los paquetes de inmuebles y las visitas y contactos de cada
+ * aviso. Por HTTP y sin SDK, con el token de la cuenta. Nunca loguea tokens.
  */
-export class MercadoLibreAccountReader implements PortalListingStateReader, PortalPackageReader {
+export class MercadoLibreAccountReader
+  implements PortalListingStateReader, PortalPackageReader, PortalListingStatsReader
+{
   readonly #api: MercadoLibreReads;
 
   constructor(private readonly options: MercadoLibreAccountReaderOptions) {
@@ -191,6 +214,58 @@ export class MercadoLibreAccountReader implements PortalListingStateReader, Port
         ];
       }),
     );
+  }
+
+  /**
+   * Las visitas y los contactos del aviso (guía "Estadísticas de interacciones en Inmuebles"): las
+   * visitas de toda su vida, y las visitas, preguntas, vistas del teléfono y WhatsApp de los `days`
+   * días que terminan en `endingAt`. Un aviso sin datos cuenta 0.
+   */
+  async stats(input: {
+    readonly portal: PortalId;
+    readonly externalId: string;
+    readonly endingAt: Date;
+    readonly days: number;
+  }): Promise<Result<PortalListingStats, ReadError>> {
+    const { portal, externalId, endingAt, days } = input;
+    const id = encodeURIComponent(externalId);
+    const range = new URLSearchParams({
+      date_from: isoDay(new Date(endingAt.getTime() - days * DAY_MS)),
+      date_to: isoDay(endingAt),
+    });
+
+    const total = await this.#api.get(portal, `/visits/items?ids=${id}`);
+    if (total.isErr()) return err(total.error);
+    const totals = TotalVisitsSchema.safeParse(total.value);
+    if (!totals.success) return this.#api.unexpected(portal, '/visits/items');
+
+    const visitsQuery = new URLSearchParams(range);
+    visitsQuery.set('ids', externalId);
+    const visits = await this.#api.get(portal, `/items/visits?${visitsQuery.toString()}`);
+    if (visits.isErr()) return err(visits.error);
+    const inRange = RangeVisitsSchema.safeParse(visits.value);
+    if (!inRange.success) return this.#api.unexpected(portal, '/items/visits');
+
+    const contacts: number[] = [];
+    for (const metric of CONTACT_METRICS) {
+      const path = `/items/${id}/contacts/${metric}`;
+      const read = await this.#api.get(portal, `${path}?${range.toString()}`);
+      if (read.isErr()) return err(read.error);
+      const parsed = ContactsSchema.safeParse(read.value);
+      if (!parsed.success) return this.#api.unexpected(portal, path);
+      contacts.push(parsed.data.total);
+    }
+    const [questions = 0, phoneViews = 0, whatsapp = 0] = contacts;
+
+    return ok({
+      totalVisits: totals.data[externalId] ?? 0,
+      visits: Array.isArray(inRange.data)
+        ? (inRange.data[0]?.total_visits ?? 0)
+        : inRange.data.total_visits,
+      questions,
+      phoneViews,
+      whatsapp,
+    });
   }
 
   /** El estado del aviso para Norde; `undefined` si está en un estado transitorio o desconocido. */

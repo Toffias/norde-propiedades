@@ -3,6 +3,9 @@
 //
 //   ADMIN_PASSWORD='…' pnpm user:create-admin --email ana@norde.com.ar --name "Ana Pérez"
 //
+// Todo usuario está en una sucursal: va a la casa central. En una base nueva no existe y hay que
+// pasar su WhatsApp para crearla: `--whatsapp +5491140001000`.
+//
 // La contraseña va por variable de entorno para que no quede en el historial de la terminal.
 // La base sale de DATABASE_URL o, si no está, de apps/agent/.env (la misma que usan las apps).
 
@@ -13,7 +16,7 @@ import { parseArgs, parseEnv } from 'node:util';
 import pg from 'pg';
 
 import { parseDatabaseUrl } from './database-url';
-import { createUser, NewUserSchema } from './users';
+import { createUser, ensureMainBranch, NewUserSchema } from './users';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -27,7 +30,7 @@ function databaseUrl(): string {
 
 async function main(): Promise<void> {
   const { values } = parseArgs({
-    options: { email: { type: 'string' }, name: { type: 'string' } },
+    options: { email: { type: 'string' }, name: { type: 'string' }, whatsapp: { type: 'string' } },
   });
   const user = NewUserSchema.parse({
     email: values.email,
@@ -41,7 +44,8 @@ async function main(): Promise<void> {
   await client.connect();
   try {
     await client.query('begin');
-    const id = await createUser(client, user);
+    const branchId = await ensureMainBranch(client, values.whatsapp);
+    const id = await createUser(client, user, branchId);
     await client.query('commit');
     console.log(
       id === undefined

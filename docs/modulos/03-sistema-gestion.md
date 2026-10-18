@@ -643,7 +643,7 @@ Diseño propuesto:
      - Que la cuenta esté conectada y activa.
      - Que la propiedad esté disponible y la operación tenga precio (sin precio o con "a consultar", no se publica).
      - Que tenga al menos una foto lista y marcada "Mostrar en la web".
-     - Que la sucursal del captador tenga WhatsApp.
+     - Que la propiedad tenga sucursal y que esa sucursal tenga WhatsApp. La propiedad toma la sucursal de su captador al crearse o al cambiar el captador; si no tiene, se pide volver a elegir el captador.
      - Que tenga los datos que ML exige por tipo: superficie total y cubierta, ambientes, dormitorios y baños. Las cocheras vacías van como 0.
      - Si falta algo, se dice qué.
    - **Fuera de esta etapa:**
@@ -653,7 +653,7 @@ Diseño propuesto:
      - Reservada o pausada → aviso pausado. Vuelve a disponible → se reactiva.
      - Vendida, alquilada, retirada, borrador o en la papelera → aviso cerrado. Cerrar es definitivo en ML: volver a mostrarlo es "Volver a publicar", un aviso nuevo.
    - **Errores.**
-     - Si ML rechaza el aviso, el motivo queda en la fila.
+     - Si ML rechaza el aviso, el motivo queda en la fila, con el status de ML. Si ML no lo explica, se dice qué significa el status (402: la cuenta no tiene paquete de inmuebles con cupo; 403: no tiene permiso para publicar inmuebles).
      - Si ML no responde, se reintenta solo.
      - Si ML revocó la cuenta, la fila pide reconectarla.
    - **Qué se publica:**

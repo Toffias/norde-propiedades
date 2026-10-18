@@ -11,7 +11,10 @@ import {
   DrizzlePropertySearchQuery,
   LocalFileStorage,
   S3FileStorage,
+  WebChatClient,
   WebInquiryClient,
+  type WebChatMessage,
+  type WebChatOutcome,
   type DatabaseConnection,
   type WebInquiry,
   type WebInquiryOutcome,
@@ -41,10 +44,16 @@ export interface InquirySender {
   send(inquiry: WebInquiry): Promise<WebInquiryOutcome>;
 }
 
+/** El chat del sitio, que habla con apps/agent (ADR 0037). `undefined` si no está configurado. */
+export interface ChatSender {
+  send(message: WebChatMessage): Promise<WebChatOutcome>;
+}
+
 export interface Container {
   readonly database: DatabaseConnection;
   readonly properties: PropertiesUseCases;
   readonly inquiries: InquirySender | undefined;
+  readonly chat: ChatSender | undefined;
 }
 
 function createStorage(env: Env) {
@@ -77,6 +86,10 @@ function createContainer(): Container {
     inquiries:
       env.INQUIRY_WEBHOOK_URL && env.INQUIRY_WEBHOOK_SECRET
         ? new WebInquiryClient({ url: env.INQUIRY_WEBHOOK_URL, secret: env.INQUIRY_WEBHOOK_SECRET })
+        : undefined,
+    chat:
+      env.AGENT_CHAT_URL && env.AGENT_CHAT_SECRET
+        ? new WebChatClient({ url: env.AGENT_CHAT_URL, secret: env.AGENT_CHAT_SECRET })
         : undefined,
   };
 }

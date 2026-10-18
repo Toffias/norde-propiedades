@@ -40,6 +40,13 @@ const EnvSchema = z.object({
    */
   INQUIRY_WEBHOOK_URL: z.url({ protocol: /^https?$/ }).optional(),
   INQUIRY_WEBHOOK_SECRET: z.string().min(32).optional(),
+
+  /**
+   * Chat con el agente de IA (ADR 0037): `http://127.0.0.1:3100/chat/messages` de apps/agent y el
+   * secreto que comparte con su `WEB_CHAT_SECRET`. Las dos o ninguna; sin ellas, no hay burbuja.
+   */
+  AGENT_CHAT_URL: z.url({ protocol: /^https?$/ }).optional(),
+  AGENT_CHAT_SECRET: z.string().min(32).optional(),
 });
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
@@ -53,6 +60,10 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
       path: [missing],
       message: 'Set both INQUIRY_WEBHOOK_* or none',
     });
+  }
+  if ((env.AGENT_CHAT_URL === undefined) !== (env.AGENT_CHAT_SECRET === undefined)) {
+    const missing = env.AGENT_CHAT_URL ? 'AGENT_CHAT_SECRET' : 'AGENT_CHAT_URL';
+    context.addIssue({ code: 'custom', path: [missing], message: 'Set both AGENT_CHAT_* or none' });
   }
   if (env.STORAGE_DRIVER !== 's3') return;
   for (const key of S3_REQUIRED) {

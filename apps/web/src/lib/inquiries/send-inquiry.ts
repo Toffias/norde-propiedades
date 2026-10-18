@@ -2,31 +2,17 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { headers } from 'next/headers';
-
 import { getLogger } from '../../config/logger';
 import { getContainer } from '../../container';
-import {
-  createRateLimiter,
-  inquiryFormValues,
-  parseInquiryForm,
-  type InquiryFormState,
-} from './inquiry-form';
+import { clientIp } from '../client-ip';
+import { createRateLimiter } from '../rate-limit';
+import { inquiryFormValues, parseInquiryForm, type InquiryFormState } from './inquiry-form';
 
 /** Consultas por IP cada 10 minutos. */
 const allow = createRateLimiter(5, () => Date.now());
 
 const UNAVAILABLE =
   'No pudimos enviar tu consulta. Probá de nuevo en unos minutos o escribinos por WhatsApp.';
-
-/**
- * El IP de quien envía. Nginx, en el mismo servidor, es el único proxy: agrega el IP real al
- * final de `X-Forwarded-For`, así que lo que vino antes lo pudo escribir cualquiera.
- */
-async function clientIp(): Promise<string> {
-  const list = await headers();
-  return list.get('x-forwarded-for')?.split(',').at(-1)?.trim() ?? list.get('x-real-ip') ?? '';
-}
 
 /** Server Action del formulario de la ficha: valida y manda la consulta al panel (ADR 0021). */
 export async function sendInquiry(

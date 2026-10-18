@@ -232,7 +232,7 @@ export function splitPhone(e164: string | undefined) {
 }
 
 /** El contacto del aviso. MercadoLibre exige el WhatsApp (`country_code2` y `phone2`). */
-export function sellerContact(source: ListingSource) {
+export function sellerContact(source: Pick<ListingSource, 'contact'>) {
   const phone = splitPhone(source.contact.phone);
   const whatsapp = splitPhone(source.contact.whatsapp);
   return {

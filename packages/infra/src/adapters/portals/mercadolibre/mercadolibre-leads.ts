@@ -48,6 +48,14 @@ const BuyersSchema = z.object({
   paging: z.object({ total: z.number().int().nonnegative() }).loose(),
 });
 
+/** La cotización: la variación (unidad) que se cotizó, con el ID que le puso Norde. */
+const QuotationSchema = z
+  .object({
+    variation: z.object({ seller_custom_field: z.string().nullish() }).loose().nullish(),
+  })
+  .loose();
+const UnitIdSchema = z.uuid();
+
 const QuestionSchema = z
   .object({ text: z.string().nullish(), status: z.string().nullish() })
   .loose();
@@ -60,13 +68,15 @@ const KINDS: Readonly<Record<string, PortalLeadKind>> = {
   contact_request: 'call_me',
   schedule: 'visit',
   visit_request: 'visit',
+  quotation: 'quote',
 };
 
 /**
  * Los contactos de los avisos de una cuenta de MercadoLibre (leads de inmuebles), por HTTP y sin
  * SDK. Lee `/vis/users/{id}/leads/buyers` desde la fecha pedida: ML agrupa los contactos por
  * interesado y aviso, con su nombre, email y teléfono, y acá se aplanan (un contacto por lead). El
- * texto de una pregunta se lee de `/questions/{id}`. Los anónimos (`guest`) no se piden: no traen
+ * texto de una pregunta se lee de `/questions/{id}`, y la unidad de una cotización de un
+ * emprendimiento, de `/quotations/{id}`. Los anónimos (`guest`) no se piden: no traen
  * cómo contactarlos. Nunca loguea datos del interesado.
  */
 export class MercadoLibreLeads implements PortalLeadSource {
@@ -115,6 +125,11 @@ export class MercadoLibreLeads implements PortalLeadSource {
               ? await this.#question(portal, lead.external_id)
               : ok(undefined);
           if (message.isErr()) return err(portError(message.error));
+          const unit =
+            kind === 'quote' && lead.external_id
+              ? await this.#quotedUnit(portal, lead.external_id)
+              : ok(undefined);
+          if (unit.isErr()) return err(portError(unit.error));
           const receivedAt = lead.created_at ? new Date(lead.created_at) : undefined;
           leads.push({
             externalId: lead.id,
@@ -125,7 +140,7 @@ export class MercadoLibreLeads implements PortalLeadSource {
             phone: buyer.phone ?? undefined,
             message: message.value,
             listingCode: lead.item_id ?? buyer.item_id ?? undefined,
-            unitPropertyId: undefined,
+            unitPropertyId: unit.value,
           });
         }
       }
@@ -134,6 +149,22 @@ export class MercadoLibreLeads implements PortalLeadSource {
       if (returned === 0 || offset >= total) break;
     }
     return ok({ items: leads, total });
+  }
+
+  /**
+   * La unidad cotizada: la variación lleva el ID de la unidad en `seller_custom_field` (lo pone
+   * Norde al publicar el emprendimiento). Sin él (un aviso de otro sistema), `undefined`.
+   */
+  async #quotedUnit(
+    portal: PortalId,
+    quotationId: string,
+  ): Promise<Result<string | undefined, MercadoLibreReadError>> {
+    const path = `/quotations/${encodeURIComponent(quotationId)}?caller.type=seller`;
+    const read = await this.#api.get(portal, path, { notFound: true });
+    if (read.isErr()) return err(read.error);
+    const quotation = QuotationSchema.safeParse(read.value);
+    const unitId = UnitIdSchema.safeParse(quotation.data?.variation?.seller_custom_field);
+    return ok(unitId.success ? unitId.data : undefined);
   }
 
   /** El texto de la pregunta; sin texto (borrada o moderada), `undefined`. */

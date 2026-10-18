@@ -1,11 +1,11 @@
 import { err, ok, type Actor, type Clock, type Result } from '../../../shared';
 import { ChangeListingTypeInputSchema, type ChangeListingTypeInput } from '../../contracts';
-import type { ListingClosedError } from '../../domain/listing';
+import type { ListingClosedError, ListingTypeFixedError } from '../../domain/listing';
 import { editListing, type ListingEditError } from '../listing-support';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
 import { parseInput } from '../portals-input';
 
-export type ChangeListingTypeError = ListingEditError | ListingClosedError;
+export type ChangeListingTypeError = ListingEditError | ListingClosedError | ListingTypeFixedError;
 
 /** Pasa el aviso a simple o destacado (consume el cupo de destacados del portal). */
 export class ChangeListingType {

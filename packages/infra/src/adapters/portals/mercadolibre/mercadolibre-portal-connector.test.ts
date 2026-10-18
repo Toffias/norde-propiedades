@@ -1,4 +1,4 @@
-import { listingSource } from '@norde/core/portals/testing';
+import { developmentListingSource, listingSource } from '@norde/core/portals/testing';
 import { err, ok } from '@norde/core/shared';
 import { unwrap, unwrapErr } from '@norde/core/shared/testing';
 import { describe, expect, it } from 'vitest';
@@ -269,5 +269,128 @@ describe('MercadoLibrePortalConnector.close', () => {
     const { connector, requests } = setup([() => Response.json(CLOSED_ITEM)]);
     unwrap(await connector.close('mercadolibre', 'MLA3879350706'));
     expect(requests).toHaveLength(1);
+  });
+});
+
+const DEVELOPMENT = {
+  kind: 'development',
+  listingId: '01920000-0000-7000-8000-00000000a002',
+  source: developmentListingSource({
+    units: [
+      listingSource({
+        propertyId: '01920000-0000-7000-8000-0000000000e1',
+        code: 'AP0001',
+        unitDesignation: { floor: '3', unit: 'B' },
+      }),
+    ],
+  }),
+  listingType: 'simple',
+  plan: undefined,
+} as const;
+const DEVELOPMENT_ITEM = {
+  id: 'MLA843263657',
+  status: 'active',
+  listing_type_id: 'gold_premium',
+  variations: [{ id: 52173477243, seller_custom_field: '01920000-0000-7000-8000-0000000000e1' }],
+};
+const DEVELOPMENT_PACKS = [
+  {
+    package_content: 'developments',
+    status: 'active',
+    listing_details: [{ listing_type_id: 'gold_premium', remaining_listings: 1 }],
+  },
+];
+
+describe('MercadoLibrePortalConnector with developments', () => {
+  it('reports what the development misses before calling', () => {
+    const { connector } = setup([]);
+    expect(
+      connector.problems('mercadolibre_developments', {
+        ...DEVELOPMENT,
+        source: { ...DEVELOPMENT.source, stage: undefined },
+      }),
+    ).toEqual(['Falta la etapa de la obra (en pozo, en construcción o terminado).']);
+  });
+
+  it('publishes the development with the listing type of its package', async () => {
+    const { connector, requests } = setup([
+      () => Response.json({ id: 534776711 }),
+      () => Response.json(DEVELOPMENT_PACKS),
+      () => Response.json({ ...DEVELOPMENT_ITEM, permalink: 'https://x' }, { status: 201 }),
+    ]);
+
+    const created = unwrap(await connector.create('mercadolibre_developments', DEVELOPMENT));
+
+    expect(created).toEqual({ externalId: 'MLA843263657', permalink: 'https://x' });
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /users/me',
+      'GET /users/534776711/classifieds_promotion_packs',
+      'POST /items',
+    ]);
+    expect(requests[2]?.body).toMatchObject({
+      category_id: 'MLA401806',
+      listing_type_id: 'gold_premium',
+      condition: 'new',
+      buying_mode: 'classified',
+      available_quantity: 1,
+      currency_id: 'USD',
+      location: { neighborhood: { id: 'TUxBQlBBTDI1MTVa' } },
+      seller_contact: { country_code2: '54', phone2: '91166000000' },
+      variations: [{ seller_custom_field: '01920000-0000-7000-8000-0000000000e1' }],
+    });
+  });
+
+  it('does not post without a developments package with quota', async () => {
+    const { connector, requests } = setup([
+      () => Response.json({ id: 534776711 }),
+      () => Response.json([]),
+    ]);
+    const error = unwrapErr(await connector.create('mercadolibre_developments', DEVELOPMENT));
+    expect(error).toMatchObject({ type: 'PortalRejected' });
+    expect(requests).toHaveLength(2);
+  });
+
+  it('sends the variations with their IDs and the description, without a listing type change', async () => {
+    const { connector, requests } = setup([
+      () => Response.json(DEVELOPMENT_ITEM),
+      () => Response.json(DEVELOPMENT_ITEM),
+      () => Response.json({ plain_text: 'x' }),
+    ]);
+
+    unwrap(
+      await connector.update('mercadolibre_developments', 'MLA843263657', {
+        content: DEVELOPMENT,
+        contentChanged: true,
+        state: 'active',
+      }),
+    );
+
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /items/MLA843263657',
+      'PUT /items/MLA843263657',
+      'PUT /items/MLA843263657/description',
+    ]);
+    expect(requests[1]?.body).toMatchObject({
+      variations: [{ id: 52173477243, price: 120_000 }],
+    });
+    expect(requests[1]?.body).not.toHaveProperty('price');
+  });
+
+  it('only pauses a development left without units: ML takes no listing without variations', async () => {
+    const { connector, requests } = setup([
+      () => Response.json(DEVELOPMENT_ITEM),
+      () => Response.json({ ...DEVELOPMENT_ITEM, status: 'paused' }),
+    ]);
+
+    unwrap(
+      await connector.update('mercadolibre_developments', 'MLA843263657', {
+        content: { ...DEVELOPMENT, source: { ...DEVELOPMENT.source, units: [] } },
+        contentChanged: true,
+        state: 'paused',
+      }),
+    );
+
+    expect(requests.map((r) => r.method)).toEqual(['GET', 'PUT']);
+    expect(requests[1]?.body).toEqual({ status: 'paused' });
   });
 });

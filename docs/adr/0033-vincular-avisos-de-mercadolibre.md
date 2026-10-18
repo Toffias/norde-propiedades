@@ -22,7 +22,7 @@ La etapa 3 de MercadoLibre (#14) toma los avisos que hoy publica Tokko en la cue
   - **Vincular no toca MercadoLibre.** El ID del aviso (`MLA…`) pasa a ser el `externalId` de la publicación, y desde ahí la sincronización de siempre lo actualiza cuando cambia la propiedad.
 - **Las unidades se vinculan como avisos sueltos** (`unitsAsListings` en el catálogo de portales, solo en MercadoLibre · Propiedades). Es una excepción a "las unidades van con su emprendimiento":
   - La pestaña Difusión de una unidad muestra solo esos portales, y solo permite vincular, no publicar uno nuevo.
-  - Publicar una unidad sigue sin estar permitido. Qué pasa con estos avisos cuando se publique el emprendimiento en ML lo decide la etapa 4.
+  - Publicar una unidad sigue sin estar permitido. Cuando se publica el emprendimiento en ML, estos avisos conviven con el suyo (ADR 0034).
 - **El código del aviso**, para proponer la propiedad, sale del campo del vendedor (`seller_custom_field`) o del atributo `SELLER_SKU`. Si trae el del emprendimiento adelante, queda el último tramo (el de la unidad). Si no está en ninguno, el aviso se lista sin propuesta y se vincula desde la ficha pegando su link (`MLA-…`), que Tokko muestra en cada propiedad. **Pendiente:** confirmarlo con un aviso real cuando la cuenta de Norde esté conectada.
 - **`MercadoLibreListingCatalog`** (infra):
   - Lista los avisos activos de la cuenta (`/users/{id}/items/search?status=active`, paginado) y los lee con el multiget de items.

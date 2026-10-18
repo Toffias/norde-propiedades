@@ -249,7 +249,9 @@ function ListingsPanel({
       {portals.map((portal) => {
         const option = publishingOf(portal, view);
         const canPublish = view.canPublish && view.portals.some((p) => p.portal === portal);
-        const rows = option.listingScope === 'property' ? [undefined] : operations;
+        // Un emprendimiento es siempre un solo aviso, aunque el portal publique por operación.
+        const whole = owner.kind === 'development' || option.listingScope === 'property';
+        const rows = whole ? [undefined] : operations;
         return (
           <SectionCard key={portal} title={PORTAL_LABELS[portal]}>
             <ul className="flex flex-col divide-y divide-border">
@@ -271,8 +273,12 @@ function ListingsPanel({
                 />
               ))}
             </ul>
-            {option.listingScope === 'property' && (
-              <p className="mt-3 text-xs text-muted-foreground">{wholeNote}</p>
+            {whole && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {owner.kind === 'development' && portal === 'mercadolibre_developments'
+                  ? ML_DEVELOPMENT_NOTE
+                  : wholeNote}
+              </p>
             )}
             {!isAvailable && (
               <p className="mt-3 text-xs text-muted-foreground">{unavailableNote}</p>
@@ -283,6 +289,10 @@ function ListingsPanel({
     </div>
   );
 }
+
+/** En MercadoLibre, el emprendimiento va con las unidades en venta de un solo tipo. */
+const ML_DEVELOPMENT_NOTE =
+  'Un solo aviso con las unidades disponibles en venta, cada una como una variante con su precio. MercadoLibre publica emprendimientos de departamentos, casas, oficinas o lotes: van las del tipo más común, y las demás (cocheras, locales, alquileres) no entran. Todas tienen que tener el precio en la misma moneda. El tipo de aviso lo da el paquete de emprendimientos de la cuenta, que alcanza para un solo emprendimiento. Cada cambio del emprendimiento o de sus unidades actualiza el aviso; si no queda ninguna, se pausa.';
 
 const NO_PLANS: PortalCreditsResult = {
   ok: false,
@@ -380,6 +390,8 @@ function ListingRow({
   const [error, setError] = useState<string | undefined>();
   const [type, setType] = useState<ListingTypeValue>(listing?.listingType ?? 'simple');
   const choosesPlan = plans !== undefined;
+  // El aviso de un emprendimiento no elige simple o destacado: lo da el paquete o el plan.
+  const choosesType = !choosesPlan && owner.kind === 'property';
   const offeredPlans = plansFor(plans, owner.kind);
   // Sin plan elegido de antemano: cada plan consume créditos distintos, lo decide quien publica.
   const [plan, setPlan] = useState<string | undefined>(listing?.plan);
@@ -412,9 +424,11 @@ function ListingRow({
         )}
         {listing && !closed && (
           <span className="text-sm text-muted-foreground">
-            {listing.plan === undefined
-              ? LISTING_TYPE_LABELS[listing.listingType]
-              : `Plan ${planLabel(listing.plan)}`}
+            {listing.plan !== undefined
+              ? `Plan ${planLabel(listing.plan)}`
+              : choosesType
+                ? LISTING_TYPE_LABELS[listing.listingType]
+                : undefined}
           </span>
         )}
         {listing?.intent === 'paused' && listing.status !== 'paused' && (
@@ -456,21 +470,23 @@ function ListingRow({
                       disabled={busy}
                     />
                   ) : (
-                    <Select
-                      value={type}
-                      onValueChange={(next) => {
-                        setType(next === 'featured' ? 'featured' : 'simple');
-                      }}
-                      disabled={busy}
-                    >
-                      <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
-                        <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    choosesType && (
+                      <Select
+                        value={type}
+                        onValueChange={(next) => {
+                          setType(next === 'featured' ? 'featured' : 'simple');
+                        }}
+                        disabled={busy}
+                      >
+                        <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
+                          <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )
                   )}
                   <Button
                     size="sm"
@@ -581,23 +597,25 @@ function ListingRow({
                   )}
                 </>
               ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    run(
-                      () =>
-                        changeListingTypeAction({
-                          listingId: listing.id,
-                          listingType: listing.listingType === 'simple' ? 'featured' : 'simple',
-                        }),
-                      'Tipo de aviso cambiado',
-                    );
-                  }}
-                >
-                  {listing.listingType === 'simple' ? 'Pasar a destacado' : 'Pasar a simple'}
-                </Button>
+                choosesType && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => {
+                      run(
+                        () =>
+                          changeListingTypeAction({
+                            listingId: listing.id,
+                            listingType: listing.listingType === 'simple' ? 'featured' : 'simple',
+                          }),
+                        'Tipo de aviso cambiado',
+                      );
+                    }}
+                  >
+                    {listing.listingType === 'simple' ? 'Pasar a destacado' : 'Pasar a simple'}
+                  </Button>
+                )
               )}
               <Button
                 size="sm"

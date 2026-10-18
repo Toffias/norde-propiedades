@@ -106,6 +106,7 @@ export {
   type ListingOwner,
   type ListingIntent,
   type ListingNotClosedError,
+  type ListingTypeFixedError,
   type ListingOperation,
   type ListingSnapshot,
   type ListingStatus,

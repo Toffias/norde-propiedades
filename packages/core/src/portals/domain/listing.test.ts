@@ -246,6 +246,20 @@ describe('Listing commands', () => {
     });
   });
 
+  it('keeps the type of a development listing: the package or the plan gives it', () => {
+    const listing = Listing.request({
+      id: ID,
+      portal: 'mercadolibre_developments',
+      owner: { kind: 'development', id: PROPERTY },
+      operation: undefined,
+      listingType: 'simple',
+      plan: undefined,
+      now: NOW,
+    });
+    expect(unwrapErr(listing.changeType('featured', NOW))).toEqual({ type: 'ListingTypeFixed' });
+    expect(listing.toSnapshot().listingType).toBe('simple');
+  });
+
   it('republishes a closed listing as a new one', () => {
     const listing = published();
     listing.recordClosed(NOW);

@@ -298,6 +298,7 @@ export function listingSource(overrides: Partial<ListingSource> = {}): ListingSo
     kind: 'apartment',
     availability: 'active',
     developmentId: undefined,
+    unitDesignation: undefined,
     title: 'Departamento en venta en Palermo',
     description: 'Luminoso, al frente.',
     operations: [
@@ -355,6 +356,7 @@ export function developmentListingSource(
     developmentId: LISTED_DEVELOPMENT_ID,
     code: 'EMP0001',
     kind: 'building',
+    name: 'Torre Mataderos',
     availability: 'active',
     title: 'Torre Mataderos',
     description: 'Un edificio de 10 pisos con amenities, a metros de la avenida y del parque.',
@@ -376,6 +378,7 @@ export function developmentListingSource(
         propertyId: LISTED_UNIT_ID,
         code: 'AP0001',
         developmentId: LISTED_DEVELOPMENT_ID,
+        unitDesignation: { floor: '3', unit: 'B' },
         title: 'Departamento 2 ambientes con balcón',
       }),
     ],

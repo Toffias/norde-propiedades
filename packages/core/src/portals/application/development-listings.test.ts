@@ -62,6 +62,23 @@ function zonapropAccount() {
   return account.toSnapshot();
 }
 
+function mercadoLibreDevelopmentsAccount() {
+  const account = PortalAccount.notConnected('mercadolibre_developments');
+  unwrap(
+    account.connect(
+      {
+        externalAccountId: '987654321',
+        accountName: 'NORDEEMPRENDIMIENTOS',
+        connectedAt: new Date(NOW),
+        connectedBy: 'admin-1',
+      },
+      [],
+    ),
+  );
+  unwrap(account.enable());
+  return account.toSnapshot();
+}
+
 function setup() {
   const uow = new InMemoryPortalsUnitOfWork();
   uow.accounts.rows.set('zonaprop', zonapropAccount());
@@ -194,11 +211,31 @@ describe('RequestDevelopmentPublication', () => {
     expect(
       unwrapErr(
         await request.execute(
-          { developmentId: LISTED_DEVELOPMENT_ID, portal: 'mercadolibre_developments' },
+          { developmentId: LISTED_DEVELOPMENT_ID, portal: 'mercadolibre' },
           AGENT,
         ),
       ),
     ).toEqual({ type: 'PortalNotForDevelopments' });
+  });
+
+  it('publishes a development in MercadoLibre without a plan', async () => {
+    const { request, sync, uow, connector } = setup();
+    uow.accounts.rows.set('mercadolibre_developments', mercadoLibreDevelopmentsAccount());
+    const NO_PLAN = {
+      developmentId: LISTED_DEVELOPMENT_ID,
+      portal: 'mercadolibre_developments',
+    } as const;
+    expect(unwrapErr(await request.execute({ ...NO_PLAN, plan: 'GOLD' }, AGENT))).toMatchObject({
+      type: 'ValidationFailed',
+    });
+
+    const { listingId } = unwrap(await request.execute(NO_PLAN, AGENT));
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+
+    expect(connector.calls[0]).toMatchObject({
+      method: 'create',
+      content: { kind: 'development', plan: undefined },
+    });
   });
 
   it('needs a development marketing with units to publish', async () => {

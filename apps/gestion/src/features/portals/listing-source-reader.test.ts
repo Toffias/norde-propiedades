@@ -145,6 +145,7 @@ describe('listingSourceReader', () => {
       kind: 'apartment',
       availability: 'active',
       developmentId: undefined,
+      unitDesignation: undefined,
       title: 'Departamento en venta en Palermo',
       description: 'Luminoso.',
       address: 'Gurruchaga al 1800',
@@ -173,6 +174,18 @@ describe('listingSourceReader', () => {
     expect(
       JSON.stringify(source, (_k, v: unknown) => (typeof v === 'bigint' ? String(v) : v)),
     ).not.toContain('1834');
+  });
+
+  it('names a development unit by its floor and unit', async () => {
+    const { reader } = setup({
+      detail: {
+        ...DETAIL,
+        address: { ...DETAIL.address, unit: ' ' },
+        development: { id: '01920000-0000-7000-8000-0000000000d1', name: 'Torre' },
+      } as unknown as PanelPropertyDetail, // Ficha recortada, como DETAIL.
+    });
+    const source = await reader.read(PROPERTY_ID);
+    expect(source?.unitDesignation).toEqual({ floor: '4', unit: undefined });
   });
 
   it('adds the company footer with the branch contact and the web link', async () => {

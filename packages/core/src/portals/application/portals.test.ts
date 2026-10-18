@@ -289,7 +289,7 @@ describe('ListPortalAccounts', () => {
         {
           portal: 'mercadolibre_developments',
           connection: 'oauth',
-          publishes: [],
+          publishes: ['development'],
           paid: true,
           linksExisting: false,
           isEnabled: false,

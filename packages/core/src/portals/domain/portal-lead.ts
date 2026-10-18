@@ -6,6 +6,7 @@
  * - `appraisal`: pidió una tasación.
  * - `contact_data`: quiso ver el teléfono de la inmobiliaria.
  * - `whatsapp`: quiso ver el WhatsApp de la inmobiliaria.
+ * - `quote`: pidió la cotización de una unidad de un emprendimiento (MercadoLibre).
  * - `other`: otro tipo que el portal sume.
  */
 export const PORTAL_LEAD_KINDS = [
@@ -15,6 +16,7 @@ export const PORTAL_LEAD_KINDS = [
   'appraisal',
   'contact_data',
   'whatsapp',
+  'quote',
   'other',
 ] as const;
 
@@ -47,6 +49,7 @@ const KIND_MESSAGES: Readonly<Record<PortalLeadKind, string>> = {
   appraisal: 'Pidió una tasación.',
   contact_data: 'Quiso ver el teléfono de la inmobiliaria.',
   whatsapp: 'Quiso ver el WhatsApp de la inmobiliaria.',
+  quote: 'Pidió la cotización de una unidad.',
   other: 'Contacto desde el aviso.',
 };
 

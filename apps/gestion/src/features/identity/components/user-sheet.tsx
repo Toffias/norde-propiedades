@@ -160,7 +160,14 @@ function CreateUserForm({
   const [error, setError] = useState<string | undefined>();
   const form = useForm<CreateUserInput>({
     resolver: contractResolver(CreateUserInputSchema),
-    defaultValues: { name: '', email: '', phone: '', roleIds: [], temporaryPassword: '' },
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '',
+      branchId: '',
+      roleIds: [],
+      temporaryPassword: '',
+    },
   });
 
   async function submit(values: CreateUserInput) {
@@ -237,7 +244,7 @@ function editValues(user: UserListItem): UpdateUserInput {
     name: user.name,
     email: user.email,
     phone: user.phone ?? '',
-    ...(user.branch === undefined ? {} : { branchId: user.branch.id }),
+    branchId: user.branch?.id ?? '',
     roleIds: user.roles.map((role) => role.id),
   };
 }
@@ -369,16 +376,15 @@ function ProfileFields({
         name="branchId"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Sucursal (opcional)</FormLabel>
+            <FormLabel>Sucursal</FormLabel>
             <FormControl>
               <EntityPicker
-                value={field.value}
+                value={field.value === '' ? undefined : field.value}
                 initial={initialBranch}
                 onChange={field.onChange}
                 loadPage={loadBranchOptions}
-                placeholder="Sin sucursal"
+                placeholder="Elegí una sucursal"
                 searchPlaceholder="Buscar sucursal"
-                clearLabel="Quitar la sucursal"
               />
             </FormControl>
             <FormMessage />

@@ -58,4 +58,15 @@ describe('parseEnv', () => {
     );
     expect(() => parseEnv({ DATABASE_URL, ...WHATSAPP })).toThrow(/OPENAI_API_KEY/);
   });
+
+  it('enables the web chat only with the AI agent', () => {
+    const secret = 'test-'.repeat(8);
+    expect(
+      parseEnv({ DATABASE_URL, WEB_CHAT_SECRET: secret, OPENAI_API_KEY: 'sk-test' }),
+    ).toMatchObject({ WEB_CHAT_SECRET: secret, LIMIT_WEB_CHAT_REPLIES_PER_DAY: 2000 });
+    expect(() => parseEnv({ DATABASE_URL, WEB_CHAT_SECRET: secret })).toThrow(/OPENAI_API_KEY/);
+    expect(() =>
+      parseEnv({ DATABASE_URL, WEB_CHAT_SECRET: 'short', OPENAI_API_KEY: 'sk-test' }),
+    ).toThrow(/WEB_CHAT_SECRET/);
+  });
 });

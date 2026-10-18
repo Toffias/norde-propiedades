@@ -57,6 +57,14 @@ const EnvSchema = z
     LIMIT_CONTACT_MESSAGES_PER_DAY: positiveInt(120),
     /** Tope de mensajes enviados en 24 h. A ~0,026 USD c/u, 3000 ≈ 78 USD por día. */
     LIMIT_WHATSAPP_OUTBOUND_PER_DAY: positiveInt(3000),
+
+    /**
+     * Chat del sitio (ADR 0037): secreto que comparte con `AGENT_CHAT_SECRET` de apps/web para
+     * firmar cada mensaje. Sin él, `POST /chat/messages` no se expone.
+     */
+    WEB_CHAT_SECRET: z.string().min(32).optional(),
+    /** Tope de respuestas del chat del sitio en 24 h: acota el gasto del LLM ante abuso. */
+    LIMIT_WEB_CHAT_REPLIES_PER_DAY: positiveInt(2000),
   })
   .superRefine((env, ctx) => {
     const present = WHATSAPP_REQUIRED.filter((key) => env[key] !== undefined);
@@ -74,6 +82,13 @@ const EnvSchema = z
         code: 'custom',
         path: ['OPENAI_API_KEY'],
         message: 'El canal WhatsApp necesita el agente de IA',
+      });
+    }
+    if (env.WEB_CHAT_SECRET !== undefined && env.OPENAI_API_KEY === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPENAI_API_KEY'],
+        message: 'El chat del sitio necesita el agente de IA',
       });
     }
   });

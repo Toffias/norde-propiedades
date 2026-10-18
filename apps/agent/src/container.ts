@@ -20,6 +20,7 @@ import {
   MetaWhatsAppMessenger,
   SystemClock,
   UuidV7IdGenerator,
+  WebChatMessenger,
 } from '@norde/infra';
 import type { Logger } from 'pino';
 
@@ -27,6 +28,8 @@ import { createCustomerAssistant } from './assistant/customer-assistant';
 import { FailureBreaker } from './channels/shared/failure-breaker';
 import type { WhatsAppInbound } from './channels/whatsapp/inbound';
 import { KeyedQueue } from './channels/shared/keyed-queue';
+import type { WebChatRouteOptions } from './channels/web-chat/web-chat-routes';
+import { WebChatTurnHandler } from './channels/web-chat/web-chat-turn-handler';
 import { MessageBatcher } from './channels/whatsapp/message-batcher';
 import { NoticeThrottle } from './channels/whatsapp/notices';
 import type { WhatsAppWebhookOptions } from './channels/whatsapp/webhook-routes';
@@ -58,6 +61,8 @@ export interface Container {
         readonly handler: WhatsAppTurnHandler;
       }
     | undefined;
+  /** `undefined` si el chat del sitio no está configurado (`WEB_CHAT_SECRET`). */
+  readonly webChat: WebChatRouteOptions | undefined;
   close(): Promise<void>;
 }
 
@@ -94,7 +99,11 @@ export function createContainer(
         stripArgentineNine: env.WHATSAPP_STRIP_AR_NINE,
         logger,
       }));
-  const messengers: ChannelMessengers = whatsappMessenger ? { whatsapp: whatsappMessenger } : {};
+  const webChatEnabled = env.WEB_CHAT_SECRET !== undefined && env.OPENAI_API_KEY !== undefined;
+  const messengers: ChannelMessengers = {
+    ...(whatsappMessenger && { whatsapp: whatsappMessenger }),
+    ...(webChatEnabled && { web_chat: new WebChatMessenger() }),
+  };
 
   const policy: ConversationPolicy = {
     idleResetAfterMs: env.CONVERSATION_IDLE_RESET_HOURS * HOUR_MS,
@@ -105,6 +114,11 @@ export function createContainer(
         perContactPerHour: env.LIMIT_CONTACT_MESSAGES_PER_HOUR,
         perContactPerDay: env.LIMIT_CONTACT_MESSAGES_PER_DAY,
         outboundPerDay: env.LIMIT_WHATSAPP_OUTBOUND_PER_DAY,
+      },
+      web_chat: {
+        perContactPerHour: env.LIMIT_CONTACT_MESSAGES_PER_HOUR,
+        perContactPerDay: env.LIMIT_CONTACT_MESSAGES_PER_DAY,
+        outboundPerDay: env.LIMIT_WEB_CHAT_REPLIES_PER_DAY,
       },
     },
   };
@@ -118,32 +132,39 @@ export function createContainer(
   });
   const sendReply = new SendReply({ uow: conversationsUow, ids, clock, messengers });
 
+  // El mismo agente y el mismo breaker para todos los canales: si OpenAI falla, falla en todos.
+  const assistant =
+    env.OPENAI_API_KEY === undefined
+      ? undefined
+      : createCustomerAssistant({
+          model: { name: env.OPENAI_MODEL, apiKey: env.OPENAI_API_KEY },
+          maxMemoryItems: env.AGENT_MAX_MEMORY_ITEMS,
+          onToolError: (tool, error) => {
+            logger.error({ err: error, tool }, 'Agent tool failed');
+          },
+          actor: AGENT_ACTOR,
+          siteUrl: env.PUBLIC_SITE_URL,
+          searchProperties,
+          getPropertyDetail,
+          registerContact,
+        });
+  const breaker = new FailureBreaker(
+    env.AGENT_BREAKER_THRESHOLD,
+    env.AGENT_BREAKER_COOLDOWN_MINUTES * 60_000,
+  );
+
+  // WhatsApp y el chat del sitio comparten la cola: las claves (número, sesión) no se pisan.
   const queue = new KeyedQueue();
   let batcher: MessageBatcher<WhatsAppInbound> | undefined;
   let whatsapp: Container['whatsapp'];
 
-  if (whatsappMessenger && env.OPENAI_API_KEY) {
-    const assistant = createCustomerAssistant({
-      model: { name: env.OPENAI_MODEL, apiKey: env.OPENAI_API_KEY },
-      maxMemoryItems: env.AGENT_MAX_MEMORY_ITEMS,
-      onToolError: (tool, error) => {
-        logger.error({ err: error, tool }, 'Agent tool failed');
-      },
-      actor: AGENT_ACTOR,
-      siteUrl: env.PUBLIC_SITE_URL,
-      searchProperties,
-      getPropertyDetail,
-      registerContact,
-    });
+  if (whatsappMessenger && assistant) {
     const handler = new WhatsAppTurnHandler({
       receiveInbound,
       sendReply,
       assistant,
       actor: AGENT_ACTOR,
-      breaker: new FailureBreaker(
-        env.AGENT_BREAKER_THRESHOLD,
-        env.AGENT_BREAKER_COOLDOWN_MINUTES * 60_000,
-      ),
+      breaker,
       notices: new NoticeThrottle(HOUR_MS),
       now: () => clock.now(),
       logger,
@@ -173,6 +194,26 @@ export function createContainer(
     logger.warn('WhatsApp channel disabled: set the WHATSAPP_* variables and OPENAI_API_KEY');
   }
 
+  let webChat: Container['webChat'];
+  if (webChatEnabled && assistant && env.WEB_CHAT_SECRET) {
+    const handler = new WebChatTurnHandler({
+      receiveInbound,
+      sendReply,
+      assistant,
+      actor: AGENT_ACTOR,
+      breaker,
+      now: () => clock.now(),
+      logger,
+    });
+    webChat = {
+      secret: env.WEB_CHAT_SECRET,
+      handle: (message) =>
+        queue.enqueue(`web_chat:${message.sessionId}`, () => handler.handle(message)),
+    };
+  } else {
+    logger.warn('Web chat disabled: set WEB_CHAT_SECRET and OPENAI_API_KEY');
+  }
+
   return {
     healthCheck: async () => {
       try {
@@ -184,6 +225,7 @@ export function createContainer(
       }
     },
     whatsapp,
+    webChat,
     close: async () => {
       // Primero se termina lo que está en curso; después se liberan las conexiones.
       await batcher?.drain();

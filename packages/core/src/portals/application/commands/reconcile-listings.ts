@@ -1,8 +1,8 @@
 import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
 import { PortalInputSchema, type PortalInput } from '../../contracts';
-import type { ListingId, RemoteListingState } from '../../domain/listing';
+import type { ListingId } from '../../domain/listing';
 import { PORTAL_CATALOG } from '../../domain/portal';
-import { auditStatusChange } from '../listing-support';
+import { applyRemoteState } from '../listing-support';
 import type { PortalUnavailableError } from '../ports/portal-authorizer';
 import type { PortalCredentialsMissingError } from '../ports/portal-connector';
 import type { PortalListingStateReader } from '../ports/portal-listing-states';
@@ -75,7 +75,7 @@ export class ReconcileListings {
           const state = states.value.get(externalId);
           if (state === undefined) continue;
           checked += 1;
-          if (await this.#apply(id, state, actor)) changed += 1;
+          if (await applyRemoteState(this.deps, id, state, actor)) changed += 1;
         }
       }
       const last = listings.at(-1);
@@ -83,19 +83,5 @@ export class ReconcileListings {
       after = last.id;
     }
     return ok({ checked, changed });
-  }
-
-  /** Refleja el estado del portal en la publicación, bloqueada. Devuelve si cambió. */
-  async #apply(id: ListingId, state: RemoteListingState, actor: Actor): Promise<boolean> {
-    return this.deps.uow.run(async (tx) => {
-      const listing = await tx.listings.lockById(id);
-      if (!listing) return false;
-      const before = listing.toSnapshot();
-      if (!listing.reconcile(state, this.deps.clock.now())) return false;
-      await tx.listings.save(listing, actor.id);
-      await tx.events.publish(listing.pullEvents());
-      await auditStatusChange(tx, actor, listing, before.status, { lastError: before.lastError });
-      return true;
-    });
   }
 }

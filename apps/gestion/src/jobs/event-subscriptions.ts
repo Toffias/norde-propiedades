@@ -21,6 +21,7 @@ import {
   PORTALS,
   PORTAL_CATALOG,
   type PullPortalLeads,
+  type ReconcileListing,
   type ReconcileListings,
   type RequestListingSync,
   type SyncListing,
@@ -300,6 +301,8 @@ export interface PortalJobs {
   readonly sync: Pick<SyncListing, 'execute'>;
   readonly pullLeads: Pick<PullPortalLeads, 'execute'>;
   readonly reconcile: Pick<ReconcileListings, 'execute'>;
+  /** La conciliación de un aviso que el portal avisó que cambió. */
+  readonly reconcileOne: Pick<ReconcileListing, 'execute'>;
   /** `system:portal-sync`: sincroniza y lee la propiedad, su sucursal y Mi empresa. */
   readonly actor: Actor;
 }
@@ -415,6 +418,22 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
         // El portal no respondió: el error queda en la publicación y la cola reintenta con backoff.
         if (result.value === 'retry')
           throw new Error(`Portal unavailable for listing ${listingId}`);
+      },
+    },
+    {
+      // El portal avisó que cambió un aviso: se lee cómo quedó (no lo que trajo el aviso).
+      eventType: 'portals.listing_changed_on_portal',
+      name: 'reconcile-listing',
+      handle: async (event) => {
+        const { listingId } = ListingPayloadSchema.parse(event.payload);
+        const result = await jobs.reconcileOne.execute({ listingId }, jobs.actor);
+        if (result.isErr()) {
+          logger.error({ eventId: event.id, error: result.error }, 'Listing reconciliation failed');
+          // El portal no respondió: la cola reintenta (la conciliación diaria también lo cubre).
+          if (result.error.type === 'PortalUnavailable') {
+            throw new Error(`Portal unavailable while reconciling listing ${listingId}`);
+          }
+        }
       },
     },
     {

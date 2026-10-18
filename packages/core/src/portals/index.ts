@@ -116,6 +116,7 @@ export {
   type RemoteListingState,
 } from './domain/listing';
 export type {
+  ListingChangedOnPortal,
   ListingEvent,
   ListingSyncFailed,
   ListingSyncRequested,
@@ -198,6 +199,14 @@ export {
   NotifyAccountLeads,
   type NotifyAccountLeadsError,
 } from './application/commands/notify-account-leads';
+export {
+  NotifyListingChanged,
+  type NotifyListingChangedError,
+} from './application/commands/notify-listing-changed';
+export {
+  ReconcileListing,
+  type ReconcileListingError,
+} from './application/commands/reconcile-listing';
 export {
   EnablePortalLeadNotifications,
   type EnablePortalLeadNotificationsError,

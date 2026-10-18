@@ -526,7 +526,10 @@ describe('portal subscriptions', () => {
   const portalActor = Actor.system('portal-sync', ['portals:sync']);
   const LISTING_ID = '00000000-0000-7000-8000-0000000000a1';
 
-  function portalSetup(outcome: 'synced' | 'retry' = 'synced') {
+  function portalSetup(
+    outcome: 'synced' | 'retry' = 'synced',
+    reconciled: 'changed' | 'unavailable' = 'changed',
+  ) {
     const calls: unknown[] = [];
     const subscriptions = eventSubscriptions({
       notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
@@ -562,6 +565,14 @@ describe('portal subscriptions', () => {
             );
           },
         },
+        reconcileOne: {
+          execute: (input, by) => {
+            calls.push(['reconcile-one', input, by.id]);
+            return Promise.resolve(
+              reconciled === 'changed' ? ok(true) : err({ type: 'PortalUnavailable' as const }),
+            );
+          },
+        },
         actor: portalActor,
       },
       actor,
@@ -584,6 +595,7 @@ describe('portal subscriptions', () => {
         'properties.media_deleted.sync-portal-listings',
         'properties.development_changed.sync-portal-listings',
         'portals.listing_sync_requested.sync-listing',
+        'portals.listing_changed_on_portal.reconcile-listing',
       ]),
     );
   });
@@ -648,6 +660,24 @@ describe('portal subscriptions', () => {
     ).rejects.toThrow('Portal unavailable');
   });
 
+  it('reconciles a listing the portal changed, and throws when the portal did not answer', async () => {
+    const delivered = {
+      ...event,
+      type: 'portals.listing_changed_on_portal',
+      payload: { listingId: LISTING_ID },
+    };
+    const changed = portalSetup();
+    await changed.find('portals.listing_changed_on_portal.reconcile-listing').handle(delivered);
+    expect(changed.calls).toEqual([
+      ['reconcile-one', { listingId: LISTING_ID }, 'system:portal-sync'],
+    ]);
+
+    const unavailable = portalSetup('synced', 'unavailable');
+    await expect(
+      unavailable.find('portals.listing_changed_on_portal.reconcile-listing').handle(delivered),
+    ).rejects.toThrow('Portal unavailable');
+  });
+
   it('pulls the portal leads when the portal notifies a contact', async () => {
     const { find, calls } = portalSetup();
     await find('portals.leads_arrived.pull-portal-leads').handle({
@@ -668,6 +698,7 @@ describe('reconcilePortalListings', () => {
         requestSync: { execute: unused },
         sync: { execute: unused },
         pullLeads: { execute: unused },
+        reconcileOne: { execute: unused },
         reconcile: {
           execute: (input, by) => {
             calls.push([input.portal, by.id]);

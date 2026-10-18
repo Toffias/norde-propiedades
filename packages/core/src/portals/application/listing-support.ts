@@ -6,15 +6,39 @@ import {
   type Actor,
   type AuditChanges,
   type AuditTarget,
+  type Clock,
   type ForbiddenError,
   type Result,
 } from '../../shared';
 import type { PropertyListingView } from '../contracts';
-import type { Listing, ListingId, ListingStatus } from '../domain/listing';
+import type { Listing, ListingId, ListingStatus, RemoteListingState } from '../domain/listing';
 import type { ListingSourcePhoto } from './ports/listing-source';
 import type { PortalListingContent } from './ports/portal-connector';
 import type { PortalsTransaction, PortalsUnitOfWork } from './ports/portals-transaction';
 import type { ValidationFailedError } from './portals-input';
+
+/**
+ * Refleja en la publicación, bloqueada, cómo está su aviso en el portal (vencido, cerrado, pausado
+ * por moderación): la conciliación diaria y la de un aviso que el portal avisó que cambió. Se
+ * audita por quien la corre (`system:portal-sync`). Devuelve si cambió.
+ */
+export async function applyRemoteState(
+  deps: { readonly uow: PortalsUnitOfWork; readonly clock: Clock },
+  id: ListingId,
+  state: RemoteListingState,
+  actor: Actor,
+): Promise<boolean> {
+  return deps.uow.run(async (tx) => {
+    const listing = await tx.listings.lockById(id);
+    if (!listing) return false;
+    const before = listing.toSnapshot();
+    if (!listing.reconcile(state, deps.clock.now())) return false;
+    await tx.listings.save(listing, actor.id);
+    await tx.events.publish(listing.pullEvents());
+    await auditStatusChange(tx, actor, listing, before.status, { lastError: before.lastError });
+    return true;
+  });
+}
 
 export interface ListingNotFoundError {
   readonly type: 'ListingNotFound';

@@ -3,10 +3,13 @@ import { getLogger } from '../../../../../config/logger';
 import { getContainer } from '../../../../../container';
 import { createMercadoLibreNotificationHandler } from '../../../../../features/portals/mercadolibre-notification-handler';
 
-// Endpoint público: MercadoLibre lo llama con sus notificaciones (#14, ADR 0032). Se configura en
-// la app de MercadoLibre, con el tópico `vis_leads`.
+// Endpoint público: MercadoLibre lo llama con sus notificaciones (#14, ADR 0032 y 0035). Se
+// configura en la app de MercadoLibre, con los tópicos `vis_leads` e `items`.
 
-/** ML manda una notificación por contacto y por cada reintento: un minuto normal no llega a esto. */
+/**
+ * ML manda una notificación por contacto, por cada cambio de un aviso y por cada reintento: un
+ * minuto normal no llega a esto.
+ */
 const RATE_PER_MINUTE = 240;
 
 let handler: ((request: Request) => Promise<Response>) | undefined;
@@ -20,6 +23,11 @@ function mercadoLibreNotificationHandler(applicationId: string) {
       const portals = getContainer().portals;
       if (!portals) throw new Error('Portals are disabled but MercadoLibre notifications arrive');
       return portals.notifyMercadoLibreLeads(userId);
+    },
+    notifyItem: async (userId, itemId) => {
+      const portals = getContainer().portals;
+      if (!portals) throw new Error('Portals are disabled but MercadoLibre notifications arrive');
+      return portals.notifyMercadoLibreItem(userId, itemId);
     },
     logger: getLogger().child({ component: 'mercadolibre-notifications' }),
     now: () => Date.now(),

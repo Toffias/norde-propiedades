@@ -69,6 +69,29 @@ describe('listingProblems', () => {
     expect(listingProblems({ ...SALE, source })).toHaveLength(3);
   });
 
+  it('names the branch that has no WhatsApp', () => {
+    const source = listingSource({ contact: { ...listingSource().contact, whatsapp: undefined } });
+    expect(listingProblems({ ...SALE, source })).toEqual([
+      'La sucursal Casa central no tiene WhatsApp: cargalo en Mi empresa → Sucursales. MercadoLibre lo exige en cada aviso.',
+    ]);
+  });
+
+  it('tells a property without a branch to pick its producer again', () => {
+    const source = listingSource({
+      contact: {
+        fromBranch: false,
+        name: 'Norde Propiedades',
+        email: undefined,
+        phone: undefined,
+        whatsapp: undefined,
+      },
+    });
+    const problems = listingProblems({ ...SALE, source });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('La propiedad no tiene sucursal');
+    expect(problems[0]).toContain('Cambiar captador');
+  });
+
   it('does not publish temporary rents yet', () => {
     expect(listingProblems({ ...SALE, operation: 'temporary_rent' })[0]).toContain('temporario');
   });

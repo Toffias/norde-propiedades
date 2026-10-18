@@ -94,9 +94,10 @@ export function descriptionWithFooter(
   return text === '' ? item.description : `${item.description}\n\n${text}`;
 }
 
-/** El contacto del aviso: el de la sucursal del captador. */
+/** El contacto del aviso: el de la sucursal de la propiedad. */
 export function contactOf(branch: BranchDetail | undefined): ListingSource['contact'] {
   return {
+    fromBranch: branch !== undefined,
     name: branch?.name ?? 'Norde Propiedades',
     email: branch?.email,
     phone: branch?.phone,

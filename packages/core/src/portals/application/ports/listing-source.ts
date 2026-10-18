@@ -26,8 +26,13 @@ export interface ListingSourcePhoto {
   readonly url: string;
 }
 
-/** Contacto que el portal muestra en el aviso: el de la sucursal del captador. */
+/**
+ * Contacto que el portal muestra en el aviso: el de la sucursal de la propiedad, que toma la de su
+ * captador al crearla o al cambiarlo.
+ */
 export interface ListingSourceContact {
+  /** `false`: la propiedad no tiene sucursal y el contacto es solo el nombre de la empresa. */
+  readonly fromBranch: boolean;
   readonly name: string;
   readonly email: string | undefined;
   /** E.164 (`+5491166899124`). */

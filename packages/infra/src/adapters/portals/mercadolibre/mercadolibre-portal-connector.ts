@@ -242,7 +242,15 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     const detail = ErrorSchema.safeParse(payload).data;
     const causes = (detail?.cause ?? []).map((c) => c.code).filter(Boolean);
     logger.warn(
-      { portal, method, path, status: response.status, error: detail?.error, causes },
+      {
+        portal,
+        method,
+        path,
+        status: response.status,
+        error: detail?.error,
+        message: detail?.message,
+        causes,
+      },
       'MercadoLibre rejected the request',
     );
     if (response.status === 401) return err({ type: 'PortalCredentialsMissing' });
@@ -257,11 +265,29 @@ export class MercadoLibrePortalConnector implements PortalConnector {
   }
 }
 
-/** El motivo para la ficha: los mensajes de cada causa, o el general de MercadoLibre. */
+/**
+ * Lo que significa un rechazo que MercadoLibre no explica (el 402 de una cuenta sin paquete llega
+ * sin cuerpo).
+ */
+const STATUS_REASONS: Readonly<Record<number, string>> = {
+  402: 'la cuenta no tiene un paquete de publicaciones de inmuebles con cupo para este tipo de aviso',
+  403: 'la cuenta no tiene permiso para publicar inmuebles',
+};
+
+/**
+ * El motivo para la ficha: los mensajes de cada causa, el general de MercadoLibre o, si no explica
+ * nada, lo que significa el status. Siempre con el status, para buscarlo en su documentación.
+ */
 function rejectionReason(detail: z.infer<typeof ErrorSchema> | undefined, status: number): string {
   const messages = (detail?.cause ?? [])
     .map((c) => c.message)
     .filter((message): message is string => message !== undefined && message !== '');
-  const text = messages.length > 0 ? messages.join(' ') : (detail?.message ?? `HTTP ${status}`);
-  return `MercadoLibre rechazó el aviso: ${text}`;
+  if (messages.length > 0) return `MercadoLibre rechazó el aviso: ${messages.join(' ')}`;
+  const text =
+    detail?.message !== undefined && detail.message !== ''
+      ? detail.message
+      : (STATUS_REASONS[status] ?? detail?.error);
+  return text === undefined || text === ''
+    ? `MercadoLibre rechazó el aviso (HTTP ${String(status)}).`
+    : `MercadoLibre rechazó el aviso: ${text} (HTTP ${String(status)}).`;
 }

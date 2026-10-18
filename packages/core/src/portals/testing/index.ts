@@ -302,6 +302,7 @@ export function listingSource(overrides: Partial<ListingSource> = {}): ListingSo
     creditEligible: true,
     photos: [{ id: 'photo-1', version: '2026-10-01T00:00:00.000Z', url: 'https://signed/1' }],
     contact: {
+      fromBranch: true,
       name: 'Casa central',
       email: 'ventas@norde.test',
       phone: '+541148000000',
@@ -340,6 +341,7 @@ export function developmentListingSource(
     deliveryDate: '2027-12-01',
     photos: [{ id: 'render-1', version: '2026-10-01T00:00:00.000Z', url: 'https://signed/r1' }],
     contact: {
+      fromBranch: true,
       name: 'Casa central',
       email: 'ventas@norde.test',
       phone: '+541148000000',

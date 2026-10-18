@@ -151,6 +151,7 @@ describe('listingSourceReader', () => {
       location: { province: 'Capital Federal', city: 'CABA', neighborhood: 'Palermo' },
       photos: [{ id: 'm1', version: '2026-10-01T00:00:00.000Z', url: 'https://signed/1' }],
       contact: {
+        fromBranch: true,
         name: 'Casa central',
         email: 'ventas@norde.test',
         phone: '+541148000000',
@@ -183,6 +184,17 @@ describe('listingSourceReader', () => {
     expect(source?.description).toBe(
       'Luminoso.\n\nCódigo DEP0001. WhatsApp +5491166000000. https://norde.test/propiedades/departamento-palermo-dep0001',
     );
+  });
+
+  it('says when the property has no branch to take the contact from', async () => {
+    const { reader } = setup({ detail: { ...DETAIL, branchId: undefined } });
+    expect((await reader.read(PROPERTY_ID))?.contact).toEqual({
+      fromBranch: false,
+      name: 'Norde Propiedades',
+      email: undefined,
+      phone: undefined,
+      whatsapp: undefined,
+    });
   });
 
   it('maps a reserved property to paused and a trashed one to closed', async () => {

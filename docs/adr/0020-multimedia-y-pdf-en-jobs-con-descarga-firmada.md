@@ -32,6 +32,6 @@ El storage es privado (ADR 0018): hasta ahora el panel servía cada archivo pasa
 
 - La subida y el pedido de un PDF responden enseguida; el trabajo pesado no compite con las pantallas del panel.
 - Las variantes y los PDF salen con solo `apps/gestion` levantado (ADR 0021), con su mismo storage.
-- Una foto que sharp no puede leer queda "fallida" con el motivo y sin reintentos. Un error inesperado al armar un PDF lo deja "fallido" y el job lo registra.
+- Una foto que sharp no puede leer queda "fallida" con el motivo y sin reintentos. Un error inesperado (el storage niega el acceso a la original o al logo de la marca de agua) también la deja "fallida", así no queda "procesando" si se agotan los reintentos; el job lo registra y, si un reintento sale bien, queda lista. Un error inesperado al armar un PDF lo deja "fallido" y el job lo registra.
 - Mientras se generan las variantes, la galería muestra la original (servida por la misma ruta).
 - El sitio web (`apps/web`) y los portales todavía no leen estas variantes: lo resuelven #14 y la web, con la misma clave del storage.

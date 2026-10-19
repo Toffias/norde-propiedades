@@ -168,6 +168,43 @@ describe('GenerateMediaVariants', () => {
     expect(storage.objects.get(key ?? '')?.bytes).toEqual(new Uint8Array([2, 0xff]));
   });
 
+  it('marks the photo as failed and rethrows when the watermark logo cannot be read', async () => {
+    const { upload, variants, uow, storage } = setup();
+    const watermark = unwrap(
+      Watermark.create({ ...Watermark.DEFAULTS, enabled: true, logoKey: 'settings/watermark' }),
+    );
+    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
+    // Como S3 sin s3:ListBucket: un objeto que no existe responde AccessDenied, no "no existe".
+    const read = storage.get.bind(storage);
+    storage.get = (key) =>
+      key === 'settings/watermark' ? Promise.reject(new Error('AccessDenied')) : read(key);
+    await expect(variants(watermark).execute({ mediaId }, JOBS)).rejects.toThrow('AccessDenied');
+    expect(uow.media.rows.get(mediaId)).toMatchObject({
+      processing: 'failed',
+      processingError: 'No se pudieron generar las versiones de la foto.',
+    });
+
+    // El reintento del job, con el logo ya accesible, la deja lista.
+    storage.get = read;
+    await storage.put({
+      key: 'settings/watermark',
+      contentType: 'image/png',
+      bytes: new Uint8Array([7]),
+    });
+    expect(unwrap(await variants(watermark).execute({ mediaId }, JOBS))).toBe('ready');
+    expect(uow.media.rows.get(mediaId)?.variants.watermarked).toBeDefined();
+  });
+
+  it('keeps the photo ready when cleaning the previous variants fails', async () => {
+    const { upload, update, variants, uow, storage } = setup();
+    const { mediaId } = unwrap(await upload.execute({ owner: OWNER, ...PHOTO }, EDITOR));
+    unwrap(await variants().execute({ mediaId }, JOBS));
+    unwrap(await update.execute({ mediaId, rotation: 90 }, EDITOR));
+    storage.delete = () => Promise.reject(new Error('AccessDenied'));
+    await expect(variants().execute({ mediaId }, JOBS)).rejects.toThrow('AccessDenied');
+    expect(uow.media.rows.get(mediaId)?.processing).toBe('ready');
+  });
+
   it('marks a damaged image as failed', async () => {
     const { upload, variants, uow, images } = setup();
     images.invalid = true;

@@ -29,11 +29,27 @@ const WebChatPropertyCardSchema = z.object({
 
 export type WebChatPropertyCard = z.infer<typeof WebChatPropertyCardSchema>;
 
+/** La búsqueda del turno, para el link al listado del sitio. Precios en unidades. */
+const WebChatListingSearchSchema = z.object({
+  operation: z.string().nullable(),
+  propertyType: z.string().nullable(),
+  location: z.string().nullable(),
+  currency: z.string().nullable(),
+  minPrice: z.number().nullable(),
+  maxPrice: z.number().nullable(),
+  minRooms: z.number().nullable(),
+  minBedrooms: z.number().nullable(),
+  total: z.int().nonnegative(),
+});
+
+export type WebChatListingSearch = z.infer<typeof WebChatListingSearchSchema>;
+
 const WebChatReplySchema = z.object({
   text: z.string(),
   photoUrl: HttpUrlSchema.nullable(),
   // Un agente anterior a las tarjetas no manda el campo.
   cards: z.array(WebChatPropertyCardSchema).max(10).default([]),
+  listing: WebChatListingSearchSchema.nullable().default(null),
   buttons: z.array(z.object({ id: z.string(), title: z.string() })),
 });
 

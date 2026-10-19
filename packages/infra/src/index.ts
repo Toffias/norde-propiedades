@@ -174,6 +174,7 @@ export {
 export {
   WebChatClient,
   type WebChatMessage,
+  type WebChatListingSearch,
   type WebChatOutcome,
   type WebChatPropertyCard,
   type WebChatReply,

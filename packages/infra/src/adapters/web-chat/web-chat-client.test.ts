@@ -25,7 +25,24 @@ const card = {
   bedrooms: 1,
   surfaceM2: 48,
 };
-const reply = { text: '¡Hola! Tengo estas opciones.', photoUrl: null, cards: [card], buttons: [] };
+const listing = {
+  operation: 'rent',
+  propertyType: 'apartment',
+  location: 'Palermo',
+  currency: null,
+  minPrice: null,
+  maxPrice: null,
+  minRooms: 2,
+  minBedrooms: null,
+  total: 9,
+};
+const reply = {
+  text: '¡Hola! Tengo estas opciones.',
+  photoUrl: null,
+  cards: [card],
+  listing,
+  buttons: [],
+};
 
 function clientAnswering(status: number, body: unknown = {}) {
   const requests: { body: string; signature: string | null }[] = [];
@@ -59,7 +76,7 @@ describe('WebChatClient', () => {
     });
     expect(await client.send(message)).toEqual({
       kind: 'reply',
-      reply: { text: 'Hola', photoUrl: null, cards: [], buttons: [] },
+      reply: { text: 'Hola', photoUrl: null, cards: [], listing: null, buttons: [] },
     });
   });
 

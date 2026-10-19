@@ -7,6 +7,7 @@ import {
   blogPostingSchema,
   breadcrumbSchema,
   faqSchema,
+  serviceSchema,
   organizationSchema,
   serializeJsonLd,
   websiteSchema,
@@ -150,6 +151,32 @@ describe('faqSchema', () => {
 
   it('returns undefined without questions', () => {
     expect(faqSchema([])).toBeUndefined();
+  });
+});
+
+describe('serviceSchema', () => {
+  const input = {
+    name: 'Tasación de propiedades',
+    description: 'Tasamos tu propiedad.',
+    path: '/tasar-mi-propiedad',
+    serviceType: 'Tasación inmobiliaria',
+  };
+
+  it('describes the service with Norde as the provider', () => {
+    expect(serviceSchema(SITE, input)).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'Service',
+      name: 'Tasación de propiedades',
+      description: 'Tasamos tu propiedad.',
+      serviceType: 'Tasación inmobiliaria',
+      url: `${SITE}/tasar-mi-propiedad`,
+      provider: { '@id': `${SITE}/#organization` },
+    });
+  });
+
+  it('adds the area served once Norde confirms it', () => {
+    const schema = serviceSchema(SITE, input, { ...BUSINESS, areaServed: ['Palermo'] });
+    expect(schema.areaServed).toEqual([{ '@type': 'Place', name: 'Palermo' }]);
   });
 });
 

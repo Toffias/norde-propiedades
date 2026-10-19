@@ -13,7 +13,7 @@ export interface SitemapSource {
 const latest = (dates: readonly string[]): string | undefined =>
   dates.length > 0 ? [...dates].sort().at(-1) : undefined;
 
-/** Entradas del sitemap: páginas fijas, propiedades publicadas, blog, categorías y posts. */
+/** Entradas del sitemap: páginas fijas, propiedades publicadas, tasaciones, contacto, blog, categorías y posts. */
 export function buildSitemap(siteUrl: string, source: SitemapSource): MetadataRoute.Sitemap {
   const lastPost = latest(source.posts.map((p) => p.updatedAt));
   const withDate = (lastModified: string | undefined) => (lastModified ? { lastModified } : {});
@@ -26,6 +26,8 @@ export function buildSitemap(siteUrl: string, source: SitemapSource): MetadataRo
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
+    { url: absoluteUrl(siteUrl, routes.appraisals()), changeFrequency: 'monthly', priority: 0.7 },
+    { url: absoluteUrl(siteUrl, routes.contact()), changeFrequency: 'monthly', priority: 0.5 },
     {
       url: absoluteUrl(siteUrl, routes.blog()),
       ...withDate(lastPost),

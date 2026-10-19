@@ -158,6 +158,35 @@ export function faqSchema(entries: readonly FaqEntry[]): JsonLd | undefined {
   };
 }
 
+export interface ServiceInput {
+  readonly name: string;
+  readonly description: string;
+  /** Ruta relativa de la página del servicio. */
+  readonly path: string;
+  readonly serviceType: string;
+}
+
+/** `Service` ofrecido por Norde (ej. tasaciones), con el `RealEstateAgent` como proveedor. */
+export function serviceSchema(
+  siteUrl: string,
+  input: ServiceInput,
+  business: Business = BUSINESS,
+): JsonLd {
+  const schema: JsonLd = {
+    '@context': CONTEXT,
+    '@type': 'Service',
+    name: input.name,
+    description: input.description,
+    serviceType: input.serviceType,
+    url: absoluteUrl(siteUrl, input.path),
+    provider: { '@id': organizationId(siteUrl) },
+  };
+  if (business.areaServed.length > 0) {
+    schema.areaServed = business.areaServed.map((name) => ({ '@type': 'Place', name }));
+  }
+  return schema;
+}
+
 /**
  * Serializa para un `<script type="application/ld+json">`. Escapa `<` para que un texto
  * cargado en el CMS no pueda cerrar el script (XSS).

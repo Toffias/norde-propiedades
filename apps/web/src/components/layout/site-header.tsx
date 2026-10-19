@@ -1,3 +1,4 @@
+import { ThemeSwitcher } from '@norde/ui/components/theme-switcher';
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import { Menu } from 'lucide-react';
 import Link from 'next/link';
@@ -55,6 +56,7 @@ export function SiteHeader() {
               WhatsApp
             </a>
           )}
+          <ThemeSwitcher className="text-muted-foreground hover:text-foreground size-10 rounded-xl has-[>svg]:px-0" />
           {/* Menú mobile sin JavaScript: `<details>` se abre y se cierra solo. */}
           <details className="group relative md:hidden">
             <summary

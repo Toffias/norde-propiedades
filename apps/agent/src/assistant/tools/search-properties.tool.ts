@@ -2,7 +2,7 @@ import { defineTool } from '@norde/agent-kit';
 import { CURRENCIES, OPERATIONS, PROPERTY_TYPES } from '@norde/core/properties';
 import { z } from 'zod';
 
-import { presentSummary, toCents } from '../property-presenter';
+import { presentCard, presentSummary, toCents } from '../property-presenter';
 import type { ContactSearch, CustomerTurnContext } from '../turn-context';
 
 import { UnexpectedToolError, type AssistantToolDeps } from './tool-deps';
@@ -15,7 +15,9 @@ const Parameters = z.object({
     .string()
     .max(100)
     .nullable()
-    .describe('Barrio, localidad o zona en texto libre, ej. "Palermo", "Vicente López"'),
+    .describe(
+      'Solo el nombre del barrio, localidad o zona, sin aclaraciones ni paréntesis, ej. "Palermo", "Vicente López", "CABA" (para Capital Federal)',
+    ),
   minPrice: z.number().nonnegative().nullable().describe('En la moneda indicada, sin centavos'),
   maxPrice: z.number().nonnegative().nullable(),
   currency: z.enum(CURRENCIES).nullable().describe('Moneda del rango de precio'),
@@ -80,8 +82,9 @@ export function searchPropertiesTool(deps: AssistantToolDeps) {
 
       const page = result.value;
       context.lastSearch = search;
+      context.searchResult = { search, total: page.total };
       for (const property of page.items) {
-        context.shownProperties.set(property.id, { id: property.id, title: property.title });
+        context.shownProperties.set(property.id, presentCard(property, deps.siteUrl));
       }
       return {
         total: page.total,

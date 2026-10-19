@@ -1,11 +1,29 @@
 import { z } from 'zod';
 
+const ShortText = z.string().max(300);
+
+const ChatPropertyCardSchema = z.object({
+  id: z.string().max(64),
+  title: ShortText,
+  url: z.string().max(500),
+  photoUrl: z.string().max(500).nullable(),
+  operation: z.string().max(40),
+  price: z.string().max(40),
+  location: ShortText,
+  rooms: z.number().nullable(),
+  bedrooms: z.number().nullable(),
+  surfaceM2: z.number().nullable(),
+});
+
 /** Un mensaje del chat, tal como lo muestra el widget y lo recuerda el navegador. */
 const ChatEntrySchema = z.object({
   id: z.string().min(1).max(64),
   role: z.enum(['visitor', 'assistant']),
   text: z.string().max(5000),
   photoUrl: z.string().max(500).nullable(),
+  // Los mensajes guardados antes de las tarjetas no tienen el campo.
+  cards: z.array(ChatPropertyCardSchema).max(10).default([]),
+  listingUrl: z.string().max(1000).nullable().default(null),
   buttons: z.array(z.object({ id: z.string().max(64), title: z.string().max(40) })).max(3),
   /** Aviso de error del sitio, no del agente: se muestra distinto. */
   error: z.boolean(),

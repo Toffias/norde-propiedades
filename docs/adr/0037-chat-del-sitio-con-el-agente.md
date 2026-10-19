@@ -35,6 +35,14 @@ El core ya conocía el canal `web_chat` (conversaciones, contactos y el bloque d
   - Los límites por contacto del core, por sesión (`LIMIT_CONTACT_MESSAGES_*`), responden 429 y el widget pide esperar.
   - Un tope diario de respuestas del canal (`LIMIT_WEB_CHAT_REPLIES_PER_DAY`, 2000 por defecto) acota el gasto del LLM. Al llegar al tope, el agente responde 503.
 - **El agente y el breaker son los mismos para todos los canales.** Si OpenAI falla en cadena, el chat responde "no disponible" en lugar de un mensaje de error por turno.
+- **Tarjetas de propiedades** (agregado después de la primera versión):
+  - `search_properties` y `get_property` guardan en el contexto del turno los datos de la tarjeta de cada propiedad que ven.
+  - La respuesta lleva tarjetas solo para las propiedades que el agente nombró con el link de su ficha, en el orden del texto (hasta 6). Así no aparecen resultados que el agente no mostró, y no hace falta otra tool.
+  - El bloque de instrucciones `web_chat` le pide no repetir en el texto lo que ya muestra la tarjeta.
+  - Las tarjetas no se guardan en la conversación: el registro del core guarda el texto, que ya tiene los links.
+- **"Ver todas las opciones en la web"**:
+  - La respuesta lleva la búsqueda que hizo el agente en el turno (`listing`, con precios en unidades) si encontró algo.
+  - La Server Action de la web la convierte en el link del listado con su propio `listingHref`, así el formato de la URL vive solo en la web.
 - **El widget dibuja el markdown sin inyectar HTML**: un parser propio arma elementos de React.
   - Solo enlaza URLs http(s).
   - Los links al propio sitio navegan sin recargar. En mobile, además, cierran el chat.

@@ -1,7 +1,7 @@
 import { defineTool } from '@norde/agent-kit';
 import { z } from 'zod';
 
-import { presentDetail } from '../property-presenter';
+import { presentCard, presentDetail } from '../property-presenter';
 import type { CustomerTurnContext } from '../turn-context';
 
 import { UnexpectedToolError, type AssistantToolDeps } from './tool-deps';
@@ -26,10 +26,7 @@ export function getPropertyTool(deps: AssistantToolDeps) {
         }
         return NOT_FOUND;
       }
-      context.shownProperties.set(result.value.id, {
-        id: result.value.id,
-        title: result.value.title,
-      });
+      context.shownProperties.set(result.value.id, presentCard(result.value, deps.siteUrl));
       return presentDetail(result.value, deps.siteUrl);
     },
   });

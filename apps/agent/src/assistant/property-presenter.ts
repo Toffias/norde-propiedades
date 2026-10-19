@@ -6,6 +6,8 @@ import type {
   PropertyType,
 } from '@norde/core/properties';
 
+import type { ShownProperty } from './turn-context';
+
 export const OPERATION_LABEL: Readonly<Record<Operation, string>> = {
   sale: 'Venta',
   rent: 'Alquiler',
@@ -64,6 +66,22 @@ export function presentSummary(property: PropertySummary, siteUrl: string) {
     amenities: property.amenities,
     url: propertyUrl(siteUrl, property.slug),
     hasPhotos: property.photoCount > 0,
+  };
+}
+
+/** Datos de la tarjeta de la propiedad en el chat del sitio. */
+export function presentCard(property: PropertySummary, siteUrl: string): ShownProperty {
+  return {
+    id: property.id,
+    title: property.title,
+    url: propertyUrl(siteUrl, property.slug),
+    photoUrl: property.cover ? new URL(property.cover.src, siteUrl).toString() : null,
+    operation: OPERATION_LABEL[property.operation],
+    price: property.price ? formatMoney(property.price) : 'Consultar precio',
+    location: [property.neighborhood, property.city].filter(Boolean).join(', '),
+    rooms: property.rooms,
+    bedrooms: property.bedrooms,
+    surfaceM2: property.surfaceTotalM2 ?? property.surfaceCoveredM2,
   };
 }
 

@@ -125,7 +125,7 @@ function setup(options: { breakerThreshold?: number; limits?: Partial<UsageLimit
 }
 
 describe('WebChatTurnHandler', () => {
-  it('searches the stock and returns the reply keeping its markdown', async () => {
+  it('searches the stock and returns the reply with a card per mentioned property', async () => {
     const ctx = setup();
     ctx.model.enqueue(
       [
@@ -135,7 +135,11 @@ describe('WebChatTurnHandler', () => {
           { callId: 'c1' },
         ),
       ],
-      [assistantMessage('Encontré 1 opción:\n1. **[2 ambientes en Palermo](https://x)**')],
+      [
+        assistantMessage(
+          'Encontré 1 opción:\n1. **[2 ambientes en Palermo](https://norde.com.ar/propiedades/2-ambientes-palermo)**',
+        ),
+      ],
     );
 
     const result = await ctx.handler.handle(ctx.message('busco alquilar en palermo'));
@@ -143,8 +147,33 @@ describe('WebChatTurnHandler', () => {
     expect(result).toEqual({
       kind: 'reply',
       reply: {
-        text: 'Encontré 1 opción:\n1. **[2 ambientes en Palermo](https://x)**',
+        text: 'Encontré 1 opción:\n1. **[2 ambientes en Palermo](https://norde.com.ar/propiedades/2-ambientes-palermo)**',
         photoUrl: null,
+        cards: [
+          {
+            id: palermo.id,
+            title: '2 ambientes en Palermo',
+            url: 'https://norde.com.ar/propiedades/2-ambientes-palermo',
+            photoUrl: COVER_URL,
+            operation: 'Alquiler',
+            price: '$ 780.000',
+            location: 'Palermo, CABA',
+            rooms: 2,
+            bedrooms: 1,
+            surfaceM2: 48,
+          },
+        ],
+        listing: {
+          operation: 'rent',
+          propertyType: null,
+          location: 'Palermo',
+          currency: null,
+          minPrice: null,
+          maxPrice: null,
+          minRooms: null,
+          minBedrooms: null,
+          total: 1,
+        },
         buttons: [],
       },
     });
@@ -159,7 +188,7 @@ describe('WebChatTurnHandler', () => {
         to: SESSION,
         message: {
           type: 'text',
-          text: 'Encontré 1 opción:\n1. **[2 ambientes en Palermo](https://x)**',
+          text: 'Encontré 1 opción:\n1. **[2 ambientes en Palermo](https://norde.com.ar/propiedades/2-ambientes-palermo)**',
         },
       },
     ]);
@@ -183,6 +212,8 @@ describe('WebChatTurnHandler', () => {
       reply: {
         text: 'Así es el living.',
         photoUrl: COVER_URL,
+        cards: [],
+        listing: null,
         buttons: [
           { id: 'opt_1', title: 'Ver más' },
           { id: 'opt_2', title: 'Visitarla' },
@@ -236,7 +267,7 @@ describe('WebChatTurnHandler', () => {
 
     expect(first).toEqual({
       kind: 'reply',
-      reply: { text: FALLBACK_TEXT, photoUrl: null, buttons: [] },
+      reply: { text: FALLBACK_TEXT, photoUrl: null, cards: [], listing: null, buttons: [] },
     });
     expect(second).toEqual({ kind: 'unavailable' });
     expect(third).toEqual({ kind: 'unavailable' });

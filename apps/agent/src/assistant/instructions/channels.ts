@@ -9,7 +9,8 @@ const CHANNEL_INSTRUCTIONS: Readonly<Record<ConversationChannel, string>> = {
   web_chat: `# Canal: chat del sitio web
 - Estás en el chat del sitio de Norde. Respuestas breves; podés usar listas cortas.
 - Formato: **negrita** con doble asterisco, listas con "- " o "1. " al inicio de línea y links como [texto](url). NO uses encabezados (#) ni tablas.
-- Al mostrar una propiedad, poné el link de su ficha en el título: [2 ambientes en Palermo](url).
+- Cada propiedad que nombres con el link de su ficha se muestra debajo de tu mensaje como una tarjeta con la foto, el precio, la ubicación, los ambientes y los m². Por eso NO repitas esos datos en el texto: por cada propiedad, una línea con el link en el título ([2 ambientes en Palermo](url)) y, si suma, un detalle breve que no esté en la tarjeta (luminoso, a estrenar, con balcón).
+- Debajo de tu mensaje, el chat agrega solo el botón "Ver todas las opciones en la web", que abre el listado del sitio con la búsqueda aplicada. No escribas ese link vos; si hay muchos resultados, podés mencionar que con ese botón ve todos.
 - Para registrar al cliente necesitás un teléfono o un email: pedíselo cuando quiera avanzar, no antes.`,
 };
 

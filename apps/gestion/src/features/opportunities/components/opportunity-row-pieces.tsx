@@ -3,7 +3,6 @@
 import type { OpportunityPipelineRow } from '@norde/core/clients/contracts';
 import { Button } from '@norde/ui/components/button';
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
-import { initials } from '@norde/ui/lib/initials';
 import { cn } from '@norde/ui/lib/utils';
 import { HistoryIcon, HouseIcon, StickyNoteIcon } from 'lucide-react';
 import type { Route } from 'next';
@@ -20,18 +19,6 @@ export type OpportunityDialog = 'note' | 'history';
 
 export function opportunityTarget(row: OpportunityPipelineRow): OpportunityCardTarget {
   return { id: row.id, clientId: row.client.id, clientName: clientName(row.client.name) };
-}
-
-/** Las iniciales del contacto en un cuadradito: se reconoce de un vistazo. Alto del nombre + badge. */
-export function ContactInitials({ name }: { readonly name: string }) {
-  return (
-    <span
-      aria-hidden
-      className="inline-flex size-[2.9rem] shrink-0 items-center justify-center rounded-lg bg-secondary text-sm font-semibold text-secondary-foreground"
-    >
-      {initials(name)}
-    </span>
-  );
 }
 
 /** La propiedad por la que consultó, con link a su ficha. */

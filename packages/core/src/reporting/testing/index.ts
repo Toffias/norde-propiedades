@@ -2,12 +2,7 @@
 
 import type { PropertyInterestProfile } from '../../clients';
 import type { Actor, PageSlice } from '../../shared';
-import type {
-  CountByPropertyStatus,
-  CountByStage,
-  PortalPublicationStats,
-  UnassignedInquiryRow,
-} from '../contracts';
+import type { CountByPropertyStatus, CountByStage, PortalPublicationStats } from '../contracts';
 import type { HomeScope } from '../application/home-scope';
 import type {
   AvailableDevelopmentRecord,
@@ -16,6 +11,8 @@ import type {
   HomeDashboardQuery,
   HomeListRequest,
   PendingOpportunityRecord,
+  PortalAlertRecord,
+  UnassignedInquiryRecord,
   UpcomingSigningRecord,
 } from '../application/ports/home-dashboard-query';
 import type { ReportingUserNames } from '../application/ports/user-names';
@@ -95,9 +92,10 @@ export interface HomeQueryCall {
  */
 export class StubHomeDashboardQuery implements HomeDashboardQuery {
   readonly calls: HomeQueryCall[] = [];
-  inquiries: PageSlice<UnassignedInquiryRow> = { items: [], total: 0 };
+  inquiries: PageSlice<UnassignedInquiryRecord> = { items: [], total: 0 };
   opportunities: PageSlice<PendingOpportunityRecord> = { items: [], total: 0 };
   signings: PageSlice<UpcomingSigningRecord> = { items: [], total: 0 };
+  alerts: PageSlice<PortalAlertRecord> = { items: [], total: 0 };
   clients = 0;
   channels: ChannelCount[] = [];
   stages: CountByStage[] = [];
@@ -123,6 +121,11 @@ export class StubHomeDashboardQuery implements HomeDashboardQuery {
   activeReservationsSigningUntil(scope: HomeScope, until: string, limit: number) {
     this.record('activeReservationsSigningUntil', scope, [until, limit]);
     return Promise.resolve(this.signings);
+  }
+
+  portalAlerts(limit: number) {
+    this.record('portalAlerts', undefined, [limit]);
+    return Promise.resolve(this.alerts);
   }
 
   clientsWithOpportunitiesIn(scope: HomeScope, categories: readonly string[]) {

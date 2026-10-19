@@ -150,6 +150,10 @@ export const ChangeOpportunityStageInputSchema = z.object({
 });
 export type ChangeOpportunityStageInput = z.input<typeof ChangeOpportunityStageInputSchema>;
 
+/** "Ya lo contacté" (Inicio): pasa al primer estado de la categoría contactado. */
+export const MarkOpportunityContactedInputSchema = z.object({ opportunityId: z.uuid() });
+export type MarkOpportunityContactedInput = z.input<typeof MarkOpportunityContactedInputSchema>;
+
 export const CloseOpportunityInputSchema = z.object({
   opportunityId: z.uuid(),
   closeReasonId: z.uuid({ error: 'Elegí un motivo.' }),

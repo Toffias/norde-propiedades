@@ -12,3 +12,8 @@ export interface HomeFilterValues {
   readonly agentId: string;
   readonly branchId: string;
 }
+
+/** La tarjeta de Pendientes que se ve abajo (`?pendiente=consultas`). */
+export const PENDING_FOCUS_PARAM = 'pendiente';
+export const PENDING_FOCUS_VALUES = ['consultas', 'contactar', 'firmas', 'avisos'] as const;
+export type PendingFocus = (typeof PENDING_FOCUS_VALUES)[number];

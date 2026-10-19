@@ -59,9 +59,8 @@ export default function FrontendLayout({ children }: { readonly children: ReactN
             {children}
           </main>
           <SiteFooter />
-          {/* Con el chat, el botón de WhatsApp sube y queda arriba de su burbuja. */}
-          <WhatsAppFloat raised={isChatEnabled()} />
-          <SiteChat />
+          {/* Con el chat de IA, su burbuja reemplaza al botón de WhatsApp: un solo botón flotante. */}
+          {isChatEnabled() ? <SiteChat /> : <WhatsAppFloat />}
         </ThemeProvider>
       </body>
     </html>

@@ -14,12 +14,15 @@ export function SectionCard({
   action,
   children,
   className,
+  bodyClassName,
 }: {
   readonly title: string;
   readonly icon?: LucideIcon;
   readonly action?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
+  /** Para el cuerpo; por ejemplo, `flex flex-1 flex-col` para que ocupe el alto de la tarjeta. */
+  readonly bodyClassName?: string;
 }) {
   return (
     <Card className={cn('gap-0 p-0', className)}>
@@ -30,7 +33,7 @@ export function SectionCard({
         </h2>
         {action !== undefined && <div className="-my-1.5 shrink-0">{action}</div>}
       </div>
-      <div className="px-5 py-5">{children}</div>
+      <div className={cn('px-5 py-5', bodyClassName)}>{children}</div>
     </Card>
   );
 }

@@ -24,6 +24,7 @@ import { ServerDataTable } from '../../shared/components/server-data-table';
 import { deleteClientAction, restoreClientAction } from '../actions';
 import { clientName, formatPhone, userName } from '../client-format';
 import type { ClientFilterValues } from './clients-toolbar';
+import { ContactInitials } from './contact-initials';
 
 interface PendingAction {
   readonly copy: ConfirmActionCopy;
@@ -89,18 +90,21 @@ export function ClientsGrid({
         header: 'Nombre',
         sortable: true,
         cell: (row) => (
-          <div className="flex min-w-0 flex-col">
-            <Link
-              // La ficha de la fila: typedRoutes no verifica un segmento dinámico armado.
-              href={`/contactos/${row.id}` as Route}
-              className="truncate font-medium text-primary-700 hover:underline dark:text-primary-400"
-            >
-              {clientName(row.name)}
-            </Link>
-            <span className="truncate text-xs text-muted-foreground">
-              {row.kind === 'person' ? '' : `${CLIENT_KIND_LABELS[row.kind]} · `}
-              {row.clientTypes.map((type) => CLIENT_TYPE_LABELS[type]).join(', ')}
-            </span>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <ContactInitials name={clientName(row.name)} className="size-8 text-xs" />
+            <div className="flex min-w-0 flex-col">
+              <Link
+                // La ficha de la fila: typedRoutes no verifica un segmento dinámico armado.
+                href={`/contactos/${row.id}` as Route}
+                className="truncate font-medium text-primary-700 hover:underline dark:text-primary-400"
+              >
+                {clientName(row.name)}
+              </Link>
+              <span className="truncate text-xs text-muted-foreground">
+                {row.kind === 'person' ? '' : `${CLIENT_KIND_LABELS[row.kind]} · `}
+                {row.clientTypes.map((type) => CLIENT_TYPE_LABELS[type]).join(', ')}
+              </span>
+            </div>
           </div>
         ),
       },

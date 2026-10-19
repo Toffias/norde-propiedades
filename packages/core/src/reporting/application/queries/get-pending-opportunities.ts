@@ -1,11 +1,12 @@
 import { accessScope, OWNERSHIP_RULES } from '../../../identity';
-import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
+import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
 import {
   HOME_WIDGET_LIMIT,
   type HomeFilter,
   type HomeWidget,
   type PendingOpportunityRow,
 } from '../../contracts';
+import { waitingUrgency, worstUrgency } from '../../domain/urgency';
 import { homeScope } from '../home-scope';
 import {
   invalidInput,
@@ -25,6 +26,7 @@ export class GetPendingOpportunities {
     private readonly deps: {
       readonly home: HomeDashboardQuery;
       readonly users: ReportingUserNames;
+      readonly clock: Clock;
     },
   ) {}
 
@@ -42,6 +44,15 @@ export class GetPendingOpportunities {
       PENDING_CONTACT_CATEGORIES,
       HOME_WIDGET_LIMIT,
     );
-    return ok({ total: slice.total, items: await withAgents(this.deps.users, slice.items) });
+    const now = this.deps.clock.now();
+    const items = (await withAgents(this.deps.users, slice.items)).map((row) => ({
+      ...row,
+      urgency: waitingUrgency(row.waitingSince, now),
+    }));
+    return ok({
+      total: slice.total,
+      items,
+      urgency: worstUrgency(items.map((row) => row.urgency)),
+    });
   }
 }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { firstName, storageStateFor } from './support/users';
+import { storageStateFor } from './support/users';
 
 // Humo de cada módulo: con la sesión del administrador (que ve todo), cada pantalla carga con los
 // datos del seed y sin el error genérico.
@@ -8,7 +8,7 @@ import { firstName, storageStateFor } from './support/users';
 test.use({ storageState: storageStateFor('admin') });
 
 const MODULES = [
-  { path: '/', heading: `Hola, ${firstName('admin')}` },
+  { path: '/', heading: 'Inicio' },
   { path: '/noticias', heading: 'Noticias' },
   { path: '/oportunidades', heading: 'Oportunidades' },
   { path: '/contactos', heading: 'Contactos' },

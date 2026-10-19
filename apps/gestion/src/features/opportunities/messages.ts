@@ -1,5 +1,6 @@
 import type {
   ChangeOpportunityStageError,
+  MarkOpportunityContactedError,
   CloseOpportunityError,
   CountOpportunitiesByStageError,
   ListOpportunitiesError,
@@ -132,6 +133,12 @@ export const CHANGE_STAGE_ERROR_MESSAGES = {
   InvalidStatusTransition: ({ from, to }) =>
     `No se puede pasar de "${OPPORTUNITY_STATUS_LABELS[from]}" a "${OPPORTUNITY_STATUS_LABELS[to]}".`,
 } satisfies ErrorMessages<ChangeOpportunityStageError>;
+
+export const MARK_CONTACTED_ERROR_MESSAGES = {
+  ...CHANGE_STAGE_ERROR_MESSAGES,
+  StageNotFound:
+    'No hay un estado activo de la categoría Contactado. Activalo en Mi empresa → Oportunidades.',
+} satisfies ErrorMessages<MarkOpportunityContactedError>;
 
 export const CLOSE_OPPORTUNITY_ERROR_MESSAGES = {
   Forbidden: CANT_UPDATE,

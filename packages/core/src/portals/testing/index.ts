@@ -49,6 +49,12 @@ import type {
   PortalListingUpdate,
   PortalSyncError,
 } from '../application/ports/portal-connector';
+import {
+  LINKED_LISTING_STATUSES,
+  type LinkedListingStatus,
+  type PortalListingCount,
+  type PortalListingCounter,
+} from '../application/ports/portal-listing-counts';
 import type { PortalListingStateReader } from '../application/ports/portal-listing-states';
 import type {
   PortalListingStats,
@@ -290,6 +296,26 @@ export class InMemoryListingRepository implements ListingRepository {
     this.rows.set(listing.id, listing.toSnapshot());
     return Promise.resolve();
   }
+}
+
+/** Cuenta las publicaciones vinculadas de un `InMemoryListingRepository`, como la consulta real. */
+export class InMemoryPortalListingCounter implements PortalListingCounter {
+  constructor(private readonly listings: InMemoryListingRepository) {}
+
+  countLinked(): Promise<readonly PortalListingCount[]> {
+    const counts = new Map<string, PortalListingCount>();
+    for (const r of this.listings.rows.values()) {
+      if (r.externalId === undefined || !isLinkedStatus(r.status)) continue;
+      const key = `${r.portal}/${r.owner.kind}/${r.status}`;
+      const count = (counts.get(key)?.count ?? 0) + 1;
+      counts.set(key, { portal: r.portal, ownerKind: r.owner.kind, status: r.status, count });
+    }
+    return Promise.resolve([...counts.values()]);
+  }
+}
+
+function isLinkedStatus(status: string): status is LinkedListingStatus {
+  return (LINKED_LISTING_STATUSES as readonly string[]).includes(status);
 }
 
 export const LISTED_PROPERTY_ID = '01920000-0000-7000-8000-0000000000b1';

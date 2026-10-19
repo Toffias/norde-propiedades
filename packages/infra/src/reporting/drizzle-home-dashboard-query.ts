@@ -1,4 +1,5 @@
 import { CONTACT_CHANNEL_VALUES } from '@norde/core/clients/contracts';
+import { PORTALS } from '@norde/core/portals';
 import {
   CONSTRUCTION_STATUS_VALUES,
   CURRENCIES,
@@ -17,9 +18,11 @@ import type {
   HomeScope,
   HomeVisibility,
   PendingOpportunityRecord,
-  UnassignedInquiryRow,
+  PortalAlertRecord,
+  UnassignedInquiryRecord,
   UpcomingSigningRecord,
 } from '@norde/core/reporting';
+import { INQUIRY_MESSAGE_EXCERPT_LENGTH } from '@norde/core/reporting/contracts';
 import type { PageSlice } from '@norde/core/shared';
 import {
   and,
@@ -47,6 +50,7 @@ import {
   mediaItems,
   opportunities,
   opportunityStages,
+  portalListings,
   properties,
   propertyOperations,
   reservations,
@@ -58,6 +62,10 @@ const CoverRow = z.object({ mediaId: z.string(), hasThumbnail: z.boolean() }).nu
 const OperationEnums = z.object({ operation: z.enum(OPERATIONS), currency: z.enum(CURRENCIES) });
 const PropertyStatus = z.enum(PROPERTY_STATUS_VALUES);
 const ConstructionStatus = z.enum(CONSTRUCTION_STATUS_VALUES);
+const Portal = z.enum(PORTALS);
+/** Los estados de un aviso con problemas (`portal_listings_portal_status_idx`). */
+const ALERT_STATUSES = ['error', 'paused'] as const;
+const AlertStatus = z.enum(ALERT_STATUSES);
 
 /** Estados editables de oportunidades: una lista corta de configuración. */
 const MAX_STAGES = 50;
@@ -102,7 +110,7 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
   async unassignedInquiries(
     criteria: { readonly branchId: string | undefined },
     limit: number,
-  ): Promise<PageSlice<UnassignedInquiryRow>> {
+  ): Promise<PageSlice<UnassignedInquiryRecord>> {
     const where = and(
       eq(inquiries.status, 'pending'),
       isNull(inquiries.deletedAt),
@@ -119,6 +127,11 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
           propertyCode: properties.code,
           developmentId: inquiries.developmentId,
           developmentName: developments.name,
+          senderPhone: inquiries.senderPhoneE164,
+          message: sql<
+            string | null
+          >`left(${inquiries.message}, ${INQUIRY_MESSAGE_EXCERPT_LENGTH})`,
+          autoTags: inquiries.autoTags,
         })
         .from(inquiries)
         .leftJoin(properties, eq(properties.id, inquiries.propertyId))
@@ -139,6 +152,9 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
         propertyCode: row.propertyCode ?? undefined,
         developmentId: row.developmentId ?? undefined,
         developmentName: row.developmentName ?? undefined,
+        senderPhone: row.senderPhone ?? undefined,
+        message: row.message ?? undefined,
+        autoTags: row.autoTags,
       })),
     };
   }
@@ -161,6 +177,7 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
           originChannel: opportunities.originChannel,
           agentId: opportunities.agentId,
           waitingSince,
+          clientPhone: clients.phoneE164,
         })
         .from(opportunities)
         .innerJoin(clients, eq(clients.id, opportunities.clientId))
@@ -185,7 +202,72 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
         originChannel: Channel.parse(row.originChannel),
         agentId: row.agentId ?? undefined,
         waitingSince: new Date(row.waitingSince),
+        clientPhone: row.clientPhone ?? undefined,
       })),
+    };
+  }
+
+  async portalAlerts(limit: number): Promise<PageSlice<PortalAlertRecord>> {
+    // Con el portal adelante, el filtro usa `portal_listings_portal_status_idx`.
+    const where = and(
+      inArray(portalListings.portal, [...PORTALS]),
+      inArray(portalListings.status, [...ALERT_STATUSES]),
+    );
+    const since = sql<Date>`coalesce(${portalListings.lastSyncedAt}, ${portalListings.updatedAt})`;
+    const [rows, [total]] = await Promise.all([
+      this.db
+        .select({
+          id: portalListings.id,
+          portal: portalListings.portal,
+          status: portalListings.status,
+          lastError: portalListings.lastError,
+          propertyId: portalListings.propertyId,
+          propertyCode: properties.code,
+          propertyTitle: sql<
+            string | null
+          >`coalesce(${properties.portalTitle}, ${properties.title})`,
+          developmentId: portalListings.developmentId,
+          developmentName: developments.name,
+          since,
+        })
+        .from(portalListings)
+        .leftJoin(properties, eq(properties.id, portalListings.propertyId))
+        .leftJoin(developments, eq(developments.id, portalListings.developmentId))
+        .where(where)
+        .orderBy(
+          sql`case when ${portalListings.status} = 'error' then 0 else 1 end`,
+          asc(since),
+          asc(portalListings.id),
+        )
+        .limit(limit),
+      this.db.select({ total: count() }).from(portalListings).where(where),
+    ]);
+    return {
+      total: total?.total ?? 0,
+      items: rows.flatMap((row) => {
+        const owner =
+          row.propertyId !== null && row.propertyCode !== null
+            ? {
+                kind: 'property' as const,
+                id: row.propertyId,
+                code: row.propertyCode,
+                title: row.propertyTitle ?? '',
+              }
+            : row.developmentId !== null && row.developmentName !== null
+              ? { kind: 'development' as const, id: row.developmentId, name: row.developmentName }
+              : undefined;
+        if (owner === undefined) return [];
+        return [
+          {
+            id: row.id,
+            portal: Portal.parse(row.portal),
+            status: AlertStatus.parse(row.status),
+            lastError: row.lastError ?? undefined,
+            owner,
+            since: new Date(row.since),
+          },
+        ];
+      }),
     };
   }
 

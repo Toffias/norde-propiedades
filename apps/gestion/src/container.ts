@@ -134,6 +134,7 @@ import {
   CountOpportunitiesByStage,
   CountPendingOpportunities,
   ChangeOpportunityStage,
+  MarkOpportunityContacted,
   CloseOpportunity,
   ReassignOpportunity,
   AssignInquiry,
@@ -285,6 +286,7 @@ import {
 import {
   GetOwnerReport,
   GetPendingOpportunities,
+  GetPortalAlerts,
   GetPortfolioSummary,
   GetPropertyStatistics,
   GetUnassignedInquiries,
@@ -437,6 +439,7 @@ import {
   AesGcmSecretCipher,
   createPortalsUnitOfWork,
   DrizzlePortalAccountRepository,
+  DrizzlePortalListingCountsQuery,
   MercadoLibreAuthorizer,
   MercadoLibreAccountReader,
   MercadoLibreLeads,
@@ -743,7 +746,10 @@ function createPortalsUseCases(
   const accounts = new DrizzlePortalAccountRepository(db, clock);
 
   return {
-    listAccounts: new ListPortalAccounts({ accounts }),
+    listAccounts: new ListPortalAccounts({
+      accounts,
+      counter: new DrizzlePortalListingCountsQuery(db),
+    }),
     getCredits: new GetPortalCredits({ accounts, directory }),
     getPackages: new GetPortalPackages({ accounts, reader: mercadoLibre }),
     getListingStats: new GetListingStats({ uow, reader: mercadoLibre, clock }),
@@ -1408,6 +1414,7 @@ function createClientsUseCases(
     countOpportunitiesByStage: new CountOpportunitiesByStage({ pipeline }),
     countPendingOpportunities: new CountPendingOpportunities({ pipeline }),
     changeOpportunityStage: new ChangeOpportunityStage({ uow, ids, clock }),
+    markOpportunityContacted: new MarkOpportunityContacted({ uow, ids, clock }),
     closeOpportunity: new CloseOpportunity({ uow, ids, clock }),
     reassignOpportunity: new ReassignOpportunity({ uow, agents, clock }),
   };
@@ -1441,8 +1448,13 @@ function createDetailReadModels(
       getPropertyStatistics: new GetPropertyStatistics({ profiles, statistics, clock: deps.clock }),
       getOwnerReport: new GetOwnerReport({ profiles, statistics }),
       // Inicio (#15): un caso de uso por widget, cada uno con su límite.
-      getUnassignedInquiries: new GetUnassignedInquiries({ home }),
-      getPendingOpportunities: new GetPendingOpportunities({ home, users: agents }),
+      getUnassignedInquiries: new GetUnassignedInquiries({ home, clock: deps.clock }),
+      getPendingOpportunities: new GetPendingOpportunities({
+        home,
+        users: agents,
+        clock: deps.clock,
+      }),
+      getPortalAlerts: new GetPortalAlerts({ home }),
       getUpcomingSignings: new GetUpcomingSignings({ home, users: agents, clock: deps.clock }),
       getPortfolioSummary: new GetPortfolioSummary({ home }),
       listAvailableProperties: new ListAvailableProperties({ home, users: agents }),

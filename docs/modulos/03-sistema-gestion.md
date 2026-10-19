@@ -632,6 +632,8 @@ Diseño propuesto:
    - Son dos cuentas de ML porque la de emprendimientos, con su paquete, no puede publicar avisos comunes. Una misma cuenta de ML no se conecta en las dos.
    - Cada tarjeta permite conectar, reconectar y desconectar por OAuth, y activar o desactivar la cuenta. Solo una cuenta conectada se activa, y desconectar la desactiva y borra sus credenciales, pero no toca los avisos que ya están en ML.
    - Las acciones piden `portals:manage`. Ver las cuentas pide eso o `portals:publish`.
+   - **Diseño de la pantalla**: una tarjeta a lo ancho por cuenta, con el logo del portal a la izquierda. Sin conectar, la tarjeta propone conectarla. Conectada, muestra la cuenta, cuántas propiedades (o emprendimientos) del sistema están vinculadas a ese portal (con aviso publicado, pausado o con error) y el plan: los créditos (Zonaprop) o los paquetes (MercadoLibre).
+   - Lo que se gestiona va en un **panel lateral** ("Gestionar conexión", `?panel=<portal>`): repite los datos de la tarjeta y suma activar, cambiar el código o reconectar, recibir las consultas al instante, vincular avisos y desconectar. Sin `portals:manage`, el panel es de solo lectura ("Ver detalle").
    - Auditoría: `portal_account.connected` y `portal_account.disconnected` (con la cuenta de ML antes y después), y `portal_account.enabled` y `portal_account.disabled`.
 2. **Publicar propiedades** (hecha). Decisiones técnicas en los ADR 0024 y 0031.
    - **Pestaña Difusión** de la ficha, con `portals:publish` o `portals:manage` y la función prendida:
@@ -815,7 +817,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **Detalles**: cada bloque se edita en el lugar y guarda con su propio caso de uso, con el diff en el historial.
 
-- Operaciones: venta, alquiler y temporario, cada una con precio, moneda, "precio a consultar" y comisión (0 a 100 %, con dos decimales). Al menos una. Cada cambio de precio va al historial de precios y emite `PropertyPriceChanged`.
+- Operaciones: venta, alquiler y temporario, cada una con precio, moneda, "precio a consultar" y comisión (0 a 100 %, con dos decimales). Al menos una. Cada cambio de precio va al historial de precios y emite `PropertyPriceChanged`. Cada operación se muestra como una tarjeta con el precio, el precio por m² (sobre la superficie total) y la comisión estimada (el porcentaje aplicado al precio). Con permiso de edición, las operaciones que faltan aparecen juntas en una tarjeta ("Agregar venta", etc.) y abren la edición con esa operación ya sumada.
 - Condiciones: exclusividad, permuta, escritura inmediata, financiación, apto crédito y expensas (en pesos).
 - Características: ambientes, superficies y medidas, antigüedad, orientación, estado de conservación y disposición. La superficie cubierta más la semicubierta no supera la total. Se muestran los atributos que el tipo de propiedad tiene habilitados en Mi empresa.
 - Ubicación: dirección real (privada), dirección para publicar (vacía: se sugiere), ubicación del catálogo y coordenadas. Si cambia la dirección y no hay coordenadas cargadas a mano, se ubica de nuevo en el mapa.
@@ -971,13 +973,18 @@ La pantalla de inicio del panel (`/`). Son consultas de solo lectura del módulo
 
 **Alcance**: Inicio muestra la cartera con el alcance de los permisos de oportunidades. Un agente ve lo suyo, un gerente lo de su sucursal (`opportunities:read-branch`) y quien ve todas las oportunidades (`opportunities:read-all`), todo. Sin ese permiso, cada usuario ve solo lo suyo. Lo "suyo" es lo que tiene a cargo: el agente de la oportunidad y de la reserva, y el captador de la propiedad y del emprendimiento. Los filtros de **agente** (con `users:read`) y **sucursal** (con `branches:read`) achican el resultado, nunca lo amplían.
 
-**Pendientes** (`/`): cada widget muestra sus primeras 5 filas y el total. "Ver todas" abre el módulo con los mismos filtros.
+**Pendientes** (`/`): la pantalla empuja a actuar.
 
-| Widget                  | Qué muestra                                                                                                                         | Permiso                                 |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Consultas sin asignar   | Las pendientes de la bandeja, la más vieja primero, con su antigüedad. No tienen agente: se ven todas y solo las filtra la sucursal | `inquiries:read`                        |
-| Pendientes de contactar | Oportunidades en la categoría "nuevo", la que más espera primero (desde el último cambio de estado)                                 | `opportunities:read`                    |
-| Próximos vencimientos   | Reservas activas con la firma estimada en los próximos 30 días, incluidas las vencidas (marcadas "Vencida")                         | `reservations:read` y `properties:read` |
+- **Franja de urgencias**: una tarjeta por pendiente, con el total, su urgencia (al día, pide atención, atrasado) y el caso más urgente ("La más vieja es de …, hace 19 días"). Las tarjetas son el filtro: debajo se ve solo la lista de la activa (`?pendiente=consultas|contactar|firmas|avisos`). Sin el param, arranca activa la más urgente.
+- **Lista de la tarjeta activa**: sus primeras 5 filas, el total y "Ver las otras N"; "Ver todas" abre el módulo con los mismos filtros. Cada fila lleva su antigüedad pintada con la urgencia y sus acciones.
+- **Urgencia** (decisión del 2026-10-19, regla en el dominio de `reporting`): consulta sin asignar u oportunidad sin contactar, ámbar al día y rojo a los 3 días; reserva, roja si la fecha estimada pasó y ámbar si es dentro de 7 días; aviso de portal, rojo con error y ámbar pausado.
+
+| Widget                  | Qué muestra                                                                                                                                 | Acciones de cada fila                                                                         | Permiso                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Consultas sin asignar   | Las pendientes de la bandeja, la más vieja primero, con su antigüedad y el comienzo del mensaje. Se ven todas y solo las filtra la sucursal | Asignar (el diálogo de la bandeja) y WhatsApp                                                 | `inquiries:read`                                                          |
+| Pendientes de contactar | Oportunidades en la categoría "nuevo", la que más espera primero (desde el último cambio de estado)                                         | WhatsApp, Llamar y "Ya lo contacté" (pasa al primer estado activo de la categoría contactado) | `opportunities:read`                                                      |
+| Próximas firmas         | Reservas activas con la firma estimada en los próximos 30 días, incluidas las vencidas                                                      | Ver la reserva                                                                                | `reservations:read` y `properties:read`                                   |
+| Avisos con problemas    | Publicaciones pausadas o con error en los portales, primero las que fallaron, con el motivo                                                 | Corregir el aviso (pestaña Difusión de la ficha)                                              | `portals:publish` o `portals:manage`, con la función de portales prendida |
 
 **Estado actual** (`/?vista=estado`):
 
@@ -986,7 +993,7 @@ La pantalla de inicio del panel (`/`). Son consultas de solo lectura del módulo
 - Propiedades por estado (sin las de la papelera).
 - Listados paginados (10 por página, cada uno con su param en la URL) de propiedades disponibles (código, título, tipo y barrio, precio por operación y captador) y de emprendimientos en comercialización (con sus unidades disponibles).
 
-Cada bloque aparece solo con el permiso de su módulo. **No se construye**: la pestaña Performance (va con Reportes), los widgets de eventos, tareas y visitas autogestionadas, y las alertas de publicaciones en portales, que se suman cuando exista el módulo `portals` (#14). Los vencimientos de contratos de alquiler se suman con `rentals`.
+Cada bloque aparece solo con el permiso de su módulo. **No se construye**: la pestaña Performance (va con Reportes) y los widgets de eventos, tareas y visitas autogestionadas. Los vencimientos de contratos de alquiler se suman con `rentals`.
 
 ### 7.0.1 Noticias (#16)
 

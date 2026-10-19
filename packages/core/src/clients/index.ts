@@ -623,6 +623,10 @@ export {
   type ChangeOpportunityStageError,
 } from './application/commands/change-opportunity-stage';
 export {
+  MarkOpportunityContacted,
+  type MarkOpportunityContactedError,
+} from './application/commands/mark-opportunity-contacted';
+export {
   CloseOpportunity,
   type CloseOpportunityError,
 } from './application/commands/close-opportunity';

@@ -9,6 +9,7 @@ import {
   UpdatePropertyOperationsInputSchema,
   type Operation,
   type PanelPropertyDetail,
+  type PanelPropertyDetailOperation,
   type UpdatePropertyDescriptionInput,
   type UpdatePropertyLocationInput,
   type UpdatePropertyOperationsInput,
@@ -23,7 +24,20 @@ import {
   FormMessage,
 } from '@norde/ui/components/form';
 import { toast } from '@norde/ui/components/sonner';
-import { BanknoteIcon, FileTextIcon, MapPinIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { Badge } from '@norde/ui/components/badge';
+import { cn } from '@norde/ui/lib/utils';
+import {
+  BanknoteIcon,
+  CalendarDaysIcon,
+  FileTextIcon,
+  KeyRoundIcon,
+  MapPinIcon,
+  PlusIcon,
+  TagIcon,
+  Trash2Icon,
+  type LucideIcon,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatMoney } from '../../../../lib/format';
@@ -221,6 +235,12 @@ function LocationForm({
 
 // ---------- Operaciones ----------
 
+const OPERATION_ICONS: Readonly<Record<Operation, LucideIcon>> = {
+  sale: TagIcon,
+  rent: KeyRoundIcon,
+  temporary_rent: CalendarDaysIcon,
+};
+
 export function OperationsSection({
   detail,
   canEdit,
@@ -228,69 +248,185 @@ export function OperationsSection({
   readonly detail: PanelPropertyDetail;
   readonly canEdit: boolean;
 }) {
+  // La operación que se eligió agregar desde la vista: el formulario la abre ya sumada.
+  const [adding, setAdding] = useState<Operation | undefined>();
+  const used = new Set(detail.operations.map((operation) => operation.operation));
+  const missing = canEdit ? OPERATIONS.filter((operation) => !used.has(operation)) : [];
+  // Las que faltan van juntas en una sola tarjeta: con una operación cargada, entra en una fila.
+  const slots = detail.operations.length + (missing.length > 0 ? 1 : 0);
+
   return (
     <InlineSection
       title="Operaciones y precios"
       icon={BanknoteIcon}
       canEdit={canEdit}
-      view={
-        <ul className="flex flex-col divide-y divide-border">
+      bodyClassName="@container flex flex-1 flex-col"
+      view={(edit) => (
+        <div
+          className={cn(
+            'grid flex-1 auto-rows-fr grid-cols-1 gap-3',
+            slots >= 2 && '@md:grid-cols-2',
+            // En dos columnas, la última que queda sola ocupa el ancho: sin huecos.
+            slots >= 2 && '@md:[&>:last-child:nth-child(odd)]:col-span-2',
+            slots >= 3 && '@2xl:grid-cols-3 @2xl:[&>:last-child:nth-child(odd)]:col-span-1',
+          )}
+        >
           {detail.operations.map((operation) => (
-            <li
-              key={operation.operation}
-              className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0"
-            >
-              <span className="w-40 text-sm font-semibold">
-                {OPERATION_LABELS[operation.operation]}
-              </span>
-              <span className="text-sm tabular-nums">
-                {operation.priceCents === undefined
-                  ? 'Sin precio cargado'
-                  : formatMoney({
-                      amountCents: operation.priceCents,
-                      currency: operation.currency,
-                    })}
-              </span>
-              {operation.priceOnRequest && (
-                <span className="text-xs text-muted-foreground">Precio a consultar en la web</span>
-              )}
-              {operation.commissionPct !== undefined && (
-                <span className="text-xs text-muted-foreground">
-                  Comisión {operation.commissionPct.toLocaleString('es-AR')} %
-                </span>
-              )}
-            </li>
+            <OperationTile key={operation.operation} operation={operation} />
           ))}
-        </ul>
-      }
-      form={(controls) => <OperationsForm detail={detail} controls={controls} />}
+          {missing.length > 0 && (
+            <AddOperationsTile
+              operations={missing}
+              onAdd={(operation) => {
+                setAdding(operation);
+                edit();
+              }}
+            />
+          )}
+        </div>
+      )}
+      form={(controls) => (
+        <OperationsForm detail={detail} adding={adding} onClose={setAdding} controls={controls} />
+      )}
     />
+  );
+}
+
+function money(cents: bigint, currency: PanelPropertyDetailOperation['currency']): string {
+  return formatMoney({ amountCents: cents, currency });
+}
+
+/** Una operación: el precio grande y, abajo, el precio por m² y la comisión estimada. */
+function OperationTile({ operation }: { readonly operation: PanelPropertyDetailOperation }) {
+  const Icon = OPERATION_ICONS[operation.operation];
+  return (
+    <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-muted/30 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+            <Icon className="size-3.5" aria-hidden />
+          </span>
+          <span className="truncate">{OPERATION_LABELS[operation.operation]}</span>
+        </span>
+        {operation.priceOnRequest && <Badge variant="outline">A consultar</Badge>}
+      </div>
+      <p
+        className={cn(
+          'leading-none font-bold tabular-nums',
+          operation.priceCents === undefined ? 'text-base text-muted-foreground' : 'text-xl',
+        )}
+      >
+        {operation.priceCents === undefined
+          ? 'Sin precio cargado'
+          : money(operation.priceCents, operation.currency)}
+      </p>
+      <dl className="mt-auto grid grid-cols-2 gap-3 border-t border-border pt-1.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <dt className="text-xs text-muted-foreground">Por m² total</dt>
+          <dd className="truncate text-sm font-medium tabular-nums">
+            {operation.pricePerM2Cents === undefined
+              ? EMPTY_VALUE
+              : money(operation.pricePerM2Cents, operation.currency)}
+          </dd>
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <dt className="text-xs text-muted-foreground">
+            Comisión
+            {operation.commissionPct !== undefined &&
+              ` ${operation.commissionPct.toLocaleString('es-AR')} %`}
+          </dt>
+          <dd className="truncate text-sm font-medium tabular-nums">
+            {operation.estimatedCommissionCents === undefined
+              ? EMPTY_VALUE
+              : `≈ ${money(operation.estimatedCommissionCents, operation.currency)}`}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+/**
+ * Las operaciones que la propiedad no ofrece, apiladas en una columna: cada una con su borde
+ * punteado, repartidas en el alto de la tarjeta de al lado. Invitan a cargarlas.
+ */
+function AddOperationsTile({
+  operations,
+  onAdd,
+}: {
+  readonly operations: readonly Operation[];
+  readonly onAdd: (operation: Operation) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {operations.map((operation) => {
+        const Icon = OPERATION_ICONS[operation];
+        return (
+          <button
+            key={operation}
+            type="button"
+            onClick={() => {
+              onAdd(operation);
+            }}
+            className="group flex flex-1 items-center gap-2.5 rounded-xl border border-dashed border-border px-3 py-2 text-left text-sm font-semibold text-muted-foreground transition-colors outline-none hover:border-primary hover:bg-primary/5 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+              <Icon className="size-3.5" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              Agregar {OPERATION_LABELS[operation].toLowerCase()}
+            </span>
+            <PlusIcon
+              className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+              aria-hidden
+            />
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
 function OperationsForm({
   detail,
+  adding,
+  onClose,
   controls,
 }: {
   readonly detail: PanelPropertyDetail;
+  /** La operación que se eligió agregar desde la vista, ya sumada al formulario. */
+  readonly adding: Operation | undefined;
+  /** Al cerrar el formulario (guardar o cancelar), se olvida la operación elegida. */
+  readonly onClose: (adding: undefined) => void;
   readonly controls: Parameters<Parameters<typeof InlineSection>[0]['form']>[0];
 }) {
   const form = useForm<UpdatePropertyOperationsInput>({
     resolver: contractResolver(UpdatePropertyOperationsInputSchema),
     defaultValues: {
       propertyId: detail.id,
-      operations: detail.operations.map((operation) => ({
-        operation: operation.operation,
-        currency: operation.currency,
-        price: centsToAmount(operation.priceCents),
-        priceOnRequest: operation.priceOnRequest,
-        commissionPct:
-          operation.commissionPct === undefined
-            ? ''
-            : operation.commissionPct.toString().replace('.', ','),
-      })),
+      operations: [
+        ...detail.operations.map((operation) => ({
+          operation: operation.operation,
+          currency: operation.currency,
+          price: centsToAmount(operation.priceCents),
+          priceOnRequest: operation.priceOnRequest,
+          commissionPct:
+            operation.commissionPct === undefined
+              ? ''
+              : operation.commissionPct.toString().replace('.', ','),
+        })),
+        ...(adding === undefined
+          ? []
+          : [{ operation: adding, currency: 'USD' as const, price: '', priceOnRequest: false }]),
+      ],
     },
   });
+  useEffect(
+    () => () => {
+      onClose(undefined);
+    },
+    [onClose],
+  );
   const operations = useFieldArray({ control: form.control, name: 'operations' });
   const used = new Set(
     useWatch({ control: form.control, name: 'operations' }).map((operation) => operation.operation),

@@ -4,8 +4,6 @@ import {
   ListAvailableDevelopmentsQuerySchema,
   ListAvailablePropertiesQuerySchema,
 } from '@norde/core/reporting/contracts';
-import { PageHeader } from '@norde/ui/components/page-header';
-import { HomeIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
@@ -16,6 +14,7 @@ import { PortfolioView } from '../../features/home/components/portfolio-view';
 import {
   DEVELOPMENTS_PAGE_PARAM,
   HOME_VIEW_VALUES,
+  PENDING_FOCUS_PARAM,
   PROPERTIES_PAGE_PARAM,
   type HomeFilterValues,
   type HomeView,
@@ -43,9 +42,8 @@ export default async function HomePage({
 }: {
   readonly searchParams: Promise<SearchParams>;
 }) {
-  const { profile, actor } = await requireSession();
+  const { actor } = await requireSession();
   const params = await searchParams;
-  const firstName = profile.name.split(' ')[0] ?? profile.name;
   const view = homeView(single(params.vista));
   const { value: filter, invalidKeys } = parseListParams(HomeFilterSchema, {
     agentId: params.agentId,
@@ -60,10 +58,13 @@ export default async function HomePage({
   let content: ReactNode;
   let agentLabel: string | undefined;
   if (view === 'pendientes') {
-    const [inquiries, opportunities, signings] = await Promise.all([
+    // Sin la función de portales prendida, no hay avisos que revisar.
+    const portalsEnabled = getContainer().portals !== undefined;
+    const [inquiries, opportunities, signings, alerts] = await Promise.all([
       reporting.getUnassignedInquiries.execute(filter, actor),
       reporting.getPendingOpportunities.execute(filter, actor),
       reporting.getUpcomingSignings.execute(filter, actor),
+      portalsEnabled ? reporting.getPortalAlerts.execute({}, actor) : undefined,
     ]);
     // El nombre del agente filtrado, para el selector: sale de las filas.
     agentLabel = [
@@ -75,7 +76,10 @@ export default async function HomePage({
         inquiries={widgetState(inquiries)}
         opportunities={widgetState(opportunities)}
         signings={widgetState(signings)}
+        alerts={alerts === undefined ? { kind: 'hidden' } : widgetState(alerts)}
+        focus={single(params[PENDING_FOCUS_PARAM])}
         filters={filters}
+        pickAgents={actor.can('users:read')}
         now={new Date()}
       />
     );
@@ -109,11 +113,8 @@ export default async function HomePage({
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
-        icon={HomeIcon}
-        title={`Hola, ${firstName}`}
-        subtitle="Panel de gestión de Norde"
-      />
+      {/* Sin encabezado visible: el título queda para lectores de pantalla. */}
+      <h1 className="sr-only">Inicio</h1>
       <HomeToolbar
         view={view}
         filters={filters}

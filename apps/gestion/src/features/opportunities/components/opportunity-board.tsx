@@ -42,6 +42,7 @@ import {
 import { runAction } from '../../../lib/action-result';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { formatDate, formatDateTime } from '../../../lib/format';
+import { ContactInitials } from '../../clients/components/contact-initials';
 import { clientName } from '../../clients/client-format';
 import { ListNavigationProvider } from '../../shared/components/server-data-table';
 import { changeOpportunityStageAction, loadOpportunityColumnAction } from '../pipeline-actions';
@@ -54,7 +55,6 @@ import {
 } from './opportunity-actions';
 import { OpportunityHistoryDialog, OpportunityNoteDialog } from './opportunity-card-dialogs';
 import {
-  ContactInitials,
   OpportunityQuickActions,
   opportunityTarget,
   PropertyLink,

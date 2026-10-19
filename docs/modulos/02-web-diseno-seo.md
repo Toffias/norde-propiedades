@@ -322,7 +322,7 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 
 **Pendiente:**
 
-- Datos del negocio en `src/constants/business.ts` (teléfono, WhatsApp, dirección, zonas, redes): están en `null` hasta que Norde los confirme. Sin esos datos no se muestran ni se publican en el JSON-LD.
+- Datos del negocio en `src/constants/business.ts`: teléfono, WhatsApp, email, dirección, Facebook e Instagram se tomaron del sitio actual (nordepropiedades.com.ar). Faltan el horario, las coordenadas, el código postal y las zonas: siguen vacíos hasta que Norde los confirme, y sin ellos no se muestran ni se publican en el JSON-LD.
 - Header, footer y home editables desde Payload (globals y page builder por bloques), storage en la nube para las imágenes del blog y E2E con Playwright.
 - Vista de mapa del listado, favoritos y emprendimientos (F3, también falta en el menú "Operación"). En `/tasar-mi-propiedad`, que el pedido cree la tasación en el panel (F6).
 - Turnstile en el formulario de consulta (hoy: trampa para bots y límite por IP).

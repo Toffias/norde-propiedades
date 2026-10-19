@@ -47,15 +47,25 @@ export const BUSINESS: Business = {
   description:
     'Inmobiliaria: compra, venta y alquiler de propiedades, tasaciones y administración de alquileres, con atención personalizada.',
   tagline: 'Compra, venta y alquiler de propiedades',
-  email: null,
-  telephone: null,
-  telephoneLabel: null,
-  whatsapp: null,
-  address: null,
+  // Datos de contacto tomados de nordepropiedades.com.ar (el sitio actual, en Tokko).
+  email: 'contacto@nordepropiedades.com.ar',
+  telephone: '+541146871674',
+  telephoneLabel: '(011) 4687-1674',
+  whatsapp: '5491161798942',
+  address: {
+    streetAddress: 'Av. Emilio Castro 7250',
+    addressLocality: 'Mataderos',
+    addressRegion: 'Ciudad Autónoma de Buenos Aires',
+    postalCode: null,
+    addressCountry: 'AR',
+  },
   geo: null,
   openingHours: [],
   areaServed: [],
-  sameAs: [],
+  sameAs: [
+    'https://www.facebook.com/profile.php?id=100087943220522',
+    'https://www.instagram.com/nordepropiedades_',
+  ],
 };
 
 /** Título por defecto: la home y las páginas sin meta title. */

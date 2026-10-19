@@ -4,6 +4,7 @@ import { ThemeProvider } from '@norde/ui/components/theme-provider';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import { isChatEnabled, SiteChat } from '../../components/chat/site-chat';
 import { SiteFooter } from '../../components/layout/site-footer';
 import { SiteHeader } from '../../components/layout/site-header';
 import { WhatsAppFloat } from '../../components/layout/whatsapp-float';
@@ -56,7 +57,9 @@ export default function FrontendLayout({ children }: { readonly children: ReactN
             {children}
           </main>
           <SiteFooter />
-          <WhatsAppFloat />
+          {/* Con el chat, el botón de WhatsApp sube y queda arriba de su burbuja. */}
+          <WhatsAppFloat raised={isChatEnabled()} />
+          <SiteChat />
         </ThemeProvider>
       </body>
     </html>

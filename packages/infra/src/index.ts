@@ -171,6 +171,13 @@ export {
   type WebInquiry,
   type WebInquiryOutcome,
 } from './adapters/inquiries/web-inquiry-client';
+export {
+  WebChatClient,
+  type WebChatMessage,
+  type WebChatOutcome,
+  type WebChatReply,
+} from './adapters/web-chat/web-chat-client';
+export { WebChatMessenger } from './adapters/web-chat/web-chat-messenger';
 export { S3FileStorage, type S3FileStorageOptions } from './adapters/storage/s3-file-storage';
 export { LocalFileStorage } from './adapters/storage/local-file-storage';
 export { ResendMailer, type ResendMailerOptions } from './adapters/mail/resend-mailer';

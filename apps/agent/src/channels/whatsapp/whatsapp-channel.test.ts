@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { signBody, verifySignature } from '../../http/signature';
 
-import { FailureBreaker } from './failure-breaker';
+import { FailureBreaker } from '../shared/failure-breaker';
 import { parseInbound } from './inbound';
-import { KeyedQueue } from './keyed-queue';
+import { KeyedQueue } from '../shared/keyed-queue';
 import { MessageBatcher } from './message-batcher';
 import { NoticeThrottle } from './notices';
 import { buildWhatsAppReply, cleanForWhatsApp, FALLBACK_TEXT } from './reply-builder';

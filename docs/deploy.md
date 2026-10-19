@@ -87,6 +87,9 @@ REVALIDATE_SECRET=SECRETO_DE_32_O_MAS
 # Formulario de consulta de la ficha: el mismo valor que INQUIRY_WEBHOOK_SECRET de gestion
 INQUIRY_WEBHOOK_URL=https://gestionnorde.apzsoftware.online/api/webhooks/inquiries/web
 INQUIRY_WEBHOOK_SECRET=SECRETO_DE_32_O_MAS
+# Chat con el agente de IA (ADR 0037): el mismo valor que WEB_CHAT_SECRET del agente
+AGENT_CHAT_URL=http://127.0.0.1:3022/chat/messages
+AGENT_CHAT_SECRET=SECRETO_DE_32_O_MAS
 ```
 
 `/var/www/norde-uat/apps/gestion/.env` (lo mínimo; sumá Resend, MercadoLibre, etc. a medida que pruebes cada integración):
@@ -134,6 +137,9 @@ HOST=127.0.0.1
 PORT=3022
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
 PUBLIC_SITE_URL=https://landingnorde.apzsoftware.online
+OPENAI_API_KEY=sk-...
+# Chat del sitio (ADR 0037): el mismo valor que AGENT_CHAT_SECRET de la web
+WEB_CHAT_SECRET=SECRETO_DE_32_O_MAS
 # WhatsApp: webhook en https://agentenorde.apzsoftware.online/webhooks/whatsapp
 ```
 

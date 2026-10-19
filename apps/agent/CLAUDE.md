@@ -32,8 +32,11 @@ src/
 │   ├── instructions/         # Prompt: base común + bloque por canal
 │   └── tools/                # search_properties, get_property, show_photo, offer_buttons, register_client
 ├── channels/
-│   └── whatsapp/             # Webhook (firma, parser), batcher, cola por contacto, breaker,
-│                             # avisos, armado de la respuesta y WhatsAppTurnHandler
+│   ├── shared/               # Cola por contacto (KeyedQueue) y breaker del agente (FailureBreaker)
+│   ├── whatsapp/             # Webhook (firma, parser), batcher, avisos, armado de la respuesta
+│   │                         # y WhatsAppTurnHandler
+│   └── web-chat/             # POST /chat/messages (firmado por apps/web), armado de la respuesta
+│                             # y WebChatTurnHandler (ADR 0037)
 scripts/
 └── simulate.ts               # Chat por consola contra el agente real (sin WhatsApp)
 ```
@@ -42,6 +45,7 @@ scripts/
   1. `ReceiveInboundMessages` registra los mensajes (idempotente) y devuelve el **plan**: ignorar, silencio, aviso o agente.
   2. Si el plan es `agent`: corre el agente, y las tools llaman a `SearchProperties`, `GetPropertyDetail` y `RegisterContact`.
   3. `SendReply` envía **un** mensaje y guarda la memoria del agente.
+- **Flujo de un mensaje del chat del sitio** (ADR 0037): widget → Server Action de `apps/web` (sesión en cookie, rate limit por IP) → `POST /chat/messages` firmado → cola de la sesión → `WebChatTurnHandler`, que sigue el mismo plan del core y devuelve la respuesta en la misma petición (texto con markdown liviano, foto y botones). Sin debounce.
 - **Eventos**: los casos de uso escriben en el outbox; el relay de `apps/gestion` los pasa a pg-boss y sus suscripciones reaccionan (ADR 0021).
 - Sin las variables `WHATSAPP_*` y `OPENAI_API_KEY`, el proceso arranca igual (health) con el canal deshabilitado.
 

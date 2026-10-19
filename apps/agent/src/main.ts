@@ -10,11 +10,16 @@ const server = buildServer({
   logger,
   healthCheck: container.healthCheck,
   whatsapp: container.whatsapp?.webhook,
+  webChat: container.webChat,
 });
 
 await server.listen({ host: env.HOST, port: env.PORT });
 logger.info(
-  { model: env.OPENAI_MODEL, whatsapp: container.whatsapp !== undefined },
+  {
+    model: env.OPENAI_MODEL,
+    whatsapp: container.whatsapp !== undefined,
+    webChat: container.webChat !== undefined,
+  },
   'Norde agent ready',
 );
 

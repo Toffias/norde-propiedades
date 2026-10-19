@@ -1,7 +1,7 @@
 /**
- * Serializa el trabajo por clave (el número del contacto): sus mensajes se procesan en orden
- * y nunca corren dos turnos del agente a la vez sobre la misma conversación. Contactos
- * distintos sí corren en paralelo.
+ * Serializa el trabajo por clave (el número de WhatsApp, la sesión del web chat): sus mensajes
+ * se procesan en orden y nunca corren dos turnos del agente a la vez sobre la misma
+ * conversación. Contactos distintos sí corren en paralelo.
  */
 export class KeyedQueue {
   readonly #tails = new Map<string, Promise<void>>();

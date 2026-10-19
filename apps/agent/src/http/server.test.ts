@@ -1,6 +1,8 @@
 import { pino } from 'pino';
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { WEB_CHAT_PATH } from '../channels/web-chat/web-chat-routes';
+import type { WebChatInbound, WebChatTurnResult } from '../channels/web-chat/web-chat-turn-handler';
 import type { WhatsAppInbound } from '../channels/whatsapp/inbound';
 import { WHATSAPP_WEBHOOK_PATH } from '../channels/whatsapp/webhook-routes';
 
@@ -135,6 +137,83 @@ describe('WhatsApp webhook', () => {
     const response = await serverWith({ database: 'up' }).inject({
       method: 'GET',
       url: `${WHATSAPP_WEBHOOK_PATH}?hub.mode=subscribe&hub.verify_token=x&hub.challenge=1`,
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+});
+
+describe('Web chat endpoint', () => {
+  // Valor de prueba, no un secreto: el HMAC solo pide que coincida de los dos lados.
+  const secret = 'test-'.repeat(8);
+  const handled: WebChatInbound[] = [];
+  let result: WebChatTurnResult = { kind: 'reply', reply: null };
+  const app = buildServer({
+    logger: silent,
+    healthCheck: () => Promise.resolve({ database: 'up' }),
+    webChat: {
+      secret,
+      handle: (message) => {
+        handled.push(message);
+        return Promise.resolve(result);
+      },
+    },
+  });
+  afterAll(() => app.close());
+
+  const message = {
+    sessionId: '00000000-0000-4000-8000-0000000000a1',
+    messageId: '00000000-0000-4000-8000-0000000000b1',
+    text: '  busco depto  ',
+  };
+  const post = (payload: string, signature = signBody(payload, secret)) =>
+    app.inject({
+      method: 'POST',
+      url: WEB_CHAT_PATH,
+      headers: { 'content-type': 'application/json', 'x-norde-signature': signature },
+      payload,
+    });
+
+  it('rejects a message without a valid signature', async () => {
+    const payload = JSON.stringify(message);
+    const response = await post(payload, signBody(payload, 'other-'.repeat(8)));
+
+    expect(response.statusCode).toBe(401);
+    expect(handled).toEqual([]);
+  });
+
+  it('rejects an invalid body', async () => {
+    expect((await post('{nope')).statusCode).toBe(400);
+    expect((await post(JSON.stringify({ ...message, sessionId: 'abc' }))).statusCode).toBe(400);
+    expect((await post(JSON.stringify({ ...message, text: '   ' }))).statusCode).toBe(400);
+    expect(handled).toEqual([]);
+  });
+
+  it('answers with the reply of the turn', async () => {
+    const reply = { text: '¡Hola!', photoUrl: null, buttons: [] };
+    result = { kind: 'reply', reply };
+
+    const response = await post(JSON.stringify(message));
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ reply });
+    expect(handled.at(-1)).toEqual({ ...message, text: 'busco depto' });
+  });
+
+  it('maps busy to 429 and unavailable to 503', async () => {
+    result = { kind: 'busy' };
+    expect((await post(JSON.stringify(message))).statusCode).toBe(429);
+    result = { kind: 'unavailable' };
+    expect((await post(JSON.stringify(message))).statusCode).toBe(503);
+  });
+});
+
+describe('without web chat configuration', () => {
+  it('does not expose the endpoint', async () => {
+    const response = await serverWith({ database: 'up' }).inject({
+      method: 'POST',
+      url: WEB_CHAT_PATH,
+      payload: {},
     });
 
     expect(response.statusCode).toBe(404);

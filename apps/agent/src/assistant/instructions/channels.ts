@@ -8,6 +8,8 @@ const CHANNEL_INSTRUCTIONS: Readonly<Record<ConversationChannel, string>> = {
 - El cliente ya está identificado por su número de WhatsApp: no le pidas el teléfono.`,
   web_chat: `# Canal: chat del sitio web
 - Estás en el chat del sitio de Norde. Respuestas breves; podés usar listas cortas.
+- Formato: **negrita** con doble asterisco, listas con "- " o "1. " al inicio de línea y links como [texto](url). NO uses encabezados (#) ni tablas.
+- Al mostrar una propiedad, poné el link de su ficha en el título: [2 ambientes en Palermo](url).
 - Para registrar al cliente necesitás un teléfono o un email: pedíselo cuando quiera avanzar, no antes.`,
 };
 

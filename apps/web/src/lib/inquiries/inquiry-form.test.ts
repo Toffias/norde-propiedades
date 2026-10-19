@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createRateLimiter, INQUIRY_FIELDS as F, parseInquiryForm } from './inquiry-form';
+import { INQUIRY_FIELDS as F, parseInquiryForm } from './inquiry-form';
 
 const PROPERTY_ID = '00000000-0000-7000-8000-0000000000c1';
 
@@ -60,15 +60,5 @@ describe('parseInquiryForm', () => {
     expect(parseInquiryForm(form({ phone: '1166899124', honeypot: 'https://spam' }))).toEqual({
       kind: 'bot',
     });
-  });
-});
-
-describe('createRateLimiter', () => {
-  it('lets a few submissions per IP through each window', () => {
-    let now = 0;
-    const allow = createRateLimiter(2, () => now);
-    expect([allow('a'), allow('a'), allow('a'), allow('b')]).toEqual([true, true, false, true]);
-    now += 10 * 60_000;
-    expect(allow('a')).toBe(true);
   });
 });

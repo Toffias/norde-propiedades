@@ -826,7 +826,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 - Se suben varias a la vez, con el avance de cada una. La primera es la portada.
 - Se ordenan arrastrando. Por foto: portada, mostrar en la web, incluir en el PDF, es plano, rotar, descripción, bajar la original y borrar.
-- La original no se modifica: un job genera la miniatura, la versión web y la copia con marca de agua (ADR 0020). Mientras tanto, la foto se ve "procesando".
+- La original no se modifica: un job genera la miniatura, la versión web y la copia con marca de agua (ADR 0020). Mientras tanto, la foto se ve "procesando". Si no se puede (la imagen está dañada, falta la original o el storage no responde), queda "No se pudo procesar"; ante un error del storage, el job la reintenta y, si sale bien, queda lista.
 
 **Archivos**: escrituras, reglamentos y planos (PDF, imágenes, Word o Excel, hasta 25 MB), con "Mostrar en la web", renombrar, bajar y borrar (baja lógica).
 

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  ExternalLink,
   Maximize2,
   MessageCircle,
   Minimize2,
@@ -33,9 +34,10 @@ const MORPH_MS = 300;
 /** Burbuja cerrada, panel abierto o panel volviendo a ser burbuja. */
 type Phase = 'closed' | 'open' | 'closing';
 
-// El mismo contenedor es la burbuja y el panel: se anima entre los dos tamaños.
+// El mismo contenedor es la burbuja y el panel: se anima entre los dos tamaños. `overflow-clip`
+// (no `hidden`): mientras crece, enfocar el campo de texto no puede desplazar su contenido.
 const SHELL =
-  'fixed z-(--z-float) overflow-hidden transition-[right,bottom,width,height,border-radius,background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none';
+  'fixed z-(--z-float) overflow-clip transition-[right,bottom,width,height,border-radius,background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none';
 // Radio en px (no `rounded-full`, que es enorme): así el borde se anima parejo hasta el panel.
 const SHELL_CLOSED =
   'bg-primary right-4 bottom-4 size-14 rounded-[28px] shadow-lg hover:scale-105 sm:right-6 sm:bottom-6';
@@ -55,6 +57,7 @@ function assistantEntry(reply: ChatReply): ChatEntry {
     text: reply.text,
     photoUrl: reply.photoUrl,
     cards: [...reply.cards],
+    listingUrl: reply.listingUrl,
     buttons: [...reply.buttons],
     error: false,
   };
@@ -67,6 +70,7 @@ function errorEntry(message: string): ChatEntry {
     text: message,
     photoUrl: null,
     cards: [],
+    listingUrl: null,
     buttons: [],
     error: true,
   };
@@ -129,7 +133,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
   useEffect(() => {
     if (phase !== 'closed' || !focusLauncher.current) return;
     focusLauncher.current = false;
-    launcherRef.current?.focus();
+    launcherRef.current?.focus({ preventScroll: true });
   }, [phase]);
 
   useEffect(() => {
@@ -143,7 +147,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
   }, [open, entries, pending]);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (open) inputRef.current?.focus({ preventScroll: true });
   }, [open]);
 
   // Lo ya conversado se lee al abrir por primera vez: no existe en el servidor ni en el HTML.
@@ -185,6 +189,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
         text: trimmed,
         photoUrl: null,
         cards: [],
+        listingUrl: null,
         buttons: [],
         error: false,
       },
@@ -206,7 +211,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
       setEntries((current) => [...current, errorEntry(FAILED)]);
     } finally {
       setPending(false);
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     }
   };
 
@@ -215,7 +220,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
     setExpanded(false);
     setSizeChosen(false);
     await resetChatSession();
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -353,6 +358,18 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {entry.listingUrl && (
+                    <a
+                      href={entry.listingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="border-primary/40 text-primary hover:bg-primary/10 focus-visible:ring-ring/50 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed px-3 py-2.5 text-sm font-bold transition-colors outline-none focus-visible:ring-[3px]"
+                    >
+                      Ver todas las opciones en la web
+                      <ExternalLink aria-hidden className="size-4" />
+                      <span className="sr-only"> (se abre en otra pestaña)</span>
+                    </a>
                   )}
                 </div>
               ),

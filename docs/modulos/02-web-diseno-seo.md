@@ -229,17 +229,17 @@ Recomendación: usar un servicio transaccional para las alertas y, si más adela
 
 La web **no consume una API de la gestión**. Llama directamente a los casos de uso de `@norde/core` desde Server Components y Server Actions (ver [arquitectura.md](../arquitectura.md)).
 
-| Uso                                      | Caso de uso (módulo)                                                                                                                        | Modo                                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Listado y filtros                        | `SearchProperties` (`properties`): filtros, orden y página; la misma búsqueda que usa el agente                                             | Server Component, con caché                                    |
-| Ficha                                    | `GetPropertyDetail` (`properties`) por slug. `PropertyNotListed` (vendida, reservada o despublicada) → 410                                  | ISR con tag `property:<id>`                                    |
-| Emprendimientos                          | `GetPublishedDevelopment`, `SearchPublishedDevelopments` (`properties`)                                                                     | ISR                                                            |
-| Destacados y similares                   | `SearchProperties` con `featuredOnly`, o con `excludePropertyId` y los filtros de la ficha                                                  | Con caché                                                      |
-| Modal promocional                        | `GetActivePromotion` (`promotions`)                                                                                                         | Con caché, tag `promotions`                                    |
-| Mapa                                     | `GetPropertiesMap` (`properties`): solo id, lat/lng, precio y tipo                                                                          | Con caché                                                      |
-| Formularios (contacto, tasación, alerta) | `RegisterContact` (`clients`), `RequestAppraisal` (`appraisals`), `SubscribeToAlerts` (`clients`)                                           | Server Action con rate limit y Turnstile, `actor = system:web` |
-| Fotos                                    | `GetPublicPhoto` (`properties`) en `/fotos/<id>/<versión>`                                                                                  | Route handler, caché inmutable                                 |
-| Revalidación                             | `property_changed`, `media_changed` o `media_deleted` → job `RevalidatePublicProperty` en `apps/gestion` → `POST /api/revalidate` de la web | Webhook firmado (ADR 0023)                                     |
+| Uso                                      | Caso de uso (módulo)                                                                                                                                                                               | Modo                                                             |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Listado y filtros                        | `SearchProperties` (`properties`): filtros, orden y página; la misma búsqueda que usa el agente                                                                                                    | Server Component, con caché                                      |
+| Ficha                                    | `GetPropertyDetail` (`properties`) por slug. `PropertyNotListed` (vendida, reservada o despublicada) → 410                                                                                         | ISR con tag `property:<id>`                                      |
+| Emprendimientos                          | `SearchPublishedDevelopments` y `GetPublishedDevelopment` (`properties`); sus unidades, con `SearchProperties` y `developmentId`                                                                   | Listado con caché; ficha ISR, tags `developments` y `properties` |
+| Destacados y similares                   | `SearchProperties` con `featuredOnly`, o con `excludePropertyId` y los filtros de la ficha                                                                                                         | Con caché                                                        |
+| Modal promocional                        | `GetActivePromotion` (`promotions`)                                                                                                                                                                | Con caché, tag `promotions`                                      |
+| Mapa                                     | `GetPropertiesMap` (`properties`): solo id, lat/lng, precio y tipo                                                                                                                                 | Con caché                                                        |
+| Formularios (contacto, tasación, alerta) | `RegisterContact` (`clients`), `RequestAppraisal` (`appraisals`), `SubscribeToAlerts` (`clients`)                                                                                                  | Server Action con rate limit y Turnstile, `actor = system:web`   |
+| Fotos                                    | `GetPublicPhoto` (`properties`) en `/fotos/<id>/<versión>`                                                                                                                                         | Route handler, caché inmutable                                   |
+| Revalidación                             | `property_changed`, `development_changed`, `media_changed` o `media_deleted` → job `RevalidatePublicProperty` o `RevalidatePublicDevelopment` en `apps/gestion` → `POST /api/revalidate` de la web | Webhook firmado (ADR 0023)                                       |
 
 - La web se conecta con el mismo usuario de base que las otras apps (ADR 0015). Lo que puede hacer lo limita su `Actor`: `system:web`, con `properties:read`.
 - **Qué se publica** lo decide el dominio (`properties/domain/public-listing.ts`):
@@ -249,10 +249,16 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
   - Las fotos y planos marcados "Mostrar en la web" que ya tienen su versión web, con marca de agua si Mi empresa la activó. La original nunca.
   - Las fotos se sirven en `/fotos/<id>/<versión>`. La versión cambia cuando cambia la foto, así se cachean para siempre ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)).
   - La web lee el mismo bucket privado que el panel, con su propia clave de solo lectura. El panel ve todo; la web, solo lo publicado.
+- **Qué se publica de un emprendimiento** (`properties/domain/public-development.ts`):
+  - Solo los que están en "Comercializando" y fuera de la papelera. "Cargando información" no se publica.
+  - La dirección para publicar y la zona del mapa (siempre aproximada). La dirección exacta, el desarrollista y el contacto comercial nunca salen de la consulta.
+  - Las unidades que cuenta, lista y cotiza son las que se publicarían solas: disponibles y con "Publicar en web".
+  - El "desde" es el menor precio de venta visible de esas unidades. Si hay unidades en dólares y en pesos, manda el dólar (no se comparan monedas).
+  - Las fotos de su galería salen por la misma ruta `/fotos/<id>/<versión>` que las de las propiedades.
 - **Revalidación** ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)):
-  - Cualquier cambio de una propiedad o de su galería emite un evento.
-  - Un job de `apps/gestion` llama a `POST /api/revalidate` de la web, firmado con el secreto compartido (`WEB_REVALIDATE_SECRET` en gestión, `REVALIDATE_SECRET` en la web).
-  - La web invalida `property:<id>` y `properties`.
+  - Cualquier cambio de una propiedad, de un emprendimiento o de sus galerías emite un evento.
+  - Un job de `apps/gestion` llama a `POST /api/revalidate` de la web, firmado con el secreto compartido (`WEB_REVALIDATE_SECRET` en gestión, `REVALIDATE_SECRET` en la web). El cuerpo lleva `propertyId` o `developmentId`.
+  - La web invalida `property:<id>` y `properties`, o `development:<id>` y `developments`. Las lecturas de emprendimientos declaran los dos tags de listado: un cambio de una unidad llega como cambio de propiedad y también rearma la ficha del emprendimiento.
   - Como respaldo, las consultas cacheadas expiran cada hora.
 - Los datos personales **no** se guardan en Payload. La colección `ContactMessages` de DS-DESIGN-Landing no se replica.
 
@@ -303,15 +309,17 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 - **Caché**: ver [ADR 0011](../adr/0011-web-render-on-demand-sin-base-en-el-build.md). Al publicar, los hooks invalidan el tag `blog` y el cambio se ve en la próxima visita.
 - **Identidad** ([diseno-web.md](../diseno-web.md)): dirección "Barrio claro" con el wordmark y la línea escalonada del logo. Tema en `packages/ui/src/themes/web.css`; fuentes autoalojadas.
 - **Header, footer y WhatsApp flotante**: el WhatsApp aparece cuando Norde confirme el número en `src/constants/business.ts`.
-- **Menú principal** (`src/lib/layout/site-nav.ts`): "Propiedades" despliega el listado completo y cada tipo de propiedad; "Operación" despliega Comprar, Alquilar y Tasaciones; después, Blog y Contacto. En desktop son desplegables accesibles por teclado; en mobile, grupos dentro del menú `<details>`. El header suma el botón de tema claro/oscuro (luna/sol), que se guarda en el navegador.
+- **Menú principal** (`src/lib/layout/site-nav.ts`): "Propiedades" despliega el listado completo y cada tipo de propiedad; "Operación" despliega Comprar, Alquilar, Emprendimientos y Tasaciones; después, Blog y Contacto. En desktop son desplegables accesibles por teclado; en mobile, grupos dentro del menú `<details>`. El header suma el botón de tema claro/oscuro (luna/sol), que se guarda en el navegador.
 - **Contacto** `/contacto` y **Tasaciones** `/tasar-mi-propiedad`: formulario de consulta (el mismo de la ficha, sin propiedad) y los canales que Norde haya confirmado en `BUSINESS`. Tasaciones suma los pasos, preguntas frecuentes (`FAQPage`) y JSON-LD `Service`. Hasta F6, el pedido de tasación entra como **consulta** en la bandeja del panel, no como tasación.
 - **Home**: hero con la portada de una destacada, buscador, destacadas (primero las marcadas, después las más nuevas), servicios, blog y llamado a propietarios.
 - **Listado** `/propiedades`: filtros en la URL en español (`operacion`, `tipo`, `zona`, `moneda`, `desde`, `hasta`, `ambientes`, `dormitorios`, `orden`, `pagina`), orden, paginación en el servidor con `<a href>` y estado vacío. Indexa operación, tipo, zona y página; los filtros finos llevan `noindex`.
 - **Ficha** `/propiedades/<slug>`: galería con visor, precio de cada operación, características, planos, videos y recorridos, mapa (pin exacto o zona aproximada), consulta por WhatsApp o por formulario, similares y JSON-LD `RealEstateListing` + `BreadcrumbList`.
   - El formulario manda la consulta firmada al webhook del panel (ADR 0021), con validación, trampa para bots y límite de 5 envíos por IP cada 10 minutos.
   - Una propiedad que ya no se ofrece muestra "ya no está disponible" con otras opciones y `noindex`. Next no permite responder 410 desde una página: responde 200 sin indexar.
-- **Sitemap**: suma el listado, cada ficha publicada, `/tasar-mi-propiedad` y `/contacto`.
-- **Datos de propiedades** (base de F3): `src/container.ts` arma `SearchProperties`, `GetPropertyDetail` y `GetPublicPhoto` con `system:web`. Ya están la ruta de fotos `/fotos/<id>/<versión>` y `POST /api/revalidate` ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)).
+- **Emprendimientos** `/emprendimientos`: los que se comercializan, con filtros en la URL (`obra`: en pozo, en construcción, terminado; `tipo`; `orden`: recientes o próximos a entregarse; `pagina`) como chips que funcionan sin JavaScript, paginación en el servidor y estado vacío. Cada tarjeta muestra el estado de obra, el tipo, el "desde", la zona, las unidades disponibles y la entrega. El orden no se indexa.
+- **Ficha de emprendimiento** `/emprendimientos/<slug>`: galería (si tiene fotos), "desde", entrega, características y formas de pago, planos y videos, mapa de la zona, consulta por WhatsApp o formulario (sin propiedad, con el código del emprendimiento en el mensaje) y sus unidades publicadas de la más barata a la más cara, de a 12 (`/emprendimientos/<slug>/pagina/<n>`). JSON-LD `RealEstateListing` con `AggregateOffer` (cantidad de unidades y `lowPrice`) + `BreadcrumbList`. Uno que ya no se comercializa muestra "ya no está disponible" con otros emprendimientos y `noindex`.
+- **Sitemap**: suma el listado, cada ficha publicada, `/emprendimientos` con cada emprendimiento, `/tasar-mi-propiedad` y `/contacto`. `llms.txt` enlaza `/emprendimientos`.
+- **Datos de propiedades** (base de F3): `src/container.ts` arma `SearchProperties`, `GetPropertyDetail`, `GetPublicPhoto`, `SearchPublishedDevelopments` y `GetPublishedDevelopment` con `system:web`. Ya están la ruta de fotos `/fotos/<id>/<versión>` y `POST /api/revalidate` ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)).
 
 **Diferencias con lo planeado:**
 
@@ -323,7 +331,8 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 
 - Datos del negocio en `src/constants/business.ts` (teléfono, WhatsApp, dirección, zonas, redes): están en `null` hasta que Norde los confirme. Sin esos datos no se muestran ni se publican en el JSON-LD.
 - Header, footer y home editables desde Payload (globals y page builder por bloques), storage en la nube para las imágenes del blog y E2E con Playwright.
-- Vista de mapa del listado, favoritos y emprendimientos (F3, también falta en el menú "Operación"). En `/tasar-mi-propiedad`, que el pedido cree la tasación en el panel (F6).
+- Vista de mapa del listado y favoritos (F3). En `/tasar-mi-propiedad`, que el pedido cree la tasación en el panel (F6).
+- Emprendimientos: el avance de obra (el panel todavía no lo carga), la sección de emprendimientos en la home y que la consulta desde su ficha quede asociada al emprendimiento en la bandeja (hoy entra como consulta general, con el código en el mensaje).
 - Turnstile en el formulario de consulta (hoy: trampa para bots y límite por IP).
 
 ---

@@ -13,7 +13,19 @@ const message = {
   messageId: '00000000-0000-4000-8000-0000000000b1',
   text: 'Busco un 2 ambientes en Palermo',
 };
-const reply = { text: '¡Hola! Tengo estas opciones.', photoUrl: null, buttons: [] };
+const card = {
+  id: '00000000-0000-7000-8000-0000000000c1',
+  title: '2 ambientes en Palermo',
+  url: 'https://norde.com.ar/propiedades/2-ambientes-palermo',
+  photoUrl: 'https://norde.com.ar/fotos/00000000-0000-7000-8000-0000000000d1/abc',
+  operation: 'Alquiler',
+  price: '$ 780.000',
+  location: 'Palermo, CABA',
+  rooms: 2,
+  bedrooms: 1,
+  surfaceM2: 48,
+};
+const reply = { text: '¡Hola! Tengo estas opciones.', photoUrl: null, cards: [card], buttons: [] };
 
 function clientAnswering(status: number, body: unknown = {}) {
   const requests: { body: string; signature: string | null }[] = [];
@@ -39,6 +51,16 @@ describe('WebChatClient', () => {
     expect(requests).toEqual([
       { body, signature: `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
     ]);
+  });
+
+  it('reads a reply without cards from an older agent', async () => {
+    const { client } = clientAnswering(200, {
+      reply: { text: 'Hola', photoUrl: null, buttons: [] },
+    });
+    expect(await client.send(message)).toEqual({
+      kind: 'reply',
+      reply: { text: 'Hola', photoUrl: null, cards: [], buttons: [] },
+    });
   });
 
   it('returns an empty reply when the agent stays silent', async () => {

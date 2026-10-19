@@ -11,9 +11,29 @@ export interface WebChatMessage {
   readonly text: string;
 }
 
+const HttpUrlSchema = z.url({ protocol: /^https?$/ });
+
+/** Tarjeta de una propiedad en el chat: los textos ya vienen armados por el agente. */
+const WebChatPropertyCardSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  url: HttpUrlSchema,
+  photoUrl: HttpUrlSchema.nullable(),
+  operation: z.string(),
+  price: z.string(),
+  location: z.string(),
+  rooms: z.number().nullable(),
+  bedrooms: z.number().nullable(),
+  surfaceM2: z.number().nullable(),
+});
+
+export type WebChatPropertyCard = z.infer<typeof WebChatPropertyCardSchema>;
+
 const WebChatReplySchema = z.object({
   text: z.string(),
-  photoUrl: z.url({ protocol: /^https?$/ }).nullable(),
+  photoUrl: HttpUrlSchema.nullable(),
+  // Un agente anterior a las tarjetas no manda el campo.
+  cards: z.array(WebChatPropertyCardSchema).max(10).default([]),
   buttons: z.array(z.object({ id: z.string(), title: z.string() })),
 });
 

@@ -175,6 +175,7 @@ export {
   WebChatClient,
   type WebChatMessage,
   type WebChatOutcome,
+  type WebChatPropertyCard,
   type WebChatReply,
 } from './adapters/web-chat/web-chat-client';
 export { WebChatMessenger } from './adapters/web-chat/web-chat-messenger';

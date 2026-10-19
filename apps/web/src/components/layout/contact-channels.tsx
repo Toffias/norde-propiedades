@@ -41,7 +41,7 @@ export function ContactChannels({ whatsappText }: { readonly whatsappText: strin
           <p className={ITEM}>
             <Phone aria-hidden className={ICON} />
             <a href={`tel:${telephone}`} className={LINK}>
-              {telephone}
+              {BUSINESS.telephoneLabel ?? telephone}
             </a>
           </p>
         )}

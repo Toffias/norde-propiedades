@@ -66,7 +66,7 @@ export function SiteFooter() {
               {telephone && (
                 <p>
                   <a href={`tel:${telephone}`} className={LINK}>
-                    {telephone}
+                    {BUSINESS.telephoneLabel ?? telephone}
                   </a>
                 </p>
               )}

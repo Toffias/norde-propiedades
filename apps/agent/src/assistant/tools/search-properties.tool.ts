@@ -15,7 +15,9 @@ const Parameters = z.object({
     .string()
     .max(100)
     .nullable()
-    .describe('Barrio, localidad o zona en texto libre, ej. "Palermo", "Vicente López"'),
+    .describe(
+      'Solo el nombre del barrio, localidad o zona, sin aclaraciones ni paréntesis, ej. "Palermo", "Vicente López", "CABA" (para Capital Federal)',
+    ),
   minPrice: z.number().nonnegative().nullable().describe('En la moneda indicada, sin centavos'),
   maxPrice: z.number().nonnegative().nullable(),
   currency: z.enum(CURRENCIES).nullable().describe('Moneda del rango de precio'),

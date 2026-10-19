@@ -309,6 +309,7 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 - **Caché**: ver [ADR 0011](../adr/0011-web-render-on-demand-sin-base-en-el-build.md). Al publicar, los hooks invalidan el tag `blog` y el cambio se ve en la próxima visita.
 - **Identidad** ([diseno-web.md](../diseno-web.md)): dirección "Barrio claro" con el wordmark y la línea escalonada del logo. Tema en `packages/ui/src/themes/web.css`; fuentes autoalojadas.
 - **Header, footer y WhatsApp flotante**: el WhatsApp aparece cuando Norde confirme el número en `src/constants/business.ts`.
+- **Barra superior** (arriba del header, no fija): teléfono, email, horario y redes sociales, todo desde `src/constants/business.ts`. El horario se carga una vez en `openingHours` (formato schema.org, también va al JSON-LD) y se muestra en texto ("Lun. a Vie. 10 a 18 h"); las redes salen de `sameAs` (Facebook, Instagram, LinkedIn y YouTube, por la URL); el teléfono se muestra con `telephoneLabel`. Muestra solo lo confirmado y sin datos no aparece; en mobile quedan el teléfono y las redes.
 - **Menú principal** (`src/lib/layout/site-nav.ts`): "Propiedades" despliega el listado completo y cada tipo de propiedad; "Operación" despliega Comprar, Alquilar, Emprendimientos y Tasaciones; después, Blog y Contacto. En desktop son desplegables accesibles por teclado; en mobile, grupos dentro del menú `<details>`. El header suma el botón de tema claro/oscuro (luna/sol), que se guarda en el navegador.
 - **Contacto** `/contacto` y **Tasaciones** `/tasar-mi-propiedad`: formulario de consulta (el mismo de la ficha, sin propiedad) y los canales que Norde haya confirmado en `BUSINESS`. Tasaciones suma los pasos, preguntas frecuentes (`FAQPage`) y JSON-LD `Service`. Hasta F6, el pedido de tasación entra como **consulta** en la bandeja del panel, no como tasación.
 - **Home**: hero con la portada de una destacada, buscador, destacadas (primero las marcadas, después las más nuevas), servicios, blog y llamado a propietarios.
@@ -329,7 +330,7 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 
 **Pendiente:**
 
-- Datos del negocio en `src/constants/business.ts` (teléfono, WhatsApp, dirección, zonas, redes): están en `null` hasta que Norde los confirme. Sin esos datos no se muestran ni se publican en el JSON-LD.
+- Datos del negocio en `src/constants/business.ts`: teléfono, WhatsApp, email, dirección, Facebook e Instagram se tomaron del sitio actual (nordepropiedades.com.ar). Faltan el horario, las coordenadas, el código postal y las zonas: siguen vacíos hasta que Norde los confirme, y sin ellos no se muestran ni se publican en el JSON-LD.
 - Header, footer y home editables desde Payload (globals y page builder por bloques), storage en la nube para las imágenes del blog y E2E con Playwright.
 - Vista de mapa del listado y favoritos (F3). En `/tasar-mi-propiedad`, que el pedido cree la tasación en el panel (F6).
 - Emprendimientos: el avance de obra (el panel todavía no lo carga), la sección de emprendimientos en la home y que la consulta desde su ficha quede asociada al emprendimiento en la bandeja (hoy entra como consulta general, con el código en el mensaje).

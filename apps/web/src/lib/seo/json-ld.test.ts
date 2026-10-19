@@ -36,6 +36,7 @@ describe('organizationSchema', () => {
       telephone: null,
       address: null,
       geo: null,
+      sameAs: [],
     };
     const schema = organizationSchema(SITE, unknown);
     expect(schema).not.toHaveProperty('telephone');

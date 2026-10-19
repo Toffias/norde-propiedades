@@ -24,15 +24,20 @@ export interface Business {
   readonly email: string | null;
   /** E.164, para `tel:` y el JSON-LD. */
   readonly telephone: string | null;
+  /** Cómo se muestra el teléfono (`+54 9 11 2500-4138`). Sin él, se muestra el E.164. */
+  readonly telephoneLabel: string | null;
   /** Solo dígitos (E.164 sin `+`), para los links de WhatsApp. */
   readonly whatsapp: string | null;
   readonly address: BusinessAddress | null;
   readonly geo: { readonly latitude: number; readonly longitude: number } | null;
-  /** Horario en formato schema.org (`Mo-Fr 09:00-18:00`). */
+  /** Horario en formato schema.org (`Mo-Fr 09:00-18:00`). La barra superior lo muestra en texto. */
   readonly openingHours: readonly string[];
   /** Zonas donde opera (JSON-LD `areaServed` y `llms.txt`). */
   readonly areaServed: readonly string[];
-  /** Perfiles externos que confirman la identidad de la marca (redes, portales, Google Business). */
+  /**
+   * Perfiles externos que confirman la identidad de la marca (redes, portales, Google Business).
+   * Las redes conocidas (Facebook, Instagram, LinkedIn, YouTube) aparecen en la barra superior.
+   */
   readonly sameAs: readonly string[];
 }
 
@@ -42,14 +47,25 @@ export const BUSINESS: Business = {
   description:
     'Inmobiliaria: compra, venta y alquiler de propiedades, tasaciones y administración de alquileres, con atención personalizada.',
   tagline: 'Compra, venta y alquiler de propiedades',
-  email: null,
-  telephone: null,
-  whatsapp: null,
-  address: null,
+  // Datos de contacto tomados de nordepropiedades.com.ar (el sitio actual, en Tokko).
+  email: 'contacto@nordepropiedades.com.ar',
+  telephone: '+541146871674',
+  telephoneLabel: '(011) 4687-1674',
+  whatsapp: '5491161798942',
+  address: {
+    streetAddress: 'Av. Emilio Castro 7250',
+    addressLocality: 'Mataderos',
+    addressRegion: 'Ciudad Autónoma de Buenos Aires',
+    postalCode: null,
+    addressCountry: 'AR',
+  },
   geo: null,
   openingHours: [],
   areaServed: [],
-  sameAs: [],
+  sameAs: [
+    'https://www.facebook.com/profile.php?id=100087943220522',
+    'https://www.instagram.com/nordepropiedades_',
+  ],
 };
 
 /** Título por defecto: la home y las páginas sin meta title. */

@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { isChatEnabled, SiteChat } from '../../components/chat/site-chat';
 import { SiteFooter } from '../../components/layout/site-footer';
 import { SiteHeader } from '../../components/layout/site-header';
+import { SiteTopBar } from '../../components/layout/site-top-bar';
 import { WhatsAppFloat } from '../../components/layout/whatsapp-float';
 import { JsonLdScript } from '../../components/seo/json-ld-script';
 import { BUSINESS, SITE_TITLE } from '../../constants/business';
@@ -52,6 +53,7 @@ export default function FrontendLayout({ children }: { readonly children: ReactN
           >
             Saltar al contenido
           </a>
+          <SiteTopBar />
           <SiteHeader />
           <main id="contenido" className="flex-1">
             {children}

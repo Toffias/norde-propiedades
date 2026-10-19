@@ -1,6 +1,14 @@
 'use client';
 
-import { MessageCircle, RotateCcw, SendHorizontal, Sparkles, X } from 'lucide-react';
+import {
+  Maximize2,
+  MessageCircle,
+  Minimize2,
+  RotateCcw,
+  SendHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
@@ -19,6 +27,24 @@ const FAILED = 'No pudimos enviar tu mensaje. Revisá tu conexión y probá de n
 
 const CHIP =
   'border-primary/40 text-primary hover:bg-primary/10 focus-visible:ring-ring/50 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors outline-none focus-visible:ring-[3px] disabled:opacity-50';
+/** Lo que dura la transformación de burbuja a panel (y al revés). */
+const MORPH_MS = 300;
+
+/** Burbuja cerrada, panel abierto o panel volviendo a ser burbuja. */
+type Phase = 'closed' | 'open' | 'closing';
+
+// El mismo contenedor es la burbuja y el panel: se anima entre los dos tamaños.
+const SHELL =
+  'fixed z-(--z-float) overflow-hidden transition-[right,bottom,width,height,border-radius,background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none';
+// Radio en px (no `rounded-full`, que es enorme): así el borde se anima parejo hasta el panel.
+const SHELL_CLOSED =
+  'bg-primary right-4 bottom-4 size-14 rounded-[28px] shadow-lg hover:scale-105 sm:right-6 sm:bottom-6';
+const SHELL_OPEN =
+  'bg-card right-0 bottom-0 h-dvh w-full rounded-none sm:right-6 sm:bottom-6 sm:rounded-3xl sm:border sm:shadow-2xl';
+// Las alturas dejan libre el encabezado del sitio.
+const SHELL_COMPACT = 'sm:h-[min(640px,calc(100dvh-7rem))] sm:w-100';
+const SHELL_EXPANDED = 'sm:h-[min(820px,calc(100dvh-7rem))] sm:w-[min(560px,calc(100vw-3rem))]';
+
 const ICON_BUTTON =
   'flex size-9 items-center justify-center rounded-full transition-colors outline-none hover:bg-white/15 focus-visible:ring-[3px] focus-visible:ring-white/50';
 
@@ -65,12 +91,21 @@ function TypingIndicator() {
   );
 }
 
+function hasCards(entries: readonly ChatEntry[]): boolean {
+  return entries.some((entry) => entry.cards.length > 0);
+}
+
 /**
- * Burbuja flotante del chat con el agente de IA, en todas las páginas (ADR 0037). En mobile el
- * panel ocupa la pantalla; en desktop es una tarjeta sobre la burbuja.
+ * Burbuja flotante del chat con el agente de IA, en todas las páginas (ADR 0037). Al abrirse, la
+ * burbuja se transforma en el panel en su mismo lugar, y al cerrarse vuelve a ser burbuja. En
+ * mobile el panel ocupa la pantalla; en desktop se agranda solo cuando el agente muestra
+ * propiedades, y el visitante puede achicarlo o agrandarlo desde el encabezado.
  */
 export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
-  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState<Phase>('closed');
+  const [expanded, setExpanded] = useState(false);
+  /** El visitante eligió el tamaño: el chat deja de agrandarse solo. */
+  const [sizeChosen, setSizeChosen] = useState(false);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState('');
@@ -79,6 +114,23 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  /** Al volver a ser burbuja después de cerrar, el foco vuelve a ella. */
+  const focusLauncher = useRef(false);
+  const open = phase === 'open';
+
+  useEffect(
+    () => () => {
+      clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (phase !== 'closed' || !focusLauncher.current) return;
+    focusLauncher.current = false;
+    launcherRef.current?.focus();
+  }, [phase]);
 
   useEffect(() => {
     if (loaded) saveTranscript(entries);
@@ -96,16 +148,29 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
 
   // Lo ya conversado se lee al abrir por primera vez: no existe en el servidor ni en el HTML.
   const openPanel = () => {
+    clearTimeout(closeTimer.current);
     if (!loaded) {
-      setEntries(loadTranscript());
+      const stored = loadTranscript();
+      setEntries(stored);
       setLoaded(true);
+      if (!sizeChosen && hasCards(stored)) setExpanded(true);
     }
-    setOpen(true);
+    setPhase('open');
   };
 
+  // El contenido se desvanece mientras el panel se encoge; al terminar, vuelve la burbuja.
   const close = () => {
-    setOpen(false);
-    launcherRef.current?.focus();
+    if (phase !== 'open') return;
+    setPhase('closing');
+    closeTimer.current = setTimeout(() => {
+      focusLauncher.current = true;
+      setPhase('closed');
+    }, MORPH_MS);
+  };
+
+  const toggleSize = () => {
+    setExpanded((current) => !current);
+    setSizeChosen(true);
   };
 
   const send = async (text: string) => {
@@ -133,6 +198,8 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
       } else if (result.reply) {
         const reply = result.reply;
         setEntries((current) => [...current, assistantEntry(reply)]);
+        // Con propiedades para mirar, el panel se agranda (salvo que el visitante lo haya achicado).
+        if (reply.cards.length > 0 && !sizeChosen) setExpanded(true);
       }
     } catch {
       // La Server Action no llegó al servidor (red caída, deploy en curso).
@@ -145,6 +212,8 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
 
   const restart = async () => {
     setEntries([]);
+    setExpanded(false);
+    setSizeChosen(false);
     await resetChatSession();
     inputRef.current?.focus();
   };
@@ -158,7 +227,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
 
   // En mobile el panel tapa la página: al ir a una ficha desde el chat, se cierra.
   const onInternalNavigation = () => {
-    if (isMobile()) setOpen(false);
+    if (isMobile()) close();
   };
 
   const last = entries.at(-1);
@@ -170,8 +239,24 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
         : [];
 
   return (
-    <>
-      {open && (
+    <div
+      // Al cerrar, el contenedor vuelve a tamaño de burbuja mientras el contenido se desvanece.
+      className={`${SHELL} ${
+        open ? `${SHELL_OPEN} ${expanded ? SHELL_EXPANDED : SHELL_COMPACT}` : SHELL_CLOSED
+      }`}
+    >
+      {phase === 'closed' ? (
+        <button
+          ref={launcherRef}
+          type="button"
+          onClick={openPanel}
+          aria-expanded={false}
+          aria-label="Abrir el chat con el asistente de Norde"
+          className="text-primary-foreground focus-visible:ring-ring/50 animate-in fade-in absolute inset-0 flex items-center justify-center rounded-[28px] duration-200 outline-none focus-visible:ring-[3px]"
+        >
+          <MessageCircle aria-hidden className="size-7" />
+        </button>
+      ) : (
         <section
           id={panelId}
           role="dialog"
@@ -179,16 +264,33 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
           onKeyDown={(event) => {
             if (event.key === 'Escape') close();
           }}
-          className="bg-card text-card-foreground animate-in fade-in slide-in-from-bottom-4 fixed inset-0 z-(--z-float) flex flex-col overflow-hidden sm:inset-auto sm:right-6 sm:bottom-24 sm:h-[min(640px,calc(100dvh-8rem))] sm:w-100 sm:rounded-3xl sm:border sm:shadow-2xl"
+          className={`text-card-foreground absolute inset-0 flex min-w-72 flex-col ${
+            phase === 'closing'
+              ? 'animate-out fade-out fill-mode-forwards duration-150'
+              : 'animate-in fade-in fill-mode-backwards delay-150 duration-200'
+          }`}
         >
           <header className="bg-primary text-primary-foreground flex items-center gap-3 px-4 py-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15">
               <Sparkles aria-hidden className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-bold leading-tight">Asistente de Norde</p>
-              <p className="text-xs opacity-85">Te ayudo a encontrar tu propiedad</p>
+              <p className="truncate leading-tight font-bold">Asistente de Norde</p>
+              <p className="truncate text-xs opacity-85">Te ayudo a encontrar tu propiedad</p>
             </div>
+            <button
+              type="button"
+              onClick={toggleSize}
+              aria-label={expanded ? 'Achicar el chat' : 'Agrandar el chat'}
+              title={expanded ? 'Achicar' : 'Agrandar'}
+              className={`${ICON_BUTTON} max-sm:hidden`}
+            >
+              {expanded ? (
+                <Minimize2 aria-hidden className="size-4.5" />
+              ) : (
+                <Maximize2 aria-hidden className="size-4.5" />
+              )}
+            </button>
             {entries.length > 0 && (
               <button
                 type="button"
@@ -311,28 +413,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
           </form>
         </section>
       )}
-
-      <button
-        ref={launcherRef}
-        type="button"
-        onClick={() => {
-          if (open) close();
-          else openPanel();
-        }}
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-label={open ? 'Cerrar el chat' : 'Abrir el chat con el asistente de Norde'}
-        className={`bg-primary text-primary-foreground focus-visible:ring-ring/50 fixed right-4 bottom-4 z-(--z-float) flex size-14 items-center justify-center rounded-full shadow-lg transition-transform outline-none hover:scale-105 focus-visible:ring-[3px] sm:right-6 sm:bottom-6 ${
-          open ? 'max-sm:hidden' : ''
-        }`}
-      >
-        {open ? (
-          <X aria-hidden className="size-6" />
-        ) : (
-          <MessageCircle aria-hidden className="size-7" />
-        )}
-      </button>
-    </>
+    </div>
   );
 }
 

@@ -9,6 +9,7 @@ import { internalPath } from '../../lib/chat/markdown';
 import { resetChatSession, sendChatMessage } from '../../lib/chat/send-chat-message';
 import { loadTranscript, saveTranscript, type ChatEntry } from '../../lib/chat/transcript';
 
+import { ChatPropertyCard } from './chat-property-card';
 import { ChatText } from './chat-text';
 
 const WELCOME =
@@ -27,6 +28,7 @@ function assistantEntry(reply: ChatReply): ChatEntry {
     role: 'assistant',
     text: reply.text,
     photoUrl: reply.photoUrl,
+    cards: [...reply.cards],
     buttons: [...reply.buttons],
     error: false,
   };
@@ -38,6 +40,7 @@ function errorEntry(message: string): ChatEntry {
     role: 'assistant',
     text: message,
     photoUrl: null,
+    cards: [],
     buttons: [],
     error: true,
   };
@@ -111,7 +114,15 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
     const messageId = crypto.randomUUID();
     setEntries((current) => [
       ...current,
-      { id: messageId, role: 'visitor', text: trimmed, photoUrl: null, buttons: [], error: false },
+      {
+        id: messageId,
+        role: 'visitor',
+        text: trimmed,
+        photoUrl: null,
+        cards: [],
+        buttons: [],
+        error: false,
+      },
     ]);
     setDraft('');
     setPending(true);
@@ -219,18 +230,28 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
                   {entry.text}
                 </div>
               ) : (
-                <div
-                  key={entry.id}
-                  className={`max-w-[85%] space-y-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 ${
-                    entry.error ? 'bg-destructive/10 text-destructive' : 'bg-muted'
-                  }`}
-                >
-                  {entry.photoUrl && <ChatPhoto url={entry.photoUrl} siteUrl={siteUrl} />}
-                  <ChatText
-                    text={entry.text}
-                    siteUrl={siteUrl}
-                    onInternalNavigation={onInternalNavigation}
-                  />
+                <div key={entry.id} className="space-y-2">
+                  <div
+                    className={`max-w-[85%] space-y-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 ${
+                      entry.error ? 'bg-destructive/10 text-destructive' : 'bg-muted'
+                    }`}
+                  >
+                    {entry.photoUrl && <ChatPhoto url={entry.photoUrl} siteUrl={siteUrl} />}
+                    <ChatText
+                      text={entry.text}
+                      siteUrl={siteUrl}
+                      onInternalNavigation={onInternalNavigation}
+                    />
+                  </div>
+                  {entry.cards.length > 0 && (
+                    <ul aria-label="Propiedades sugeridas" className="space-y-2">
+                      {entry.cards.map((card) => (
+                        <li key={card.id}>
+                          <ChatPropertyCard card={card} siteUrl={siteUrl} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ),
             )}

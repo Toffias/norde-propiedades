@@ -11,3 +11,13 @@ export function propertyCacheTag(propertyId: string): string {
 
 /** Respaldo por si se pierde un aviso: fichas y listados se refrescan solos cada hora. */
 export const PROPERTIES_REVALIDATE_SECONDS = 3600;
+
+/**
+ * Los emprendimientos: su ficha y el listado. Sus lecturas declaran también `properties`, porque
+ * muestran sus unidades: un cambio de una unidad llega como cambio de una propiedad.
+ */
+export const DEVELOPMENTS_CACHE_TAG = 'developments';
+
+export function developmentCacheTag(developmentId: string): string {
+  return `development:${developmentId}`;
+}

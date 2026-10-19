@@ -10,6 +10,7 @@ describe('buildLlmsTxt', () => {
     const text = buildLlmsTxt(SITE, { categories: [], posts: [] });
     expect(text.startsWith(`# ${BUSINESS.name}\n\n> ${BUSINESS.description}`)).toBe(true);
     expect(text).toContain('[Blog](https://norde.com.ar/blog)');
+    expect(text).toContain('[Emprendimientos](https://norde.com.ar/emprendimientos)');
     expect(text).toContain('[Tasaciones](https://norde.com.ar/tasar-mi-propiedad)');
     expect(text).toContain('[Contacto](https://norde.com.ar/contacto)');
     expect(text).not.toContain('## Guías');

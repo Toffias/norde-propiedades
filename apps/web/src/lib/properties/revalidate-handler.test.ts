@@ -7,6 +7,7 @@ import { createRevalidateHandler } from './revalidate-handler';
 // Valor de prueba, no un secreto: el HMAC solo pide que coincida de los dos lados.
 const SECRET = 'test-'.repeat(8);
 const PROPERTY_ID = '00000000-0000-7000-8000-0000000000c1';
+const DEVELOPMENT_ID = '00000000-0000-7000-8000-0000000000e1';
 
 function sign(body: string, secret = SECRET) {
   return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
@@ -37,6 +38,13 @@ describe('POST /api/revalidate', () => {
     expect(tags).toEqual([`property:${PROPERTY_ID}`, 'properties']);
   });
 
+  it('invalidates the development page and the developments listing', async () => {
+    const { tags, post } = setup();
+    const response = await post(JSON.stringify({ developmentId: DEVELOPMENT_ID }));
+    expect(response.status).toBe(200);
+    expect(tags).toEqual([`development:${DEVELOPMENT_ID}`, 'developments']);
+  });
+
   it('rejects a missing or wrong signature without touching the cache', async () => {
     const { tags, post } = setup();
     const body = JSON.stringify({ propertyId: PROPERTY_ID });
@@ -49,6 +57,8 @@ describe('POST /api/revalidate', () => {
     const { tags, post } = setup();
     expect((await post('no es json')).status).toBe(400);
     expect((await post(JSON.stringify({ propertyId: '../x' }))).status).toBe(400);
+    const both = { propertyId: PROPERTY_ID, developmentId: DEVELOPMENT_ID };
+    expect((await post(JSON.stringify(both))).status).toBe(400);
     expect(tags).toEqual([]);
   });
 

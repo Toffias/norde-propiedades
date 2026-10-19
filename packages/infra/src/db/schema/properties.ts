@@ -123,6 +123,11 @@ export const developments = coreSchema.table(
     // Inicio (#15): emprendimientos en comercialización del agente o de la sucursal.
     index('developments_producer_status_idx').on(t.producerUserId, t.status).where(notDeleted),
     index('developments_branch_status_idx').on(t.branchId, t.status).where(notDeleted),
+    // Web: los emprendimientos que se comercializan, los más nuevos primero o por entrega.
+    index('developments_public_newest_idx')
+      .on(t.status, t.createdAt.desc(), t.id)
+      .where(notDeleted),
+    index('developments_public_delivery_idx').on(t.status, t.deliveryDate, t.id).where(notDeleted),
     index('developments_deleted_idx')
       .on(t.deletedAt)
       .where(sql`deleted_at is not null`),

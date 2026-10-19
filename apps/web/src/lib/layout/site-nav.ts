@@ -40,6 +40,7 @@ export const SITE_NAV: readonly NavEntry[] = [
     items: [
       { label: 'Comprar', href: listing({ operacion: 'venta' }) },
       { label: 'Alquilar', href: listing({ operacion: 'alquiler' }) },
+      { label: 'Emprendimientos', href: routes.developments() },
       { label: 'Tasaciones', href: routes.appraisals() },
     ],
   },

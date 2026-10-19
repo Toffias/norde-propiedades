@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
 import {
+  developments,
   features,
   locations,
   mediaItems,
@@ -279,6 +280,25 @@ describe('DrizzlePropertySearchQuery', () => {
     await insertProperty({ title: 'Otra' });
 
     expect(await titles({ excludePropertyId: current.id })).toEqual(['Otra']);
+  });
+
+  it('lists only the units of a development (its public page)', async () => {
+    const developmentId = nextId('8006');
+    const at = new Date();
+    await db.insert(developments).values({
+      id: developmentId,
+      code: 'EMP0001',
+      slug: 'torre',
+      name: 'Torre',
+      createdAt: at,
+      updatedAt: at,
+      createdBy: AUTHOR,
+      updatedBy: AUTHOR,
+    });
+    await insertProperty({ title: 'Unidad 1A', developmentId });
+    await insertProperty({ title: 'Suelta' });
+
+    expect(await titles({ developmentId })).toEqual(['Unidad 1A']);
   });
 
   it('paginates with the total and shows featured properties first', async () => {

@@ -34,6 +34,7 @@ import {
   type UnlinkErasedClients,
   type GenerateMediaVariants,
   type RenderPropertyDocument,
+  type RevalidatePublicDevelopment,
   type RevalidatePublicProperty,
   type RunDevelopmentUnitImport,
 } from '@norde/core/properties';
@@ -254,17 +255,30 @@ function propertySubscriptions(
   ];
 }
 
+/** Las revalidaciones de la web: de una propiedad y de un emprendimiento. */
+export interface SiteRevalidation {
+  readonly property: Pick<RevalidatePublicProperty, 'execute'>;
+  readonly development: Pick<RevalidatePublicDevelopment, 'execute'>;
+}
+
 /**
  * La web cachea fichas y listados hasta que el sistema le avisa (ADR 0023): cada cambio de una
- * propiedad o de su galería la revalida. Los emprendimientos todavía no tienen páginas públicas.
+ * propiedad, de un emprendimiento o de sus galerías la revalida. Los cambios de las unidades
+ * llegan como cambios de propiedades: la web los aplica también a la ficha del emprendimiento.
  */
 function publicSiteSubscriptions(
-  revalidate: Pick<RevalidatePublicProperty, 'execute'>,
+  revalidate: SiteRevalidation,
   actor: Actor,
   logger: Logger,
 ): EventSubscription[] {
-  const run = async (event: DeliveredEvent, propertyId: string) => {
-    const result = await revalidate.execute({ propertyId }, actor);
+  const run = async (
+    event: DeliveredEvent,
+    owner: { readonly propertyId: string } | { readonly developmentId: string },
+  ) => {
+    const result =
+      'propertyId' in owner
+        ? await revalidate.property.execute(owner, actor)
+        : await revalidate.development.execute(owner, actor);
     if (result.isErr()) {
       logger.error({ eventId: event.id, error: result.error }, 'Site revalidation skipped');
     }
@@ -276,7 +290,12 @@ function publicSiteSubscriptions(
     name: 'revalidate-site',
     handle: async (event) => {
       const owner = MediaOwnerPayloadSchema.parse(event.payload);
-      if (owner.ownerKind === 'property') await run(event, owner.ownerId);
+      await run(
+        event,
+        owner.ownerKind === 'property'
+          ? { propertyId: owner.ownerId }
+          : { developmentId: owner.ownerId },
+      );
     },
   });
   return [
@@ -284,11 +303,20 @@ function publicSiteSubscriptions(
       eventType: 'properties.property_changed',
       name: 'revalidate-site',
       handle: async (event) => {
-        await run(event, PropertyPayloadSchema.parse(event.payload).propertyId);
+        await run(event, { propertyId: PropertyPayloadSchema.parse(event.payload).propertyId });
       },
     },
     media('properties.media_changed'),
     media('properties.media_deleted'),
+    {
+      eventType: 'properties.development_changed',
+      name: 'revalidate-site',
+      handle: async (event) => {
+        await run(event, {
+          developmentId: DevelopmentPayloadSchema.parse(event.payload).developmentId,
+        });
+      },
+    },
   ];
 }
 
@@ -587,8 +615,8 @@ export function eventSubscriptions(deps: {
   /** La importación de unidades de un emprendimiento desde Excel (#7). */
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
-  /** Avisarle a la web que una propiedad cambió (ADR 0023). */
-  readonly revalidateSite: Pick<RevalidatePublicProperty, 'execute'>;
+  /** Avisarle a la web que una propiedad o un emprendimiento cambió (ADR 0023). */
+  readonly revalidateSite: SiteRevalidation;
   /**
    * El reparto automático de las consultas que entran: por las chances del emprendimiento (#7) y,
    * con el flag, por las reglas (#10). Sin él, quedan pendientes.

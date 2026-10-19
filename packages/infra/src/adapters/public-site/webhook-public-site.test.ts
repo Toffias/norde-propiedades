@@ -7,6 +7,7 @@ import { LogPublicSite, WebhookPublicSite } from './webhook-public-site';
 // Valor de prueba, no un secreto: el HMAC solo pide que coincida de los dos lados.
 const SECRET = 'test-'.repeat(8);
 const PROPERTY_ID = '00000000-0000-7000-8000-0000000000c1';
+const DEVELOPMENT_ID = '00000000-0000-7000-8000-0000000000e1';
 
 describe('WebhookPublicSite', () => {
   it('posts the property id signed with the shared secret', async () => {
@@ -34,6 +35,22 @@ describe('WebhookPublicSite', () => {
         signature: `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`,
       },
     ]);
+  });
+
+  it('posts the development id when a development changes', async () => {
+    const bodies: string[] = [];
+    const site = new WebhookPublicSite({
+      url: 'https://norde.example/api/revalidate',
+      secret: SECRET,
+      fetch: (_url, init) => {
+        bodies.push(typeof init?.body === 'string' ? init.body : '');
+        return Promise.resolve(new Response(null, { status: 204 }));
+      },
+    });
+
+    await site.revalidateDevelopment(DEVELOPMENT_ID);
+
+    expect(bodies).toEqual([JSON.stringify({ developmentId: DEVELOPMENT_ID })]);
   });
 
   it('throws when the site answers with an error, so the job retries', async () => {

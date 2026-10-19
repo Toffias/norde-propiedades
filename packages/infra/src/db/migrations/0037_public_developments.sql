@@ -1,0 +1,2 @@
+CREATE INDEX "developments_public_newest_idx" ON "core"."developments" USING btree ("status","created_at" DESC NULLS LAST,"id") WHERE deleted_at is null;--> statement-breakpoint
+CREATE INDEX "developments_public_delivery_idx" ON "core"."developments" USING btree ("status","delivery_date","id") WHERE deleted_at is null;

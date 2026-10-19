@@ -263,6 +263,7 @@ import {
   GenerateMediaVariants,
   MoveMergedClientLinks,
   RenderPropertyDocument,
+  RevalidatePublicDevelopment,
   RevalidatePublicProperty,
   RunDevelopmentUnitImport,
   UnlinkErasedClients,
@@ -1701,6 +1702,18 @@ export interface JobsRuntime {
 }
 
 /** Outbox → pg-boss → un caso de uso por suscripción, con su propio pool de conexiones. */
+/** Los avisos a la web (ADR 0023). Sin URL ni secreto, quedan en el log y la web se refresca sola. */
+function siteRevalidation(env: Env, logger: Logger) {
+  const site =
+    env.WEB_REVALIDATE_URL && env.WEB_REVALIDATE_SECRET
+      ? new WebhookPublicSite({ url: env.WEB_REVALIDATE_URL, secret: env.WEB_REVALIDATE_SECRET })
+      : new LogPublicSite(logger);
+  return {
+    property: new RevalidatePublicProperty({ site }),
+    development: new RevalidatePublicDevelopment({ site }),
+  };
+}
+
 function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   const database = createDatabase({ url: env.DATABASE_URL, applicationName: 'norde-gestion-jobs' });
   const { db } = database;
@@ -1794,15 +1807,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       clock,
     }),
     opportunities: createOpportunityJobs(db, deps),
-    revalidateSite: new RevalidatePublicProperty({
-      site:
-        env.WEB_REVALIDATE_URL && env.WEB_REVALIDATE_SECRET
-          ? new WebhookPublicSite({
-              url: env.WEB_REVALIDATE_URL,
-              secret: env.WEB_REVALIDATE_SECRET,
-            })
-          : new LogPublicSite(logger),
-    }),
+    revalidateSite: siteRevalidation(env, logger),
     routeInquiry: new RouteInquiry({
       uow: createClientsUnitOfWork(db, deps),
       agents: activeAgents(db),

@@ -20,10 +20,11 @@ describe('SITE_NAV', () => {
     expect(items).toHaveLength(10);
   });
 
-  it('links the operations to the filtered listing and to the appraisals page', () => {
+  it('links the operations to the filtered listing, the developments and the appraisals page', () => {
     expect(group('Operación').items).toEqual([
       { label: 'Comprar', href: '/propiedades?operacion=venta' },
       { label: 'Alquilar', href: '/propiedades?operacion=alquiler' },
+      { label: 'Emprendimientos', href: '/emprendimientos' },
       { label: 'Tasaciones', href: '/tasar-mi-propiedad' },
     ]);
   });

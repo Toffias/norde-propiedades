@@ -1,5 +1,5 @@
 import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
-import type { RevalidatePublicProperty, RunDevelopmentUnitImport } from '@norde/core/properties';
+import type { RunDevelopmentUnitImport } from '@norde/core/properties';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,7 @@ import {
   type MergeJobs,
   type OpportunityJobs,
   type PropertyJobs,
+  type SiteRevalidation,
 } from './event-subscriptions';
 
 const actor = Actor.system('scheduler', ['clients:read']);
@@ -22,6 +23,7 @@ const event = {
   payload: { opportunityId: 'opp-1', clientId: 'client-1' },
 };
 const MEDIA_ID = '00000000-0000-7000-8000-0000000000f1';
+const DEVELOPMENT_ID = '00000000-0000-7000-8000-0000000000e1';
 const DOCUMENT_ID = '00000000-0000-7000-8000-0000000000d1';
 
 function propertyJobs(calls: unknown[] = []): PropertyJobs {
@@ -94,7 +96,7 @@ function clientJobs(calls: unknown[] = []): {
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
-  readonly revalidateSite: Pick<RevalidatePublicProperty, 'execute'>;
+  readonly revalidateSite: SiteRevalidation;
   readonly importActor: Actor;
   readonly appraisals: AppraisalJobs;
   readonly conversionActor: Actor;
@@ -157,9 +159,17 @@ function clientJobs(calls: unknown[] = []): {
       },
     },
     revalidateSite: {
-      execute: (input, by) => {
-        calls.push(['revalidate', input, by.id]);
-        return Promise.resolve(ok(undefined));
+      property: {
+        execute: (input, by) => {
+          calls.push(['revalidate', input, by.id]);
+          return Promise.resolve(ok(undefined));
+        },
+      },
+      development: {
+        execute: (input, by) => {
+          calls.push(['revalidate-development', input, by.id]);
+          return Promise.resolve(ok(undefined));
+        },
       },
     },
     importActor,
@@ -194,6 +204,7 @@ describe('eventSubscriptions', () => {
       'properties.property_changed.revalidate-site',
       'properties.media_changed.revalidate-site',
       'properties.media_deleted.revalidate-site',
+      'properties.development_changed.revalidate-site',
       'appraisals.appraisal_photo_deleted.delete-photo-files',
       'appraisals.appraisal_converted.create-property',
       'clients.opportunity_created.record-activity',
@@ -277,7 +288,7 @@ describe('eventSubscriptions', () => {
     ).rejects.toThrow();
   });
 
-  it('revalidates the public site when a property or its gallery changes', async () => {
+  it('revalidates the public site when a property, a development or a gallery changes', async () => {
     const calls: unknown[] = [];
     const subscriptions = eventSubscriptions({
       notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
@@ -293,11 +304,23 @@ describe('eventSubscriptions', () => {
     await site[0]?.handle({ ...event, payload: { propertyId: PROPERTY_ID, code: 'DEP0001' } });
     await site[1]?.handle({ ...event, payload: owner });
     await site[2]?.handle({ ...event, payload: { ...owner, storageKeys: ['a'] } });
-    // Los emprendimientos todavía no tienen páginas públicas.
-    await site[1]?.handle({ ...event, payload: { ...owner, ownerKind: 'development' } });
+    const development = { ownerKind: 'development', ownerId: DEVELOPMENT_ID, mediaId: MEDIA_ID };
+    await site[1]?.handle({ ...event, payload: development });
+    await site[3]?.handle({ ...event, payload: { developmentId: DEVELOPMENT_ID, code: 'EMP1' } });
 
     const revalidated = ['revalidate', { propertyId: PROPERTY_ID }, 'system:scheduler'];
-    expect(calls).toEqual([revalidated, revalidated, revalidated]);
+    const revalidatedDevelopment = [
+      'revalidate-development',
+      { developmentId: DEVELOPMENT_ID },
+      'system:scheduler',
+    ];
+    expect(calls).toEqual([
+      revalidated,
+      revalidated,
+      revalidated,
+      revalidatedDevelopment,
+      revalidatedDevelopment,
+    ]);
     await expect(site[0]?.handle({ ...event, payload: { propertyId: 'x' } })).rejects.toThrow();
   });
 

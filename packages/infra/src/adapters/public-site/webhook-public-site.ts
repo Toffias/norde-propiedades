@@ -8,8 +8,8 @@ import type { InfraLogger } from '../../shared/logger';
 export const PUBLIC_SITE_SIGNATURE_HEADER = 'x-norde-signature';
 
 /**
- * Le avisa a apps/web que una propiedad cambió: `POST /api/revalidate` firmado con el secreto
- * compartido (ADR 0023). Si la web responde con error, lanza: el job se reintenta.
+ * Le avisa a apps/web que una propiedad o un emprendimiento cambió: `POST /api/revalidate` firmado
+ * con el secreto compartido (ADR 0023). Si la web responde con error, lanza: el job se reintenta.
  */
 export class WebhookPublicSite implements PublicSite {
   constructor(
@@ -21,8 +21,18 @@ export class WebhookPublicSite implements PublicSite {
     },
   ) {}
 
-  async revalidateProperty(propertyId: string): Promise<void> {
-    const body = JSON.stringify({ propertyId });
+  revalidateProperty(propertyId: string): Promise<void> {
+    return this.notify({ propertyId });
+  }
+
+  revalidateDevelopment(developmentId: string): Promise<void> {
+    return this.notify({ developmentId });
+  }
+
+  private async notify(
+    notice: { readonly propertyId: string } | { readonly developmentId: string },
+  ): Promise<void> {
+    const body = JSON.stringify(notice);
     const signature = createHmac('sha256', this.options.secret).update(body).digest('hex');
     const response = await (this.options.fetch ?? fetch)(this.options.url, {
       method: 'POST',
@@ -43,6 +53,11 @@ export class LogPublicSite implements PublicSite {
 
   revalidateProperty(propertyId: string): Promise<void> {
     this.logger.info({ propertyId }, 'Public site revalidation skipped: not configured');
+    return Promise.resolve();
+  }
+
+  revalidateDevelopment(developmentId: string): Promise<void> {
+    this.logger.info({ developmentId }, 'Public site revalidation skipped: not configured');
     return Promise.resolve();
   }
 }

@@ -48,8 +48,22 @@ function toPublicImage(media: PropertyMediaRecord): PublicImage {
   };
 }
 
-function publicImages(record: PropertyRecord, kind: 'photo' | 'floor_plan'): PublicImage[] {
-  return record.media.filter((m) => m.kind === kind && isPublicImage(m)).map(toPublicImage);
+/** Las fotos o los planos que se publican, en el orden de la galería. */
+export function publicImages(
+  media: readonly PropertyMediaRecord[],
+  kind: 'photo' | 'floor_plan',
+): PublicImage[] {
+  return media.filter((m) => m.kind === kind && isPublicImage(m)).map(toPublicImage);
+}
+
+/** Los links de videos o recorridos 360 que se publican. */
+export function publicLinkUrls(
+  media: readonly PropertyMediaRecord[],
+  kind: 'video' | 'tour_360',
+): string[] {
+  return media.flatMap((m) =>
+    m.kind === kind && isPublicLink(m) && m.externalUrl !== null ? [m.externalUrl] : [],
+  );
 }
 
 /**
@@ -63,7 +77,7 @@ export function toPropertySummary(
   const operations = record.operations.map((o) => toPublicOperation(o, record.showPriceOnWeb));
   const primary = primaryOperation(operations, searched);
   if (!primary) return undefined;
-  const photos = publicImages(record, 'photo');
+  const photos = publicImages(record.media, 'photo');
   // Las expensas se pagan siempre en pesos.
   const expenses: MoneyDto | null =
     record.expensesCents === null ? null : { amountCents: record.expensesCents, currency: 'ARS' };
@@ -96,9 +110,6 @@ export function toPropertySummary(
 export function toPropertyDetail(record: PropertyRecord): PropertyDetail | undefined {
   const summary = toPropertySummary(record);
   if (!summary) return undefined;
-  const links = record.media.filter(isPublicLink);
-  const urlsOf = (kind: 'video' | 'tour_360') =>
-    links.flatMap((m) => (m.kind === kind && m.externalUrl !== null ? [m.externalUrl] : []));
   return {
     ...summary,
     description: record.description,
@@ -117,10 +128,10 @@ export function toPropertyDetail(record: PropertyRecord): PropertyDetail | undef
     creditEligible: record.creditEligible,
     professionalUse: record.professionalUse,
     features: record.features,
-    photos: publicImages(record, 'photo'),
-    floorPlans: publicImages(record, 'floor_plan'),
-    videoUrls: urlsOf('video'),
-    tourUrls: urlsOf('tour_360'),
+    photos: publicImages(record.media, 'photo'),
+    floorPlans: publicImages(record.media, 'floor_plan'),
+    videoUrls: publicLinkUrls(record.media, 'video'),
+    tourUrls: publicLinkUrls(record.media, 'tour_360'),
     developmentId: record.developmentId,
     updatedAt: record.updatedAt,
   };

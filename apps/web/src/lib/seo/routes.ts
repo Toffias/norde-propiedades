@@ -12,6 +12,13 @@ export const routes = {
       : `/blog/categoria/${encodeURIComponent(slug)}/pagina/${page}`,
   properties: () => '/propiedades',
   property: (slug: string) => `/propiedades/${encodeURIComponent(slug)}`,
+  developments: () => '/emprendimientos',
+  development: (slug: string) => `/emprendimientos/${encodeURIComponent(slug)}`,
+  /** Las unidades de la ficha, de a una página: la 1 es la ficha. */
+  developmentPage: (slug: string, page: number) =>
+    page <= 1
+      ? `/emprendimientos/${encodeURIComponent(slug)}`
+      : `/emprendimientos/${encodeURIComponent(slug)}/pagina/${page}`,
   appraisals: () => '/tasar-mi-propiedad',
   contact: () => '/contacto',
   defaultOgImage: () => '/og-image.png',

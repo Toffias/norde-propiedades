@@ -45,6 +45,11 @@ import type {
 } from '../application/ports/panel-property-list-query';
 import type { PropertyCatalogQuery } from '../application/ports/property-catalog-query';
 import type {
+  PublishedDevelopmentCriteria,
+  PublishedDevelopmentQuery,
+  PublishedDevelopmentRecord,
+} from '../application/ports/published-development-query';
+import type {
   MovedClientLinks,
   PropertyClientMerge,
 } from '../application/ports/property-client-merge';
@@ -239,6 +244,7 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
         (criteria.operation === undefined ||
           r.operations.some((o) => o.operation === criteria.operation)) &&
         (criteria.propertyType === undefined || r.propertyType === criteria.propertyType) &&
+        (criteria.developmentId === undefined || r.developmentId === criteria.developmentId) &&
         (criteria.location === undefined ||
           `${r.neighborhood} ${r.city}`.toLowerCase().includes(criteria.location.toLowerCase())),
     );
@@ -250,6 +256,76 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
 
   findById(id: string) {
     return Promise.resolve(this.records.find((r) => r.id === id));
+  }
+
+  findBySlug(slug: string) {
+    return Promise.resolve(this.records.find((r) => r.slug === slug));
+  }
+
+  findByMediaId(mediaId: string) {
+    return Promise.resolve(this.records.find((r) => r.media.some((m) => m.id === mediaId)));
+  }
+}
+
+/** Emprendimiento en comercialización, con una foto y sin unidades; se pisan los campos que importan. */
+export function aPublishedDevelopmentRecord(
+  overrides: Partial<PublishedDevelopmentRecord> = {},
+): PublishedDevelopmentRecord {
+  sequence += 1;
+  return {
+    id: `00000000-0000-7000-8004-${sequence.toString().padStart(12, '0')}`,
+    code: `E-${sequence.toString().padStart(3, '0')}`,
+    slug: `emprendimiento-${sequence}`,
+    name: `Emprendimiento ${sequence}`,
+    developmentType: 'building',
+    status: 'marketing',
+    constructionStatus: 'under_construction',
+    deliveryDate: '2027-12-01',
+    publishAddress: 'Gurruchaga al 1800',
+    locationPath: [
+      { kind: 'country', name: 'Argentina' },
+      { kind: 'province', name: 'Buenos Aires' },
+      { kind: 'city', name: 'CABA' },
+      { kind: 'neighborhood', name: 'Palermo' },
+    ],
+    latitude: null,
+    longitude: null,
+    description: 'Descripción de prueba',
+    financingDetails: null,
+    isFinanced: false,
+    acceptsSwap: false,
+    immediateDeed: false,
+    features: [],
+    media: [aPropertyMediaRecord()],
+    listedUnitCount: 0,
+    unitPricesFrom: [],
+    deletedAt: null,
+    updatedAt: new Date('2026-10-01T12:00:00Z'),
+    ...overrides,
+  };
+}
+
+/** En memoria: filtra por estado, tipo y estado de obra; el orden lo prueba el test de integración. */
+export class InMemoryPublishedDevelopmentQuery implements PublishedDevelopmentQuery {
+  readonly criteria: PublishedDevelopmentCriteria[] = [];
+
+  constructor(readonly records: PublishedDevelopmentRecord[] = []) {}
+
+  search(criteria: PublishedDevelopmentCriteria): Promise<PageSlice<PublishedDevelopmentRecord>> {
+    this.criteria.push(criteria);
+    const matches = this.records.filter(
+      (r) =>
+        r.deletedAt === null &&
+        criteria.statuses.includes(r.status) &&
+        (criteria.developmentType === undefined ||
+          r.developmentType === criteria.developmentType) &&
+        (criteria.constructionStatus === undefined ||
+          r.constructionStatus === criteria.constructionStatus),
+    );
+    return Promise.resolve({
+      items: matches.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: matches.length,
+    });
   }
 
   findBySlug(slug: string) {

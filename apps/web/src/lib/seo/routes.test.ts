@@ -44,6 +44,14 @@ describe('routes', () => {
     expect(routes.categoryPage('barrios', 2)).toBe('/blog/categoria/barrios/pagina/2');
   });
 
+  it('serves the first page of units from the development page', () => {
+    expect(routes.development('torre-gurruchaga')).toBe('/emprendimientos/torre-gurruchaga');
+    expect(routes.developmentPage('torre-gurruchaga', 1)).toBe('/emprendimientos/torre-gurruchaga');
+    expect(routes.developmentPage('torre-gurruchaga', 2)).toBe(
+      '/emprendimientos/torre-gurruchaga/pagina/2',
+    );
+  });
+
   it('builds post URLs under /blog', () => {
     expect(routes.post('como-se-calcula-el-ipc')).toBe('/blog/como-se-calcula-el-ipc');
   });

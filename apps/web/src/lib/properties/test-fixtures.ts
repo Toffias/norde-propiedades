@@ -1,4 +1,4 @@
-import type { PropertyDetail } from '@norde/core/properties/contracts';
+import type { PropertyDetail, PublishedDevelopmentDetail } from '@norde/core/properties/contracts';
 
 /** Una ficha completa para los tests de las vistas y del JSON-LD. */
 export function aPropertyDetail(overrides: Partial<PropertyDetail> = {}): PropertyDetail {
@@ -55,6 +55,45 @@ export function aPropertyDetail(overrides: Partial<PropertyDetail> = {}): Proper
     videoUrls: [],
     tourUrls: [],
     developmentId: null,
+    updatedAt: new Date('2026-10-01T12:00:00Z'),
+    ...overrides,
+  };
+}
+
+/** Un emprendimiento completo para los tests de las vistas y del JSON-LD. */
+export function aDevelopmentDetail(
+  overrides: Partial<PublishedDevelopmentDetail> = {},
+): PublishedDevelopmentDetail {
+  return {
+    id: '00000000-0000-7000-8000-0000000000e1',
+    code: 'EMP0001',
+    slug: 'torre-gurruchaga-emp0001',
+    name: 'Torre Gurruchaga',
+    developmentType: 'building',
+    constructionStatus: 'under_construction',
+    deliveryDate: '2027-12-01',
+    address: 'Gurruchaga al 1800',
+    neighborhood: 'Palermo',
+    city: 'CABA',
+    availableUnitCount: 4,
+    priceFrom: { amountCents: 9_500_000n, currency: 'USD' },
+    cover: { id: 'm1', src: '/fotos/m1/abc', width: 1600, height: 1200, description: null },
+    photoCount: 1,
+    description: 'Torre de 12 pisos con amenities.',
+    province: 'Buenos Aires',
+    coordinates: { latitude: -34.588, longitude: -58.431, exact: false },
+    isFinanced: true,
+    acceptsSwap: false,
+    immediateDeed: false,
+    financingDetails: '36 cuotas en pesos',
+    features: [
+      { kind: 'amenity', name: 'Pileta' },
+      { kind: 'service', name: 'Gas natural' },
+    ],
+    photos: [{ id: 'm1', src: '/fotos/m1/abc', width: 1600, height: 1200, description: null }],
+    floorPlans: [],
+    videoUrls: [],
+    tourUrls: [],
     updatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
   };

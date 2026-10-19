@@ -10,13 +10,16 @@ function form(values: {
   readonly phone?: string;
   readonly message?: string;
   readonly honeypot?: string;
+  /** `null`: el formulario no manda el campo (contacto, tasaciones). */
+  readonly propertyId?: string | null;
 }): FormData {
   const data = new FormData();
   data.set(F.name, values.name ?? 'Ana Pérez');
   data.set(F.email, values.email ?? '');
   data.set(F.phone, values.phone ?? '');
   data.set(F.message, values.message ?? 'Quiero visitarla');
-  data.set(F.propertyId, PROPERTY_ID);
+  const propertyId = values.propertyId === undefined ? PROPERTY_ID : values.propertyId;
+  if (propertyId !== null) data.set(F.propertyId, propertyId);
   data.set(F.honeypot, values.honeypot ?? '');
   return data;
 }
@@ -32,6 +35,23 @@ describe('parseInquiryForm', () => {
         message: 'Quiero visitarla',
         propertyId: PROPERTY_ID,
       },
+    });
+  });
+
+  it('accepts an inquiry without a property, as the contact and appraisal forms send it', () => {
+    expect(parseInquiryForm(form({ phone: '1166899124', propertyId: null }))).toMatchObject({
+      kind: 'valid',
+      data: { propertyId: undefined },
+    });
+    expect(parseInquiryForm(form({ phone: '1166899124', propertyId: '' }))).toMatchObject({
+      kind: 'valid',
+      data: { propertyId: undefined },
+    });
+  });
+
+  it('rejects a property ID that is not a UUID', () => {
+    expect(parseInquiryForm(form({ phone: '1166899124', propertyId: 'x' }))).toMatchObject({
+      kind: 'invalid',
     });
   });
 

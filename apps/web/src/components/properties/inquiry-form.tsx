@@ -11,8 +11,13 @@ const FIELD =
 const LABEL = 'mb-1 block text-xs font-bold';
 
 interface InquiryFormProps {
-  readonly propertyId: string;
-  readonly propertyTitle: string;
+  /** Solo en la ficha: sin propiedad, la consulta entra como consulta general. */
+  readonly propertyId?: string;
+  /** Texto inicial de la consulta, que la persona puede cambiar. */
+  readonly defaultMessage?: string;
+  readonly messagePlaceholder?: string;
+  readonly messageLabel?: string;
+  readonly submitLabel?: string;
 }
 
 const INITIAL: InquiryFormState = { status: 'idle' };
@@ -26,8 +31,14 @@ function FieldError({ id, message }: { readonly id: string; readonly message?: s
   );
 }
 
-/** Formulario de consulta de la ficha: entra como consulta en la bandeja del panel. */
-export function InquiryForm({ propertyId, propertyTitle }: InquiryFormProps) {
+/** Formulario de consulta (ficha, contacto, tasaciones): entra como consulta en la bandeja del panel. */
+export function InquiryForm({
+  propertyId,
+  defaultMessage = '',
+  messagePlaceholder,
+  messageLabel = 'Consulta',
+  submitLabel = 'Enviar consulta',
+}: InquiryFormProps) {
   const [state, action, pending] = useActionState(sendInquiry, INITIAL);
 
   if (state.status === 'sent') {
@@ -49,7 +60,7 @@ export function InquiryForm({ propertyId, propertyTitle }: InquiryFormProps) {
   return (
     // `key`: con cada respuesta se vuelve a montar, así toma los `defaultValue` nuevos.
     <form key={JSON.stringify(values ?? {})} action={action} className="space-y-3" noValidate>
-      <input type="hidden" name={F.propertyId} value={propertyId} />
+      {propertyId && <input type="hidden" name={F.propertyId} value={propertyId} />}
       {/* Trampa para bots: oculto para las personas y para los lectores de pantalla. */}
       <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
         <label>
@@ -110,7 +121,7 @@ export function InquiryForm({ propertyId, propertyTitle }: InquiryFormProps) {
       </div>
       <div>
         <label className={LABEL} htmlFor="inquiry-message">
-          Consulta
+          {messageLabel}
         </label>
         <textarea
           id="inquiry-message"
@@ -118,9 +129,8 @@ export function InquiryForm({ propertyId, propertyTitle }: InquiryFormProps) {
           rows={4}
           required
           maxLength={2000}
-          defaultValue={
-            values?.message ?? `Hola, me interesa "${propertyTitle}". ¿Me pasan más información?`
-          }
+          defaultValue={values?.message ?? defaultMessage}
+          placeholder={messagePlaceholder}
           aria-invalid={Boolean(errors.message)}
           aria-describedby={describedBy('message')}
           className={`${FIELD} py-2.5`}
@@ -142,7 +152,7 @@ export function InquiryForm({ propertyId, propertyTitle }: InquiryFormProps) {
         disabled={pending}
         className="bg-primary text-primary-foreground hover:bg-primary-700 focus-visible:ring-ring/50 h-12 w-full rounded-xl text-sm font-bold transition-colors outline-none focus-visible:ring-[3px] disabled:opacity-60"
       >
-        {pending ? 'Enviando…' : 'Enviar consulta'}
+        {pending ? 'Enviando…' : submitLabel}
       </button>
       <p className="text-muted-foreground text-xs">
         Usamos tus datos solo para responder esta consulta.

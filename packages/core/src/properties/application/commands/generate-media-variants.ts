@@ -1,7 +1,7 @@
 import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
 import type { CompanySettingsReader, FileStorage, ImageWatermarker } from '../../../settings';
 import { MediaIdInputSchema, type MediaIdInput } from '../../contracts';
-import type { MediaItemId, MediaVariants } from '../../domain/media-item';
+import type { MediaItem, MediaItemId, MediaVariants } from '../../domain/media-item';
 import { idOf } from '../catalog-support';
 import { mediaKey } from '../media-support';
 import type { ImageVariantGenerator } from '../ports/image-variant-generator';
@@ -13,10 +13,18 @@ export type GenerateMediaVariantsError = ForbiddenError | InvalidInputError;
 /** Qué pasó con la foto: ya no existe (se borró antes de que corra el job), quedó lista o falló. */
 export type MediaProcessingOutcome = 'gone' | 'ready' | 'failed';
 
+/** El resultado y los archivos que sobran después de guardar. */
+interface Processed {
+  readonly outcome: MediaProcessingOutcome;
+  readonly leftovers: readonly string[];
+}
+
 /**
  * Lo corre el job de `MediaVariantsRequested`: genera la miniatura y la versión web de una foto (de
  * una propiedad o un emprendimiento) y, si la marca de agua está activa en Mi empresa, una copia con
  * la marca. La original nunca se modifica. Una imagen que no se puede leer queda "fallida" con el motivo, sin reintentos.
+ * Un error inesperado (el storage no responde o niega el acceso) también la deja "fallida", para que
+ * no quede "procesando" si se agotan los reintentos, y se relanza: el job la reintenta y lo registra.
  */
 export class GenerateMediaVariants {
   constructor(
@@ -43,9 +51,26 @@ export class GenerateMediaVariants {
     const item = await this.deps.uow.run((tx) => tx.media.findById(id));
     const originalKey = item?.storageKey;
     if (!item || originalKey === undefined) return ok('gone');
+    let processed: Processed;
+    try {
+      processed = await this.process(item, originalKey, actor);
+    } catch (error) {
+      await this.fail(id, 'No se pudieron generar las versiones de la foto.', actor);
+      throw error;
+    }
+    // Fuera del try: si falla el borrado de archivos sobrantes, la foto ya quedó guardada.
+    for (const key of processed.leftovers) await this.deps.storage.delete(key);
+    return ok(processed.outcome);
+  }
+
+  private async process(item: MediaItem, originalKey: string, actor: Actor): Promise<Processed> {
+    const id = item.id;
     const original = await this.deps.storage.get(originalKey);
     if (!original) {
-      return ok(await this.fail(id, 'No se encontró la foto original en el storage.', actor));
+      return {
+        outcome: await this.fail(id, 'No se encontró la foto original en el storage.', actor),
+        leftovers: [],
+      };
     }
 
     const generated = await this.deps.images.generate({
@@ -53,7 +78,10 @@ export class GenerateMediaVariants {
       rotation: item.toSnapshot().rotation,
     });
     if (generated.isErr()) {
-      return ok(await this.fail(id, 'La imagen está dañada o no se puede leer.', actor));
+      return {
+        outcome: await this.fail(id, 'La imagen está dañada o no se puede leer.', actor),
+        leftovers: [],
+      };
     }
     const { thumbnail, web, width, height } = generated.value;
 
@@ -93,8 +121,7 @@ export class GenerateMediaVariants {
       return true;
     });
     // Guardado: sobran las variantes anteriores. Si la foto se borró mientras tanto, las nuevas.
-    for (const key of saved ? stale : created) await this.deps.storage.delete(key);
-    return ok(saved ? 'ready' : 'gone');
+    return saved ? { outcome: 'ready', leftovers: stale } : { outcome: 'gone', leftovers: created };
   }
 
   /** La copia con marca de agua, si está activa y tiene logo. Devuelve su clave. */

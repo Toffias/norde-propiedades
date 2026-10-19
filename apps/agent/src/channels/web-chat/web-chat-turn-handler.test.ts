@@ -163,6 +163,17 @@ describe('WebChatTurnHandler', () => {
             surfaceM2: 48,
           },
         ],
+        listing: {
+          operation: 'rent',
+          propertyType: null,
+          location: 'Palermo',
+          currency: null,
+          minPrice: null,
+          maxPrice: null,
+          minRooms: null,
+          minBedrooms: null,
+          total: 1,
+        },
         buttons: [],
       },
     });
@@ -202,6 +213,7 @@ describe('WebChatTurnHandler', () => {
         text: 'Así es el living.',
         photoUrl: COVER_URL,
         cards: [],
+        listing: null,
         buttons: [
           { id: 'opt_1', title: 'Ver más' },
           { id: 'opt_2', title: 'Visitarla' },
@@ -255,7 +267,7 @@ describe('WebChatTurnHandler', () => {
 
     expect(first).toEqual({
       kind: 'reply',
-      reply: { text: FALLBACK_TEXT, photoUrl: null, cards: [], buttons: [] },
+      reply: { text: FALLBACK_TEXT, photoUrl: null, cards: [], listing: null, buttons: [] },
     });
     expect(second).toEqual({ kind: 'unavailable' });
     expect(third).toEqual({ kind: 'unavailable' });

@@ -16,11 +16,30 @@ const MAX_CARDS = 6;
 /** La tarjeta de una propiedad en el chat: foto, nombre, datos básicos y link a la ficha. */
 export type WebChatPropertyCard = ShownProperty;
 
+/**
+ * La búsqueda que hizo el agente en el turno, para el link "Ver todas las opciones en la web".
+ * Los precios van en unidades (sin centavos); la web arma la URL del listado con sus filtros.
+ */
+export interface WebChatListingSearch {
+  readonly operation: string | null;
+  readonly propertyType: string | null;
+  readonly location: string | null;
+  readonly currency: string | null;
+  readonly minPrice: number | null;
+  readonly maxPrice: number | null;
+  readonly minRooms: number | null;
+  readonly minBedrooms: number | null;
+  /** Cuántas propiedades encontró la búsqueda. */
+  readonly total: number;
+}
+
 /** Lo que dibuja el widget del sitio: el texto (markdown liviano), una foto, tarjetas y botones. */
 export interface WebChatReplyView {
   readonly text: string;
   readonly photoUrl: string | null;
   readonly cards: readonly WebChatPropertyCard[];
+  /** Solo si el agente buscó en este turno y encontró algo. */
+  readonly listing: WebChatListingSearch | null;
   readonly buttons: readonly { readonly id: string; readonly title: string }[];
 }
 
@@ -36,7 +55,7 @@ export interface WebChatReply {
  */
 export function buildWebChatReply(
   finalText: string | undefined,
-  context: Pick<CustomerTurnContext, 'photo' | 'buttons' | 'shownProperties'>,
+  context: Pick<CustomerTurnContext, 'photo' | 'buttons' | 'shownProperties' | 'searchResult'>,
 ): WebChatReply {
   const text = (finalText ?? '').trim().slice(0, TEXT_LIMIT) || FALLBACK_TEXT;
   const buttons = context.buttons ?? [];
@@ -44,6 +63,7 @@ export function buildWebChatReply(
     text,
     photoUrl: context.photo?.url ?? null,
     cards: mentionedProperties(text, [...context.shownProperties.values()]),
+    listing: listingSearch(context.searchResult),
     buttons,
   };
 
@@ -59,7 +79,7 @@ export function buildWebChatReply(
 /** Respuesta de texto fijo (aviso o error), sin foto ni botones. */
 export function plainReply(text: string): WebChatReply {
   return {
-    view: { text, photoUrl: null, cards: [], buttons: [] },
+    view: { text, photoUrl: null, cards: [], listing: null, buttons: [] },
     stored: { type: 'text', text },
   };
 }
@@ -86,4 +106,23 @@ function mentionIndex(text: string, url: string): number {
   const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // `-p-01` no tiene que coincidir con `-p-010`.
   return text.search(new RegExp(`${escaped}(?![\\w-])`));
+}
+
+const toUnits = (cents: bigint | undefined): number | null =>
+  cents === undefined ? null : Number(cents / 100n);
+
+function listingSearch(result: CustomerTurnContext['searchResult']): WebChatListingSearch | null {
+  if (!result || result.total === 0) return null;
+  const { search } = result;
+  return {
+    operation: search.operation ?? null,
+    propertyType: search.propertyType ?? null,
+    location: search.location ?? null,
+    currency: search.currency ?? null,
+    minPrice: toUnits(search.minPriceCents),
+    maxPrice: toUnits(search.maxPriceCents),
+    minRooms: search.minRooms ?? null,
+    minBedrooms: search.minBedrooms ?? null,
+    total: result.total,
+  };
 }

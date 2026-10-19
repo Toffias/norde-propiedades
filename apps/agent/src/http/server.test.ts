@@ -190,7 +190,7 @@ describe('Web chat endpoint', () => {
   });
 
   it('answers with the reply of the turn', async () => {
-    const reply = { text: '¡Hola!', photoUrl: null, cards: [], buttons: [] };
+    const reply = { text: '¡Hola!', photoUrl: null, cards: [], listing: null, buttons: [] };
     result = { kind: 'reply', reply };
 
     const response = await post(JSON.stringify(message));

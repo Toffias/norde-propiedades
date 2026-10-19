@@ -80,6 +80,7 @@ export function searchPropertiesTool(deps: AssistantToolDeps) {
 
       const page = result.value;
       context.lastSearch = search;
+      context.searchResult = { search, total: page.total };
       for (const property of page.items) {
         context.shownProperties.set(property.id, presentCard(property, deps.siteUrl));
       }

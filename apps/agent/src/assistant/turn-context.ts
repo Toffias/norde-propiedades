@@ -39,6 +39,8 @@ export interface CustomerTurnContext {
   readonly shownProperties: Map<string, ShownProperty>;
   /** Última búsqueda, para guardarla en la conversación y en la oportunidad. */
   lastSearch: ContactSearch | undefined;
+  /** La búsqueda hecha en **este** turno y cuántas propiedades encontró (el chat del sitio la linkea). */
+  searchResult: { readonly search: ContactSearch; readonly total: number } | undefined;
   /** Foto pedida: se envía como imagen con el texto final de epígrafe. */
   photo: { readonly url: string; readonly propertyId: string } | undefined;
   /** Opciones cerradas para responder con botones. */
@@ -63,6 +65,7 @@ export function createTurnContext(input: {
     now: input.now,
     shownProperties: new Map(),
     lastSearch: input.previousSearch,
+    searchResult: undefined,
     photo: undefined,
     buttons: undefined,
     registration: undefined,

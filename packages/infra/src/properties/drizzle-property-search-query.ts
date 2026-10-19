@@ -146,6 +146,8 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
       c.creditEligible === undefined ? undefined : eq(properties.creditEligible, c.creditEligible),
       c.featuredOnly === true ? eq(properties.featured, true) : undefined,
       c.excludePropertyId === undefined ? undefined : ne(properties.id, c.excludePropertyId),
+      // Las unidades de la ficha de un emprendimiento, por `properties_development_idx`.
+      c.developmentId === undefined ? undefined : eq(properties.developmentId, c.developmentId),
       // "Palermo Soho", "Vicente López": alcanza con que coincida alguna palabra.
       location.length === 0 ? undefined : or(...location.map((w) => contains(place, w))),
       c.locationId === undefined ? undefined : this.withinLocation(c.locationId),
@@ -278,7 +280,7 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
             kind: FeatureKindSchema.parse(f.kind),
             name: f.name,
           })),
-          media: (mediaOf.get(id) ?? []).map(toMedia),
+          media: (mediaOf.get(id) ?? []).map(toPropertyMediaRecord),
         }),
       ];
     });
@@ -306,7 +308,8 @@ function toOperation(row: typeof propertyOperations.$inferSelect): PropertyOpera
   };
 }
 
-function toMedia(row: typeof mediaItems.$inferSelect): PropertyMediaRecord {
+/** Una fila de `media_items` (de una propiedad o de un emprendimiento) para decidir qué se publica. */
+export function toPropertyMediaRecord(row: typeof mediaItems.$inferSelect): PropertyMediaRecord {
   const enums = MediaEnums.parse(row);
   const isLink = enums.kind === 'video' || enums.kind === 'tour_360';
   const variants = VariantsSchema.parse(row.variants);

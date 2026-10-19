@@ -21,6 +21,7 @@ import { AmountSchema } from './amount';
 
 export * from './values';
 export * from './public';
+export * from './public-developments';
 export * from './catalog';
 export * from './detail';
 export * from './media';

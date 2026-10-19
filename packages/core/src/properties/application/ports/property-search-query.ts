@@ -107,6 +107,8 @@ export interface PropertySearchCriteria {
   readonly creditEligible?: boolean | undefined;
   readonly featuredOnly?: boolean | undefined;
   readonly excludePropertyId?: string | undefined;
+  /** Solo las unidades de este emprendimiento. */
+  readonly developmentId?: string | undefined;
   readonly sort: PublicSort;
   readonly offset: number;
   readonly limit: number;

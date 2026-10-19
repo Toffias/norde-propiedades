@@ -5,4 +5,6 @@
 export interface PublicSite {
   /** Vuelve a armar la ficha de la propiedad y los listados donde aparece. */
   revalidateProperty(propertyId: string): Promise<void>;
+  /** Vuelve a armar la ficha del emprendimiento y el listado de emprendimientos. */
+  revalidateDevelopment(developmentId: string): Promise<void>;
 }

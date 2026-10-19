@@ -5,7 +5,13 @@ import { unwrap, unwrapErr } from '../../../shared/testing';
 import { InMemoryFileStorage } from '../../../settings/testing';
 import { publicImageVersion } from '../../contracts';
 import type { PropertyMediaRecord } from '../ports/property-search-query';
-import { aPropertyMediaRecord, aPropertyRecord, InMemoryPropertySearchQuery } from '../../testing';
+import {
+  aPropertyMediaRecord,
+  aPropertyRecord,
+  aPublishedDevelopmentRecord,
+  InMemoryPropertySearchQuery,
+  InMemoryPublishedDevelopmentQuery,
+} from '../../testing';
 
 import { GetPublicPhoto } from './get-public-photo';
 
@@ -22,7 +28,32 @@ async function setup(media: PropertyMediaRecord, property: Parameters<typeof aPr
   const properties = new InMemoryPropertySearchQuery([
     aPropertyRecord({ ...property, media: [media] }),
   ]);
-  return new GetPublicPhoto({ properties, storage });
+  return new GetPublicPhoto({
+    properties,
+    developments: new InMemoryPublishedDevelopmentQuery(),
+    storage,
+  });
+}
+
+async function developmentSetup(
+  media: PropertyMediaRecord,
+  development: Parameters<typeof aPublishedDevelopmentRecord>[0],
+) {
+  const storage = new InMemoryFileStorage();
+  if (media.variants.web) {
+    await storage.put({
+      key: media.variants.web,
+      contentType: 'image/jpeg',
+      bytes: new Uint8Array([3]),
+    });
+  }
+  return new GetPublicPhoto({
+    properties: new InMemoryPropertySearchQuery(),
+    developments: new InMemoryPublishedDevelopmentQuery([
+      aPublishedDevelopmentRecord({ ...development, media: [media] }),
+    ]),
+    storage,
+  });
 }
 
 describe('GetPublicPhoto', () => {
@@ -48,10 +79,11 @@ describe('GetPublicPhoto', () => {
     });
     const properties = new InMemoryPropertySearchQuery([aPropertyRecord({ media: [marked] })]);
     const delivery = unwrap(
-      await new GetPublicPhoto({ properties, storage }).execute(
-        { mediaId: photo.id, version: VERSION },
-        web,
-      ),
+      await new GetPublicPhoto({
+        properties,
+        developments: new InMemoryPublishedDevelopmentQuery(),
+        storage,
+      }).execute({ mediaId: photo.id, version: VERSION }, web),
     );
     expect(delivery).toMatchObject({ kind: 'content', bytes: new Uint8Array([7]) });
   });
@@ -105,5 +137,24 @@ describe('GetPublicPhoto', () => {
     expect(
       unwrapErr(await useCase.execute({ mediaId: photo.id, version: VERSION }, nobody)),
     ).toEqual({ type: 'Forbidden' });
+  });
+
+  it('serves a photo of a development being marketed', async () => {
+    const photo = aPropertyMediaRecord({ updatedAt: UPDATED_AT });
+    const useCase = await developmentSetup(photo, {});
+    expect(
+      unwrap(await useCase.execute({ mediaId: photo.id, version: VERSION }, web)),
+    ).toMatchObject({ kind: 'content', bytes: new Uint8Array([3]) });
+  });
+
+  it.each([
+    ['still loading information', { status: 'loading' as const }],
+    ['in the trash', { deletedAt: new Date('2026-10-02T12:00:00Z') }],
+  ])('hides the photos of a development %s', async (_, development) => {
+    const photo = aPropertyMediaRecord({ updatedAt: UPDATED_AT });
+    const useCase = await developmentSetup(photo, development);
+    expect(unwrapErr(await useCase.execute({ mediaId: photo.id, version: VERSION }, web))).toEqual({
+      type: 'PhotoNotFound',
+    });
   });
 });

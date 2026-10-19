@@ -7,21 +7,28 @@ import {
   type GetPublicPhotoInput,
   type PublicPhotoDelivery,
 } from '../../contracts';
-import { isPubliclyListed } from '../../domain/property-status';
+import { isPubliclyListed, PUBLICLY_LISTED_STATUSES } from '../../domain/property-status';
+import { isDevelopmentPubliclyListed } from '../../domain/public-development';
 import { isPublicImage, publicImageKey } from '../../domain/public-listing';
-import type { PropertySearchQuery } from '../ports/property-search-query';
+import type { PropertyMediaRecord, PropertySearchQuery } from '../ports/property-search-query';
+import type { PublishedDevelopmentQuery } from '../ports/published-development-query';
 
-/** No existe, no se publica o su propiedad no está publicada: la web responde 404 igual. */
+/**
+ * No existe, no se publica o su propiedad (o emprendimiento) no está publicado: la web responde
+ * 404 igual.
+ */
 export type GetPublicPhotoError = ForbiddenError | { readonly type: 'PhotoNotFound' };
 
 /**
- * Una foto o un plano de una propiedad publicada, para la ruta `/fotos/<id>/<versión>` de la
- * web: la versión web (o la de marca de agua), nunca la original (ADR 0023).
+ * Una foto o un plano de una propiedad o un emprendimiento publicados, para la ruta
+ * `/fotos/<id>/<versión>` de la web: la versión web (o la de marca de agua), nunca la original
+ * (ADR 0023).
  */
 export class GetPublicPhoto {
   constructor(
     private readonly deps: {
       readonly properties: PropertySearchQuery;
+      readonly developments: PublishedDevelopmentQuery;
       readonly storage: FileStorage;
     },
   ) {}
@@ -35,11 +42,8 @@ export class GetPublicPhoto {
     if (!parsed.success) return err({ type: 'PhotoNotFound' });
     const { mediaId, version } = parsed.data;
 
-    const property = await this.deps.properties.findByMediaId(mediaId);
-    const media = property?.media.find((m) => m.id === mediaId);
-    if (!property || !media || !isPubliclyListed(property) || !isPublicImage(media)) {
-      return err({ type: 'PhotoNotFound' });
-    }
+    const media = await this.findPublished(mediaId);
+    if (!media || !isPublicImage(media)) return err({ type: 'PhotoNotFound' });
 
     if (media.storageKey === null && media.externalUrl !== null) {
       return ok({ kind: 'external', url: media.externalUrl });
@@ -51,5 +55,19 @@ export class GetPublicPhoto {
     const stored = key === undefined ? undefined : await this.deps.storage.get(key);
     if (!stored) return err({ type: 'PhotoNotFound' });
     return ok({ kind: 'content', contentType: stored.contentType, bytes: stored.bytes });
+  }
+
+  /** La foto, si su dueño (una propiedad o un emprendimiento) se muestra al público. */
+  private async findPublished(mediaId: string): Promise<PropertyMediaRecord | undefined> {
+    const property = await this.deps.properties.findByMediaId(mediaId);
+    if (property) {
+      return isPubliclyListed(property) ? property.media.find((m) => m.id === mediaId) : undefined;
+    }
+    const development = await this.deps.developments.findByMediaId(
+      mediaId,
+      PUBLICLY_LISTED_STATUSES,
+    );
+    if (!development || !isDevelopmentPubliclyListed(development)) return undefined;
+    return development.media.find((m) => m.id === mediaId);
   }
 }

@@ -260,6 +260,13 @@
       "when": 1792287587485,
       "tag": "0036_required_branch_whatsapp",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792374334979,
+      "tag": "0037_public_developments",
+      "breakpoints": true
     }
   ]
 }

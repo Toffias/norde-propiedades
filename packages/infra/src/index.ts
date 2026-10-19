@@ -39,6 +39,7 @@ export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search
 export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-property-list-query';
 export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
 export { DrizzleDevelopmentListQuery } from './properties/drizzle-development-list-query';
+export { DrizzlePublishedDevelopmentQuery } from './properties/drizzle-published-development-query';
 export { DrizzleDevelopmentUnitImportQuery } from './properties/drizzle-development-unit-imports';
 export {
   DrizzleClientFavoriteErasure,

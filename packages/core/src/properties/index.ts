@@ -29,6 +29,28 @@ export {
   RevalidatePublicProperty,
   type RevalidatePublicPropertyError,
 } from './application/handlers/revalidate-public-property';
+export {
+  RevalidatePublicDevelopment,
+  type RevalidatePublicDevelopmentError,
+} from './application/handlers/revalidate-public-development';
+export {
+  SearchPublishedDevelopments,
+  type SearchPublishedDevelopmentsError,
+} from './application/queries/search-published-developments';
+export {
+  GetPublishedDevelopment,
+  type GetPublishedDevelopmentError,
+} from './application/queries/get-published-development';
+export type {
+  PublishedDevelopmentCriteria,
+  PublishedDevelopmentQuery,
+  PublishedDevelopmentRecord,
+} from './application/ports/published-development-query';
+export {
+  PUBLICLY_LISTED_DEVELOPMENT_STATUSES,
+  type LocationLevel,
+  type UnitPriceFrom,
+} from './domain/public-development';
 
 export {
   OPERATION_LABELS,

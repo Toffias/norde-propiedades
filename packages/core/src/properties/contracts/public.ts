@@ -52,6 +52,8 @@ export const SearchPropertiesInputSchema = z.object({
   featuredOnly: z.boolean().optional(),
   /** Para "propiedades similares": deja afuera la ficha que se está viendo. */
   excludePropertyId: z.uuid().optional(),
+  /** Las unidades de un emprendimiento (su ficha en la web). */
+  developmentId: z.uuid().optional(),
   sort: z.enum(PUBLIC_SORT_VALUES).default('featured'),
   page: z.int().min(1).max(1000).default(1),
   pageSize: z.int().min(1).max(PUBLIC_SEARCH_MAX_PAGE_SIZE).default(3),

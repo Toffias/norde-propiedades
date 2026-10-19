@@ -44,6 +44,9 @@ export interface InquirySender {
   send(inquiry: WebInquiry): Promise<WebInquiryOutcome>;
 }
 
+// Tipos de la respuesta del agente que usa la Server Action del chat.
+export type { WebChatListingSearch, WebChatReply } from '@norde/infra';
+
 /** El chat del sitio, que habla con apps/agent (ADR 0037). `undefined` si no está configurado. */
 export interface ChatSender {
   send(message: WebChatMessage): Promise<WebChatOutcome>;

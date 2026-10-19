@@ -23,6 +23,7 @@ const ChatEntrySchema = z.object({
   photoUrl: z.string().max(500).nullable(),
   // Los mensajes guardados antes de las tarjetas no tienen el campo.
   cards: z.array(ChatPropertyCardSchema).max(10).default([]),
+  listingUrl: z.string().max(1000).nullable().default(null),
   buttons: z.array(z.object({ id: z.string().max(64), title: z.string().max(40) })).max(3),
   /** Aviso de error del sitio, no del agente: se muestra distinto. */
   error: z.boolean(),

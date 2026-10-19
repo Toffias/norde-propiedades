@@ -35,6 +35,8 @@ export interface ChatReply {
   readonly text: string;
   readonly photoUrl: string | null;
   readonly cards: readonly ChatPropertyCard[];
+  /** "Ver todas las opciones en la web": el listado con la búsqueda del agente, si buscó. */
+  readonly listingUrl: string | null;
   readonly buttons: readonly { readonly id: string; readonly title: string }[];
 }
 

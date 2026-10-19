@@ -7,11 +7,12 @@ import { z } from 'zod';
 
 import { getEnv } from '../../config/env';
 import { getLogger } from '../../config/logger';
-import { getContainer } from '../../container';
+import { getContainer, type WebChatReply } from '../../container';
 import { clientIp } from '../client-ip';
 import { createRateLimiter } from '../rate-limit';
 
-import { ChatMessageInputSchema, type ChatActionResult } from './chat-contract';
+import { ChatMessageInputSchema, type ChatActionResult, type ChatReply } from './chat-contract';
+import { chatListingHref } from './listing-link';
 
 /** Sesión anónima del visitante: identifica su conversación con el agente (ADR 0037). */
 const SESSION_COOKIE = 'norde_chat';
@@ -41,6 +42,10 @@ async function sessionId(): Promise<string> {
   return created;
 }
 
+function toChatReply({ listing, ...reply }: WebChatReply): ChatReply {
+  return { ...reply, listingUrl: listing ? chatListingHref(listing) : null };
+}
+
 /** Server Action del widget: manda el mensaje al agente y devuelve su respuesta. */
 export async function sendChatMessage(input: unknown): Promise<ChatActionResult> {
   const parsed = ChatMessageInputSchema.safeParse(input);
@@ -55,7 +60,7 @@ export async function sendChatMessage(input: unknown): Promise<ChatActionResult>
     const outcome = await chat.send({ sessionId: await sessionId(), ...parsed.data });
     switch (outcome.kind) {
       case 'reply':
-        return { status: 'ok', reply: outcome.reply };
+        return { status: 'ok', reply: outcome.reply && toChatReply(outcome.reply) };
       case 'busy':
         return { status: 'error', message: BUSY };
       case 'unavailable':

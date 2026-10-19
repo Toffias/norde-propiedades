@@ -36,6 +36,7 @@ const entry: ChatEntry = {
       surfaceM2: 48,
     },
   ],
+  listingUrl: '/propiedades?operacion=alquiler&zona=Palermo',
   buttons: [],
   error: false,
 };
@@ -47,10 +48,10 @@ describe('transcript', () => {
   });
 
   it('reads entries saved before the cards existed', () => {
-    const { cards: _cards, ...older } = entry;
+    const { cards: _cards, listingUrl: _listingUrl, ...older } = entry;
     store.set('norde-chat:v1', JSON.stringify([older]));
 
-    expect(loadTranscript()).toEqual([{ ...entry, cards: [] }]);
+    expect(loadTranscript()).toEqual([{ ...entry, cards: [], listingUrl: null }]);
   });
 
   it('starts empty when the stored value is not valid', () => {

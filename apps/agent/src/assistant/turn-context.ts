@@ -4,9 +4,23 @@ import type { ConversationChannel } from '@norde/core/conversations';
 /** Búsqueda del cliente, en el formato en que se guarda en su oportunidad. */
 export type ContactSearch = NonNullable<RegisterContactInput['opportunity']['search']>;
 
+/**
+ * Una propiedad que el agente vio en el turno, con lo que necesita su tarjeta en el chat del
+ * sitio. Los textos ya vienen armados (precio con moneda, operación en español).
+ */
 export interface ShownProperty {
   readonly id: string;
   readonly title: string;
+  /** Link absoluto a la ficha: el agente lo escribe en su texto y así se elige la tarjeta. */
+  readonly url: string;
+  /** Portada por la ruta pública del sitio, o `null` si no tiene fotos. */
+  readonly photoUrl: string | null;
+  readonly operation: string;
+  readonly price: string;
+  readonly location: string;
+  readonly rooms: number | null;
+  readonly bedrooms: number | null;
+  readonly surfaceM2: number | null;
 }
 
 /**

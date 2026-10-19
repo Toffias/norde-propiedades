@@ -335,7 +335,10 @@ function ContactCard({ listing }: { readonly listing: ListingDetail }) {
               o dejanos tus datos
             </p>
           )}
-          <InquiryForm propertyId={listing.id} propertyTitle={listing.title} />
+          <InquiryForm
+            propertyId={listing.id}
+            defaultMessage={`Hola, me interesa "${listing.title}". ¿Me pasan más información?`}
+          />
         </>
       )}
       {!whatsapp && !formEnabled && (

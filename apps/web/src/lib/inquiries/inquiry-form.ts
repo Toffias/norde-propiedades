@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// El formulario de consulta de la ficha. Se valida acá (borde) y otra vez en apps/gestion, que
+// El formulario de consulta (ficha, contacto y tasaciones). Se valida acá (borde) y otra vez en apps/gestion, que
 // normaliza el teléfono y el email con las reglas del dominio.
 
 export const INQUIRY_FIELDS = {
@@ -50,7 +50,8 @@ const InquiryFormSchema = z
       .trim()
       .min(1, 'Escribí tu consulta.')
       .max(2000, 'La consulta es muy larga (hasta 2.000 caracteres).'),
-    propertyId: z.uuid(),
+    /** Solo en la ficha: la consulta de contacto o de tasación no tiene propiedad. */
+    propertyId: optionalText(36).pipe(z.uuid().optional()),
     honeypot: z.string().max(0),
   })
   .refine((data) => data.email !== undefined || data.phone !== undefined, {

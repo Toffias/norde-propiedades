@@ -5,7 +5,7 @@ import { buildSitemap } from './sitemap';
 const SITE = 'https://norde.com.ar';
 
 describe('buildSitemap', () => {
-  it('lists the home, the properties, the blog, the categories and the posts', () => {
+  it('lists the home, the properties, the fixed pages, the blog, the categories and the posts', () => {
     const sitemap = buildSitemap(SITE, {
       posts: [
         { slug: 'aumento-ipc', updatedAt: '2026-09-10T00:00:00.000Z' },
@@ -19,6 +19,8 @@ describe('buildSitemap', () => {
       'https://norde.com.ar/',
       'https://norde.com.ar/propiedades',
       'https://norde.com.ar/propiedades/ph-4-ambientes-liniers-dep0002',
+      'https://norde.com.ar/tasar-mi-propiedad',
+      'https://norde.com.ar/contacto',
       'https://norde.com.ar/blog',
       'https://norde.com.ar/blog/categoria/alquilar',
       'https://norde.com.ar/blog/aumento-ipc',
@@ -35,12 +37,12 @@ describe('buildSitemap', () => {
       categories: [],
       properties: [],
     });
-    expect(sitemap[2]?.lastModified).toBe('2026-09-20T00:00:00.000Z');
+    expect(sitemap[4]?.lastModified).toBe('2026-09-20T00:00:00.000Z');
   });
 
   it('works without posts', () => {
     const sitemap = buildSitemap(SITE, { posts: [], categories: [], properties: [] });
-    expect(sitemap).toHaveLength(3);
-    expect(sitemap[2]).not.toHaveProperty('lastModified');
+    expect(sitemap).toHaveLength(5);
+    expect(sitemap[4]).not.toHaveProperty('lastModified');
   });
 });

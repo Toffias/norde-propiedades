@@ -14,6 +14,12 @@ const PROPERTY_LINKS = [
   { label: 'Todas las propiedades', href: routes.properties() },
 ] as const;
 
+const SITE_LINKS = [
+  { label: 'Tasaciones', href: routes.appraisals() },
+  { label: 'Blog', href: routes.blog() },
+  { label: 'Contacto', href: routes.contact() },
+] as const;
+
 const LINK = 'hover:text-foreground transition-colors';
 
 export function SiteFooter() {
@@ -38,11 +44,13 @@ export function SiteFooter() {
                   </Link>
                 </li>
               ))}
-              <li>
-                <Link href={routes.blog()} className={LINK}>
-                  Blog
-                </Link>
-              </li>
+              {SITE_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className={LINK}>
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </nav>
           {(email ?? telephone ?? address) && (
@@ -58,7 +66,7 @@ export function SiteFooter() {
               {telephone && (
                 <p>
                   <a href={`tel:${telephone}`} className={LINK}>
-                    {telephone}
+                    {BUSINESS.telephoneLabel ?? telephone}
                   </a>
                 </p>
               )}

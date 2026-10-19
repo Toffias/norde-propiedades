@@ -303,12 +303,15 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 - **Caché**: ver [ADR 0011](../adr/0011-web-render-on-demand-sin-base-en-el-build.md). Al publicar, los hooks invalidan el tag `blog` y el cambio se ve en la próxima visita.
 - **Identidad** ([diseno-web.md](../diseno-web.md)): dirección "Barrio claro" con el wordmark y la línea escalonada del logo. Tema en `packages/ui/src/themes/web.css`; fuentes autoalojadas.
 - **Header, footer y WhatsApp flotante**: el WhatsApp aparece cuando Norde confirme el número en `src/constants/business.ts`.
+- **Barra superior** (arriba del header, no fija): teléfono, email, horario y redes sociales, todo desde `src/constants/business.ts`. El horario se carga una vez en `openingHours` (formato schema.org, también va al JSON-LD) y se muestra en texto ("Lun. a Vie. 10 a 18 h"); las redes salen de `sameAs` (Facebook, Instagram, LinkedIn y YouTube, por la URL); el teléfono se muestra con `telephoneLabel`. Muestra solo lo confirmado y sin datos no aparece; en mobile quedan el teléfono y las redes.
+- **Menú principal** (`src/lib/layout/site-nav.ts`): "Propiedades" despliega el listado completo y cada tipo de propiedad; "Operación" despliega Comprar, Alquilar y Tasaciones; después, Blog y Contacto. En desktop son desplegables accesibles por teclado; en mobile, grupos dentro del menú `<details>`. El header suma el botón de tema claro/oscuro (luna/sol), que se guarda en el navegador.
+- **Contacto** `/contacto` y **Tasaciones** `/tasar-mi-propiedad`: formulario de consulta (el mismo de la ficha, sin propiedad) y los canales que Norde haya confirmado en `BUSINESS`. Tasaciones suma los pasos, preguntas frecuentes (`FAQPage`) y JSON-LD `Service`. Hasta F6, el pedido de tasación entra como **consulta** en la bandeja del panel, no como tasación.
 - **Home**: hero con la portada de una destacada, buscador, destacadas (primero las marcadas, después las más nuevas), servicios, blog y llamado a propietarios.
 - **Listado** `/propiedades`: filtros en la URL en español (`operacion`, `tipo`, `zona`, `moneda`, `desde`, `hasta`, `ambientes`, `dormitorios`, `orden`, `pagina`), orden, paginación en el servidor con `<a href>` y estado vacío. Indexa operación, tipo, zona y página; los filtros finos llevan `noindex`.
 - **Ficha** `/propiedades/<slug>`: galería con visor, precio de cada operación, características, planos, videos y recorridos, mapa (pin exacto o zona aproximada), consulta por WhatsApp o por formulario, similares y JSON-LD `RealEstateListing` + `BreadcrumbList`.
   - El formulario manda la consulta firmada al webhook del panel (ADR 0021), con validación, trampa para bots y límite de 5 envíos por IP cada 10 minutos.
   - Una propiedad que ya no se ofrece muestra "ya no está disponible" con otras opciones y `noindex`. Next no permite responder 410 desde una página: responde 200 sin indexar.
-- **Sitemap**: suma el listado y cada ficha publicada.
+- **Sitemap**: suma el listado, cada ficha publicada, `/tasar-mi-propiedad` y `/contacto`.
 - **Datos de propiedades** (base de F3): `src/container.ts` arma `SearchProperties`, `GetPropertyDetail` y `GetPublicPhoto` con `system:web`. Ya están la ruta de fotos `/fotos/<id>/<versión>` y `POST /api/revalidate` ([ADR 0023](../adr/0023-fotos-publicas-y-revalidacion-de-la-web.md)).
 
 **Diferencias con lo planeado:**
@@ -319,9 +322,9 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
 
 **Pendiente:**
 
-- Datos del negocio en `src/constants/business.ts` (teléfono, WhatsApp, dirección, zonas, redes): están en `null` hasta que Norde los confirme. Sin esos datos no se muestran ni se publican en el JSON-LD.
+- Datos del negocio en `src/constants/business.ts`: teléfono, WhatsApp, email, dirección, Facebook e Instagram se tomaron del sitio actual (nordepropiedades.com.ar). Faltan el horario, las coordenadas, el código postal y las zonas: siguen vacíos hasta que Norde los confirme, y sin ellos no se muestran ni se publican en el JSON-LD.
 - Header, footer y home editables desde Payload (globals y page builder por bloques), storage en la nube para las imágenes del blog y E2E con Playwright.
-- Vista de mapa del listado, favoritos, emprendimientos (F3) y `/tasar-mi-propiedad` (F6).
+- Vista de mapa del listado, favoritos y emprendimientos (F3, también falta en el menú "Operación"). En `/tasar-mi-propiedad`, que el pedido cree la tasación en el panel (F6).
 - Turnstile en el formulario de consulta (hoy: trampa para bots y límite por IP).
 
 ---

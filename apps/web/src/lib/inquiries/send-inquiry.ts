@@ -14,7 +14,7 @@ const allow = createRateLimiter(5, () => Date.now());
 const UNAVAILABLE =
   'No pudimos enviar tu consulta. Probá de nuevo en unos minutos o escribinos por WhatsApp.';
 
-/** Server Action del formulario de la ficha: valida y manda la consulta al panel (ADR 0021). */
+/** Server Action del formulario de consulta (ficha, contacto, tasaciones): valida y manda la consulta al panel (ADR 0021). */
 export async function sendInquiry(
   _previous: InquiryFormState,
   form: FormData,
@@ -36,13 +36,14 @@ export async function sendInquiry(
   if (!sender) return failed(UNAVAILABLE);
 
   const logger = getLogger().child({ component: 'inquiry-form' });
-  const { email, phone, ...rest } = parsed.data;
+  const { email, phone, propertyId, ...rest } = parsed.data;
   try {
     const outcome = await sender.send({
       externalId: randomUUID(),
       ...rest,
       ...(email !== undefined && { email }),
       ...(phone !== undefined && { phone }),
+      ...(propertyId !== undefined && { propertyId }),
     });
     switch (outcome.kind) {
       case 'received':

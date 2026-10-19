@@ -1,4 +1,5 @@
-import { aPropertyDetail } from '../properties/test-fixtures';
+import { toDevelopmentDetail } from '../developments/view';
+import { aDevelopmentDetail, aPropertyDetail } from '../properties/test-fixtures';
 import { toListingDetail } from '../properties/view';
 import { describe, expect, it } from 'vitest';
 
@@ -12,6 +13,7 @@ import {
   serializeJsonLd,
   websiteSchema,
   realEstateListingSchema,
+  developmentListingSchema,
 } from './json-ld';
 
 const SITE = 'https://norde.com.ar';
@@ -220,5 +222,40 @@ describe('realEstateListingSchema', () => {
     );
     expect(schema.offers).not.toHaveProperty('price');
     expect(schema.about).not.toHaveProperty('geo');
+  });
+});
+
+describe('developmentListingSchema', () => {
+  const SITE = 'https://norde.example';
+
+  it('describes the development, its units as an aggregate offer and its area', () => {
+    const schema = developmentListingSchema(SITE, toDevelopmentDetail(aDevelopmentDetail()));
+    expect(schema).toMatchObject({
+      '@type': 'RealEstateListing',
+      url: `${SITE}/emprendimientos/torre-gurruchaga-emp0001`,
+      name: 'Torre Gurruchaga',
+      image: [`${SITE}/fotos/m1/abc`],
+      offers: { '@type': 'AggregateOffer', offerCount: 4, lowPrice: 95_000, priceCurrency: 'USD' },
+      about: {
+        '@type': 'Place',
+        address: {
+          streetAddress: 'Gurruchaga al 1800',
+          addressLocality: 'Palermo, CABA',
+          addressRegion: 'Buenos Aires',
+          addressCountry: 'AR',
+        },
+      },
+    });
+    // Las coordenadas son aproximadas: no se publican como `geo`.
+    expect(schema.about).not.toHaveProperty('geo');
+  });
+
+  it('leaves out the low price when no unit shows one', () => {
+    const schema = developmentListingSchema(
+      SITE,
+      toDevelopmentDetail(aDevelopmentDetail({ priceFrom: null })),
+    );
+    expect(schema.offers).not.toHaveProperty('lowPrice');
+    expect(schema.offers).not.toHaveProperty('priceCurrency');
   });
 });

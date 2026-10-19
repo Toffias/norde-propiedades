@@ -2,6 +2,7 @@
 // Funciones puras: reciben la URL del sitio y devuelven el objeto listo para serializar.
 
 import { BUSINESS, type Business } from '../../constants/business';
+import type { DevelopmentDetailView } from '../developments/view';
 import type { ListingDetail } from '../properties/view';
 import { absoluteUrl, routes } from './routes';
 
@@ -254,6 +255,52 @@ export function realEstateListingSchema(siteUrl: string, listing: ListingDetail)
         floorSize: { '@type': 'QuantitativeValue', value: listing.surfaceM2, unitCode: 'MTK' },
       }),
       ...(listing.rooms !== null && { numberOfRooms: listing.rooms }),
+    },
+  };
+}
+
+/**
+ * `RealEstateListing` de un emprendimiento: el desarrollo como `Place` (la dirección exacta es
+ * privada) y sus unidades como `AggregateOffer`, con el "desde" si alguna muestra su precio.
+ */
+export function developmentListingSchema(
+  siteUrl: string,
+  development: DevelopmentDetailView,
+): JsonLd {
+  const url = absoluteUrl(siteUrl, development.href);
+  return {
+    '@context': CONTEXT,
+    '@type': 'RealEstateListing',
+    '@id': `${url}#listing`,
+    url,
+    name: development.name,
+    ...(development.description.trim() !== '' && {
+      description: development.description.trim(),
+    }),
+    ...(development.photos.length > 0 && {
+      image: development.photos.slice(0, 10).map((photo) => absoluteUrl(siteUrl, photo.src)),
+    }),
+    dateModified: development.updatedAt,
+    offers: {
+      '@type': 'AggregateOffer',
+      businessFunction: 'http://purl.org/goodrelations/v1#Sell',
+      offerCount: development.availableUnitCount,
+      ...(development.lowPrice && {
+        lowPrice: development.lowPrice.amount,
+        priceCurrency: development.lowPrice.currency,
+      }),
+      seller: { '@id': organizationId(siteUrl) },
+    },
+    about: {
+      '@type': 'Place',
+      name: development.name,
+      address: {
+        '@type': 'PostalAddress',
+        ...(development.address && { streetAddress: development.address }),
+        ...(development.location !== '' && { addressLocality: development.location }),
+        ...(development.province !== '' && { addressRegion: development.province }),
+        addressCountry: 'AR',
+      },
     },
   };
 }

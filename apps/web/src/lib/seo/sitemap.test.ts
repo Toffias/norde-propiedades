@@ -5,7 +5,7 @@ import { buildSitemap } from './sitemap';
 const SITE = 'https://norde.com.ar';
 
 describe('buildSitemap', () => {
-  it('lists the home, the properties, the fixed pages, the blog, the categories and the posts', () => {
+  it('lists the home, the properties, the developments, the fixed pages, the blog and the posts', () => {
     const sitemap = buildSitemap(SITE, {
       posts: [
         { slug: 'aumento-ipc', updatedAt: '2026-09-10T00:00:00.000Z' },
@@ -13,12 +13,15 @@ describe('buildSitemap', () => {
       ],
       categories: [{ slug: 'alquilar', updatedAt: '2026-09-01T00:00:00.000Z' }],
       properties: ['ph-4-ambientes-liniers-dep0002'],
+      developments: ['torre-gurruchaga-emp0001'],
     });
 
     expect(sitemap.map((e) => e.url)).toEqual([
       'https://norde.com.ar/',
       'https://norde.com.ar/propiedades',
       'https://norde.com.ar/propiedades/ph-4-ambientes-liniers-dep0002',
+      'https://norde.com.ar/emprendimientos',
+      'https://norde.com.ar/emprendimientos/torre-gurruchaga-emp0001',
       'https://norde.com.ar/tasar-mi-propiedad',
       'https://norde.com.ar/contacto',
       'https://norde.com.ar/blog',
@@ -36,13 +39,19 @@ describe('buildSitemap', () => {
       ],
       categories: [],
       properties: [],
+      developments: [],
     });
-    expect(sitemap[4]?.lastModified).toBe('2026-09-20T00:00:00.000Z');
+    expect(sitemap[5]?.lastModified).toBe('2026-09-20T00:00:00.000Z');
   });
 
   it('works without posts', () => {
-    const sitemap = buildSitemap(SITE, { posts: [], categories: [], properties: [] });
-    expect(sitemap).toHaveLength(5);
-    expect(sitemap[4]).not.toHaveProperty('lastModified');
+    const sitemap = buildSitemap(SITE, {
+      posts: [],
+      categories: [],
+      properties: [],
+      developments: [],
+    });
+    expect(sitemap).toHaveLength(6);
+    expect(sitemap[5]).not.toHaveProperty('lastModified');
   });
 });

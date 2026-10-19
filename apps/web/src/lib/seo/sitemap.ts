@@ -8,12 +8,17 @@ export interface SitemapSource {
   readonly categories: readonly { readonly slug: string; readonly updatedAt: string }[];
   /** Slugs de las propiedades publicadas. */
   readonly properties: readonly string[];
+  /** Slugs de los emprendimientos que se comercializan. */
+  readonly developments: readonly string[];
 }
 
 const latest = (dates: readonly string[]): string | undefined =>
   dates.length > 0 ? [...dates].sort().at(-1) : undefined;
 
-/** Entradas del sitemap: páginas fijas, propiedades publicadas, tasaciones, contacto, blog, categorías y posts. */
+/**
+ * Entradas del sitemap: páginas fijas, propiedades publicadas, emprendimientos, tasaciones,
+ * contacto, blog, categorías y posts.
+ */
 export function buildSitemap(siteUrl: string, source: SitemapSource): MetadataRoute.Sitemap {
   const lastPost = latest(source.posts.map((p) => p.updatedAt));
   const withDate = (lastModified: string | undefined) => (lastModified ? { lastModified } : {});
@@ -23,6 +28,12 @@ export function buildSitemap(siteUrl: string, source: SitemapSource): MetadataRo
     { url: absoluteUrl(siteUrl, routes.properties()), changeFrequency: 'daily', priority: 0.9 },
     ...source.properties.map((slug) => ({
       url: absoluteUrl(siteUrl, routes.property(slug)),
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    })),
+    { url: absoluteUrl(siteUrl, routes.developments()), changeFrequency: 'weekly', priority: 0.8 },
+    ...source.developments.map((slug) => ({
+      url: absoluteUrl(siteUrl, routes.development(slug)),
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),

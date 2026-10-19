@@ -90,7 +90,7 @@ function locationOf(p: PropertySummary): string {
   return [p.neighborhood, p.city].filter((part) => part.trim() !== '').join(', ');
 }
 
-function toImage(image: PublicImage, fallbackAlt: string): ListingImage {
+export function toListingImage(image: PublicImage, fallbackAlt: string): ListingImage {
   return {
     src: image.src,
     width: image.width,
@@ -139,7 +139,7 @@ export function toListingCard(p: PropertySummary): ListingCard {
     propertyTypeLabel: PROPERTY_TYPE_LABELS[p.propertyType],
     location,
     address: p.address,
-    cover: p.cover && toImage(p.cover, `${p.title}, ${location}`),
+    cover: p.cover && toListingImage(p.cover, `${p.title}, ${location}`),
     photoCount: p.photoCount,
     featured: p.featured,
     facts: factsOf(p),
@@ -202,8 +202,10 @@ export function toListingDetail(d: PropertyDetail): ListingDetail {
     otherOperations: d.operations
       .filter((o) => o.operation !== d.operation)
       .map((o) => ({ label: OPERATION_LABELS[o.operation], value: formatPrice(o.price) })),
-    photos: d.photos.map((photo, index) => toImage(photo, `${alt}, foto ${index + 1}`)),
-    floorPlans: d.floorPlans.map((plan, index) => toImage(plan, `${alt}, plano ${index + 1}`)),
+    photos: d.photos.map((photo, index) => toListingImage(photo, `${alt}, foto ${index + 1}`)),
+    floorPlans: d.floorPlans.map((plan, index) =>
+      toListingImage(plan, `${alt}, plano ${index + 1}`),
+    ),
     coordinates: d.coordinates,
     attributes: attributesOf(d),
     featureGroups: featureGroupsOf(d),

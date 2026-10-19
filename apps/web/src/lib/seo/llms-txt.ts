@@ -31,6 +31,7 @@ export function buildLlmsTxt(
     '',
     `- [Inicio](${url(routes.home())}): servicios de compra, venta, alquiler, tasaciones y administración de alquileres.`,
     `- [Propiedades](${url(routes.properties())}): propiedades en venta y en alquiler, con filtros por tipo y zona.`,
+    `- [Emprendimientos](${url(routes.developments())}): desarrollos en pozo, en construcción y terminados, con sus unidades disponibles.`,
     `- [Tasaciones](${url(routes.appraisals())}): pedido de tasación de una propiedad.`,
     `- [Contacto](${url(routes.contact())}): formulario de consulta y canales de contacto.`,
     `- [Blog](${url(routes.blog())}): guías sobre comprar, vender y alquilar propiedades.`,

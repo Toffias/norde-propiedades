@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 
 import { listCategories, listPublishedPosts, listPublishedPostSlugs } from '../../lib/blog/queries';
+import { developmentSlugs } from '../../lib/developments/queries';
 import { listingSlugs } from '../../lib/properties/queries';
 import { buildSitemap } from '../../lib/seo/sitemap';
 import { getSiteUrl } from '../../lib/site-url';
@@ -9,10 +10,11 @@ import { getSiteUrl } from '../../lib/site-url';
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [posts, categories, properties] = await Promise.all([
+  const [posts, categories, properties, developments] = await Promise.all([
     listPublishedPostSlugs(),
     listCategories(),
     listingSlugs(),
+    developmentSlugs(),
   ]);
   const withPosts = await Promise.all(
     categories.map(async (category) =>
@@ -20,5 +22,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ),
   );
 
-  return buildSitemap(getSiteUrl(), { posts, categories: withPosts.flat(), properties });
+  return buildSitemap(getSiteUrl(), {
+    posts,
+    categories: withPosts.flat(),
+    properties,
+    developments,
+  });
 }

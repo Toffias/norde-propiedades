@@ -199,6 +199,7 @@ export class RunPropertyImport {
         problems.push(blocked);
         if (blocked.code === 'already_imported') outcome = 'existing';
       } else {
+        problems.push(...row.warnings);
         const producer =
           (row.producerName === undefined
             ? undefined

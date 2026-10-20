@@ -320,6 +320,29 @@ describe('Tokko properties import', () => {
     expect(ctx.uow.owners.rows.size).toBe(0);
   });
 
+  it('imports a unit code with a space and drops a total smaller than its parts, warning', async () => {
+    const ctx = setup();
+    await importRows(ctx, [
+      {
+        ...CASA,
+        code: 'NBU12345 AP1234567',
+        surfaceTotal: '54.60 m2',
+        surfaceCovered: '44.30 m2',
+        surfaceSemiCovered: '10.60 m2',
+      },
+    ]);
+
+    const unidad = byCode(ctx, 'NBU12345-AP1234567');
+    expect(unidad?.characteristics).toMatchObject({
+      surfaceTotalM2: undefined,
+      surfaceCoveredM2: 44.3,
+      surfaceSemiCoveredM2: 10.6,
+    });
+    expect(ctx.uow.propertyImports.problems.map((p) => [p.code, p.field, p.propertyId])).toEqual([
+      ['total_surface_dropped', 'surfaceTotal', unidad?.id],
+    ]);
+  });
+
   it('does not import again a code that already exists, and reports invalid rows', async () => {
     const ctx = setup();
     const trashed = propertySnapshot({ code: 'NAP2002', deletedAt: TEST_NOW });
@@ -331,7 +354,7 @@ describe('Tokko properties import', () => {
       UNIDAD,
       { ...CASA, code: 'NHO1003', propertyType: 'Bóveda' },
       { ...CASA, code: 'NHO1004', salePrice: '-', rentPrice: '-' },
-      { ...CASA, code: 'NHO1005', surfaceCovered: '500.00 m2' },
+      { ...CASA, code: 'NHO1005', rooms: 'muchos' },
     ]);
 
     expect(ctx.uow.propertyImports.rows.get(second)).toMatchObject({
@@ -346,7 +369,7 @@ describe('Tokko properties import', () => {
       [3, 'code_in_trash', 'code'],
       [4, 'unknown_type', 'propertyType'],
       [5, 'missing_operation', 'salePrice'],
-      [6, 'invalid_value', 'surfaceCovered'],
+      [6, 'invalid_value', 'rooms'],
     ]);
     expect([...ctx.uow.properties.rows.values()]).toHaveLength(2);
   });

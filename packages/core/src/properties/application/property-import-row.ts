@@ -21,6 +21,7 @@ import {
   tokkoPlace,
   tokkoPrice,
   tokkoPropertyKind,
+  tokkoReferenceCode,
   type TokkoAddress,
   type TokkoPlace,
 } from '../domain/tokko-property';
@@ -49,6 +50,8 @@ export interface ImportedProperty {
       }
     | undefined;
   readonly developmentName: string | undefined;
+  /** Lo que se ajustó para poder importarla (queda como aviso en el reporte). */
+  readonly warnings: readonly RowProblem[];
 }
 
 const problem = (code: PropertyImportProblemCode, field?: PropertyImportField): RowProblem => ({
@@ -94,7 +97,7 @@ export function readPropertyImportRow(
     return raw === undefined || raw === '' || EMPTY.test(raw) ? undefined : raw;
   };
 
-  const code = cleanReferenceCode(value('code') ?? '');
+  const code = cleanReferenceCode(tokkoReferenceCode(value('code') ?? ''));
   if (code === undefined) return err(problem('invalid_code', 'code'));
   const rawAddress = value('address');
   if (rawAddress === undefined) return err(problem('missing_address', 'address'));
@@ -121,7 +124,18 @@ export function readPropertyImportRow(
     if (count === null) return err(problem('invalid_value', field));
     characteristics[target] = count;
   }
-  const valid = validateCharacteristics({ ...EMPTY_CHARACTERISTICS, ...characteristics });
+  const warnings: RowProblem[] = [];
+  let valid = validateCharacteristics({ ...EMPTY_CHARACTERISTICS, ...characteristics });
+  // Tokko redondea: la total puede quedar unos centímetros debajo de la cubierta más la
+  // semicubierta. Se importa sin la total, con un aviso.
+  if (valid.isErr() && valid.error.type === 'CoveredExceedsTotal') {
+    valid = validateCharacteristics({
+      ...EMPTY_CHARACTERISTICS,
+      ...characteristics,
+      surfaceTotalM2: undefined,
+    });
+    if (valid.isOk()) warnings.push(problem('total_surface_dropped', 'surfaceTotal'));
+  }
   if (valid.isErr()) return err(problem('invalid_value', 'surfaceCovered'));
 
   const expensesCents = tokkoExpensesCents(value('expenses'));
@@ -155,5 +169,6 @@ export function readPropertyImportRow(
         ? undefined
         : { name: ownerName ?? '', phone: ownerPhone, email: ownerEmail },
     developmentName: tokkoDevelopmentName(value('development')),
+    warnings,
   });
 }

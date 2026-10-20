@@ -119,6 +119,7 @@ export const PROPERTY_IMPORT_PROBLEM_CODES = [
   'invalid_value',
   'owner_not_linked',
   'development_not_found',
+  'total_surface_dropped',
 ] as const;
 export type PropertyImportProblemCode = (typeof PROPERTY_IMPORT_PROBLEM_CODES)[number];
 
@@ -126,6 +127,7 @@ export type PropertyImportProblemCode = (typeof PROPERTY_IMPORT_PROBLEM_CODES)[n
 export const PROPERTY_IMPORT_WARNINGS: readonly PropertyImportProblemCode[] = [
   'owner_not_linked',
   'development_not_found',
+  'total_surface_dropped',
 ];
 
 /** `existing`: ya había una propiedad con ese código. */

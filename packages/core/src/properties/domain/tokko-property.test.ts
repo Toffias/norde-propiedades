@@ -28,6 +28,7 @@ import {
   tokkoPlace,
   tokkoPrice,
   tokkoPropertyKind,
+  tokkoReferenceCode,
 } from './tokko-property';
 
 describe('tokkoPropertyKind', () => {
@@ -111,6 +112,8 @@ describe('Tokko numbers', () => {
     expect(tokkoCount('3')).toBe(3);
     expect(tokkoCount('0')).toBe(0);
     expect(tokkoCount('2,5')).toBeNull();
+    // Tokko exporta "-1" en la antigüedad que no se cargó.
+    expect(tokkoCount('-1')).toBeUndefined();
     expect(tokkoExpensesCents('60000')).toBe(6_000_000n);
     expect(tokkoExpensesCents('0')).toBeUndefined();
     expect(tokkoExpensesCents('$ 80.000')).toBe(8_000_000n);
@@ -144,6 +147,23 @@ describe('tokkoAddress', () => {
     });
   });
 
+  it('reads the ways Tokko writes the floor and the unit', () => {
+    const position = (raw: string) => {
+      const { floor, unit } = tokkoAddress(`Av. Rivadavia 9540 ${raw}`);
+      return [floor, unit];
+    };
+    expect(position('Piso 4 Departamento A')).toEqual(['4', 'A']);
+    expect(position('Piso 2')).toEqual(['2', undefined]);
+    expect(position('Planta Baja')).toEqual(['PB', undefined]);
+    expect(position('PB 9')).toEqual(['PB', '9']);
+    expect(position('3º UF 12')).toEqual(['3', '12']);
+    expect(position('3 UF º 12')).toEqual(['3', '12']);
+    expect(position('11ºD')).toEqual(['11', 'D']);
+    expect(position('2°B')).toEqual(['2', 'B']);
+    expect(position('Depto 9')).toEqual([undefined, '9']);
+    expect(position('PB LOCAL')).toEqual(['PB', 'LOCAL']);
+  });
+
   it('keeps what it cannot read', () => {
     expect(tokkoAddress('Ruta 2 km 45, lote 12')).toMatchObject({
       street: 'Ruta',
@@ -156,6 +176,13 @@ describe('tokkoAddress', () => {
       floor: undefined,
       unit: undefined,
     });
+  });
+});
+
+describe('tokkoReferenceCode', () => {
+  it('replaces the spaces of a unit code with a dash', () => {
+    expect(tokkoReferenceCode('NBU12345 AP1234567')).toBe('NBU12345-AP1234567');
+    expect(tokkoReferenceCode(' nph285767 ')).toBe('NPH285767');
   });
 });
 

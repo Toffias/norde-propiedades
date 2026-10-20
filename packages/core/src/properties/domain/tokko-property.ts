@@ -137,7 +137,8 @@ export function tokkoMeasure(raw: string | undefined): number | null | undefined
 /** Una cantidad (ambientes, baños, años). `null` si no es un entero. */
 export function tokkoCount(raw: string | undefined): number | null | undefined {
   const text = (raw ?? '').trim();
-  if (text === '' || /^-+$/.test(text)) return undefined;
+  // Tokko exporta "-1" para "sin dato" (por ejemplo, en la antigüedad).
+  if (text === '' || /^-+$/.test(text) || text === '-1') return undefined;
   return /^\d{1,4}$/.test(text) ? Number(text) : null;
 }
 
@@ -208,13 +209,39 @@ export function tokkoAddress(raw: string): TokkoAddress {
     return { street: text, streetNumber: undefined, floor: undefined, unit: undefined };
   }
   const rest = (match[3] ?? '').trim();
-  const position = /^(PB|\d{1,3})\s*[º°]?\s*(?:piso)?\s*["'-]?\s*([A-Za-z0-9]{1,4})?$/i.exec(rest);
   if (rest === '') return { street, streetNumber: match[2], floor: undefined, unit: undefined };
-  if (!position?.[1]) return { street, streetNumber: match[2], floor: rest, unit: undefined };
-  return {
-    street,
-    streetNumber: match[2],
-    floor: position[1].toUpperCase(),
-    unit: position[2]?.toUpperCase(),
-  };
+  const position = tokkoPosition(rest);
+  return { street, streetNumber: match[2], floor: position.floor, unit: position.unit };
+}
+
+/** "Departamento", "Depto.", "Dpto", "UF" o "Unidad" antes de la unidad. */
+const UNIT_WORD = String.raw`(?:departamento|depto\.?|dpto\.?|uf|unidad)`;
+
+/**
+ * El piso y la unidad: "4º A", "4ºB", "PB", "Planta Baja", "PB 9", "Piso 4 Departamento A",
+ * "4º UF 9", "Depto 9" o "PB LOCAL". Lo que no se entiende queda entero como piso.
+ */
+function tokkoPosition(raw: string): {
+  readonly floor: string | undefined;
+  readonly unit: string | undefined;
+} {
+  const text = raw.replace(/planta baja/i, 'PB');
+  const onlyUnit = new RegExp(String.raw`^${UNIT_WORD}\s*[º°]?\s*([A-Za-z0-9]{1,6})$`, 'i').exec(
+    text,
+  );
+  if (onlyUnit?.[1]) return { floor: undefined, unit: onlyUnit[1].toUpperCase() };
+  const position = new RegExp(
+    String.raw`^(?:piso\s*)?(PB|\d{1,3})\s*[º°]?\s*(?:piso\s*)?(?:${UNIT_WORD}\s*[º°]?\s*)?["'-]?\s*([A-Za-z0-9]{1,6})?$`,
+    'i',
+  ).exec(text);
+  if (!position?.[1]) return { floor: raw, unit: undefined };
+  return { floor: position[1].toUpperCase(), unit: position[2]?.toUpperCase() };
+}
+
+/**
+ * El código de referencia de Tokko como código de Norde: en mayúsculas y con guiones en lugar de
+ * espacios ("NBU12345 AP1234567" → "NBU12345-AP1234567").
+ */
+export function tokkoReferenceCode(raw: string): string {
+  return raw.trim().toUpperCase().replace(/\s+/g, '-');
 }

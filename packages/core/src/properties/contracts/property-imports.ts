@@ -111,6 +111,7 @@ export const PROPERTY_IMPORT_PROBLEM_CODE_VALUES = [
   'invalid_value',
   'owner_not_linked',
   'development_not_found',
+  'total_surface_dropped',
 ] as const;
 export type PropertyImportProblemCodeValue = (typeof PROPERTY_IMPORT_PROBLEM_CODE_VALUES)[number];
 
@@ -127,12 +128,15 @@ export const PROPERTY_IMPORT_PROBLEM_LABELS: Readonly<
   invalid_value: 'Valor inválido',
   owner_not_linked: 'Se importó sin propietario: no tiene un teléfono ni un email válidos',
   development_not_found: 'Se importó suelta: no hay un emprendimiento con ese nombre',
+  total_surface_dropped:
+    'Se importó sin la superficie total: era menor que la cubierta más la semicubierta',
 };
 
 /** Los problemas que no impidieron importar la propiedad (replica `PROPERTY_IMPORT_WARNINGS`). */
 export const PROPERTY_IMPORT_WARNING_VALUES: readonly PropertyImportProblemCodeValue[] = [
   'owner_not_linked',
   'development_not_found',
+  'total_surface_dropped',
 ];
 
 export const MAX_PROPERTY_IMPORT_ROWS = 2000;

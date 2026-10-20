@@ -156,7 +156,7 @@ function ImportWizard({
               accept={CLIENT_IMPORT_ACCEPT}
               disabled={pending}
               title={pending ? 'Leyendo el archivo…' : 'Elegí o arrastrá el Excel'}
-              hint={`Un .xlsx de hasta 10 MB y ${count(MAX_CLIENT_IMPORT_ROWS)} filas, con los encabezados en la primera fila.`}
+              hint={`Un .xlsx, .xls (como la exportación de Tokko) o .csv de hasta 10 MB y ${count(MAX_CLIENT_IMPORT_ROWS)} filas, con los encabezados en la primera fila.`}
             />
             <p className="text-sm text-muted-foreground">
               Después de subirlo vas a poder revisar qué columna va con cada dato antes de importar.

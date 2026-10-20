@@ -415,6 +415,7 @@ import {
   SystemClock,
   UuidV7IdGenerator,
   XlsxClientExportWriter,
+  UploadedSpreadsheetReader,
   XlsxSpreadsheetReader,
   DrizzleClientImportQuery,
   type Database,
@@ -1306,7 +1307,7 @@ function createClientsUseCases(
 ) {
   const { ids, clock, storage } = deps;
   const uow = createClientsUnitOfWork(db, { ids, clock });
-  const reader = new XlsxSpreadsheetReader();
+  const reader = new UploadedSpreadsheetReader();
   const imports = new DrizzleClientImportQuery(db);
   const directory = new DrizzleDirectory(db);
   const userAccess = new DrizzleUserAccessQuery(db);
@@ -1805,7 +1806,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     },
     runImport: new RunClientImport({
       uow: createClientsUnitOfWork(db, deps),
-      reader: new XlsxSpreadsheetReader(),
+      reader: new UploadedSpreadsheetReader(),
       storage,
       ids,
       clock,

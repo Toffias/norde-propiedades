@@ -43,7 +43,8 @@ export type StartClientImportError =
   | TooManyImportRowsError
   | AgentNotFoundError;
 
-const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+/** Puede ser `.xlsx`, `.xls` o `.csv`: el lector lo reconoce por su contenido. */
+const UPLOAD_CONTENT_TYPE = 'application/octet-stream';
 
 /**
  * Pide la importación de un Excel con el mapeo de columnas elegido: guarda el archivo y deja la
@@ -100,7 +101,7 @@ export class StartClientImport {
 
     await this.deps.storage.put({
       key: job.storageKey,
-      contentType: XLSX_CONTENT_TYPE,
+      contentType: UPLOAD_CONTENT_TYPE,
       bytes: data.bytes,
     });
     try {

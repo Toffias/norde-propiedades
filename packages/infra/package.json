@@ -28,6 +28,7 @@
     "pg-boss": "catalog:",
     "sharp": "catalog:",
     "uuid": "catalog:",
+    "xlsx": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

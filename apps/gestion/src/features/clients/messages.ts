@@ -396,14 +396,14 @@ export const ERASE_CLIENT_ERROR_MESSAGES = {
 
 const IMPORT_FORBIDDEN = 'No tenés permiso para importar contactos.';
 const UNREADABLE =
-  'No pudimos leer el archivo. Subí un Excel (.xlsx) con los encabezados en la primera fila.';
+  'No pudimos leer el archivo. Subí un Excel (.xlsx o .xls) o un .csv con los encabezados en la primera fila.';
 const EMPTY_FILE = 'El archivo no tiene filas con datos debajo de los encabezados.';
 const TOO_MANY_ROWS = (error: { readonly max: number }) =>
   `El archivo tiene más de ${error.max.toLocaleString('es-AR')} filas. Partilo en varios archivos.`;
 
 export const PREVIEW_IMPORT_ERROR_MESSAGES = {
   Forbidden: IMPORT_FORBIDDEN,
-  InvalidInput: 'Subí un Excel (.xlsx) de hasta 10 MB.',
+  InvalidInput: 'Subí un Excel (.xlsx o .xls) o un .csv de hasta 10 MB.',
   UnreadableSpreadsheet: UNREADABLE,
   EmptyImportFile: EMPTY_FILE,
   TooManyImportRows: TOO_MANY_ROWS,

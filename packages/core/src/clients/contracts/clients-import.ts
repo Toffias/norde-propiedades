@@ -63,7 +63,7 @@ export type ClientImportFailureValue = (typeof CLIENT_IMPORT_FAILURE_VALUES)[num
 
 export const CLIENT_IMPORT_FAILURE_LABELS: Readonly<Record<ClientImportFailureValue, string>> = {
   file_missing: 'No se encontró el archivo subido.',
-  unreadable_file: 'No se pudo leer el archivo como Excel.',
+  unreadable_file: 'No se pudo leer el archivo como planilla.',
   too_many_rows: 'El archivo tiene más filas de las que se pueden importar.',
 };
 
@@ -90,7 +90,7 @@ export const MAX_CLIENT_IMPORT_ROWS = 10_000;
 export const MAX_CLIENT_IMPORT_COLUMNS = 100;
 export const MAX_CLIENT_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 /** Lo que ofrece el selector de archivos (el caso de uso valida que se pueda leer). */
-export const CLIENT_IMPORT_ACCEPT = '.xlsx';
+export const CLIENT_IMPORT_ACCEPT = '.xlsx,.xls,.csv';
 /** Filas de muestra de la vista previa. */
 export const CLIENT_IMPORT_SAMPLE_ROWS = 5;
 

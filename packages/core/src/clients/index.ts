@@ -139,6 +139,10 @@ export {
 // ---------- Agenda de contactos (#8) ----------
 
 export type { ClientAgents } from './application/ports/client-agents';
+export {
+  FindOrCreateOwner,
+  type FindOrCreateOwnerInput,
+} from './application/commands/find-or-create-owner';
 export type {
   ClientExportFile,
   ClientExportWriter,

@@ -9,6 +9,13 @@ export const CONTACT_CHANNELS = [
   'referral',
   'phone_call',
   'office',
+  // Portales que solo llegan desde la migración de Tokko (#17).
+  'icasas',
+  'properati',
+  'olx',
+  'liderprop',
+  'enbuenosaires',
+  'reporte_inmobiliario',
 ] as const;
 
 export type ContactChannel = (typeof CONTACT_CHANNELS)[number];

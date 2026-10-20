@@ -68,6 +68,12 @@ export const CONTACT_CHANNEL_LABELS: Readonly<Record<string, string>> = {
   referral: 'Referido',
   phone_call: 'Llamada',
   office: 'Oficina',
+  icasas: 'Icasas',
+  properati: 'Properati',
+  olx: 'OLX',
+  liderprop: 'Liderprop',
+  enbuenosaires: 'EnBuenosAires',
+  reporte_inmobiliario: 'Reporte Inmobiliario',
 };
 
 export const DOCUMENT_TYPE_LABELS: Readonly<Record<DocumentTypeValue, string>> = {

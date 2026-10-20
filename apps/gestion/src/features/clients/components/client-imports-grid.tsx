@@ -1,6 +1,6 @@
 'use client';
 
-import type { ClientImportRow } from '@norde/core/clients/contracts';
+import type { ClientImportRow, ImportFieldValue } from '@norde/core/clients/contracts';
 import { Button } from '@norde/ui/components/button';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { UploadIcon } from 'lucide-react';
@@ -37,6 +37,7 @@ export function ClientImportsGrid({
   sort,
   detail,
   canPickAgents,
+  hiddenFields,
 }: {
   readonly rows: readonly ClientImportRow[];
   readonly total: number;
@@ -47,6 +48,7 @@ export function ClientImportsGrid({
   readonly detail: PanelData<ClientImportSheetData> | undefined;
   /** Elegir el agente de los contactos importados (`clients:reassign` y `users:read`). */
   readonly canPickAgents: boolean;
+  readonly hiddenFields: readonly ImportFieldValue[];
 }) {
   const router = useRouter();
   const navigation = usePanel();
@@ -134,12 +136,17 @@ export function ClientImportsGrid({
         toolbar={
           <Button type="button" className="w-full sm:ml-auto sm:w-auto" onClick={openNew}>
             <UploadIcon className="h-4 w-4" />
-            Importar desde Excel
+            Importar contactos
           </Button>
         }
         empty="Todavía no se importaron contactos."
       />
-      <ClientImportSheet navigation={navigation} detail={detail} canPickAgents={canPickAgents} />
+      <ClientImportSheet
+        navigation={navigation}
+        detail={detail}
+        canPickAgents={canPickAgents}
+        hiddenFields={hiddenFields}
+      />
     </>
   );
 }

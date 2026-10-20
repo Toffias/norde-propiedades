@@ -66,6 +66,7 @@ export { FilePropertyExportWriter } from './adapters/exports/property-export-wri
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
 export { XlsxDevelopmentUnitsExportWriter } from './adapters/exports/development-units-export-writer';
 export { XlsxReservationExportWriter } from './adapters/exports/reservation-export-writer';
+export { UploadedSpreadsheetReader } from './adapters/imports/uploaded-spreadsheet-reader';
 export { XlsxSpreadsheetReader } from './adapters/imports/xlsx-spreadsheet-reader';
 export { DrizzleClientListQuery } from './clients/drizzle-client-list-query';
 export { DrizzleOpportunityPipelineQuery } from './clients/drizzle-opportunity-pipeline-query';

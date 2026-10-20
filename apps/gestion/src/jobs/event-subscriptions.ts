@@ -38,6 +38,7 @@ import {
   type RevalidatePublicProperty,
   type RunDevelopmentUnitImport,
   type RunPropertyImport,
+  type RunTokkoApiPropertyImport,
 } from '@norde/core/properties';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
@@ -59,6 +60,8 @@ export interface EventSubscription {
   readonly eventType: string;
   readonly name: string;
   handle(event: DeliveredEvent): Promise<void>;
+  /** Cuánto puede tardar antes de que la cola lo dé por vencido (15 minutos si no se dice). */
+  readonly expireInSeconds?: number;
 }
 
 const OpportunityPayloadSchema = z.object({ opportunityId: z.string(), clientId: z.string() });
@@ -77,6 +80,8 @@ const MediaOwnerPayloadSchema = z.object({
 });
 const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
 const ImportPayloadSchema = z.object({ importId: z.uuid() });
+/** Unas 4.000 fotos a unos segundos cada una, con margen. Si se corta, retoma donde quedó. */
+const TOKKO_API_IMPORT_EXPIRE_SECONDS = 6 * 60 * 60;
 const ErasedPayloadSchema = z.object({ erasedClientIds: z.array(z.uuid()).min(1) });
 const MergedPayloadSchema = z.object({ clientId: z.uuid(), mergedClientId: z.uuid() });
 const RulePayloadSchema = z.object({
@@ -616,6 +621,8 @@ export function eventSubscriptions(deps: {
   /** La importación de unidades de un emprendimiento desde Excel (#7). */
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly runPropertyImport: Pick<RunPropertyImport, 'execute'>;
+  /** Traer las propiedades desde la API de Tokko (#17): baja miles de fotos, tarda. */
+  readonly runTokkoApiPropertyImport: Pick<RunTokkoApiPropertyImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   /** Avisarle a la web que una propiedad o un emprendimiento cambió (ADR 0023). */
   readonly revalidateSite: SiteRevalidation;
@@ -690,6 +697,22 @@ export function eventSubscriptions(deps: {
         const result = await deps.runPropertyImport.execute({ importId }, deps.importActor);
         if (result.isErr()) {
           deps.logger.error({ eventId: event.id, error: result.error }, 'Property import skipped');
+        }
+      },
+    },
+    {
+      eventType: 'properties.tokko_api_import_requested',
+      name: 'run-tokko-api-property-import',
+      // Bajar las fotos de toda la cartera lleva más que los 15 minutos de pg-boss.
+      expireInSeconds: TOKKO_API_IMPORT_EXPIRE_SECONDS,
+      handle: async (event) => {
+        const { importId } = ImportPayloadSchema.parse(event.payload);
+        const result = await deps.runTokkoApiPropertyImport.execute({ importId }, deps.importActor);
+        if (result.isErr()) {
+          deps.logger.error(
+            { eventId: event.id, error: result.error },
+            'Tokko API property import skipped',
+          );
         }
       },
     },

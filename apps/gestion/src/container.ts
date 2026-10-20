@@ -270,8 +270,10 @@ import {
   RevalidatePublicProperty,
   RunDevelopmentUnitImport,
   RunPropertyImport,
+  RunTokkoApiPropertyImport,
   PreviewPropertyImport,
   StartPropertyImport,
+  StartTokkoApiPropertyImport,
   ListPropertyImports,
   GetPropertyImport,
   ListPropertyImportProblems,
@@ -426,6 +428,7 @@ import {
   UuidV7IdGenerator,
   XlsxClientExportWriter,
   UploadedSpreadsheetReader,
+  TokkoPropertyApi,
   XlsxSpreadsheetReader,
   DrizzleClientImportQuery,
   type Database,
@@ -1138,6 +1141,12 @@ function createPropertiesUseCases(
       uow,
       reader: new UploadedSpreadsheetReader(),
       storage,
+      ids,
+      clock,
+    }),
+    startTokkoApiPropertyImport: new StartTokkoApiPropertyImport({
+      uow,
+      configured: env.TOKKO_API_KEY !== undefined,
       ids,
       clock,
     }),
@@ -1928,6 +1937,18 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     runPropertyImport: new RunPropertyImport({
       uow: createPropertiesUnitOfWork(db, deps),
       reader: new UploadedSpreadsheetReader(),
+      storage,
+      directory: propertyImportDirectory(db, deps),
+      producers: activeProducers(db),
+      ids,
+      clock,
+    }),
+    runTokkoApiPropertyImport: new RunTokkoApiPropertyImport({
+      uow: createPropertiesUnitOfWork(db, deps),
+      source:
+        env.TOKKO_API_KEY === undefined
+          ? undefined
+          : new TokkoPropertyApi({ config: { apiKey: env.TOKKO_API_KEY }, logger }),
       storage,
       directory: propertyImportDirectory(db, deps),
       producers: activeProducers(db),

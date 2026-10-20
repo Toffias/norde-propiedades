@@ -14,6 +14,7 @@ import { requireSession } from '../../lib/session';
 import {
   PREVIEW_PROPERTY_IMPORT_ERROR_MESSAGES,
   START_PROPERTY_IMPORT_ERROR_MESSAGES,
+  START_TOKKO_API_IMPORT_ERROR_MESSAGES,
 } from './import-messages';
 
 const IMPORTS_PATH = '/propiedades/importaciones';
@@ -57,6 +58,19 @@ export async function startPropertyImportAction(
   const result = await getContainer().properties.startPropertyImport.execute(parsed.data, actor);
   if (result.isErr()) {
     return actionFailed(messageForError(result.error, START_PROPERTY_IMPORT_ERROR_MESSAGES));
+  }
+  revalidatePath(IMPORTS_PATH);
+  return { ...ACTION_OK, importId: result.value.importId };
+}
+
+/** Trae las propiedades desde la API de Tokko: corre como job, sin archivo. */
+export async function startTokkoApiPropertyImportAction(): Promise<
+  ActionResult & { readonly importId?: string }
+> {
+  const { actor } = await requireSession();
+  const result = await getContainer().properties.startTokkoApiPropertyImport.execute({}, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, START_TOKKO_API_IMPORT_ERROR_MESSAGES));
   }
   revalidatePath(IMPORTS_PATH);
   return { ...ACTION_OK, importId: result.value.importId };

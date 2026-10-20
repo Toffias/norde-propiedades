@@ -12,6 +12,7 @@ import {
   type PropertyImportPreview,
   type PropertyImportProblemRow,
   type PropertyImportRow,
+  type PropertyImportSourceValue,
   type PropertyImportStatusValue,
 } from '@norde/core/properties/contracts';
 import { Badge } from '@norde/ui/components/badge';
@@ -66,6 +67,11 @@ export function PropertyImportStatusPill({
   return (
     <StatusPill tone={STATUS_TONES[status]}>{PROPERTY_IMPORT_STATUS_LABELS[status]}</StatusPill>
   );
+}
+
+/** De dónde salieron las propiedades: el archivo subido o la API de Tokko. */
+export function importOrigin(job: PropertyImportRow): string {
+  return job.source === 'api' ? 'API de Tokko' : job.fileName;
 }
 
 /** Quién pidió la importación; un usuario dado de baja no tiene nombre. */
@@ -155,7 +161,7 @@ function ImportWizard({
               Cada fila se crea como una propiedad disponible, con el código de Tokko. Las que ya
               están en Norde con ese código no se duplican. El propietario se busca o se crea en
               contactos, y la propiedad queda como unidad si hay un emprendimiento con ese nombre.
-              Las fotos y la descripción no vienen en esta exportación.
+              Las fotos y la descripción no vienen en esta exportación: las trae la API de Tokko.
             </p>
           </div>
         ) : (
@@ -210,23 +216,33 @@ function getProblemId(problem: PropertyImportProblemRow): string {
 
 function ProblemsGrid({
   data,
+  source,
   running,
   pending,
   onPageChange,
 }: {
   readonly data: PropertyImportProblemsPage;
+  /** Desde la API no hay filas: se muestra el código de Tokko. */
+  readonly source: PropertyImportSourceValue;
   readonly running: boolean;
   readonly pending: boolean;
   readonly onPageChange: (page: number) => void;
 }) {
   const columns = useMemo(
     (): readonly DataTableColumn<PropertyImportProblemRow>[] => [
-      {
-        id: 'rowNumber',
-        header: 'Fila',
-        className: 'w-[70px] tabular-nums',
-        cell: (problem) => problem.rowNumber,
-      },
+      source === 'api'
+        ? {
+            id: 'reference',
+            header: 'Código',
+            className: 'w-[170px] whitespace-normal break-all tabular-nums',
+            cell: (problem) => problem.reference ?? '—',
+          }
+        : {
+            id: 'rowNumber',
+            header: 'Fila',
+            className: 'w-[70px] tabular-nums',
+            cell: (problem) => problem.rowNumber,
+          },
       {
         id: 'problem',
         header: 'Qué pasó',
@@ -257,7 +273,7 @@ function ProblemsGrid({
           ),
       },
     ],
-    [],
+    [source],
   );
   return (
     <DataTable
@@ -272,7 +288,13 @@ function ProblemsGrid({
       onPageSizeChange={() => undefined}
       pending={pending}
       getRowId={getProblemId}
-      empty={running ? 'Por ahora, ninguna fila con problemas.' : 'Se importaron todas las filas.'}
+      empty={
+        running
+          ? 'Por ahora, ninguna con problemas.'
+          : source === 'api'
+            ? 'Se trajeron todas las propiedades.'
+            : 'Se importaron todas las filas.'
+      }
     />
   );
 }
@@ -289,6 +311,7 @@ function ImportDetail({
 }) {
   const { job, problems } = data;
   const running = isPropertyImportRunning(job.status);
+  const fromApi = job.source === 'api';
   return (
     <SheetBody scroll className="gap-5">
       <div className="flex flex-col gap-1 text-sm">
@@ -296,7 +319,8 @@ function ImportDetail({
           <PropertyImportStatusPill status={job.status} />
           {running && (
             <span className="text-muted-foreground">
-              {count(job.totals.processed)} de {count(job.totals.rows)} filas procesadas
+              {count(job.totals.processed)} de {count(job.totals.rows)}{' '}
+              {fromApi ? 'propiedades procesadas' : 'filas procesadas'}
             </span>
           )}
         </div>
@@ -309,17 +333,27 @@ function ImportDetail({
           </p>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label="Filas" value={job.totals.rows} />
+      <div className={`grid grid-cols-2 gap-2 ${fromApi ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
+        <Stat label={fromApi ? 'Propiedades' : 'Filas'} value={job.totals.rows} />
         <Stat label="Creadas" value={job.totals.created} />
+        {fromApi && <Stat label="Completadas" value={job.totals.completed} />}
         <Stat label="Ya estaban" value={job.totals.existing} />
         <Stat label="Con errores" value={job.totals.failed} />
       </div>
+      {fromApi && (
+        <p className="text-sm text-muted-foreground">
+          Completadas: ya estaban en Norde y se les agregó lo que no tenían (fotos, descripción,
+          coordenadas o comentarios de Tokko), sin pisar lo cargado.
+        </p>
+      )}
       <div className="-mx-4 flex flex-col gap-2">
-        <h3 className="px-4 text-sm font-medium">Filas con problemas</h3>
+        <h3 className="px-4 text-sm font-medium">
+          {fromApi ? 'Propiedades con problemas' : 'Filas con problemas'}
+        </h3>
         {problems.ok ? (
           <ProblemsGrid
             data={problems.value}
+            source={job.source}
             running={running}
             pending={pending}
             onPageChange={onPageChange}
@@ -356,7 +390,7 @@ export function PropertyImportSheet({
         creating
           ? 'Subí la exportación de propiedades de Tokko e importá.'
           : ready?.ok === true
-            ? ready.value.job.fileName
+            ? importOrigin(ready.value.job)
             : undefined
       }
     >

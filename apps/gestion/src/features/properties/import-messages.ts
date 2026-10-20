@@ -4,6 +4,7 @@ import type {
   ListPropertyImportsError,
   PreviewPropertyImportError,
   StartPropertyImportError,
+  StartTokkoApiPropertyImportError,
 } from '@norde/core/properties';
 import { MAX_PROPERTY_IMPORT_ROWS } from '@norde/core/properties/contracts';
 
@@ -36,6 +37,12 @@ export const START_PROPERTY_IMPORT_ERROR_MESSAGES = {
   EmptyImportFile: EMPTY_FILE,
   TooManyImportRows: TOO_MANY_ROWS,
 } satisfies ErrorMessages<StartPropertyImportError>;
+
+export const START_TOKKO_API_IMPORT_ERROR_MESSAGES = {
+  Forbidden: FORBIDDEN,
+  TokkoApiNotConfigured: 'Falta configurar la API key de Tokko.',
+  ImportInProgress: 'Ya se están trayendo las propiedades de Tokko. Esperá a que termine.',
+} satisfies ErrorMessages<StartTokkoApiPropertyImportError>;
 
 export const PROPERTY_IMPORTS_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN,

@@ -1,5 +1,5 @@
 import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
-import type { RunDevelopmentUnitImport } from '@norde/core/properties';
+import type { RunDevelopmentUnitImport, RunPropertyImport } from '@norde/core/properties';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -94,6 +94,7 @@ function clientJobs(calls: unknown[] = []): {
   readonly merge: MergeJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
+  readonly runPropertyImport: Pick<RunPropertyImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
   readonly revalidateSite: SiteRevalidation;
@@ -135,6 +136,12 @@ function clientJobs(calls: unknown[] = []): {
     runUnitImport: {
       execute: (input, by) => {
         calls.push(['unit-import', input, by.id]);
+        return Promise.resolve(ok({ status: 'done' as const }));
+      },
+    },
+    runPropertyImport: {
+      execute: (input, by) => {
+        calls.push(['property-import', input, by.id]);
         return Promise.resolve(ok({ status: 'done' as const }));
       },
     },
@@ -225,6 +232,7 @@ describe('eventSubscriptions', () => {
       'clients.opportunity_bulk_requested.run-bulk',
       'clients.import_requested.run-import',
       'properties.unit_import_requested.run-unit-import',
+      'properties.import_requested.run-property-import',
       'clients.inquiry_received.route-inquiry',
     ]);
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
@@ -412,6 +420,9 @@ describe('eventSubscriptions', () => {
     for (const subscription of byType('properties.unit_import_requested')) {
       await subscription.handle({ ...event, payload: { importId: IMPORT_ID } });
     }
+    for (const subscription of byType('properties.import_requested')) {
+      await subscription.handle({ ...event, payload: { importId: IMPORT_ID } });
+    }
     for (const subscription of byType('clients.client_erased')) {
       await subscription.handle({
         ...event,
@@ -435,6 +446,7 @@ describe('eventSubscriptions', () => {
     expect(calls).toEqual([
       ['import', { importId: IMPORT_ID }, 'system:import'],
       ['unit-import', { importId: IMPORT_ID }, 'system:import'],
+      ['property-import', { importId: IMPORT_ID }, 'system:import'],
       ['conversations', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['favorites', { clientIds: [CLIENT_ID] }, 'system:scheduler'],

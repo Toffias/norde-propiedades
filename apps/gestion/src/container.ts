@@ -160,6 +160,7 @@ import {
   RunOpportunityBulkOperation,
   type ClientAgents,
   type ClientImportAgents,
+  FindOrCreateOwner,
   type ClientListings,
   type InquiryPropertyLookup,
   type OpportunityRequesters,
@@ -268,6 +269,13 @@ import {
   RevalidatePublicDevelopment,
   RevalidatePublicProperty,
   RunDevelopmentUnitImport,
+  RunPropertyImport,
+  PreviewPropertyImport,
+  StartPropertyImport,
+  ListPropertyImports,
+  GetPropertyImport,
+  ListPropertyImportProblems,
+  type PropertyImportDirectory,
   UnlinkErasedClients,
   type OwnerReports,
   RenameLocation,
@@ -406,6 +414,7 @@ import {
   DrizzleUserListQuery,
   FilePropertyExportWriter,
   DrizzleDevelopmentUnitImportQuery,
+  DrizzlePropertyImportQuery,
   XlsxDevelopmentUnitsExportWriter,
   XlsxReservationExportWriter,
   LocalFileStorage,
@@ -594,11 +603,13 @@ const CONVERSION_ACTOR = Actor.system('scheduler', [
   'properties:create-from-appraisal',
 ]);
 /**
- * Las importaciones desde Excel: contactos y unidades de emprendimientos. Crear unidades pide un
- * código de referencia, que entrega la numeración con `properties:create`.
+ * Las importaciones desde planillas: contactos, unidades de emprendimientos y propiedades de Tokko.
+ * Crear unidades pide un código de referencia, que entrega la numeración con `properties:create`;
+ * las propiedades de Tokko crean a su propietario en contactos (`clients:create`).
  */
 const IMPORT_ACTOR = Actor.system('import', [
   'clients:run-imports',
+  'clients:create',
   'properties:run-imports',
   'properties:create',
 ]);
@@ -941,6 +952,7 @@ function createPropertiesUseCases(
   const reservationList = new DrizzleReservationListQuery(db);
   const media = new DrizzleMediaQuery(db);
   const unitImports = new DrizzleDevelopmentUnitImportQuery(db);
+  const propertyImports = new DrizzlePropertyImportQuery(db);
   const geocoder = new NominatimGeocoder({
     userAgent: env.GEOCODER_USER_AGENT,
     baseUrl: env.GEOCODER_URL,
@@ -1121,6 +1133,17 @@ function createPropertiesUseCases(
       uow,
       imports: unitImports,
     }),
+    previewPropertyImport: new PreviewPropertyImport({ reader: new UploadedSpreadsheetReader() }),
+    startPropertyImport: new StartPropertyImport({
+      uow,
+      reader: new UploadedSpreadsheetReader(),
+      storage,
+      ids,
+      clock,
+    }),
+    listPropertyImports: new ListPropertyImports({ imports: propertyImports, users }),
+    getPropertyImport: new GetPropertyImport({ imports: propertyImports, users }),
+    listPropertyImportProblems: new ListPropertyImportProblems({ imports: propertyImports }),
     sendOwnerReport: new SendOwnerReport({
       uow,
       storage,
@@ -1580,6 +1603,64 @@ export function getContainer(): Container {
   return container;
 }
 
+/** Usuarios activos que pueden captar propiedades, con su sucursal. */
+function activeProducers(db: Database): Producers {
+  const userAccess = new DrizzleUserAccessQuery(db);
+  return {
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+}
+
+/**
+ * Lo que la importación de propiedades de Tokko busca afuera de properties: productores por nombre
+ * (identity), emprendimientos por nombre y el propietario, por el caso de uso de contactos.
+ */
+function propertyImportDirectory(
+  db: Database,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+): PropertyImportDirectory {
+  const producers = importAgents(db);
+  const developments = new DrizzleDevelopmentListQuery(db);
+  const owners = new FindOrCreateOwner({
+    uow: createClientsUnitOfWork(db, deps),
+    agents: activeAgents(db),
+    ...deps,
+  });
+  return {
+    async searchProducers(name) {
+      const candidates = await producers.searchByName(name);
+      return candidates.map(({ userId, name: userName, branchId }) => ({
+        userId,
+        name: userName,
+        branchId,
+      }));
+    },
+    async searchDevelopments(name) {
+      const page = await developments.search({
+        view: 'active',
+        text: name,
+        status: undefined,
+        developmentType: undefined,
+        constructionStatus: undefined,
+        tagId: undefined,
+        sort: { field: 'name', direction: 'asc' },
+        offset: 0,
+        limit: 20,
+      });
+      return page.items.map((item) => ({ id: item.id, name: item.name }));
+    },
+    async findOrCreateOwner(owner, actor) {
+      const result = await owners.execute(owner, actor);
+      // El job corre con `clients:create` (IMPORT_ACTOR): sin él es un error de configuración.
+      if (result.isErr()) throw new Error(`Owner lookup failed: ${result.error.type}`);
+      return result.value;
+    },
+  };
+}
+
 /** Los usuarios activos por nombre, para la columna "Agente" de una importación de contactos. */
 function importAgents(db: Database): ClientImportAgents {
   const users = new DrizzleUserListQuery(db);
@@ -1841,6 +1922,15 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       reader: new XlsxSpreadsheetReader(),
       storage,
       codes: referenceCodes,
+      ids,
+      clock,
+    }),
+    runPropertyImport: new RunPropertyImport({
+      uow: createPropertiesUnitOfWork(db, deps),
+      reader: new UploadedSpreadsheetReader(),
+      storage,
+      directory: propertyImportDirectory(db, deps),
+      producers: activeProducers(db),
       ids,
       clock,
     }),

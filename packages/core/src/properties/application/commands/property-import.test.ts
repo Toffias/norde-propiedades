@@ -384,7 +384,7 @@ describe('Tokko properties import', () => {
         id: importId,
         status: 'done',
         requestedBy: { id: ADMIN_ID, name: 'Laura Admin' },
-        totals: { rows: 2, processed: 2, created: 1, existing: 1, failed: 0 },
+        totals: { rows: 2, processed: 2, created: 1, existing: 1, completed: 0, failed: 0 },
       }),
     ]);
     expect(unwrap(await ctx.get.execute({ importId }, ADMIN)).id).toBe(importId);

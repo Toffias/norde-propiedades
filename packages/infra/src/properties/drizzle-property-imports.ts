@@ -2,6 +2,7 @@ import {
   PROPERTY_IMPORT_FAILURES,
   PROPERTY_IMPORT_FIELDS,
   PROPERTY_IMPORT_PROBLEM_CODES,
+  PROPERTY_IMPORT_SOURCES,
   PROPERTY_IMPORT_STATUSES,
   PropertyImport,
   type PropertyImportId,
@@ -12,18 +13,20 @@ import {
   type PropertyImportSnapshot,
 } from '@norde/core/properties';
 import { parseId, type IdGenerator, type PageSlice } from '@norde/core/shared';
-import { and, asc, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
 import { toJsonb } from '../db/json';
 import { importJobErrors, importJobs } from '../db/schema';
 
-/** Las importaciones de propiedades de Tokko son las corridas de este tipo. */
+/** Las importaciones de propiedades de Tokko (de la exportación o de la API) son las de este tipo. */
 const KIND = 'properties_tokko';
 
+/** Las anteriores a la API no guardaban el origen: son de la exportación. */
 const OptionsSchema = z.object({
   columns: z.partialRecord(z.enum(PROPERTY_IMPORT_FIELDS), z.int().min(0)),
+  source: z.enum(PROPERTY_IMPORT_SOURCES).default('file'),
 });
 
 const count0 = z.int().min(0).default(0);
@@ -32,12 +35,14 @@ const TotalsSchema = z.object({
   processed: count0,
   created: count0,
   existing: count0,
+  completed: count0,
   failed: count0,
 });
 
 const ProblemRawSchema = z.object({
   field: z.enum(PROPERTY_IMPORT_FIELDS).optional(),
   propertyId: z.string().optional(),
+  reference: z.string().optional(),
 });
 
 type ImportJobRow = typeof importJobs.$inferSelect;
@@ -45,12 +50,14 @@ type ImportJobRow = typeof importJobs.$inferSelect;
 function toSnapshot(row: ImportJobRow): PropertyImportSnapshot {
   const id = parseId<'PropertyImport'>(row.id);
   if (id.isErr()) throw new Error(`Invalid import id ${row.id}`);
+  const options = OptionsSchema.parse(row.options);
   return {
     id: id.value,
+    source: options.source,
     fileName: row.fileName ?? '',
     storageKey: row.storageKey ?? '',
     status: z.enum(PROPERTY_IMPORT_STATUSES).parse(row.status),
-    columns: OptionsSchema.parse(row.options).columns,
+    columns: options.columns,
     totals: TotalsSchema.parse(row.totals),
     failure: row.failure === null ? undefined : z.enum(PROPERTY_IMPORT_FAILURES).parse(row.failure),
     requestedBy: row.createdBy,
@@ -87,7 +94,7 @@ export class DrizzlePropertyImportRepository implements PropertyImportRepository
       status: s.status,
       fileName: s.fileName,
       storageKey: s.storageKey,
-      options: toJsonb({ columns: s.columns }),
+      options: toJsonb({ columns: s.columns, source: s.source }),
       totals: toJsonb(s.totals),
       failure: s.failure ?? null,
       startedAt: s.startedAt ?? null,
@@ -108,6 +115,21 @@ export class DrizzlePropertyImportRepository implements PropertyImportRepository
       .onConflictDoUpdate({ target: importJobs.id, set: values });
   }
 
+  async hasActiveApiImport(): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: importJobs.id })
+      .from(importJobs)
+      .where(
+        and(
+          eq(importJobs.kind, KIND),
+          inArray(importJobs.status, ['pending', 'running']),
+          sql`${importJobs.options}->>'source' = 'api'`,
+        ),
+      )
+      .limit(1);
+    return row !== undefined;
+  }
+
   async addProblem(
     importId: PropertyImportId,
     problem: PropertyImportRowProblem,
@@ -119,7 +141,11 @@ export class DrizzlePropertyImportRepository implements PropertyImportRepository
       rowNumber: problem.rowNumber,
       entityType: 'property',
       message: problem.code,
-      raw: toJsonb({ field: problem.field, propertyId: problem.propertyId }),
+      raw: toJsonb({
+        field: problem.field,
+        propertyId: problem.propertyId,
+        reference: problem.reference,
+      }),
       createdAt: now,
     });
   }
@@ -187,6 +213,7 @@ export class DrizzlePropertyImportQuery implements PropertyImportQuery {
           code: z.enum(PROPERTY_IMPORT_PROBLEM_CODES).parse(row.message),
           field: raw.field,
           propertyId: raw.propertyId,
+          reference: raw.reference,
         };
       }),
       total: total?.value ?? 0,

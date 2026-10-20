@@ -75,6 +75,9 @@ export const PROPERTY_IMPORT_FIELD_LABELS: Readonly<Record<PropertyImportFieldVa
   development: 'Emprendimiento',
 };
 
+export const PROPERTY_IMPORT_SOURCE_VALUES = ['file', 'api'] as const;
+export type PropertyImportSourceValue = (typeof PROPERTY_IMPORT_SOURCE_VALUES)[number];
+
 export const PROPERTY_IMPORT_STATUS_VALUES = ['pending', 'running', 'done', 'failed'] as const;
 export type PropertyImportStatusValue = (typeof PROPERTY_IMPORT_STATUS_VALUES)[number];
 
@@ -90,6 +93,7 @@ export const PROPERTY_IMPORT_FAILURE_VALUES = [
   'file_missing',
   'unreadable_file',
   'too_many_rows',
+  'source_unavailable',
 ] as const;
 export type PropertyImportFailureValue = (typeof PROPERTY_IMPORT_FAILURE_VALUES)[number];
 
@@ -98,6 +102,8 @@ export const PROPERTY_IMPORT_FAILURE_LABELS: Readonly<Record<PropertyImportFailu
     file_missing: 'No se encontró el archivo subido.',
     unreadable_file: 'No se pudo leer el archivo como planilla.',
     too_many_rows: 'El archivo tiene más filas de las que se pueden importar.',
+    source_unavailable:
+      'Tokko no respondió o rechazó la API key. Lo importado hasta ahí quedó; volvé a traerlas para seguir.',
   };
 
 export const PROPERTY_IMPORT_PROBLEM_CODE_VALUES = [
@@ -112,6 +118,8 @@ export const PROPERTY_IMPORT_PROBLEM_CODE_VALUES = [
   'owner_not_linked',
   'development_not_found',
   'total_surface_dropped',
+  'photos_not_downloaded',
+  'description_truncated',
 ] as const;
 export type PropertyImportProblemCodeValue = (typeof PROPERTY_IMPORT_PROBLEM_CODE_VALUES)[number];
 
@@ -130,6 +138,8 @@ export const PROPERTY_IMPORT_PROBLEM_LABELS: Readonly<
   development_not_found: 'Se importó suelta: no hay un emprendimiento con ese nombre',
   total_surface_dropped:
     'Se importó sin la superficie total: era menor que la cubierta más la semicubierta',
+  photos_not_downloaded: 'No se pudieron bajar algunas fotos de Tokko',
+  description_truncated: 'La descripción se recortó: era más larga de lo que admite Norde',
 };
 
 /** Los problemas que no impidieron importar la propiedad (replica `PROPERTY_IMPORT_WARNINGS`). */
@@ -137,6 +147,8 @@ export const PROPERTY_IMPORT_WARNING_VALUES: readonly PropertyImportProblemCodeV
   'owner_not_linked',
   'development_not_found',
   'total_surface_dropped',
+  'photos_not_downloaded',
+  'description_truncated',
 ];
 
 export const MAX_PROPERTY_IMPORT_ROWS = 2000;
@@ -191,6 +203,8 @@ export interface PropertyImportTotalsRow {
   readonly processed: number;
   readonly created: number;
   readonly existing: number;
+  /** Ya estaban y se les agregó lo que no tenían (desde la API). */
+  readonly completed: number;
   readonly failed: number;
 }
 
@@ -201,6 +215,8 @@ export interface PropertyImportUserRef {
 
 export interface PropertyImportRow {
   readonly id: string;
+  readonly source: PropertyImportSourceValue;
+  /** Vacío si es de la API. */
   readonly fileName: string;
   readonly status: PropertyImportStatusValue;
   readonly totals: PropertyImportTotalsRow;
@@ -218,4 +234,6 @@ export interface PropertyImportProblemRow {
   readonly field: PropertyImportFieldValue | undefined;
   /** La propiedad que se creó o que ya existía. */
   readonly propertyId: string | undefined;
+  /** Desde la API: el código de Tokko, para encontrarla allá. */
+  readonly reference?: string | undefined;
 }

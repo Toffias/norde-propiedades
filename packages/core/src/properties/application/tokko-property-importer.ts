@@ -125,19 +125,23 @@ export class TokkoPropertyImporter {
     const producer =
       (row.producerName === undefined ? undefined : await this.#findProducer(row.producerName)) ??
       fallback;
-    // El propietario se busca o se crea en contactos, afuera de la transacción de la propiedad.
-    const owner =
-      row.owner &&
-      (await this.deps.directory.findOrCreateOwner(
+    // Los propietarios se buscan o se crean en contactos, afuera de la transacción de la propiedad.
+    const ownerClientIds = new Set<string>();
+    let unlinked = false;
+    for (const owner of row.owners) {
+      const found = await this.deps.directory.findOrCreateOwner(
         {
-          ...row.owner,
+          ...owner,
           sells: row.operations.some((o) => o.operation === 'sale'),
           rents: row.operations.some((o) => o.operation !== 'sale'),
           agentId: producer?.userId,
         },
         runner,
-      ));
-    if (row.owner && !owner) problems.push({ code: 'owner_not_linked', field: 'ownerPhone' });
+      );
+      if (found) ownerClientIds.add(found.clientId);
+      else unlinked = true;
+    }
+    if (unlinked) problems.push({ code: 'owner_not_linked', field: 'ownerPhone' });
     const developmentId =
       row.developmentName === undefined
         ? undefined
@@ -152,7 +156,7 @@ export class TokkoPropertyImporter {
         propertyId,
         row,
         producer,
-        ownerClientId: owner?.clientId,
+        ownerClientIds: [...ownerClientIds],
         developmentId,
       }),
     );
@@ -166,7 +170,7 @@ export class TokkoPropertyImporter {
       readonly propertyId: PropertyId;
       readonly row: ImportedProperty;
       readonly producer: RowProducer | undefined;
-      readonly ownerClientId: string | undefined;
+      readonly ownerClientIds: readonly string[];
       readonly developmentId: string | undefined;
     },
   ): Promise<void> {
@@ -198,8 +202,8 @@ export class TokkoPropertyImporter {
           province: place.province,
         },
         publishAddress: undefined,
-        portalTitle: undefined,
-        coordinates: undefined,
+        portalTitle: row.portalTitle,
+        coordinates: row.coordinates,
         locationId: place.locationId,
         developmentId: unitOf?.id,
         producerUserId: data.producer?.userId,
@@ -210,6 +214,14 @@ export class TokkoPropertyImporter {
     // Recién creada no está en la papelera y los datos ya se validaron al leer la fila.
     if (others.length > 0) expectOk(property.setOperations([first, ...others], now));
     expectOk(property.updateCharacteristics(row.characteristics, now));
+    if (row.description !== undefined) {
+      expectOk(
+        property.updateDescription(
+          { portalTitle: row.portalTitle, description: row.description },
+          now,
+        ),
+      );
+    }
     expectOk(
       property.updateDeal({ ...EMPTY_DEAL_ATTRIBUTES, expensesCents: row.expensesCents }, now),
     );
@@ -225,8 +237,8 @@ export class TokkoPropertyImporter {
     expectOk(property.changeStatus('available', now));
 
     await tx.properties.save(property, runner.id);
-    if (data.ownerClientId !== undefined) {
-      await tx.owners.add(property.id, data.ownerClientId, runner.id);
+    for (const clientId of data.ownerClientIds) {
+      await tx.owners.add(property.id, clientId, runner.id);
     }
     await tx.events.publish(property.pullEvents());
     const s = property.toSnapshot();
@@ -237,11 +249,11 @@ export class TokkoPropertyImporter {
           action: 'property.imported',
           entityType: 'property',
           entityId: property.id,
-          clientIds: data.ownerClientId === undefined ? [] : [data.ownerClientId],
+          clientIds: data.ownerClientIds,
         },
         {
           ...withoutEmptyTexts(propertyAuditState(property)),
-          ownerClientIds: data.ownerClientId === undefined ? undefined : [data.ownerClientId],
+          ownerClientIds: data.ownerClientIds.length === 0 ? undefined : data.ownerClientIds,
           rooms: s.characteristics.rooms,
           bedrooms: s.characteristics.bedrooms,
           bathrooms: s.characteristics.bathrooms,

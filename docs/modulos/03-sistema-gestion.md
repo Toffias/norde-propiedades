@@ -931,6 +931,15 @@ Cada propiedad:
 
 El reporte de cada importación muestra las filas, las creadas, las que ya estaban y las que tuvieron errores, y las filas con problemas: los errores (la fila no se importó) y los avisos (se importó con algo ajustado), con un enlace a la propiedad. No guarda datos personales: el número de fila, el motivo, la columna y el ID de la propiedad. Las propiedades quedan auditadas como `property.imported` (`system:import`), agrupadas por la importación, con el propietario en `client_ids`.
 
+**Traer de la API de Tokko** (decidido el 2026-10-20): con la API key de Norde en Tokko configurada (`TOKKO_API_KEY`), el mismo historial muestra "Traer de la API de Tokko". Un job de `apps/gestion` (`properties.tokko_api_import_requested`) recorre las propiedades de Norde en la API de Tokko (`/api/v1/property/`), de a 20 y en el orden de Tokko, con las mismas reglas que la exportación (código, tipo, ubicación, operaciones, medidas, productor, emprendimiento). Además:
+
+- **Si el código no existe**, crea la propiedad con lo que la exportación no trae: el título para portales, la descripción, las coordenadas, los comentarios internos de Tokko (bajo "Comentarios de Tokko"), todos sus propietarios (Tokko puede tener más de uno) y las fotos. Si la web de Tokko no mostraba el precio, la operación queda "a consultar". La ubicación usa el partido que trae la API ("Argentina | G.B.A. Zona Oeste | La Matanza | Ramos Mejia"); la tabla fija queda para la exportación.
+- **Si ya existe** (por ejemplo, importada desde la exportación), la **completa sin pisar nada**: la descripción y el título si no tiene descripción, las coordenadas si no tiene, los comentarios de Tokko si no están, y las fotos si la galería está vacía. Queda auditado como `property.import_completed` con el diff. Lo cargado en Norde no se toca; actualizar lo que cambió en Tokko es del corte (etapa 4).
+- **Las fotos** se bajan de los servidores de Tokko (`static.tokkobroker.com`, la original o, si no sirve, la versión web) al storage, en el orden de Tokko, con su portada y los planos como planos; como mucho las 100 de la galería. Quedan "procesando" hasta que el job de siempre genera sus variantes. Si alguna no se pudo bajar, queda un aviso.
+- **Una sola a la vez**: mientras hay una pendiente o en proceso, no se puede pedir otra (bajarían dos veces las mismas fotos). El job puede tardar horas (unas 2.800 fotos en la cartera actual): se retoma donde quedó si se corta, y volver a traerlas no duplica nada. Si Tokko no responde o rechaza la key, la importación queda con error y lo hecho hasta ahí.
+
+En el reporte de una importación desde la API, las "Completadas" son las que ya estaban y recibieron algo, y los problemas se listan por el código de Tokko en lugar del número de fila. La key va en la URL de cada pedido (como pide Tokko): nunca se loguea.
+
 ### Actualizaciones por IPC con notificación
 
 - Cada contrato define el **índice** (IPC, u otro como ICL o CAC si hiciera falta) y la **periodicidad** de actualización (trimestral, cuatrimestral, semestral, anual).

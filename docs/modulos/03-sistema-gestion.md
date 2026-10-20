@@ -908,6 +908,29 @@ Además de la propiedad publicada en alquiler, cuando se concreta el alquiler se
   - Adjuntos: contrato firmado en PDF, inventario, fotos de entrega.
   - Estado: vigente, por vencer, vencido, rescindido o renovado.
 
+### 4.10 Importar propiedades de Tokko (#17)
+
+**Importar** (`/propiedades/importaciones`, permiso `properties:import`, desde "Importar de Tokko" en el buscador): el historial de importaciones, paginado, con su estado (En proceso, Listo, Error). Es parte de la migración desde Tokko; no es la función de Tokko de importar listas de propiedades, que no se construye (§13.1).
+
+1. Se sube la exportación de propiedades de Tokko (`.csv`, también guardada como Excel), de hasta 5 MB y 2.000 filas. El servidor la lee (el navegador no procesa el archivo), verifica que tenga las columnas de Tokko (Ref, Dirección y Tipo de propiedad, como mínimo) y muestra cuántas propiedades trae y qué datos se leen. No hay que elegir columnas: son las de Tokko.
+2. Al confirmar se guarda el archivo y un job de `apps/gestion` (`properties.import_requested`) crea una propiedad por fila. Cada fila va en su propia transacción con el avance: si el job se corta, retoma donde quedó. Al terminar se borra el archivo, que tiene datos personales.
+
+Cada propiedad:
+
+- **Código**: el "Ref" de Tokko, en mayúsculas y con guiones en lugar de espacios ("NBU12345 AP1234567" → "NBU12345-AP1234567"). Si ya hay una propiedad con ese código, la fila no se importa ("Ya hay una propiedad con ese código"); si está en la papelera, tampoco. Importar dos veces el mismo archivo no duplica nada.
+- **Estado**: disponible. Sin fotos ni descripción (la exportación no las trae; llegan con la API de Tokko) y sin coordenadas (no se geocodifica en la importación).
+- **Ubicación** (decidido el 2026-10-20): "Capital Federal" es CABA, con su barrio del catálogo. Las regiones del GBA y la costa son de Buenos Aires: la localidad va bajo su partido (Ramos Mejía, San Justo, Lomas del Mirador y Tablada → La Matanza; Haedo → Morón; Ciudadela → Tres de Febrero; Olivos → Vicente López; Pinamar Norte → Pinamar) y, si no está en la tabla, la localidad es el partido. Si la localidad o el barrio no existen en el catálogo, se crean (auditados). Otro país (Uruguay) queda como texto.
+- **Dirección**: calle, altura, piso y unidad ("Belgrano 123, PB", "Rivadavia 9540 4º A", "Piso 4 Departamento A", "3º UF 12"). Lo que no se entiende queda como piso.
+- **Operaciones**: venta, alquiler y temporario con su moneda ("USD 130.000", "$ 630.000"); con dos monedas en una celda, la de dólares. Sin ninguna, la fila no se importa.
+- **Características**: superficies (0 es "sin dato"), frente, fondo, ambientes, dormitorios, baños, toilettes, cocheras y antigüedad ("-1" es "sin dato"). Si la total es menor que la cubierta más la semicubierta (Tokko redondea), se importa sin la total, con un aviso.
+- **Expensas**: en pesos; 0 es "sin expensas".
+- **Plantas, ocupación, zonificación y superficie descubierta**: Norde no las modela; van a los comentarios internos, bajo "Datos de Tokko".
+- **Productor**: el usuario activo con ese nombre (sin distinguir mayúsculas ni acentos), con su sucursal; "Libre" o un nombre que no es un usuario, quien pidió la importación.
+- **Propietario**: el contacto con ese celular o email (la regla de duplicados de contactos) o uno nuevo como propietario vendedor o locador, a cargo del productor. Sin un teléfono ni un email válidos, la propiedad se importa sin propietario, con un aviso.
+- **Emprendimiento**: Tokko suma el estado de obra al nombre ("AV. RIVADAVIA 9540 + EN POZO"); sin eso, si hay un emprendimiento activo con ese nombre, la propiedad queda como su unidad (también en el historial del emprendimiento). Si no hay uno, se importa suelta, con un aviso.
+
+El reporte de cada importación muestra las filas, las creadas, las que ya estaban y las que tuvieron errores, y las filas con problemas: los errores (la fila no se importó) y los avisos (se importó con algo ajustado), con un enlace a la propiedad. No guarda datos personales: el número de fila, el motivo, la columna y el ID de la propiedad. Las propiedades quedan auditadas como `property.imported` (`system:import`), agrupadas por la importación, con el propietario en `client_ids`.
+
 ### Actualizaciones por IPC con notificación
 
 - Cada contrato define el **índice** (IPC, u otro como ICL o CAC si hiciera falta) y la **periodicidad** de actualización (trimestral, cuatrimestral, semestral, anual).
@@ -1153,7 +1176,7 @@ Decidido el 01/10/2026: Chat, Red Tokko Broker (y el inventario de Zonaprop en e
 
 Decidido el 02/10/2026 (#50), porque Norde no las usa ni las configuró en Tokko:
 
-- **No se construyen**: importar listas de propiedades, la configuración de Reservas (gerentes de reservas, etiqueta obligatoria para reservar y notificaciones propias; el módulo sigue en #13), la supervisión de propiedades (administradores de cartera), la validación legal o tributaria antes de publicar en portales, un proveedor de email propio (SMTP; los emails salen por Resend), la ficha y el PDF en inglés, y las búsquedas similares automáticas para consultas web.
+- **No se construyen**: importar listas de propiedades (la función de Tokko; la migración de la cartera desde la exportación de Tokko sí, §4.10), la configuración de Reservas (gerentes de reservas, etiqueta obligatoria para reservar y notificaciones propias; el módulo sigue en #13), la supervisión de propiedades (administradores de cartera), la validación legal o tributaria antes de publicar en portales, un proveedor de email propio (SMTP; los emails salen por Resend), la ficha y el PDF en inglés, y las búsquedas similares automáticas para consultas web.
 - **Construidas pero ocultas**, cada una con su variable de entorno apagada por defecto en `apps/gestion`: marca de agua, códigos de referencia por tipo, usuario, equipo o sucursal, equipos y atributos personalizados (§3, §14).
 - **Se mantienen**: Roles, aunque hoy hay un solo grupo, y la importación de contactos desde Excel (#8).
 

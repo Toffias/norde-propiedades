@@ -41,6 +41,7 @@ export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work
 export { DrizzleDevelopmentListQuery } from './properties/drizzle-development-list-query';
 export { DrizzlePublishedDevelopmentQuery } from './properties/drizzle-published-development-query';
 export { DrizzleDevelopmentUnitImportQuery } from './properties/drizzle-development-unit-imports';
+export { DrizzlePropertyImportQuery } from './properties/drizzle-property-imports';
 export {
   DrizzleClientFavoriteErasure,
   DrizzleUserFavorites,

@@ -37,6 +37,7 @@ import {
   type RevalidatePublicDevelopment,
   type RevalidatePublicProperty,
   type RunDevelopmentUnitImport,
+  type RunPropertyImport,
 } from '@norde/core/properties';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
@@ -614,6 +615,7 @@ export function eventSubscriptions(deps: {
   readonly runImport: Pick<RunClientImport, 'execute'>;
   /** La importación de unidades de un emprendimiento desde Excel (#7). */
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
+  readonly runPropertyImport: Pick<RunPropertyImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   /** Avisarle a la web que una propiedad o un emprendimiento cambió (ADR 0023). */
   readonly revalidateSite: SiteRevalidation;
@@ -677,6 +679,17 @@ export function eventSubscriptions(deps: {
         const result = await deps.runUnitImport.execute({ importId }, deps.importActor);
         if (result.isErr()) {
           deps.logger.error({ eventId: event.id, error: result.error }, 'Unit import skipped');
+        }
+      },
+    },
+    {
+      eventType: 'properties.import_requested',
+      name: 'run-property-import',
+      handle: async (event) => {
+        const { importId } = ImportPayloadSchema.parse(event.payload);
+        const result = await deps.runPropertyImport.execute({ importId }, deps.importActor);
+        if (result.isErr()) {
+          deps.logger.error({ eventId: event.id, error: result.error }, 'Property import skipped');
         }
       },
     },

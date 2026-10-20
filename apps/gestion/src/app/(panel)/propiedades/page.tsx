@@ -118,6 +118,7 @@ export default async function PropertiesPage({
             favoriteSearches={searches}
             permissions={{
               create: actor.can('properties:create'),
+              import: actor.can('properties:import'),
               delete: actor.can('properties:delete') || actor.can('properties:delete-others'),
               bulkEdit: actor.can('properties:bulk-edit'),
               changeProducer: actor.can('properties:change-producer'),

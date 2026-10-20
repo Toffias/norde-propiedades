@@ -34,6 +34,8 @@ import type { PropertyFilterValues } from './properties-toolbar';
 
 export interface PropertyPermissions extends BulkPermissions {
   readonly create: boolean;
+  /** Importar la exportación de Tokko. */
+  readonly import: boolean;
   /** Borrar o restaurar: el caso de uso decide sobre cada propiedad (propias o de otros). */
   readonly delete: boolean;
 }

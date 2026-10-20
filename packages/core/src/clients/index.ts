@@ -381,6 +381,15 @@ export {
   type ListClientImportProblemsError,
 } from './application/queries/list-client-import-problems';
 export type { ClientImportItem, ClientImportQuery } from './application/ports/client-import-query';
+export type {
+  ClientExternalId,
+  ClientExternalIds,
+  ExternalIdSource,
+} from './application/ports/client-external-ids';
+export type {
+  ClientImportAgents,
+  ImportAgentCandidate,
+} from './application/ports/client-import-agents';
 export type { ClientImportRepository } from './domain/client.repository';
 export {
   ClientImport,

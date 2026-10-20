@@ -5,19 +5,22 @@ import { err, ok, type Result } from '../../shared/domain/result';
 
 import { normalizeName } from './duplicate-check';
 
-// Importación de contactos desde un Excel: el panel sube el archivo con el mapeo de columnas y un
-// job lo procesa fila por fila, con la misma regla de duplicados que el alta manual.
+// Importación de contactos desde un Excel o un CSV (también la exportación de Tokko): el panel sube
+// el archivo con el mapeo de columnas y un job lo procesa fila por fila, con la misma regla de
+// duplicados que el alta manual.
 
 export type ClientImportId = Id<'ClientImport'>;
 
 /** Los datos del contacto que se pueden leer de una columna. */
 export const IMPORT_FIELDS = [
+  'externalId',
   'name',
   'kind',
   'companyName',
   'phone',
   'mobile',
   'workPhone',
+  'otherPhone',
   'email',
   'secondaryEmail',
   'clientTypes',
@@ -27,6 +30,8 @@ export const IMPORT_FIELDS = [
   'country',
   'documentNumber',
   'birthDate',
+  'agent',
+  'tags',
 ] as const;
 export type ImportField = (typeof IMPORT_FIELDS)[number];
 
@@ -34,6 +39,7 @@ const CONTACT_FIELDS: readonly ImportField[] = [
   'phone',
   'mobile',
   'workPhone',
+  'otherPhone',
   'email',
   'secondaryEmail',
 ];
@@ -59,6 +65,8 @@ export const IMPORT_PROBLEM_CODES = [
   'invalid_phone',
   'invalid_email',
   'invalid_value',
+  'already_imported',
+  'erased',
 ] as const;
 export type ImportProblemCode = (typeof IMPORT_PROBLEM_CODES)[number];
 
@@ -162,16 +170,19 @@ export function checkImportRows(
 }
 
 /**
- * Encabezados que se reconocen solos: los de la exportación de contactos y los habituales de una
- * planilla (Tokko, Google Contacts), sin mayúsculas ni acentos.
+ * Encabezados que se reconocen solos: los de la exportación de contactos, los de la de Tokko y los
+ * habituales de una planilla (Google Contacts), sin mayúsculas ni acentos. El "ID" es el de Tokko:
+ * con él, importar dos veces el mismo archivo no duplica contactos.
  */
 const HEADER_SYNONYMS: Readonly<Record<ImportField, readonly string[]>> = {
+  externalId: ['id', 'id tokko', 'id de tokko'],
   name: ['nombre', 'nombre y apellido', 'nombre completo', 'apellido y nombre', 'contacto', 'name'],
   kind: ['tipo de registro'],
   companyName: ['empresa', 'compania', 'razon social', 'company'],
   phone: ['telefono', 'tel', 'tel.', 'telefono fijo', 'telefono particular', 'phone'],
   mobile: ['celular', 'cel', 'cel.', 'movil', 'whatsapp', 'mobile'],
-  workPhone: ['telefono laboral', 'telefono del trabajo', 'tel. laboral'],
+  workPhone: ['telefono laboral', 'telefono del trabajo', 'tel. laboral', 'telefono (trabajo)'],
+  otherPhone: ['otro telefono', 'telefono (otro)'],
   email: ['email', 'e-mail', 'mail', 'correo', 'correo electronico'],
   secondaryEmail: ['email 2', 'otro email', 'email secundario', 'mail 2', 'e-mail 2'],
   clientTypes: ['tipos de cliente', 'tipo de cliente'],
@@ -181,6 +192,8 @@ const HEADER_SYNONYMS: Readonly<Record<ImportField, readonly string[]>> = {
   country: ['pais'],
   documentNumber: ['dni', 'documento', 'numero de documento', 'nro. de documento', 'cuit', 'cuil'],
   birthDate: ['fecha de nacimiento', 'nacimiento', 'cumpleanos'],
+  agent: ['agente', 'agente a cargo', 'productor'],
+  tags: ['etiquetas', 'etiquetas sin agrupar'],
 };
 
 /** El mapeo que se propone a partir de los encabezados; quien importa lo revisa. */

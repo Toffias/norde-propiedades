@@ -72,6 +72,14 @@ export class StartClientImport {
     if (!parsed.success) return err(invalidInput(parsed.error));
     const data = parsed.data;
 
+    // La columna del agente reparte contactos entre agentes, y la de etiquetas puede crearlas.
+    if (data.mapping.agent !== undefined && !actor.can('clients:reassign')) {
+      return err({ type: 'Forbidden' });
+    }
+    if (data.mapping.tags !== undefined && !actor.can('tags:update')) {
+      return err({ type: 'Forbidden' });
+    }
+
     const agentId = data.agentId ?? (actor.kind === 'user' ? actor.id : undefined);
     if (agentId !== actor.id && agentId !== undefined && !actor.can('clients:reassign')) {
       return err({ type: 'Forbidden' });

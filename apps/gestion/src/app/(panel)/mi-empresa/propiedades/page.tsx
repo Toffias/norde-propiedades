@@ -1,3 +1,4 @@
+import { Columns3Icon, HouseIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { ListCustomAttributesQuerySchema } from '@norde/core/properties/contracts';
 import { Card } from '@norde/ui/components/card';
 import { ErrorState } from '@norde/ui/components/error-state';
@@ -37,15 +38,18 @@ export default async function PropertySettingsPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionCard title="Columnas del buscador">
+      <SectionCard title="Columnas del buscador" icon={Columns3Icon}>
         <GridColumnsForm columns={result.value.gridColumns} disabled={disabled} />
       </SectionCard>
-      <SectionCard title="Tipos de propiedad">
+      <SectionCard title="Tipos de propiedad" icon={HouseIcon}>
         <PropertyTypesSettings types={result.value.types} disabled={disabled} />
       </SectionCard>
       {attributes !== undefined && (
         <div className="flex flex-col gap-2">
-          <h2 className="text-base font-bold">Atributos personalizados</h2>
+          <h2 className="flex items-center gap-2 text-base font-bold">
+            <SlidersHorizontalIcon className="size-4 shrink-0 text-foreground" aria-hidden />
+            Atributos personalizados
+          </h2>
           <p className="text-sm text-muted-foreground">
             Datos que Norde agrega a la ficha además de los estándar (ej. &quot;Vista al río&quot;).
           </p>

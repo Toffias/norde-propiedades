@@ -11,7 +11,7 @@ import {
 } from '@norde/core/appraisals/contracts';
 import { Button } from '@norde/ui/components/button';
 import { Form } from '@norde/ui/components/form';
-import { ExternalLinkIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { CalculatorIcon, ExternalLinkIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatMoney } from '../../../lib/format';
@@ -304,6 +304,7 @@ export function AppraisalResultSection({
   return (
     <InlineSection
       title="Resultado"
+      icon={CalculatorIcon}
       canEdit={canEdit}
       view={<ResultView result={detail.result} />}
       form={(controls) => <ResultForm detail={detail} controls={controls} />}

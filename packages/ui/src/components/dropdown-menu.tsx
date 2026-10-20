@@ -7,7 +7,7 @@ import type { ComponentProps } from 'react';
 import { cn } from '../lib/utils';
 
 const itemClassName =
-  "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground";
+  "relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground dark:focus:bg-foreground/10 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground";
 
 /** `modal={false}` por defecto: el menú no bloquea el scroll ni re-ancla los paneles sticky. */
 export function DropdownMenu({
@@ -142,7 +142,11 @@ export function DropdownMenuSubTrigger({
     <DropdownMenuPrimitive.SubTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      className={cn(itemClassName, 'data-[state=open]:bg-accent', className)}
+      className={cn(
+        itemClassName,
+        'data-[state=open]:bg-accent dark:data-[state=open]:bg-foreground/10',
+        className,
+      )}
       {...props}
     >
       {children}

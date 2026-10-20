@@ -1,7 +1,7 @@
 import { ListRemoteListingsInputSchema } from '@norde/core/portals/contracts';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { cn } from '@norde/ui/lib/utils';
-import { ArrowLeftIcon } from 'lucide-react';
+import { ArrowLeftIcon, MegaphoneIcon } from 'lucide-react';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -71,7 +71,7 @@ export default async function RemoteListingsPage({
         <ArrowLeftIcon className="h-4 w-4" aria-hidden />
         Portales
       </Link>
-      <SectionCard title={`Avisos en ${site}`}>
+      <SectionCard title={`Avisos en ${site}`} icon={MegaphoneIcon}>
         <div className="flex flex-col gap-4">
           {portal === 'zonaprop' && (
             <nav aria-label="Qué avisos ver" className="-mx-1 overflow-x-auto px-1">

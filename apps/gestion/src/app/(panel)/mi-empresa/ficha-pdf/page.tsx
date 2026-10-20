@@ -1,3 +1,4 @@
+import { FileTextIcon } from 'lucide-react';
 import { ErrorState } from '@norde/ui/components/error-state';
 import { SectionCard } from '@norde/ui/components/section-card';
 import type { Metadata } from 'next';
@@ -14,7 +15,7 @@ export default async function PdfSettingsPage() {
   }
 
   return (
-    <SectionCard title="Qué muestra la ficha y el PDF">
+    <SectionCard title="Qué muestra la ficha y el PDF" icon={FileTextIcon}>
       <PdfOptionsForm options={loaded.settings.pdfOptions} disabled={!loaded.canUpdate} />
     </SectionCard>
   );

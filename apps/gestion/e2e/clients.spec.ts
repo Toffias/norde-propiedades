@@ -110,7 +110,8 @@ test.describe('ficha', () => {
   test('cambia el agente', async ({ page }) => {
     await createContact(page);
 
-    await page.getByRole('button', { name: 'Cambiar agente' }).click();
+    await page.getByRole('button', { name: 'Acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Cambiar agente' }).click();
     const dialog = page.getByRole('dialog', { name: 'Cambiar el agente' });
     await dialog.getByRole('combobox').click();
     await page.getByRole('option', { name: /Camila Agente/ }).click();
@@ -125,7 +126,8 @@ test.describe('papelera', () => {
   test('borra desde la ficha y restaura desde la papelera', async ({ page }) => {
     const contact = await createContact(page);
 
-    await page.getByRole('button', { name: 'Borrar' }).click();
+    await page.getByRole('button', { name: 'Acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Borrar' }).click();
     await page
       .getByRole('dialog', { name: 'Borrar contacto' })
       .getByRole('button', { name: 'Borrar' })
@@ -156,7 +158,8 @@ test.describe('unificar y suprimir', () => {
     const absorbed = await createContact(page);
     const primary = await createContact(page);
 
-    await page.getByRole('button', { name: 'Unificar' }).click();
+    await page.getByRole('button', { name: 'Acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Unificar' }).click();
     const dialog = page.getByRole('dialog', { name: 'Unificar contactos' });
     await dialog.getByRole('combobox').click();
     await page.getByRole('textbox', { name: 'Buscar contacto' }).fill(absorbed.name);
@@ -172,7 +175,8 @@ test.describe('unificar y suprimir', () => {
   test('suprime los datos a pedido del cliente (Ley 25.326)', async ({ page }) => {
     const contact = await createContact(page);
 
-    await page.getByRole('button', { name: 'Suprimir datos' }).click();
+    await page.getByRole('button', { name: 'Acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Suprimir datos' }).click();
     const dialog = page.getByRole('dialog', { name: `Suprimir los datos de ${contact.name}` });
     await dialog.getByRole('button', { name: 'Continuar' }).click();
     const confirm = dialog.getByRole('button', { name: 'Suprimir para siempre' });

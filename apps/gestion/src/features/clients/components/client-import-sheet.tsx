@@ -69,13 +69,15 @@ function examples(preview: ClientImportPreview, column: number | undefined): str
     .join(' · ');
 }
 
-/** Alta de una importación: elegir el Excel, revisar qué columna va con cada dato e importar. */
+/** Alta de una importación: elegir la planilla, revisar qué columna va con cada dato e importar. */
 function ImportWizard({
   canPickAgents,
+  hiddenFields,
   onStarted,
   onCancel,
 }: {
   readonly canPickAgents: boolean;
+  readonly hiddenFields: readonly ImportFieldValue[];
   readonly onStarted: (importId: string) => void;
   readonly onCancel: () => void;
 }) {
@@ -155,12 +157,13 @@ function ImportWizard({
               onFiles={choose}
               accept={CLIENT_IMPORT_ACCEPT}
               disabled={pending}
-              title={pending ? 'Leyendo el archivo…' : 'Elegí o arrastrá el Excel'}
+              title={pending ? 'Leyendo el archivo…' : 'Elegí o arrastrá la planilla'}
               hint={`Un .xlsx, .xls (como la exportación de Tokko) o .csv de hasta 10 MB y ${count(MAX_CLIENT_IMPORT_ROWS)} filas, con los encabezados en la primera fila.`}
             />
             <p className="text-sm text-muted-foreground">
               Después de subirlo vas a poder revisar qué columna va con cada dato antes de importar.
-              Los contactos que ya existen (mismo teléfono o email) no se duplican.
+              Los contactos que ya existen (mismo teléfono o email) no se duplican, y con el ID de
+              Tokko podés volver a importar la misma exportación sin duplicar nada.
             </p>
           </div>
         ) : (
@@ -176,9 +179,10 @@ function ImportWizard({
               <legend className="mb-1 text-sm font-medium">¿Qué columna va con cada dato?</legend>
               <p className="text-sm text-muted-foreground">
                 Hace falta el nombre (o la empresa) y al menos un teléfono o email. Los tipos de
-                cliente van separados por coma.
+                cliente van separados por coma, y las etiquetas, por coma o "|": las que no existen
+                se crean.
               </p>
-              {IMPORT_FIELD_VALUES.map((field) => {
+              {IMPORT_FIELD_VALUES.filter((field) => !hiddenFields.includes(field)).map((field) => {
                 const column = mapping[field];
                 const id = `import-field-${field}`;
                 return (
@@ -226,7 +230,11 @@ function ImportWizard({
 
             {canPickAgents && (
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="import-agent">Agente a cargo</Label>
+                <Label htmlFor="import-agent">
+                  {mapping.agent === undefined
+                    ? 'Agente a cargo'
+                    : 'Agente a cargo si el de la planilla no es un usuario activo'}
+                </Label>
                 <EntityPicker
                   id="import-agent"
                   value={agentId}
@@ -395,10 +403,13 @@ export function ClientImportSheet({
   navigation,
   detail,
   canPickAgents,
+  hiddenFields,
 }: {
   readonly navigation: PanelNavigation;
   readonly detail: PanelData<ClientImportSheetData> | undefined;
   readonly canPickAgents: boolean;
+  /** Las columnas que quien importa no puede usar (agente y etiquetas, según sus permisos). */
+  readonly hiddenFields: readonly ImportFieldValue[];
 }) {
   const { panel, close, openEdit, setPanelPage, pending } = navigation;
   const shown = useLastDefined(panel);
@@ -411,7 +422,7 @@ export function ClientImportSheet({
       open={panel !== undefined}
       onClose={close}
       width="wide"
-      title={creating ? 'Importar contactos desde Excel' : 'Importación de contactos'}
+      title={creating ? 'Importar contactos' : 'Importación de contactos'}
       description={
         creating
           ? 'Subí el archivo, revisá las columnas e importá.'
@@ -424,6 +435,7 @@ export function ClientImportSheet({
         <ImportWizard
           key="new"
           canPickAgents={canPickAgents}
+          hiddenFields={hiddenFields}
           onStarted={(importId) => {
             openEdit(importId);
           }}

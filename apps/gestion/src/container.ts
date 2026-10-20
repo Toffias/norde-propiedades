@@ -159,6 +159,7 @@ import {
   RunClientImport,
   RunOpportunityBulkOperation,
   type ClientAgents,
+  type ClientImportAgents,
   type ClientListings,
   type InquiryPropertyLookup,
   type OpportunityRequesters,
@@ -1579,6 +1580,29 @@ export function getContainer(): Container {
   return container;
 }
 
+/** Los usuarios activos por nombre, para la columna "Agente" de una importación de contactos. */
+function importAgents(db: Database): ClientImportAgents {
+  const users = new DrizzleUserListQuery(db);
+  return {
+    async searchByName(name) {
+      const page = await users.search({
+        status: 'active',
+        text: name,
+        branchId: undefined,
+        teamId: undefined,
+        sort: { field: 'name', direction: 'asc' },
+        offset: 0,
+        limit: 20,
+      });
+      return page.items.map((user) => ({
+        userId: user.id,
+        name: user.name,
+        branchId: user.branch?.id,
+      }));
+    },
+  };
+}
+
 /** Los agentes activos (con su sucursal), para el reparto de consultas y las acciones masivas. */
 function activeAgents(db: Database): ClientAgents {
   const directory = new DrizzleDirectory(db);
@@ -1808,6 +1832,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       uow: createClientsUnitOfWork(db, deps),
       reader: new UploadedSpreadsheetReader(),
       storage,
+      agents: importAgents(db),
       ids,
       clock,
     }),

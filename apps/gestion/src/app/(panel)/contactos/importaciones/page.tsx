@@ -1,4 +1,4 @@
-import { ListClientImportsQuerySchema } from '@norde/core/clients/contracts';
+import { ListClientImportsQuerySchema, type ImportFieldValue } from '@norde/core/clients/contracts';
 import type { Actor } from '@norde/core/shared';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
@@ -41,13 +41,18 @@ export default async function ClientImportsPage({
     loadImportPanel(parsePanelParams(params), parsePanelPage(params), actor),
   ]);
 
+  // La columna del agente reparte contactos y la de etiquetas puede crearlas: piden permiso.
+  const hiddenFields: ImportFieldValue[] = [];
+  if (!actor.can('clients:reassign')) hiddenFields.push('agent');
+  if (!actor.can('tags:update')) hiddenFields.push('tags');
+
   return (
     <div className="flex flex-col gap-5">
       <ClientImportsHeader />
       <p className="text-sm leading-normal text-muted-foreground">
-        Cada fila del Excel se da de alta como contacto. Las que tienen un teléfono o email que ya
-        existe no se duplican, y las que tienen datos inválidos quedan en el reporte de la
-        importación.
+        Cada fila de la planilla (Excel o CSV, también la exportación de contactos de Tokko) se da
+        de alta como contacto. Las que tienen un teléfono o email que ya existe no se duplican, y
+        las que tienen datos inválidos quedan en el reporte de la importación.
       </p>
       <Card className="gap-0 overflow-hidden p-0">
         {result.isErr() ? (
@@ -61,6 +66,7 @@ export default async function ClientImportsPage({
             sort={query.sort}
             detail={detail}
             canPickAgents={actor.can('clients:reassign') && actor.can('users:read')}
+            hiddenFields={hiddenFields}
           />
         )}
       </Card>

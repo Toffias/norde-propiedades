@@ -276,15 +276,24 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 
 ### 3.3.4 Importación desde Excel y supresión de datos (#8, etapa 4)
 
-**Importar** (`/contactos/importaciones`, permiso `clients:import`): el historial de importaciones, paginado y con su estado (En proceso, Listo, Error). "Importar desde Excel" abre el panel lateral:
+**Importar** (`/contactos/importaciones`, permiso `clients:import`): el historial de importaciones, paginado y con su estado (En proceso, Listo, Error). "Importar contactos" abre el panel lateral:
 
-1. Se sube un `.xlsx` de hasta 10 MB y 10.000 filas, con los encabezados en la primera fila. Se lee en el momento (no se guarda) y se muestran las filas con datos.
-2. Se elige qué columna va con cada dato: nombre, tipo de registro, empresa, teléfono, celular, teléfono laboral, email, otro email, tipos de cliente (separados por coma), cargo, web, dirección, país, número de documento y fecha de nacimiento. Los encabezados conocidos (los de la exportación de contactos y los habituales de una planilla) se proponen solos, con dos valores de ejemplo de cada columna. Hace falta el nombre (o la empresa) y al menos un teléfono o email.
+1. Se sube un `.xlsx`, un `.xls` (la exportación de contactos de Tokko sale así) o un `.csv`, de hasta 10 MB y 10.000 filas, con los encabezados en la primera fila. El servidor reconoce el formato por el contenido (ADR 0038), lo lee en el momento (no se guarda) y muestra las filas con datos. El navegador no procesa el archivo.
+2. Se elige qué columna va con cada dato: ID de Tokko, nombre, tipo de registro, empresa, teléfono, celular, teléfono laboral, otro teléfono, email, otro email, tipos de cliente (separados por coma), cargo, web, dirección, país, número de documento, fecha de nacimiento, agente y etiquetas. Los encabezados conocidos (los de la exportación de contactos, los de la de Tokko y los habituales de una planilla) se proponen solos, con dos valores de ejemplo de cada columna. Hace falta el nombre (o la empresa) y al menos un teléfono o email.
 3. Los contactos quedan a cargo de quien importa; elegir otro agente pide `clients:reassign`.
+4. La columna del agente pide `clients:reassign` y la de etiquetas, `tags:update`: sin el permiso no se ofrecen ni se proponen.
+
+**Exportación de Tokko** (parte de la migración, #17):
+
+- Un guion (`-`, `---`) es una celda vacía: Tokko lo pone, por ejemplo, en todas las fechas de nacimiento.
+- **ID de Tokko**: se guarda como ID externo del contacto (`import_mappings`, origen `tokko`). Al reimportar, una fila con un ID ya importado no se crea de nuevo ("Ya se importó antes"), aunque sus datos hayan cambiado en Tokko; actualizar los contactos ya importados queda para la última corrida antes del corte. Una fila duplicada por teléfono o email queda vinculada a ese ID, y una cuyo contacto pidió la supresión no se vuelve a crear.
+- **Agente**: el usuario activo con ese nombre (sin distinguir mayúsculas ni acentos). Si no hay uno solo, el contacto queda a cargo del agente de la importación.
+- **Etiquetas**: separadas por `|` (como en Tokko) o por coma. Se busca una etiqueta suelta (sin grupo) con ese nombre y, si no hay, se crea suelta. Se auditan el alta de cada etiqueta y las etiquetas del contacto.
+- Lo demás de la exportación (fechas de creación, sucursal, propiedades destacadas, estado y motivo de cierre de la oportunidad, origen) no se importa todavía.
 
 Al confirmar se guarda el archivo y un job de `apps/gestion` (`clients.import_requested`, ADR 0021) da de alta cada fila con **la misma regla de duplicados que el alta manual**: si el teléfono o el email ya existe (aunque esté en la papelera), la fila no se importa y el reporte enlaza al contacto que ya estaba. Cada fila va en su propia transacción junto con el avance: si el job se corta, retoma donde quedó, y si el evento llega dos veces no se importa de nuevo.
 
-- Sin nombre ni empresa, sin teléfono ni email, o con un teléfono, email, tipo, fecha o largo inválido, la fila queda en el reporte con el dato que falló. El reporte no guarda datos personales: el número de fila, el motivo, la columna y, si era un duplicado, el ID del contacto.
+- Sin nombre ni empresa, sin teléfono ni email, con más de 50 etiquetas, o con un teléfono, email, tipo, fecha o largo inválido, la fila queda en el reporte con el dato que falló. El reporte no guarda datos personales: el número de fila, el motivo, la columna y, si era un duplicado, el ID del contacto.
 - Sin nombre pero con empresa, el contacto se crea como empresa.
 - Los contactos importados quedan auditados como `system:import`, agrupados por la importación (`correlation_id`). El pedido, el final y el fallo de la importación también se auditan.
 - Al terminar se borra el archivo subido, que tiene datos personales.

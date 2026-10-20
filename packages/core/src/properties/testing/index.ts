@@ -104,6 +104,23 @@ import {
   type UnitImportRowProblem,
 } from '../domain/development-unit-import';
 import type { DevelopmentUnitImportRepository } from '../domain/development-unit-import.repository';
+import {
+  PropertyImport,
+  type PropertyImportId,
+  type PropertyImportRowProblem,
+  type PropertyImportSnapshot,
+} from '../domain/property-import';
+import type { PropertyImportRepository } from '../domain/property-import.repository';
+import type {
+  ImportDevelopmentCandidate,
+  ImportOwner,
+  ImportProducerCandidate,
+  PropertyImportDirectory,
+} from '../application/ports/property-import-directory';
+import type {
+  PropertyImportItem,
+  PropertyImportQuery,
+} from '../application/ports/property-import-query';
 import type { DevelopmentRepository } from '../domain/development.repository';
 import { Feature, type FeatureId, type FeatureKind, type FeatureSnapshot } from '../domain/feature';
 import type { GridColumn } from '../domain/grid-columns';
@@ -745,6 +762,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly properties = new InMemoryPropertyRepository();
   readonly developments = new InMemoryDevelopmentRepository(this.properties);
   readonly unitImports = new InMemoryDevelopmentUnitImportRepository();
+  readonly propertyImports = new InMemoryPropertyImportRepository();
   readonly locations = new InMemoryLocationRepository();
   readonly features = new InMemoryFeatureRepository();
   readonly customAttributes = new InMemoryCustomAttributeRepository();
@@ -769,6 +787,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.properties,
       this.developments,
       this.unitImports,
+      this.propertyImports,
       this.locations,
       this.features,
       this.customAttributes,
@@ -793,6 +812,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       audit: this.audit.entries.length,
       priceChanges: this.properties.priceChanges.length,
       problems: this.unitImports.problems.length,
+      propertyProblems: this.propertyImports.problems.length,
     };
     const rollback = () => {
       this.stores().forEach((store, index) => {
@@ -803,6 +823,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.audit.entries.splice(backup.audit);
       this.properties.priceChanges.splice(backup.priceChanges);
       this.unitImports.problems.splice(backup.problems);
+      this.propertyImports.problems.splice(backup.propertyProblems);
     };
     try {
       const result = await work(this);
@@ -1523,6 +1544,107 @@ export class InMemoryDevelopmentUnitImportQuery implements DevelopmentUnitImport
         .map(({ importId: _importId, ...problem }) => problem),
       total: sorted.length,
     });
+  }
+}
+
+// ---------- Importación de propiedades de Tokko ----------
+
+export class InMemoryPropertyImportRepository implements PropertyImportRepository {
+  readonly rows = new Map<string, PropertyImportSnapshot>();
+  readonly problems: (PropertyImportRowProblem & { readonly importId: string })[] = [];
+
+  findById(id: PropertyImportId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && PropertyImport.restore(row));
+  }
+
+  save(job: PropertyImport) {
+    this.rows.set(job.id, job.toSnapshot());
+    return Promise.resolve();
+  }
+
+  addProblem(importId: PropertyImportId, problem: PropertyImportRowProblem) {
+    this.problems.push({ importId, ...problem });
+    return Promise.resolve();
+  }
+}
+
+function toPropertyImportItem(snapshot: PropertyImportSnapshot): PropertyImportItem {
+  const { storageKey: _key, columns: _columns, updatedAt: _updatedAt, ...item } = snapshot;
+  return item;
+}
+
+/** El historial de importaciones de propiedades sobre el repositorio en memoria. */
+export class InMemoryPropertyImportQuery implements PropertyImportQuery {
+  constructor(private readonly imports: InMemoryPropertyImportRepository) {}
+
+  list(query: Parameters<PropertyImportQuery['list']>[0]) {
+    const sorted = [...this.imports.rows.values()].sort(
+      (a, b) =>
+        (a.createdAt.getTime() - b.createdAt.getTime()) * (query.direction === 'asc' ? 1 : -1),
+    );
+    return Promise.resolve({
+      items: sorted.slice(query.offset, query.offset + query.limit).map(toPropertyImportItem),
+      total: sorted.length,
+    });
+  }
+
+  find(importId: string) {
+    const row = this.imports.rows.get(importId);
+    return Promise.resolve(row && toPropertyImportItem(row));
+  }
+
+  problems(query: Parameters<PropertyImportQuery['problems']>[0]) {
+    const sorted = this.imports.problems
+      .filter((problem) => problem.importId === query.importId)
+      .sort((a, b) => (a.rowNumber - b.rowNumber) * (query.direction === 'asc' ? 1 : -1));
+    return Promise.resolve({
+      items: sorted
+        .slice(query.offset, query.offset + query.limit)
+        .map(({ importId: _importId, ...problem }) => problem),
+      total: sorted.length,
+    });
+  }
+}
+
+/**
+ * Productores, emprendimientos y propietarios para la importación de Tokko. Los propietarios se
+ * buscan por teléfono o email (sin validar el formato: eso lo hace contactos) y se crean con un ID
+ * correlativo; uno sin teléfono ni email no se vincula.
+ */
+export class FakePropertyImportDirectory implements PropertyImportDirectory {
+  readonly owners: (ImportOwner & { readonly clientId: string })[] = [];
+  readonly producerSearches: string[] = [];
+
+  constructor(
+    readonly producers: readonly ImportProducerCandidate[] = [],
+    readonly developmentsByName: readonly ImportDevelopmentCandidate[] = [],
+  ) {}
+
+  searchProducers(name: string) {
+    this.producerSearches.push(name);
+    const key = name.toLowerCase();
+    return Promise.resolve(this.producers.filter((p) => p.name.toLowerCase().includes(key)));
+  }
+
+  searchDevelopments(name: string) {
+    const key = name.toLowerCase();
+    return Promise.resolve(
+      this.developmentsByName.filter((d) => d.name.toLowerCase().includes(key)),
+    );
+  }
+
+  findOrCreateOwner(owner: ImportOwner) {
+    if (owner.phone === undefined && owner.email === undefined) return Promise.resolve(undefined);
+    const existing = this.owners.find(
+      (o) =>
+        (owner.phone !== undefined && o.phone === owner.phone) ||
+        (owner.email !== undefined && o.email === owner.email),
+    );
+    if (existing) return Promise.resolve({ clientId: existing.clientId });
+    const clientId = `00000000-0000-7000-8000-0000000c${String(this.owners.length + 1).padStart(4, '0')}`;
+    this.owners.push({ ...owner, clientId });
+    return Promise.resolve({ clientId });
   }
 }
 

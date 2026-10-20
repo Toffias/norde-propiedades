@@ -701,6 +701,54 @@ export {
   type UnitDesignation,
   type UnitImportRowProblem,
 } from './domain/development-unit-import';
+export {
+  PreviewPropertyImport,
+  type PreviewPropertyImportError,
+} from './application/queries/preview-property-import';
+export {
+  StartPropertyImport,
+  type StartPropertyImportError,
+} from './application/commands/start-property-import';
+export {
+  RunPropertyImport,
+  type RunPropertyImportError,
+} from './application/handlers/run-property-import';
+export {
+  GetPropertyImport,
+  type GetPropertyImportError,
+  type PropertyImportNotFoundError,
+} from './application/queries/get-property-import';
+export {
+  ListPropertyImports,
+  type ListPropertyImportsError,
+} from './application/queries/list-property-imports';
+export {
+  ListPropertyImportProblems,
+  type ListPropertyImportProblemsError,
+} from './application/queries/list-property-import-problems';
+export type {
+  PropertyImportItem,
+  PropertyImportQuery,
+} from './application/ports/property-import-query';
+export type {
+  ImportDevelopmentCandidate,
+  ImportOwner,
+  ImportProducerCandidate,
+  PropertyImportDirectory,
+} from './application/ports/property-import-directory';
+export type { PropertyImportRepository } from './domain/property-import.repository';
+export {
+  PropertyImport,
+  PROPERTY_IMPORT_FAILURES,
+  PROPERTY_IMPORT_FIELDS,
+  PROPERTY_IMPORT_PROBLEM_CODES,
+  PROPERTY_IMPORT_STATUSES,
+  PROPERTY_IMPORT_WARNINGS,
+  type PropertyImportId,
+  type PropertyImportRequested,
+  type PropertyImportRowProblem,
+  type PropertyImportSnapshot,
+} from './domain/property-import';
 
 // ---------- Reservas (#13) ----------
 

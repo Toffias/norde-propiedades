@@ -144,6 +144,12 @@ export interface InvalidReferenceCodeError {
 /** Código de referencia: letras y números, con guiones; se guarda en mayúsculas. */
 const REFERENCE_CODE = /^[A-Z0-9][A-Z0-9-]{1,19}$/;
 
+/** El código tal como se guarda (en mayúsculas), o `undefined` si no es un código válido. */
+export function cleanReferenceCode(code: string): string | undefined {
+  const clean = code.trim().toUpperCase();
+  return REFERENCE_CODE.test(clean) ? clean : undefined;
+}
+
 export interface NewProperty {
   readonly id: PropertyId;
   readonly code: string;
@@ -557,8 +563,8 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
     now: Date,
   ): Result<boolean, PropertyInTrashError | InvalidReferenceCodeError> {
     if (this.isDeleted) return err({ type: 'PropertyInTrash' });
-    const clean = code.trim().toUpperCase();
-    if (!REFERENCE_CODE.test(clean)) return err({ type: 'InvalidReferenceCode' });
+    const clean = cleanReferenceCode(code);
+    if (clean === undefined) return err({ type: 'InvalidReferenceCode' });
     if (clean === this.#state.code) return ok(false);
     // El slug no cambia: es la URL pública y ya puede estar compartida.
     this.#state = { ...this.#state, code: clean, updatedAt: now };

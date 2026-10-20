@@ -289,7 +289,15 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 - **ID de Tokko**: se guarda como ID externo del contacto (`import_mappings`, origen `tokko`). Al reimportar, una fila con un ID ya importado no se crea de nuevo ("Ya se importó antes"), aunque sus datos hayan cambiado en Tokko; actualizar los contactos ya importados queda para la última corrida antes del corte. Una fila duplicada por teléfono o email queda vinculada a ese ID, y una cuyo contacto pidió la supresión no se vuelve a crear.
 - **Agente**: el usuario activo con ese nombre (sin distinguir mayúsculas ni acentos). Si no hay uno solo, el contacto queda a cargo del agente de la importación.
 - **Etiquetas**: separadas por `|` (como en Tokko) o por coma. Se busca una etiqueta suelta (sin grupo) con ese nombre y, si no hay, se crea suelta. Se auditan el alta de cada etiqueta y las etiquetas del contacto.
-- Lo demás de la exportación (fechas de creación, sucursal, propiedades destacadas, estado y motivo de cierre de la oportunidad, origen) no se importa todavía.
+- **Oportunidad** (en Tokko el contacto es la oportunidad): con la columna del estado, cada contacto creado lleva una, también las cerradas. Pide `opportunities:create` y `settings:update` (puede crear motivos de cierre).
+  - Nace ya en su estado, sin recorrer las transiciones ni disparar "oportunidad creada": no avisa al equipo, no aplica reglas ni suma actividad. Se audita como `opportunity.imported`.
+  - Estado: "Pendiente contactar" → el primer estado activo de Nuevo; "Tomar Accion" → de Contactado; "Cerrado" → de Ganada o Perdida según el motivo.
+  - Motivo ("Motivo (nota)"): "Alquilo/Compro con nosotros" → "Compró o alquiló con Norde"; "…con otro" → "Compró o alquiló con otra inmobiliaria"; "Fantasma" → "No respondió"; "Sin seguimiento" → "Dejó de buscar"; "Es Propietario - Tasación exitosa" → "Tasación exitosa" (ganada); el resto o vacío → "Otro" (perdida). Se busca por nombre y, si no existe, se crea. La nota entre paréntesis (y el motivo, si no se conocía) queda como nota de la oportunidad; una de menos de 3 letras o números se descarta.
+  - Origen: el primero de la lista, con un canal por portal (Zonaprop, MercadoLibre, Argenprop, Icasas, Properati, OLX, Liderprop, EnBuenosAires y Reporte Inmobiliario); "Sitio Web" → formulario de la web; sin origen o desconocido → Oficina.
+  - Tipo: por el motivo ("Alquiló…" alquiler, "Compró…" venta, tasación) y, si no, por las etiquetas ("Tasacion"; "Alquiler" sin "Venta"); el resto, venta.
+  - Fechas: "Fecha de creación" es el alta y "Ultima actualización", el último cambio de estado (el cierre, si está cerrada).
+  - Un contacto que ya existía (duplicado o importado antes) no suma oportunidad.
+- La sucursal y las propiedades destacadas de la exportación no se importan.
 
 Al confirmar se guarda el archivo y un job de `apps/gestion` (`clients.import_requested`, ADR 0021) da de alta cada fila con **la misma regla de duplicados que el alta manual**: si el teléfono o el email ya existe (aunque esté en la papelera), la fila no se importa y el reporte enlaza al contacto que ya estaba. Cada fila va en su propia transacción junto con el avance: si el job se corta, retoma donde quedó, y si el evento llega dos veces no se importa de nuevo.
 

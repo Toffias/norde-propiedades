@@ -45,6 +45,10 @@ export default async function ClientImportsPage({
   const hiddenFields: ImportFieldValue[] = [];
   if (!actor.can('clients:reassign')) hiddenFields.push('agent');
   if (!actor.can('tags:update')) hiddenFields.push('tags');
+  // La oportunidad de Tokko crea oportunidades y, si faltan, motivos de cierre.
+  if (!actor.can('opportunities:create') || !actor.can('settings:update')) {
+    hiddenFields.push('opportunityStatus', 'closeReason', 'origin', 'createdDate', 'updatedDate');
+  }
 
   return (
     <div className="flex flex-col gap-5">

@@ -308,9 +308,42 @@ describe('client imports', () => {
     XLSX.utils.book_append_sheet(
       workbook,
       XLSX.utils.aoa_to_sheet([
-        ['ID', 'Nombre', 'Celular', 'Fecha de nacimiento', 'Agente', 'Etiquetas sin agrupar'],
-        [48213307, 'Ana Pérez', 5491166899124, '-', 'Camila Pedro', 'Web | Venta'],
-        [48213308, 'Juan Gómez', 5491155550000, '-', 'Camila Pedro', 'Venta'],
+        [
+          'ID',
+          'Nombre',
+          'Celular',
+          'Fecha de nacimiento',
+          'Agente',
+          'Etiquetas sin agrupar',
+          'Fecha de creación',
+          'Estados de Oportunidades',
+          'Motivo de cierre',
+          'Origen',
+        ],
+        [
+          48213307,
+          'Ana Pérez',
+          5491166899124,
+          '-',
+          'Camila Pedro',
+          'Web | Venta',
+          '01-02-2024',
+          'Cerrado',
+          'Fantasma (no contestó)',
+          'properati',
+        ],
+        [
+          48213308,
+          'Juan Gómez',
+          5491155550000,
+          '-',
+          'Camila Pedro',
+          'Venta',
+          '02-02-2024',
+          'Tomar Accion',
+          '',
+          '',
+        ],
       ]),
       'Contactos',
     );
@@ -320,13 +353,29 @@ describe('client imports', () => {
     );
     const start = new StartClientImport({ uow, reader, storage, agents, ids, clock });
     const run = new RunClientImport({ uow, reader, storage, agents: importAgents, ids, clock });
-    const mapping = { externalId: 0, name: 1, mobile: 2, birthDate: 3, agent: 4, tags: 5 };
+    const mapping = {
+      externalId: 0,
+      name: 1,
+      mobile: 2,
+      birthDate: 3,
+      agent: 4,
+      tags: 5,
+      createdDate: 6,
+      opportunityStatus: 7,
+      closeReason: 8,
+      origin: 9,
+    };
 
     const importOnce = async () => {
       const started = await start.execute(
         { fileName: 'Contactos.xls', bytes, mapping },
         // La columna de etiquetas puede crearlas: pide `tags:update`.
-        Actor.user(AGENT, ['clients:*', 'tags:update']).withBranch(BRANCH),
+        Actor.user(AGENT, [
+          'clients:*',
+          'tags:update',
+          'opportunities:create',
+          'settings:update',
+        ]).withBranch(BRANCH),
       );
       if (started.isErr()) throw new Error(started.error.type);
       await run.execute({ importId: started.value.importId }, importJob);
@@ -353,6 +402,31 @@ describe('client imports', () => {
       .where(eq(clients.createdBy, 'system:import'));
     expect(imported).toHaveLength(2);
     expect(imported.every((c) => c.agentId === AGENT)).toBe(true);
+    // Una oportunidad por contacto, aunque se importe dos veces, en su estado de Tokko.
+    const importedOpportunities = await db
+      .select({
+        status: opportunities.status,
+        originChannel: opportunities.originChannel,
+        createdAt: opportunities.createdAt,
+        closeReasonId: opportunities.closeReasonId,
+      })
+      .from(opportunities)
+      .orderBy(opportunities.createdAt);
+    expect(importedOpportunities).toMatchObject([
+      {
+        status: 'lost',
+        originChannel: 'properati',
+        createdAt: new Date('2024-02-01T03:00:00Z'),
+      },
+      { status: 'contacted', originChannel: 'office', closeReasonId: null },
+    ]);
+    // "Fantasma" se traduce a "No respondió" (en esta base se crea: arranca sin motivos).
+    const reasons = await db
+      .select({ id: schema.opportunityCloseReasons.id, name: schema.opportunityCloseReasons.name })
+      .from(schema.opportunityCloseReasons);
+    expect(reasons.find((r) => r.id === importedOpportunities[0]?.closeReasonId)?.name).toBe(
+      'No respondió',
+    );
   });
 
   it('pages 1,200 imports and their problems with LIMIT and an index, without losing rows', async () => {

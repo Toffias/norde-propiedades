@@ -11,7 +11,15 @@ import {
 import type { ClientEmail, ClientPhone } from '../domain/client';
 import { MAX_CLIENT_TAGS, MAX_TAG_NAME_LENGTH } from '../domain/client-tag';
 import type { ImportField, ImportMapping, ImportRowProblem } from '../domain/client-import';
+import type { ContactChannel } from '../domain/contact-channel';
 import { normalizeName } from '../domain/duplicate-check';
+import {
+  tokkoCloseReason,
+  tokkoOpportunityState,
+  tokkoOrigin,
+  type TokkoCloseReason,
+  type TokkoOpportunityState,
+} from '../domain/tokko-opportunity';
 
 import { toProfile } from './client-support';
 import type { NewClientData } from './client-creation';
@@ -202,4 +210,45 @@ export function readImportExtras(
   if (tagNames.length > MAX_CLIENT_TAGS) return err(problem('invalid_value', 'tags'));
 
   return ok({ externalId, agentName: cellValue(cells, mapping, 'agent'), tagNames });
+}
+
+/** La oportunidad de la fila (la exportación de Tokko trae una por contacto). */
+export interface ImportedOpportunity {
+  readonly state: TokkoOpportunityState;
+  /** Solo si está cerrada. */
+  readonly closeReason: TokkoCloseReason | undefined;
+  readonly origin: ContactChannel;
+  /** `AAAA-MM-DD`. */
+  readonly createdDate: string | undefined;
+  readonly updatedDate: string | undefined;
+}
+
+/** Sin estado de la oportunidad, la fila no trae oportunidad. */
+export function readImportOpportunity(
+  cells: readonly (string | undefined)[],
+  mapping: ImportMapping,
+): Result<ImportedOpportunity | undefined, RowProblem> {
+  const rawState = cellValue(cells, mapping, 'opportunityStatus');
+  if (rawState === undefined) return ok(undefined);
+  const state = tokkoOpportunityState(rawState);
+  if (state === undefined) return err(problem('invalid_value', 'opportunityStatus'));
+
+  const dates: Partial<Record<'createdDate' | 'updatedDate', string>> = {};
+  for (const field of ['createdDate', 'updatedDate'] as const) {
+    const raw = cellValue(cells, mapping, field);
+    if (raw === undefined) continue;
+    const date = isoDate(raw);
+    if (date === undefined) return err(problem('invalid_value', field));
+    dates[field] = date;
+  }
+
+  return ok({
+    state,
+    closeReason: state.closed
+      ? tokkoCloseReason(cellValue(cells, mapping, 'closeReason'))
+      : undefined,
+    origin: tokkoOrigin(cellValue(cells, mapping, 'origin')),
+    createdDate: dates.createdDate,
+    updatedDate: dates.updatedDate,
+  });
 }

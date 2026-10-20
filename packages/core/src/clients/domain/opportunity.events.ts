@@ -42,8 +42,18 @@ export type OpportunityListingsFeatured = DomainEvent<
   OpportunityPayload & { readonly propertyIds: readonly string[] }
 >;
 
+/**
+ * Vino de otro sistema (la migración de Tokko, #17) ya en su estado: no es una consulta nueva, así
+ * que no avisa al equipo, no aplica reglas ni suma actividad.
+ */
+export type OpportunityImported = DomainEvent<
+  'clients.opportunity_imported',
+  OpportunityPayload & { readonly status: OpportunityStatus }
+>;
+
 export type OpportunityEvent =
   | OpportunityCreated
+  | OpportunityImported
   | OpportunityRequestAdded
   | OpportunityStatusChanged
   | OpportunityReassigned

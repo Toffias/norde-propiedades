@@ -65,11 +65,14 @@ export class PreviewClientImport {
       if (sample.length === CLIENT_IMPORT_SAMPLE_ROWS) break;
     }
     // Las columnas que quien importa no puede usar no se proponen (el alta las rechazaría).
-    const { agent, tags, ...suggested } = suggestImportMapping(headers);
+    const { agent, tags, opportunityStatus, ...suggested } = suggestImportMapping(headers);
+    const canImportOpportunities =
+      actor.can('opportunities:create') && actor.can('settings:update');
     const suggestedMapping = {
       ...suggested,
       ...(agent !== undefined && actor.can('clients:reassign') ? { agent } : {}),
       ...(tags !== undefined && actor.can('tags:update') ? { tags } : {}),
+      ...(opportunityStatus !== undefined && canImportOpportunities ? { opportunityStatus } : {}),
     };
     return ok({ headers, sample, rowCount, suggestedMapping });
   }

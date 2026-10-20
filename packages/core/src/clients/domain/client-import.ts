@@ -32,6 +32,11 @@ export const IMPORT_FIELDS = [
   'birthDate',
   'agent',
   'tags',
+  'opportunityStatus',
+  'closeReason',
+  'origin',
+  'createdDate',
+  'updatedDate',
 ] as const;
 export type ImportField = (typeof IMPORT_FIELDS)[number];
 
@@ -194,6 +199,11 @@ const HEADER_SYNONYMS: Readonly<Record<ImportField, readonly string[]>> = {
   birthDate: ['fecha de nacimiento', 'nacimiento', 'cumpleanos'],
   agent: ['agente', 'agente a cargo', 'productor'],
   tags: ['etiquetas', 'etiquetas sin agrupar'],
+  opportunityStatus: ['estados de oportunidades', 'estado de la oportunidad'],
+  closeReason: ['motivo de cierre'],
+  origin: ['origen'],
+  createdDate: ['fecha de creacion', 'fecha de alta'],
+  updatedDate: ['ultima actualizacion'],
 };
 
 /** El mapeo que se propone a partir de los encabezados; quien importa lo revisa. */

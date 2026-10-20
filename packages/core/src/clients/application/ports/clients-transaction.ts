@@ -17,6 +17,7 @@ import type {
 } from '../../domain/client.repository';
 
 import type { ClientErasure } from './client-erasure';
+import type { ClientExternalIds } from './client-external-ids';
 import type { ClientLinkedRecords } from './client-linked-records';
 import type { DevelopmentChances } from './development-chances';
 
@@ -35,6 +36,7 @@ export interface ClientsTransaction {
   readonly savedSearches: SavedSearchRepository;
   readonly erasure: ClientErasure;
   readonly imports: ClientImportRepository;
+  readonly externalIds: ClientExternalIds;
   readonly bulkOperations: OpportunityBulkOperationRepository;
   readonly inquiries: InquiryRepository;
   readonly inquiryRules: InquiryRuleRepository;

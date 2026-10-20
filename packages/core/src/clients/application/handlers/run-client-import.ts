@@ -2,6 +2,8 @@ import type { FileStorage } from '../../../settings';
 import {
   type Actor,
   auditAction,
+  auditCreated,
+  auditUpdated,
   type Clock,
   err,
   type ForbiddenError,
@@ -12,7 +14,9 @@ import {
   type Result,
   type SpreadsheetReader,
   type SpreadsheetRow,
+  toAuditValue,
 } from '../../../shared';
+import type { Client } from '../../domain/client';
 import {
   MAX_IMPORT_ROWS,
   type ClientImport,
@@ -22,10 +26,15 @@ import {
   type ImportProblemCode,
   type ImportRowOutcome,
 } from '../../domain/client-import';
+import { ClientTag } from '../../domain/client-tag';
+import { normalizeName } from '../../domain/duplicate-check';
 import { createClientIn } from '../client-creation';
-import { readImportRow } from '../client-import-row';
+import { readImportExtras, readImportRow } from '../client-import-row';
+import { clientTarget } from '../client-support';
 import { importTarget } from '../import-support';
+import type { ClientImportAgents } from '../ports/client-import-agents';
 import type { ClientsTransaction, ClientsUnitOfWork } from '../ports/clients-transaction';
+import { clientTagAuditState, tagCatalogTarget } from '../tag-support';
 
 export interface ClientImportNotFoundError {
   readonly type: 'ClientImportNotFound';
@@ -38,12 +47,23 @@ export interface InvalidImportIdError {
 export type RunClientImportError =
   ForbiddenError | InvalidImportIdError | ClientImportNotFoundError;
 
+/** El agente de la columna "Agente": el usuario activo con ese nombre, con su sucursal. */
+interface RowAgent {
+  readonly agentId: string;
+  readonly branchId: string | undefined;
+}
+
 /**
- * El job de `clients.import_requested`: lee el Excel guardado y da de alta cada fila con la misma
- * regla de duplicados que el alta manual. Cada fila va en su propia transacción junto con el
+ * El job de `clients.import_requested`: lee la planilla guardada y da de alta cada fila con la
+ * misma regla de duplicados que el alta manual. Cada fila va en su propia transacción junto con el
  * avance, así un corte retoma donde quedó y una reentrega de una importación terminada no hace
  * nada. Los contactos quedan auditados como `system:import`, agrupados por la importación. Al
  * terminar se borra el archivo, que tiene datos personales.
+ *
+ * Con la columna del ID de Tokko, una fila que ya se importó (o cuyo contacto pidió la supresión)
+ * no se vuelve a crear, y un duplicado queda vinculado a ese ID. Con la del agente, el contacto
+ * queda a cargo del usuario activo con ese nombre (si no hay uno, del agente de la importación).
+ * Las etiquetas se buscan por nombre entre las sueltas y se crean las que faltan.
  */
 export class RunClientImport {
   constructor(
@@ -51,10 +71,14 @@ export class RunClientImport {
       readonly uow: ClientsUnitOfWork;
       readonly reader: SpreadsheetReader;
       readonly storage: FileStorage;
+      readonly agents: ClientImportAgents;
       readonly ids: IdGenerator;
       readonly clock: Clock;
     },
   ) {}
+
+  /** Los agentes ya buscados en esta corrida, por nombre normalizado (`null`: no hay uno). */
+  readonly #agents = new Map<string, RowAgent | null>();
 
   async execute(
     input: { readonly importId: string },
@@ -126,16 +150,55 @@ export class RunClientImport {
       await problem(read.error.code, read.error.field);
       return 'failed';
     }
+    const extras = readImportExtras(row.cells, job.mapping);
+    if (extras.isErr()) {
+      await problem(extras.error.code, extras.error.field);
+      return 'failed';
+    }
+    const { externalId, agentName, tagNames } = extras.value;
+
+    if (externalId !== undefined) {
+      const known = await tx.externalIds.find('tokko', externalId);
+      if (known?.erased) {
+        await problem('erased', 'externalId');
+        return 'failed';
+      }
+      if (known) {
+        await problem('already_imported', 'externalId', known.clientId);
+        return 'duplicate';
+      }
+    }
+
+    const now = this.deps.clock.now();
+    const agent = (agentName === undefined ? undefined : await this.findAgent(agentName)) ?? {
+      agentId: job.agentId,
+      branchId: job.branchId,
+    };
     const created = await createClientIn(tx, runner, {
       ...read.value,
       id: nextId<'Client'>(this.deps.ids),
-      agentId: job.agentId,
-      branchId: job.branchId,
-      now: this.deps.clock.now(),
+      agentId: agent.agentId,
+      branchId: agent.branchId,
+      now,
     });
-    if (created.isOk()) return 'created';
+    if (created.isOk()) {
+      if (externalId !== undefined) {
+        await tx.externalIds.link({ source: 'tokko', externalId, clientId: created.value.id, now });
+      }
+      await this.tagClient(tx, runner, created.value, tagNames);
+      return 'created';
+    }
     switch (created.error.type) {
       case 'DuplicateClient':
+        // Es la misma persona: la próxima corrida la reconoce por su ID.
+        if (externalId !== undefined) {
+          await tx.externalIds.link({
+            source: 'tokko',
+            externalId,
+            clientId: created.error.clientId,
+            now,
+          });
+        }
         await problem('duplicate', undefined, created.error.clientId);
         return 'duplicate';
       case 'MissingName':
@@ -145,6 +208,67 @@ export class RunClientImport {
         await problem('missing_contact', undefined);
         return 'failed';
     }
+  }
+
+  /** El usuario activo con ese nombre (sin distinguir mayúsculas ni acentos), si hay uno solo. */
+  private async findAgent(name: string): Promise<RowAgent | undefined> {
+    const key = normalizeName(name);
+    const cached = this.#agents.get(key);
+    if (cached !== undefined) return cached ?? undefined;
+    const matches = (await this.deps.agents.searchByName(name)).filter(
+      (candidate) => normalizeName(candidate.name) === key,
+    );
+    const [match] = matches;
+    const agent =
+      matches.length === 1 && match ? { agentId: match.userId, branchId: match.branchId } : null;
+    this.#agents.set(key, agent);
+    return agent ?? undefined;
+  }
+
+  /** Las etiquetas sueltas con esos nombres (las que faltan se crean), marcadas en el contacto. */
+  private async tagClient(
+    tx: ClientsTransaction,
+    runner: Actor,
+    client: Client,
+    names: readonly string[],
+  ): Promise<void> {
+    if (names.length === 0) return;
+    const now = this.deps.clock.now();
+    const tagIds: string[] = [];
+    for (const name of names) {
+      const existing = await tx.tags.findInGroup(undefined, name);
+      if (existing) {
+        tagIds.push(existing.id);
+        continue;
+      }
+      const tag = ClientTag.create({
+        id: nextId<'ClientTag'>(this.deps.ids),
+        groupId: undefined,
+        name,
+        now,
+      });
+      await tx.tags.save(tag, runner.id);
+      await tx.audit.record(
+        auditCreated(
+          runner,
+          tagCatalogTarget('client_tag', 'client_tag.created', tag.id),
+          clientTagAuditState(tag),
+        ),
+      );
+      tagIds.push(tag.id);
+    }
+
+    // Recién creado, el contacto no está en la papelera: el cambio no falla.
+    client.changeTags(tagIds, now);
+    const entry = auditUpdated(
+      runner,
+      clientTarget('client.tags_changed', client.id),
+      { tagIds: toAuditValue([]) },
+      { tagIds: toAuditValue([...client.tagIds].sort()) },
+    );
+    await tx.clients.save(client, runner.id);
+    await tx.events.publish(client.pullEvents());
+    if (entry) await tx.audit.record(entry);
   }
 
   private async fail(

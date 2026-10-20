@@ -17,6 +17,15 @@ import type {
 } from '../contracts';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
+import type {
+  ClientExternalId,
+  ClientExternalIds,
+  ExternalIdSource,
+} from '../application/ports/client-external-ids';
+import type {
+  ClientImportAgents,
+  ImportAgentCandidate,
+} from '../application/ports/client-import-agents';
 import type { DevelopmentChances } from '../application/ports/development-chances';
 import type { ClientImportItem, ClientImportQuery } from '../application/ports/client-import-query';
 import type {
@@ -804,6 +813,43 @@ export class InMemoryInquiryRuleRepository implements InquiryRuleRepository {
   }
 }
 
+/** Los IDs de Tokko de los contactos, por `origen:id`. */
+export class InMemoryClientExternalIds implements ClientExternalIds {
+  readonly rows = new Map<string, ClientExternalId>();
+
+  find(source: ExternalIdSource, externalId: string) {
+    return Promise.resolve(this.rows.get(`${source}:${externalId}`));
+  }
+
+  link(input: {
+    readonly source: ExternalIdSource;
+    readonly externalId: string;
+    readonly clientId: string;
+  }) {
+    const key = `${input.source}:${input.externalId}`;
+    if (!this.rows.has(key)) this.rows.set(key, { clientId: input.clientId, erased: false });
+    return Promise.resolve();
+  }
+}
+
+/** Usuarios activos que se buscan por nombre; como el SQL, por "contiene". */
+export class InMemoryClientImportAgents implements ClientImportAgents {
+  constructor(
+    readonly users: readonly ImportAgentCandidate[] = [
+      { userId: AGENT_ID, name: 'Camila Pedro', branchId: BRANCH_ID },
+      { userId: OTHER_AGENT_ID, name: 'Martín Gómez', branchId: OTHER_BRANCH_ID },
+    ],
+  ) {}
+
+  readonly searches: string[] = [];
+
+  searchByName(name: string) {
+    this.searches.push(name);
+    const key = normalizeName(name);
+    return Promise.resolve(this.users.filter((u) => normalizeName(u.name).includes(key)));
+  }
+}
+
 /**
  * Unidad de trabajo en memoria. Si el trabajo devuelve un `Err` o lanza, descarta lo escrito
  * (como el rollback de la implementación real).
@@ -824,6 +870,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly audit = new InMemoryAuditLog();
   readonly erasure = new InMemoryClientErasure(this.clients, this.activities, this.audit);
   readonly imports = new InMemoryClientImportRepository();
+  readonly externalIds = new InMemoryClientExternalIds();
   readonly bulkOperations = new InMemoryOpportunityBulkOperationRepository();
   readonly inquiries = new InMemoryInquiryRepository();
   readonly inquiryRules = new InMemoryInquiryRuleRepository();
@@ -844,6 +891,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       featured: new Map(this.featured.rows),
       savedSearches: new Map(this.savedSearches.rows),
       imports: new Map(this.imports.rows),
+      externalIds: new Map(this.externalIds.rows),
       bulkOperations: new Map(this.bulkOperations.rows),
       inquiries: new Map(this.inquiries.rows),
       inquiryRules: new Map(this.inquiryRules.rows),
@@ -870,6 +918,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.featured.rows, backup.featured);
       restore(this.savedSearches.rows, backup.savedSearches);
       restore(this.imports.rows, backup.imports);
+      restore(this.externalIds.rows, backup.externalIds);
       restore(this.bulkOperations.rows, backup.bulkOperations);
       restore(this.inquiries.rows, backup.inquiries);
       restore(this.inquiryRules.rows, backup.inquiryRules);

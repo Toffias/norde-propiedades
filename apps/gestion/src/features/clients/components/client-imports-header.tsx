@@ -16,7 +16,7 @@ export function ClientImportsHeader() {
       <PageHeader
         icon={UploadIcon}
         title="Importar contactos"
-        subtitle="Contactos desde un Excel, con el historial de cada importación"
+        subtitle="Contactos desde un Excel o un CSV (también de Tokko), con el historial de cada importación"
       />
     </>
   );

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { unwrap, unwrapErr } from '../../shared/testing';
 
-import { readImportRow } from './client-import-row';
+import { readImportExtras, readImportRow } from './client-import-row';
 
 const MAPPING = {
   name: 0,
@@ -114,5 +114,77 @@ describe('readImportRow', () => {
   it('ignores columns that are not mapped', () => {
     const client = unwrap(readImportRow(['Ana', 'a@b.com', 'basura'], { name: 0, email: 1 }));
     expect(client.name).toBe('Ana');
+  });
+});
+
+describe('Tokko rows', () => {
+  const TOKKO = {
+    externalId: 0,
+    name: 1,
+    phone: 2,
+    otherPhone: 3,
+    birthDate: 4,
+    email: 5,
+    agent: 6,
+    tags: 7,
+  } as const;
+
+  it('takes the dash Tokko leaves in empty cells as empty, and reads the other phone', () => {
+    const client = unwrap(
+      readImportRow(
+        ['48213307', 'Ana', '-', '011 4777-0000', '-', '---', 'Camila Pedro', '-'],
+        TOKKO,
+      ),
+    );
+
+    expect(client.phones.map((p) => [p.kind, p.phone.e164])).toEqual([['other', '+541147770000']]);
+    expect(client.emails).toEqual([]);
+    expect(client.profile.birthDate).toBeUndefined();
+  });
+
+  it('reads the Tokko ID, the agent and the tags without repeating them', () => {
+    expect(
+      unwrap(
+        readImportExtras(
+          [
+            ' 48213307 ',
+            'Ana',
+            undefined,
+            undefined,
+            '-',
+            undefined,
+            ' Camila Pedro ',
+            'Web | Venta |  web | Ramos Mejía,Consulta | -',
+          ],
+          TOKKO,
+        ),
+      ),
+    ).toEqual({
+      externalId: '48213307',
+      agentName: 'Camila Pedro',
+      tagNames: ['Web', 'Venta', 'Ramos Mejía', 'Consulta'],
+    });
+    expect(unwrap(readImportExtras(['-', 'Ana'], TOKKO))).toEqual({
+      externalId: undefined,
+      agentName: undefined,
+      tagNames: [],
+    });
+  });
+
+  it('cuts long tag names like the tag does, and rejects too many tags or a long ID', () => {
+    const long = 'x'.repeat(70);
+    expect(
+      unwrap(readImportExtras(['1', 'Ana', ...Array<undefined>(5), long], TOKKO)).tagNames,
+    ).toEqual(['x'.repeat(60)]);
+
+    const many = Array.from({ length: 51 }, (_, i) => `Etiqueta ${String(i)}`).join(' | ');
+    expect(unwrapErr(readImportExtras(['1', 'Ana', ...Array<undefined>(5), many], TOKKO))).toEqual({
+      code: 'invalid_value',
+      field: 'tags',
+    });
+    expect(unwrapErr(readImportExtras(['9'.repeat(101), 'Ana'], TOKKO))).toEqual({
+      code: 'invalid_value',
+      field: 'externalId',
+    });
   });
 });

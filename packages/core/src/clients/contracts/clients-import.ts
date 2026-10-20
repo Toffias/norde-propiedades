@@ -7,12 +7,14 @@ import type { ClientUserRef } from './clients-panel';
 // ---------- Importación desde Excel ----------
 
 export const IMPORT_FIELD_VALUES = [
+  'externalId',
   'name',
   'kind',
   'companyName',
   'phone',
   'mobile',
   'workPhone',
+  'otherPhone',
   'email',
   'secondaryEmail',
   'clientTypes',
@@ -22,16 +24,20 @@ export const IMPORT_FIELD_VALUES = [
   'country',
   'documentNumber',
   'birthDate',
+  'agent',
+  'tags',
 ] as const;
 export type ImportFieldValue = (typeof IMPORT_FIELD_VALUES)[number];
 
 export const IMPORT_FIELD_LABELS: Readonly<Record<ImportFieldValue, string>> = {
+  externalId: 'ID de Tokko',
   name: 'Nombre',
   kind: 'Tipo de registro',
   companyName: 'Empresa',
   phone: 'Teléfono',
   mobile: 'Celular',
   workPhone: 'Teléfono laboral',
+  otherPhone: 'Otro teléfono',
   email: 'Email',
   secondaryEmail: 'Otro email',
   clientTypes: 'Tipos de cliente',
@@ -41,6 +47,8 @@ export const IMPORT_FIELD_LABELS: Readonly<Record<ImportFieldValue, string>> = {
   country: 'País',
   documentNumber: 'Número de documento',
   birthDate: 'Fecha de nacimiento',
+  agent: 'Agente',
+  tags: 'Etiquetas',
 };
 
 export const CLIENT_IMPORT_STATUS_VALUES = ['pending', 'running', 'done', 'failed'] as const;
@@ -63,7 +71,7 @@ export type ClientImportFailureValue = (typeof CLIENT_IMPORT_FAILURE_VALUES)[num
 
 export const CLIENT_IMPORT_FAILURE_LABELS: Readonly<Record<ClientImportFailureValue, string>> = {
   file_missing: 'No se encontró el archivo subido.',
-  unreadable_file: 'No se pudo leer el archivo como Excel.',
+  unreadable_file: 'No se pudo leer el archivo como planilla.',
   too_many_rows: 'El archivo tiene más filas de las que se pueden importar.',
 };
 
@@ -74,6 +82,8 @@ export const IMPORT_PROBLEM_CODE_VALUES = [
   'invalid_phone',
   'invalid_email',
   'invalid_value',
+  'already_imported',
+  'erased',
 ] as const;
 export type ImportProblemCodeValue = (typeof IMPORT_PROBLEM_CODE_VALUES)[number];
 
@@ -84,13 +94,15 @@ export const IMPORT_PROBLEM_LABELS: Readonly<Record<ImportProblemCodeValue, stri
   invalid_phone: 'Teléfono inválido',
   invalid_email: 'Email inválido',
   invalid_value: 'Valor inválido',
+  already_imported: 'Ya se importó antes con el mismo ID',
+  erased: 'Se suprimieron sus datos a pedido del cliente',
 };
 
 export const MAX_CLIENT_IMPORT_ROWS = 10_000;
 export const MAX_CLIENT_IMPORT_COLUMNS = 100;
 export const MAX_CLIENT_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 /** Lo que ofrece el selector de archivos (el caso de uso valida que se pueda leer). */
-export const CLIENT_IMPORT_ACCEPT = '.xlsx';
+export const CLIENT_IMPORT_ACCEPT = '.xlsx,.xls,.csv';
 /** Filas de muestra de la vista previa. */
 export const CLIENT_IMPORT_SAMPLE_ROWS = 5;
 

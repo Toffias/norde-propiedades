@@ -36,7 +36,7 @@ export type PreviewClientImportError =
   | TooManyImportColumnsError;
 
 /**
- * El primer paso de la importación: lee el Excel subido, cuenta las filas y propone qué columna
+ * El primer paso de la importación: lee la planilla subida, cuenta las filas y propone qué columna
  * va con cada dato. No guarda nada.
  */
 export class PreviewClientImport {
@@ -64,6 +64,13 @@ export class PreviewClientImport {
       sample.push(headers.map((_, column) => row.cells[column] ?? null));
       if (sample.length === CLIENT_IMPORT_SAMPLE_ROWS) break;
     }
-    return ok({ headers, sample, rowCount, suggestedMapping: suggestImportMapping(headers) });
+    // Las columnas que quien importa no puede usar no se proponen (el alta las rechazaría).
+    const { agent, tags, ...suggested } = suggestImportMapping(headers);
+    const suggestedMapping = {
+      ...suggested,
+      ...(agent !== undefined && actor.can('clients:reassign') ? { agent } : {}),
+      ...(tags !== undefined && actor.can('tags:update') ? { tags } : {}),
+    };
+    return ok({ headers, sample, rowCount, suggestedMapping });
   }
 }

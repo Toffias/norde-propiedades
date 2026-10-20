@@ -79,6 +79,13 @@ export class StartClientImport {
     if (data.mapping.tags !== undefined && !actor.can('tags:update')) {
       return err({ type: 'Forbidden' });
     }
+    // La oportunidad de Tokko crea oportunidades y, si faltan, motivos de cierre.
+    if (
+      data.mapping.opportunityStatus !== undefined &&
+      !(actor.can('opportunities:create') && actor.can('settings:update'))
+    ) {
+      return err({ type: 'Forbidden' });
+    }
 
     const agentId = data.agentId ?? (actor.kind === 'user' ? actor.id : undefined);
     if (agentId !== actor.id && agentId !== undefined && !actor.can('clients:reassign')) {

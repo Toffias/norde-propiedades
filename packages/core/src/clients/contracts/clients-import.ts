@@ -26,6 +26,11 @@ export const IMPORT_FIELD_VALUES = [
   'birthDate',
   'agent',
   'tags',
+  'opportunityStatus',
+  'closeReason',
+  'origin',
+  'createdDate',
+  'updatedDate',
 ] as const;
 export type ImportFieldValue = (typeof IMPORT_FIELD_VALUES)[number];
 
@@ -49,6 +54,11 @@ export const IMPORT_FIELD_LABELS: Readonly<Record<ImportFieldValue, string>> = {
   birthDate: 'Fecha de nacimiento',
   agent: 'Agente',
   tags: 'Etiquetas',
+  opportunityStatus: 'Estado de la oportunidad',
+  closeReason: 'Motivo de cierre',
+  origin: 'Origen',
+  createdDate: 'Fecha de alta',
+  updatedDate: 'Última actualización',
 };
 
 export const CLIENT_IMPORT_STATUS_VALUES = ['pending', 'running', 'done', 'failed'] as const;

@@ -27,13 +27,24 @@ import {
   type ImportRowOutcome,
 } from '../../domain/client-import';
 import { ClientTag } from '../../domain/client-tag';
+import { Opportunity } from '../../domain/opportunity';
+import { closingStatusFor, OpportunityCloseReason } from '../../domain/opportunity-close-reason';
+import { firstActiveStageOf } from '../../domain/opportunity-stage';
+import { tokkoOpportunityType, type CloseReasonTarget } from '../../domain/tokko-opportunity';
 import { normalizeName } from '../../domain/duplicate-check';
 import { createClientIn } from '../client-creation';
-import { readImportExtras, readImportRow } from '../client-import-row';
+import {
+  readImportExtras,
+  readImportOpportunity,
+  readImportRow,
+  type ImportedOpportunity,
+} from '../client-import-row';
 import { clientTarget } from '../client-support';
 import { importTarget } from '../import-support';
 import type { ClientImportAgents } from '../ports/client-import-agents';
 import type { ClientsTransaction, ClientsUnitOfWork } from '../ports/clients-transaction';
+import { closeReasonAuditState, configTarget } from '../opportunity-config-support';
+import { opportunityAuditState, opportunityTarget } from '../opportunity-support';
 import { clientTagAuditState, tagCatalogTarget } from '../tag-support';
 
 export interface ClientImportNotFoundError {
@@ -48,6 +59,11 @@ export type RunClientImportError =
   ForbiddenError | InvalidImportIdError | ClientImportNotFoundError;
 
 /** El agente de la columna "Agente": el usuario activo con ese nombre, con su sucursal. */
+/** `AAAA-MM-DD` de Buenos Aires (UTC-3, sin horario de verano): comienzo del día en UTC. */
+function startOfDay(date: string): Date {
+  return new Date(`${date}T03:00:00.000Z`);
+}
+
 interface RowAgent {
   readonly agentId: string;
   readonly branchId: string | undefined;
@@ -64,6 +80,10 @@ interface RowAgent {
  * no se vuelve a crear, y un duplicado queda vinculado a ese ID. Con la del agente, el contacto
  * queda a cargo del usuario activo con ese nombre (si no hay uno, del agente de la importación).
  * Las etiquetas se buscan por nombre entre las sueltas y se crean las que faltan.
+ *
+ * Con la columna del estado de la oportunidad, cada contacto creado lleva la suya, ya en su estado
+ * (`Opportunity.imported`), con el motivo de cierre traducido (los que faltan se crean) y las
+ * fechas de Tokko.
  */
 export class RunClientImport {
   constructor(
@@ -156,6 +176,11 @@ export class RunClientImport {
       return 'failed';
     }
     const { externalId, agentName, tagNames } = extras.value;
+    const opportunity = readImportOpportunity(row.cells, job.mapping);
+    if (opportunity.isErr()) {
+      await problem(opportunity.error.code, opportunity.error.field);
+      return 'failed';
+    }
 
     if (externalId !== undefined) {
       const known = await tx.externalIds.find('tokko', externalId);
@@ -186,6 +211,9 @@ export class RunClientImport {
         await tx.externalIds.link({ source: 'tokko', externalId, clientId: created.value.id, now });
       }
       await this.tagClient(tx, runner, created.value, tagNames);
+      if (opportunity.value) {
+        await this.importOpportunity(tx, runner, created.value, opportunity.value, tagNames);
+      }
       return 'created';
     }
     switch (created.error.type) {
@@ -269,6 +297,91 @@ export class RunClientImport {
     await tx.clients.save(client, runner.id);
     await tx.events.publish(client.pullEvents());
     if (entry) await tx.audit.record(entry);
+  }
+
+  /** La oportunidad de Tokko del contacto recién creado, en su estado y con sus fechas. */
+  private async importOpportunity(
+    tx: ClientsTransaction,
+    runner: Actor,
+    client: Client,
+    data: ImportedOpportunity,
+    tagNames: readonly string[],
+  ): Promise<void> {
+    const reason =
+      data.closeReason && (await this.closeReason(tx, runner, data.closeReason.target));
+    const category = data.state.closed
+      ? closingStatusFor(data.closeReason?.target.rating ?? 'negative')
+      : data.state.category;
+    // Cada categoría conserva un estado activo (regla de OpportunityStage).
+    const stage = firstActiveStageOf(await tx.stages.findAll(), category);
+    if (!stage) throw new Error(`No active opportunity stage for ${category}`);
+
+    const now = this.deps.clock.now();
+    const createdAt = data.createdDate === undefined ? now : startOfDay(data.createdDate);
+    const { ownerId, ownerBranchId } = client.ownership;
+    const imported = Opportunity.imported({
+      id: nextId<'Opportunity'>(this.deps.ids),
+      clientId: client.id,
+      originChannel: data.origin,
+      type: tokkoOpportunityType(data.closeReason, tagNames),
+      stage: stage.ref(),
+      closeReason: reason?.ref(),
+      agent: { agentId: ownerId, branchId: ownerBranchId },
+      statusChangeId: nextId<'OpportunityStatusChange'>(this.deps.ids),
+      note: data.closeReason?.note,
+      createdAt,
+      statusChangedAt: data.updatedDate === undefined ? createdAt : startOfDay(data.updatedDate),
+    });
+    // El estado sale de la calificación del motivo: no puede quedar inconsistente.
+    if (imported.isErr())
+      throw new Error(`Unexpected imported opportunity: ${imported.error.reason}`);
+    const opportunity = imported.value;
+
+    await tx.opportunities.save(opportunity, runner.id);
+    await tx.events.publish(opportunity.pullEvents());
+    await tx.audit.record(
+      auditCreated(
+        runner,
+        opportunityTarget('opportunity.imported', opportunity),
+        opportunityAuditState(opportunity),
+      ),
+    );
+  }
+
+  /** El motivo de cierre de Norde con ese nombre; si no hay, se crea (auditado). */
+  private async closeReason(
+    tx: ClientsTransaction,
+    runner: Actor,
+    target: CloseReasonTarget,
+  ): Promise<OpportunityCloseReason> {
+    const reasons = await tx.closeReasons.findAll();
+    const key = normalizeName(target.name);
+    const sameName = reasons.filter((r) => normalizeName(r.name) === key);
+    const existing = sameName.find((r) => r.isActive) ?? sameName[0];
+    if (existing) return existing;
+
+    const created = OpportunityCloseReason.create({
+      id: nextId<'OpportunityCloseReason'>(this.deps.ids),
+      name: target.name,
+      rating: target.rating,
+      existingCount: reasons.length,
+      now: this.deps.clock.now(),
+    });
+    // Tope de 50 motivos: la importación no puede seguir sin uno (se arregla en Mi empresa).
+    if (created.isErr()) throw new Error(`Cannot create close reason: ${created.error.type}`);
+    await tx.closeReasons.save(created.value, runner.id);
+    await tx.audit.record(
+      auditCreated(
+        runner,
+        configTarget(
+          'opportunity_close_reason',
+          'opportunity_close_reason.created',
+          created.value.id,
+        ),
+        closeReasonAuditState(created.value),
+      ),
+    );
+    return created.value;
   }
 
   private async fail(

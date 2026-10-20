@@ -13,12 +13,14 @@ import { ClientTag } from '../../domain/client-tag';
 import {
   AGENT_ID,
   BRANCH_ID,
+  closeReasonFixtureId,
   InMemoryClientAgents,
   InMemoryClientImportAgents,
   InMemoryClientsUnitOfWork,
   OTHER_AGENT_ID,
   OTHER_BRANCH_ID,
   seedClient,
+  stageFixtureId,
 } from '../../testing';
 import { RunClientImport } from '../handlers/run-client-import';
 import { PreviewClientImport } from '../queries/preview-client-import';
@@ -270,5 +272,190 @@ describe('Tokko contacts import', () => {
     expect(unwrapErr(await start(withoutAgent, importer))).toEqual({ type: 'Forbidden' });
     const { tags: _t, ...plain } = withoutAgent;
     unwrap(await start(plain, importer));
+  });
+});
+
+describe('Tokko opportunities import', () => {
+  const OPP_HEADERS = [
+    'ID',
+    'Nombre',
+    'Celular',
+    'Fecha de creación',
+    'Ultima actualización',
+    'Estados de Oportunidades',
+    'Motivo de cierre',
+    'Origen',
+    'Etiquetas sin agrupar',
+  ];
+  const OPP_MAPPING = {
+    externalId: 0,
+    name: 1,
+    mobile: 2,
+    createdDate: 3,
+    updatedDate: 4,
+    opportunityStatus: 5,
+    closeReason: 6,
+    origin: 7,
+    tags: 8,
+  };
+  const MANAGER = Actor.user(AGENT_ID, [
+    'clients:read',
+    'clients:import',
+    'tags:update',
+    'opportunities:create',
+    'settings:update',
+  ]).withBranch(BRANCH_ID);
+
+  async function importOpportunities(ctx: Context, rows: readonly Row[], actor = MANAGER) {
+    const bytes = ctx.reader.register('tokko', [OPP_HEADERS, ...rows]);
+    const started = await ctx.start.execute(
+      { fileName: 'Contactos.xls', bytes, mapping: OPP_MAPPING },
+      actor,
+    );
+    if (started.isErr()) return started;
+    unwrap(await ctx.run.execute({ importId: started.value.importId }, JOB_ACTOR));
+    return started;
+  }
+
+  const opportunityOf = (ctx: Context, name: string) => {
+    const client = clientNamed(ctx, name);
+    return [...ctx.uow.opportunities.rows.values()].find((o) => o.clientId === client?.id);
+  };
+
+  it('creates the opportunity of each contact in its state, with its reason, origin and dates', async () => {
+    const ctx = setup();
+    unwrap(
+      await importOpportunities(ctx, [
+        [
+          '1',
+          'Ana',
+          '5491100000001',
+          '01-02-2024',
+          '10-03-2024',
+          'Cerrado',
+          'Alquilo con nosotros ()',
+          'ZonaProp | mercadolibre',
+          'Web',
+        ],
+        [
+          '2',
+          'Bruno',
+          '5491100000002',
+          '05-02-2024',
+          '06-02-2024',
+          'Cerrado',
+          'Fantasma (nunca contestó)',
+          '',
+          'Venta',
+        ],
+        [
+          '3',
+          'Carla',
+          '5491100000003',
+          '07-02-2024',
+          '07-02-2024',
+          'Tomar Accion',
+          '-',
+          'icasas',
+          'Tasacion',
+        ],
+      ]),
+    );
+
+    expect(opportunityOf(ctx, 'Ana')).toMatchObject({
+      status: 'won',
+      closeReasonId: closeReasonFixtureId(0),
+      originChannel: 'zonaprop',
+      type: 'rent',
+      createdAt: new Date('2024-02-01T03:00:00Z'),
+      closedAt: new Date('2024-03-10T03:00:00Z'),
+      agentId: AGENT_ID,
+      branchId: BRANCH_ID,
+    });
+    // "Fantasma" va a "No respondió", que no existía: se crea, negativo, una sola vez.
+    const noAnswer = [...ctx.uow.closeReasons.rows.values()].find((r) => r.name === 'No respondió');
+    expect(noAnswer).toMatchObject({ rating: 'negative', isActive: true });
+    expect(opportunityOf(ctx, 'Bruno')).toMatchObject({
+      status: 'lost',
+      closeReasonId: noAnswer?.id,
+      originChannel: 'office',
+      type: 'sale',
+      notes: [{ text: 'nunca contestó' }],
+    });
+    expect(opportunityOf(ctx, 'Carla')).toMatchObject({
+      status: 'contacted',
+      stageId: stageFixtureId(1),
+      closeReasonId: undefined,
+      closedAt: undefined,
+      originChannel: 'icasas',
+      type: 'appraisal',
+    });
+  });
+
+  it('does not notify the team nor apply rules, and audits the import', async () => {
+    const ctx = setup();
+    const started = unwrap(
+      await importOpportunities(ctx, [
+        ['1', 'Ana', '5491100000001', '01-02-2024', '10-03-2024', 'Cerrado', 'Otro ()', '', ''],
+      ]),
+    );
+
+    const types = ctx.uow.events.published.map((e) => e.type);
+    expect(types).toContain('clients.opportunity_imported');
+    expect(types).not.toContain('clients.opportunity_created');
+    const opportunity = opportunityOf(ctx, 'Ana');
+    const entries = ctx.uow.audit.entries.filter((e) => e.correlationId === started.importId);
+    expect(entries.map((e) => e.action)).toEqual([
+      'client.created',
+      'opportunity_close_reason.created',
+      'opportunity.imported',
+      'client_import.finished',
+    ]);
+    expect(entries.find((e) => e.action === 'opportunity.imported')).toMatchObject({
+      entityId: opportunity?.id,
+      clientIds: [opportunity?.clientId],
+      actorId: 'system:import',
+    });
+  });
+
+  it('reports an unknown state or an invalid date without creating the contact', async () => {
+    const ctx = setup();
+    const started = unwrap(
+      await importOpportunities(ctx, [
+        ['1', 'Ana', '5491100000001', '01-02-2024', '10-03-2024', 'Archivado', '', '', ''],
+        ['2', 'Bruno', '5491100000002', '31-02-2024', '', 'Cerrado', '', '', ''],
+      ]),
+    );
+
+    expect(ctx.uow.clients.rows.size).toBe(0);
+    expect(ctx.uow.imports.problems.filter((p) => p.importId === started.importId)).toEqual([
+      expect.objectContaining({ rowNumber: 2, code: 'invalid_value', field: 'opportunityStatus' }),
+      expect.objectContaining({ rowNumber: 3, code: 'invalid_value', field: 'createdDate' }),
+    ]);
+  });
+
+  it('does not create an opportunity for a contact that already existed', async () => {
+    const ctx = setup();
+    await seedClient(ctx.uow, { name: 'Ana', phones: ['+5491100000001'] });
+
+    unwrap(
+      await importOpportunities(ctx, [
+        ['1', 'Ana', '5491100000001', '01-02-2024', '10-03-2024', 'Cerrado', 'Fantasma ()', '', ''],
+      ]),
+    );
+
+    expect(ctx.uow.opportunities.rows.size).toBe(0);
+  });
+
+  it('only suggests and accepts the opportunity column with opportunities:create and settings:update', async () => {
+    const ctx = setup();
+    const bytes = ctx.reader.register('tokko', [OPP_HEADERS, ['1', 'Ana', '5491100000001']]);
+    const importer = Actor.user(AGENT_ID, ['clients:read', 'clients:import', 'tags:update']);
+
+    const preview = await ctx.preview.execute({ fileName: 'x.xls', bytes }, importer);
+    expect(unwrap(preview).suggestedMapping.opportunityStatus).toBeUndefined();
+    expect(
+      unwrapErr(await importOpportunities(ctx, [['1', 'Ana', '5491100000001']], importer)),
+    ).toEqual({ type: 'Forbidden' });
   });
 });

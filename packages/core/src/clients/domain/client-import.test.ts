@@ -124,7 +124,9 @@ describe('suggestImportMapping', () => {
       jobTitle: 7,
       birthDate: 8,
       email: 9,
+      createdDate: 10,
       agent: 11,
+      opportunityStatus: 13,
       tags: 14,
     });
   });

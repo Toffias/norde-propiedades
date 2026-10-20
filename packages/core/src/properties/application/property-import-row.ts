@@ -1,4 +1,5 @@
 import { err, ok, type Result } from '../../shared';
+import type { Coordinates } from '../domain/coordinates';
 import { cleanReferenceCode, type OperationInput } from '../domain/property';
 import type { PropertyKind } from '../domain/property-catalog';
 import {
@@ -31,7 +32,14 @@ export interface RowProblem {
   readonly field: PropertyImportField | undefined;
 }
 
-/** Una fila de la exportación de Tokko, lista para crear la propiedad. */
+/** Un propietario que trae la fila, para buscarlo o crearlo en contactos. */
+export interface ImportedOwner {
+  readonly name: string;
+  readonly phone: string | undefined;
+  readonly email: string | undefined;
+}
+
+/** Una propiedad de Tokko (una fila de la exportación o de la API), lista para crearla. */
 export interface ImportedProperty {
   readonly code: string;
   readonly kind: PropertyKind;
@@ -42,14 +50,12 @@ export interface ImportedProperty {
   readonly characteristics: PropertyCharacteristics;
   readonly expensesCents: bigint | undefined;
   readonly internalComments: string | undefined;
-  readonly owner:
-    | {
-        readonly name: string;
-        readonly phone: string | undefined;
-        readonly email: string | undefined;
-      }
-    | undefined;
+  readonly owners: readonly ImportedOwner[];
   readonly developmentName: string | undefined;
+  /** Solo desde la API: la exportación no los trae. */
+  readonly portalTitle: string | undefined;
+  readonly description: string | undefined;
+  readonly coordinates: Coordinates | undefined;
   /** Lo que se ajustó para poder importarla (queda como aviso en el reporte). */
   readonly warnings: readonly RowProblem[];
 }
@@ -91,10 +97,22 @@ export function readPropertyImportRow(
   cells: readonly (string | undefined)[],
   columns: PropertyImportColumns,
 ): Result<ImportedProperty, RowProblem> {
-  const value = (field: PropertyImportField): string | undefined => {
+  return readTokkoValues((field) => {
     const column = columns[field];
-    const raw = column === undefined ? undefined : cells[column]?.trim();
-    return raw === undefined || raw === '' || EMPTY.test(raw) ? undefined : raw;
+    return column === undefined ? undefined : cells[column];
+  });
+}
+
+/**
+ * Una propiedad de Tokko a partir de sus datos como los escribe la exportación (una celda por
+ * dato). La API también pasa por acá, para que las reglas sean las mismas.
+ */
+export function readTokkoValues(
+  raw: (field: PropertyImportField) => string | undefined,
+): Result<ImportedProperty, RowProblem> {
+  const value = (field: PropertyImportField): string | undefined => {
+    const text = raw(field)?.trim();
+    return text === undefined || text === '' || EMPTY.test(text) ? undefined : text;
   };
 
   const code = cleanReferenceCode(tokkoReferenceCode(value('code') ?? ''));
@@ -164,11 +182,14 @@ export function readPropertyImportRow(
       zoning: value('zoning'),
       uncoveredM2: uncovered,
     }),
-    owner:
+    owners:
       ownerName === undefined && ownerPhone === undefined && ownerEmail === undefined
-        ? undefined
-        : { name: ownerName ?? '', phone: ownerPhone, email: ownerEmail },
+        ? []
+        : [{ name: ownerName ?? '', phone: ownerPhone, email: ownerEmail }],
     developmentName: tokkoDevelopmentName(value('development')),
+    portalTitle: undefined,
+    description: undefined,
+    coordinates: undefined,
     warnings,
   });
 }

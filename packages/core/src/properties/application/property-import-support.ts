@@ -31,6 +31,7 @@ export async function toPropertyImportRows(
     const name = names.get(item.requestedBy);
     return {
       id: item.id,
+      source: item.source,
       fileName: item.fileName,
       status: item.status,
       totals: item.totals,

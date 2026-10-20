@@ -1,9 +1,13 @@
 import {
   Location,
   RunPropertyImport,
+  RunTokkoApiPropertyImport,
   StartPropertyImport,
+  StartTokkoApiPropertyImport,
   type PropertyImportDirectory,
+  type TokkoApiProperty,
 } from '@norde/core/properties';
+import { FakeTokkoPropertySource } from '@norde/core/properties/testing';
 import { Actor, parseId, type Result } from '@norde/core/shared';
 import { FixedClock } from '@norde/core/shared/testing';
 import { mkdtemp } from 'node:fs/promises';
@@ -16,7 +20,7 @@ import { describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../test/database';
 import { UploadedSpreadsheetReader } from '../adapters/imports/uploaded-spreadsheet-reader';
 import { LocalFileStorage } from '../adapters/storage/local-file-storage';
-import { auditLog, locations, properties, propertyOperations } from '../db/schema';
+import { auditLog, locations, mediaItems, properties, propertyOperations } from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzlePropertyImportQuery } from './drizzle-property-imports';
@@ -145,5 +149,94 @@ describe('Tokko property imports', () => {
       true,
     );
     expect(await storage.get(`imports/properties/${first}`)).toBeUndefined();
+  });
+
+  it('brings the properties from the Tokko API one at a time, with their photos', async () => {
+    await seedCatalog();
+    const storage = new LocalFileStorage(await mkdtemp(join(tmpdir(), 'norde-import-')));
+    const photo = 'https://static.tokkobroker.com/pictures/1.jpg';
+    const tokko: TokkoApiProperty = {
+      referenceCode: 'NPH9101',
+      typeName: 'PH',
+      address: 'Belgrano 123',
+      floor: 'PB',
+      unit: undefined,
+      fullLocation: 'Argentina | G.B.A. Zona Oeste | La Matanza | Ramos Mejia',
+      producerName: undefined,
+      operations: [{ operationId: 1, prices: [{ currency: 'USD', amount: 99_000 }] }],
+      showPrice: true,
+      surfaceTotal: undefined,
+      surfaceLand: undefined,
+      surfaceCovered: undefined,
+      surfaceSemiCovered: undefined,
+      surfaceUncovered: undefined,
+      front: undefined,
+      depth: undefined,
+      rooms: 3,
+      bedrooms: 2,
+      bathrooms: 1,
+      toilets: undefined,
+      parkingSpaces: undefined,
+      age: undefined,
+      expenses: undefined,
+      floors: undefined,
+      zoning: undefined,
+      title: 'PH en Ramos Mejía',
+      description: 'Un PH luminoso.',
+      internalComments: undefined,
+      latitude: -34.64,
+      longitude: -58.56,
+      owners: [],
+      developmentName: undefined,
+      photos: [{ url: photo, fallbackUrl: undefined, order: 0, isCover: true, isFloorPlan: false }],
+    };
+    const source = new FakeTokkoPropertySource(
+      [tokko, { ...tokko, referenceCode: 'NPH 9102', typeName: 'Castillo', photos: [] }],
+      new Map([[photo, { bytes: new Uint8Array([0xff, 0xd8, 0xff]), contentType: 'image/jpeg' }]]),
+    );
+    const start = new StartTokkoApiPropertyImport({ uow, configured: true, ids, clock });
+    const run = new RunTokkoApiPropertyImport({
+      uow,
+      source,
+      storage,
+      directory,
+      producers: { find: () => Promise.resolve({ branchId: BRANCH }) },
+      ids,
+      clock,
+    });
+
+    const { importId } = unwrap(await start.execute({}, admin));
+    // Una sola a la vez: la pendiente bloquea otra.
+    expect(await uow.run((tx) => tx.propertyImports.hasActiveApiImport())).toBe(true);
+    unwrap(await run.execute({ importId }, importJob));
+    expect(await uow.run((tx) => tx.propertyImports.hasActiveApiImport())).toBe(false);
+
+    const job = await query.find(importId);
+    expect(job).toMatchObject({
+      source: 'api',
+      fileName: '',
+      status: 'done',
+      totals: { rows: 2, processed: 2, created: 1, completed: 0, failed: 1 },
+    });
+    const problems = await query.problems({ importId, direction: 'asc', offset: 0, limit: 10 });
+    expect(problems.items).toEqual([
+      {
+        rowNumber: 2,
+        code: 'unknown_type',
+        field: 'propertyType',
+        propertyId: undefined,
+        reference: 'NPH-9102',
+      },
+    ]);
+    const [ph] = await db
+      .select({ id: properties.id, description: properties.description })
+      .from(properties)
+      .where(eq(properties.code, 'NPH9101'));
+    expect(ph?.description).toBe('Un PH luminoso.');
+    const gallery = await db
+      .select({ kind: mediaItems.kind, isCover: mediaItems.isCover })
+      .from(mediaItems)
+      .where(eq(mediaItems.propertyId, ph?.id ?? ''));
+    expect(gallery).toEqual([{ kind: 'photo', isCover: true }]);
   });
 });

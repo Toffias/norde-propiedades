@@ -25,6 +25,11 @@ import type {
 } from '../application/ports/development-list-query';
 import type { GeocodingFailedError, Geocoder } from '../application/ports/geocoder';
 import type {
+  DownloadedPhoto,
+  TokkoApiProperty,
+  TokkoPropertySource,
+} from '../application/ports/tokko-property-source';
+import type {
   PropertyReservationsQuery,
   ReservationListItem,
 } from '../application/ports/property-reservations-query';
@@ -1563,9 +1568,52 @@ export class InMemoryPropertyImportRepository implements PropertyImportRepositor
     return Promise.resolve();
   }
 
+  hasActiveApiImport() {
+    return Promise.resolve(
+      [...this.rows.values()].some(
+        (row) => row.source === 'api' && (row.status === 'pending' || row.status === 'running'),
+      ),
+    );
+  }
+
   addProblem(importId: PropertyImportId, problem: PropertyImportRowProblem) {
     this.problems.push({ importId, ...problem });
     return Promise.resolve();
+  }
+}
+
+/**
+ * La API de Tokko en memoria: el listado, las fotos por URL y, para probar los cortes, desde qué
+ * posición deja de responder.
+ */
+export class FakeTokkoPropertySource implements TokkoPropertySource {
+  readonly pages: { readonly offset: number; readonly limit: number }[] = [];
+  readonly downloads: string[] = [];
+  /** Desde esta posición del listado, Tokko no responde. */
+  unavailableFrom: number | undefined;
+
+  constructor(
+    readonly properties: TokkoApiProperty[] = [],
+    readonly photos = new Map<string, DownloadedPhoto>(),
+  ) {}
+
+  page(offset: number, limit: number) {
+    this.pages.push({ offset, limit });
+    if (this.unavailableFrom !== undefined && offset >= this.unavailableFrom) {
+      return Promise.resolve(err({ type: 'TokkoUnavailable' as const }));
+    }
+    return Promise.resolve(
+      ok({
+        total: this.properties.length,
+        properties: this.properties.slice(offset, offset + limit),
+      }),
+    );
+  }
+
+  photo(url: string) {
+    this.downloads.push(url);
+    const photo = this.photos.get(url);
+    return Promise.resolve(photo ? ok(photo) : err({ type: 'PhotoUnavailable' as const }));
   }
 }
 

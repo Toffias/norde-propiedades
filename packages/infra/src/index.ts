@@ -126,6 +126,11 @@ export {
   type MercadoLibreAuthorizerOptions,
 } from './adapters/portals/mercadolibre/mercadolibre-authorizer';
 export {
+  TokkoPropertyApi,
+  type TokkoApiConfig,
+  type TokkoPropertyApiOptions,
+} from './adapters/tokko/tokko-property-api';
+export {
   ZonapropApi,
   type ZonapropApiConfig,
   type ZonapropApiError,

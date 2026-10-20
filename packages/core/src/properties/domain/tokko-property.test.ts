@@ -2,16 +2,20 @@ import { describe, expect, it } from 'vitest';
 
 import { parseId } from '../../shared';
 import {
+  PROPERTY_IMPORT_FAILURE_VALUES,
   PROPERTY_IMPORT_FIELD_LABELS,
   PROPERTY_IMPORT_FIELD_VALUES,
   PROPERTY_IMPORT_PROBLEM_CODE_VALUES,
+  PROPERTY_IMPORT_SOURCE_VALUES,
   PROPERTY_IMPORT_WARNING_VALUES,
 } from '../contracts';
 
 import {
   MAX_PROPERTY_IMPORT_ROWS,
+  PROPERTY_IMPORT_FAILURES,
   PROPERTY_IMPORT_FIELDS,
   PROPERTY_IMPORT_PROBLEM_CODES,
+  PROPERTY_IMPORT_SOURCES,
   PROPERTY_IMPORT_WARNINGS,
   PropertyImport,
   TOKKO_PROPERTY_COLUMNS,
@@ -20,6 +24,7 @@ import {
 import {
   sameDevelopmentName,
   tokkoAddress,
+  tokkoApiPlace,
   tokkoCount,
   tokkoDevelopmentName,
   tokkoExpensesCents,
@@ -283,15 +288,76 @@ describe('PropertyImport', () => {
     });
     expect(job.value.start(now)).toMatchObject({ error: { type: 'ImportFinished' } });
   });
+
+  it('is requested from the Tokko API without a file, and learns its rows when it starts', () => {
+    const job = PropertyImport.requestFromTokkoApi({ id: id.value, requestedBy: 'u1', now });
+
+    expect(job.toSnapshot()).toMatchObject({
+      source: 'api',
+      fileName: '',
+      status: 'pending',
+      totals: { rows: 0, processed: 0 },
+    });
+    expect(job.pullEvents()).toEqual([
+      expect.objectContaining({
+        type: 'properties.tokko_api_import_requested',
+        payload: { importId: id.value },
+      }),
+    ]);
+    job.start(now);
+    job.countRows(164, now);
+    job.recordRow('completed', now);
+    job.recordRow('existing', now);
+    // Si en Tokko se borraron propiedades mientras corría, no quedan menos filas que las procesadas.
+    job.countRows(1, now);
+    expect(job.totals).toMatchObject({ rows: 2, processed: 2, completed: 1, existing: 1 });
+  });
 });
 
 describe('property import contracts', () => {
-  it('replicate the fields, problems and warnings of the domain', () => {
+  it('replicate the sources, failures, fields, problems and warnings of the domain', () => {
+    expect([...PROPERTY_IMPORT_SOURCE_VALUES]).toEqual([...PROPERTY_IMPORT_SOURCES]);
+    expect([...PROPERTY_IMPORT_FAILURE_VALUES]).toEqual([...PROPERTY_IMPORT_FAILURES]);
     expect([...PROPERTY_IMPORT_FIELD_VALUES]).toEqual([...PROPERTY_IMPORT_FIELDS]);
     expect(Object.values(PROPERTY_IMPORT_FIELD_LABELS)).toEqual(
       Object.values(TOKKO_PROPERTY_COLUMNS),
     );
     expect([...PROPERTY_IMPORT_PROBLEM_CODE_VALUES]).toEqual([...PROPERTY_IMPORT_PROBLEM_CODES]);
     expect([...PROPERTY_IMPORT_WARNING_VALUES]).toEqual([...PROPERTY_IMPORT_WARNINGS]);
+  });
+});
+
+describe('tokkoApiPlace', () => {
+  it('reads the partido from the API location chain', () => {
+    expect(
+      tokkoApiPlace('Argentina | G.B.A. Zona Oeste | La Matanza | Ramos Mejia | Ramos Mejia Sur'),
+    ).toEqual({
+      inCatalog: true,
+      province: 'Buenos Aires',
+      city: 'La Matanza',
+      neighborhood: 'Ramos Mejia Sur',
+    });
+    expect(tokkoApiPlace('Argentina | G.B.A. Zona Norte | Tigre | Nordelta')).toMatchObject({
+      city: 'Tigre',
+      neighborhood: 'Nordelta',
+    });
+  });
+
+  it('takes the last level as the neighborhood or the locality', () => {
+    expect(tokkoApiPlace('Argentina | Capital Federal | Mataderos ')).toEqual({
+      inCatalog: true,
+      province: 'CABA',
+      city: 'CABA',
+      neighborhood: 'Mataderos',
+    });
+    expect(tokkoApiPlace('Argentina | G.B.A. Zona Sur | San Vicente ')).toMatchObject({
+      city: 'San Vicente',
+      neighborhood: undefined,
+    });
+    expect(tokkoApiPlace('Uruguay | Montevideo | Montevideo | Nuevo París')).toMatchObject({
+      inCatalog: false,
+      province: 'Uruguay',
+      neighborhood: 'Nuevo París',
+    });
   });
 });

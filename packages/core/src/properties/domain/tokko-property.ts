@@ -73,17 +73,26 @@ const BUENOS_AIRES_REGIONS = new Set([
 
 /**
  * "Capital Federal" es CABA, con el barrio como barrio. Las regiones del GBA y la costa son de
- * Buenos Aires: la localidad va con su partido (Ramos Mejía → La Matanza); si no está en la tabla,
- * la localidad es el partido. Otro país u otra región quedan como texto.
+ * Buenos Aires: la localidad va con su partido (Ramos Mejía → La Matanza), el que trae la API o el
+ * de la tabla; si no hay uno, la localidad es el partido. Otro país u otra región quedan como texto.
  */
-export function tokkoPlace(country: string, region: string, neighborhood: string): TokkoPlace {
+export function tokkoPlace(
+  country: string,
+  region: string,
+  neighborhood: string,
+  knownPartido?: string,
+): TokkoPlace {
   const barrio = neighborhood.trim().replace(/\s+/g, ' ');
   if (key(country) === 'argentina') {
     if (key(region) === 'capital federal') {
       return { inCatalog: true, province: 'CABA', city: 'CABA', neighborhood: barrio || undefined };
     }
     if (BUENOS_AIRES_REGIONS.has(key(region)) && barrio !== '') {
-      const partido = PARTIDOS[key(barrio)];
+      const given = knownPartido?.trim().replace(/\s+/g, ' ');
+      const partido =
+        given !== undefined && given !== '' && key(given) !== key(barrio)
+          ? given
+          : PARTIDOS[key(barrio)];
       return partido === undefined
         ? { inCatalog: true, province: 'Buenos Aires', city: barrio, neighborhood: undefined }
         : { inCatalog: true, province: 'Buenos Aires', city: partido, neighborhood: barrio };
@@ -149,6 +158,20 @@ export function tokkoExpensesCents(raw: string | undefined): bigint | null | und
   if (!/^(\d{1,3}(?:\.\d{3})+|\d+)$/.test(text)) return null;
   const pesos = BigInt(text.replace(/\./g, ''));
   return pesos === 0n ? undefined : pesos * 100n;
+}
+
+/**
+ * La ubicación de la API de Tokko ("Argentina | G.B.A. Zona Oeste | La Matanza | Ramos Mejia"):
+ * país, región, el partido si hay más niveles, y el último nivel como barrio o localidad.
+ */
+export function tokkoApiPlace(fullLocation: string): TokkoPlace {
+  const levels = fullLocation
+    .split('|')
+    .map((level) => level.trim())
+    .filter((level) => level !== '');
+  const [country = '', region = '', ...rest] = levels;
+  const last = rest.at(-1) ?? '';
+  return tokkoPlace(country, region, last, rest.length > 1 ? rest[0] : undefined);
 }
 
 /** "AV. RIVADAVIA 9540 + EN POZO": Tokko suma el estado de obra al nombre del emprendimiento. */

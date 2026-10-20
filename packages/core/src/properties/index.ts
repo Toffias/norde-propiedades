@@ -714,6 +714,28 @@ export {
   type RunPropertyImportError,
 } from './application/handlers/run-property-import';
 export {
+  StartTokkoApiPropertyImport,
+  type ImportInProgressError,
+  type StartTokkoApiPropertyImportError,
+  type TokkoApiNotConfiguredError,
+} from './application/commands/start-tokko-api-property-import';
+export {
+  RunTokkoApiPropertyImport,
+  type RunTokkoApiPropertyImportError,
+} from './application/handlers/run-tokko-api-property-import';
+export type {
+  DownloadedPhoto,
+  PhotoUnavailableError,
+  TokkoApiOperation,
+  TokkoApiOwner,
+  TokkoApiPage,
+  TokkoApiPhoto,
+  TokkoApiPrice,
+  TokkoApiProperty,
+  TokkoPropertySource,
+  TokkoUnavailableError,
+} from './application/ports/tokko-property-source';
+export {
   GetPropertyImport,
   type GetPropertyImportError,
   type PropertyImportNotFoundError,
@@ -742,10 +764,13 @@ export {
   PROPERTY_IMPORT_FAILURES,
   PROPERTY_IMPORT_FIELDS,
   PROPERTY_IMPORT_PROBLEM_CODES,
+  PROPERTY_IMPORT_SOURCES,
   PROPERTY_IMPORT_STATUSES,
   PROPERTY_IMPORT_WARNINGS,
   type PropertyImportId,
   type PropertyImportRequested,
+  type PropertyImportSource,
+  type TokkoApiImportRequested,
   type PropertyImportRowProblem,
   type PropertyImportSnapshot,
 } from './domain/property-import';

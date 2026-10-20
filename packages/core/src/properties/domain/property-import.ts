@@ -3,10 +3,12 @@ import type { DomainEvent } from '../../shared/domain/domain-event';
 import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
-// Importación de propiedades desde la exportación de Tokko (`.csv`, #17): el panel sube el archivo
-// y un job lo procesa fila por fila. Las columnas son las de Tokko, reconocidas por su encabezado:
-// no hay que elegirlas. El "Ref" de Tokko es el código de la propiedad: importar dos veces el mismo
-// archivo no duplica propiedades.
+// Importación de propiedades desde Tokko (#17), de dos orígenes:
+// - La exportación (`.csv`): el panel sube el archivo y un job lo procesa fila por fila. Las
+//   columnas son las de Tokko, reconocidas por su encabezado: no hay que elegirlas.
+// - La API de Tokko: un job recorre sus propiedades de a páginas. Además de crear las que faltan,
+//   completa las que ya están con lo que la exportación no trae (fotos, descripción, coordenadas).
+// El "Ref" de Tokko es el código de la propiedad: importar dos veces no duplica propiedades.
 
 export type PropertyImportId = Id<'PropertyImport'>;
 
@@ -93,6 +95,10 @@ export type PropertyImportColumns = Readonly<Partial<Record<PropertyImportField,
 
 export const MAX_PROPERTY_IMPORT_ROWS = 2000;
 
+/** De dónde salen las propiedades: la exportación de Tokko o su API. */
+export const PROPERTY_IMPORT_SOURCES = ['file', 'api'] as const;
+export type PropertyImportSource = (typeof PROPERTY_IMPORT_SOURCES)[number];
+
 export const PROPERTY_IMPORT_STATUSES = ['pending', 'running', 'done', 'failed'] as const;
 export type PropertyImportStatus = (typeof PROPERTY_IMPORT_STATUSES)[number];
 
@@ -101,6 +107,7 @@ export const PROPERTY_IMPORT_FAILURES = [
   'file_missing',
   'unreadable_file',
   'too_many_rows',
+  'source_unavailable',
 ] as const;
 export type PropertyImportFailure = (typeof PROPERTY_IMPORT_FAILURES)[number];
 
@@ -120,6 +127,8 @@ export const PROPERTY_IMPORT_PROBLEM_CODES = [
   'owner_not_linked',
   'development_not_found',
   'total_surface_dropped',
+  'photos_not_downloaded',
+  'description_truncated',
 ] as const;
 export type PropertyImportProblemCode = (typeof PROPERTY_IMPORT_PROBLEM_CODES)[number];
 
@@ -128,31 +137,44 @@ export const PROPERTY_IMPORT_WARNINGS: readonly PropertyImportProblemCode[] = [
   'owner_not_linked',
   'development_not_found',
   'total_surface_dropped',
+  'photos_not_downloaded',
+  'description_truncated',
 ];
 
-/** `existing`: ya había una propiedad con ese código. */
-export type PropertyImportRowOutcome = 'created' | 'existing' | 'failed';
+/**
+ * `existing`: ya había una propiedad con ese código. `completed`: ya estaba y se le agregó lo que
+ * no tenía (solo desde la API).
+ */
+export type PropertyImportRowOutcome = 'created' | 'existing' | 'completed' | 'failed';
 
-/** Una fila con problemas: el número de fila, el dato y la propiedad, si se creó o ya existía. */
+/**
+ * Una fila con problemas: el número de fila (en la API, su lugar en el listado), el dato, la
+ * propiedad si se creó o ya existía y, desde la API, el código de Tokko.
+ */
 export interface PropertyImportRowProblem {
   readonly rowNumber: number;
   readonly code: PropertyImportProblemCode;
   readonly field: PropertyImportField | undefined;
   readonly propertyId: string | undefined;
+  readonly reference?: string | undefined;
 }
 
 export interface PropertyImportTotals {
-  /** Filas de datos del archivo, sin el encabezado. */
+  /** Filas de datos del archivo, sin el encabezado, o propiedades del listado de la API. */
   readonly rows: number;
   readonly processed: number;
   readonly created: number;
   readonly existing: number;
+  readonly completed: number;
   readonly failed: number;
 }
 
 export interface PropertyImportSnapshot {
   readonly id: PropertyImportId;
+  readonly source: PropertyImportSource;
+  /** Vacío si es de la API. */
   readonly fileName: string;
+  /** Vacío si es de la API. */
   readonly storageKey: string;
   readonly status: PropertyImportStatus;
   readonly columns: PropertyImportColumns;
@@ -184,11 +206,19 @@ export interface PropertyImportFinishedError {
   readonly type: 'ImportFinished';
 }
 
-/** Se pidió una importación de propiedades de Tokko: la procesa un job (pg-boss). */
+/** Se pidió una importación de la exportación de Tokko: la procesa un job (pg-boss). */
 export type PropertyImportRequested = DomainEvent<
   'properties.import_requested',
   { readonly importId: string }
 >;
+
+/** Se pidió una importación desde la API de Tokko: la procesa otro job (pg-boss). */
+export type TokkoApiImportRequested = DomainEvent<
+  'properties.tokko_api_import_requested',
+  { readonly importId: string }
+>;
+
+export type PropertyImportEvent = PropertyImportRequested | TokkoApiImportRequested;
 
 /** Un encabezado sin mayúsculas, acentos ni espacios de más. */
 function normalizeHeader(header: string): string {
@@ -235,15 +265,16 @@ const NO_TOTALS: Omit<PropertyImportTotals, 'rows'> = {
   processed: 0,
   created: 0,
   existing: 0,
+  completed: 0,
   failed: 0,
 };
 
 /**
  * Una importación de propiedades de Tokko. Nace pendiente; el job la pone en proceso, suma cada
- * fila y la termina (o la marca fallida si no pudo leer el archivo). Si el job se corta, retoma
- * desde la última fila procesada.
+ * fila y la termina (o la marca fallida si no pudo leer el archivo o Tokko no respondió). Si el job
+ * se corta, retoma desde la última fila procesada.
  */
-export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImportRequested> {
+export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImportEvent> {
   #state: Omit<PropertyImportSnapshot, 'id'>;
 
   private constructor(id: PropertyImportId, state: Omit<PropertyImportSnapshot, 'id'>) {
@@ -269,6 +300,7 @@ export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImpo
     if (rows.isErr()) return err(rows.error);
 
     const job = new PropertyImport(input.id, {
+      source: 'file',
       fileName: input.fileName,
       storageKey: input.storageKey,
       status: 'pending',
@@ -290,9 +322,42 @@ export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImpo
     return ok(job);
   }
 
+  /** Una importación desde la API de Tokko: cuántas propiedades hay lo sabe el job al empezar. */
+  static requestFromTokkoApi(input: {
+    readonly id: PropertyImportId;
+    readonly requestedBy: string;
+    readonly now: Date;
+  }): PropertyImport {
+    const job = new PropertyImport(input.id, {
+      source: 'api',
+      fileName: '',
+      storageKey: '',
+      status: 'pending',
+      columns: {},
+      totals: { rows: 0, ...NO_TOTALS },
+      failure: undefined,
+      requestedBy: input.requestedBy,
+      createdAt: input.now,
+      updatedAt: input.now,
+      startedAt: undefined,
+      finishedAt: undefined,
+    });
+    job.record({
+      type: 'properties.tokko_api_import_requested',
+      aggregateId: input.id,
+      occurredAt: input.now,
+      payload: { importId: input.id },
+    });
+    return job;
+  }
+
   static restore(snapshot: PropertyImportSnapshot): PropertyImport {
     const { id, ...state } = snapshot;
     return new PropertyImport(id, state);
+  }
+
+  get source(): PropertyImportSource {
+    return this.#state.source;
   }
 
   get status(): PropertyImportStatus {
@@ -333,6 +398,15 @@ export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImpo
     return ok(undefined);
   }
 
+  /** Cuántas propiedades trae el listado de la API (cambia si en Tokko se cargan o se borran). */
+  countRows(rows: number, now: Date): void {
+    this.#state = {
+      ...this.#state,
+      totals: { ...this.#state.totals, rows: Math.max(rows, this.#state.totals.processed) },
+      updatedAt: now,
+    };
+  }
+
   /** Suma una fila procesada. */
   recordRow(outcome: PropertyImportRowOutcome, now: Date): void {
     const t = this.#state.totals;
@@ -344,6 +418,7 @@ export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImpo
         processed: t.processed + 1,
         created: t.created + add('created'),
         existing: t.existing + add('existing'),
+        completed: t.completed + add('completed'),
         failed: t.failed + add('failed'),
       },
       updatedAt: now,

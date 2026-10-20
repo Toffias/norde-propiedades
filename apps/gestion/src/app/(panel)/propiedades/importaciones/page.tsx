@@ -7,6 +7,7 @@ import { ArrowLeftIcon, UploadIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { tokkoApiEnabled } from '../../../../config/env';
 import { getContainer } from '../../../../container';
 import { PropertyImportsGrid } from '../../../../features/properties/components/property-imports-grid';
 import {
@@ -38,6 +39,7 @@ export default async function PropertyImportsPage({
   const { actor } = await requireSession();
   const params = await searchParams;
   const { value: query } = parseListParams(ListPropertyImportsQuerySchema, params);
+  const tokko = tokkoApiEnabled();
   const [result, detail] = await Promise.all([
     getContainer().properties.listPropertyImports.execute(query, actor),
     loadImportPanel(parsePanelParams(params), parsePanelPage(params), actor),
@@ -55,12 +57,14 @@ export default async function PropertyImportsPage({
       <PageHeader
         icon={UploadIcon}
         title="Importar propiedades"
-        subtitle="La exportación de propiedades de Tokko, con el historial de cada importación"
+        subtitle="Las propiedades de Tokko, con el historial de cada importación"
       />
       <p className="text-sm leading-normal text-muted-foreground">
-        Cada fila de la exportación de Tokko se crea como una propiedad disponible, con su código de
-        Tokko. Las que ya están en Norde con ese código no se duplican, y las que tienen datos
-        inválidos quedan en el reporte de la importación.
+        Cada propiedad de Tokko se crea disponible, con su código de Tokko. Las que ya están en
+        Norde con ese código no se duplican, y las que tienen datos inválidos quedan en el reporte
+        de la importación.
+        {tokko &&
+          ' Desde la API de Tokko también llegan las fotos, la descripción y las coordenadas, y se completan las que ya estaban sin pisar lo cargado.'}
       </p>
       <Card className="gap-0 overflow-hidden p-0">
         {result.isErr() ? (
@@ -75,6 +79,7 @@ export default async function PropertyImportsPage({
             pageSize={result.value.pageSize}
             sort={query.sort}
             detail={detail}
+            tokkoApi={tokko}
           />
         )}
       </Card>

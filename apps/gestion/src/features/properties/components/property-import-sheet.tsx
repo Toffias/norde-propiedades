@@ -197,9 +197,9 @@ function ImportWizard({
 
 function Stat({ label, value }: { readonly label: string; readonly value: number }) {
   return (
-    <div className="flex flex-col rounded-md border bg-card px-3 py-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-lg font-semibold tabular-nums">{count(value)}</span>
+    <div className="rounded-lg border border-border p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">{count(value)}</p>
     </div>
   );
 }

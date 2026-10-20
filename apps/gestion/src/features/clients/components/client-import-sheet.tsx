@@ -180,7 +180,8 @@ function ImportWizard({
               <p className="text-sm text-muted-foreground">
                 Hace falta el nombre (o la empresa) y al menos un teléfono o email. Los tipos de
                 cliente van separados por coma, y las etiquetas, por coma o "|": las que no existen
-                se crean.
+                se crean. Con el estado de la oportunidad de Tokko, cada contacto nuevo lleva su
+                oportunidad, con su motivo de cierre, su origen y sus fechas.
               </p>
               {IMPORT_FIELD_VALUES.filter((field) => !hiddenFields.includes(field)).map((field) => {
                 const column = mapping[field];

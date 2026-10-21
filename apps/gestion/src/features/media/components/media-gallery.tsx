@@ -360,7 +360,8 @@ function MediaTile({
         {item.processing === 'pending' && (
           <Badge variant="secondary">
             <Loader2Icon className="h-3 w-3 animate-spin" />
-            Procesando
+            {/* Ya está subida: lo que falta son la miniatura, la versión web y la marca de agua. */}
+            Generando variantes
           </Badge>
         )}
       </div>
@@ -429,7 +430,7 @@ function MediaTile({
                   onSelect={() => {
                     update(
                       { mediaId: item.id, rotation: nextRotation(item.rotation) },
-                      'Rotada. Se está procesando de nuevo.',
+                      'Rotada. Se están generando sus variantes de nuevo.',
                     );
                   }}
                 >

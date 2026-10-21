@@ -43,7 +43,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:18
+        image: postgres:17
         env:
           POSTGRES_USER: norde
           POSTGRES_PASSWORD: norde
@@ -78,7 +78,7 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        image: postgres:18
+        image: postgres:17
         env:
           POSTGRES_USER: norde
           POSTGRES_PASSWORD: norde

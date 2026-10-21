@@ -9,7 +9,7 @@ Entorno de pruebas para validar integraciones (MercadoLibre, WhatsApp, Resend) y
 | Agente  | `https://agentenorde.apzsoftware.online`  | 3022         | `norde-agent`   |
 
 - **VPS**: `srv1589149.hstgr.cloud` (`82.29.59.19`), KVM 1 (1 vCPU / 4 GB), Ubuntu. Las otras apps usan los puertos 3000 a 3003 y 3010.
-- **Carpeta**: `/var/www/norde-uat`. **Base**: PostgreSQL local, base `norde_uat`.
+- **Carpeta**: `/var/www/norde-uat`. **Base**: PostgreSQL 17.10 local (compartido con los otros proyectos), base `norde_uat`. Es la versión de todo el proyecto (ADR 0041).
 - **Node**: las apps de Norde usan Node 24 en `/opt/node-24`. El Node del sistema queda para los otros proyectos.
 
 ## Flujo

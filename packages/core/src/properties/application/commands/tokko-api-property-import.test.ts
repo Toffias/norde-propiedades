@@ -71,8 +71,8 @@ function apiProperty(overrides: Partial<TokkoApiProperty> = {}): TokkoApiPropert
     latitude: -34.6385,
     longitude: -58.5021,
     owners: [
-      { name: 'Ana Prueba', phone: '5491100000001', email: undefined },
-      { name: 'Beto Prueba', phone: undefined, email: 'beto@example.test' },
+      { tokkoId: '901', name: 'Ana Prueba', phone: '5491100000001', email: undefined },
+      { tokkoId: '902', name: 'Beto Prueba', phone: undefined, email: 'beto@example.test' },
     ],
     developmentCode: undefined,
     developmentName: undefined,
@@ -328,9 +328,16 @@ describe('Tokko API properties import', () => {
       portalTitle: 'Título de Norde',
       coordinates: { latitude: -34.6, longitude: -58.4 },
     });
-    // No se crea otra propiedad ni se vuelven a buscar los propietarios.
+    // No se crea otra propiedad. Las dos no tenían propietarios: se vinculan los de Tokko, que se
+    // crean una sola vez (por su ID de Tokko) aunque estén en las dos.
     expect(ctx.uow.properties.rows.size).toBe(2);
-    expect(ctx.directory.owners).toEqual([]);
+    expect(ctx.directory.owners.map((o) => o.tokkoId)).toEqual(['901', '902']);
+    expect(ctx.uow.owners.rows.size).toBe(4);
+    expect(
+      ctx.uow.audit.entries.find(
+        (e) => e.action === 'property.owners_imported' && e.entityId === existing.id,
+      ),
+    ).toMatchObject({ clientIds: ctx.directory.owners.map((o) => o.clientId) });
     expect(
       ctx.uow.audit.entries.find((e) => e.action === 'property.import_completed'),
     ).toMatchObject({
@@ -341,7 +348,7 @@ describe('Tokko API properties import', () => {
       },
     });
     expect(ctx.uow.propertyImports.rows.get(importId)).toMatchObject({
-      totals: { processed: 2, created: 0, completed: 1, existing: 1 },
+      totals: { processed: 2, created: 0, completed: 2, existing: 0 },
     });
   });
 
@@ -484,5 +491,19 @@ describe('Tokko API properties import', () => {
         requestedBy: { id: ADMIN_ID, name: 'Laura Admin' },
       }),
     ]);
+  });
+
+  it('keeps the owners a property already has', async () => {
+    const existing = propertySnapshot({
+      id: '00000000-0000-7000-8009-0000000000e3',
+      code: 'NHO1001',
+    });
+    const ctx = setup([apiProperty({ photos: [] })]);
+    ctx.uow.properties.rows.set(existing.id, existing);
+    await ctx.uow.owners.add(existing.id, '00000000-0000-7000-8000-0000000000c1', ADMIN_ID);
+    await runImport(ctx);
+
+    expect(ctx.directory.owners).toEqual([]);
+    expect(ctx.uow.owners.rows.size).toBe(1);
   });
 });

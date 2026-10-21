@@ -98,7 +98,15 @@ const PropertySchema = z.object({
     .object({
       internal_comments: text,
       property_owners: z
-        .array(z.object({ name: text, cellphone: text, phone: text, email: text }))
+        .array(
+          z.object({
+            id: z.union([z.number(), z.string()]).nullish(),
+            name: text,
+            cellphone: text,
+            phone: text,
+            email: text,
+          }),
+        )
         .nullish(),
     })
     .nullish(),
@@ -227,6 +235,7 @@ function toProperty(raw: RawProperty): TokkoApiProperty {
     latitude: coordinate(raw.geo_lat),
     longitude: coordinate(raw.geo_long),
     owners: (internal?.property_owners ?? []).map((owner) => ({
+      tokkoId: owner.id === null || owner.id === undefined ? undefined : String(owner.id),
       name: clean(owner.name) ?? '',
       phone: clean(owner.cellphone) ?? clean(owner.phone),
       email: clean(owner.email),

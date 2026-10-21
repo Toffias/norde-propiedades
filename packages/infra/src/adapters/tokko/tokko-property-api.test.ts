@@ -51,7 +51,13 @@ const PROPERTY = {
   internal_data: {
     internal_comments: 'Llaves en la oficina.',
     property_owners: [
-      { name: 'Ana Prueba', cellphone: '', phone: '1144440000', email: 'ana@example.test' },
+      {
+        id: 501,
+        name: 'Ana Prueba',
+        cellphone: '',
+        phone: '1144440000',
+        email: 'ana@example.test',
+      },
     ],
   },
   development: { id: 7, name: 'Torre Rivadavia', reference_code: 'NBU0007' },
@@ -159,7 +165,9 @@ describe('TokkoPropertyApi.page', () => {
         internalComments: 'Llaves en la oficina.',
         latitude: -34.6385,
         longitude: -58.5021,
-        owners: [{ name: 'Ana Prueba', phone: '1144440000', email: 'ana@example.test' }],
+        owners: [
+          { tokkoId: '501', name: 'Ana Prueba', phone: '1144440000', email: 'ana@example.test' },
+        ],
         developmentCode: 'NBU0007',
         developmentName: 'Torre Rivadavia',
         photos: [

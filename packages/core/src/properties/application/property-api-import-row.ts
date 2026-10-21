@@ -139,6 +139,7 @@ export function readTokkoApiProperty(
         .join('\n\n') || undefined,
     owners: property.owners.filter(
       (o) =>
+        o.tokkoId !== undefined ||
         optionalText(o.name) !== undefined ||
         optionalText(o.phone) !== undefined ||
         optionalText(o.email) !== undefined,

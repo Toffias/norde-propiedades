@@ -23,6 +23,8 @@ export interface ImportOwner {
   readonly rents: boolean;
   /** El productor de la propiedad: queda a cargo del contacto nuevo. */
   readonly agentId: string | undefined;
+  /** El ID del contacto en Tokko (desde la API): sin teléfono ni email, alcanza con él. */
+  readonly tokkoId: string | undefined;
 }
 
 /**
@@ -38,8 +40,9 @@ export interface PropertyImportDirectory {
   /** Los emprendimientos cuyo nombre contiene este, como mucho una página. */
   searchDevelopments(name: string): Promise<readonly ImportDevelopmentCandidate[]>;
   /**
-   * El contacto con ese teléfono o email (la regla de duplicados de contactos) o uno nuevo como
-   * propietario. `undefined` si no tiene un teléfono ni un email válidos.
+   * El contacto con ese ID de Tokko, teléfono o email (la regla de duplicados de contactos) o uno
+   * nuevo como propietario. `undefined` si no tiene un teléfono ni un email válidos ni ID de Tokko,
+   * o si pidió la supresión de sus datos.
    */
   findOrCreateOwner(
     owner: ImportOwner,

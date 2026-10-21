@@ -79,6 +79,58 @@ describe('FindOrCreateOwner', () => {
     });
   });
 
+  it('creates an owner from the Tokko API with just the name, once per Tokko contact', async () => {
+    const { uow, owners } = setup();
+    const fromApi = { ...owner, phone: '4401 7116', tokkoId: '777' };
+
+    const created = unwrap(await owners.execute(fromApi, IMPORT_ACTOR));
+    const again = unwrap(await owners.execute({ ...fromApi, rents: true }, IMPORT_ACTOR));
+
+    expect(again).toEqual(created);
+    expect(uow.clients.rows.size).toBe(1);
+    expect(uow.clients.rows.get(created?.clientId ?? '')).toMatchObject({
+      name: 'Ana Prueba',
+      phones: [],
+      emails: [],
+      clientTypes: ['owner_seller'],
+      agentId: AGENT_ID,
+    });
+    expect(uow.externalIds.rows.get('tokko:777')).toEqual({
+      clientId: created?.clientId,
+      erased: false,
+    });
+    expect(uow.audit.entries.map((e) => [e.action, e.entityId])).toEqual([
+      ['client.created', created?.clientId],
+    ]);
+  });
+
+  it('finds the contact of a Tokko ID first, and links the ID to a contact found by phone', async () => {
+    const { uow, owners } = setup();
+    const byPhone = await seedClient(uow, { name: 'Ana', phones: ['+5491166899124'] });
+    const linked = unwrap(await owners.execute({ ...owner, tokkoId: '42' }, IMPORT_ACTOR));
+    expect(linked).toEqual({ clientId: byPhone.id });
+    expect(uow.externalIds.rows.get('tokko:42')?.clientId).toBe(byPhone.id);
+
+    // Con el ID ya vinculado, se encuentra aunque cambien el teléfono o el email.
+    expect(
+      unwrap(
+        await owners.execute(
+          { ...owner, phone: undefined, email: 'otra@mail.com', tokkoId: '42' },
+          IMPORT_ACTOR,
+        ),
+      ),
+    ).toEqual({ clientId: byPhone.id });
+    expect(uow.clients.rows.size).toBe(1);
+  });
+
+  it('does not create again a Tokko contact whose data was erased', async () => {
+    const { uow, owners } = setup();
+    uow.externalIds.rows.set('tokko:99', { clientId: 'erased', erased: true });
+
+    expect(unwrap(await owners.execute({ ...owner, tokkoId: '99' }, IMPORT_ACTOR))).toBeUndefined();
+    expect(uow.clients.rows.size).toBe(0);
+  });
+
   it('requires clients:create', async () => {
     const { owners } = setup();
 

@@ -288,6 +288,9 @@ describe('Tokko property imports', () => {
       constructionStatus: 'pre_sale',
     });
     expect(ph?.developmentId).toBe(torre?.id);
+    // Sin propietarios en Tokko, la propiedad no tiene ninguno (al completarla se buscarían).
+    const phId = ph?.id ?? '';
+    expect(await uow.run((tx) => tx.owners.hasAny(phId))).toBe(false);
     const gallery = await db
       .select({ kind: mediaItems.kind, isCover: mediaItems.isCover })
       .from(mediaItems)

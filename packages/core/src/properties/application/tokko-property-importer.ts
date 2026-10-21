@@ -123,7 +123,7 @@ export class TokkoPropertyImporter {
   ): Promise<{ readonly propertyId: PropertyId; readonly warnings: readonly ImportRowProblem[] }> {
     const problems: ImportRowProblem[] = [...row.warnings];
     const producer =
-      (row.producerName === undefined ? undefined : await this.#findProducer(row.producerName)) ??
+      (row.producerName === undefined ? undefined : await this.findProducer(row.producerName)) ??
       fallback;
     // Los propietarios se buscan o se crean en contactos, afuera de la transacción de la propiedad.
     const ownerClientIds = new Set<string>();
@@ -142,11 +142,9 @@ export class TokkoPropertyImporter {
       else unlinked = true;
     }
     if (unlinked) problems.push({ code: 'owner_not_linked', field: 'ownerPhone' });
-    const developmentId =
-      row.developmentName === undefined
-        ? undefined
-        : await this.#findDevelopment(row.developmentName);
-    if (row.developmentName !== undefined && developmentId === undefined) {
+    const developmentId = await this.findDevelopment(row);
+    const inDevelopment = row.developmentName !== undefined || row.developmentCode !== undefined;
+    if (inDevelopment && developmentId === undefined) {
       problems.push({ code: 'development_not_found', field: 'development' });
     }
 
@@ -176,7 +174,7 @@ export class TokkoPropertyImporter {
   ): Promise<void> {
     const { row } = data;
     const now = this.deps.clock.now();
-    const place = await this.#resolvePlace(tx, runner, row.place);
+    const place = await this.resolvePlace(tx, runner, row.place);
     const developmentId =
       data.developmentId === undefined ? undefined : parseId<'Development'>(data.developmentId);
     const development =
@@ -275,7 +273,7 @@ export class TokkoPropertyImporter {
   }
 
   /** La ubicación del catálogo (creando la localidad o el barrio que falte), o los textos. */
-  async #resolvePlace(
+  async resolvePlace(
     tx: PropertiesTransaction,
     runner: Actor,
     place: TokkoPlace,
@@ -332,7 +330,7 @@ export class TokkoPropertyImporter {
   }
 
   /** El usuario activo con ese nombre, si hay uno solo. */
-  async #findProducer(name: string): Promise<RowProducer | undefined> {
+  async findProducer(name: string): Promise<RowProducer | undefined> {
     const key = nameKey(name);
     const cached = this.#producers.get(key);
     if (cached !== undefined) return cached ?? undefined;
@@ -346,8 +344,25 @@ export class TokkoPropertyImporter {
     return producer ?? undefined;
   }
 
+  /**
+   * El emprendimiento de una fila, activo: el de ese código de Tokko o, si no hay, el único con ese
+   * nombre.
+   */
+  async findDevelopment(
+    row: Pick<ImportedProperty, 'developmentCode' | 'developmentName'>,
+  ): Promise<string | undefined> {
+    if (row.developmentCode !== undefined) {
+      const code = row.developmentCode;
+      const byCode = await this.deps.uow.run((tx) => tx.developments.findByCode(code));
+      if (byCode && !byCode.isDeleted) return byCode.id;
+    }
+    return row.developmentName === undefined
+      ? undefined
+      : this.#findDevelopmentByName(row.developmentName);
+  }
+
   /** El emprendimiento con ese nombre, si hay uno solo. */
-  async #findDevelopment(name: string): Promise<string | undefined> {
+  async #findDevelopmentByName(name: string): Promise<string | undefined> {
     const key = nameKey(name);
     const cached = this.#developments.get(key);
     if (cached !== undefined) return cached ?? undefined;

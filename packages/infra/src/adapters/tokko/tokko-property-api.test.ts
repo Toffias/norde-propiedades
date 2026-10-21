@@ -54,7 +54,7 @@ const PROPERTY = {
       { name: 'Ana Prueba', cellphone: '', phone: '1144440000', email: 'ana@example.test' },
     ],
   },
-  development: { id: 7, name: 'Torre Rivadavia' },
+  development: { id: 7, name: 'Torre Rivadavia', reference_code: 'NBU0007' },
   photos: [
     {
       original: 'https://static.tokkobroker.com/original_pictures/1.jpg',
@@ -160,6 +160,7 @@ describe('TokkoPropertyApi.page', () => {
         latitude: -34.6385,
         longitude: -58.5021,
         owners: [{ name: 'Ana Prueba', phone: '1144440000', email: 'ana@example.test' }],
+        developmentCode: 'NBU0007',
         developmentName: 'Torre Rivadavia',
         photos: [
           {
@@ -211,6 +212,86 @@ describe('TokkoPropertyApi.page', () => {
 
     const weird = setup([json({ objects: 'nope' })]);
     expect(unwrapErr(await weird.api.page(0, 20))).toEqual({ type: 'TokkoUnavailable' });
+  });
+});
+
+describe('TokkoPropertyApi.developments', () => {
+  const DEVELOPMENT = {
+    id: 7,
+    reference_code: 'NBU0007',
+    name: 'TORRE RIVADAVIA + EN POZO',
+    type: { id: 1, code: 'BU', name: 'Edificio' },
+    address: 'Rivadavia 9540',
+    fake_address: 'Rivadavia al 9500',
+    location: { full_location: 'Argentina | Capital Federal | Villa Luro ' },
+    construction_status: 3,
+    construction_date: '2028-12-01',
+    display_on_web: true,
+    publication_title: 'Torre Rivadavia',
+    description: 'Edificio de 10 pisos.',
+    financing_details: '',
+    geo_lat: '-34.6385',
+    geo_long: '-58.5021',
+    users_in_charge: { name: 'Micaela Santo', email: 'micaela@example.test', phone: '1144440000' },
+    photos: [
+      {
+        original: 'https://static.tokkobroker.com/original_pictures/7.jpg',
+        image: 'https://static.tokkobroker.com/pictures/7.jpg',
+        order: 0,
+        is_front_cover: true,
+        is_blueprint: false,
+      },
+    ],
+  };
+
+  it('reads a page of developments, without the contact data of who is in charge', async () => {
+    const { api, requests } = setup([json(page([DEVELOPMENT], 10))]);
+
+    const result = unwrap(await api.developments(0, 20));
+
+    expect(requests[0]?.pathname).toBe('/api/v1/development/');
+    expect(result).toEqual({
+      total: 10,
+      developments: [
+        {
+          referenceCode: 'NBU0007',
+          name: 'TORRE RIVADAVIA + EN POZO',
+          typeCode: 'BU',
+          address: 'Rivadavia 9540',
+          fullLocation: 'Argentina | Capital Federal | Villa Luro ',
+          constructionStatus: 3,
+          constructionDate: '2028-12-01',
+          displayOnWeb: true,
+          title: 'Torre Rivadavia',
+          description: 'Edificio de 10 pisos.',
+          financingDetails: undefined,
+          latitude: -34.6385,
+          longitude: -58.5021,
+          producerName: 'Micaela Santo',
+          photos: [
+            {
+              url: 'https://static.tokkobroker.com/original_pictures/7.jpg',
+              fallbackUrl: 'https://static.tokkobroker.com/pictures/7.jpg',
+              order: 0,
+              isCover: true,
+              isFloorPlan: false,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('keeps a development it cannot read as an empty one, and fails when Tokko does not answer', async () => {
+    const odd = setup([json(page([{ name: 7 }]))]);
+    expect(unwrap(await odd.api.developments(0, 20)).developments).toEqual([
+      expect.objectContaining({ referenceCode: '', name: '' }),
+    ]);
+
+    const rejected = setup([json({ error: 'Invalid key' }, 401)]);
+    expect(unwrapErr(await rejected.api.developments(0, 20))).toEqual({
+      type: 'TokkoUnavailable',
+    });
   });
 });
 

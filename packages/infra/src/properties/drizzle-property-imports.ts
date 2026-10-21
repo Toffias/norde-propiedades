@@ -27,6 +27,8 @@ const KIND = 'properties_tokko';
 const OptionsSchema = z.object({
   columns: z.partialRecord(z.enum(PROPERTY_IMPORT_FIELDS), z.int().min(0)),
   source: z.enum(PROPERTY_IMPORT_SOURCES).default('file'),
+  /** Las de antes de traer emprendimientos no los tienen pendientes. */
+  developmentsDone: z.boolean().default(true),
 });
 
 const count0 = z.int().min(0).default(0);
@@ -37,12 +39,16 @@ const TotalsSchema = z.object({
   existing: count0,
   completed: count0,
   failed: count0,
+  developments: z
+    .object({ created: count0, existing: count0, completed: count0, failed: count0 })
+    .default({ created: 0, existing: 0, completed: 0, failed: 0 }),
 });
 
 const ProblemRawSchema = z.object({
   field: z.enum(PROPERTY_IMPORT_FIELDS).optional(),
   propertyId: z.string().optional(),
   reference: z.string().optional(),
+  subject: z.enum(['property', 'development']).optional(),
 });
 
 type ImportJobRow = typeof importJobs.$inferSelect;
@@ -58,6 +64,7 @@ function toSnapshot(row: ImportJobRow): PropertyImportSnapshot {
     storageKey: row.storageKey ?? '',
     status: z.enum(PROPERTY_IMPORT_STATUSES).parse(row.status),
     columns: options.columns,
+    developmentsDone: options.developmentsDone,
     totals: TotalsSchema.parse(row.totals),
     failure: row.failure === null ? undefined : z.enum(PROPERTY_IMPORT_FAILURES).parse(row.failure),
     requestedBy: row.createdBy,
@@ -94,7 +101,11 @@ export class DrizzlePropertyImportRepository implements PropertyImportRepository
       status: s.status,
       fileName: s.fileName,
       storageKey: s.storageKey,
-      options: toJsonb({ columns: s.columns, source: s.source }),
+      options: toJsonb({
+        columns: s.columns,
+        source: s.source,
+        developmentsDone: s.developmentsDone,
+      }),
       totals: toJsonb(s.totals),
       failure: s.failure ?? null,
       startedAt: s.startedAt ?? null,
@@ -145,6 +156,7 @@ export class DrizzlePropertyImportRepository implements PropertyImportRepository
         field: problem.field,
         propertyId: problem.propertyId,
         reference: problem.reference,
+        subject: problem.subject,
       }),
       createdAt: now,
     });
@@ -214,6 +226,7 @@ export class DrizzlePropertyImportQuery implements PropertyImportQuery {
           field: raw.field,
           propertyId: raw.propertyId,
           reference: raw.reference,
+          subject: raw.subject,
         };
       }),
       total: total?.value ?? 0,

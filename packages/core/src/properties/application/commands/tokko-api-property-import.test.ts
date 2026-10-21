@@ -74,6 +74,7 @@ function apiProperty(overrides: Partial<TokkoApiProperty> = {}): TokkoApiPropert
       { name: 'Ana Prueba', phone: '5491100000001', email: undefined },
       { name: 'Beto Prueba', phone: undefined, email: 'beto@example.test' },
     ],
+    developmentCode: undefined,
     developmentName: undefined,
     photos: [
       {

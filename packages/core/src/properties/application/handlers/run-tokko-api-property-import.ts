@@ -3,31 +3,28 @@ import {
   auditAction,
   diffChanges,
   err,
-  nextId,
   ok,
   parseId,
   type Actor,
-  type AuditState,
   type Clock,
   type ForbiddenError,
   type IdGenerator,
   type Result,
 } from '../../../shared';
-import { MediaItem } from '../../domain/media-item';
-import type { MediaOwner } from '../../domain/media-owner';
-import type { Property, PropertyId } from '../../domain/property';
+import type { Property } from '../../domain/property';
 import type {
   PropertyImport,
   PropertyImportRowOutcome,
+  PropertyImportRowProblem,
   PropertyImportStatus,
 } from '../../domain/property-import';
 import { tokkoReferenceCode } from '../../domain/tokko-property';
-import { childState, mediaAuditState, mediaKey, ownerTarget } from '../media-support';
-import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
+import { readTokkoApiDevelopment } from '../development-api-import-row';
+import { developmentTarget } from '../development-support';
+import type { PropertiesTransaction, PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { PropertyImportDirectory } from '../ports/property-import-directory';
 import type {
-  DownloadedPhoto,
-  TokkoApiPhoto,
+  TokkoApiDevelopment,
   TokkoApiProperty,
   TokkoPropertySource,
 } from '../ports/tokko-property-source';
@@ -40,6 +37,8 @@ import {
 import { propertyImportTarget } from '../property-import-support';
 import { propertyDetailAuditState, propertyTarget, saveEdit } from '../property-support';
 import type { PropertyImportNotFoundError } from '../queries/get-property-import';
+import { TokkoDevelopmentImporter } from '../tokko-development-importer';
+import { TokkoPhotoImporter } from '../tokko-photo-importer';
 import {
   expectOk,
   TokkoPropertyImporter,
@@ -54,33 +53,33 @@ export type RunTokkoApiPropertyImportError =
 
 /** Propiedades por pedido a Tokko: cada una trae todas sus fotos, así que la página es corta. */
 const PAGE_SIZE = 20;
-/** Fotos que se bajan a la vez, para no saturar a Tokko. */
-const PARALLEL_DOWNLOADS = 4;
 
-/** Una foto bajada y guardada en el storage, todavía sin registrar en la galería. */
-interface StoredPhoto {
-  readonly mediaId: MediaItem['id'];
-  readonly key: string;
-  readonly contentType: string;
-  readonly sizeBytes: number;
-  readonly source: TokkoApiPhoto;
+/** Lo que usa una corrida: el importador de propiedades guarda lo ya buscado en ella. */
+interface Run {
+  readonly runner: Actor;
+  readonly job: PropertyImport;
+  readonly fallback: RowProducer | undefined;
+  readonly properties: TokkoPropertyImporter;
+  readonly developments: TokkoDevelopmentImporter;
+  readonly photos: TokkoPhotoImporter;
 }
 
 /**
- * El job de `properties.tokko_api_import_requested`: recorre las propiedades de Norde en la API de
- * Tokko, de a páginas y en el orden de Tokko.
+ * El job de `properties.tokko_api_import_requested`: trae de la API de Tokko primero los
+ * emprendimientos y después las propiedades, de a páginas y en el orden de Tokko (decidido con
+ * Norde el 2026-10-20).
  *
- * - Si el código no existe, crea la propiedad como la importación de la exportación (mismas reglas
- *   de ubicación, productor, propietarios y emprendimiento), con su título, descripción,
- *   coordenadas y fotos.
- * - Si ya existe, la completa sin pisar nada (decidido con Norde el 2026-10-20): la descripción y
- *   las coordenadas si no tiene, los comentarios internos de Tokko si no están, y las fotos si la
- *   galería está vacía.
+ * - Lo que no existe se crea con las reglas de la exportación (ubicación, productor, propietarios),
+ *   más el título, la descripción, las coordenadas y las fotos. Los emprendimientos van primero
+ *   para que las unidades queden vinculadas en la misma corrida.
+ * - Lo que ya existe se completa sin pisar nada: lo que esté vacío, los comentarios internos de
+ *   Tokko si no están, el emprendimiento de una unidad suelta y las fotos si la galería está vacía.
  *
  * Las fotos se bajan de Tokko al storage y quedan "procesando" hasta que el job de siempre genera
  * sus variantes. Cada propiedad va en sus propias transacciones junto con el avance: si el job se
- * corta, retoma donde quedó, y volver a correrla no duplica nada. Si Tokko no responde, la
- * importación queda fallida con lo hecho hasta ahí.
+ * corta, retoma donde quedó (los emprendimientos, si no terminaron, se vuelven a recorrer: son
+ * pocos), y volver a correrla no duplica nada. Si Tokko no responde, la importación queda fallida
+ * con lo hecho hasta ahí.
  */
 export class RunTokkoApiPropertyImport {
   constructor(
@@ -116,8 +115,22 @@ export class RunTokkoApiPropertyImport {
     const { source } = this.deps;
     if (!source) return this.fail(job, runner);
 
-    const importer = new TokkoPropertyImporter(this.deps);
-    const fallback = await importer.requester(job.requestedBy);
+    const properties = new TokkoPropertyImporter(this.deps);
+    const photos = new TokkoPhotoImporter({ ...this.deps, source });
+    const run: Run = {
+      runner,
+      job,
+      fallback: await properties.requester(job.requestedBy),
+      properties,
+      photos,
+      developments: new TokkoDevelopmentImporter({ ...this.deps, properties, photos }),
+    };
+
+    if (!job.developmentsDone) {
+      const imported = await this.importDevelopments(run, source);
+      if (!imported) return this.fail(job, runner);
+    }
+
     // Retoma desde la primera propiedad que no procesó.
     let offset = job.totals.processed;
     for (;;) {
@@ -129,32 +142,78 @@ export class RunTokkoApiPropertyImport {
       });
       for (const property of page.value.properties) {
         offset += 1;
-        await this.importProperty(importer, runner, job, fallback, offset, property);
+        await this.importProperty(run, offset, property);
       }
       if (page.value.properties.length === 0 || offset >= page.value.total) break;
     }
 
     await this.deps.uow.run(async (tx) => {
+      const { totals } = job;
       job.finish(this.deps.clock.now());
       await tx.propertyImports.save(job, actor.id);
       await tx.audit.record(
         auditAction(runner, propertyImportTarget('property_import.finished', job.id), {
           status: { before: 'running', after: 'done' },
-          created: { before: null, after: job.totals.created },
-          existing: { before: null, after: job.totals.existing },
-          completed: { before: null, after: job.totals.completed },
-          failed: { before: null, after: job.totals.failed },
+          created: { before: null, after: totals.created },
+          existing: { before: null, after: totals.existing },
+          completed: { before: null, after: totals.completed },
+          failed: { before: null, after: totals.failed },
+          developmentsCreated: { before: null, after: totals.developments.created },
+          developmentsCompleted: { before: null, after: totals.developments.completed },
+          developmentsFailed: { before: null, after: totals.developments.failed },
         }),
       );
     });
     return ok({ status: job.status });
   }
 
+  /** Todos los emprendimientos de Tokko. `false` si Tokko no respondió. */
+  private async importDevelopments(run: Run, source: TokkoPropertySource): Promise<boolean> {
+    // Si un corte dejó la mitad, se vuelven a recorrer todos: los totales empiezan de nuevo.
+    run.job.restartDevelopments(this.deps.clock.now());
+    let offset = 0;
+    for (;;) {
+      const page = await source.developments(offset, PAGE_SIZE);
+      if (page.isErr()) return false;
+      for (const development of page.value.developments) {
+        offset += 1;
+        await this.importDevelopment(run, offset, development);
+      }
+      if (page.value.developments.length === 0 || offset >= page.value.total) break;
+    }
+    await this.deps.uow.run(async (tx) => {
+      run.job.finishDevelopments(this.deps.clock.now());
+      await tx.propertyImports.save(run.job, run.runner.id);
+    });
+    return true;
+  }
+
+  private async importDevelopment(
+    run: Run,
+    rowNumber: number,
+    development: TokkoApiDevelopment,
+  ): Promise<void> {
+    let reference: string | undefined = tokkoReferenceCode(development.referenceCode) || undefined;
+    let outcome: PropertyImportRowOutcome = 'failed';
+    let problems: readonly ImportRowProblem[];
+    const read = readTokkoApiDevelopment(development);
+    if (read.isErr()) {
+      problems = [read.error];
+    } else {
+      reference = read.value.code;
+      const result = await run.developments.import(run.runner, read.value, run.fallback);
+      outcome = result.outcome;
+      problems = result.problems;
+    }
+    await this.deps.uow.run(async (tx) => {
+      await this.addProblems(tx, run.job, problems, { rowNumber, reference }, 'development');
+      run.job.recordDevelopment(outcome, this.deps.clock.now());
+      await tx.propertyImports.save(run.job, run.runner.id);
+    });
+  }
+
   private async importProperty(
-    importer: TokkoPropertyImporter,
-    runner: Actor,
-    job: PropertyImport,
-    fallback: RowProducer | undefined,
+    run: Run,
     rowNumber: number,
     property: TokkoApiProperty,
   ): Promise<void> {
@@ -169,9 +228,9 @@ export class RunTokkoApiPropertyImport {
     } else {
       const row = read.value;
       reference = row.code;
-      const blocked = await this.deps.uow.run((tx) => importer.check(tx, row));
+      const blocked = await this.deps.uow.run((tx) => run.properties.check(tx, row));
       if (blocked?.code === 'already_imported' && blocked.propertyId !== undefined) {
-        const completed = await this.complete(runner, blocked.propertyId, row);
+        const completed = await this.complete(run, blocked.propertyId, row);
         problems.push(...completed.warnings);
         outcome = completed.changed ? 'completed' : 'existing';
         // Una que ya estaba completa se informa como en la exportación.
@@ -179,9 +238,13 @@ export class RunTokkoApiPropertyImport {
       } else if (blocked) {
         problems.push(blocked);
       } else {
-        const created = await importer.create(runner, row, fallback);
+        const created = await run.properties.create(run.runner, row, run.fallback);
         problems.push(...created.warnings);
-        const photos = await this.addPhotos(runner, created.propertyId, row.photos);
+        const photos = await run.photos.add(
+          run.runner,
+          { kind: 'property', id: created.propertyId },
+          row.photos,
+        );
         if (photos.failed) {
           problems.push({
             code: 'photos_not_downloaded',
@@ -194,62 +257,102 @@ export class RunTokkoApiPropertyImport {
     }
 
     await this.deps.uow.run(async (tx) => {
-      for (const problem of problems) {
-        await tx.propertyImports.addProblem(
-          job.id,
-          {
-            rowNumber,
-            code: problem.code,
-            field: problem.field,
-            propertyId: problem.propertyId,
-            reference,
-          },
-          this.deps.clock.now(),
-        );
-      }
-      job.recordRow(outcome, this.deps.clock.now());
-      await tx.propertyImports.save(job, runner.id);
+      await this.addProblems(tx, run.job, problems, { rowNumber, reference }, 'property');
+      run.job.recordRow(outcome, this.deps.clock.now());
+      await tx.propertyImports.save(run.job, run.runner.id);
     });
+  }
+
+  private async addProblems(
+    tx: PropertiesTransaction,
+    job: PropertyImport,
+    problems: readonly ImportRowProblem[],
+    row: Pick<PropertyImportRowProblem, 'rowNumber' | 'reference'>,
+    subject: 'property' | 'development',
+  ): Promise<void> {
+    for (const problem of problems) {
+      await tx.propertyImports.addProblem(
+        job.id,
+        {
+          ...row,
+          code: problem.code,
+          field: problem.field,
+          propertyId: problem.propertyId,
+          subject,
+        },
+        this.deps.clock.now(),
+      );
+    }
   }
 
   /**
    * Le agrega a una propiedad que ya estaba lo que no tiene: descripción, coordenadas, los
-   * comentarios de Tokko y las fotos. Lo cargado en Norde no se pisa.
+   * comentarios de Tokko, su emprendimiento si es una unidad suelta y las fotos. Lo cargado en
+   * Norde no se pisa.
    */
   private async complete(
-    runner: Actor,
+    run: Run,
     propertyId: string,
     row: ApiImportedProperty,
   ): Promise<{ readonly changed: boolean; readonly warnings: readonly ImportRowProblem[] }> {
     const id = expectOk(parseId<'Property'>(propertyId));
+    const developmentId = await run.properties.findDevelopment(row);
     const edited = await this.deps.uow.run(async (tx) => {
       const property = await tx.properties.findById(id);
       if (!property || property.isDeleted) return { changed: false, galleryEmpty: false };
       const before = propertyDetailAuditState(property);
       const changed = this.fillGaps(property, row);
-      if (changed) {
+      const joined = await this.joinDevelopment(tx, run.runner, property, developmentId);
+      if (changed || joined) {
         await saveEdit(
           tx,
           property,
-          runner,
+          run.runner,
           auditAction(
-            runner,
+            run.runner,
             propertyTarget('property.import_completed', property.id),
             diffChanges(before, propertyDetailAuditState(property)),
           ),
         );
       }
-      const galleryEmpty = (await tx.media.count({ kind: 'property', id })) === 0;
-      return { changed, galleryEmpty };
+      const galleryEmpty = await run.photos.galleryIsEmpty(tx, { kind: 'property', id });
+      return { changed: changed || joined, galleryEmpty };
     });
     if (!edited.galleryEmpty || row.photos.length === 0) {
       return { changed: edited.changed, warnings: [] };
     }
-    const photos = await this.addPhotos(runner, id, row.photos);
+    const photos = await run.photos.add(run.runner, { kind: 'property', id }, row.photos);
     const warnings: ImportRowProblem[] = photos.failed
       ? [{ code: 'photos_not_downloaded', field: undefined, propertyId }]
       : [];
     return { changed: edited.changed || photos.added > 0, warnings };
+  }
+
+  /**
+   * Si la propiedad está suelta y en Tokko es unidad de un emprendimiento que está en Norde, la
+   * suma como su unidad (también en el historial del emprendimiento).
+   */
+  private async joinDevelopment(
+    tx: PropertiesTransaction,
+    runner: Actor,
+    property: Property,
+    developmentId: string | undefined,
+  ): Promise<boolean> {
+    if (developmentId === undefined || property.developmentId !== undefined) return false;
+    const id = parseId<'Development'>(developmentId);
+    const development = id.isOk() ? await tx.developments.findById(id.value) : undefined;
+    if (!development || development.isDeleted) return false;
+    const joined = expectOk(property.joinDevelopment(development.id, this.deps.clock.now()));
+    if (joined) {
+      await tx.audit.record(
+        auditAction(
+          runner,
+          developmentTarget('development.unit_added', development),
+          diffChanges({}, { unitId: property.id, unitCode: property.code }),
+        ),
+      );
+    }
+    return joined;
   }
 
   /** Completa la descripción, las coordenadas y los comentarios internos. Si cambió algo. */
@@ -295,107 +398,6 @@ export class RunTokkoApiPropertyImport {
         ) || changed;
     }
     return changed;
-  }
-
-  /**
-   * Baja las fotos de Tokko y las suma a la galería vacía de la propiedad, con la portada y el
-   * orden de Tokko. Si la galería ya no está vacía (alguien subió fotos mientras tanto), no agrega
-   * nada. `failed`: alguna no se pudo bajar.
-   */
-  private async addPhotos(
-    runner: Actor,
-    propertyId: PropertyId,
-    photos: readonly TokkoApiPhoto[],
-  ): Promise<{ readonly added: number; readonly failed: boolean }> {
-    if (photos.length === 0) return { added: 0, failed: false };
-    const owner: MediaOwner = { kind: 'property', id: propertyId };
-    const stored: StoredPhoto[] = [];
-    let failed = false;
-    for (let i = 0; i < photos.length; i += PARALLEL_DOWNLOADS) {
-      const batch = photos.slice(i, i + PARALLEL_DOWNLOADS);
-      const downloads = await Promise.all(batch.map((photo) => this.download(photo)));
-      for (const [index, download] of downloads.entries()) {
-        const photo = batch[index];
-        if (!download || !photo) {
-          failed = true;
-          continue;
-        }
-        const mediaId = nextId<'MediaItem'>(this.deps.ids);
-        const key = mediaKey(owner, mediaId, 'original');
-        await this.deps.storage.put({
-          key,
-          contentType: download.contentType,
-          bytes: download.bytes,
-        });
-        stored.push({
-          mediaId,
-          key,
-          contentType: download.contentType,
-          sizeBytes: download.bytes.byteLength,
-          source: photo,
-        });
-      }
-    }
-    if (stored.length === 0) return { added: 0, failed };
-
-    let added: number;
-    try {
-      added = await this.deps.uow.run(async (tx) => {
-        const property = await tx.properties.findById(propertyId);
-        if (!property || property.isDeleted || (await tx.media.count(owner)) > 0) return 0;
-        const now = this.deps.clock.now();
-        const first = await tx.media.nextPosition(owner);
-        const photosOnly = stored.filter((photo) => !photo.source.isFloorPlan);
-        const cover =
-          photosOnly.find((photo) => photo.source.isCover) ?? photosOnly[0] ?? stored[0];
-        let state: AuditState = {};
-        for (const [index, photo] of stored.entries()) {
-          const item = expectOk(
-            MediaItem.upload({
-              id: photo.mediaId,
-              owner,
-              storageKey: photo.key,
-              contentType: photo.contentType,
-              sizeBytes: photo.sizeBytes,
-              position: first + index,
-              isCover: photo === cover,
-              uploadedBy: runner.id,
-              now,
-            }),
-          );
-          if (photo.source.isFloorPlan) expectOk(item.update({ isFloorPlan: true }, now));
-          await tx.media.save(item, runner.id);
-          await tx.events.publish(item.pullEvents());
-          state = { ...state, ...childState(`media.${item.id}`, mediaAuditState(item)) };
-        }
-        await tx.audit.record(
-          auditAction(runner, ownerTarget('media_added', owner), diffChanges({}, state)),
-        );
-        return stored.length;
-      });
-    } catch (error) {
-      await Promise.all(stored.map((photo) => this.deps.storage.delete(photo.key)));
-      throw error;
-    }
-    if (added === 0) await Promise.all(stored.map((photo) => this.deps.storage.delete(photo.key)));
-    return { added, failed };
-  }
-
-  /** La original o, si no sirve (no responde, no es una imagen o pesa demasiado), la versión web. */
-  private async download(photo: TokkoApiPhoto): Promise<DownloadedPhoto | undefined> {
-    const source = this.deps.source;
-    if (!source) return undefined;
-    for (const url of [photo.url, photo.fallbackUrl]) {
-      if (url === undefined) continue;
-      const downloaded = await source.photo(url);
-      if (downloaded.isErr()) continue;
-      const valid = MediaItem.validateUpload({
-        contentType: downloaded.value.contentType,
-        sizeBytes: downloaded.value.bytes.byteLength,
-      });
-      if (valid.isOk()) return downloaded.value;
-    }
-    return undefined;
   }
 
   private async fail(

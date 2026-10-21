@@ -129,6 +129,7 @@ export const PROPERTY_IMPORT_PROBLEM_CODES = [
   'total_surface_dropped',
   'photos_not_downloaded',
   'description_truncated',
+  'location_not_found',
 ] as const;
 export type PropertyImportProblemCode = (typeof PROPERTY_IMPORT_PROBLEM_CODES)[number];
 
@@ -147,16 +148,30 @@ export const PROPERTY_IMPORT_WARNINGS: readonly PropertyImportProblemCode[] = [
  */
 export type PropertyImportRowOutcome = 'created' | 'existing' | 'completed' | 'failed';
 
+/** De qué es una fila: una propiedad o, desde la API, un emprendimiento. */
+export type PropertyImportSubject = 'property' | 'development';
+
 /**
  * Una fila con problemas: el número de fila (en la API, su lugar en el listado), el dato, la
- * propiedad si se creó o ya existía y, desde la API, el código de Tokko.
+ * propiedad (o el emprendimiento) si se creó o ya existía y, desde la API, el código de Tokko.
  */
 export interface PropertyImportRowProblem {
   readonly rowNumber: number;
   readonly code: PropertyImportProblemCode;
   readonly field: PropertyImportField | undefined;
+  /** La propiedad o, si `subject` es `development`, el emprendimiento. */
   readonly propertyId: string | undefined;
   readonly reference?: string | undefined;
+  /** Sin valor, una propiedad. */
+  readonly subject?: PropertyImportSubject | undefined;
+}
+
+/** Los emprendimientos que trajo la API, antes que las propiedades. */
+export interface PropertyImportDevelopmentTotals {
+  readonly created: number;
+  readonly existing: number;
+  readonly completed: number;
+  readonly failed: number;
 }
 
 export interface PropertyImportTotals {
@@ -167,6 +182,8 @@ export interface PropertyImportTotals {
   readonly existing: number;
   readonly completed: number;
   readonly failed: number;
+  /** Solo desde la API. */
+  readonly developments: PropertyImportDevelopmentTotals;
 }
 
 export interface PropertyImportSnapshot {
@@ -178,6 +195,8 @@ export interface PropertyImportSnapshot {
   readonly storageKey: string;
   readonly status: PropertyImportStatus;
   readonly columns: PropertyImportColumns;
+  /** Desde la API: si ya trajo los emprendimientos (al retomar, sigue con las propiedades). */
+  readonly developmentsDone: boolean;
   readonly totals: PropertyImportTotals;
   readonly failure: PropertyImportFailure | undefined;
   readonly requestedBy: string;
@@ -261,12 +280,20 @@ export function checkPropertyImportRows(
   return ok(undefined);
 }
 
+export const NO_DEVELOPMENT_TOTALS: PropertyImportDevelopmentTotals = {
+  created: 0,
+  existing: 0,
+  completed: 0,
+  failed: 0,
+};
+
 const NO_TOTALS: Omit<PropertyImportTotals, 'rows'> = {
   processed: 0,
   created: 0,
   existing: 0,
   completed: 0,
   failed: 0,
+  developments: NO_DEVELOPMENT_TOTALS,
 };
 
 /**
@@ -305,6 +332,7 @@ export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImpo
       storageKey: input.storageKey,
       status: 'pending',
       columns: columns.value,
+      developmentsDone: true,
       totals: { rows: input.rows, ...NO_TOTALS },
       failure: undefined,
       requestedBy: input.requestedBy,
@@ -334,6 +362,7 @@ export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImpo
       storageKey: '',
       status: 'pending',
       columns: {},
+      developmentsDone: false,
       totals: { rows: 0, ...NO_TOTALS },
       failure: undefined,
       requestedBy: input.requestedBy,
@@ -378,6 +407,37 @@ export class PropertyImport extends AggregateRoot<PropertyImportId, PropertyImpo
 
   get totals(): PropertyImportTotals {
     return this.#state.totals;
+  }
+
+  get developmentsDone(): boolean {
+    return this.#state.developmentsDone;
+  }
+
+  /** Suma un emprendimiento traído de la API. */
+  recordDevelopment(outcome: PropertyImportRowOutcome, now: Date): void {
+    const d = this.#state.totals.developments;
+    this.#state = {
+      ...this.#state,
+      totals: {
+        ...this.#state.totals,
+        developments: { ...d, [outcome]: d[outcome] + 1 },
+      },
+      updatedAt: now,
+    };
+  }
+
+  /** Empieza a recorrer los emprendimientos (de nuevo, si un corte dejó la mitad). */
+  restartDevelopments(now: Date): void {
+    this.#state = {
+      ...this.#state,
+      totals: { ...this.#state.totals, developments: NO_DEVELOPMENT_TOTALS },
+      updatedAt: now,
+    };
+  }
+
+  /** Ya trajo los emprendimientos: si se corta, retoma con las propiedades. */
+  finishDevelopments(now: Date): void {
+    this.#state = { ...this.#state, developmentsDone: true, updatedAt: now };
   }
 
   get isFinished(): boolean {

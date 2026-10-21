@@ -215,6 +215,24 @@ describe('Property trash', () => {
     ]);
   });
 
+  it('joins a development only while loose and out of the trash', () => {
+    const property = unwrap(Property.create(newProperty()));
+    const development = '00000000-0000-7000-8000-0000000000d1';
+
+    expect(unwrap(property.joinDevelopment(development, LATER))).toBe(true);
+    expect(property.toSnapshot()).toMatchObject({ developmentId: development, updatedAt: LATER });
+    expect(unwrap(property.joinDevelopment('00000000-0000-7000-8000-0000000000d2', LATER))).toBe(
+      false,
+    );
+    expect(property.developmentId).toBe(development);
+
+    const deleted = unwrap(Property.create(newProperty()));
+    unwrap(deleted.delete('user-1', LATER));
+    expect(unwrapErr(deleted.joinDevelopment(development, LATER))).toEqual({
+      type: 'PropertyInTrash',
+    });
+  });
+
   it('exposes its producer and branch for the ownership rules', () => {
     const property = unwrap(Property.create(newProperty()));
     expect(property.ownership).toEqual({

@@ -1,7 +1,10 @@
 import type {
   DownloadedPhoto,
   PhotoUnavailableError,
+  TokkoApiDevelopment,
+  TokkoApiDevelopmentPage,
   TokkoApiPage,
+  TokkoApiPhoto,
   TokkoApiProperty,
   TokkoPropertySource,
   TokkoUnavailableError,
@@ -38,6 +41,18 @@ const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
 
 const text = z.string().nullish();
 const number = z.number().nullish();
+
+const PhotosSchema = z
+  .array(
+    z.object({
+      original: text,
+      image: text,
+      order: number,
+      is_front_cover: z.boolean().nullish(),
+      is_blueprint: z.boolean().nullish(),
+    }),
+  )
+  .nullish();
 
 // Lo que Norde lee de `/api/v1/property/` (Tokko manda mucho más). Todo puede venir vacío o null.
 const PropertySchema = z.object({
@@ -87,20 +102,31 @@ const PropertySchema = z.object({
         .nullish(),
     })
     .nullish(),
-  development: z.object({ name: text }).nullish(),
-  photos: z
-    .array(
-      z.object({
-        original: text,
-        image: text,
-        order: number,
-        is_front_cover: z.boolean().nullish(),
-        is_blueprint: z.boolean().nullish(),
-      }),
-    )
-    .nullish(),
+  development: z.object({ name: text, reference_code: text }).nullish(),
+  photos: PhotosSchema,
 });
 type RawProperty = z.infer<typeof PropertySchema>;
+
+// Lo que Norde lee de `/api/v1/development/`. Los usuarios a cargo traen sus datos de contacto: solo
+// se lee el nombre.
+const DevelopmentSchema = z.object({
+  reference_code: text,
+  name: text,
+  type: z.object({ code: text }).nullish(),
+  address: text,
+  location: z.object({ full_location: text }).nullish(),
+  construction_status: number,
+  construction_date: text,
+  display_on_web: z.boolean().nullish(),
+  publication_title: text,
+  description: text,
+  financing_details: text,
+  geo_lat: z.union([z.string(), z.number()]).nullish(),
+  geo_long: z.union([z.string(), z.number()]).nullish(),
+  users_in_charge: z.object({ name: text }).nullish(),
+  photos: PhotosSchema,
+});
+type RawDevelopment = z.infer<typeof DevelopmentSchema>;
 
 // Los links `next` y `previous` de `meta` llevan la API key: no se leen ni se loguean.
 const PageSchema = z.object({
@@ -118,6 +144,45 @@ function coordinate(value: string | number | null | undefined): number | undefin
   if (value === null || value === undefined || value === '') return undefined;
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** Las fotos con su orden y portada: la original y, si no sirve, la versión web. */
+function toPhotos(raw: z.infer<typeof PhotosSchema>): TokkoApiPhoto[] {
+  return (raw ?? []).flatMap((photo, index) => {
+    const url = clean(photo.original) ?? clean(photo.image);
+    if (url === undefined) return [];
+    const fallbackUrl = clean(photo.image);
+    return [
+      {
+        url,
+        fallbackUrl: fallbackUrl === url ? undefined : fallbackUrl,
+        order: photo.order ?? index,
+        isCover: photo.is_front_cover ?? false,
+        isFloorPlan: photo.is_blueprint ?? false,
+      },
+    ];
+  });
+}
+
+/** Un emprendimiento de Tokko en la forma del puerto, sin interpretarlo. */
+function toDevelopment(raw: RawDevelopment): TokkoApiDevelopment {
+  return {
+    referenceCode: raw.reference_code ?? '',
+    name: raw.name ?? '',
+    typeCode: raw.type?.code ?? '',
+    address: raw.address ?? '',
+    fullLocation: raw.location?.full_location ?? '',
+    constructionStatus: raw.construction_status ?? undefined,
+    constructionDate: clean(raw.construction_date),
+    displayOnWeb: raw.display_on_web ?? false,
+    title: clean(raw.publication_title),
+    description: clean(raw.description),
+    financingDetails: clean(raw.financing_details),
+    latitude: coordinate(raw.geo_lat),
+    longitude: coordinate(raw.geo_long),
+    producerName: clean(raw.users_in_charge?.name),
+    photos: toPhotos(raw.photos),
+  };
 }
 
 /** Una propiedad de Tokko en la forma del puerto, sin interpretarla: eso lo hace el core. */
@@ -166,26 +231,15 @@ function toProperty(raw: RawProperty): TokkoApiProperty {
       phone: clean(owner.cellphone) ?? clean(owner.phone),
       email: clean(owner.email),
     })),
+    developmentCode: clean(raw.development?.reference_code),
     developmentName: clean(raw.development?.name),
-    photos: (raw.photos ?? []).flatMap((photo, index) => {
-      const url = clean(photo.original) ?? clean(photo.image);
-      if (url === undefined) return [];
-      const fallbackUrl = clean(photo.image);
-      return [
-        {
-          url,
-          fallbackUrl: fallbackUrl === url ? undefined : fallbackUrl,
-          order: photo.order ?? index,
-          isCover: photo.is_front_cover ?? false,
-          isFloorPlan: photo.is_blueprint ?? false,
-        },
-      ];
-    }),
+    photos: toPhotos(raw.photos),
   };
 }
 
 /**
- * Cliente de la API de Tokko (`/api/v1/`), sin SDK, para importar las propiedades de Norde. La key
+ * Cliente de la API de Tokko (`/api/v1/`), sin SDK, para importar las propiedades y los
+ * emprendimientos de Norde. La key
  * va en la URL, como pide Tokko: por eso nunca se loguea una URL del listado, solo el estado HTTP.
  * Reintenta unas veces si Tokko no responde o responde un error del servidor.
  */
@@ -201,7 +255,48 @@ export class TokkoPropertyApi implements TokkoPropertySource {
   }
 
   async page(offset: number, limit: number): Promise<Result<TokkoApiPage, TokkoUnavailableError>> {
-    const url = new URL(`${this.#baseUrl}/property/`);
+    const page = await this.#list('property', offset, limit);
+    if (page.isErr()) return err(page.error);
+    const properties = page.value.objects.map((object, index) => {
+      const parsed = PropertySchema.safeParse(object);
+      if (parsed.success) return toProperty(parsed.data);
+      // Sin código ni tipo, el core la informa como un problema de esa fila y sigue con las demás.
+      this.options.logger.warn(
+        { position: offset + index + 1, issues: parsed.error.issues.length },
+        'Tokko property has an unexpected shape',
+      );
+      return toProperty({});
+    });
+    return ok({ total: page.value.total, properties });
+  }
+
+  async developments(
+    offset: number,
+    limit: number,
+  ): Promise<Result<TokkoApiDevelopmentPage, TokkoUnavailableError>> {
+    const page = await this.#list('development', offset, limit);
+    if (page.isErr()) return err(page.error);
+    const developments = page.value.objects.map((object, index) => {
+      const parsed = DevelopmentSchema.safeParse(object);
+      if (parsed.success) return toDevelopment(parsed.data);
+      this.options.logger.warn(
+        { position: offset + index + 1, issues: parsed.error.issues.length },
+        'Tokko development has an unexpected shape',
+      );
+      return toDevelopment({});
+    });
+    return ok({ total: page.value.total, developments });
+  }
+
+  /** Una página de un listado de Tokko, sin validar cada objeto. */
+  async #list(
+    resource: 'property' | 'development',
+    offset: number,
+    limit: number,
+  ): Promise<
+    Result<{ readonly total: number; readonly objects: unknown[] }, TokkoUnavailableError>
+  > {
+    const url = new URL(`${this.#baseUrl}/${resource}/`);
     url.search = new URLSearchParams({
       key: this.options.config.apiKey,
       format: 'json',
@@ -214,20 +309,10 @@ export class TokkoPropertyApi implements TokkoPropertySource {
     if (body === undefined) return err({ type: 'TokkoUnavailable' });
     const page = PageSchema.safeParse(body);
     if (!page.success) {
-      this.options.logger.error({ offset }, 'Tokko property page has an unexpected shape');
+      this.options.logger.error({ resource, offset }, 'Tokko page has an unexpected shape');
       return err({ type: 'TokkoUnavailable' });
     }
-    const properties = page.data.objects.map((object, index) => {
-      const parsed = PropertySchema.safeParse(object);
-      if (parsed.success) return toProperty(parsed.data);
-      // Sin código ni tipo, el core la informa como un problema de esa fila y sigue con las demás.
-      this.options.logger.warn(
-        { position: offset + index + 1, issues: parsed.error.issues.length },
-        'Tokko property has an unexpected shape',
-      );
-      return toProperty({});
-    });
-    return ok({ total: page.data.meta.total_count, properties });
+    return ok({ total: page.data.meta.total_count, objects: page.data.objects });
   }
 
   async photo(rawUrl: string): Promise<Result<DownloadedPhoto, PhotoUnavailableError>> {

@@ -52,6 +52,8 @@ export interface ImportedProperty {
   readonly internalComments: string | undefined;
   readonly owners: readonly ImportedOwner[];
   readonly developmentName: string | undefined;
+  /** Solo desde la API: el código de Tokko del emprendimiento, que se busca antes que el nombre. */
+  readonly developmentCode: string | undefined;
   /** Solo desde la API: la exportación no los trae. */
   readonly portalTitle: string | undefined;
   readonly description: string | undefined;
@@ -187,6 +189,7 @@ export function readTokkoValues(
         ? []
         : [{ name: ownerName ?? '', phone: ownerPhone, email: ownerEmail }],
     developmentName: tokkoDevelopmentName(value('development')),
+    developmentCode: undefined,
     portalTitle: undefined,
     description: undefined,
     coordinates: undefined,

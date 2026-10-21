@@ -3,7 +3,8 @@ import { MAX_DESCRIPTION_LENGTH } from '../contracts';
 import { Coordinates } from '../domain/coordinates';
 import { MAX_MEDIA_PER_OWNER } from '../domain/media-item';
 import type { PropertyImportField } from '../domain/property-import';
-import { tokkoApiPlace } from '../domain/tokko-property';
+import { cleanReferenceCode } from '../domain/property';
+import { tokkoApiPlace, tokkoReferenceCode } from '../domain/tokko-property';
 
 import type {
   TokkoApiOperation,
@@ -124,6 +125,10 @@ export function readTokkoApiProperty(
       unit: row.address.unit ?? optionalText(property.unit),
     },
     place: tokkoApiPlace(property.fullLocation),
+    developmentCode:
+      property.developmentCode === undefined
+        ? undefined
+        : cleanReferenceCode(tokkoReferenceCode(property.developmentCode)),
     operations: [
       { ...row.operations[0], priceOnRequest: !property.showPrice },
       ...row.operations.slice(1).map((o) => ({ ...o, priceOnRequest: !property.showPrice })),

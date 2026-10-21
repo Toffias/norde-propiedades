@@ -25,6 +25,9 @@ import {
   sameDevelopmentName,
   tokkoAddress,
   tokkoApiPlace,
+  tokkoConstructionStatus,
+  tokkoDeliveryDate,
+  tokkoDevelopmentKind,
   tokkoCount,
   tokkoDevelopmentName,
   tokkoExpensesCents,
@@ -359,5 +362,52 @@ describe('tokkoApiPlace', () => {
       province: 'Uruguay',
       neighborhood: 'Nuevo París',
     });
+  });
+});
+
+describe('Tokko developments', () => {
+  it('translates the construction status numbers seen in the Norde portfolio', () => {
+    expect(tokkoConstructionStatus(3)).toBe('pre_sale');
+    expect(tokkoConstructionStatus(4)).toBe('under_construction');
+    expect(tokkoConstructionStatus(6)).toBe('finished');
+    expect(tokkoConstructionStatus(1)).toBeUndefined();
+    expect(tokkoConstructionStatus(undefined)).toBeUndefined();
+  });
+
+  it('reads the delivery date, with or without time, and drops an impossible one', () => {
+    expect(tokkoDeliveryDate('2028-12-01')).toBe('2028-12-01');
+    expect(tokkoDeliveryDate('2028-02-29T00:00:00')).toBe('2028-02-29');
+    expect(tokkoDeliveryDate('2026-02-29')).toBeUndefined();
+    expect(tokkoDeliveryDate('2026-13-01')).toBeUndefined();
+    expect(tokkoDeliveryDate('diciembre 2028')).toBeUndefined();
+    expect(tokkoDeliveryDate(undefined)).toBeUndefined();
+  });
+
+  it('takes a Tokko building as a building, and anything else as other', () => {
+    expect(tokkoDevelopmentKind('BU')).toBe('building');
+    expect(tokkoDevelopmentKind('XX')).toBe('other');
+  });
+
+  it('drops the construction status Tokko adds to the name, with any spacing', () => {
+    expect(tokkoDevelopmentName('Av. Rivadavia 9999 +   EN POZO')).toBe('Av. Rivadavia 9999');
+    expect(tokkoDevelopmentName('RAMÓN L. FALCÓN 6619')).toBe('RAMÓN L. FALCÓN 6619');
+  });
+});
+
+describe('PropertyImport developments', () => {
+  it('counts the developments apart and starts them again after a cut', () => {
+    const id = parseId<'PropertyImport'>('00000000-0000-7000-8000-000000000002');
+    if (id.isErr()) throw new Error('Invalid test id');
+    const now = new Date('2026-10-20T12:00:00Z');
+    const job = PropertyImport.requestFromTokkoApi({ id: id.value, requestedBy: 'u1', now });
+
+    expect(job.developmentsDone).toBe(false);
+    job.recordDevelopment('created', now);
+    job.recordDevelopment('failed', now);
+    job.restartDevelopments(now);
+    job.recordDevelopment('completed', now);
+    job.finishDevelopments(now);
+    expect(job.developmentsDone).toBe(true);
+    expect(job.totals.developments).toEqual({ created: 0, existing: 0, completed: 1, failed: 0 });
   });
 });

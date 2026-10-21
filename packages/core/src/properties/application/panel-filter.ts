@@ -1,5 +1,6 @@
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../shared';
 import { OWNERSHIP_RULES } from '../../identity';
+import type { FileStorage } from '../../settings';
 import type {
   Currency,
   Operation,
@@ -16,6 +17,7 @@ import type {
   PropertyOwnerFilter,
 } from './ports/panel-property-list-query';
 import type { UserNames } from './ports/user-names';
+import { toCover } from './cover-urls';
 
 /** Pidió "mi sucursal" sin tener una asignada. */
 export interface NoBranchAssignedError {
@@ -101,10 +103,14 @@ export function idsCriteria(ids: readonly string[] | undefined): PanelPropertyFi
   };
 }
 
-/** Resuelve los nombres de captador y de quién borró, por ID, para una página de filas. */
+/**
+ * Resuelve los nombres de captador y de quién borró, por ID, para una página de filas. Con
+ * `storage`, firma las miniaturas de las portadas.
+ */
 export async function toPanelRows(
   items: readonly PanelPropertyListItem[],
   users: UserNames,
+  storage?: FileStorage,
 ): Promise<PanelPropertyRow[]> {
   const userIds = new Set<string>();
   for (const item of items) {
@@ -115,11 +121,14 @@ export async function toPanelRows(
   const ref = (id: string | undefined) =>
     id === undefined ? undefined : { id, name: names.get(id) };
 
-  return items.map(({ producerUserId, deletedBy, ...item }) => ({
-    ...item,
-    producer: ref(producerUserId),
-    deletedBy: ref(deletedBy),
-  }));
+  return Promise.all(
+    items.map(async ({ producerUserId, deletedBy, cover, ...item }) => ({
+      ...item,
+      cover: await toCover(cover, storage),
+      producer: ref(producerUserId),
+      deletedBy: ref(deletedBy),
+    })),
+  );
 }
 
 /** Una selección ya validada: IDs marcados en la página o "todas las que cumplen el filtro". */

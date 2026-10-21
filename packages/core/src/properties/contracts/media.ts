@@ -213,7 +213,12 @@ export interface AttachmentRow {
  * storage no firma URLs (disco local).
  */
 export type StoredFileDelivery =
-  | { readonly kind: 'redirect'; readonly url: string }
+  | {
+      readonly kind: 'redirect';
+      readonly url: string;
+      /** Cuánto puede reusar el navegador la redirección: menos de lo que sigue vigente la URL. */
+      readonly cacheSeconds?: number;
+    }
   | {
       readonly kind: 'content';
       readonly fileName: string;
@@ -229,4 +234,9 @@ export type StoredFileDelivery =
 export interface PropertyCover {
   readonly mediaId: string;
   readonly hasThumbnail: boolean;
+  /**
+   * La miniatura firmada en el storage, cuando el listado la firma (S3/R2): la pantalla la carga
+   * directo del bucket, sin pasar por la ruta del panel.
+   */
+  readonly url?: string;
 }

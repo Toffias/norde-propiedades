@@ -424,14 +424,23 @@ describe('DrizzleDevelopmentListQuery', () => {
     await db.insert(mediaItems).values([photo(first, 0), photo(cover, 1)]);
 
     const firstPhoto = await list.search(BASE);
-    expect(firstPhoto.items[0]?.cover).toEqual({ mediaId: first, hasThumbnail: false });
+    // Sin miniatura todavía: la clave de la original, para firmarla.
+    expect(firstPhoto.items[0]?.cover).toEqual({
+      mediaId: first,
+      hasThumbnail: false,
+      fileKey: `developments/${development.id}/${first}.jpg`,
+    });
 
     await db
       .update(mediaItems)
       .set({ isCover: true, variants: { thumbnail: 'thumb.jpg' } })
       .where(sql`${mediaItems.id} = ${cover}`);
     const withCover = await list.search(BASE);
-    expect(withCover.items[0]?.cover).toEqual({ mediaId: cover, hasThumbnail: true });
+    expect(withCover.items[0]?.cover).toEqual({
+      mediaId: cover,
+      hasThumbnail: true,
+      fileKey: 'thumb.jpg',
+    });
   });
 
   it('resolves every filter and sort with an index', async () => {

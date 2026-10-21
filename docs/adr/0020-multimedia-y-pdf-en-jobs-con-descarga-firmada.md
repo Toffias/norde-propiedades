@@ -24,7 +24,7 @@ El storage es privado (ADR 0018): hasta ahora el panel servía cada archivo pasa
   - La pantalla muestra "procesando" o "armándose" y vuelve a preguntar mientras haya algo pendiente.
 - **La original nunca se modifica.** Rotar una foto genera variantes nuevas, con claves nuevas, y borra las anteriores.
 - **Descargas autorizadas por el panel, con URL firmada.** Cada foto, archivo y PDF se pide a una ruta del panel (`/propiedades/[id]/fotos|archivos|documentos/...`). El caso de uso autoriza el pedido y entrega una de dos cosas:
-  - con S3 o R2, una redirección a una URL firmada de corta duración (`FileStorage.signedUrl`): 5 minutos para las fotos y 1 minuto para las descargas, sin que los bytes pasen por el servidor;
+  - con S3 o R2, una redirección a una URL firmada de corta duración (`FileStorage.signedUrl`): 5 minutos para las fotos (2 horas y reusable desde el ADR 0039) y 1 minuto para las descargas, sin que los bytes pasen por el servidor;
   - con el disco local, que no firma URLs, el contenido.
 - **Una foto por pedido** al subir: la pantalla sube de a tres en paralelo y muestra el avance de cada una. Además, así cada pedido queda por debajo del límite de 26 MB de las Server Actions.
 

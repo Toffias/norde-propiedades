@@ -60,6 +60,14 @@ export interface BoundingBox {
   readonly east: number;
 }
 
+/**
+ * La portada tal como sale de la base: con la clave en el storage de su miniatura, o de la original
+ * mientras se genera. `undefined` si es una foto importada sin archivo propio.
+ */
+export interface ListedCover extends PropertyCover {
+  readonly fileKey: string | undefined;
+}
+
 /** Fila tal como sale de la base: los usuarios, solo por ID. */
 export interface PanelPropertyListItem {
   readonly id: string;
@@ -76,7 +84,7 @@ export interface PanelPropertyListItem {
   readonly province: string;
   readonly operations: readonly PanelPropertyOperation[];
   readonly attributes: PanelPropertyAttributes;
-  readonly cover: PropertyCover | undefined;
+  readonly cover: ListedCover | undefined;
   readonly coordinates: { readonly latitude: number; readonly longitude: number } | undefined;
   readonly producerUserId: string | undefined;
   readonly createdAt: Date;

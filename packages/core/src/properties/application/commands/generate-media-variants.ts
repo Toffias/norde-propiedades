@@ -89,8 +89,15 @@ export class GenerateMediaVariants {
     const version = this.deps.clock.now().getTime().toString(36);
     const thumbnailKey = mediaKey(item.owner, id, `thumbnail-${version}`);
     const webKey = mediaKey(item.owner, id, `web-${version}`);
-    await this.deps.storage.put({ key: thumbnailKey, contentType: 'image/jpeg', bytes: thumbnail });
-    await this.deps.storage.put({ key: webKey, contentType: 'image/jpeg', bytes: web });
+    // Una clave por versión: su contenido no cambia, el navegador lo cachea sin volver a pedirlo.
+    await this.deps.storage.put(
+      { key: thumbnailKey, contentType: 'image/jpeg', bytes: thumbnail },
+      { immutable: true },
+    );
+    await this.deps.storage.put(
+      { key: webKey, contentType: 'image/jpeg', bytes: web },
+      { immutable: true },
+    );
     const watermarkedKey = await this.watermark(
       web,
       mediaKey(item.owner, id, `watermarked-${version}`),
@@ -133,7 +140,10 @@ export class GenerateMediaVariants {
     if (!logo) return undefined;
     const marked = await this.deps.watermarker.apply({ photo: web, logo: logo.bytes, watermark });
     if (marked.isErr()) return undefined;
-    await this.deps.storage.put({ key, contentType: 'image/jpeg', bytes: marked.value });
+    await this.deps.storage.put(
+      { key, contentType: 'image/jpeg', bytes: marked.value },
+      { immutable: true },
+    );
     return key;
   }
 

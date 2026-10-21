@@ -20,9 +20,14 @@ export function deliverFile(
   }
   const file = result.value;
   if (file.kind === 'redirect') {
+    // Una foto con URL reusable: el navegador repite la redirección sin volver a pedirla.
+    const cache =
+      file.cacheSeconds === undefined
+        ? 'private, no-store'
+        : `private, max-age=${file.cacheSeconds}`;
     return new Response(null, {
       status: 302,
-      headers: { Location: file.url, 'Cache-Control': 'private, no-store' },
+      headers: { Location: file.url, 'Cache-Control': cache },
     });
   }
   return new Response(Buffer.from(file.bytes), {

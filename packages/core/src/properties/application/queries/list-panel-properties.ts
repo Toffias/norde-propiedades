@@ -14,6 +14,7 @@ import {
   type PanelPropertyRow,
 } from '../../contracts';
 import { resolvePanelFilter, toPanelRows, type NoBranchAssignedError } from '../panel-filter';
+import type { FileStorage } from '../../../settings';
 import type { PanelPropertyListQuery } from '../ports/panel-property-list-query';
 import type { UserNames } from '../ports/user-names';
 
@@ -32,6 +33,7 @@ export class ListPanelProperties {
     private readonly deps: {
       readonly properties: PanelPropertyListQuery;
       readonly users: UserNames;
+      readonly storage: FileStorage;
     },
   ) {}
 
@@ -55,7 +57,7 @@ export class ListPanelProperties {
       sort: query.sort,
       ...toOffsetLimit({ page, pageSize }),
     });
-    const items = await toPanelRows(slice.items, this.deps.users);
+    const items = await toPanelRows(slice.items, this.deps.users, this.deps.storage);
     return ok(toPage({ items, total: slice.total }, { page, pageSize }));
   }
 }

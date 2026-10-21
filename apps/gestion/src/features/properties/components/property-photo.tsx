@@ -10,12 +10,16 @@ const OWNER_PATHS: Readonly<Record<CoverOwner, string>> = {
   development: '/emprendimientos',
 };
 
-/** La miniatura de la portada, por la ruta del panel (el storage es privado). */
+/**
+ * La miniatura de la portada: la URL firmada que trae el listado o, si no la trae (disco local, otras
+ * pantallas), la ruta del panel (el storage es privado).
+ */
 export function propertyCoverUrl(
   propertyId: string,
   cover: PropertyCover,
   owner: CoverOwner = 'property',
 ): string {
+  if (cover.url !== undefined) return cover.url;
   const ready = cover.hasThumbnail ? 'ready' : 'pending';
   return `${OWNER_PATHS[owner]}/${propertyId}/fotos/${cover.mediaId}?v=thumbnail&r=${ready}`;
 }

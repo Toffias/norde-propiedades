@@ -12,7 +12,12 @@ import type {
 import type { CompanyFilesQuery } from '../application/ports/company-files-query';
 import type { CompanySettingsReader } from '../application/ports/company-settings-reader';
 import type { Directory } from '../application/ports/directory';
-import type { FileStorage, StoredObject } from '../application/ports/file-storage';
+import type {
+  FileStorage,
+  PutOptions,
+  SignedUrlOptions,
+  StoredObject,
+} from '../application/ports/file-storage';
 import type { ImageWatermarker, InvalidImageError } from '../application/ports/image-watermarker';
 import type { Mailer, MailerError, OutgoingEmail } from '../application/ports/mailer';
 import type {
@@ -237,9 +242,14 @@ function isErrResult(value: unknown): boolean {
 
 export class InMemoryFileStorage implements FileStorage {
   readonly objects = new Map<string, StoredObject>();
+  /** Las claves guardadas como inmutables (cacheables para siempre). */
+  readonly immutable = new Set<string>();
+  /** Con qué opciones se firmó cada URL. */
+  readonly signedWith: SignedUrlOptions[] = [];
 
-  put(object: StoredObject) {
+  put(object: StoredObject, options?: PutOptions) {
     this.objects.set(object.key, object);
+    if (options?.immutable === true) this.immutable.add(object.key);
     return Promise.resolve();
   }
 
@@ -255,7 +265,8 @@ export class InMemoryFileStorage implements FileStorage {
   /** Con `signing`, firma como S3 (`signed:<clave>`); sin él, como el disco local. */
   signing = false;
 
-  signedUrl(key: string) {
+  signedUrl(key: string, options: SignedUrlOptions) {
+    this.signedWith.push(options);
     return Promise.resolve(this.signing ? `signed:${key}` : undefined);
   }
 }

@@ -968,7 +968,7 @@ function createPropertiesUseCases(
   });
 
   return {
-    listPanelProperties: new ListPanelProperties({ properties: list, users }),
+    listPanelProperties: new ListPanelProperties({ properties: list, users, storage }),
     getPropertyMap: new GetPropertyMap({ properties: list }),
     compareProperties: new CompareProperties({ properties: list, users }),
     listOwnedProperties: new ListOwnedProperties({ properties: list, users }),
@@ -1081,6 +1081,7 @@ function createPropertiesUseCases(
     listDevelopments: new ListDevelopments({
       developments: new DrizzleDevelopmentListQuery(db),
       users,
+      storage,
     }),
     getDevelopmentMap: new GetDevelopmentMap({
       developments: new DrizzleDevelopmentListQuery(db),

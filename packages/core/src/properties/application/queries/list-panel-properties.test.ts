@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { InMemoryFileStorage } from '../../../settings/testing';
 import { Actor } from '../../../shared';
 import { unwrap, unwrapErr } from '../../../shared/testing';
 import { ListPanelPropertiesQuerySchema } from '../../contracts';
@@ -31,7 +32,8 @@ const ITEM: PanelPropertyListItem = aPanelItem({
 function setup(items: readonly PanelPropertyListItem[] = []) {
   const properties = new StubPanelPropertyListQuery({ items, total: 41 });
   const users = new InMemoryUserNames(new Map([[PRODUCER_ID, 'Camila Ruiz']]));
-  return { properties, list: new ListPanelProperties({ properties, users }) };
+  const storage = new InMemoryFileStorage();
+  return { properties, storage, list: new ListPanelProperties({ properties, users, storage }) };
 }
 
 describe('ListPanelProperties', () => {
@@ -115,6 +117,33 @@ describe('ListPanelProperties', () => {
       deletedBy: { id: OTHER_USER_ID, name: undefined },
     });
     expect(page.items[0]).not.toHaveProperty('producerUserId');
+  });
+
+  it('signs the cover thumbnails, reusable, without exposing the storage key', async () => {
+    const MEDIA_ID = '01a15c18-c76d-77c7-a70b-8df8d692de55';
+    const withCover = (fileKey: string | undefined) =>
+      aPanelItem({ cover: { mediaId: MEDIA_ID, hasThumbnail: true, fileKey } });
+    const { storage, list } = setup([withCover('thumbnail-key'), withCover(undefined)]);
+    storage.signing = true;
+
+    const page = unwrap(await list.execute({}, TEST_PRODUCER));
+
+    expect(page.items.map((item) => item.cover)).toEqual([
+      { mediaId: MEDIA_ID, hasThumbnail: true, url: 'signed:thumbnail-key' },
+      { mediaId: MEDIA_ID, hasThumbnail: true },
+    ]);
+    expect(storage.signedWith).toEqual([{ expiresInSeconds: 7200, reusable: true }]);
+  });
+
+  it('leaves the cover to the panel route when the storage does not sign (local disk)', async () => {
+    const MEDIA_ID = '01a15c18-c76d-77c7-a70b-8df8d692de55';
+    const { list } = setup([
+      aPanelItem({ cover: { mediaId: MEDIA_ID, hasThumbnail: false, fileKey: 'original-key' } }),
+    ]);
+
+    const page = unwrap(await list.execute({}, TEST_PRODUCER));
+
+    expect(page.items[0]?.cover).toEqual({ mediaId: MEDIA_ID, hasThumbnail: false });
   });
 
   it('requires a currency to filter or sort by price', async () => {

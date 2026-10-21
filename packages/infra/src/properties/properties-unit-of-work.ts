@@ -22,6 +22,7 @@ import {
 } from './drizzle-media-repositories';
 import { DrizzleDevelopmentRepository } from './drizzle-development-repository';
 import { DrizzleDevelopmentUnitImportRepository } from './drizzle-development-unit-imports';
+import { DrizzlePropertyImportRepository } from './drizzle-property-imports';
 import { DrizzlePropertyClientMerge } from './drizzle-property-client-merge';
 import { DrizzlePropertyDocumentRepository } from './drizzle-property-documents';
 import { DrizzlePropertyOwnerLinks } from './drizzle-property-owner-links';
@@ -36,6 +37,7 @@ export function createPropertiesUnitOfWork(
     properties: new DrizzlePropertyRepository(tx, deps.ids),
     developments: new DrizzleDevelopmentRepository(tx),
     unitImports: new DrizzleDevelopmentUnitImportRepository(tx, deps.ids),
+    propertyImports: new DrizzlePropertyImportRepository(tx, deps.ids),
     locations: new DrizzleLocationRepository(tx),
     features: new DrizzleFeatureRepository(tx),
     customAttributes: new DrizzleCustomAttributeRepository(tx),

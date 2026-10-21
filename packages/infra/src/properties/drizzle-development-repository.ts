@@ -62,6 +62,16 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
     return row ? this.restore(row) : undefined;
   }
 
+  /** Por `developments_code_uq`. */
+  async findByCode(code: string): Promise<Development | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(developments)
+      .where(eq(developments.code, code))
+      .limit(1);
+    return row ? this.restore(row) : undefined;
+  }
+
   /** Bloqueado hasta el final de la transacción: para tomar un turno de la derivación. */
   async findForUpdate(id: DevelopmentId): Promise<Development | undefined> {
     const [row] = await this.db

@@ -19,7 +19,7 @@ export interface UnreadableSpreadsheetError {
   readonly type: 'UnreadableSpreadsheet';
 }
 
-/** Lee una planilla de Excel (`.xlsx`) subida para importar. */
+/** Lee una planilla subida para importar: Excel (`.xlsx` o `.xls`) o `.csv`. */
 export interface SpreadsheetReader {
   open(bytes: Uint8Array): Promise<Result<Spreadsheet, UnreadableSpreadsheetError>>;
 }

@@ -1,3 +1,4 @@
+import { InfoIcon, StampIcon } from 'lucide-react';
 import { ErrorState } from '@norde/ui/components/error-state';
 import { SectionCard } from '@norde/ui/components/section-card';
 import type { Metadata } from 'next';
@@ -20,7 +21,7 @@ export default async function WatermarkPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionCard title="Logo de la marca de agua">
+      <SectionCard title="Logo de la marca de agua" icon={StampIcon}>
         <LogoUploader
           which="watermark"
           hasLogo={watermark.hasLogo}
@@ -29,7 +30,7 @@ export default async function WatermarkPage() {
           removable={!watermark.enabled}
         />
       </SectionCard>
-      <SectionCard title="Cómo se aplica">
+      <SectionCard title="Cómo se aplica" icon={InfoIcon}>
         {/* Con otra versión del logo o de la configuración, el formulario arranca de cero. */}
         <WatermarkForm
           key={`${watermark.logoVersion ?? ''}-${String(watermark.enabled)}`}

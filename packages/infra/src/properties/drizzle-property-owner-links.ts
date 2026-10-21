@@ -1,6 +1,8 @@
 import type { PropertyOwnerLinks } from '@norde/core/properties';
 import type { Clock } from '@norde/core/shared';
 
+import { eq } from 'drizzle-orm';
+
 import type { DbExecutor } from '../db/executor';
 import { propertyOwners } from '../db/schema';
 
@@ -16,5 +18,15 @@ export class DrizzlePropertyOwnerLinks implements PropertyOwnerLinks {
       .insert(propertyOwners)
       .values({ propertyId, clientId, createdAt: this.clock.now(), createdBy: actorId })
       .onConflictDoNothing();
+  }
+
+  /** Por la clave primaria (`property_id`, `client_id`). */
+  async hasAny(propertyId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ clientId: propertyOwners.clientId })
+      .from(propertyOwners)
+      .where(eq(propertyOwners.propertyId, propertyId))
+      .limit(1);
+    return row !== undefined;
   }
 }

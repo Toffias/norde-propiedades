@@ -274,6 +274,12 @@ export {
   type ReconcileListingsError,
   type ReconcileListingsOutcome,
 } from './application/commands/reconcile-listings';
+export {
+  LINKED_LISTING_STATUSES,
+  type LinkedListingStatus,
+  type PortalListingCount,
+  type PortalListingCounter,
+} from './application/ports/portal-listing-counts';
 export type { PortalListingStateReader } from './application/ports/portal-listing-states';
 export type {
   PortalListingStats,

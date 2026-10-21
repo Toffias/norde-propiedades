@@ -1,5 +1,6 @@
 'use client';
 
+import { SplitIcon } from 'lucide-react';
 import {
   MAX_DEVELOPMENT_CHANCE_WEIGHT,
   MAX_DEVELOPMENT_CHANCES,
@@ -53,6 +54,7 @@ export function DevelopmentChancesSection({
       </p>
       <InlineSection
         title="Derivación por chances"
+        icon={SplitIcon}
         canEdit={canEdit}
         view={
           detail.chances.length === 0 ? (

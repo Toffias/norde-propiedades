@@ -1,21 +1,25 @@
-import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
+import { suggestedOpportunityType } from '../../../clients';
+import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
 import {
   HOME_WIDGET_LIMIT,
   type HomeFilter,
   type HomeWidget,
   type UnassignedInquiryRow,
 } from '../../contracts';
+import { waitingUrgency, worstUrgency } from '../../domain/urgency';
 import { invalidInput, parseHomeFilter, type InvalidInputError } from '../home-support';
 import type { HomeDashboardQuery } from '../ports/home-dashboard-query';
 
 export type GetUnassignedInquiriesError = ForbiddenError | InvalidInputError;
 
 /**
- * Inicio, "Consultas sin asignar": las más viejas primero, con su antigüedad. Una consulta sin
+ * Inicio, "Consultas sin asignar": las más viejas primero, con su antigüedad y su urgencia. Una consulta sin
  * asignar no tiene agente: se ven todas (como en la bandeja) y el filtro de sucursal las achica.
  */
 export class GetUnassignedInquiries {
-  constructor(private readonly deps: { readonly home: HomeDashboardQuery }) {}
+  constructor(
+    private readonly deps: { readonly home: HomeDashboardQuery; readonly clock: Clock },
+  ) {}
 
   async execute(
     input: HomeFilter,
@@ -28,6 +32,16 @@ export class GetUnassignedInquiries {
       { branchId: parsed.data.branchId },
       HOME_WIDGET_LIMIT,
     );
-    return ok(slice);
+    const now = this.deps.clock.now();
+    const items = slice.items.map(({ autoTags, ...row }) => ({
+      ...row,
+      suggestedType: suggestedOpportunityType(autoTags),
+      urgency: waitingUrgency(row.receivedAt, now),
+    }));
+    return ok({
+      total: slice.total,
+      items,
+      urgency: worstUrgency(items.map((row) => row.urgency)),
+    });
   }
 }

@@ -1,3 +1,4 @@
+import { MailIcon, SendIcon } from 'lucide-react';
 import { ErrorState } from '@norde/ui/components/error-state';
 import { SectionCard } from '@norde/ui/components/section-card';
 import type { Metadata } from 'next';
@@ -18,10 +19,10 @@ export default async function EmailSettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionCard title="Remitente de los emails">
+      <SectionCard title="Remitente de los emails" icon={MailIcon}>
         <EmailSenderForm sender={loaded.settings.emailSender} disabled={!loaded.canUpdate} />
       </SectionCard>
-      <SectionCard title="Probar el envío">
+      <SectionCard title="Probar el envío" icon={SendIcon}>
         <div className="flex flex-col gap-3">
           <p className="text-sm leading-normal text-muted-foreground">
             Los emails salen por Resend, con la dirección y la clave que se configuran en el

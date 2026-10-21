@@ -18,9 +18,16 @@ import {
   type UpdateClientDetailsInput,
 } from '@norde/core/clients/contracts';
 import { SectionCard } from '@norde/ui/components/section-card';
+import { StatusPill } from '@norde/ui/components/status-pill';
 import type { Page } from '@norde/core/shared';
 import { Form } from '@norde/ui/components/form';
-import { LockIcon } from 'lucide-react';
+import {
+  ClipboardListIcon,
+  IdCardIcon,
+  LockIcon,
+  MessagesSquareIcon,
+  PhoneIcon,
+} from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatDateOnly, formatDateTime } from '../../../lib/format';
@@ -40,7 +47,6 @@ import {
 import { updateClientDetailsAction } from '../actions';
 import { formatPhone } from '../client-format';
 import { ClientRelationsSection } from './client-relations-section';
-import { ClientTagsSection } from './client-tags-section';
 import { ContactFields } from './contact-fields';
 
 const or = (value: string | undefined) => value ?? EMPTY_VALUE;
@@ -62,10 +68,7 @@ function ContactView({ detail }: { readonly detail: ClientDetail }) {
       <ul className="flex flex-col gap-2">
         {detail.phones.map((phone, index) => (
           <li key={`${phone.kind}-${String(index)}`} className="flex flex-col text-sm">
-            <span className="text-xs text-muted-foreground">
-              {PHONE_KIND_LABELS[phone.kind]}
-              {index === 0 ? ' · principal' : ''}
-            </span>
+            <span className="text-xs text-muted-foreground">{PHONE_KIND_LABELS[phone.kind]}</span>
             <span className="font-medium tabular-nums">
               {detail.contactMasked ? phone.number : formatPhone(phone.number)}
               {phone.contactHours !== undefined && (
@@ -78,7 +81,6 @@ function ContactView({ detail }: { readonly detail: ClientDetail }) {
           <li key={`${email.kind}-${String(index)}`} className="flex flex-col text-sm">
             <span className="text-xs text-muted-foreground">
               Email {EMAIL_KIND_LABELS[email.kind].toLowerCase()}
-              {index === 0 ? ' · principal' : ''}
             </span>
             <span className="font-medium break-all">{email.address}</span>
           </li>
@@ -292,6 +294,7 @@ export function ClientDetailSections({
     <div className="grid gap-5 lg:grid-cols-2">
       <InlineSection
         title="Teléfonos y emails"
+        icon={PhoneIcon}
         // Los datos de un propietario enmascarado no se editan a ciegas.
         canEdit={detail.can.edit && !detail.contactMasked}
         view={<ContactView detail={detail} />}
@@ -299,21 +302,26 @@ export function ClientDetailSections({
       />
       <InlineSection
         title="Tipos de cliente"
+        icon={IdCardIcon}
         canEdit={detail.can.edit}
         view={
           detail.clientTypes.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin tipos de cliente.</p>
           ) : (
-            <p className="text-sm font-medium">
-              {detail.clientTypes.map((type) => CLIENT_TYPE_LABELS[type]).join(', ')}
-            </p>
+            <ul className="flex flex-wrap gap-1.5" aria-label="Tipos de cliente">
+              {detail.clientTypes.map((type) => (
+                <li key={type}>
+                  <StatusPill tone="green">{CLIENT_TYPE_LABELS[type]}</StatusPill>
+                </li>
+              ))}
+            </ul>
           )
         }
         form={(controls) => <TypesForm detail={detail} controls={controls} />}
       />
-      <ClientTagsSection detail={detail} />
       <InlineSection
         title="Datos"
+        icon={ClipboardListIcon}
         className="lg:col-span-2"
         canEdit={detail.can.edit}
         view={
@@ -335,7 +343,7 @@ export function ClientDetailSections({
         form={(controls) => <DetailsForm detail={detail} controls={controls} />}
       />
       <ClientRelationsSection detail={detail} page={relations} />
-      <SectionCard title="Canales de contacto" className="lg:col-span-2">
+      <SectionCard title="Canales de contacto" icon={MessagesSquareIcon} className="lg:col-span-2">
         {detail.channels.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Lo cargaron desde el panel: todavía no se comunicó por ningún canal.

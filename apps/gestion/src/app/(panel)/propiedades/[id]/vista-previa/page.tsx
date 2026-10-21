@@ -1,7 +1,7 @@
 import { Badge } from '@norde/ui/components/badge';
 import { Card } from '@norde/ui/components/card';
 import { SectionCard } from '@norde/ui/components/section-card';
-import { EyeIcon } from 'lucide-react';
+import { EyeIcon, FileTextIcon, ListChecksIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -129,12 +129,12 @@ export default async function PropertyPreviewPage({
       </Card>
 
       {detail.description !== '' && (
-        <SectionCard title="Descripción">
+        <SectionCard title="Descripción" icon={FileTextIcon}>
           <p className="text-sm whitespace-pre-line">{detail.description}</p>
         </SectionCard>
       )}
       {detail.features.length > 0 && (
-        <SectionCard title="Comodidades">
+        <SectionCard title="Comodidades" icon={ListChecksIcon}>
           <div className="flex flex-col gap-3">
             {(['service', 'room', 'amenity'] as const).map((kind) => {
               const items = detail.features.filter((feature) => feature.kind === kind);

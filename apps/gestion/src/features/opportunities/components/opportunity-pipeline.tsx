@@ -22,6 +22,7 @@ import { useState, type ReactNode } from 'react';
 
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { EMPTY_VALUE, formatDateOnly, formatDateTime } from '../../../lib/format';
+import { ContactInitials } from '../../clients/components/contact-initials';
 import { clientName, formatPhone, userName } from '../../clients/client-format';
 import {
   ListNavigationProvider,
@@ -34,7 +35,6 @@ import { OpportunityActionsMenu, type OpportunityCatalogView } from './opportuni
 import { OpportunityBulkDialog, type OpportunityBulkPermissions } from './opportunity-bulk-dialog';
 import { OpportunityHistoryDialog, OpportunityNoteDialog } from './opportunity-card-dialogs';
 import {
-  ContactInitials,
   OpportunityQuickActions,
   opportunityTarget,
   PropertyLink,

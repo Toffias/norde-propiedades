@@ -32,6 +32,7 @@ import type { InfraLogger } from '../shared/logger';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzleListingRepository } from './drizzle-listing-repository';
+import { DrizzlePortalListingCountsQuery } from './drizzle-portal-listing-counts-query';
 import { MercadoLibreTokens } from './mercadolibre-tokens';
 import { createPortalsUnitOfWork } from './portals-unit-of-work';
 
@@ -319,6 +320,51 @@ describe('portal listings (Postgres)', () => {
         updatedBy: ADMIN.id,
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe('DrizzlePortalListingCountsQuery (Postgres)', () => {
+  it('counts the linked listings by portal, kind and status', async () => {
+    await setup();
+    await connectZonaprop();
+    const row = (values: Partial<typeof portalListings.$inferInsert>) => ({
+      id: ids.next(),
+      portal: 'mercadolibre',
+      propertyId: LISTED_PROPERTY_ID,
+      operation: 'sale',
+      status: 'published',
+      externalId: `MLA${ids.next().slice(-8)}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: ADMIN.id,
+      updatedBy: ADMIN.id,
+      ...values,
+    });
+    await db.insert(portalListings).values([
+      row({}),
+      row({ operation: 'rent', status: 'paused' }),
+      // Sin aviso todavía o dado de baja: no está vinculada.
+      row({ operation: 'temporary_rent', status: 'pending', externalId: null }),
+      row({ portal: 'zonaprop', operation: null, status: 'unpublished' }),
+      row({
+        portal: 'zonaprop',
+        propertyId: null,
+        developmentId: LISTED_DEVELOPMENT_ID,
+        operation: null,
+      }),
+    ]);
+
+    const counts = await new DrizzlePortalListingCountsQuery(db).countLinked();
+
+    expect(
+      [...counts].sort(
+        (a, b) => a.portal.localeCompare(b.portal) || a.status.localeCompare(b.status),
+      ),
+    ).toEqual([
+      { portal: 'mercadolibre', ownerKind: 'property', status: 'paused', count: 1 },
+      { portal: 'mercadolibre', ownerKind: 'property', status: 'published', count: 1 },
+      { portal: 'zonaprop', ownerKind: 'development', status: 'published', count: 1 },
+    ]);
   });
 });
 

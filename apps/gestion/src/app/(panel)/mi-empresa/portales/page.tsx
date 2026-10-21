@@ -1,6 +1,6 @@
 import { ErrorState } from '@norde/ui/components/error-state';
 import { SectionCard } from '@norde/ui/components/section-card';
-import { CheckCircle2Icon } from 'lucide-react';
+import { CheckCircle2Icon, FileTextIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 
 import { PortalAccounts } from '../../../../features/portals/components/portal-accounts';
@@ -52,7 +52,7 @@ export default async function PortalsSettingsPage({
         <PortalAccounts view={accounts.view} credits={credits} packages={packages} />
       )}
       {accounts.kind === 'error' && <FormAlert message={accounts.message} />}
-      <SectionCard title="Descripción en portales">
+      <SectionCard title="Descripción en portales" icon={FileTextIcon}>
         <PortalFooterForm
           footer={loaded.settings.portalDescriptionFooter}
           disabled={!loaded.canUpdate}

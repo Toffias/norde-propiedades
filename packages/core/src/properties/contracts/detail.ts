@@ -325,6 +325,10 @@ export interface PanelPropertyDetailOperation {
   readonly priceCents: bigint | undefined;
   readonly priceOnRequest: boolean;
   readonly commissionPct: number | undefined;
+  /** El precio por m² de superficie total, en la moneda de la operación. */
+  readonly pricePerM2Cents: bigint | undefined;
+  /** El porcentaje de comisión aplicado al precio. */
+  readonly estimatedCommissionCents: bigint | undefined;
 }
 
 export interface PanelPropertyCustomAttribute {

@@ -111,6 +111,12 @@ export interface CloseStageMismatchError {
   readonly type: 'CloseStageMismatch';
 }
 
+/** Lo importado de otro sistema tiene que llegar a un estado válido: cerrado con su motivo. */
+export interface InvalidImportedOpportunityError {
+  readonly type: 'InvalidImportedOpportunity';
+  readonly reason: 'missing_close_reason' | 'unexpected_close_reason' | 'close_stage_mismatch';
+}
+
 export type MoveToStageError =
   | InvalidStatusTransitionError
   | OpportunityClosedError
@@ -231,6 +237,78 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
   static restore(snapshot: OpportunitySnapshot): Opportunity {
     const { id, ...state } = snapshot;
     return new Opportunity(id, state);
+  }
+
+  /**
+   * Una oportunidad que viene de otro sistema (Tokko, #17) ya en su estado, con sus fechas. No
+   * recorre las transiciones: el historial arranca en ese estado. Una ganada o perdida llega con
+   * el motivo que le corresponde; una abierta, sin motivo.
+   */
+  static imported(input: {
+    readonly id: OpportunityId;
+    readonly clientId: ClientId;
+    readonly originChannel: ContactChannel;
+    readonly type: OpportunityType;
+    readonly stage: StageRef;
+    readonly closeReason: CloseReasonRef | undefined;
+    readonly agent: OpportunityAgent;
+    readonly statusChangeId: OpportunityStatusChangeId;
+    readonly note: string | undefined;
+    /** Cuándo se creó en el otro sistema. */
+    readonly createdAt: Date;
+    /** Cuándo llegó a su estado (para una cerrada, cuándo se cerró). */
+    readonly statusChangedAt: Date;
+  }): Result<Opportunity, InvalidImportedOpportunityError> {
+    const closed = !isOpenStatus(input.stage.category);
+    const invalid = (reason: InvalidImportedOpportunityError['reason']) =>
+      err({ type: 'InvalidImportedOpportunity' as const, reason });
+    if (closed && input.closeReason === undefined) return invalid('missing_close_reason');
+    if (!closed && input.closeReason !== undefined) return invalid('unexpected_close_reason');
+    if (input.closeReason && closingStatusFor(input.closeReason.rating) !== input.stage.category) {
+      return invalid('close_stage_mismatch');
+    }
+
+    const changedAt =
+      input.statusChangedAt < input.createdAt ? input.createdAt : input.statusChangedAt;
+    const opportunity = new Opportunity(input.id, {
+      clientId: input.clientId,
+      originChannel: input.originChannel,
+      type: input.type,
+      intent: 'contact',
+      status: input.stage.category,
+      stageId: input.stage.id,
+      agentId: input.agent.agentId,
+      branchId: input.agent.branchId,
+      statusChangedAt: changedAt,
+      closedAt: closed ? changedAt : undefined,
+      closeReasonId: input.closeReason?.id,
+      referral: NO_REFERRAL,
+      propertyId: undefined,
+      search: undefined,
+      notes: note(input.note, input.createdAt),
+      createdAt: input.createdAt,
+      updatedAt: changedAt,
+    });
+    opportunity.#changes.push({
+      id: input.statusChangeId,
+      fromStageId: undefined,
+      fromStatus: undefined,
+      toStageId: input.stage.id,
+      toStatus: input.stage.category,
+      changedAt,
+      sourceEventId: undefined,
+    });
+    opportunity.record({
+      type: 'clients.opportunity_imported',
+      aggregateId: input.id,
+      occurredAt: changedAt,
+      payload: {
+        opportunityId: input.id,
+        clientId: input.clientId,
+        status: input.stage.category,
+      },
+    });
+    return ok(opportunity);
   }
 
   get clientId(): ClientId {

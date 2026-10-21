@@ -1,4 +1,5 @@
 import type { HomeListRequest, HomeScope } from '@norde/core/reporting';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { describe, expect, inject, it } from 'vitest';
@@ -11,6 +12,8 @@ import {
   inquiries,
   mediaItems,
   opportunities,
+  portalAccounts,
+  portalListings,
   properties,
   propertyOperations,
   reservations,
@@ -184,6 +187,9 @@ describe('DrizzleHomeDashboardQuery: pending', () => {
         channel: i % 2 === 0 ? 'zonaprop' : 'web_form',
         receivedAt: new Date(NOW.getTime() - (9 - i) * 3_600_000),
         senderName: `Persona ${i.toString()}`,
+        senderPhoneE164: i === 0 ? '+5491155550001' : null,
+        message: i === 0 ? 'x'.repeat(400) : null,
+        autoTags: i === 0 ? ['operation:rent'] : [],
         propertyId: i === 0 ? propertyId : null,
         branchId: i < 4 ? BRANCH : OTHER_BRANCH,
         status: i === 7 ? 'assigned' : 'pending',
@@ -196,7 +202,19 @@ describe('DrizzleHomeDashboardQuery: pending', () => {
     const all = await home.unassignedInquiries({ branchId: undefined }, 5);
     expect(all.total).toBe(7);
     expect(all.items.map((item) => item.id)).toEqual([1, 2, 3, 4, 5].map((n) => id('b000', n)));
-    expect(all.items[0]).toMatchObject({ propertyCode: 'NOR001', channel: 'zonaprop' });
+    expect(all.items[0]).toMatchObject({
+      propertyCode: 'NOR001',
+      channel: 'zonaprop',
+      senderPhone: '+5491155550001',
+      autoTags: ['operation:rent'],
+    });
+    // Solo el comienzo del mensaje.
+    expect(all.items[0]?.message).toHaveLength(280);
+    expect(all.items[1]).toMatchObject({
+      senderPhone: undefined,
+      message: undefined,
+      autoTags: [],
+    });
 
     const branch = await home.unassignedInquiries({ branchId: OTHER_BRANCH }, 5);
     expect(branch.total).toBe(3);
@@ -225,6 +243,41 @@ describe('DrizzleHomeDashboardQuery: pending', () => {
     expect((await pending({ ...ALL, branchId: BRANCH })).total).toBe(1);
     // Un agente que filtra por otro no amplía su alcance.
     expect((await pending({ ...OWN, agentId: OTHER })).total).toBe(0);
+  });
+
+  it('brings the main phone of each client with a new opportunity', async () => {
+    await seedOpportunities();
+    await db
+      .update(clients)
+      .set({ phoneE164: '+5491155550002' })
+      .where(eq(clients.id, id('8000', 1)));
+    const pending = await home.opportunitiesInCategories(ALL, ['new'], 5);
+    expect(pending.items.map((item) => item.clientPhone)).toEqual([undefined, '+5491155550002']);
+  });
+
+  it('lists the failed listings first, then the paused ones by how long they have been so', async () => {
+    const propertyId = await insertProperty(1);
+    await seedDevelopments();
+    await seedPortalAlerts(propertyId);
+
+    const alerts = await home.portalAlerts(5);
+    expect(alerts.total).toBe(3);
+    expect(alerts.items.map((item) => [item.id, item.status])).toEqual([
+      [id('c100', 2), 'error'],
+      [id('c100', 3), 'paused'],
+      [id('c100', 1), 'paused'],
+    ]);
+    expect(alerts.items[0]).toMatchObject({
+      portal: 'zonaprop',
+      lastError: 'Faltan fotos.',
+      owner: { kind: 'property', id: propertyId, code: 'NOR001', title: 'Propiedad 1' },
+    });
+    expect(alerts.items[1]?.owner).toEqual({
+      kind: 'development',
+      id: id('e000', 1),
+      name: 'Emprendimiento 1',
+    });
+    expect((await home.portalAlerts(1)).items).toHaveLength(1);
   });
 
   it('lists the active reservations to sign until a date, overdue ones included', async () => {
@@ -462,7 +515,56 @@ function flatten(node: PlanNode): PlanNode[] {
   return [node, ...(node.Plans ?? []).flatMap(flatten)];
 }
 
-const SCANNED = ['inquiries', 'opportunities', 'reservations', 'properties', 'developments'];
+const SCANNED = [
+  'inquiries',
+  'opportunities',
+  'reservations',
+  'properties',
+  'developments',
+  'portal_listings',
+];
+
+async function seedPortalAlerts(propertyId: string) {
+  await db.insert(portalAccounts).values(
+    ['mercadolibre', 'mercadolibre_developments', 'zonaprop'].map((portal) => ({
+      portal,
+      ...stamps,
+    })),
+  );
+  const listing = (
+    n: number,
+    values: Partial<typeof portalListings.$inferInsert>,
+  ): typeof portalListings.$inferInsert => ({
+    id: id('c100', n),
+    portal: 'mercadolibre',
+    propertyId,
+    operation: 'sale',
+    status: 'published',
+    externalId: `MLA${n.toString()}`,
+    ...stamps,
+    ...values,
+  });
+  await db.insert(portalListings).values([
+    listing(1, { status: 'paused', lastSyncedAt: new Date('2026-09-30T12:00:00Z') }),
+    listing(2, {
+      portal: 'zonaprop',
+      operation: null,
+      status: 'error',
+      lastError: 'Faltan fotos.',
+      lastSyncedAt: new Date('2026-09-30T13:00:00Z'),
+    }),
+    listing(3, {
+      portal: 'mercadolibre_developments',
+      propertyId: null,
+      developmentId: id('e000', 1),
+      operation: null,
+      status: 'paused',
+      lastSyncedAt: new Date('2026-09-29T12:00:00Z'),
+    }),
+    listing(4, { operation: 'rent' }),
+    listing(5, { operation: 'temporary_rent', status: 'unpublished' }),
+  ]);
+}
 
 /**
  * Las tablas grandes que recorre cada consulta de `run`, con `enable_seqscan = off`: Postgres solo
@@ -512,6 +614,7 @@ describe('DrizzleHomeDashboardQuery: indexes', () => {
   it('resolves every widget, scope and filter with an index', async () => {
     await seedOpportunities();
     await seedDevelopments();
+    await seedPortalAlerts(await insertProperty(90));
     const scopes: HomeScope[] = [
       ALL,
       OWN,
@@ -531,6 +634,7 @@ describe('DrizzleHomeDashboardQuery: indexes', () => {
         await query.availableDevelopmentsCount(scope);
         await query.availableProperties(scope, LIST);
         await query.availableDevelopments(scope, LIST);
+        await query.portalAlerts(5);
       });
       expect(scanned, JSON.stringify(scope)).toEqual([]);
     }

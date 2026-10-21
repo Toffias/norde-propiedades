@@ -41,6 +41,7 @@ export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work
 export { DrizzleDevelopmentListQuery } from './properties/drizzle-development-list-query';
 export { DrizzlePublishedDevelopmentQuery } from './properties/drizzle-published-development-query';
 export { DrizzleDevelopmentUnitImportQuery } from './properties/drizzle-development-unit-imports';
+export { DrizzlePropertyImportQuery } from './properties/drizzle-property-imports';
 export {
   DrizzleClientFavoriteErasure,
   DrizzleUserFavorites,
@@ -66,6 +67,7 @@ export { FilePropertyExportWriter } from './adapters/exports/property-export-wri
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
 export { XlsxDevelopmentUnitsExportWriter } from './adapters/exports/development-units-export-writer';
 export { XlsxReservationExportWriter } from './adapters/exports/reservation-export-writer';
+export { UploadedSpreadsheetReader } from './adapters/imports/uploaded-spreadsheet-reader';
 export { XlsxSpreadsheetReader } from './adapters/imports/xlsx-spreadsheet-reader';
 export { DrizzleClientListQuery } from './clients/drizzle-client-list-query';
 export { DrizzleOpportunityPipelineQuery } from './clients/drizzle-opportunity-pipeline-query';
@@ -106,6 +108,7 @@ export {
   DrizzlePortalCredentialStore,
 } from './portals/drizzle-portal-accounts';
 export { DrizzleListingRepository } from './portals/drizzle-listing-repository';
+export { DrizzlePortalListingCountsQuery } from './portals/drizzle-portal-listing-counts-query';
 export { MercadoLibreTokens } from './portals/mercadolibre-tokens';
 export {
   MercadoLibrePortalConnector,
@@ -122,6 +125,11 @@ export {
   type MercadoLibreAppConfig,
   type MercadoLibreAuthorizerOptions,
 } from './adapters/portals/mercadolibre/mercadolibre-authorizer';
+export {
+  TokkoPropertyApi,
+  type TokkoApiConfig,
+  type TokkoPropertyApiOptions,
+} from './adapters/tokko/tokko-property-api';
 export {
   ZonapropApi,
   type ZonapropApiConfig,

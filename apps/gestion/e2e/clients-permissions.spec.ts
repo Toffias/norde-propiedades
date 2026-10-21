@@ -13,9 +13,14 @@ test('el contacto que crea queda a su cargo y sin acciones de administración', 
 
   await expect(page.getByRole('heading', { level: 1, name: contact.name })).toBeVisible();
   await expect(page.getByText('Camila Agente').first()).toBeVisible();
-  for (const action of ['Borrar', 'Unificar', 'Suprimir datos', 'Cambiar agente']) {
-    await expect(page.getByRole('button', { name: action })).toHaveCount(0);
+  // El menú "Acciones" le ofrece sus etiquetas (edita sus contactos), pero ninguna acción de
+  // administración.
+  await page.getByRole('button', { name: 'Acciones' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Gestionar etiquetas' })).toBeVisible();
+  for (const action of ['Cambiar agente', 'Unificar', 'Borrar', 'Suprimir datos']) {
+    await expect(page.getByRole('menuitem', { name: action })).toHaveCount(0);
   }
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Exportar a Excel' })).toHaveCount(0);
 });
 

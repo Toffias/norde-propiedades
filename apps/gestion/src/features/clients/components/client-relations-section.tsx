@@ -28,7 +28,14 @@ import {
   SelectValue,
 } from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
-import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon, PlusIcon, XIcon } from 'lucide-react';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Loader2Icon,
+  PlusIcon,
+  UsersIcon,
+  XIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useId, useState, useTransition } from 'react';
@@ -254,6 +261,7 @@ export function ClientRelationsSection({
   return (
     <SectionCard
       title="Contactos relacionados"
+      icon={UsersIcon}
       className="lg:col-span-2"
       {...(detail.can.edit
         ? {

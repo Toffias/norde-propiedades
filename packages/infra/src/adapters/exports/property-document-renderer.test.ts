@@ -34,6 +34,8 @@ const property: PanelPropertyDetail = {
       priceCents: 12_000_000n,
       priceOnRequest: false,
       commissionPct: 3,
+      pricePerM2Cents: undefined,
+      estimatedCommissionCents: 360_000n,
     },
   ],
   characteristics: {

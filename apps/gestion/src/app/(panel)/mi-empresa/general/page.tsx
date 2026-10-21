@@ -1,3 +1,4 @@
+import { Building2Icon } from 'lucide-react';
 import { ErrorState } from '@norde/ui/components/error-state';
 import { SectionCard } from '@norde/ui/components/section-card';
 import type { Metadata } from 'next';
@@ -16,7 +17,7 @@ export default async function GeneralSettingsPage() {
   const { settings, canUpdate } = loaded;
 
   return (
-    <SectionCard title="Datos de la empresa">
+    <SectionCard title="Datos de la empresa" icon={Building2Icon}>
       <div className="flex flex-col gap-5 md:flex-row md:gap-8">
         <div className="flex shrink-0 flex-col gap-2">
           <span className="text-sm font-medium">Logo</span>

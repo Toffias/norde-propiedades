@@ -25,12 +25,6 @@ export function seedUser(role: Role): SeedUser {
   return user;
 }
 
-/** El nombre de pila, como lo saluda el inicio ("Hola, Laura"). */
-export function firstName(role: Role): string {
-  const { name } = seedUser(role);
-  return name.split(' ')[0] ?? name;
-}
-
 /** La sesión guardada de cada rol, que arma `auth.setup.ts`. */
 export function storageStateFor(role: Role): string {
   return path.resolve(import.meta.dirname, `../.auth/${role}.json`);

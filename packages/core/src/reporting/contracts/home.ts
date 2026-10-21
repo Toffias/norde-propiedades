@@ -2,7 +2,8 @@
 
 import { z } from 'zod';
 
-import type { ContactChannelValue } from '../../clients/contracts';
+import type { ContactChannelValue, OpportunityTypeValue } from '../../clients/contracts';
+import type { PortalValue } from '../../portals/contracts';
 import type {
   ConstructionStatusValue,
   Currency,
@@ -44,11 +45,23 @@ export type ListAvailablePropertiesQuery = z.input<typeof ListAvailablePropertie
 export const ListAvailableDevelopmentsQuerySchema = availableListSchema();
 export type ListAvailableDevelopmentsQuery = z.input<typeof ListAvailableDevelopmentsQuerySchema>;
 
+/**
+ * Qué tan urgente es atender algo: al día, pide atención (ámbar) o atrasado (rojo). La regla está
+ * en el dominio de reporting.
+ */
+export const URGENCY_VALUES = ['ok', 'warning', 'overdue'] as const;
+export type UrgencyValue = (typeof URGENCY_VALUES)[number];
+
 /** Las primeras filas de un widget y cuántas hay en total. */
 export interface HomeWidget<T> {
   readonly total: number;
   readonly items: readonly T[];
+  /** La más urgente de las filas: con ella se pinta la franja de Inicio. */
+  readonly urgency: UrgencyValue;
 }
+
+/** Cuánto se muestra del mensaje de una consulta en Inicio. */
+export const INQUIRY_MESSAGE_EXCERPT_LENGTH = 280;
 
 export interface AgentRef {
   readonly id: string;
@@ -65,6 +78,13 @@ export interface UnassignedInquiryRow {
   readonly propertyCode: string | undefined;
   readonly developmentId: string | undefined;
   readonly developmentName: string | undefined;
+  /** E.164. */
+  readonly senderPhone: string | undefined;
+  /** El comienzo del mensaje (`INQUIRY_MESSAGE_EXCERPT_LENGTH`). */
+  readonly message: string | undefined;
+  /** Qué tipo de oportunidad se propone al asignarla. */
+  readonly suggestedType: OpportunityTypeValue;
+  readonly urgency: UrgencyValue;
 }
 
 export interface PendingOpportunityRow {
@@ -77,6 +97,9 @@ export interface PendingOpportunityRow {
   readonly agent: AgentRef | undefined;
   /** Desde cuándo está sin contactar: el último cambio de estado o el alta. */
   readonly waitingSince: Date;
+  /** El teléfono principal del cliente, en E.164. */
+  readonly clientPhone: string | undefined;
+  readonly urgency: UrgencyValue;
 }
 
 export interface UpcomingSigningRow {
@@ -91,6 +114,28 @@ export interface UpcomingSigningRow {
   readonly estimatedSigningDate: string;
   /** La fecha estimada ya pasó y la reserva sigue activa. */
   readonly overdue: boolean;
+  readonly urgency: UrgencyValue;
+}
+
+/** Un aviso con problemas en un portal: pausado o con error. */
+export interface PortalAlertRow {
+  /** La publicación. */
+  readonly id: string;
+  readonly portal: PortalValue;
+  readonly status: 'paused' | 'error';
+  /** Por qué lo pausó el portal o por qué falló, listo para mostrar. */
+  readonly lastError: string | undefined;
+  readonly owner:
+    | {
+        readonly kind: 'property';
+        readonly id: string;
+        readonly code: string;
+        readonly title: string;
+      }
+    | { readonly kind: 'development'; readonly id: string; readonly name: string };
+  /** Desde cuándo está así: la última sincronización. */
+  readonly since: Date;
+  readonly urgency: UrgencyValue;
 }
 
 export interface CountByChannel {

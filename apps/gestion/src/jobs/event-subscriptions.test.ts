@@ -1,5 +1,10 @@
 import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
-import type { RunDevelopmentUnitImport } from '@norde/core/properties';
+import type { RunTokkoUsersImport } from '@norde/core/identity';
+import type {
+  RunDevelopmentUnitImport,
+  RunPropertyImport,
+  RunTokkoApiPropertyImport,
+} from '@norde/core/properties';
 import { err, ok, Actor } from '@norde/core/shared';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
@@ -94,6 +99,9 @@ function clientJobs(calls: unknown[] = []): {
   readonly merge: MergeJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
+  readonly runPropertyImport: Pick<RunPropertyImport, 'execute'>;
+  readonly runTokkoApiPropertyImport: Pick<RunTokkoApiPropertyImport, 'execute'>;
+  readonly runTokkoUsersImport: Pick<RunTokkoUsersImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
   readonly revalidateSite: SiteRevalidation;
@@ -136,6 +144,26 @@ function clientJobs(calls: unknown[] = []): {
       execute: (input, by) => {
         calls.push(['unit-import', input, by.id]);
         return Promise.resolve(ok({ status: 'done' as const }));
+      },
+    },
+    runPropertyImport: {
+      execute: (input, by) => {
+        calls.push(['property-import', input, by.id]);
+        return Promise.resolve(ok({ status: 'done' as const }));
+      },
+    },
+    runTokkoApiPropertyImport: {
+      execute: (input, by) => {
+        calls.push(['tokko-api-import', input, by.id]);
+        return Promise.resolve(ok({ status: 'done' as const }));
+      },
+    },
+    runTokkoUsersImport: {
+      execute: (input, by) => {
+        calls.push(['tokko-users-import', input, by.id]);
+        return Promise.resolve(
+          ok({ created: 10, suspended: 4, existing: 0, skipped: 0, unassigned: 2 }),
+        );
       },
     },
     opportunities: {
@@ -225,6 +253,9 @@ describe('eventSubscriptions', () => {
       'clients.opportunity_bulk_requested.run-bulk',
       'clients.import_requested.run-import',
       'properties.unit_import_requested.run-unit-import',
+      'properties.import_requested.run-property-import',
+      'identity.tokko_users_import_requested.run-tokko-users-import',
+      'properties.tokko_api_import_requested.run-tokko-api-property-import',
       'clients.inquiry_received.route-inquiry',
     ]);
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
@@ -412,6 +443,16 @@ describe('eventSubscriptions', () => {
     for (const subscription of byType('properties.unit_import_requested')) {
       await subscription.handle({ ...event, payload: { importId: IMPORT_ID } });
     }
+    for (const subscription of byType('properties.import_requested')) {
+      await subscription.handle({ ...event, payload: { importId: IMPORT_ID } });
+    }
+    // Bajar las fotos de toda la cartera lleva más que los 15 minutos de pg-boss.
+    const [tokkoUsers] = byType('identity.tokko_users_import_requested');
+    expect(tokkoUsers?.expireInSeconds).toBeGreaterThan(15 * 60);
+    await tokkoUsers?.handle({ ...event, payload: { requestId: IMPORT_ID } });
+    const [tokkoApi] = byType('properties.tokko_api_import_requested');
+    expect(tokkoApi?.expireInSeconds).toBeGreaterThan(60 * 60);
+    await tokkoApi?.handle({ ...event, payload: { importId: IMPORT_ID } });
     for (const subscription of byType('clients.client_erased')) {
       await subscription.handle({
         ...event,
@@ -435,6 +476,9 @@ describe('eventSubscriptions', () => {
     expect(calls).toEqual([
       ['import', { importId: IMPORT_ID }, 'system:import'],
       ['unit-import', { importId: IMPORT_ID }, 'system:import'],
+      ['property-import', { importId: IMPORT_ID }, 'system:import'],
+      ['tokko-users-import', {}, 'system:import'],
+      ['tokko-api-import', { importId: IMPORT_ID }, 'system:import'],
       ['conversations', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['favorites', { clientIds: [CLIENT_ID] }, 'system:scheduler'],

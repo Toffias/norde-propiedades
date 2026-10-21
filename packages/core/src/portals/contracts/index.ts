@@ -85,6 +85,15 @@ export interface PortalAccountView {
   readonly isConnected: boolean;
   readonly accountName: string | undefined;
   readonly connectedAt: Date | undefined;
+  /** Las publicaciones vinculadas a la cuenta (con aviso vivo), por tipo de aviso y estado. */
+  readonly linked: Readonly<Record<ListingOwnerKindValue, LinkedListingCountsView>>;
+}
+
+/** Cuántas publicaciones vinculadas hay en cada estado. */
+export interface LinkedListingCountsView {
+  readonly published: number;
+  readonly paused: number;
+  readonly error: number;
 }
 
 /** Lo que devuelve la lista de cuentas: el catálogo es fijo y chico, sin paginar. */

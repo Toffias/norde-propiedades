@@ -9,6 +9,13 @@ import {
 import { Button } from '@norde/ui/components/button';
 import { Card } from '@norde/ui/components/card';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@norde/ui/components/dropdown-menu';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,13 +28,14 @@ import { SoftBadge, StatusPill } from '@norde/ui/components/status-pill';
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import {
   ArchiveRestoreIcon,
+  ChevronDownIcon,
   CombineIcon,
   Loader2Icon,
   LockIcon,
   MailIcon,
   PhoneIcon,
   ShieldAlertIcon,
-  StickyNoteIcon,
+  TagsIcon,
   Trash2Icon,
   UserCogIcon,
 } from 'lucide-react';
@@ -50,7 +58,7 @@ import { clientName, formatPhone, userName, whatsappHref } from '../client-forma
 import { ClientEraseDialog } from './client-erase-dialog';
 import { ClientFavoriteToggle } from './client-favorite-toggle';
 import { ClientMergeDialog } from './client-merge-dialog';
-import { NOTE_FIELD_ID } from './client-note-composer';
+import { ClientTagList, ClientTagsDialog } from './client-tags-dialog';
 import {
   OpportunityActionsMenu,
   type OpportunityCatalogView,
@@ -138,8 +146,9 @@ function ReassignDialog({
 
 /**
  * La tarjeta de la ficha: nombre, tipos, agente y los datos de contacto principales, con las
- * acciones rápidas (WhatsApp, llamar, email) y las de la ficha (cambiar agente, unificar, borrar,
- * restaurar y suprimir los datos).
+ * acciones rápidas (cambiar el estado de la oportunidad, WhatsApp, llamar, email) y el menú
+ * "Acciones" con las de la ficha (etiquetas, cambiar agente, unificar, borrar y suprimir los
+ * datos). Las etiquetas se ven debajo de los botones.
  */
 export function ClientDetailHeader({
   detail,
@@ -159,11 +168,16 @@ export function ClientDetailHeader({
   const [reassigning, setReassigning] = useState(false);
   const [merging, setMerging] = useState(false);
   const [erasing, setErasing] = useState(false);
+  const [tagging, setTagging] = useState(false);
   const inTrash = detail.deletedAt !== undefined;
   const phone = detail.phones[0];
   const email = detail.emails[0];
   const mobile = detail.phones.find((entry) => entry.kind === 'mobile') ?? phone;
   const name = clientName(detail.name);
+  const canReassign = detail.can.reassign && canPickAgents;
+  const canTrash = detail.can.delete && !inTrash;
+  const hasMenu =
+    detail.can.edit || canReassign || detail.can.merge || canTrash || detail.can.erase;
 
   return (
     <Card className="gap-4 p-5">
@@ -181,6 +195,12 @@ export function ClientDetailHeader({
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-2xl font-bold">{name}</h1>
             <ClientFavoriteToggle clientId={detail.id} favorite={favorite} />
+            {detail.activeOpportunity !== undefined && (
+              <OpportunityStagePill
+                stage={detail.activeOpportunity.stage}
+                status={detail.activeOpportunity.status}
+              />
+            )}
             {detail.kind !== 'person' && <SoftBadge>{CLIENT_KIND_LABELS[detail.kind]}</SoftBadge>}
             {inTrash && <StatusPill tone="gray">En la papelera</StatusPill>}
           </div>
@@ -223,10 +243,6 @@ export function ClientDetailHeader({
                     {OPPORTUNITY_TYPE_LABELS[detail.activeOpportunity.type] ??
                       detail.activeOpportunity.type}
                   </span>
-                  <OpportunityStagePill
-                    stage={detail.activeOpportunity.stage}
-                    status={detail.activeOpportunity.status}
-                  />
                   {detail.activeOpportunity.openCount > 1 && (
                     <Link
                       // Misma ficha con otra pestaña: typedRoutes no verifica un string armado.
@@ -236,19 +252,6 @@ export function ClientDetailHeader({
                     >
                       {detail.activeOpportunity.openCount.toLocaleString('es-AR')} abiertas
                     </Link>
-                  )}
-                  {opportunityCatalog !== undefined && (
-                    <OpportunityActionsMenu
-                      target={{
-                        id: detail.activeOpportunity.id,
-                        clientName: name,
-                        agent: detail.activeOpportunity.agent,
-                        can: detail.activeOpportunity.can,
-                      }}
-                      catalog={opportunityCatalog}
-                      canPickAgents={canPickAgents}
-                      variant="button"
-                    />
                   )}
                 </span>
               )}
@@ -262,71 +265,46 @@ export function ClientDetailHeader({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 lg:justify-end">
-          {detail.can.edit && (
-            <Button asChild variant="outline" size="sm">
-              <Link
-                // La pestaña Actividad, con el foco en la nota: typedRoutes no verifica un string armado.
-                href={`/contactos/${detail.id}?tab=actividad#${NOTE_FIELD_ID}` as Route}
-                scroll={false}
-              >
-                <StickyNoteIcon className="h-4 w-4" />
-                Agregar nota
-              </Link>
-            </Button>
-          )}
-          {!detail.contactMasked && mobile !== undefined && (
-            <Button asChild variant="outline" size="sm">
-              <a href={whatsappHref(mobile.number)} target="_blank" rel="noreferrer">
-                <WhatsAppIcon className="h-4 w-4" />
-                WhatsApp
-              </a>
-            </Button>
-          )}
-          {!detail.contactMasked && phone !== undefined && (
-            <Button asChild variant="outline" size="sm">
-              <a href={`tel:${phone.number}`}>
-                <PhoneIcon className="h-4 w-4" />
-                Llamar
-              </a>
-            </Button>
-          )}
-          {!detail.contactMasked && email !== undefined && (
-            <Button asChild variant="outline" size="sm">
-              <a href={`mailto:${email.address}`}>
-                <MailIcon className="h-4 w-4" />
-                Email
-              </a>
-            </Button>
-          )}
-          {detail.can.reassign && canPickAgents && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setReassigning(true);
-              }}
-            >
-              <UserCogIcon className="h-4 w-4" />
-              Cambiar agente
-            </Button>
-          )}
-          {detail.can.merge && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setMerging(true);
-              }}
-            >
-              <CombineIcon className="h-4 w-4" />
-              Unificar
-            </Button>
-          )}
-          {detail.can.delete &&
-            (inTrash ? (
+        <div className="flex flex-col gap-3 lg:items-end">
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            {opportunityCatalog !== undefined && detail.activeOpportunity !== undefined && (
+              <OpportunityActionsMenu
+                target={{
+                  id: detail.activeOpportunity.id,
+                  clientName: name,
+                  agent: detail.activeOpportunity.agent,
+                  can: detail.activeOpportunity.can,
+                }}
+                catalog={opportunityCatalog}
+                canPickAgents={canPickAgents}
+                variant="button"
+              />
+            )}
+            {!detail.contactMasked && mobile !== undefined && (
+              <Button asChild variant="outline" size="sm">
+                <a href={whatsappHref(mobile.number)} target="_blank" rel="noreferrer">
+                  <WhatsAppIcon className="h-4 w-4" />
+                  WhatsApp
+                </a>
+              </Button>
+            )}
+            {!detail.contactMasked && phone !== undefined && (
+              <Button asChild variant="outline" size="sm">
+                <a href={`tel:${phone.number}`}>
+                  <PhoneIcon className="h-4 w-4" />
+                  Llamar
+                </a>
+              </Button>
+            )}
+            {!detail.contactMasked && email !== undefined && (
+              <Button asChild variant="outline" size="sm">
+                <a href={`mailto:${email.address}`}>
+                  <MailIcon className="h-4 w-4" />
+                  Email
+                </a>
+              </Button>
+            )}
+            {detail.can.delete && inTrash && (
               <Button
                 type="button"
                 size="sm"
@@ -345,43 +323,84 @@ export function ClientDetailHeader({
                 <ArchiveRestoreIcon className="h-4 w-4" />
                 Restaurar
               </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-destructive"
-                onClick={() => {
-                  setPending({
-                    copy: {
-                      title: 'Borrar contacto',
-                      description: `${name} va a la papelera; desde ahí lo podés restaurar.`,
-                      confirm: 'Borrar',
-                      done: 'Contacto enviado a la papelera',
-                      destructive: true,
-                    },
-                    run: () => deleteClientAction({ clientId: detail.id }),
-                  });
-                }}
-              >
-                <Trash2Icon className="h-4 w-4" />
-                Borrar
-              </Button>
-            ))}
-          {detail.can.erase && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive"
-              onClick={() => {
-                setErasing(true);
-              }}
-            >
-              <ShieldAlertIcon className="h-4 w-4" />
-              Suprimir datos
-            </Button>
-          )}
+            )}
+            {hasMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">
+                    Acciones
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {detail.can.edit && (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setTagging(true);
+                      }}
+                    >
+                      <TagsIcon />
+                      Gestionar etiquetas
+                    </DropdownMenuItem>
+                  )}
+                  {canReassign && (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setReassigning(true);
+                      }}
+                    >
+                      <UserCogIcon />
+                      Cambiar agente
+                    </DropdownMenuItem>
+                  )}
+                  {detail.can.merge && (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setMerging(true);
+                      }}
+                    >
+                      <CombineIcon />
+                      Unificar
+                    </DropdownMenuItem>
+                  )}
+                  {(detail.can.edit || canReassign || detail.can.merge) &&
+                    (canTrash || detail.can.erase) && <DropdownMenuSeparator />}
+                  {canTrash && (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => {
+                        setPending({
+                          copy: {
+                            title: 'Borrar contacto',
+                            description: `${name} va a la papelera; desde ahí lo podés restaurar.`,
+                            confirm: 'Borrar',
+                            done: 'Contacto enviado a la papelera',
+                            destructive: true,
+                          },
+                          run: () => deleteClientAction({ clientId: detail.id }),
+                        });
+                      }}
+                    >
+                      <Trash2Icon />
+                      Borrar
+                    </DropdownMenuItem>
+                  )}
+                  {detail.can.erase && (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => {
+                        setErasing(true);
+                      }}
+                    >
+                      <ShieldAlertIcon />
+                      Suprimir datos
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+          <ClientTagList tags={detail.tags} />
         </div>
       </div>
 
@@ -395,6 +414,7 @@ export function ClientDetailHeader({
       {reassigning && (
         <ReassignDialog detail={detail} open={reassigning} onOpenChange={setReassigning} />
       )}
+      {tagging && <ClientTagsDialog detail={detail} open={tagging} onOpenChange={setTagging} />}
       {detail.can.merge && (
         <ClientMergeDialog detail={detail} open={merging} onOpenChange={setMerging} />
       )}

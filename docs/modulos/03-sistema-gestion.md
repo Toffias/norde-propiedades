@@ -114,6 +114,15 @@ Roles propuestos (a validar con Norde):
 
 - Auditoría: `branch.created`, `branch.updated`, `branch.made-main`, `branch.deleted` y `branch.restored`; `team.created`, `team.updated`, `team.deleted`, `team.restored`, `team.member-added` y `team.member-removed` (contra el equipo, con el ID del usuario).
 
+**Implementado (#17, usuarios de Tokko):**
+
+- **Traer usuarios de Tokko** (en Usuarios, con `users:create` y la API key de Tokko configurada; decidido el 2026-10-21: "la copia tiene que quedar tal cual"). Un job (`identity.tokko_users_import_requested`) copia los usuarios de la cuenta de Norde en Tokko, para que los contactos y las propiedades queden a cargo de los mismos agentes. Tarda unos minutos.
+  - Los **vigentes** en Tokko (`/user/`) se crean **activos**; los que **ya no están** (agentes de contactos que no son usuarios: se encuentran recorriendo todos los contactos) se crean **suspendidos**: figuran como agentes pero no entran. Uno sin email recibe uno que nunca se entrega (`tokko-<id>@usuarios-tokko.invalid`).
+  - Todos con el rol **Agente / Asesor** y la **sucursal principal**, con el celular de Tokko y **sin contraseña**: entran cuando un administrador les blanquea una.
+  - "**Libre**" y "**Sin Asignar**" no se copian: en Tokko son bolsas de contactos sin agente.
+  - Uno que ya está en Norde con el mismo email o el mismo nombre no se crea ni se cambia: se puede volver a traer sin duplicar.
+  - Se auditan como `user.imported` (y `user.suspended`), como `system:import`.
+
 ### 2.2 Trazabilidad de cambios (auditoría)
 
 - Una tabla `audit_log` registra **quién** hizo el cambio, **cuándo**, **sobre qué** entidad e id, **qué acción** (crear, editar, borrar, exportar, iniciar sesión) y el **antes y después** de los campos cambiados.
@@ -276,15 +285,32 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 
 ### 3.3.4 Importación desde Excel y supresión de datos (#8, etapa 4)
 
-**Importar** (`/contactos/importaciones`, permiso `clients:import`): el historial de importaciones, paginado y con su estado (En proceso, Listo, Error). "Importar desde Excel" abre el panel lateral:
+**Importar** (`/contactos/importaciones`, permiso `clients:import`): el historial de importaciones, paginado y con su estado (En proceso, Listo, Error). "Importar contactos" abre el panel lateral:
 
-1. Se sube un `.xlsx` de hasta 10 MB y 10.000 filas, con los encabezados en la primera fila. Se lee en el momento (no se guarda) y se muestran las filas con datos.
-2. Se elige qué columna va con cada dato: nombre, tipo de registro, empresa, teléfono, celular, teléfono laboral, email, otro email, tipos de cliente (separados por coma), cargo, web, dirección, país, número de documento y fecha de nacimiento. Los encabezados conocidos (los de la exportación de contactos y los habituales de una planilla) se proponen solos, con dos valores de ejemplo de cada columna. Hace falta el nombre (o la empresa) y al menos un teléfono o email.
+1. Se sube un `.xlsx`, un `.xls` (la exportación de contactos de Tokko sale así) o un `.csv`, de hasta 10 MB y 10.000 filas, con los encabezados en la primera fila. El servidor reconoce el formato por el contenido (ADR 0038), lo lee en el momento (no se guarda) y muestra las filas con datos. El navegador no procesa el archivo.
+2. Se elige qué columna va con cada dato: ID de Tokko, nombre, tipo de registro, empresa, teléfono, celular, teléfono laboral, otro teléfono, email, otro email, tipos de cliente (separados por coma), cargo, web, dirección, país, número de documento, fecha de nacimiento, agente y etiquetas. Los encabezados conocidos (los de la exportación de contactos, los de la de Tokko y los habituales de una planilla) se proponen solos, con dos valores de ejemplo de cada columna. Hace falta el nombre (o la empresa) y al menos un teléfono o email.
 3. Los contactos quedan a cargo de quien importa; elegir otro agente pide `clients:reassign`.
+4. La columna del agente pide `clients:reassign` y la de etiquetas, `tags:update`: sin el permiso no se ofrecen ni se proponen.
+
+**Exportación de Tokko** (parte de la migración, #17):
+
+- Un guion (`-`, `---`) es una celda vacía: Tokko lo pone, por ejemplo, en todas las fechas de nacimiento.
+- **ID de Tokko**: se guarda como ID externo del contacto (`import_mappings`, origen `tokko`). Al reimportar, una fila con un ID ya importado no se crea de nuevo ("Ya se importó antes"), aunque sus datos hayan cambiado en Tokko; actualizar los contactos ya importados queda para la última corrida antes del corte. Una fila duplicada por teléfono o email queda vinculada a ese ID, y una cuyo contacto pidió la supresión no se vuelve a crear.
+- **Agente**: el usuario con ese nombre (sin distinguir mayúsculas ni acentos), también uno suspendido: los contactos de quien ya no está en Tokko quedan a su nombre (por eso conviene traer antes los usuarios de Tokko, §2.1). "Libre" y "Sin Asignar" (bolsas de Tokko) dejan el contacto **sin agente**, en la sucursal de la importación. Si no hay un usuario con ese nombre, el contacto queda a cargo del agente de la importación.
+- **Etiquetas**: separadas por `|` (como en Tokko) o por coma. Se busca una etiqueta suelta (sin grupo) con ese nombre y, si no hay, se crea suelta. Se auditan el alta de cada etiqueta y las etiquetas del contacto.
+- **Oportunidad** (en Tokko el contacto es la oportunidad): con la columna del estado, cada contacto creado lleva una, también las cerradas. Pide `opportunities:create` y `settings:update` (puede crear motivos de cierre).
+  - Nace ya en su estado, sin recorrer las transiciones ni disparar "oportunidad creada": no avisa al equipo, no aplica reglas ni suma actividad. Se audita como `opportunity.imported`.
+  - Estado: "Pendiente contactar" → el primer estado activo de Nuevo; "Tomar Accion" → de Contactado; "Cerrado" → de Ganada o Perdida según el motivo.
+  - Motivo ("Motivo (nota)"): "Alquilo/Compro con nosotros" → "Compró o alquiló con Norde"; "…con otro" → "Compró o alquiló con otra inmobiliaria"; "Fantasma" → "No respondió"; "Sin seguimiento" → "Dejó de buscar"; "Es Propietario - Tasación exitosa" → "Tasación exitosa" (ganada); el resto o vacío → "Otro" (perdida). Se busca por nombre y, si no existe, se crea. La nota entre paréntesis (y el motivo, si no se conocía) queda como nota de la oportunidad; una de menos de 3 letras o números se descarta.
+  - Origen: el primero de la lista, con un canal por portal (Zonaprop, MercadoLibre, Argenprop, Icasas, Properati, OLX, Liderprop, EnBuenosAires y Reporte Inmobiliario); "Sitio Web" → formulario de la web; sin origen o desconocido → Oficina.
+  - Tipo: por el motivo ("Alquiló…" alquiler, "Compró…" venta, tasación) y, si no, por las etiquetas ("Tasacion"; "Alquiler" sin "Venta"); el resto, venta.
+  - Fechas: "Fecha de creación" es el alta y "Ultima actualización", el último cambio de estado (el cierre, si está cerrada).
+  - Un contacto que ya existía (duplicado o importado antes) no suma oportunidad.
+- La sucursal y las propiedades destacadas de la exportación no se importan.
 
 Al confirmar se guarda el archivo y un job de `apps/gestion` (`clients.import_requested`, ADR 0021) da de alta cada fila con **la misma regla de duplicados que el alta manual**: si el teléfono o el email ya existe (aunque esté en la papelera), la fila no se importa y el reporte enlaza al contacto que ya estaba. Cada fila va en su propia transacción junto con el avance: si el job se corta, retoma donde quedó, y si el evento llega dos veces no se importa de nuevo.
 
-- Sin nombre ni empresa, sin teléfono ni email, o con un teléfono, email, tipo, fecha o largo inválido, la fila queda en el reporte con el dato que falló. El reporte no guarda datos personales: el número de fila, el motivo, la columna y, si era un duplicado, el ID del contacto.
+- Sin nombre ni empresa, sin teléfono ni email, con más de 50 etiquetas, o con un teléfono, email, tipo, fecha o largo inválido, la fila queda en el reporte con el dato que falló. El reporte no guarda datos personales: el número de fila, el motivo, la columna y, si era un duplicado, el ID del contacto.
 - Sin nombre pero con empresa, el contacto se crea como empresa.
 - Los contactos importados quedan auditados como `system:import`, agrupados por la importación (`correlation_id`). El pedido, el final y el fallo de la importación también se auditan.
 - Al terminar se borra el archivo subido, que tiene datos personales.
@@ -632,6 +658,8 @@ Diseño propuesto:
    - Son dos cuentas de ML porque la de emprendimientos, con su paquete, no puede publicar avisos comunes. Una misma cuenta de ML no se conecta en las dos.
    - Cada tarjeta permite conectar, reconectar y desconectar por OAuth, y activar o desactivar la cuenta. Solo una cuenta conectada se activa, y desconectar la desactiva y borra sus credenciales, pero no toca los avisos que ya están en ML.
    - Las acciones piden `portals:manage`. Ver las cuentas pide eso o `portals:publish`.
+   - **Diseño de la pantalla**: una tarjeta a lo ancho por cuenta, con el logo del portal a la izquierda. Sin conectar, la tarjeta propone conectarla. Conectada, muestra la cuenta, cuántas propiedades (o emprendimientos) del sistema están vinculadas a ese portal (con aviso publicado, pausado o con error) y el plan: los créditos (Zonaprop) o los paquetes (MercadoLibre).
+   - Lo que se gestiona va en un **panel lateral** ("Gestionar conexión", `?panel=<portal>`): repite los datos de la tarjeta y suma activar, cambiar el código o reconectar, recibir las consultas al instante, vincular avisos y desconectar. Sin `portals:manage`, el panel es de solo lectura ("Ver detalle").
    - Auditoría: `portal_account.connected` y `portal_account.disconnected` (con la cuenta de ML antes y después), y `portal_account.enabled` y `portal_account.disabled`.
 2. **Publicar propiedades** (hecha). Decisiones técnicas en los ADR 0024 y 0031.
    - **Pestaña Difusión** de la ficha, con `portals:publish` o `portals:manage` y la función prendida:
@@ -815,7 +843,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **Detalles**: cada bloque se edita en el lugar y guarda con su propio caso de uso, con el diff en el historial.
 
-- Operaciones: venta, alquiler y temporario, cada una con precio, moneda, "precio a consultar" y comisión (0 a 100 %, con dos decimales). Al menos una. Cada cambio de precio va al historial de precios y emite `PropertyPriceChanged`.
+- Operaciones: venta, alquiler y temporario, cada una con precio, moneda, "precio a consultar" y comisión (0 a 100 %, con dos decimales). Al menos una. Cada cambio de precio va al historial de precios y emite `PropertyPriceChanged`. Cada operación se muestra como una tarjeta con el precio, el precio por m² (sobre la superficie total) y la comisión estimada (el porcentaje aplicado al precio). Con permiso de edición, las operaciones que faltan aparecen juntas en una tarjeta ("Agregar venta", etc.) y abren la edición con esa operación ya sumada.
 - Condiciones: exclusividad, permuta, escritura inmediata, financiación, apto crédito y expensas (en pesos).
 - Características: ambientes, superficies y medidas, antigüedad, orientación, estado de conservación y disposición. La superficie cubierta más la semicubierta no supera la total. Se muestran los atributos que el tipo de propiedad tiene habilitados en Mi empresa.
 - Ubicación: dirección real (privada), dirección para publicar (vacía: se sugiere), ubicación del catálogo y coordenadas. Si cambia la dirección y no hay coordenadas cargadas a mano, se ubica de nuevo en el mapa.
@@ -826,7 +854,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 - Se suben varias a la vez, con el avance de cada una. La primera es la portada.
 - Se ordenan arrastrando. Por foto: portada, mostrar en la web, incluir en el PDF, es plano, rotar, descripción, bajar la original y borrar.
-- La original no se modifica: un job genera la miniatura, la versión web y la copia con marca de agua (ADR 0020). Mientras tanto, la foto se ve "procesando".
+- La original no se modifica: un job genera la miniatura, la versión web y la copia con marca de agua (ADR 0020). Mientras tanto, la foto se ve "procesando". Si no se puede (la imagen está dañada, falta la original o el storage no responde), queda "No se pudo procesar"; ante un error del storage, el job la reintenta y, si sale bien, queda lista.
 
 **Archivos**: escrituras, reglamentos y planos (PDF, imágenes, Word o Excel, hasta 25 MB), con "Mostrar en la web", renombrar, bajar y borrar (baja lógica).
 
@@ -888,6 +916,46 @@ Además de la propiedad publicada en alquiler, cuando se concreta el alquiler se
   - Depósito, punitorios.
   - Adjuntos: contrato firmado en PDF, inventario, fotos de entrega.
   - Estado: vigente, por vencer, vencido, rescindido o renovado.
+
+### 4.10 Importar propiedades de Tokko (#17)
+
+**Importar** (`/propiedades/importaciones`, permiso `properties:import`, desde "Importar de Tokko" en el buscador): el historial de importaciones, paginado, con su estado (En proceso, Listo, Error). Es parte de la migración desde Tokko; no es la función de Tokko de importar listas de propiedades, que no se construye (§13.1).
+
+1. Se sube la exportación de propiedades de Tokko (`.csv`, también guardada como Excel), de hasta 5 MB y 2.000 filas. El servidor la lee (el navegador no procesa el archivo), verifica que tenga las columnas de Tokko (Ref, Dirección y Tipo de propiedad, como mínimo) y muestra cuántas propiedades trae y qué datos se leen. No hay que elegir columnas: son las de Tokko.
+2. Al confirmar se guarda el archivo y un job de `apps/gestion` (`properties.import_requested`) crea una propiedad por fila. Cada fila va en su propia transacción con el avance: si el job se corta, retoma donde quedó. Al terminar se borra el archivo, que tiene datos personales.
+
+Cada propiedad:
+
+- **Código**: el "Ref" de Tokko, en mayúsculas y con guiones en lugar de espacios ("NBU12345 AP1234567" → "NBU12345-AP1234567"). Si ya hay una propiedad con ese código, la fila no se importa ("Ya estaba en Norde con ese código"); si está en la papelera, tampoco. Importar dos veces el mismo archivo no duplica nada.
+- **Estado**: disponible. Sin fotos ni descripción (la exportación no las trae; llegan con la API de Tokko) y sin coordenadas (no se geocodifica en la importación).
+- **Ubicación** (decidido el 2026-10-20): "Capital Federal" es CABA, con su barrio del catálogo. Las regiones del GBA y la costa son de Buenos Aires: la localidad va bajo su partido (Ramos Mejía, San Justo, Lomas del Mirador y Tablada → La Matanza; Haedo → Morón; Ciudadela → Tres de Febrero; Olivos → Vicente López; Pinamar Norte → Pinamar) y, si no está en la tabla, la localidad es el partido. Si la localidad o el barrio no existen en el catálogo, se crean (auditados). Otro país (Uruguay) queda como texto.
+- **Dirección**: calle, altura, piso y unidad ("Belgrano 123, PB", "Rivadavia 9540 4º A", "Piso 4 Departamento A", "3º UF 12"). Lo que no se entiende queda como piso.
+- **Operaciones**: venta, alquiler y temporario con su moneda ("USD 130.000", "$ 630.000"); con dos monedas en una celda, la de dólares. Sin ninguna, la fila no se importa.
+- **Características**: superficies (0 es "sin dato"), frente, fondo, ambientes, dormitorios, baños, toilettes, cocheras y antigüedad ("-1" es "sin dato"). Si la total es menor que la cubierta más la semicubierta (Tokko redondea), se importa sin la total, con un aviso.
+- **Expensas**: en pesos; 0 es "sin expensas".
+- **Plantas, ocupación, zonificación y superficie descubierta**: Norde no las modela; van a los comentarios internos, bajo "Datos de Tokko".
+- **Productor**: el usuario activo con ese nombre (sin distinguir mayúsculas ni acentos), con su sucursal; "Libre" o un nombre que no es un usuario, quien pidió la importación.
+- **Propietario**: el contacto con ese celular o email (la regla de duplicados de contactos) o uno nuevo como propietario vendedor o locador, a cargo del productor. Sin un teléfono ni un email válidos, la propiedad se importa sin propietario, con un aviso.
+- **Emprendimiento**: Tokko suma el estado de obra al nombre ("AV. RIVADAVIA 9540 + EN POZO"); sin eso, si hay un emprendimiento activo con ese nombre, la propiedad queda como su unidad (también en el historial del emprendimiento). Si no hay uno, se importa suelta, con un aviso.
+
+El reporte de cada importación muestra las filas, las creadas, las que ya estaban y las que tuvieron errores, y las filas con problemas: los errores (la fila no se importó) y los avisos (se importó con algo ajustado), con un enlace a la propiedad. No guarda datos personales: el número de fila, el motivo, la columna y el ID de la propiedad. Las propiedades quedan auditadas como `property.imported` (`system:import`), agrupadas por la importación, con el propietario en `client_ids`.
+
+**Traer de la API de Tokko** (decidido el 2026-10-20): con la API key de Norde en Tokko configurada (`TOKKO_API_KEY`), el mismo historial muestra "Traer de la API de Tokko". Un job de `apps/gestion` (`properties.tokko_api_import_requested`) trae primero los **emprendimientos** (`/api/v1/development/`) y después las **propiedades** (`/api/v1/property/`), de a 20 y en el orden de Tokko; así las unidades quedan vinculadas en la misma corrida.
+
+**Emprendimientos** (decidido el 2026-10-20). Se buscan por el código de Tokko ("NBU58303") y, si no hay, por el nombre (los cargados a mano en Norde).
+
+- **Si no existe**, se crea con el código de Tokko como código (como las propiedades), el nombre sin el estado que Tokko le suma ("AV. RIVADAVIA 9540 + EN POZO" → "AV. RIVADAVIA 9540"), la dirección, la ubicación del catálogo (con el partido que trae la API; otro país no se importa), el título, la descripción, la financiación, las coordenadas y las fotos. Queda **comercializando** si estaba publicado en la web de Tokko; si no, cargando información. El captador es el usuario a cargo en Tokko con ese nombre o, si no hay, quien pidió la importación.
+- **Estado de obra**: Tokko lo da como número; en la cartera de Norde, 3 es "en pozo", 4 "en construcción" y 6 "terminado" (visto contra el estado que escriben en el nombre). Otro número queda sin estado. La entrega es la fecha de obra de Tokko.
+- **Si ya existe**, se completa sin pisar nada: la descripción, la financiación, el estado de obra, la entrega y las coordenadas que falten, y las fotos si la galería está vacía (`development.import_completed`).
+
+**Propiedades**, con las mismas reglas que la exportación (código, tipo, ubicación, operaciones, medidas, productor, emprendimiento: primero por el código de Tokko del emprendimiento y después por nombre). Además:
+
+- **Si el código no existe**, crea la propiedad con lo que la exportación no trae: el título para portales, la descripción, las coordenadas, los comentarios internos de Tokko (bajo "Comentarios de Tokko"), todos sus propietarios (Tokko puede tener más de uno) y las fotos. Cada propietario se busca primero por su **ID de contacto de Tokko** (el mismo que guarda la importación de contactos), después por teléfono o email, y si no hay uno se crea; el ID queda guardado. Si en Tokko no tiene un teléfono ni un email válidos, se crea igual **solo con el nombre** (decidido el 2026-10-20: si Tokko lo permite, Norde también); el ID evita duplicarlo en cada unidad. El alta manual de contactos sigue pidiendo un teléfono o un email. Un contacto que pidió la supresión de sus datos no se vuelve a crear. Si la web de Tokko no mostraba el precio, la operación queda "a consultar". La ubicación usa el partido que trae la API ("Argentina | G.B.A. Zona Oeste | La Matanza | Ramos Mejia"); la tabla fija queda para la exportación.
+- **Si ya existe** (por ejemplo, importada desde la exportación), la **completa sin pisar nada**: la descripción y el título si no tiene descripción, las coordenadas si no tiene, los comentarios de Tokko si no están, el emprendimiento si está suelta y en Tokko es unidad de uno que está en Norde (también en el historial del emprendimiento), los propietarios si no tiene ninguno (`property.owners_imported`), y las fotos si la galería está vacía. Queda auditado como `property.import_completed` con el diff. Lo cargado en Norde no se toca; actualizar lo que cambió en Tokko es del corte (etapa 4).
+- **Las fotos** (de propiedades y de emprendimientos) se bajan de los servidores de Tokko (`static.tokkobroker.com`, la original o, si no sirve, la versión web) al storage, en el orden de Tokko, con su portada y los planos como planos; como mucho las 100 de la galería. Quedan "procesando" hasta que el job de siempre genera sus variantes. Si alguna no se pudo bajar, queda un aviso.
+- **Una sola a la vez**: mientras hay una pendiente o en proceso, no se puede pedir otra (bajarían dos veces las mismas fotos). El job puede tardar horas (unas 2.800 fotos en la cartera actual): se retoma donde quedó si se corta (los emprendimientos, si no terminaron, se vuelven a recorrer), y volver a traerlas no duplica nada. Si Tokko no responde o rechaza la key, la importación queda con error y lo hecho hasta ahí.
+
+En el reporte de una importación desde la API, los emprendimientos tienen sus propios totales; las "Completadas" son las que ya estaban y recibieron algo, y los problemas se listan por el código de Tokko en lugar del número de fila, marcando los de emprendimientos. La key va en la URL de cada pedido (como pide Tokko): nunca se loguea.
 
 ### Actualizaciones por IPC con notificación
 
@@ -971,13 +1039,18 @@ La pantalla de inicio del panel (`/`). Son consultas de solo lectura del módulo
 
 **Alcance**: Inicio muestra la cartera con el alcance de los permisos de oportunidades. Un agente ve lo suyo, un gerente lo de su sucursal (`opportunities:read-branch`) y quien ve todas las oportunidades (`opportunities:read-all`), todo. Sin ese permiso, cada usuario ve solo lo suyo. Lo "suyo" es lo que tiene a cargo: el agente de la oportunidad y de la reserva, y el captador de la propiedad y del emprendimiento. Los filtros de **agente** (con `users:read`) y **sucursal** (con `branches:read`) achican el resultado, nunca lo amplían.
 
-**Pendientes** (`/`): cada widget muestra sus primeras 5 filas y el total. "Ver todas" abre el módulo con los mismos filtros.
+**Pendientes** (`/`): la pantalla empuja a actuar.
 
-| Widget                  | Qué muestra                                                                                                                         | Permiso                                 |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Consultas sin asignar   | Las pendientes de la bandeja, la más vieja primero, con su antigüedad. No tienen agente: se ven todas y solo las filtra la sucursal | `inquiries:read`                        |
-| Pendientes de contactar | Oportunidades en la categoría "nuevo", la que más espera primero (desde el último cambio de estado)                                 | `opportunities:read`                    |
-| Próximos vencimientos   | Reservas activas con la firma estimada en los próximos 30 días, incluidas las vencidas (marcadas "Vencida")                         | `reservations:read` y `properties:read` |
+- **Franja de urgencias**: una tarjeta por pendiente, con el total, su urgencia (al día, pide atención, atrasado) y el caso más urgente ("La más vieja es de …, hace 19 días"). Las tarjetas son el filtro: debajo se ve solo la lista de la activa (`?pendiente=consultas|contactar|firmas|avisos`). Sin el param, arranca activa la más urgente.
+- **Lista de la tarjeta activa**: sus primeras 5 filas, el total y "Ver las otras N"; "Ver todas" abre el módulo con los mismos filtros. Cada fila lleva su antigüedad pintada con la urgencia y sus acciones.
+- **Urgencia** (decisión del 2026-10-19, regla en el dominio de `reporting`): consulta sin asignar u oportunidad sin contactar, ámbar al día y rojo a los 3 días; reserva, roja si la fecha estimada pasó y ámbar si es dentro de 7 días; aviso de portal, rojo con error y ámbar pausado.
+
+| Widget                  | Qué muestra                                                                                                                                 | Acciones de cada fila                                                                         | Permiso                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Consultas sin asignar   | Las pendientes de la bandeja, la más vieja primero, con su antigüedad y el comienzo del mensaje. Se ven todas y solo las filtra la sucursal | Asignar (el diálogo de la bandeja) y WhatsApp                                                 | `inquiries:read`                                                          |
+| Pendientes de contactar | Oportunidades en la categoría "nuevo", la que más espera primero (desde el último cambio de estado)                                         | WhatsApp, Llamar y "Ya lo contacté" (pasa al primer estado activo de la categoría contactado) | `opportunities:read`                                                      |
+| Próximas firmas         | Reservas activas con la firma estimada en los próximos 30 días, incluidas las vencidas                                                      | Ver la reserva                                                                                | `reservations:read` y `properties:read`                                   |
+| Avisos con problemas    | Publicaciones pausadas o con error en los portales, primero las que fallaron, con el motivo                                                 | Corregir el aviso (pestaña Difusión de la ficha)                                              | `portals:publish` o `portals:manage`, con la función de portales prendida |
 
 **Estado actual** (`/?vista=estado`):
 
@@ -986,7 +1059,7 @@ La pantalla de inicio del panel (`/`). Son consultas de solo lectura del módulo
 - Propiedades por estado (sin las de la papelera).
 - Listados paginados (10 por página, cada uno con su param en la URL) de propiedades disponibles (código, título, tipo y barrio, precio por operación y captador) y de emprendimientos en comercialización (con sus unidades disponibles).
 
-Cada bloque aparece solo con el permiso de su módulo. **No se construye**: la pestaña Performance (va con Reportes), los widgets de eventos, tareas y visitas autogestionadas, y las alertas de publicaciones en portales, que se suman cuando exista el módulo `portals` (#14). Los vencimientos de contratos de alquiler se suman con `rentals`.
+Cada bloque aparece solo con el permiso de su módulo. **No se construye**: la pestaña Performance (va con Reportes) y los widgets de eventos, tareas y visitas autogestionadas. Los vencimientos de contratos de alquiler se suman con `rentals`.
 
 ### 7.0.1 Noticias (#16)
 
@@ -1129,7 +1202,7 @@ Decidido el 01/10/2026: Chat, Red Tokko Broker (y el inventario de Zonaprop en e
 
 Decidido el 02/10/2026 (#50), porque Norde no las usa ni las configuró en Tokko:
 
-- **No se construyen**: importar listas de propiedades, la configuración de Reservas (gerentes de reservas, etiqueta obligatoria para reservar y notificaciones propias; el módulo sigue en #13), la supervisión de propiedades (administradores de cartera), la validación legal o tributaria antes de publicar en portales, un proveedor de email propio (SMTP; los emails salen por Resend), la ficha y el PDF en inglés, y las búsquedas similares automáticas para consultas web.
+- **No se construyen**: importar listas de propiedades (la función de Tokko; la migración de la cartera desde la exportación de Tokko sí, §4.10), la configuración de Reservas (gerentes de reservas, etiqueta obligatoria para reservar y notificaciones propias; el módulo sigue en #13), la supervisión de propiedades (administradores de cartera), la validación legal o tributaria antes de publicar en portales, un proveedor de email propio (SMTP; los emails salen por Resend), la ficha y el PDF en inglés, y las búsquedas similares automáticas para consultas web.
 - **Construidas pero ocultas**, cada una con su variable de entorno apagada por defecto en `apps/gestion`: marca de agua, códigos de referencia por tipo, usuario, equipo o sucursal, equipos y atributos personalizados (§3, §14).
 - **Se mantienen**: Roles, aunque hoy hay un solo grupo, y la importación de contactos desde Excel (#8).
 

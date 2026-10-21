@@ -178,3 +178,50 @@ describe('findOpenOpportunityAbout', () => {
     expect(findOpenOpportunityAbout([closed], { type: 'rent' })).toBeUndefined();
   });
 });
+
+describe('Client.importedWithoutContact', () => {
+  it('registers a Tokko owner with just the name, which the manual sign-up does not allow', () => {
+    const imported = Client.importedWithoutContact({
+      id: CLIENT_ID,
+      name: '  Desarrolladora Prueba ',
+      clientTypes: ['owner_seller'],
+      agentId: undefined,
+      branchId: undefined,
+      now: T0,
+    });
+    if (imported.isErr()) throw new Error(imported.error.type);
+
+    expect(imported.value.toSnapshot()).toMatchObject({
+      name: 'Desarrolladora Prueba',
+      phones: [],
+      emails: [],
+      clientTypes: ['owner_seller'],
+    });
+    expect(imported.value.pullEvents().map((e) => e.type)).toEqual(['clients.client_registered']);
+    const manual = Client.create({
+      id: CLIENT_ID,
+      kind: 'person',
+      name: 'Desarrolladora Prueba',
+      phones: [],
+      emails: [],
+      clientTypes: [],
+      agentId: undefined,
+      branchId: undefined,
+      profile: {},
+      now: T0,
+    });
+    expect(manual.isErr() && manual.error).toEqual({ type: 'MissingContactInfo' });
+  });
+
+  it('still needs a name', () => {
+    const imported = Client.importedWithoutContact({
+      id: CLIENT_ID,
+      name: ' ',
+      clientTypes: [],
+      agentId: undefined,
+      branchId: undefined,
+      now: T0,
+    });
+    expect(imported.isErr() && imported.error).toEqual({ type: 'MissingName' });
+  });
+});

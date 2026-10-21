@@ -7,10 +7,11 @@ export type ClientTagId = Id<'ClientTag'>;
 /** Tope de etiquetas por contacto: más deja de servir como filtro. */
 export const MAX_CLIENT_TAGS = 50;
 
-const MAX_NAME_LENGTH = 60;
+/** Largo máximo del nombre de una etiqueta o un grupo: lo que sobra se corta. */
+export const MAX_TAG_NAME_LENGTH = 60;
 
 function cleanName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ').slice(0, MAX_NAME_LENGTH);
+  return name.trim().replace(/\s+/g, ' ').slice(0, MAX_TAG_NAME_LENGTH);
 }
 
 export interface ClientTagGroupSnapshot {

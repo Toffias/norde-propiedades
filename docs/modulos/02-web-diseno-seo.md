@@ -104,7 +104,7 @@ El sitio público de Norde Propiedades:
 
 **Transversal a todo el sitio:**
 
-- Botón flotante de WhatsApp.
+- Botón flotante de WhatsApp, salvo con el chat de IA prendido: su burbuja lo reemplaza (un solo botón flotante).
 - Widget de web chat.
 - Tema claro y oscuro con tokens semánticos.
 - Diseño mobile-first.

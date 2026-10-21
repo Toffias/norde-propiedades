@@ -13,12 +13,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import { arrayContains, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { describe, expect, inject, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
+import { UploadedSpreadsheetReader } from '../adapters/imports/uploaded-spreadsheet-reader';
 import { XlsxSpreadsheetReader } from '../adapters/imports/xlsx-spreadsheet-reader';
 import { LocalFileStorage } from '../adapters/storage/local-file-storage';
 import * as schema from '../db/schema';
@@ -55,6 +57,15 @@ const importJob = Actor.system('import', ['clients:run-imports']);
 const agents = {
   names: () => Promise.resolve(new Map<string, string>()),
   find: () => Promise.resolve({ branchId: BRANCH }),
+};
+/** La columna "Agente" de Tokko: un solo usuario activo. */
+const importAgents = {
+  searchByName: (name: string) =>
+    Promise.resolve(
+      'camila pedro'.includes(name.toLowerCase())
+        ? [{ userId: AGENT, name: 'Camila Pedro', branchId: BRANCH }]
+        : [],
+    ),
 };
 
 async function seedClient(name: string, phone: string): Promise<string> {
@@ -254,7 +265,7 @@ describe('client imports', () => {
     if (started.isErr()) throw new Error(started.error.type);
     const { importId } = started.value;
 
-    const run = new RunClientImport({ uow, reader, storage, ids, clock });
+    const run = new RunClientImport({ uow, reader, storage, agents: importAgents, ids, clock });
     const done = await run.execute({ importId }, importJob);
     const again = await run.execute({ importId }, importJob);
 
@@ -288,6 +299,134 @@ describe('client imports', () => {
     expect(
       created.every((e) => e.actorId === 'system:import' && e.correlationId === importId),
     ).toBe(true);
+  });
+
+  it('imports a Tokko .xls twice without duplicating, keeping its ID, agent and tags', async () => {
+    const storage = new LocalFileStorage(await mkdtemp(join(tmpdir(), 'norde-import-')));
+    const reader = new UploadedSpreadsheetReader();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        [
+          'ID',
+          'Nombre',
+          'Celular',
+          'Fecha de nacimiento',
+          'Agente',
+          'Etiquetas sin agrupar',
+          'Fecha de creación',
+          'Estados de Oportunidades',
+          'Motivo de cierre',
+          'Origen',
+        ],
+        [
+          48213307,
+          'Ana Pérez',
+          5491166899124,
+          '-',
+          'Camila Pedro',
+          'Web | Venta',
+          '01-02-2024',
+          'Cerrado',
+          'Fantasma (no contestó)',
+          'properati',
+        ],
+        [
+          48213308,
+          'Juan Gómez',
+          5491155550000,
+          '-',
+          'Camila Pedro',
+          'Venta',
+          '02-02-2024',
+          'Tomar Accion',
+          '',
+          '',
+        ],
+      ]),
+      'Contactos',
+    );
+    // `write` con `type: 'array'` devuelve un ArrayBuffer (el tipo de SheetJS es `any`).
+    const bytes = new Uint8Array(
+      XLSX.write(workbook, { bookType: 'xls', type: 'array' }) as ArrayBuffer,
+    );
+    const start = new StartClientImport({ uow, reader, storage, agents, ids, clock });
+    const run = new RunClientImport({ uow, reader, storage, agents: importAgents, ids, clock });
+    const mapping = {
+      externalId: 0,
+      name: 1,
+      mobile: 2,
+      birthDate: 3,
+      agent: 4,
+      tags: 5,
+      createdDate: 6,
+      opportunityStatus: 7,
+      closeReason: 8,
+      origin: 9,
+    };
+
+    const importOnce = async () => {
+      const started = await start.execute(
+        { fileName: 'Contactos.xls', bytes, mapping },
+        // La columna de etiquetas puede crearlas: pide `tags:update`.
+        Actor.user(AGENT, [
+          'clients:*',
+          'tags:update',
+          'opportunities:create',
+          'settings:update',
+        ]).withBranch(BRANCH),
+      );
+      if (started.isErr()) throw new Error(started.error.type);
+      await run.execute({ importId: started.value.importId }, importJob);
+      return imports.find(started.value.importId);
+    };
+    const first = await importOnce();
+    const second = await importOnce();
+
+    expect(first?.totals).toMatchObject({ created: 2, duplicates: 0, failed: 0 });
+    expect(second?.totals).toMatchObject({ created: 0, duplicates: 2, failed: 0 });
+    const mappings = await db
+      .select({ source: importMappings.source, externalId: importMappings.externalId })
+      .from(importMappings)
+      .where(eq(importMappings.entityType, 'client'));
+    expect(mappings.map((m) => `${m.source}:${m.externalId}`).sort()).toEqual([
+      'tokko:48213307',
+      'tokko:48213308',
+    ]);
+    const tagNames = await db.select({ name: schema.clientTags.name }).from(schema.clientTags);
+    expect(tagNames.map((t) => t.name).sort()).toEqual(['Venta', 'Web']);
+    const imported = await db
+      .select({ name: clients.name, agentId: clients.agentId })
+      .from(clients)
+      .where(eq(clients.createdBy, 'system:import'));
+    expect(imported).toHaveLength(2);
+    expect(imported.every((c) => c.agentId === AGENT)).toBe(true);
+    // Una oportunidad por contacto, aunque se importe dos veces, en su estado de Tokko.
+    const importedOpportunities = await db
+      .select({
+        status: opportunities.status,
+        originChannel: opportunities.originChannel,
+        createdAt: opportunities.createdAt,
+        closeReasonId: opportunities.closeReasonId,
+      })
+      .from(opportunities)
+      .orderBy(opportunities.createdAt);
+    expect(importedOpportunities).toMatchObject([
+      {
+        status: 'lost',
+        originChannel: 'properati',
+        createdAt: new Date('2024-02-01T03:00:00Z'),
+      },
+      { status: 'contacted', originChannel: 'office', closeReasonId: null },
+    ]);
+    // "Fantasma" se traduce a "No respondió" (en esta base se crea: arranca sin motivos).
+    const reasons = await db
+      .select({ id: schema.opportunityCloseReasons.id, name: schema.opportunityCloseReasons.name })
+      .from(schema.opportunityCloseReasons);
+    expect(reasons.find((r) => r.id === importedOpportunities[0]?.closeReasonId)?.name).toBe(
+      'No respondió',
+    );
   });
 
   it('pages 1,200 imports and their problems with LIMIT and an index, without losing rows', async () => {

@@ -33,8 +33,10 @@ import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import {
   ExternalLinkIcon,
+  GlobeIcon,
   Link2Icon,
   Loader2Icon,
+  MegaphoneIcon,
   PauseIcon,
   PlayIcon,
   RefreshCwIcon,
@@ -113,7 +115,7 @@ export function PropertyListings({
     };
     if (unitView.portals.length === 0 && unitView.listings.length === 0) {
       return (
-        <SectionCard title="Difusión en portales">
+        <SectionCard title="Difusión en portales" icon={MegaphoneIcon}>
           <p className="text-sm text-muted-foreground">
             Las unidades se publican dentro de su emprendimiento, desde la ficha del emprendimiento.
           </p>
@@ -240,7 +242,7 @@ function ListingsPanel({
   ];
   if (portals.length === 0) {
     return (
-      <SectionCard title="Difusión en portales">
+      <SectionCard title="Difusión en portales" icon={MegaphoneIcon}>
         <p className="text-sm text-muted-foreground">
           {owner.kind === 'development'
             ? 'No hay cuentas activas que publiquen emprendimientos. '
@@ -263,7 +265,7 @@ function ListingsPanel({
         const whole = owner.kind === 'development' || option.listingScope === 'property';
         const rows = whole ? [undefined] : operations;
         return (
-          <SectionCard key={portal} title={PORTAL_LABELS[portal]}>
+          <SectionCard key={portal} title={PORTAL_LABELS[portal]} icon={GlobeIcon}>
             <ul className="flex flex-col divide-y divide-border">
               {rows.map((operation) => {
                 const listing = view.listings.find(

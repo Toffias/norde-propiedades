@@ -34,6 +34,8 @@ import {
   CreateRole,
   CreateTeam,
   CreateUser,
+  RunTokkoUsersImport,
+  StartTokkoUsersImport,
   DeleteBranch,
   DeleteRole,
   DeleteTeam,
@@ -134,6 +136,7 @@ import {
   CountOpportunitiesByStage,
   CountPendingOpportunities,
   ChangeOpportunityStage,
+  MarkOpportunityContacted,
   CloseOpportunity,
   ReassignOpportunity,
   AssignInquiry,
@@ -158,6 +161,8 @@ import {
   RunClientImport,
   RunOpportunityBulkOperation,
   type ClientAgents,
+  type ClientImportAgents,
+  FindOrCreateOwner,
   type ClientListings,
   type InquiryPropertyLookup,
   type OpportunityRequesters,
@@ -266,6 +271,15 @@ import {
   RevalidatePublicDevelopment,
   RevalidatePublicProperty,
   RunDevelopmentUnitImport,
+  RunPropertyImport,
+  RunTokkoApiPropertyImport,
+  PreviewPropertyImport,
+  StartPropertyImport,
+  StartTokkoApiPropertyImport,
+  ListPropertyImports,
+  GetPropertyImport,
+  ListPropertyImportProblems,
+  type PropertyImportDirectory,
   UnlinkErasedClients,
   type OwnerReports,
   RenameLocation,
@@ -285,6 +299,7 @@ import {
 import {
   GetOwnerReport,
   GetPendingOpportunities,
+  GetPortalAlerts,
   GetPortfolioSummary,
   GetPropertyStatistics,
   GetUnassignedInquiries,
@@ -403,6 +418,7 @@ import {
   DrizzleUserListQuery,
   FilePropertyExportWriter,
   DrizzleDevelopmentUnitImportQuery,
+  DrizzlePropertyImportQuery,
   XlsxDevelopmentUnitsExportWriter,
   XlsxReservationExportWriter,
   LocalFileStorage,
@@ -413,6 +429,8 @@ import {
   SystemClock,
   UuidV7IdGenerator,
   XlsxClientExportWriter,
+  UploadedSpreadsheetReader,
+  TokkoPropertyApi,
   XlsxSpreadsheetReader,
   DrizzleClientImportQuery,
   type Database,
@@ -437,6 +455,7 @@ import {
   AesGcmSecretCipher,
   createPortalsUnitOfWork,
   DrizzlePortalAccountRepository,
+  DrizzlePortalListingCountsQuery,
   MercadoLibreAuthorizer,
   MercadoLibreAccountReader,
   MercadoLibreLeads,
@@ -487,6 +506,8 @@ export interface Container {
     readonly listUsers: ListUsers;
     readonly listRoles: ListRoles;
     readonly createUser: CreateUser;
+    /** Copiar los usuarios de Tokko (#17). */
+    readonly startTokkoUsersImport: StartTokkoUsersImport;
     readonly updateUser: UpdateUser;
     readonly suspendUser: SuspendUser;
     readonly reactivateUser: ReactivateUser;
@@ -589,11 +610,14 @@ const CONVERSION_ACTOR = Actor.system('scheduler', [
   'properties:create-from-appraisal',
 ]);
 /**
- * Las importaciones desde Excel: contactos y unidades de emprendimientos. Crear unidades pide un
- * código de referencia, que entrega la numeración con `properties:create`.
+ * Las importaciones desde planillas: contactos, unidades de emprendimientos y propiedades de Tokko.
+ * Crear unidades pide un código de referencia, que entrega la numeración con `properties:create`;
+ * las propiedades de Tokko crean a su propietario en contactos (`clients:create`).
  */
 const IMPORT_ACTOR = Actor.system('import', [
   'clients:run-imports',
+  'users:create',
+  'clients:create',
   'properties:run-imports',
   'properties:create',
 ]);
@@ -743,7 +767,10 @@ function createPortalsUseCases(
   const accounts = new DrizzlePortalAccountRepository(db, clock);
 
   return {
-    listAccounts: new ListPortalAccounts({ accounts }),
+    listAccounts: new ListPortalAccounts({
+      accounts,
+      counter: new DrizzlePortalListingCountsQuery(db),
+    }),
     getCredits: new GetPortalCredits({ accounts, directory }),
     getPackages: new GetPortalPackages({ accounts, reader: mercadoLibre }),
     getListingStats: new GetListingStats({ uow, reader: mercadoLibre, clock }),
@@ -933,6 +960,7 @@ function createPropertiesUseCases(
   const reservationList = new DrizzleReservationListQuery(db);
   const media = new DrizzleMediaQuery(db);
   const unitImports = new DrizzleDevelopmentUnitImportQuery(db);
+  const propertyImports = new DrizzlePropertyImportQuery(db);
   const geocoder = new NominatimGeocoder({
     userAgent: env.GEOCODER_USER_AGENT,
     baseUrl: env.GEOCODER_URL,
@@ -1113,6 +1141,23 @@ function createPropertiesUseCases(
       uow,
       imports: unitImports,
     }),
+    previewPropertyImport: new PreviewPropertyImport({ reader: new UploadedSpreadsheetReader() }),
+    startPropertyImport: new StartPropertyImport({
+      uow,
+      reader: new UploadedSpreadsheetReader(),
+      storage,
+      ids,
+      clock,
+    }),
+    startTokkoApiPropertyImport: new StartTokkoApiPropertyImport({
+      uow,
+      configured: env.TOKKO_API_KEY !== undefined,
+      ids,
+      clock,
+    }),
+    listPropertyImports: new ListPropertyImports({ imports: propertyImports, users }),
+    getPropertyImport: new GetPropertyImport({ imports: propertyImports, users }),
+    listPropertyImportProblems: new ListPropertyImportProblems({ imports: propertyImports }),
     sendOwnerReport: new SendOwnerReport({
       uow,
       storage,
@@ -1300,7 +1345,7 @@ function createClientsUseCases(
 ) {
   const { ids, clock, storage } = deps;
   const uow = createClientsUnitOfWork(db, { ids, clock });
-  const reader = new XlsxSpreadsheetReader();
+  const reader = new UploadedSpreadsheetReader();
   const imports = new DrizzleClientImportQuery(db);
   const directory = new DrizzleDirectory(db);
   const userAccess = new DrizzleUserAccessQuery(db);
@@ -1408,6 +1453,7 @@ function createClientsUseCases(
     countOpportunitiesByStage: new CountOpportunitiesByStage({ pipeline }),
     countPendingOpportunities: new CountPendingOpportunities({ pipeline }),
     changeOpportunityStage: new ChangeOpportunityStage({ uow, ids, clock }),
+    markOpportunityContacted: new MarkOpportunityContacted({ uow, ids, clock }),
     closeOpportunity: new CloseOpportunity({ uow, ids, clock }),
     reassignOpportunity: new ReassignOpportunity({ uow, agents, clock }),
   };
@@ -1441,8 +1487,13 @@ function createDetailReadModels(
       getPropertyStatistics: new GetPropertyStatistics({ profiles, statistics, clock: deps.clock }),
       getOwnerReport: new GetOwnerReport({ profiles, statistics }),
       // Inicio (#15): un caso de uso por widget, cada uno con su límite.
-      getUnassignedInquiries: new GetUnassignedInquiries({ home }),
-      getPendingOpportunities: new GetPendingOpportunities({ home, users: agents }),
+      getUnassignedInquiries: new GetUnassignedInquiries({ home, clock: deps.clock }),
+      getPendingOpportunities: new GetPendingOpportunities({
+        home,
+        users: agents,
+        clock: deps.clock,
+      }),
+      getPortalAlerts: new GetPortalAlerts({ home }),
       getUpcomingSignings: new GetUpcomingSignings({ home, users: agents, clock: deps.clock }),
       getPortfolioSummary: new GetPortfolioSummary({ home }),
       listAvailableProperties: new ListAvailableProperties({ home, users: agents }),
@@ -1508,6 +1559,12 @@ function createContainer(): Container {
       listUsers,
       listRoles: new ListRoles({ roles: roleQuery }),
       createUser: new CreateUser({ uow: identityUow, hasher, ids, clock }),
+      startTokkoUsersImport: new StartTokkoUsersImport({
+        uow: identityUow,
+        configured: env.TOKKO_API_KEY !== undefined,
+        ids,
+        clock,
+      }),
       updateUser: new UpdateUser({ uow: identityUow, clock }),
       suspendUser: new SuspendUser({ uow: identityUow, clock }),
       reactivateUser: new ReactivateUser({ uow: identityUow, clock }),
@@ -1564,6 +1621,95 @@ function withClients(
 export function getContainer(): Container {
   container ??= createContainer();
   return container;
+}
+
+/** Usuarios activos que pueden captar propiedades, con su sucursal. */
+function activeProducers(db: Database): Producers {
+  const userAccess = new DrizzleUserAccessQuery(db);
+  return {
+    async find(userId) {
+      const user = await userAccess.findByUserId(userId);
+      return user?.status === 'active' ? { branchId: user.branchId } : undefined;
+    },
+  };
+}
+
+/**
+ * Lo que la importación de propiedades de Tokko busca afuera de properties: productores por nombre
+ * (identity), emprendimientos por nombre y el propietario, por el caso de uso de contactos.
+ */
+function propertyImportDirectory(
+  db: Database,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+): PropertyImportDirectory {
+  const producers = importAgents(db);
+  const developments = new DrizzleDevelopmentListQuery(db);
+  const owners = new FindOrCreateOwner({
+    uow: createClientsUnitOfWork(db, deps),
+    agents: activeAgents(db),
+    ...deps,
+  });
+  return {
+    async searchProducers(name) {
+      const candidates = await producers.searchByName(name);
+      return candidates.map(({ userId, name: userName, branchId }) => ({
+        userId,
+        name: userName,
+        branchId,
+      }));
+    },
+    async searchDevelopments(name) {
+      const page = await developments.search({
+        view: 'active',
+        text: name,
+        status: undefined,
+        developmentType: undefined,
+        constructionStatus: undefined,
+        tagId: undefined,
+        sort: { field: 'name', direction: 'asc' },
+        offset: 0,
+        limit: 20,
+      });
+      return page.items.map((item) => ({ id: item.id, name: item.name }));
+    },
+    async findOrCreateOwner(owner, actor) {
+      const result = await owners.execute(owner, actor);
+      // El job corre con `clients:create` (IMPORT_ACTOR): sin él es un error de configuración.
+      if (result.isErr()) throw new Error(`Owner lookup failed: ${result.error.type}`);
+      return result.value;
+    },
+  };
+}
+
+/**
+ * Los usuarios por nombre, para la columna "Agente" de una importación de contactos y el productor
+ * de una de propiedades: también los suspendidos, para que lo de los usuarios que ya no están en
+ * Tokko quede a su nombre (#17).
+ */
+function importAgents(db: Database): ClientImportAgents {
+  const users = new DrizzleUserListQuery(db);
+  const search = (status: 'active' | 'suspended', text: string) =>
+    users.search({
+      status,
+      text,
+      branchId: undefined,
+      teamId: undefined,
+      sort: { field: 'name', direction: 'asc' },
+      offset: 0,
+      limit: 20,
+    });
+  return {
+    async searchByName(name) {
+      const pages = await Promise.all([search('active', name), search('suspended', name)]);
+      return pages.flatMap((page) =>
+        page.items.map((user) => ({
+          userId: user.id,
+          name: user.name,
+          branchId: user.branch?.id,
+        })),
+      );
+    },
+  };
 }
 
 /** Los agentes activos (con su sucursal), para el reparto de consultas y las acciones masivas. */
@@ -1746,6 +1892,11 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     reconcileOne: new ReconcileListing({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
     actor: PORTAL_SYNC_ACTOR,
   };
+  // La migración desde Tokko (#17): sin API key, sus jobs fallan con un error claro.
+  const tokkoApi =
+    env.TOKKO_API_KEY === undefined
+      ? undefined
+      : new TokkoPropertyApi({ config: { apiKey: env.TOKKO_API_KEY }, logger });
   for (const subscription of eventSubscriptions({
     notifyTeam: new NotifyTeamOfOpportunity({
       clients: new DrizzleClientRepository(db, ids),
@@ -1793,8 +1944,9 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     },
     runImport: new RunClientImport({
       uow: createClientsUnitOfWork(db, deps),
-      reader: new XlsxSpreadsheetReader(),
+      reader: new UploadedSpreadsheetReader(),
       storage,
+      agents: importAgents(db),
       ids,
       clock,
     }),
@@ -1803,6 +1955,30 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       reader: new XlsxSpreadsheetReader(),
       storage,
       codes: referenceCodes,
+      ids,
+      clock,
+    }),
+    runPropertyImport: new RunPropertyImport({
+      uow: createPropertiesUnitOfWork(db, deps),
+      reader: new UploadedSpreadsheetReader(),
+      storage,
+      directory: propertyImportDirectory(db, deps),
+      producers: activeProducers(db),
+      ids,
+      clock,
+    }),
+    runTokkoUsersImport: new RunTokkoUsersImport({
+      uow: createIdentityUnitOfWork(db, deps),
+      source: tokkoApi,
+      ids,
+      clock,
+    }),
+    runTokkoApiPropertyImport: new RunTokkoApiPropertyImport({
+      uow: createPropertiesUnitOfWork(db, deps),
+      source: tokkoApi,
+      storage,
+      directory: propertyImportDirectory(db, deps),
+      producers: activeProducers(db),
       ids,
       clock,
     }),

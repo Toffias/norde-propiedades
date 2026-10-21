@@ -15,7 +15,13 @@ import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { Textarea } from '@norde/ui/components/textarea';
-import { CalendarCheckIcon, Loader2Icon, PencilIcon, XCircleIcon } from 'lucide-react';
+import {
+  BookmarkCheckIcon,
+  CalendarCheckIcon,
+  Loader2Icon,
+  PencilIcon,
+  XCircleIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useId, useState, useTransition } from 'react';
@@ -73,7 +79,10 @@ export function ActiveReservationCard({
     <Card className="gap-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold">Reserva</h2>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <BookmarkCheckIcon className="size-4 shrink-0 text-foreground" aria-hidden />
+            Reserva
+          </h2>
           <StatusPill tone={status.tone}>{status.label}</StatusPill>
         </div>
         {canManage && (

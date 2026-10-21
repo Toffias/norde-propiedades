@@ -6,6 +6,7 @@ import {
   type HomeWidget,
   type UpcomingSigningRow,
 } from '../../contracts';
+import { signingUrgency, worstUrgency } from '../../domain/urgency';
 import { homeScope } from '../home-scope';
 import { invalidInput, parseHomeFilter, withAgents, type InvalidInputError } from '../home-support';
 import { dayOf, shiftDay } from '../months';
@@ -43,9 +44,15 @@ export class GetUpcomingSignings {
       HOME_WIDGET_LIMIT,
     );
     const rows = await withAgents(this.deps.users, slice.items);
+    const items = rows.map((row) => ({
+      ...row,
+      overdue: row.estimatedSigningDate < today,
+      urgency: signingUrgency(row.estimatedSigningDate, today),
+    }));
     return ok({
       total: slice.total,
-      items: rows.map((row) => ({ ...row, overdue: row.estimatedSigningDate < today })),
+      items,
+      urgency: worstUrgency(items.map((row) => row.urgency)),
     });
   }
 }

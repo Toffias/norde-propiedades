@@ -84,6 +84,7 @@ describe('suggestImportMapping', () => {
       mobile: 4,
       email: 5,
       clientTypes: 6,
+      agent: 7,
     });
     expect(suggestImportMapping(['  E-MAIL ', 'WhatsApp', 'DNI', 'Fecha de nacimiento'])).toEqual({
       email: 0,
@@ -91,6 +92,47 @@ describe('suggestImportMapping', () => {
       documentNumber: 2,
       birthDate: 3,
     });
+  });
+
+  it('recognizes the headers of the Tokko contacts export', () => {
+    expect(
+      suggestImportMapping([
+        'ID',
+        'Nombre',
+        'Teléfono',
+        'Celular',
+        'Teléfono (trabajo)',
+        'Teléfono (otro)',
+        'Empresa',
+        'Cargo',
+        'Fecha de nacimiento',
+        'Correo electrónico',
+        'Fecha de creación',
+        'Agente',
+        'Sucursal',
+        'Estados de Oportunidades',
+        'Etiquetas sin agrupar',
+      ]),
+    ).toEqual({
+      externalId: 0,
+      name: 1,
+      phone: 2,
+      mobile: 3,
+      workPhone: 4,
+      otherPhone: 5,
+      companyName: 6,
+      jobTitle: 7,
+      birthDate: 8,
+      email: 9,
+      createdDate: 10,
+      agent: 11,
+      opportunityStatus: 13,
+      tags: 14,
+    });
+  });
+
+  it('accepts a mapping with only another phone as contact', () => {
+    expect(validateImportMapping({ name: 0, otherPhone: 1 }, 2).isOk()).toBe(true);
   });
 
   it('uses each column once', () => {

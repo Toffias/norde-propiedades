@@ -33,7 +33,8 @@ function BarList({ bars, empty }: { readonly bars: readonly Bar[]; readonly empt
     return <p className="text-sm text-muted-foreground">{empty}</p>;
   }
   return (
-    <ul className="flex flex-col gap-2.5">
+    // Repartidas en el alto de la tarjeta, que se estira a la par de las de al lado.
+    <ul className="flex flex-1 flex-col justify-between gap-2.5">
       {bars.map((bar) => (
         <li key={bar.key} className="flex items-center gap-3 text-sm">
           <span className="w-32 shrink-0 truncate sm:w-40">{bar.label}</span>
@@ -145,7 +146,11 @@ export function PortfolioView({
           </SectionCard>
         )}
         {value?.openOpportunitiesByStage !== undefined && (
-          <SectionCard title="Oportunidades abiertas por estado" icon={KanbanIcon}>
+          <SectionCard
+            title="Oportunidades abiertas por estado"
+            icon={KanbanIcon}
+            bodyClassName="flex flex-1 flex-col"
+          >
             <BarList
               empty="No hay oportunidades abiertas."
               bars={value.openOpportunitiesByStage.map((row) => ({

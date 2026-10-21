@@ -5,6 +5,7 @@ import {
   type PanelUserRef,
   type PropertyIdInput,
 } from '../../contracts';
+import { estimatedCommissionCents, pricePerM2Cents } from '../../domain/operation-figures';
 import type { Property } from '../../domain/property';
 import { isPubliclyListed } from '../../domain/property-status';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
@@ -67,7 +68,14 @@ export async function buildPanelPropertyDetail(
       s.coordinates === undefined
         ? undefined
         : { latitude: s.coordinates.latitude, longitude: s.coordinates.longitude },
-    operations: s.operations,
+    operations: s.operations.map((operation) => ({
+      ...operation,
+      pricePerM2Cents: pricePerM2Cents(operation.priceCents, s.characteristics.surfaceTotalM2),
+      estimatedCommissionCents: estimatedCommissionCents(
+        operation.priceCents,
+        operation.commissionPct,
+      ),
+    })),
     characteristics: s.characteristics,
     deal: s.deal,
     features,

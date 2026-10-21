@@ -21,14 +21,18 @@ export function InlineSection({
   view,
   form,
   className,
+  bodyClassName,
 }: {
   readonly title: string;
   readonly icon?: LucideIcon;
   readonly canEdit: boolean;
-  readonly view: ReactNode;
+  /** La vista; como función, recibe cómo pasar a editar (un botón dentro de la vista). */
+  readonly view: ReactNode | ((edit: () => void) => ReactNode);
   /** El formulario: recibe cómo guardar y cómo cancelar. */
   readonly form: (controls: InlineFormControls) => ReactNode;
   readonly className?: string;
+  /** Para el cuerpo de la tarjeta, por ejemplo para que ocupe su alto. */
+  readonly bodyClassName?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -63,6 +67,7 @@ export function InlineSection({
       title={title}
       {...(icon === undefined ? {} : { icon })}
       {...(className === undefined ? {} : { className })}
+      {...(bodyClassName === undefined ? {} : { bodyClassName })}
       {...(canEdit && !editing
         ? {
             action: (
@@ -85,6 +90,10 @@ export function InlineSection({
           <FormAlert message={error} />
           {form(controls)}
         </div>
+      ) : typeof view === 'function' ? (
+        view(() => {
+          setEditing(true);
+        })
       ) : (
         view
       )}

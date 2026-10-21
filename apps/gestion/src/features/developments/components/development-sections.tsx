@@ -1,5 +1,6 @@
 'use client';
 
+import { Building2Icon, HardHatIcon, ListChecksIcon, MapPinIcon, TagsIcon } from 'lucide-react';
 import {
   CONSTRUCTION_STATUS_VALUES,
   DEVELOPMENT_TYPES,
@@ -117,6 +118,7 @@ function GeneralSection({
   return (
     <InlineSection
       title="Datos generales"
+      icon={Building2Icon}
       canEdit={canEdit}
       view={
         <Facts
@@ -249,6 +251,7 @@ function LocationSection({
   return (
     <InlineSection
       title="Ubicación"
+      icon={MapPinIcon}
       canEdit={canEdit}
       view={
         <div className="flex flex-col gap-4">
@@ -358,6 +361,7 @@ function DetailsSection({
   return (
     <InlineSection
       title="Obra, entrega y financiación"
+      icon={HardHatIcon}
       canEdit={canEdit}
       view={
         <div className="flex flex-col gap-4">
@@ -465,6 +469,7 @@ function FeaturesSection({
   return (
     <InlineSection
       title="Servicios y adicionales"
+      icon={ListChecksIcon}
       canEdit={canEdit}
       view={
         <div className="flex flex-col gap-3">
@@ -559,6 +564,7 @@ function TagsSection({
   return (
     <InlineSection
       title="Etiquetas"
+      icon={TagsIcon}
       canEdit={canEdit}
       view={
         detail.tags.length === 0 ? (

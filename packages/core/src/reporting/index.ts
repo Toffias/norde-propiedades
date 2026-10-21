@@ -19,6 +19,8 @@ export type {
   HomeDashboardQuery,
   HomeListRequest,
   PendingOpportunityRecord,
+  PortalAlertRecord,
+  UnassignedInquiryRecord,
   UpcomingSigningRecord,
 } from './application/ports/home-dashboard-query';
 export type { ReportingUserNames } from './application/ports/user-names';
@@ -34,6 +36,10 @@ export {
   GetUpcomingSignings,
   type GetUpcomingSigningsError,
 } from './application/queries/get-upcoming-signings';
+export {
+  GetPortalAlerts,
+  type GetPortalAlertsError,
+} from './application/queries/get-portal-alerts';
 export {
   GetPortfolioSummary,
   type GetPortfolioSummaryError,

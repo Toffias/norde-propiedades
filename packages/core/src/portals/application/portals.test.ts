@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { Actor } from '../../shared';
+import { Actor, parseId } from '../../shared';
 import { FixedClock, unwrap, unwrapErr } from '../../shared/testing';
-import { FakePortalAuthorizer, InMemoryPortalsUnitOfWork } from '../testing';
+import type { ListingSnapshot } from '../domain/listing';
+import {
+  FakePortalAuthorizer,
+  InMemoryPortalListingCounter,
+  InMemoryPortalsUnitOfWork,
+} from '../testing';
 import { ConnectPortalAccount } from './commands/connect-portal-account';
 import { DisconnectPortalAccount } from './commands/disconnect-portal-account';
 import { SetPortalAccountEnabled } from './commands/set-portal-account-enabled';
@@ -25,7 +30,39 @@ function setup() {
     connect: new ConnectPortalAccount({ uow, authorizer, clock }),
     disconnect: new DisconnectPortalAccount({ uow }),
     setEnabled: new SetPortalAccountEnabled({ uow }),
-    list: new ListPortalAccounts({ accounts: uow.accounts }),
+    list: new ListPortalAccounts({
+      accounts: uow.accounts,
+      counter: new InMemoryPortalListingCounter(uow.listings),
+    }),
+  };
+}
+
+const NO_LINKED = { published: 0, paused: 0, error: 0 };
+
+function listingRow(n: number, overrides: Partial<ListingSnapshot>): ListingSnapshot {
+  return {
+    id: unwrap(
+      parseId<'Listing'>(`01920000-0000-7000-8000-0000000001${String(n).padStart(2, '0')}`),
+    ),
+    portal: 'mercadolibre',
+    owner: {
+      kind: 'property',
+      id: `01920000-0000-7000-8000-0000000002${String(n).padStart(2, '0')}`,
+    },
+    operation: 'sale',
+    listingType: 'simple',
+    plan: undefined,
+    status: 'published',
+    intent: 'active',
+    externalId: `MLA${String(n)}`,
+    permalink: undefined,
+    lastError: undefined,
+    retryCount: 0,
+    lastSyncedAt: undefined,
+    publishedAt: undefined,
+    contentHash: undefined,
+    createdAt: new Date(NOW),
+    ...overrides,
   };
 }
 
@@ -285,6 +322,7 @@ describe('ListPortalAccounts', () => {
           isConnected: true,
           accountName: 'NORDEPROPIEDADES',
           connectedAt: new Date(NOW),
+          linked: { property: NO_LINKED, development: NO_LINKED },
         },
         {
           portal: 'mercadolibre_developments',
@@ -296,6 +334,7 @@ describe('ListPortalAccounts', () => {
           isConnected: false,
           accountName: undefined,
           connectedAt: undefined,
+          linked: { property: NO_LINKED, development: NO_LINKED },
         },
         {
           portal: 'zonaprop',
@@ -307,8 +346,43 @@ describe('ListPortalAccounts', () => {
           isConnected: false,
           accountName: undefined,
           connectedAt: undefined,
+          linked: { property: NO_LINKED, development: NO_LINKED },
         },
       ],
+    });
+  });
+
+  it('counts the listings linked to each account, by kind and status', async () => {
+    const { list, uow } = setup();
+    const rows = [
+      listingRow(1, {}),
+      listingRow(2, {}),
+      listingRow(3, { status: 'paused' }),
+      listingRow(4, { status: 'error' }),
+      // Sin aviso todavía o dado de baja: no está vinculada.
+      listingRow(5, { status: 'pending', externalId: undefined }),
+      listingRow(6, { status: 'unpublished', intent: 'closed' }),
+      listingRow(7, { portal: 'zonaprop', operation: undefined }),
+      listingRow(8, {
+        portal: 'zonaprop',
+        operation: undefined,
+        owner: { kind: 'development', id: '01920000-0000-7000-8000-0000000003a1' },
+      }),
+    ];
+    for (const row of rows) uow.listings.rows.set(row.id, row);
+
+    const { accounts } = unwrap(await list.execute({}, ADMIN));
+    const linked = Object.fromEntries(accounts.map((a) => [a.portal, a.linked]));
+    expect(linked).toEqual({
+      mercadolibre: {
+        property: { published: 2, paused: 1, error: 1 },
+        development: NO_LINKED,
+      },
+      mercadolibre_developments: { property: NO_LINKED, development: NO_LINKED },
+      zonaprop: {
+        property: { published: 1, paused: 0, error: 0 },
+        development: { published: 1, paused: 0, error: 0 },
+      },
     });
   });
 

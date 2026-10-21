@@ -14,6 +14,11 @@ export interface EventSubscription {
    * un evento puede llegar dos veces.
    */
   handle(event: PublishedEvent): Promise<void>;
+  /**
+   * Cuánto puede tardar un evento antes de que pg-boss lo dé por vencido y lo reintente (15 minutos
+   * si no se dice). Para los handlers largos, como una importación entera.
+   */
+  readonly expireInSeconds?: number;
 }
 
 /** Un trabajo que corre solo, cada tanto (cron de pg-boss). */
@@ -87,6 +92,9 @@ export class PgBossEventBus {
       await this.#boss.createQueue(queue, {
         retryLimit: this.options.retryLimit ?? 5,
         retryBackoff: true,
+        ...(subscription.expireInSeconds === undefined
+          ? {}
+          : { expireInSeconds: subscription.expireInSeconds }),
       });
       await this.#boss.work<unknown>(queue, async (jobs) => {
         for (const job of jobs) {

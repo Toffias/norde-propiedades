@@ -3,6 +3,8 @@
 import {
   BulkUpdateOpportunitiesInputSchema,
   ChangeOpportunityStageInputSchema,
+  MarkOpportunityContactedInputSchema,
+  type MarkOpportunityContactedInput,
   GetOpportunityBulkOperationInputSchema,
   UpdateOpportunityReferralInputSchema,
   type BulkUpdateOpportunitiesInput,
@@ -33,6 +35,7 @@ import { requireSession } from '../../lib/session';
 import {
   BULK_UPDATE_ERROR_MESSAGES,
   CHANGE_STAGE_ERROR_MESSAGES,
+  MARK_CONTACTED_ERROR_MESSAGES,
   GET_BULK_OPERATION_ERROR_MESSAGES,
   UPDATE_REFERRAL_ERROR_MESSAGES,
   CLOSE_OPPORTUNITY_ERROR_MESSAGES,
@@ -96,6 +99,21 @@ export async function changeOpportunityStageAction(
   const result = await getContainer().clients.changeOpportunityStage.execute(parsed.data, actor);
   if (result.isErr())
     return actionFailed(messageForError(result.error, CHANGE_STAGE_ERROR_MESSAGES));
+  revalidatePanel();
+  return ACTION_OK;
+}
+
+/** "Ya lo contacté" (Inicio): la pasa al primer estado de la categoría contactado. */
+export async function markOpportunityContactedAction(
+  input: MarkOpportunityContactedInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = MarkOpportunityContactedInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(MARK_CONTACTED_ERROR_MESSAGES.InvalidInput);
+
+  const result = await getContainer().clients.markOpportunityContacted.execute(parsed.data, actor);
+  if (result.isErr())
+    return actionFailed(messageForError(result.error, MARK_CONTACTED_ERROR_MESSAGES));
   revalidatePanel();
   return ACTION_OK;
 }

@@ -108,6 +108,7 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
           { permission: 'properties:publish', label: 'Publicar en la web' },
           { permission: 'properties:export', label: 'Exportar hasta 10 propiedades' },
           { permission: 'properties:export-bulk', label: 'Exportar más de 10 propiedades' },
+          { permission: 'properties:import', label: 'Importar propiedades de Tokko' },
           { permission: 'properties:delete', label: 'Borrar sus propiedades' },
           { permission: 'properties:delete-others', label: 'Borrar propiedades de otros' },
         ],

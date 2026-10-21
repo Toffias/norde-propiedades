@@ -139,6 +139,10 @@ export {
 // ---------- Agenda de contactos (#8) ----------
 
 export type { ClientAgents } from './application/ports/client-agents';
+export {
+  FindOrCreateOwner,
+  type FindOrCreateOwnerInput,
+} from './application/commands/find-or-create-owner';
 export type {
   ClientExportFile,
   ClientExportWriter,
@@ -381,6 +385,15 @@ export {
   type ListClientImportProblemsError,
 } from './application/queries/list-client-import-problems';
 export type { ClientImportItem, ClientImportQuery } from './application/ports/client-import-query';
+export type {
+  ClientExternalId,
+  ClientExternalIds,
+  ExternalIdSource,
+} from './application/ports/client-external-ids';
+export type {
+  ClientImportAgents,
+  ImportAgentCandidate,
+} from './application/ports/client-import-agents';
 export type { ClientImportRepository } from './domain/client.repository';
 export {
   ClientImport,
@@ -622,6 +635,10 @@ export {
   ChangeOpportunityStage,
   type ChangeOpportunityStageError,
 } from './application/commands/change-opportunity-stage';
+export {
+  MarkOpportunityContacted,
+  type MarkOpportunityContactedError,
+} from './application/commands/mark-opportunity-contacted';
 export {
   CloseOpportunity,
   type CloseOpportunityError,

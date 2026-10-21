@@ -100,6 +100,11 @@ const EnvSchema = z.object({
    * (callbacks). Sin token, no hay avisos: las consultas llegan igual, cada 10 minutos.
    */
   ZONAPROP_CALLBACK_TOKEN: z.string().min(32).optional(),
+  /**
+   * API key de Norde en Tokko Broker (Mi empresa → Permisos), para traer las propiedades con sus
+   * fotos durante la migración (#17). Sin key, no se muestra la opción.
+   */
+  TOKKO_API_KEY: z.string().min(1).optional(),
 });
 
 const MERCADOLIBRE_APP = [
@@ -251,6 +256,11 @@ export function zonapropCallbackTarget(env: Env) {
     headerName: ZONAPROP_CALLBACK_HEADER,
     headerValue: env.ZONAPROP_CALLBACK_TOKEN,
   };
+}
+
+/** Si se pueden traer las propiedades desde la API de Tokko (hay una API key). */
+export function tokkoApiEnabled(): boolean {
+  return getEnv().TOKKO_API_KEY !== undefined;
 }
 
 /** Runtime de Next.js donde corre el código (`instrumentation.ts` se carga en los dos). */

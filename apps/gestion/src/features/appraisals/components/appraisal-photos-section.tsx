@@ -11,7 +11,7 @@ import { FileDropzone } from '@norde/ui/components/file-dropzone';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { toast } from '@norde/ui/components/sonner';
 import { cn } from '@norde/ui/lib/utils';
-import { Loader2Icon, Trash2Icon } from 'lucide-react';
+import { ImagesIcon, Loader2Icon, Trash2Icon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -91,7 +91,7 @@ export function AppraisalPhotosSection({
     file.size <= MAX_APPRAISAL_PHOTO_BYTES;
 
   return (
-    <SectionCard title={`Fotos (${photoIds.length.toString()})`}>
+    <SectionCard title={`Fotos (${photoIds.length.toString()})`} icon={ImagesIcon}>
       <div className="flex flex-col gap-4">
         {canEdit && room > 0 && (
           <FileDropzone

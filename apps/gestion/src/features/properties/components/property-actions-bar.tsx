@@ -2,7 +2,8 @@
 
 import type { FavoriteSearchRow, PropertyLayoutValue } from '@norde/core/properties/contracts';
 import { Button } from '@norde/ui/components/button';
-import { BookmarkPlusIcon, PlusIcon } from 'lucide-react';
+import { BookmarkPlusIcon, PlusIcon, UploadIcon } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { SaveSearchForClientSheet } from '../../clients/components/save-search-for-client-sheet';
@@ -13,7 +14,8 @@ import type { PropertyFilterValues } from './properties-toolbar';
 
 /**
  * Las acciones de arriba del buscador, igual en la lista, las tarjetas y el mapa: la vista a la
- * izquierda; búsquedas favoritas, guardar la búsqueda para un contacto y alta a la derecha. Los
+ * izquierda; búsquedas favoritas, guardar la búsqueda para un contacto, importar de Tokko y alta a
+ * la derecha. Los
  * filtros van debajo, en la cabecera de cada vista.
  */
 export function PropertyActionsBar({
@@ -21,6 +23,7 @@ export function PropertyActionsBar({
   filters,
   canCreate,
   canSaveForClient,
+  canImport,
   favoriteSearches,
   onCreate,
 }: {
@@ -29,6 +32,8 @@ export function PropertyActionsBar({
   readonly canCreate: boolean;
   /** Editar contactos: guardarles búsquedas (#11). */
   readonly canSaveForClient: boolean;
+  /** Importar la exportación de propiedades de Tokko (`properties:import`). */
+  readonly canImport: boolean;
   readonly favoriteSearches: readonly FavoriteSearchRow[];
   readonly onCreate: () => void;
 }) {
@@ -51,6 +56,14 @@ export function PropertyActionsBar({
             >
               <BookmarkPlusIcon className="h-4 w-4" />
               Guardar para un contacto
+            </Button>
+          )}
+          {canImport && !inTrash && (
+            <Button asChild variant="outline">
+              <Link href="/propiedades/importaciones">
+                <UploadIcon className="h-4 w-4" />
+                Importar de Tokko
+              </Link>
             </Button>
           )}
           {canCreate && !inTrash && (

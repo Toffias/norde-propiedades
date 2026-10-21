@@ -9,8 +9,17 @@ import {
   type ClientTypeValue,
 } from '../contracts';
 import type { ClientEmail, ClientPhone } from '../domain/client';
+import { MAX_CLIENT_TAGS, MAX_TAG_NAME_LENGTH } from '../domain/client-tag';
 import type { ImportField, ImportMapping, ImportRowProblem } from '../domain/client-import';
+import type { ContactChannel } from '../domain/contact-channel';
 import { normalizeName } from '../domain/duplicate-check';
+import {
+  tokkoCloseReason,
+  tokkoOpportunityState,
+  tokkoOrigin,
+  type TokkoCloseReason,
+  type TokkoOpportunityState,
+} from '../domain/tokko-opportunity';
 
 import { toProfile } from './client-support';
 import type { NewClientData } from './client-creation';
@@ -26,12 +35,28 @@ export type ImportedClient = Omit<
 export type RowProblem = Omit<ImportRowProblem, 'rowNumber' | 'clientId'>;
 
 const MAX_NAME_LENGTH = 120;
+const MAX_EXTERNAL_ID_LENGTH = 100;
 
 const PHONE_COLUMNS: readonly (readonly [ImportField, ClientPhone['kind']])[] = [
   ['phone', 'main'],
   ['mobile', 'mobile'],
   ['workPhone', 'work'],
+  ['otherPhone', 'other'],
 ];
+
+/** Lo que Tokko exporta en una celda sin dato ("Fecha de nacimiento: -"). */
+const EMPTY_PLACEHOLDERS = new Set(['-', '--', '---', '—']);
+
+/** El texto de la columna de un dato; vacía o con un guion de relleno: `undefined`. */
+function cellValue(
+  cells: readonly (string | undefined)[],
+  mapping: ImportMapping,
+  field: ImportField,
+): string | undefined {
+  const column = mapping[field];
+  const raw = column === undefined ? undefined : cells[column]?.trim();
+  return raw === undefined || raw === '' || EMPTY_PLACEHOLDERS.has(raw) ? undefined : raw;
+}
 const EMAIL_COLUMNS: readonly (readonly [ImportField, ClientEmail['kind']])[] = [
   ['email', 'main'],
   ['secondaryEmail', 'other'],
@@ -85,11 +110,7 @@ export function readImportRow(
   cells: readonly (string | undefined)[],
   mapping: ImportMapping,
 ): Result<ImportedClient, RowProblem> {
-  const value = (field: ImportField): string | undefined => {
-    const column = mapping[field];
-    const raw = column === undefined ? undefined : cells[column]?.trim();
-    return raw === '' ? undefined : raw;
-  };
+  const value = (field: ImportField): string | undefined => cellValue(cells, mapping, field);
 
   const ownName = value('name');
   const companyName = value('companyName');
@@ -153,4 +174,81 @@ export function readImportRow(
   }
 
   return ok({ kind, name, phones, emails, clientTypes, profile: toProfile(profile.data) });
+}
+
+/** Lo que trae una fila además del contacto: su ID en Tokko, el agente y las etiquetas. */
+export interface ImportRowExtras {
+  readonly externalId: string | undefined;
+  /** El nombre del agente, tal como está en la planilla. */
+  readonly agentName: string | undefined;
+  /** Sin repetir (sin distinguir mayúsculas ni acentos), en el orden de la planilla. */
+  readonly tagNames: readonly string[];
+}
+
+/** Las etiquetas de Tokko van separadas por " | "; las de otra planilla, por coma. */
+const TAG_SEPARATOR = /[|,;]/;
+
+export function readImportExtras(
+  cells: readonly (string | undefined)[],
+  mapping: ImportMapping,
+): Result<ImportRowExtras, RowProblem> {
+  const externalId = cellValue(cells, mapping, 'externalId');
+  if (externalId !== undefined && externalId.length > MAX_EXTERNAL_ID_LENGTH) {
+    return err(problem('invalid_value', 'externalId'));
+  }
+
+  const tagNames: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of (cellValue(cells, mapping, 'tags') ?? '').split(TAG_SEPARATOR)) {
+    // Cortado como lo guarda la etiqueta, para encontrarla en la próxima fila.
+    const name = raw.trim().replace(/\s+/g, ' ').slice(0, MAX_TAG_NAME_LENGTH).trim();
+    const key = normalizeName(name);
+    if (name === '' || EMPTY_PLACEHOLDERS.has(name) || seen.has(key)) continue;
+    seen.add(key);
+    tagNames.push(name);
+  }
+  if (tagNames.length > MAX_CLIENT_TAGS) return err(problem('invalid_value', 'tags'));
+
+  return ok({ externalId, agentName: cellValue(cells, mapping, 'agent'), tagNames });
+}
+
+/** La oportunidad de la fila (la exportación de Tokko trae una por contacto). */
+export interface ImportedOpportunity {
+  readonly state: TokkoOpportunityState;
+  /** Solo si está cerrada. */
+  readonly closeReason: TokkoCloseReason | undefined;
+  readonly origin: ContactChannel;
+  /** `AAAA-MM-DD`. */
+  readonly createdDate: string | undefined;
+  readonly updatedDate: string | undefined;
+}
+
+/** Sin estado de la oportunidad, la fila no trae oportunidad. */
+export function readImportOpportunity(
+  cells: readonly (string | undefined)[],
+  mapping: ImportMapping,
+): Result<ImportedOpportunity | undefined, RowProblem> {
+  const rawState = cellValue(cells, mapping, 'opportunityStatus');
+  if (rawState === undefined) return ok(undefined);
+  const state = tokkoOpportunityState(rawState);
+  if (state === undefined) return err(problem('invalid_value', 'opportunityStatus'));
+
+  const dates: Partial<Record<'createdDate' | 'updatedDate', string>> = {};
+  for (const field of ['createdDate', 'updatedDate'] as const) {
+    const raw = cellValue(cells, mapping, field);
+    if (raw === undefined) continue;
+    const date = isoDate(raw);
+    if (date === undefined) return err(problem('invalid_value', field));
+    dates[field] = date;
+  }
+
+  return ok({
+    state,
+    closeReason: state.closed
+      ? tokkoCloseReason(cellValue(cells, mapping, 'closeReason'))
+      : undefined,
+    origin: tokkoOrigin(cellValue(cells, mapping, 'origin')),
+    createdDate: dates.createdDate,
+    updatedDate: dates.updatedDate,
+  });
 }

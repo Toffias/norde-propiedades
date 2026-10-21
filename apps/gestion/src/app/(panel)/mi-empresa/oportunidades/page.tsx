@@ -1,3 +1,4 @@
+import { CircleSlashIcon, KanbanIcon, WorkflowIcon } from 'lucide-react';
 import { ErrorState } from '@norde/ui/components/error-state';
 import { SectionCard } from '@norde/ui/components/section-card';
 import type { Metadata } from 'next';
@@ -24,13 +25,13 @@ export default async function OpportunitySettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionCard title="Estados">
+      <SectionCard title="Estados" icon={KanbanIcon}>
         <OpportunityStagesSettings stages={config.stages} disabled={disabled} />
       </SectionCard>
-      <SectionCard title="Motivos de cierre">
+      <SectionCard title="Motivos de cierre" icon={CircleSlashIcon}>
         <CloseReasonsSettings reasons={config.closeReasons} disabled={disabled} />
       </SectionCard>
-      <SectionCard title="Reglas automáticas">
+      <SectionCard title="Reglas automáticas" icon={WorkflowIcon}>
         <OpportunityRulesForm
           key={JSON.stringify(config.rules)}
           config={config}

@@ -7,6 +7,7 @@ import type {
   CountByPropertyStatus,
   CountByStage,
   PendingOpportunityRow,
+  PortalAlertRow,
   UnassignedInquiryRow,
   UpcomingSigningRow,
 } from '../../contracts';
@@ -16,8 +17,13 @@ type WithAgentId<T extends { readonly agent: unknown }> = Omit<T, 'agent'> & {
   readonly agentId: string | undefined;
 };
 
-export type PendingOpportunityRecord = WithAgentId<PendingOpportunityRow>;
-export type UpcomingSigningRecord = Omit<WithAgentId<UpcomingSigningRow>, 'overdue'>;
+/** Sin lo que calcula el caso de uso: la urgencia y el tipo sugerido (con las etiquetas). */
+export type UnassignedInquiryRecord = Omit<UnassignedInquiryRow, 'urgency' | 'suggestedType'> & {
+  readonly autoTags: readonly string[];
+};
+export type PendingOpportunityRecord = Omit<WithAgentId<PendingOpportunityRow>, 'urgency'>;
+export type UpcomingSigningRecord = Omit<WithAgentId<UpcomingSigningRow>, 'overdue' | 'urgency'>;
+export type PortalAlertRecord = Omit<PortalAlertRow, 'urgency'>;
 export type AvailablePropertyRecord = WithAgentId<AvailablePropertyRow>;
 export type AvailableDevelopmentRecord = WithAgentId<AvailableDevelopmentRow>;
 
@@ -41,7 +47,7 @@ export interface HomeDashboardQuery {
   unassignedInquiries(
     criteria: { readonly branchId: string | undefined },
     limit: number,
-  ): Promise<PageSlice<UnassignedInquiryRow>>;
+  ): Promise<PageSlice<UnassignedInquiryRecord>>;
   /** Oportunidades en esas categorías, de la que más espera a la que menos. */
   opportunitiesInCategories(
     scope: HomeScope,
@@ -54,6 +60,11 @@ export interface HomeDashboardQuery {
     until: string,
     limit: number,
   ): Promise<PageSlice<UpcomingSigningRecord>>;
+  /**
+   * Publicaciones pausadas o con error en los portales: primero las que fallaron, después la que
+   * lleva más tiempo así.
+   */
+  portalAlerts(limit: number): Promise<PageSlice<PortalAlertRecord>>;
   /** Clientes distintos con al menos una oportunidad en esas categorías. */
   clientsWithOpportunitiesIn(scope: HomeScope, categories: readonly string[]): Promise<number>;
   /** Oportunidades en esas categorías por canal de origen, de mayor a menor. */

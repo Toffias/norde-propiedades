@@ -24,6 +24,7 @@ import { ListOpportunities } from '../queries/list-opportunities';
 
 import { ChangeOpportunityStage } from './change-opportunity-stage';
 import { CloseOpportunity } from './close-opportunity';
+import { MarkOpportunityContacted } from './mark-opportunity-contacted';
 import { ReassignOpportunity } from './reassign-opportunity';
 
 const NEW = stageFixtureId(0);
@@ -60,6 +61,64 @@ async function setup(stageIndex = 0) {
   const opportunity = await seedOpportunity(uow, client, { stageIndex });
   return { uow, clock, ids, client, opportunity };
 }
+
+describe('MarkOpportunityContacted', () => {
+  it('moves a new opportunity to the first contacted stage, with history and audit', async () => {
+    const { uow, clock, ids, client, opportunity } = await setup();
+    const useCase = new MarkOpportunityContacted({ uow, clock, ids });
+
+    unwrap(await useCase.execute({ opportunityId: opportunity.id }, AGENT));
+
+    expect(uow.opportunities.rows.get(opportunity.id)).toMatchObject({
+      stageId: CONTACTED,
+      status: 'contacted',
+      statusChangedAt: clock.now(),
+    });
+    expect(uow.events.published.map((e) => e.type)).toEqual(['clients.opportunity_status_changed']);
+    expect(uow.audit.entries).toHaveLength(1);
+    expect(uow.audit.entries[0]).toMatchObject({
+      action: 'opportunity.status_changed',
+      entityId: opportunity.id,
+      clientIds: [client.id],
+      changes: {
+        stageId: { before: NEW, after: CONTACTED },
+        status: { before: 'new', after: 'contacted' },
+      },
+    });
+  });
+
+  it('fails when no contacted stage is active', async () => {
+    const { uow, clock, ids, opportunity } = await setup();
+    for (const [id, stage] of uow.stages.rows) {
+      if (stage.category === 'contacted') uow.stages.rows.set(id, { ...stage, isActive: false });
+    }
+    const useCase = new MarkOpportunityContacted({ uow, clock, ids });
+
+    expect(unwrapErr(await useCase.execute({ opportunityId: opportunity.id }, AGENT))).toEqual({
+      type: 'StageNotFound',
+    });
+    expect(uow.audit.entries).toHaveLength(0);
+  });
+
+  it('fails for an unknown opportunity', async () => {
+    const { uow, clock, ids } = await setup();
+    const useCase = new MarkOpportunityContacted({ uow, clock, ids });
+    expect(unwrapErr(await useCase.execute({ opportunityId: UNKNOWN_ID }, AGENT))).toEqual({
+      type: 'OpportunityNotFound',
+    });
+  });
+
+  it("does not let an agent mark another agent's opportunity", async () => {
+    const { uow, clock, ids, opportunity } = await setup();
+    const useCase = new MarkOpportunityContacted({ uow, clock, ids });
+    expect(
+      unwrapErr(await useCase.execute({ opportunityId: opportunity.id }, OTHER_AGENT)),
+    ).toEqual({ type: 'Forbidden' });
+    expect(unwrapErr(await useCase.execute({ opportunityId: opportunity.id }, OUTSIDER))).toEqual({
+      type: 'Forbidden',
+    });
+  });
+});
 
 describe('ChangeOpportunityStage', () => {
   it('moves it to another stage, with history, activity, event and audit', async () => {

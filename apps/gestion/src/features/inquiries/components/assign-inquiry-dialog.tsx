@@ -122,7 +122,7 @@ export function AssignInquiryDialog({
   onOpenChange,
 }: {
   /** Se monta con `key={row.id}`: cada consulta arranca de cero. */
-  readonly row: InquiryInboxRow;
+  readonly row: Pick<InquiryInboxRow, 'id' | 'senderName' | 'suggestedType'>;
   /** Elegir el agente (`users:read`); sin el permiso queda el que corresponde. */
   readonly pickAgents: boolean;
   readonly onOpenChange: (open: boolean) => void;

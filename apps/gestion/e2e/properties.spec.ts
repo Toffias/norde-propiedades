@@ -200,8 +200,12 @@ test.describe('ficha', () => {
       .first()
       .setInputFiles({ name: 'frente.png', mimeType: 'image/png', buffer: PNG_1X1 });
 
-    await expect(page.getByText('Subida')).toBeVisible();
+    // La foto aparece enseguida como una tarjeta de la galería, y queda cuando llega la del servidor.
+    await expect(
+      page.getByRole('img', { name: 'frente.png' }).or(page.getByRole('img', { name: 'Foto' })),
+    ).toBeVisible();
     await expect(page.getByText(/Fotos y planos \(1\)/)).toBeVisible();
+    await expect(page.getByText('No se pudo subir')).toBeHidden();
   });
 });
 

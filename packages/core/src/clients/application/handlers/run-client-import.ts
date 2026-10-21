@@ -8,6 +8,7 @@ import {
   err,
   type ForbiddenError,
   type IdGenerator,
+  isTokkoUnassignedAgent,
   nextId,
   ok,
   parseId,
@@ -195,10 +196,15 @@ export class RunClientImport {
     }
 
     const now = this.deps.clock.now();
-    const agent = (agentName === undefined ? undefined : await this.findAgent(agentName)) ?? {
-      agentId: job.agentId,
-      branchId: job.branchId,
-    };
+    // "Libre" y "Sin Asignar" de Tokko: el contacto queda sin agente, en la sucursal de la
+    // importación. Un agente que no está en Norde: quien la pidió.
+    const agent =
+      agentName !== undefined && isTokkoUnassignedAgent(agentName)
+        ? { agentId: undefined, branchId: job.branchId }
+        : ((agentName === undefined ? undefined : await this.findAgent(agentName)) ?? {
+            agentId: job.agentId,
+            branchId: job.branchId,
+          });
     const created = await createClientIn(tx, runner, {
       ...read.value,
       id: nextId<'Client'>(this.deps.ids),
@@ -238,7 +244,10 @@ export class RunClientImport {
     }
   }
 
-  /** El usuario activo con ese nombre (sin distinguir mayúsculas ni acentos), si hay uno solo. */
+  /**
+   * El usuario con ese nombre (sin distinguir mayúsculas ni acentos), si hay uno solo. También uno
+   * suspendido: los que ya no están en Tokko conservan sus contactos.
+   */
   private async findAgent(name: string): Promise<RowAgent | undefined> {
     const key = normalizeName(name);
     const cached = this.#agents.get(key);

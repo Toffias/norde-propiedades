@@ -1,6 +1,6 @@
 // Fakes del módulo identity para tests (`@norde/core/identity/testing`).
 
-import type { Email, PageSlice } from '../../shared';
+import { err, ok, type Email, type PageSlice } from '../../shared';
 import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
 import type {
   CredentialStore,
@@ -14,6 +14,7 @@ import type {
   TeamListCriteria,
 } from '../application/ports/organization-query';
 import type { PasswordHasher } from '../application/ports/password-hasher';
+import type { TokkoUser, TokkoUserSource } from '../application/ports/tokko-user-source';
 import type { UserFavorites } from '../application/ports/user-favorites';
 import type { FavoriteEntityValue } from '../contracts';
 import type { RoleListCriteria, RoleListQuery } from '../application/ports/role-list-query';
@@ -65,6 +66,17 @@ export class InMemoryUserRepository implements UserRepository {
 
   findByEmail(email: Email) {
     const row = [...this.rows.values()].find((r) => r.email.equals(email));
+    return Promise.resolve(row && User.restore(row));
+  }
+
+  findByName(name: string) {
+    const key = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .trim();
+    const row = [...this.rows.values()].find((r) => key(r.name) === key(name));
     return Promise.resolve(row && User.restore(row));
   }
 
@@ -444,5 +456,29 @@ export class StubOrganizationQuery implements OrganizationQuery {
 
   findTeam(id: string) {
     return Promise.resolve(this.data.teamDetails?.find((t) => t.id === id));
+  }
+}
+
+/** Los usuarios de Tokko en memoria: los vigentes y los agentes de contactos que ya no están. */
+export class FakeTokkoUserSource implements TokkoUserSource {
+  unavailable = false;
+  /** Los IDs vigentes que recibió `formerAgents`, para verificar que no se repitan. */
+  readonly knownAsked: string[][] = [];
+
+  constructor(
+    readonly current: TokkoUser[] = [],
+    readonly agents: TokkoUser[] = [],
+  ) {}
+
+  users() {
+    return Promise.resolve(
+      this.unavailable ? err({ type: 'TokkoUnavailable' as const }) : ok(this.current),
+    );
+  }
+
+  formerAgents(known: ReadonlySet<string>) {
+    this.knownAsked.push([...known]);
+    if (this.unavailable) return Promise.resolve(err({ type: 'TokkoUnavailable' as const }));
+    return Promise.resolve(ok(this.agents.filter((agent) => !known.has(agent.tokkoId))));
   }
 }

@@ -7,7 +7,7 @@ import {
   type UserRepository,
 } from '@norde/core/identity';
 import { Email, parseId, Phone, type Result } from '@norde/core/shared';
-import { and, asc, eq, notInArray, type SQL } from 'drizzle-orm';
+import { and, asc, eq, notInArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -30,6 +30,13 @@ export class DrizzleUserRepository implements UserRepository {
 
   findByEmail(email: Email) {
     return this.findOneWhere(eq(users.email, email.value));
+  }
+
+  /** La misma normalización que `search_text` (minúsculas, sin acentos). Son pocos usuarios. */
+  findByName(name: string) {
+    return this.findOneWhere(
+      sql`core.search_normalize(${users.name}) = core.search_normalize(${name.trim()})`,
+    );
   }
 
   async save(user: User, actorId: string): Promise<void> {

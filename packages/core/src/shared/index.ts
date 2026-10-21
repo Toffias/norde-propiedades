@@ -6,6 +6,7 @@ export { parseId, type Id, type InvalidIdError } from './domain/id';
 export { Err, Ok, err, ok, type Result } from './domain/result';
 export { Email, type InvalidEmailError } from './domain/value-objects/email';
 export { Phone, type InvalidPhoneError } from './domain/value-objects/phone';
+export { isTokkoUnassignedAgent } from './domain/tokko-migration';
 export {
   MAX_AGENT_WEIGHT,
   MIN_AGENT_WEIGHT,

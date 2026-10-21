@@ -25,6 +25,7 @@ import type {
   SuspendUserError,
   UpdateRoleError,
   UpdateUserError,
+  StartTokkoUsersImportError,
 } from '@norde/core/identity';
 
 import type { ErrorMessages } from '../../lib/errors';
@@ -64,6 +65,11 @@ export const USER_ERROR_MESSAGES = {
   CannotChangeOwnPermissions:
     'No podés cambiar tus propios permisos: pedíselo a otro administrador.',
 } satisfies ErrorMessages<UserError>;
+
+export const TOKKO_USERS_IMPORT_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para crear usuarios.',
+  TokkoApiNotConfigured: 'Falta configurar la API key de Tokko.',
+} satisfies ErrorMessages<StartTokkoUsersImportError>;
 
 export const ROLE_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para administrar roles.',

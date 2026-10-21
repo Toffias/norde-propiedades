@@ -114,6 +114,15 @@ Roles propuestos (a validar con Norde):
 
 - Auditoría: `branch.created`, `branch.updated`, `branch.made-main`, `branch.deleted` y `branch.restored`; `team.created`, `team.updated`, `team.deleted`, `team.restored`, `team.member-added` y `team.member-removed` (contra el equipo, con el ID del usuario).
 
+**Implementado (#17, usuarios de Tokko):**
+
+- **Traer usuarios de Tokko** (en Usuarios, con `users:create` y la API key de Tokko configurada; decidido el 2026-10-21: "la copia tiene que quedar tal cual"). Un job (`identity.tokko_users_import_requested`) copia los usuarios de la cuenta de Norde en Tokko, para que los contactos y las propiedades queden a cargo de los mismos agentes. Tarda unos minutos.
+  - Los **vigentes** en Tokko (`/user/`) se crean **activos**; los que **ya no están** (agentes de contactos que no son usuarios: se encuentran recorriendo todos los contactos) se crean **suspendidos**: figuran como agentes pero no entran. Uno sin email recibe uno que nunca se entrega (`tokko-<id>@usuarios-tokko.invalid`).
+  - Todos con el rol **Agente / Asesor** y la **sucursal principal**, con el celular de Tokko y **sin contraseña**: entran cuando un administrador les blanquea una.
+  - "**Libre**" y "**Sin Asignar**" no se copian: en Tokko son bolsas de contactos sin agente.
+  - Uno que ya está en Norde con el mismo email o el mismo nombre no se crea ni se cambia: se puede volver a traer sin duplicar.
+  - Se auditan como `user.imported` (y `user.suspended`), como `system:import`.
+
 ### 2.2 Trazabilidad de cambios (auditoría)
 
 - Una tabla `audit_log` registra **quién** hizo el cambio, **cuándo**, **sobre qué** entidad e id, **qué acción** (crear, editar, borrar, exportar, iniciar sesión) y el **antes y después** de los campos cambiados.
@@ -287,7 +296,7 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 
 - Un guion (`-`, `---`) es una celda vacía: Tokko lo pone, por ejemplo, en todas las fechas de nacimiento.
 - **ID de Tokko**: se guarda como ID externo del contacto (`import_mappings`, origen `tokko`). Al reimportar, una fila con un ID ya importado no se crea de nuevo ("Ya se importó antes"), aunque sus datos hayan cambiado en Tokko; actualizar los contactos ya importados queda para la última corrida antes del corte. Una fila duplicada por teléfono o email queda vinculada a ese ID, y una cuyo contacto pidió la supresión no se vuelve a crear.
-- **Agente**: el usuario activo con ese nombre (sin distinguir mayúsculas ni acentos). Si no hay uno solo, el contacto queda a cargo del agente de la importación.
+- **Agente**: el usuario con ese nombre (sin distinguir mayúsculas ni acentos), también uno suspendido: los contactos de quien ya no está en Tokko quedan a su nombre (por eso conviene traer antes los usuarios de Tokko, §2.1). "Libre" y "Sin Asignar" (bolsas de Tokko) dejan el contacto **sin agente**, en la sucursal de la importación. Si no hay un usuario con ese nombre, el contacto queda a cargo del agente de la importación.
 - **Etiquetas**: separadas por `|` (como en Tokko) o por coma. Se busca una etiqueta suelta (sin grupo) con ese nombre y, si no hay, se crea suelta. Se auditan el alta de cada etiqueta y las etiquetas del contacto.
 - **Oportunidad** (en Tokko el contacto es la oportunidad): con la columna del estado, cada contacto creado lleva una, también las cerradas. Pide `opportunities:create` y `settings:update` (puede crear motivos de cierre).
   - Nace ya en su estado, sin recorrer las transiciones ni disparar "oportunidad creada": no avisa al equipo, no aplica reglas ni suma actividad. Se audita como `opportunity.imported`.

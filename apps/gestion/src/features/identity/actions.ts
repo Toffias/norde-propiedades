@@ -46,6 +46,7 @@ import {
   BRANCH_ERROR_MESSAGES,
   ROLE_ERROR_MESSAGES,
   TEAM_ERROR_MESSAGES,
+  TOKKO_USERS_IMPORT_ERROR_MESSAGES,
   USER_ERROR_MESSAGES,
 } from './messages';
 
@@ -68,6 +69,16 @@ export async function createUserAction(input: CreateUserInput): Promise<ActionRe
   const result = await getContainer().identity.createUser.execute(parsed.data, actor);
   if (result.isErr()) return actionFailed(messageForError(result.error, USER_ERROR_MESSAGES));
   revalidatePath(USERS_PATH);
+  return ACTION_OK;
+}
+
+/** Copia los usuarios de Tokko a Norde (#17): corre como job, aparecen en unos minutos. */
+export async function startTokkoUsersImportAction(): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const result = await getContainer().identity.startTokkoUsersImport.execute({}, actor);
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, TOKKO_USERS_IMPORT_ERROR_MESSAGES));
+  }
   return ACTION_OK;
 }
 

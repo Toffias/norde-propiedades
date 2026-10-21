@@ -9,6 +9,7 @@ import type {
   TokkoPropertySource,
   TokkoUnavailableError,
 } from '@norde/core/properties';
+import type { TokkoUser, TokkoUserSource, TokkoUsersUnavailableError } from '@norde/core/identity';
 import { err, ok, type Result } from '@norde/core/shared';
 import { z } from 'zod';
 
@@ -142,6 +143,20 @@ const PageSchema = z.object({
   objects: z.array(z.unknown()),
 });
 
+// Un usuario de Norde en Tokko: el de `/user/` y el agente de cada contacto tienen la misma forma.
+// Los contactos traen muchos datos personales: solo se lee su agente.
+const UserSchema = z.object({
+  id: z.union([z.number(), z.string()]),
+  name: text,
+  email: text,
+  cellphone: text,
+  phone: text,
+});
+const ContactAgentSchema = z.object({ agent: UserSchema.nullish() });
+
+/** Tokko devuelve como mucho 50 por página, aunque se pidan más. */
+const MAX_PAGE = 50;
+
 /** Un texto sin espacios de más; vacío es "sin dato". */
 function clean(value: string | null | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -246,13 +261,22 @@ function toProperty(raw: RawProperty): TokkoApiProperty {
   };
 }
 
+function toUser(raw: z.infer<typeof UserSchema>): TokkoUser {
+  return {
+    tokkoId: String(raw.id),
+    name: raw.name?.trim() ?? '',
+    email: clean(raw.email),
+    phone: clean(raw.cellphone) ?? clean(raw.phone),
+  };
+}
+
 /**
- * Cliente de la API de Tokko (`/api/v1/`), sin SDK, para importar las propiedades y los
- * emprendimientos de Norde. La key
- * va en la URL, como pide Tokko: por eso nunca se loguea una URL del listado, solo el estado HTTP.
- * Reintenta unas veces si Tokko no responde o responde un error del servidor.
+ * Cliente de la API de Tokko (`/api/v1/`), sin SDK, para la migración de Norde: propiedades,
+ * emprendimientos y usuarios. La key va en la URL, como pide Tokko: por eso nunca se loguea una URL
+ * del listado, solo el estado HTTP. Reintenta unas veces si Tokko no responde o responde un error
+ * del servidor.
  */
-export class TokkoPropertyApi implements TokkoPropertySource {
+export class TokkoPropertyApi implements TokkoPropertySource, TokkoUserSource {
   readonly #fetch: typeof fetch;
   readonly #sleep: (ms: number) => Promise<void>;
   readonly #baseUrl: string;
@@ -297,9 +321,45 @@ export class TokkoPropertyApi implements TokkoPropertySource {
     return ok({ total: page.value.total, developments });
   }
 
+  async users(): Promise<Result<readonly TokkoUser[], TokkoUsersUnavailableError>> {
+    const users: TokkoUser[] = [];
+    const listed = await this.#each('user', (object) => {
+      const parsed = UserSchema.safeParse(object);
+      if (parsed.success) users.push(toUser(parsed.data));
+    });
+    return listed.isErr() ? err(listed.error) : ok(users);
+  }
+
+  async formerAgents(
+    known: ReadonlySet<string>,
+  ): Promise<Result<readonly TokkoUser[], TokkoUsersUnavailableError>> {
+    const agents = new Map<string, TokkoUser>();
+    const listed = await this.#each('contact', (object) => {
+      const agent = ContactAgentSchema.safeParse(object);
+      if (!agent.success || !agent.data.agent) return;
+      const user = toUser(agent.data.agent);
+      if (!known.has(user.tokkoId) && !agents.has(user.tokkoId)) agents.set(user.tokkoId, user);
+    });
+    return listed.isErr() ? err(listed.error) : ok([...agents.values()]);
+  }
+
+  /** Recorre un listado entero de a 50, avanzando por lo que Tokko devolvió. */
+  async #each(
+    resource: 'user' | 'contact',
+    visit: (object: unknown) => void,
+  ): Promise<Result<void, TokkoUnavailableError>> {
+    for (let offset = 0; ;) {
+      const page = await this.#list(resource, offset, MAX_PAGE);
+      if (page.isErr()) return err(page.error);
+      page.value.objects.forEach(visit);
+      offset += page.value.objects.length;
+      if (page.value.objects.length === 0 || offset >= page.value.total) return ok(undefined);
+    }
+  }
+
   /** Una página de un listado de Tokko, sin validar cada objeto. */
   async #list(
-    resource: 'property' | 'development',
+    resource: 'property' | 'development' | 'user' | 'contact',
     offset: number,
     limit: number,
   ): Promise<

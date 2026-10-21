@@ -145,6 +145,21 @@ describe('Tokko contacts import', () => {
     expect(ctx.importAgents.searches).toEqual(['martin gomez', 'Nadie']);
   });
 
+  it('leaves without agent the contacts of the Tokko "Libre" and "Sin Asignar" pools', async () => {
+    const ctx = setup();
+    const LIBRE: Row = ['48213309', 'Pedro Libre', '-', '5491166899125', '-', '-', 'Libre', '-'];
+    const SIN: Row = ['48213310', 'Rosa Sin', '-', '5491166899126', '-', '-', 'Sin Asignar', '-'];
+    await importRows(ctx, [LIBRE, SIN]);
+
+    expect(clientNamed(ctx, 'Pedro Libre')).toMatchObject({
+      agentId: undefined,
+      branchId: BRANCH_ID,
+    });
+    expect(clientNamed(ctx, 'Rosa Sin')).toMatchObject({ agentId: undefined, branchId: BRANCH_ID });
+    // No se buscan como usuarios.
+    expect(ctx.importAgents.searches).toEqual([]);
+  });
+
   it('audits the tags created and marked by the import, grouped by it', async () => {
     const ctx = setup();
     const importId = await importRows(ctx, [ANA]);

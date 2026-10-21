@@ -34,6 +34,8 @@ import {
   CreateRole,
   CreateTeam,
   CreateUser,
+  RunTokkoUsersImport,
+  StartTokkoUsersImport,
   DeleteBranch,
   DeleteRole,
   DeleteTeam,
@@ -504,6 +506,8 @@ export interface Container {
     readonly listUsers: ListUsers;
     readonly listRoles: ListRoles;
     readonly createUser: CreateUser;
+    /** Copiar los usuarios de Tokko (#17). */
+    readonly startTokkoUsersImport: StartTokkoUsersImport;
     readonly updateUser: UpdateUser;
     readonly suspendUser: SuspendUser;
     readonly reactivateUser: ReactivateUser;
@@ -612,6 +616,7 @@ const CONVERSION_ACTOR = Actor.system('scheduler', [
  */
 const IMPORT_ACTOR = Actor.system('import', [
   'clients:run-imports',
+  'users:create',
   'clients:create',
   'properties:run-imports',
   'properties:create',
@@ -1554,6 +1559,12 @@ function createContainer(): Container {
       listUsers,
       listRoles: new ListRoles({ roles: roleQuery }),
       createUser: new CreateUser({ uow: identityUow, hasher, ids, clock }),
+      startTokkoUsersImport: new StartTokkoUsersImport({
+        uow: identityUow,
+        configured: env.TOKKO_API_KEY !== undefined,
+        ids,
+        clock,
+      }),
       updateUser: new UpdateUser({ uow: identityUow, clock }),
       suspendUser: new SuspendUser({ uow: identityUow, clock }),
       reactivateUser: new ReactivateUser({ uow: identityUow, clock }),
@@ -1670,25 +1681,33 @@ function propertyImportDirectory(
   };
 }
 
-/** Los usuarios activos por nombre, para la columna "Agente" de una importación de contactos. */
+/**
+ * Los usuarios por nombre, para la columna "Agente" de una importación de contactos y el productor
+ * de una de propiedades: también los suspendidos, para que lo de los usuarios que ya no están en
+ * Tokko quede a su nombre (#17).
+ */
 function importAgents(db: Database): ClientImportAgents {
   const users = new DrizzleUserListQuery(db);
+  const search = (status: 'active' | 'suspended', text: string) =>
+    users.search({
+      status,
+      text,
+      branchId: undefined,
+      teamId: undefined,
+      sort: { field: 'name', direction: 'asc' },
+      offset: 0,
+      limit: 20,
+    });
   return {
     async searchByName(name) {
-      const page = await users.search({
-        status: 'active',
-        text: name,
-        branchId: undefined,
-        teamId: undefined,
-        sort: { field: 'name', direction: 'asc' },
-        offset: 0,
-        limit: 20,
-      });
-      return page.items.map((user) => ({
-        userId: user.id,
-        name: user.name,
-        branchId: user.branch?.id,
-      }));
+      const pages = await Promise.all([search('active', name), search('suspended', name)]);
+      return pages.flatMap((page) =>
+        page.items.map((user) => ({
+          userId: user.id,
+          name: user.name,
+          branchId: user.branch?.id,
+        })),
+      );
     },
   };
 }
@@ -1873,6 +1892,11 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     reconcileOne: new ReconcileListing({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
     actor: PORTAL_SYNC_ACTOR,
   };
+  // La migración desde Tokko (#17): sin API key, sus jobs fallan con un error claro.
+  const tokkoApi =
+    env.TOKKO_API_KEY === undefined
+      ? undefined
+      : new TokkoPropertyApi({ config: { apiKey: env.TOKKO_API_KEY }, logger });
   for (const subscription of eventSubscriptions({
     notifyTeam: new NotifyTeamOfOpportunity({
       clients: new DrizzleClientRepository(db, ids),
@@ -1943,12 +1967,15 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       ids,
       clock,
     }),
+    runTokkoUsersImport: new RunTokkoUsersImport({
+      uow: createIdentityUnitOfWork(db, deps),
+      source: tokkoApi,
+      ids,
+      clock,
+    }),
     runTokkoApiPropertyImport: new RunTokkoApiPropertyImport({
       uow: createPropertiesUnitOfWork(db, deps),
-      source:
-        env.TOKKO_API_KEY === undefined
-          ? undefined
-          : new TokkoPropertyApi({ config: { apiKey: env.TOKKO_API_KEY }, logger }),
+      source: tokkoApi,
       storage,
       directory: propertyImportDirectory(db, deps),
       producers: activeProducers(db),

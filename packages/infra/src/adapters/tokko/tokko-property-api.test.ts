@@ -344,3 +344,55 @@ describe('TokkoPropertyApi.photo', () => {
     });
   });
 });
+
+describe('TokkoPropertyApi users', () => {
+  const user = (id: number, name: string) => ({
+    id,
+    name,
+    email: `${name.toLowerCase().replace(/\s+/g, '.')}@example.test`,
+    cellphone: '',
+    phone: '1144440000',
+    picture: '',
+    position: 'Asesora',
+  });
+  const contact = (agent: ReturnType<typeof user> | null) => ({
+    id: 1,
+    name: 'Contacto Prueba',
+    email: 'contacto@example.test',
+    agent,
+  });
+
+  it('reads the current users, 50 at a time', async () => {
+    const { api, requests } = setup([json(page([user(1961, 'Mariela Prueba')], 1))]);
+
+    expect(unwrap(await api.users())).toEqual([
+      {
+        tokkoId: '1961',
+        name: 'Mariela Prueba',
+        email: 'mariela.prueba@example.test',
+        phone: '1144440000',
+      },
+    ]);
+    expect(requests[0]?.pathname).toBe('/api/v1/user/');
+    expect(requests[0]?.searchParams.get('limit')).toBe('50');
+  });
+
+  it('finds the former users as the agents of the contacts, walking every page', async () => {
+    const firstPage = Array.from({ length: 50 }, () => contact(user(1961, 'Mariela Prueba')));
+    const { api, requests } = setup([
+      json(page([...firstPage.slice(0, 49), contact(user(3232, 'Ex Agente'))], 52)),
+      json(page([contact(null), contact(user(3232, 'Ex Agente'))], 52)),
+    ]);
+
+    expect(unwrap(await api.formerAgents(new Set(['1961'])))).toEqual([
+      { tokkoId: '3232', name: 'Ex Agente', email: 'ex.agente@example.test', phone: '1144440000' },
+    ]);
+    expect(requests.map((r) => r.searchParams.get('offset'))).toEqual(['0', '50']);
+  });
+
+  it('fails when Tokko does not answer', async () => {
+    const { api } = setup([json({ error: 'Invalid key' }, 401)]);
+
+    expect(unwrapErr(await api.users())).toEqual({ type: 'TokkoUnavailable' });
+  });
+});

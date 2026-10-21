@@ -21,7 +21,7 @@ Antes de contribuir, leé [CLAUDE.md](CLAUDE.md) (reglas obligatorias) y [docs/a
 
 - Node.js 24 (`.nvmrc`)
 - pnpm 10 (`corepack enable`)
-- PostgreSQL 17 o superior
+- PostgreSQL 17, la versión de UAT (ADR 0041)
 
 ## Primeros pasos
 

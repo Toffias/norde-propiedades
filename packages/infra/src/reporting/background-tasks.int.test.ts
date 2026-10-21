@@ -164,6 +164,69 @@ describe('DrizzleBackgroundTaskQuery', () => {
     expect(await query.countActive(ALL)).toBe(2);
   });
 
+  it('groups the photos of an import under who asked for it, apart from each listing', async () => {
+    await seedOwners();
+    const IMPORT = id('f000', 9);
+    const OLD_IMPORT = id('f000', 10);
+    await db.insert(importJobs).values([
+      {
+        id: IMPORT,
+        kind: 'properties_tokko',
+        status: 'done',
+        options: { columns: {}, source: 'api' },
+        finishedAt: at('21T10:30:00'),
+        ...stamps(CAMILA, at('21T09:00:00'), at('21T10:30:00')),
+      },
+      {
+        id: OLD_IMPORT,
+        kind: 'properties_tokko',
+        status: 'done',
+        options: { columns: {}, source: 'api' },
+        finishedAt: at('01T10:30:00'),
+        ...stamps(CAMILA, at('01T09:00:00'), at('01T10:30:00')),
+      },
+    ]);
+    const imported = { uploadedBy: 'system:import', importId: IMPORT } as const;
+    await db.insert(mediaItems).values([
+      // Las fotos de la importación, en dos fichas: una lista, una fallida y una en espera.
+      photo(1, { ...imported, updatedAt: at('21T10:05:00') }),
+      photo(2, {
+        ...imported,
+        propertyId: null,
+        developmentId: DEVELOPMENT,
+        processingStatus: 'failed',
+      }),
+      photo(3, { ...imported, processingStatus: 'pending', createdAt: at('21T10:20:00') }),
+      // La importación vieja ya terminó hace rato: no se muestra.
+      photo(4, { uploadedBy: 'system:import', importId: OLD_IMPORT, createdAt: at('01T10:00:00') }),
+    ]);
+
+    const expected = {
+      id: `import_media:${IMPORT}`,
+      kind: 'import_media',
+      sourceId: IMPORT,
+      status: 'running',
+      subject: undefined,
+      detail: undefined,
+      progress: { done: 2, total: 3 },
+      problems: 1,
+      failure: undefined,
+      requesterId: CAMILA,
+      createdAt: at('21T10:00:00'),
+      finishedAt: undefined,
+    };
+    const mine = await query.list(MINE, PAGE);
+    expect(mine.items.filter((row) => row.kind !== 'property_import')).toEqual([expected]);
+    // Con el alcance de todos, tampoco aparecen sueltas por ficha.
+    const all = await query.list(ALL, PAGE);
+    expect(all.items.filter((row) => row.kind !== 'property_import')).toEqual([expected]);
+    expect(await query.countActive(MINE)).toBe(1);
+    expect(await query.list({ ...MINE, requesterId: NICOLAS }, PAGE)).toEqual({
+      items: [],
+      total: 0,
+    });
+  });
+
   it('lists the imports, bulk operations and documents of who asked for them', async () => {
     await seedOwners();
     await db.insert(importJobs).values([

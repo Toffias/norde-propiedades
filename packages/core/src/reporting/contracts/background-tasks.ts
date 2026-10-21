@@ -5,11 +5,12 @@ import { z } from 'zod';
 import { pageQuerySchema } from '../../shared/contracts';
 
 /**
- * Qué proceso es: las variantes de las fotos de una ficha, las importaciones, las acciones masivas
- * de oportunidades, los PDF de la ficha y las publicaciones en los portales.
+ * Qué proceso es: las variantes de las fotos de una ficha o de una importación, las importaciones,
+ * las acciones masivas de oportunidades, los PDF de la ficha y las publicaciones en los portales.
  */
 export const BACKGROUND_TASK_KINDS = [
   'media_variants',
+  'import_media',
   'client_import',
   'property_import',
   'unit_import',

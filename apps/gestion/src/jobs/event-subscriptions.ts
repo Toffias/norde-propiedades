@@ -16,7 +16,11 @@ import type {
   EraseClientConversations,
   MoveMergedClientConversations,
 } from '@norde/core/conversations';
-import type { MoveMergedClientFavorites, RemoveErasedClientFavorites } from '@norde/core/identity';
+import type {
+  MoveMergedClientFavorites,
+  RemoveErasedClientFavorites,
+  RunTokkoUsersImport,
+} from '@norde/core/identity';
 import {
   PORTALS,
   PORTAL_CATALOG,
@@ -82,6 +86,8 @@ const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
 const ImportPayloadSchema = z.object({ importId: z.uuid() });
 /** Unas 4.000 fotos a unos segundos cada una, con margen. Si se corta, retoma donde quedó. */
 const TOKKO_API_IMPORT_EXPIRE_SECONDS = 6 * 60 * 60;
+/** Unas 28.000 fichas de contactos de a 50, con margen. */
+const TOKKO_USERS_IMPORT_EXPIRE_SECONDS = 60 * 60;
 const ErasedPayloadSchema = z.object({ erasedClientIds: z.array(z.uuid()).min(1) });
 const MergedPayloadSchema = z.object({ clientId: z.uuid(), mergedClientId: z.uuid() });
 const RulePayloadSchema = z.object({
@@ -623,6 +629,8 @@ export function eventSubscriptions(deps: {
   readonly runPropertyImport: Pick<RunPropertyImport, 'execute'>;
   /** Traer las propiedades desde la API de Tokko (#17): baja miles de fotos, tarda. */
   readonly runTokkoApiPropertyImport: Pick<RunTokkoApiPropertyImport, 'execute'>;
+  /** Copiar los usuarios de Tokko (#17): recorre todos sus contactos para hallar a los que ya no están. */
+  readonly runTokkoUsersImport: Pick<RunTokkoUsersImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
   /** Avisarle a la web que una propiedad o un emprendimiento cambió (ADR 0023). */
   readonly revalidateSite: SiteRevalidation;
@@ -698,6 +706,23 @@ export function eventSubscriptions(deps: {
         if (result.isErr()) {
           deps.logger.error({ eventId: event.id, error: result.error }, 'Property import skipped');
         }
+      },
+    },
+    {
+      eventType: 'identity.tokko_users_import_requested',
+      name: 'run-tokko-users-import',
+      // Recorrer los contactos de Tokko de a 50 lleva unos minutos.
+      expireInSeconds: TOKKO_USERS_IMPORT_EXPIRE_SECONDS,
+      handle: async (event) => {
+        const result = await deps.runTokkoUsersImport.execute({}, deps.importActor);
+        if (result.isErr()) {
+          deps.logger.error(
+            { eventId: event.id, error: result.error },
+            'Tokko users import failed',
+          );
+          return;
+        }
+        deps.logger.info({ eventId: event.id, ...result.value }, 'Tokko users imported');
       },
     },
     {

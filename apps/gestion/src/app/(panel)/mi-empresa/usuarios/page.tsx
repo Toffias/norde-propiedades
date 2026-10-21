@@ -5,6 +5,7 @@ import { DataTableError } from '@norde/ui/components/data-table';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { tokkoApiEnabled } from '../../../../config/env';
 import { getContainer } from '../../../../container';
 import type { RoleOption } from '../../../../features/identity/components/role-checkboxes';
 import type { UserSheetData } from '../../../../features/identity/components/user-sheet';
@@ -106,6 +107,7 @@ export default async function UsersPage({
             suspend: actor.can('users:suspend'),
             resetPassword: actor.can('users:reset-password'),
             permissions: actor.can('users:permissions'),
+            tokkoImport: actor.can('users:create') && tokkoApiEnabled(),
           }}
         />
       </Card>

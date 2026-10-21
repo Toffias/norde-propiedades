@@ -13,8 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@norde/ui/components/select';
+import { toast } from '@norde/ui/components/sonner';
 import {
+  CloudDownloadIcon,
   KeyRoundIcon,
+  Loader2Icon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
@@ -22,7 +25,9 @@ import {
   UserCheckIcon,
   UserXIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+
+import { runAction } from '../../../lib/action-result';
 
 import { formatDateTime } from '../../../lib/format';
 import type { PanelData } from '../../../lib/panel-params';
@@ -30,6 +35,8 @@ import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
 import type { CatalogGroup } from './permission-picker';
 import type { RoleOption } from './role-checkboxes';
+import { startTokkoUsersImportAction } from '../actions';
+
 import { ResetPasswordDialog, UserStatusDialog } from './user-action-dialogs';
 import { UserSheet, type UserSheetData } from './user-sheet';
 
@@ -41,6 +48,8 @@ export interface UserPermissions {
   readonly resetPassword: boolean;
   /** Dar o quitar permisos propios. */
   readonly permissions: boolean;
+  /** Copiar los usuarios de Tokko: con `create` y la API key de Tokko configurada (#17). */
+  readonly tokkoImport: boolean;
 }
 
 export interface UsersGridProps {
@@ -143,7 +152,21 @@ export function UsersGrid({
 }: UsersGridProps) {
   const navigation = usePanel();
   const { openEdit, openNew } = navigation;
+  const [importing, startImport] = useTransition();
   const [changingStatus, setChangingStatus] = useState<UserListItem | undefined>();
+
+  function importFromTokko() {
+    startImport(async () => {
+      const message = await runAction(startTokkoUsersImportAction);
+      if (message !== undefined) {
+        toast.error(message);
+        return;
+      }
+      toast.success(
+        'Se están trayendo los usuarios de Tokko: aparecen acá en unos minutos. Los que ya no están en Tokko quedan suspendidos.',
+      );
+    });
+  }
   const [resetting, setResetting] = useState<UserListItem | undefined>();
 
   const columns = useMemo((): readonly DataTableColumn<UserListItem>[] => {
@@ -293,12 +316,29 @@ export function UsersGrid({
         toolbar={
           <>
             <UsersToolbar text={text} status={status} />
-            {permissions.create && (
-              <Button type="button" className="sm:ml-auto" onClick={openNew}>
-                <PlusIcon className="h-4 w-4" />
-                Nuevo usuario
-              </Button>
-            )}
+            <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row">
+              {permissions.tokkoImport && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={importing}
+                  onClick={importFromTokko}
+                >
+                  {importing ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CloudDownloadIcon className="h-4 w-4" />
+                  )}
+                  Traer usuarios de Tokko
+                </Button>
+              )}
+              {permissions.create && (
+                <Button type="button" onClick={openNew}>
+                  <PlusIcon className="h-4 w-4" />
+                  Nuevo usuario
+                </Button>
+              )}
+            </div>
           </>
         }
         empty={

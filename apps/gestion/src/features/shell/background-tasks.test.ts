@@ -8,6 +8,7 @@ import {
   taskFailure,
   taskHref,
   taskProblems,
+  taskStatus,
   taskSubtitle,
   taskTitle,
 } from './background-tasks';
@@ -35,7 +36,11 @@ function task(overrides: Partial<BackgroundTaskRow>): BackgroundTaskRow {
 
 describe('background task display', () => {
   it('names each task and the listing or file it runs on', () => {
-    expect(taskTitle(task({ kind: 'media_variants', subject: PROPERTY }))).toBe('Procesando fotos');
+    expect(taskTitle(task({ kind: 'media_variants', subject: PROPERTY }))).toBe(
+      'Generando variantes',
+    );
+    expect(taskStatus(task({ kind: 'media_variants' })).label).toBe('En curso');
+    expect(taskStatus(task({})).label).toBe('Procesando');
     expect(taskSubtitle(task({ kind: 'media_variants', subject: PROPERTY }))).toBe(
       'NOR001 · Depto en Palermo',
     );

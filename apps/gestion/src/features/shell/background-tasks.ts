@@ -8,7 +8,7 @@ import type { StatusTone } from '@norde/ui/components/status-pill';
 import { PORTAL_LABELS } from '../portals/messages';
 import { DOCUMENT_KIND_LABELS } from '../properties/detail-labels';
 
-// Cómo se muestran en la campana de la barra los procesos en segundo plano.
+// Cómo se muestran en las notificaciones de la barra (la campana) los procesos en segundo plano.
 
 /**
  * Hasta cuándo limpió los terminados quien usa el navegador (ISO 8601). Es una preferencia de
@@ -47,9 +47,10 @@ const KIND_LABELS: Readonly<Record<Exclude<BackgroundTaskKind, 'media_variants'>
 
 const MEDIA_TITLES: Readonly<Record<BackgroundTaskStatus, string>> = {
   pending: 'Fotos en espera',
-  running: 'Procesando fotos',
-  done: 'Fotos procesadas',
-  failed: 'Fotos con error',
+  // Las fotos ya están subidas: "Procesando" se leería como que todavía se están cargando.
+  running: 'Generando variantes',
+  done: 'Variantes generadas',
+  failed: 'Variantes con error',
 };
 
 const BULK_ACTION_LABELS: Readonly<Record<string, string>> = {
@@ -73,6 +74,17 @@ const FAILURE_MESSAGES: Readonly<Record<string, string>> = {
 
 function lookup(labels: Readonly<Record<string, string>>, key: string | undefined) {
   return key === undefined ? undefined : labels[key];
+}
+
+/** El estado de la fila. En las fotos, "Procesando" se leería como que todavía se suben. */
+export function taskStatus(task: BackgroundTaskRow): {
+  readonly label: string;
+  readonly tone: StatusTone;
+} {
+  const status = STATUS_DISPLAY[task.status];
+  return task.kind === 'media_variants' && task.status === 'running'
+    ? { ...status, label: 'En curso' }
+    : status;
 }
 
 /** El título del proceso: qué es y, si corre sobre una ficha, cuál. */
@@ -127,8 +139,8 @@ export function taskFailure(task: BackgroundTaskRow): string | undefined {
   if (task.kind === 'portal_listing') return task.failure ?? 'El portal rechazó la publicación.';
   if (task.kind === 'media_variants') {
     return task.problems === 1
-      ? 'Una foto no se pudo procesar.'
-      : `${String(task.problems)} fotos no se pudieron procesar.`;
+      ? 'No se pudieron generar las variantes de una foto.'
+      : `No se pudieron generar las variantes de ${String(task.problems)} fotos.`;
   }
   if (task.kind === 'property_document') return 'No se pudo generar el PDF.';
   return lookup(FAILURE_MESSAGES, task.failure) ?? 'No se pudo terminar.';

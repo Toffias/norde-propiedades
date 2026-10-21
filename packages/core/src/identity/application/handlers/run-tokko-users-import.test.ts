@@ -50,9 +50,10 @@ const FORMER_NO_EMAIL = {
   email: undefined,
   phone: undefined,
 };
+const LIBRE = { tokkoId: '777', name: 'Libre', email: 'bolsa@example.test', phone: undefined };
 
 function setup(
-  source = new FakeTokkoUserSource([MARIELA, FACUNDO], [MARIELA, FORMER, FORMER_NO_EMAIL]),
+  source = new FakeTokkoUserSource([MARIELA, FACUNDO], [MARIELA, FORMER, FORMER_NO_EMAIL, LIBRE]),
 ) {
   const uow = new InMemoryIdentityUnitOfWork();
   seedRole(uow, roleSnapshot({ id: ROLE_AGENT_ID, key: 'agent', name: 'Agente' }));
@@ -98,7 +99,10 @@ describe('Tokko users import', () => {
       suspended: 2,
       existing: 0,
       skipped: 0,
+      unassigned: 1,
     });
+    // "Libre" es la bolsa de contactos sin agente de Tokko: no se copia.
+    expect(byName(uow, 'Libre')).toBeUndefined();
     expect(source.knownAsked).toEqual([['1961', '1891']]);
     expect(byName(uow, 'Ex Agente Prueba')).toMatchObject({ status: 'suspended' });
     expect(byName(uow, 'Otro Ex Agente')).toMatchObject({
@@ -135,6 +139,7 @@ describe('Tokko users import', () => {
       suspended: 0,
       existing: 4,
       skipped: 0,
+      unassigned: 1,
     });
   });
 

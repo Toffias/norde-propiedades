@@ -4,6 +4,7 @@ import {
   diffChanges,
   Email,
   err,
+  isTokkoUnassignedAgent,
   nextId,
   ok,
   Phone,
@@ -31,12 +32,16 @@ export interface TokkoUsersUnavailableResultError {
 export type RunTokkoUsersImportError =
   ForbiddenError | TokkoUsersSetupMissingError | TokkoUsersUnavailableResultError;
 
-/** Qué pasó con los usuarios de Tokko. `skipped`: sin un email válido para darlo de alta. */
+/**
+ * Qué pasó con los usuarios de Tokko. `skipped`: sin un email válido para darlo de alta.
+ * `unassigned`: "Libre" o "Sin Asignar", que no se copian.
+ */
 export interface TokkoUsersImportSummary {
   readonly created: number;
   readonly suspended: number;
   readonly existing: number;
   readonly skipped: number;
+  readonly unassigned: number;
 }
 
 /** El rol de los usuarios importados (decidido con Norde el 2026-10-21). */
@@ -60,6 +65,7 @@ function formerUserEmail(tokkoId: string): string {
  * - Todos con el rol Agente y la sucursal principal, y sin contraseña: entran cuando un
  *   administrador les blanquea una desde Usuarios.
  * - Uno que ya está en Norde (mismo email o mismo nombre) no se crea ni se cambia.
+ * - "Libre" y "Sin Asignar" no son personas: no se copian (sus contactos quedan sin agente).
  */
 export class RunTokkoUsersImport {
   constructor(
@@ -95,7 +101,7 @@ export class RunTokkoUsersImport {
     const former = await source.formerAgents(new Set(current.value.map((u) => u.tokkoId)));
     if (former.isErr()) return err({ type: 'TokkoUnavailable' });
 
-    const summary = { created: 0, suspended: 0, existing: 0, skipped: 0 };
+    const summary = { created: 0, suspended: 0, existing: 0, skipped: 0, unassigned: 0 };
     for (const user of current.value) {
       summary[await this.#copy(actor, user, target, false)] += 1;
     }
@@ -112,6 +118,8 @@ export class RunTokkoUsersImport {
     formerUser: boolean,
   ): Promise<keyof TokkoUsersImportSummary> {
     const name = tokko.name.trim();
+    // "Libre" y "Sin Asignar" no son personas: sus contactos quedan sin agente.
+    if (isTokkoUnassignedAgent(name)) return 'unassigned';
     const given = tokko.email === undefined ? undefined : Email.create(tokko.email);
     let email: Email | undefined;
     if (given?.isOk() === true) email = given.value;

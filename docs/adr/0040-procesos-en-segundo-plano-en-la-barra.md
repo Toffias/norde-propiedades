@@ -1,4 +1,4 @@
-# ADR 0040: Procesos en segundo plano en la barra del panel
+# ADR 0040: Notificaciones de los procesos en segundo plano en la barra del panel
 
 - **Estado**: aceptada
 - **Fecha**: 2026-10-21
@@ -6,14 +6,16 @@
 
 ## Contexto
 
-Las fotos, los PDF de la ficha, las importaciones (contactos, propiedades, unidades y usuarios de Tokko), las acciones masivas de oportunidades y las publicaciones en los portales corren en jobs de pg-boss. Nadie sabía qué se estaba procesando ni cuándo terminaba. Después de traer 2.780 fotos de Tokko (#17), las que sube un usuario quedan "Procesando" un buen rato porque esperan detrás de la cola.
+Las fotos, los PDF de la ficha, las importaciones (contactos, propiedades, unidades y usuarios de Tokko), las acciones masivas de oportunidades y las publicaciones en los portales corren en jobs de pg-boss. Nadie sabía qué se estaba procesando ni cuándo terminaba. Después de traer 2.780 fotos de Tokko (#17), las que sube un usuario quedan generando sus variantes un buen rato porque esperan detrás de la cola.
 
 Cada job ya deja su estado en una tabla del negocio: `media_items.processing_status`, `import_jobs`, `opportunity_bulk_operations`, `property_documents` y `portal_listings`. La copia de usuarios de Tokko era la única que no guardaba nada.
 
 ## Decisión
 
+- **En la UI se llaman "Notificaciones"** (título, `aria-label` y tooltip de la campana), a pedido del usuario. En el código y en esta decisión siguen siendo procesos en segundo plano (`background-tasks`).
+
 - **Se lee el estado del negocio, no la cola.** Un modelo de lectura de `reporting` (`BackgroundTaskQuery`, como Inicio) junta esas tablas con un `union all` y devuelve los procesos en curso primero, después los terminados del más nuevo al más viejo, paginados con límite. No se leen las tablas internas de pg-boss: su esquema es de la librería, no dice quién pidió cada job ni sobre qué ficha corre, y no guarda el resultado.
-- **Las fotos se agrupan** por ficha y por quien las subió: "Procesando fotos, 2 de 3".
+- **Las fotos se agrupan** por ficha y por quien las subió: "Generando variantes, 2 de 3". No dicen "Procesando": la foto ya está subida y se leería como que se sigue cargando (pedido del usuario, 2026-10-21). La galería de la ficha usa el mismo texto.
 - **Quién ve qué** (decidido con el usuario el 2026-10-21): cada usuario ve lo que pidió. Con `background-tasks:read-others` (lo tiene el administrador) ve también lo de los demás, lo del sistema (`system:import`) y las publicaciones en los portales, que no tienen quién las pidió. Lo autoriza el caso de uso (`ListBackgroundTasks`, `CountBackgroundTasks`); un actor de sistema no consulta.
 - **Los terminados se muestran una semana**, o hasta que quien consulta los limpia. Limpiar es una preferencia de pantalla, como los tipos del buscador: una cookie con la fecha del último terminado que se vio. Los en curso se muestran siempre.
 - **La copia de usuarios de Tokko guarda su corrida** en `import_jobs` (`kind = 'tokko_users'`) con el estado, el resumen o el motivo del fallo. Los eventos de antes de este cambio siguen corriendo, sin corrida.

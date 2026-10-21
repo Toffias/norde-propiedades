@@ -643,6 +643,12 @@ export const mediaItems = coreSchema.table(
     check('media_items_single_owner', sql`num_nonnulls(property_id, development_id) = 1`),
     index('media_items_property_position_idx').on(t.propertyId, t.position),
     index('media_items_development_position_idx').on(t.developmentId, t.position),
+    // Procesos en segundo plano (ADR 0040): las en curso de quien las subió y las recién subidas.
+    index('media_items_pending_uploader_idx')
+      .on(t.uploadedBy)
+      .where(sql`processing_status = 'pending'`),
+    index('media_items_uploader_created_idx').on(t.uploadedBy, t.createdAt),
+    index('media_items_created_idx').on(t.createdAt),
     uniqueIndex('media_items_property_cover_uq')
       .on(t.propertyId)
       .where(sql`is_cover and property_id is not null`),
@@ -707,7 +713,15 @@ export const propertyDocuments = coreSchema.table(
     ...timestamps(),
     ...authorship(),
   },
-  (t) => [index('property_documents_property_created_idx').on(t.propertyId, t.createdAt, t.id)],
+  (t) => [
+    index('property_documents_property_created_idx').on(t.propertyId, t.createdAt, t.id),
+    // Procesos en segundo plano (ADR 0040).
+    index('property_documents_pending_requester_idx')
+      .on(t.requestedBy)
+      .where(sql`status = 'pending'`),
+    index('property_documents_requester_updated_idx').on(t.requestedBy, t.updatedAt),
+    index('property_documents_updated_idx').on(t.updatedAt),
+  ],
 );
 
 /** Reservas de una propiedad (D3: van con la propiedad porque cambian su estado). */

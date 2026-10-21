@@ -129,6 +129,12 @@ export const importJobs = coreSchema.table(
   },
   (t) => [
     index('import_jobs_kind_created_idx').on(t.kind, t.createdAt),
+    // Procesos en segundo plano (ADR 0040): las en curso de quien las pidió y las recién terminadas.
+    index('import_jobs_active_creator_idx')
+      .on(t.createdBy)
+      .where(sql`status in ('pending', 'running')`),
+    index('import_jobs_creator_updated_idx').on(t.createdBy, t.updatedAt),
+    index('import_jobs_updated_idx').on(t.updatedAt),
     /** Las importaciones de unidades de un emprendimiento, las más recientes primero. */
     index('import_jobs_units_development_idx')
       .on(sql`(${t.options} ->> 'developmentId')`, t.createdAt)

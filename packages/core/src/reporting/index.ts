@@ -57,3 +57,21 @@ export {
   type GlobalSearchError,
   type GlobalSearchSources,
 } from './application/queries/global-search';
+export type {
+  BackgroundTaskCriteria,
+  BackgroundTaskQuery,
+  BackgroundTaskRecord,
+} from './application/ports/background-task-query';
+export {
+  READ_OTHERS_BACKGROUND_TASKS,
+  type BackgroundTaskScopeError,
+} from './application/background-task-scope';
+export {
+  ListBackgroundTasks,
+  type ListBackgroundTasksError,
+} from './application/queries/list-background-tasks';
+export {
+  CountBackgroundTasks,
+  type CountBackgroundTasksError,
+} from './application/queries/count-background-tasks';
+export { FINISHED_TASKS_WINDOW_DAYS } from './domain/background-tasks';

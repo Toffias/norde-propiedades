@@ -122,6 +122,7 @@ Roles propuestos (a validar con Norde):
   - "**Libre**" y "**Sin Asignar**" no se copian: en Tokko son bolsas de contactos sin agente.
   - Uno que ya está en Norde con el mismo email o el mismo nombre no se crea ni se cambia: se puede volver a traer sin duplicar.
   - Se auditan como `user.imported` (y `user.suspended`), como `system:import`.
+  - Cada corrida queda guardada (en espera, en proceso, terminada con el resumen o con error) y se sigue desde la campana de procesos en segundo plano (§9). Queda auditada como `user.tokko_import_finished`.
 
 ### 2.2 Trazabilidad de cambios (auditoría)
 
@@ -1128,6 +1129,13 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Desde dos letras, despliega los primeros 5 resultados de cada tipo, agrupados, con un link "Ver los N" al listado del módulo filtrado por el texto. Las flechas recorren los resultados y Enter abre la ficha (un agente abre su panel en Usuarios).
   - Reusa el listado de cada módulo (caso de uso `GlobalSearch` en `reporting`): cada uno aplica sus permisos y su alcance (un agente ve sus contactos). Un tipo que el usuario no puede ver no aparece; los agentes requieren `users:read`.
   - En mobile, un botón de lupa abre el buscador arriba de la pantalla.
+- **Procesos en segundo plano** (campana de la barra superior, ADR 0040): lo que corre en los jobs, para saber qué se está procesando y cuándo termina.
+  - Muestra las fotos y planos procesándose (agrupados por ficha y por quien los subió), las importaciones (contactos, propiedades por planilla o por la API de Tokko, unidades y usuarios de Tokko), las acciones masivas de oportunidades, los PDF de la ficha y, para quien ve todos, las publicaciones en los portales.
+  - Cada uno con su estado (En espera, Procesando, Listo, Con error), su avance si se conoce ("1.200 de 2.780", con barra), las filas con problemas o el motivo del error, y un link: el reporte de la importación, la pestaña Multimedia o Difusión de la ficha, la descarga del PDF, Usuarios o el pipeline.
+  - El número de la campana cuenta los que siguen en curso. Mientras hay alguno, vuelve a preguntar cada 15 segundos (cada 5 con el panel abierto); sin nada en curso no pregunta.
+  - Cada usuario ve lo que pidió. Con el permiso `background-tasks:read-others` (el administrador lo tiene) aparece "Míos / Todos": lo de los demás, lo del sistema (como las fotos de una importación de Tokko, que explican por qué otras esperan) y los portales.
+  - Los terminados se muestran una semana o hasta "Limpiar terminados" (se recuerda en una cookie del navegador). De a 10, con "Ver más" hasta 50.
+  - Las exportaciones no aparecen: se arman en la misma descarga, no en un job.
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
 - **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
 - **Notificaciones**: un servicio único (panel, mail, WhatsApp) que usan los alquileres, los clientes asignados y las oportunidades.

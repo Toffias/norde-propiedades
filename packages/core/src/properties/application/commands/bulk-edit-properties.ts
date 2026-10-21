@@ -28,6 +28,7 @@ import type {
   PropertyReservedError,
   StatusNotManualError,
 } from '../../domain/property';
+import type { Publication } from '../../domain/property-details';
 import type { TagNotFoundError } from '../catalog-support';
 import { resolveSelection, type NoBranchAssignedError } from '../panel-filter';
 import type { PanelPropertyListQuery } from '../ports/panel-property-list-query';
@@ -51,10 +52,11 @@ const BATCH_SIZE = 100;
 const MAX_SKIPPED_DETAIL = 20;
 
 /**
- * Edición rápida masiva: precio, estado, captador o etiquetas de las propiedades seleccionadas (las
- * marcadas o todas las que cumplen el filtro). Hace falta `properties:bulk-edit`, y sobre cada
- * propiedad, poder editarla (las propias, las de la sucursal o todas). Las que no se pueden cambiar
- * se saltean y se informan; cada cambio queda en el historial de su propiedad.
+ * Edición rápida masiva: precio, estado, captador, etiquetas o publicación de las propiedades
+ * seleccionadas (las marcadas o todas las que cumplen el filtro). Hace falta `properties:bulk-edit`,
+ * y sobre cada propiedad, poder editarla (las propias, las de la sucursal o todas). La publicación
+ * pide además `properties:publish`, como en la ficha. Las que no se pueden cambiar se saltean y se
+ * informan; cada cambio queda en el historial de su propiedad.
  */
 export class BulkEditProperties {
   constructor(
@@ -85,6 +87,9 @@ export class BulkEditProperties {
       change.status === 'available' &&
       !actor.can('properties:mark-available')
     ) {
+      return err({ type: 'Forbidden' });
+    }
+    if (change.field === 'publication' && !actor.can('properties:publish')) {
       return err({ type: 'Forbidden' });
     }
 
@@ -228,6 +233,24 @@ function apply(
         operationsState(property),
       );
       return entry ? { kind: 'changed', entry } : { kind: 'unchanged' };
+    }
+    case 'publication': {
+      const before = { ...property.toSnapshot().publication };
+      const { field: _field, ...fields } = change;
+      const next: Partial<Publication> = Object.fromEntries(
+        Object.entries(fields).filter(([, value]) => value !== undefined),
+      );
+      const result = property.updatePublication(next, now);
+      if (result.isErr()) return { kind: 'skipped', reason: 'in_trash' };
+      if (!result.value) return { kind: 'unchanged' };
+      return {
+        kind: 'changed',
+        entry: auditAction(
+          actor,
+          propertyTarget('property.publication_changed', property.id),
+          diffChanges(before, { ...property.toSnapshot().publication }),
+        ),
+      };
     }
     case 'tags': {
       const before = [...property.tagIds].sort();

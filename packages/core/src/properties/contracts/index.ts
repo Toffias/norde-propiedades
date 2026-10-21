@@ -373,6 +373,23 @@ export const BulkEditChangeSchema = z.discriminatedUnion('field', [
       message: 'Elegí al menos una etiqueta para agregar o quitar.',
       path: ['add'],
     }),
+  /** Las opciones del botón "Publicación" de la ficha; las que no vienen quedan como están. */
+  z
+    .object({
+      field: z.literal('publication'),
+      publishedOnWeb: z.boolean().optional(),
+      showPriceOnWeb: z.boolean().optional(),
+      featured: z.boolean().optional(),
+      showExactAddress: z.boolean().optional(),
+    })
+    .refine(
+      (change) =>
+        change.publishedOnWeb !== undefined ||
+        change.showPriceOnWeb !== undefined ||
+        change.featured !== undefined ||
+        change.showExactAddress !== undefined,
+      { message: 'Elegí qué cambiar de la publicación.', path: ['publishedOnWeb'] },
+    ),
 ]);
 export type BulkEditChange = z.input<typeof BulkEditChangeSchema>;
 

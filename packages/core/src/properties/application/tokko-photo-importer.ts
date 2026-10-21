@@ -54,6 +54,8 @@ export class TokkoPhotoImporter {
       readonly storage: FileStorage;
       readonly ids: IdGenerator;
       readonly clock: Clock;
+      /** La importación que las trae: la campanita sigue sus variantes como parte de ella. */
+      readonly importId: string;
     },
   ) {}
 
@@ -122,6 +124,7 @@ export class TokkoPhotoImporter {
               position: first + index,
               isCover: photo === cover,
               uploadedBy: runner.id,
+              importId: this.deps.importId,
               now,
             }),
           );

@@ -116,7 +116,7 @@ export class RunTokkoApiPropertyImport {
     if (!source) return this.fail(job, runner);
 
     const properties = new TokkoPropertyImporter(this.deps);
-    const photos = new TokkoPhotoImporter({ ...this.deps, source });
+    const photos = new TokkoPhotoImporter({ ...this.deps, source, importId: job.id });
     const run: Run = {
       runner,
       job,

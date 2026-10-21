@@ -55,6 +55,8 @@ export interface MediaItemSnapshot {
   readonly processing: MediaProcessingStatus;
   readonly processingError: string | undefined;
   readonly uploadedBy: string;
+  /** La importación que la trajo (la de Tokko): sus variantes se siguen como parte de ella. */
+  readonly importId: string | undefined;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -159,6 +161,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
     /** La primera foto de la galería es la portada. */
     readonly isCover: boolean;
     readonly uploadedBy: string;
+    readonly importId?: string;
     readonly now: Date;
   }): Result<MediaItem, UnsupportedMediaTypeError | MediaTooLargeError> {
     const valid = MediaItem.validateUpload(input);
@@ -184,6 +187,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
         processing: 'pending',
         processingError: undefined,
         uploadedBy: input.uploadedBy,
+        importId: input.importId,
         createdAt: input.now,
         updatedAt: input.now,
       },
@@ -229,6 +233,7 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
           processing: 'ready',
           processingError: undefined,
           uploadedBy: input.uploadedBy,
+          importId: undefined,
           createdAt: input.now,
           updatedAt: input.now,
         },

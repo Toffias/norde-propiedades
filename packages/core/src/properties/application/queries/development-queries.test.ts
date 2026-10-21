@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { InMemoryAuditHistoryQuery } from '../../../audit/testing';
+import { InMemoryFileStorage } from '../../../settings/testing';
 import { Actor } from '../../../shared';
 import { unwrap, unwrapErr } from '../../../shared/testing';
 import {
@@ -40,7 +41,7 @@ describe('ListDevelopments', () => {
       items: [aDevelopmentItem({ deletedAt: TEST_NOW, deletedBy: OTHER_USER_ID })],
       total: 26,
     });
-    const query = new ListDevelopments({ developments, users });
+    const query = new ListDevelopments({ developments, users, storage: new InMemoryFileStorage() });
 
     const page = unwrap(
       await query.execute(
@@ -74,8 +75,31 @@ describe('ListDevelopments', () => {
     expect(page.items[0]?.deletedBy).toEqual({ id: OTHER_USER_ID, name: 'Martín Gómez' });
   });
 
+  it('signs the cover thumbnail of each development', async () => {
+    const storage = new InMemoryFileStorage();
+    storage.signing = true;
+    const cover = { mediaId: DEVELOPMENT_ID, hasThumbnail: true, fileKey: 'thumbnail-key' };
+    const developments = new StubDevelopmentListQuery({
+      items: [aDevelopmentItem({ cover })],
+      total: 1,
+    });
+    const query = new ListDevelopments({ developments, users, storage });
+
+    const page = unwrap(await query.execute({}, TEST_DEVELOPER));
+
+    expect(page.items[0]?.cover).toEqual({
+      mediaId: DEVELOPMENT_ID,
+      hasThumbnail: true,
+      url: 'signed:thumbnail-key',
+    });
+  });
+
   it('rejects an invalid sort and needs developments:read; the trash needs delete', async () => {
-    const query = new ListDevelopments({ developments: new StubDevelopmentListQuery(), users });
+    const query = new ListDevelopments({
+      developments: new StubDevelopmentListQuery(),
+      users,
+      storage: new InMemoryFileStorage(),
+    });
     expect(unwrapErr(await query.execute({ sort: 'price' }, TEST_DEVELOPER)).type).toBe(
       'InvalidSearch',
     );

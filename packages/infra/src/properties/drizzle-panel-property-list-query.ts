@@ -32,7 +32,17 @@ import type { DbExecutor } from '../db/executor';
 import { mediaItems, properties, propertyOperations, propertyOwners } from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
-const CoverRow = z.object({ mediaId: z.string(), hasThumbnail: z.boolean() }).nullable();
+/** La clave de la miniatura, o de la original mientras se genera: el caso de uso la firma. */
+const CoverRow = z
+  .object({
+    mediaId: z.string(),
+    hasThumbnail: z.boolean(),
+    fileKey: z
+      .string()
+      .nullable()
+      .transform((key) => key ?? undefined),
+  })
+  .nullable();
 const RowEnums = z.object({
   propertyType: z.enum(PROPERTY_TYPES),
   status: z.enum(PROPERTY_STATUSES),
@@ -60,7 +70,11 @@ const outerPropertyId = sql.raw('"properties"."id"');
 
 /** Portada de la propiedad, o su primera foto (índice `media_items_property_position_idx`). */
 const cover = sql<unknown>`(
-  select json_build_object('mediaId', m.id, 'hasThumbnail', m.variants ? 'thumbnail')
+  select json_build_object(
+    'mediaId', m.id,
+    'hasThumbnail', m.variants ? 'thumbnail',
+    'fileKey', coalesce(m.variants ->> 'thumbnail', m.storage_key)
+  )
   from ${mediaItems} m
   where m.property_id = ${outerPropertyId} and m.kind = 'photo'
   order by m.is_cover desc, m.position asc

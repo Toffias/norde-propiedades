@@ -592,7 +592,11 @@ describe('DrizzlePanelPropertyListQuery', () => {
     expect(page.items[0]).toMatchObject({
       province: 'Buenos Aires',
       attributes: { rooms: 3, surfaceTotalM2: 70.5, bedrooms: undefined },
-      cover: { mediaId: '00000000-0000-7000-a000-000000000002', hasThumbnail: true },
+      cover: {
+        mediaId: '00000000-0000-7000-a000-000000000002',
+        hasThumbnail: true,
+        fileKey: 'properties/3/portada-thumb.jpg',
+      },
       coordinates: { latitude: -34.696, longitude: -58.55 },
     });
   });

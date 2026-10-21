@@ -238,6 +238,116 @@ describe('BulkEditProperties', () => {
     });
   });
 
+  it('publishes on the web with properties:publish and audits each property', async () => {
+    const { uow, bulk } = setup();
+    const input: BulkEditPropertiesInput = {
+      selection: { kind: 'ids', ids: [A, B] },
+      change: { field: 'publication', publishedOnWeb: true, featured: true },
+    };
+    expect(unwrapErr(await bulk.execute(input, AGENT))).toEqual({ type: 'Forbidden' });
+
+    const publisher = Actor.user(PRODUCER_ID, [
+      'properties:read',
+      'properties:update',
+      'properties:bulk-edit',
+      'properties:publish',
+    ]).withBranch(BRANCH_ID);
+    const first = unwrap(await bulk.execute(input, publisher));
+    const second = unwrap(await bulk.execute(input, publisher));
+
+    expect([first.updated, second.unchanged]).toEqual([2, 2]);
+    expect(uow.properties.rows.get(A)?.publication).toEqual({
+      publishedOnWeb: true,
+      showPriceOnWeb: true,
+      featured: true,
+      showExactAddress: false,
+    });
+    expect(uow.audit.entries).toEqual([
+      expect.objectContaining({
+        kind: 'action',
+        action: 'property.publication_changed',
+        entityId: A,
+        changes: {
+          publishedOnWeb: { before: false, after: true },
+          featured: { before: false, after: true },
+        },
+      }),
+      expect.objectContaining({ action: 'property.publication_changed', entityId: B }),
+    ]);
+  });
+
+  it('unpublishes without touching the other publication options', async () => {
+    const { uow, bulk } = setup();
+    uow.properties.rows.set(
+      A,
+      propertySnapshot({
+        id: A,
+        code: 'DEP0001',
+        publication: {
+          publishedOnWeb: true,
+          showPriceOnWeb: false,
+          featured: true,
+          showExactAddress: false,
+        },
+      }),
+    );
+    unwrap(
+      await bulk.execute(
+        {
+          selection: { kind: 'ids', ids: [A] },
+          change: { field: 'publication', publishedOnWeb: false },
+        },
+        MANAGER,
+      ),
+    );
+    expect(uow.properties.rows.get(A)?.publication).toEqual({
+      publishedOnWeb: false,
+      showPriceOnWeb: false,
+      featured: true,
+      showExactAddress: false,
+    });
+    expect(uow.audit.entries[0]?.changes).toEqual({
+      publishedOnWeb: { before: true, after: false },
+    });
+  });
+
+  it('skips the properties in the trash and the ones the actor cannot edit', async () => {
+    const { uow, bulk } = setup();
+    uow.properties.rows.set(A, propertySnapshot({ id: A, code: 'DEP0001', deletedAt: TEST_NOW }));
+    const publisher = Actor.user(PRODUCER_ID, [
+      'properties:read',
+      'properties:update',
+      'properties:bulk-edit',
+      'properties:publish',
+    ]).withBranch(BRANCH_ID);
+    const result = unwrap(
+      await bulk.execute(
+        {
+          selection: { kind: 'ids', ids: [A, C] },
+          change: { field: 'publication', featured: true },
+        },
+        publisher,
+      ),
+    );
+    expect(result).toEqual({
+      updated: 0,
+      unchanged: 0,
+      skipped: [
+        { code: 'DEP0001', reason: 'in_trash' },
+        { code: 'DEP0003', reason: 'forbidden' },
+      ],
+      skippedCount: 2,
+    });
+    expect(uow.audit.entries).toEqual([]);
+  });
+
+  it('rejects a publication change without options', async () => {
+    const { bulk } = setup();
+    expect(
+      unwrapErr(await bulk.execute({ selection: ALL, change: { field: 'publication' } }, MANAGER)),
+    ).toMatchObject({ type: 'InvalidInput', issues: ['Elegí qué cambiar de la publicación.'] });
+  });
+
   it('works in batches and refuses selections that are too big', async () => {
     const { uow, list, bulk } = setup();
     unwrap(

@@ -32,6 +32,14 @@ import {
 // emprendimiento (su dueño). Los cambios se auditan contra el dueño, para que aparezcan en su
 // historial, con el campo prefijado por la fila hija.
 
+/**
+ * Lo que vale la URL firmada de una foto del panel. Es reusable: la misma URL durante una hora, así
+ * el navegador no vuelve a bajar la foto, y vigente al menos otra hora.
+ */
+export const PHOTO_URL_SECONDS = 2 * 60 * 60;
+/** Cuánto reusa el navegador la redirección a la foto: menos de lo que sigue vigente la URL. */
+export const PHOTO_REDIRECT_CACHE_SECONDS = 50 * 60;
+
 export interface MediaNotFoundError {
   readonly type: 'MediaNotFound';
 }

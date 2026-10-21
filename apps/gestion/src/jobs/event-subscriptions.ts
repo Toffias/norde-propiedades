@@ -84,6 +84,8 @@ const MediaOwnerPayloadSchema = z.object({
 });
 const DocumentPayloadSchema = z.object({ documentId: z.uuid() });
 const ImportPayloadSchema = z.object({ importId: z.uuid() });
+/** `requestId` es la corrida guardada (los de antes de guardarla no tienen una). */
+const TokkoUsersPayloadSchema = z.object({ requestId: z.uuid().optional() });
 /** Unas 4.000 fotos a unos segundos cada una, con margen. Si se corta, retoma donde quedó. */
 const TOKKO_API_IMPORT_EXPIRE_SECONDS = 6 * 60 * 60;
 /** Unas 28.000 fichas de contactos de a 50, con margen. */
@@ -714,7 +716,11 @@ export function eventSubscriptions(deps: {
       // Recorrer los contactos de Tokko de a 50 lleva unos minutos.
       expireInSeconds: TOKKO_USERS_IMPORT_EXPIRE_SECONDS,
       handle: async (event) => {
-        const result = await deps.runTokkoUsersImport.execute({}, deps.importActor);
+        const { requestId } = TokkoUsersPayloadSchema.parse(event.payload);
+        const result = await deps.runTokkoUsersImport.execute(
+          { importId: requestId },
+          deps.importActor,
+        );
         if (result.isErr()) {
           deps.logger.error(
             { eventId: event.id, error: result.error },

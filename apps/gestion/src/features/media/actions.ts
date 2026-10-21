@@ -65,12 +65,21 @@ async function uploadFrom(form: FormData) {
 }
 
 /** Una foto por pedido: la pantalla sube varias en paralelo y muestra el avance de cada una. */
-export async function uploadMediaAction(form: FormData): Promise<ActionResult> {
+/** Con la foto que quedó: la galería reemplaza su tarjeta local por la del servidor. */
+export type UploadMediaActionResult =
+  | { readonly ok: true; readonly mediaId: string }
+  | { readonly ok: false; readonly message: string };
+
+export async function uploadMediaAction(form: FormData): Promise<UploadMediaActionResult> {
   const { actor } = await requireSession();
   const parsed = UploadMediaInputSchema.safeParse(await uploadFrom(form));
-  if (!parsed.success) return actionFailed(INVALID);
+  if (!parsed.success) return { ok: false, message: INVALID };
   const result = await properties().uploadMedia.execute(parsed.data, actor);
-  return done(result, parsed.data.owner);
+  if (result.isErr()) {
+    return { ok: false, message: messageForError(result.error, MEDIA_ERROR_MESSAGES) };
+  }
+  revalidateOwner(parsed.data.owner);
+  return { ok: true, mediaId: result.value.mediaId };
 }
 
 export async function addMediaLinkAction(input: AddMediaLinkInput): Promise<ActionResult> {

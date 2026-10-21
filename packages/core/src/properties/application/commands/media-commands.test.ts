@@ -143,6 +143,8 @@ describe('GenerateMediaVariants', () => {
     expect(row).toMatchObject({ processing: 'ready', width: 1600, height: 1200 });
     expect(row?.variants.watermarked).toBeUndefined();
     expect(storage.objects.has(row?.variants.thumbnail ?? '')).toBe(true);
+    // Cada versión tiene su clave: el navegador las cachea sin volver a pedirlas.
+    expect([...storage.immutable]).toEqual([row?.variants.thumbnail, row?.variants.web]);
     expect(images.requests[0]?.rotation).toBe(0);
     // Con las variantes listas, la foto ya se publica: la web revalida la ficha.
     expect(uow.events.published.at(-1)).toMatchObject({
@@ -166,6 +168,7 @@ describe('GenerateMediaVariants', () => {
     const key = uow.media.rows.get(mediaId)?.variants.watermarked;
     expect(key).toBeDefined();
     expect(storage.objects.get(key ?? '')?.bytes).toEqual(new Uint8Array([2, 0xff]));
+    expect(storage.immutable.has(key ?? '')).toBe(true);
   });
 
   it('marks the photo as failed and rethrows when the watermark logo cannot be read', async () => {
@@ -417,10 +420,13 @@ describe('gallery edits', () => {
     unwrap(await variants().execute({ mediaId: a }, JOBS));
     storage.signing = true;
     const delivery = unwrap(await files.execute({ mediaId: a, variant: 'thumbnail' }, EDITOR));
+    // Reusable: el navegador reusa la redirección y la foto un rato, menos de lo que vale la URL.
     expect(delivery).toEqual({
       kind: 'redirect',
       url: `signed:${uow.media.rows.get(a)?.variants.thumbnail ?? ''}`,
+      cacheSeconds: 3000,
     });
+    expect(storage.signedWith.at(-1)).toEqual({ expiresInSeconds: 7200, reusable: true });
     expect(unwrapErr(await files.execute({ mediaId: a }, TEST_OUTSIDER))).toEqual({
       type: 'Forbidden',
     });

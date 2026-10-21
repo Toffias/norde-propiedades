@@ -477,7 +477,7 @@ describe('eventSubscriptions', () => {
       ['import', { importId: IMPORT_ID }, 'system:import'],
       ['unit-import', { importId: IMPORT_ID }, 'system:import'],
       ['property-import', { importId: IMPORT_ID }, 'system:import'],
-      ['tokko-users-import', {}, 'system:import'],
+      ['tokko-users-import', { importId: IMPORT_ID }, 'system:import'],
       ['tokko-api-import', { importId: IMPORT_ID }, 'system:import'],
       ['conversations', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],

@@ -237,6 +237,16 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
         ],
       },
       {
+        resource: 'background-tasks',
+        label: 'Notificaciones de procesos',
+        permissions: [
+          {
+            permission: 'background-tasks:read-others',
+            label: 'Ver las notificaciones de procesos de todos, del sistema y de los portales',
+          },
+        ],
+      },
+      {
         resource: 'company-files',
         label: 'Archivos de la empresa',
         permissions: [

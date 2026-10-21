@@ -301,10 +301,11 @@ export function PropertiesGrid({
           }
           router.push(detailHref(row));
         }}
-        bulkActions={(selection, count) => (
+        bulkActions={(selection, count, clearSelection) => (
           <PropertyBulkActions
             selection={selection}
             count={count}
+            onApplied={clearSelection}
             filters={filters}
             permissions={permissions}
           />

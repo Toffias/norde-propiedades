@@ -6,14 +6,17 @@ import {
   type StoredFileDelivery,
 } from '../../contracts';
 import { idOf } from '../catalog-support';
-import { canReadAnyMedia, canReadMedia, type MediaNotFoundError } from '../media-support';
+import {
+  canReadAnyMedia,
+  canReadMedia,
+  PHOTO_REDIRECT_CACHE_SECONDS,
+  PHOTO_URL_SECONDS,
+  type MediaNotFoundError,
+} from '../media-support';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import { invalidInput, type InvalidInputError } from '../property-support';
 
 export type GetMediaFileError = ForbiddenError | InvalidInputError | MediaNotFoundError;
-
-/** Lo que dura una URL firmada de una foto: lo que tarda en cargar la galería. */
-const SIGNED_URL_SECONDS = 5 * 60;
 
 /**
  * Una foto de la galería para mostrarla en el panel: la miniatura, la versión web o la original.
@@ -48,8 +51,13 @@ export class GetMediaFile {
     const { variant } = parsed.data;
     const key =
       (variant === 'original' ? undefined : snapshot.variants[variant]) ?? snapshot.storageKey;
-    const url = await this.deps.storage.signedUrl(key, { expiresInSeconds: SIGNED_URL_SECONDS });
-    if (url !== undefined) return ok({ kind: 'redirect', url });
+    const url = await this.deps.storage.signedUrl(key, {
+      expiresInSeconds: PHOTO_URL_SECONDS,
+      reusable: true,
+    });
+    if (url !== undefined) {
+      return ok({ kind: 'redirect', url, cacheSeconds: PHOTO_REDIRECT_CACHE_SECONDS });
+    }
     const stored = await this.deps.storage.get(key);
     if (!stored) return err({ type: 'MediaNotFound' });
     return ok({

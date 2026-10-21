@@ -1,7 +1,7 @@
 'use client';
 
 import type { PropertyCover } from '@norde/core/properties/contracts';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type CoverOwner = 'property' | 'development';
 
@@ -10,12 +10,16 @@ const OWNER_PATHS: Readonly<Record<CoverOwner, string>> = {
   development: '/emprendimientos',
 };
 
-/** La miniatura de la portada, por la ruta del panel (el storage es privado). */
+/**
+ * La miniatura de la portada: la URL firmada que trae el listado o, si no la trae (disco local, otras
+ * pantallas), la ruta del panel (el storage es privado).
+ */
 export function propertyCoverUrl(
   propertyId: string,
   cover: PropertyCover,
   owner: CoverOwner = 'property',
 ): string {
+  if (cover.url !== undefined) return cover.url;
   const ready = cover.hasThumbnail ? 'ready' : 'pending';
   return `${OWNER_PATHS[owner]}/${propertyId}/fotos/${cover.mediaId}?v=thumbnail&r=${ready}`;
 }
@@ -49,11 +53,15 @@ export function PropertyPhoto({
  */
 export function FallbackImage({
   src,
+  alt = '',
   className,
+  style,
   fallback,
 }: {
   readonly src: string;
+  readonly alt?: string;
   readonly className: string;
+  readonly style?: CSSProperties;
   readonly fallback: ReactNode;
 }) {
   const [failed, setFailed] = useState(false);
@@ -70,12 +78,13 @@ export function FallbackImage({
     <img
       ref={image}
       src={src}
-      alt=""
+      alt={alt}
       loading="lazy"
       onError={() => {
         setFailed(true);
       }}
       className={className}
+      {...(style === undefined ? {} : { style })}
     />
   );
 }

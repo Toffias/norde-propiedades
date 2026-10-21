@@ -54,14 +54,28 @@ const unitCount = sql<number>`(
 
 /** Portada o primera foto (índice `media_items_development_position_idx`). */
 const cover = sql<unknown>`(
-  select json_build_object('mediaId', m.id, 'hasThumbnail', m.variants ? 'thumbnail')
+  select json_build_object(
+    'mediaId', m.id,
+    'hasThumbnail', m.variants ? 'thumbnail',
+    'fileKey', coalesce(m.variants ->> 'thumbnail', m.storage_key)
+  )
   from ${mediaItems} m
   where m.development_id = ${outerDevelopmentId} and m.kind = 'photo'
   order by m.is_cover desc, m.position asc
   limit 1
 )`;
 
-const CoverRow = z.object({ mediaId: z.string(), hasThumbnail: z.boolean() }).nullable();
+/** La clave de la miniatura, o de la original mientras se genera: el caso de uso la firma. */
+const CoverRow = z
+  .object({
+    mediaId: z.string(),
+    hasThumbnail: z.boolean(),
+    fileKey: z
+      .string()
+      .nullable()
+      .transform((key) => key ?? undefined),
+  })
+  .nullable();
 
 const listColumns = {
   id: developments.id,

@@ -125,9 +125,19 @@ export {
 export {
   RunTokkoUsersImport,
   type RunTokkoUsersImportError,
-  type TokkoUsersImportSummary,
   type TokkoUsersSetupMissingError,
 } from './application/handlers/run-tokko-users-import';
+export {
+  TOKKO_USERS_IMPORT_FAILURES,
+  TOKKO_USERS_IMPORT_STATUSES,
+  TokkoUsersImport,
+  type TokkoUsersImportFailure,
+  type TokkoUsersImportId,
+  type TokkoUsersImportSnapshot,
+  type TokkoUsersImportStatus,
+  type TokkoUsersImportSummary,
+} from './domain/tokko-users-import';
+export type { TokkoUsersImportRepository } from './domain/tokko-users-import.repository';
 export type {
   TokkoUser,
   TokkoUserSource,

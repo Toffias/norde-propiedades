@@ -8,7 +8,7 @@ import type {
   DevelopmentType,
   DevelopmentViewValue,
 } from '../../contracts';
-import type { BoundingBox } from './panel-property-list-query';
+import type { BoundingBox, ListedCover } from './panel-property-list-query';
 
 /** Los filtros del listado de emprendimientos, ya validados. */
 export interface DevelopmentListCriteria {
@@ -32,9 +32,10 @@ export type DevelopmentFilterCriteria = Pick<
   'text' | 'status' | 'developmentType' | 'constructionStatus' | 'tagId'
 >;
 
-/** Fila tal como sale de la base: quién borró, solo por ID. */
-export type DevelopmentListItem = Omit<DevelopmentRow, 'deletedBy'> & {
+/** Fila tal como sale de la base: quién borró, solo por ID, y la portada con su clave. */
+export type DevelopmentListItem = Omit<DevelopmentRow, 'deletedBy' | 'cover'> & {
   readonly deletedBy: string | undefined;
+  readonly cover: ListedCover | undefined;
 };
 
 /** Puerto de consulta del listado de emprendimientos: SQL paginado en infra. */

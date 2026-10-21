@@ -13,6 +13,8 @@ import {
   type DevelopmentRow,
   type ListDevelopmentsQuery,
 } from '../../contracts';
+import type { FileStorage } from '../../../settings';
+import { toCover } from '../cover-urls';
 import type { DevelopmentListQuery } from '../ports/development-list-query';
 import type { UserNames } from '../ports/user-names';
 
@@ -28,6 +30,7 @@ export class ListDevelopments {
     private readonly deps: {
       readonly developments: DevelopmentListQuery;
       readonly users: UserNames;
+      readonly storage: FileStorage;
     },
   ) {}
 
@@ -63,11 +66,14 @@ export class ListDevelopments {
       ),
     ];
     const names = await this.deps.users.names(deleters);
-    const items = slice.items.map(({ deletedBy, ...item }): DevelopmentRow => ({
-      ...item,
-      deletedBy:
-        deletedBy === undefined ? undefined : { id: deletedBy, name: names.get(deletedBy) },
-    }));
+    const items = await Promise.all(
+      slice.items.map(async ({ deletedBy, cover, ...item }): Promise<DevelopmentRow> => ({
+        ...item,
+        cover: await toCover(cover, this.deps.storage),
+        deletedBy:
+          deletedBy === undefined ? undefined : { id: deletedBy, name: names.get(deletedBy) },
+      })),
+    );
     return ok(toPage({ items, total: slice.total }, { page, pageSize }));
   }
 }

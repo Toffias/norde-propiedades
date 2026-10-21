@@ -58,18 +58,23 @@ import { cn } from '@norde/ui/lib/utils';
 import {
   ExternalLinkIcon,
   GripVerticalIcon,
+  ImageIcon,
   ImageOffIcon,
   ImagesIcon,
   Loader2Icon,
   MoreVerticalIcon,
   PlayCircleIcon,
+  RotateCwIcon,
   Trash2Icon,
   VideoIcon,
+  XIcon,
+  type LucideIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from 'react';
 
 import { runAction, type ActionResult } from '../../../lib/action-result';
+import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import {
   addMediaLinkAction,
   deleteMediaAction,
@@ -80,6 +85,7 @@ import {
 } from '../actions';
 import { mediaFileHref } from '../paths';
 import { MEDIA_KIND_LABELS } from '../labels';
+import { FallbackImage } from '../../properties/components/property-photo';
 import { ConfirmActionDialog } from '../../shared/components/confirm-action-dialog';
 
 /** Fotos que se suben a la vez: el resto espera su turno. */
@@ -97,11 +103,115 @@ function isImage(item: MediaRow): boolean {
   return item.kind === 'photo' || item.kind === 'floor_plan';
 }
 
+/**
+ * Una foto elegida para subir. Se ve como una tarjeta más de la galería, con la vista previa del
+ * navegador, hasta que llega la del servidor (`mediaId`); después le presta la vista previa
+ * mientras se generan sus variantes, para que la imagen no salte.
+ */
 interface Upload {
   readonly key: string;
-  readonly name: string;
-  readonly status: 'waiting' | 'uploading' | 'done' | 'failed';
+  readonly file: File;
+  /** `URL.createObjectURL(file)`: se libera cuando ya no hace falta. */
+  readonly preview: string;
+  readonly status: 'waiting' | 'uploading' | 'uploaded' | 'failed';
+  readonly mediaId?: string;
   readonly error?: string;
+}
+
+/** Cuándo la tarjeta del servidor ya no necesita la vista previa local. */
+function hasOwnImage(item: MediaRow): boolean {
+  return item.hasThumbnail || item.processing === 'failed';
+}
+
+/**
+ * Las fotos elegidas y su subida (de a `UPLOAD_CONCURRENCY`), con reintentar y quitar. Libera
+ * cada vista previa cuando la tarjeta del servidor ya muestra su miniatura, y todas al salir.
+ */
+function useUploads(owner: MediaOwnerInput, items: readonly MediaRow[]) {
+  const router = useRouter();
+  const [uploads, setUploads] = useState<readonly Upload[]>([]);
+  const previews = useRef(new Map<string, string>());
+
+  const settled = new Set(items.filter(hasOwnImage).map((item) => item.id));
+  const isSettled = (upload: Upload) => upload.mediaId !== undefined && settled.has(upload.mediaId);
+
+  useEffect(() => {
+    for (const upload of uploads) {
+      if (!isSettled(upload) || !previews.current.has(upload.key)) continue;
+      URL.revokeObjectURL(upload.preview);
+      previews.current.delete(upload.key);
+    }
+  });
+
+  useEffect(() => {
+    const open = previews.current;
+    return () => {
+      for (const url of open.values()) URL.revokeObjectURL(url);
+      open.clear();
+    };
+  }, []);
+
+  const update = (key: string, change: Partial<Upload>) => {
+    setUploads((current) =>
+      current.map((upload) => (upload.key === key ? { ...upload, ...change } : upload)),
+    );
+  };
+
+  function run(queue: Upload[]) {
+    const worker = async () => {
+      for (;;) {
+        const next = queue.shift();
+        if (next === undefined) return;
+        update(next.key, { status: 'uploading' });
+        const form = new FormData();
+        form.set('ownerKind', owner.kind);
+        form.set('ownerId', owner.id);
+        form.set('file', next.file);
+        try {
+          const result = await uploadMediaAction(form);
+          update(
+            next.key,
+            result.ok
+              ? { status: 'uploaded', mediaId: result.mediaId }
+              : { status: 'failed', error: result.message },
+          );
+        } catch {
+          update(next.key, { status: 'failed', error: UNEXPECTED_ERROR_MESSAGE });
+        }
+      }
+    };
+    void Promise.all(Array.from({ length: UPLOAD_CONCURRENCY }, worker)).then(() => {
+      router.refresh();
+    });
+  }
+
+  return {
+    /** Las que todavía no tienen su tarjeta del servidor con miniatura, en el orden elegido. */
+    pending: uploads.filter((upload) => !isSettled(upload)),
+    previewFor: (mediaId: string) =>
+      uploads.find((upload) => upload.mediaId === mediaId && !isSettled(upload))?.preview,
+    add(files: readonly File[]) {
+      const stamp = Date.now().toString();
+      const added = files.map((file, index) => {
+        const preview = URL.createObjectURL(file);
+        const key = `${stamp}-${index.toString()}`;
+        previews.current.set(key, preview);
+        return { key, file, preview, status: 'waiting' as const };
+      });
+      setUploads((current) => [...current.filter((upload) => !isSettled(upload)), ...added]);
+      run([...added]);
+    },
+    retry(upload: Upload) {
+      const again: Upload = { ...upload, status: 'waiting' };
+      setUploads((current) => current.map((item) => (item.key === upload.key ? again : item)));
+      run([again]);
+    },
+    remove(upload: Upload) {
+      URL.revokeObjectURL(upload.preview);
+      previews.current.delete(upload.key);
+      setUploads((current) => current.filter((item) => item.key !== upload.key));
+    },
+  };
 }
 
 /**
@@ -128,7 +238,7 @@ export function MediaGallery({
   const setOrder = (next: readonly MediaRow[]) => {
     setDragged({ source: items, order: next });
   };
-  const [uploads, setUploads] = useState<readonly Upload[]>([]);
+  const uploads = useUploads(owner, items);
   const [, startTransition] = useTransition();
   const processing = items.some((item) => item.processing === 'pending');
 
@@ -148,39 +258,13 @@ export function MediaGallery({
   );
 
   const images = order.filter(isImage);
+  // Las tarjetas locales van al final, donde queda una foto nueva, hasta que llega la del
+  // servidor (que sigue con la vista previa local mientras no tiene miniatura).
+  const arrived = new Set(images.map((item) => item.id));
+  const local = uploads.pending.filter(
+    (upload) => upload.mediaId === undefined || !arrived.has(upload.mediaId),
+  );
   const links = order.filter((item) => !isImage(item));
-
-  function upload(files: readonly File[]) {
-    const queue = files.map((file, index) => ({
-      key: `${Date.now().toString()}-${index.toString()}`,
-      file,
-    }));
-    setUploads((current) => [
-      ...current.filter((upload) => upload.status !== 'done'),
-      ...queue.map(({ key, file }) => ({ key, name: file.name, status: 'waiting' as const })),
-    ]);
-    const update = (key: string, change: Partial<Upload>) => {
-      setUploads((current) =>
-        current.map((upload) => (upload.key === key ? { ...upload, ...change } : upload)),
-      );
-    };
-    const worker = async () => {
-      for (;;) {
-        const next = queue.shift();
-        if (next === undefined) return;
-        update(next.key, { status: 'uploading' });
-        const form = new FormData();
-        form.set('ownerKind', owner.kind);
-        form.set('ownerId', owner.id);
-        form.set('file', next.file);
-        const error = await runAction(() => uploadMediaAction(form));
-        update(next.key, error === undefined ? { status: 'done' } : { status: 'failed', error });
-      }
-    };
-    void Promise.all(Array.from({ length: UPLOAD_CONCURRENCY }, worker)).then(() => {
-      router.refresh();
-    });
-  }
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -203,7 +287,7 @@ export function MediaGallery({
 
   const tooBig = (file: File) => file.size > MAX_MEDIA_UPLOAD_BYTES;
   const allowed = (file: File) =>
-    MEDIA_IMAGE_CONTENT_TYPES.some((type) => type === file.type) && !tooBig(file);
+    MEDIA_IMAGE_CONTENT_TYPES.some((type) => type === file.type) && file.size > 0 && !tooBig(file);
 
   return (
     <div className="flex flex-col gap-4">
@@ -223,44 +307,36 @@ export function MediaGallery({
                   );
                 }
                 const accepted = files.filter(allowed);
-                if (accepted.length > 0) upload(accepted);
+                if (accepted.length > 0) uploads.add(accepted);
               }}
             />
           )}
-          {uploads.length > 0 && (
-            <ul className="flex flex-col gap-1 text-sm" aria-live="polite">
-              {uploads.map((item) => (
-                <li key={item.key} className="flex items-center gap-2">
-                  {item.status === 'uploading' || item.status === 'waiting' ? (
-                    <Loader2Icon className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : null}
-                  <span className="truncate">{item.name}</span>
-                  <span
-                    className={cn(
-                      'text-xs',
-                      item.status === 'failed' ? 'text-destructive' : 'text-muted-foreground',
-                    )}
-                  >
-                    {item.status === 'waiting'
-                      ? 'En espera'
-                      : item.status === 'uploading'
-                        ? 'Subiendo…'
-                        : item.status === 'done'
-                          ? 'Subida'
-                          : item.error}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {images.length === 0 ? (
+          {images.length === 0 && local.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Todavía no hay fotos.</p>
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
               <SortableContext items={images.map((item) => item.id)} strategy={rectSortingStrategy}>
                 <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {images.map((item) => (
-                    <MediaTile key={item.id} owner={owner} item={item} canEdit={canEdit} />
+                    <MediaTile
+                      key={item.id}
+                      owner={owner}
+                      item={item}
+                      canEdit={canEdit}
+                      preview={uploads.previewFor(item.id)}
+                    />
+                  ))}
+                  {local.map((upload) => (
+                    <UploadTile
+                      key={upload.key}
+                      upload={upload}
+                      onRetry={() => {
+                        uploads.retry(upload);
+                      }}
+                      onRemove={() => {
+                        uploads.remove(upload);
+                      }}
+                    />
                   ))}
                 </ul>
               </SortableContext>
@@ -286,10 +362,13 @@ function MediaTile({
   owner,
   item,
   canEdit,
+  preview,
 }: {
   readonly owner: MediaOwnerInput;
   readonly item: MediaRow;
   readonly canEdit: boolean;
+  /** La vista previa local de una foto recién subida, hasta que tiene su miniatura. */
+  readonly preview: string | undefined;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -327,21 +406,26 @@ function MediaTile({
     >
       <div className="aspect-[4/3] w-full">
         {item.processing === 'failed' ? (
-          <div className="flex h-full flex-col items-center justify-center gap-1 p-2 text-center text-xs text-destructive">
-            <ImageOffIcon className="h-6 w-6" />
+          <TilePlaceholder icon={ImageOffIcon} tone="error">
             No se pudo procesar
-          </div>
+          </TilePlaceholder>
+        ) : preview !== undefined && !item.hasThumbnail ? (
+          <LocalPreview src={preview} alt={item.description ?? MEDIA_KIND_LABELS[item.kind]} />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel
-          <img
+          <FallbackImage
+            key={`${src}-${version}`}
             src={`${src}?v=${item.hasThumbnail ? 'thumbnail' : 'original'}&r=${version}`}
             alt={item.description ?? MEDIA_KIND_LABELS[item.kind]}
-            loading="lazy"
             className="h-full w-full object-cover"
-            style={
-              item.hasThumbnail
-                ? undefined
-                : { transform: `rotate(${item.rotation.toString()}deg)` }
+            {...(item.hasThumbnail
+              ? {}
+              : { style: { transform: `rotate(${item.rotation.toString()}deg)` } })}
+            fallback={
+              item.processing === 'pending' ? (
+                <TilePlaceholder icon={ImageIcon}>Preparando la vista previa…</TilePlaceholder>
+              ) : (
+                <TilePlaceholder icon={ImageOffIcon}>Sin vista previa</TilePlaceholder>
+              )
             }
           />
         )}
@@ -354,7 +438,8 @@ function MediaTile({
         {item.processing === 'pending' && (
           <Badge variant="secondary">
             <Loader2Icon className="h-3 w-3 animate-spin" />
-            Procesando
+            {/* Ya está subida: lo que falta son la miniatura, la versión web y la marca de agua. */}
+            Generando variantes
           </Badge>
         )}
       </div>
@@ -423,7 +508,7 @@ function MediaTile({
                   onSelect={() => {
                     update(
                       { mediaId: item.id, rotation: nextRotation(item.rotation) },
-                      'Rotada. Se está procesando de nuevo.',
+                      'Rotada. Se están generando sus variantes de nuevo.',
                     );
                   }}
                 >
@@ -488,6 +573,122 @@ function MediaTile({
         onOpenChange={setDeleting}
       />
     </li>
+  );
+}
+
+/** La vista previa del navegador (`blob:`) de una foto recién elegida. */
+function LocalPreview({
+  src,
+  alt,
+  className,
+}: {
+  readonly src: string;
+  readonly alt: string;
+  readonly className?: string;
+}) {
+  // eslint-disable-next-line @next/next/no-img-element -- una URL `blob:` local: `next/image` no la optimiza.
+  return <img src={src} alt={alt} className={cn('h-full w-full object-cover', className)} />;
+}
+
+const UPLOAD_STATUS_LABELS: Readonly<Record<Upload['status'], string>> = {
+  waiting: 'En espera',
+  uploading: 'Subiendo…',
+  // Ya está en el servidor: falta que llegue su tarjeta, que dice lo mismo.
+  uploaded: 'Generando variantes',
+  failed: 'No se pudo subir',
+};
+
+/** Una foto elegida que todavía no tiene su tarjeta del servidor, en el lugar donde va a quedar. */
+function UploadTile({
+  upload,
+  onRetry,
+  onRemove,
+}: {
+  readonly upload: Upload;
+  readonly onRetry: () => void;
+  readonly onRemove: () => void;
+}) {
+  const failed = upload.status === 'failed';
+  const label = UPLOAD_STATUS_LABELS[upload.status];
+  return (
+    <li
+      className={cn(
+        'relative overflow-hidden rounded-lg border bg-muted',
+        failed ? 'border-destructive/60' : 'border-border',
+      )}
+      aria-label={`${upload.file.name}: ${label}`}
+    >
+      <div className="aspect-[4/3] w-full">
+        <LocalPreview
+          src={upload.preview}
+          alt={upload.file.name}
+          className={cn(failed && 'opacity-40')}
+        />
+      </div>
+      <div className="absolute inset-x-0 top-0 flex flex-wrap gap-1 p-1.5" aria-live="polite">
+        {failed ? (
+          <Badge variant="destructive">{label}</Badge>
+        ) : (
+          <Badge variant="secondary">
+            <Loader2Icon className="h-3 w-3 animate-spin" />
+            {label}
+          </Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-1 p-1.5">
+        <p
+          className={cn(
+            'min-w-0 flex-1 py-1.5 text-xs',
+            failed ? 'line-clamp-2' : 'truncate',
+            failed ? 'text-destructive' : 'text-muted-foreground',
+          )}
+          title={failed ? upload.error : upload.file.name}
+        >
+          {failed ? upload.error : upload.file.name}
+        </p>
+        {failed && (
+          <>
+            <Button size="icon-sm" variant="ghost" aria-label="Reintentar" onClick={onRetry}>
+              <RotateCwIcon className="h-4 w-4" />
+            </Button>
+            <Button size="icon-sm" variant="ghost" aria-label="Quitar" onClick={onRemove}>
+              <XIcon className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** Lo que ocupa el lugar de la foto cuando no hay imagen para mostrar. */
+function TilePlaceholder({
+  icon: Icon,
+  tone = 'muted',
+  children,
+}: {
+  readonly icon: LucideIcon;
+  readonly tone?: 'muted' | 'error';
+  readonly children: ReactNode;
+}) {
+  return (
+    // Bajado media franja de acciones: así queda centrado en toda la tarjeta, no solo en la foto.
+    <div
+      className={cn(
+        'flex h-full translate-y-7 flex-col items-center justify-center gap-2 p-3 text-center text-xs',
+        tone === 'error' ? 'text-destructive' : 'text-muted-foreground',
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-10 w-10 items-center justify-center rounded-full',
+          tone === 'error' ? 'bg-destructive/10' : 'bg-background/70',
+        )}
+      >
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      {children}
+    </div>
   );
 }
 

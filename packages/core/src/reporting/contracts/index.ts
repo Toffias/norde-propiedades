@@ -75,3 +75,4 @@ export interface OwnerReport {
 
 export * from './home';
 export * from './global-search';
+export * from './background-tasks';

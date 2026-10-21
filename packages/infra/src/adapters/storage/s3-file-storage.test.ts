@@ -15,7 +15,14 @@ let endpoint: string;
 let received: ReceivedRequest[];
 
 /** Un S3 mínimo en memoria: con un endpoint por IP, el SDK usa rutas `/<bucket>/<key>`. */
-const objects = new Map<string, { readonly contentType: string; readonly bytes: Buffer }>();
+const objects = new Map<
+  string,
+  {
+    readonly contentType: string;
+    readonly cacheControl: string | undefined;
+    readonly bytes: Buffer;
+  }
+>();
 
 async function readBody(request: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -32,6 +39,7 @@ beforeAll(async () => {
       if (method === 'PUT') {
         objects.set(path, {
           contentType: request.headers['content-type'] ?? 'application/octet-stream',
+          cacheControl: request.headers['cache-control'],
           bytes: await readBody(request),
         });
         response.writeHead(200).end();
@@ -70,8 +78,9 @@ beforeEach(() => {
   objects.clear();
 });
 
-function storage(prefix?: string): S3FileStorage {
+function storage(prefix?: string, now?: () => Date): S3FileStorage {
   return new S3FileStorage({
+    ...(now === undefined ? {} : { now }),
     endpoint,
     region: 'us-east-2',
     bucket: 'norde-test',
@@ -124,5 +133,37 @@ describe('S3FileStorage', () => {
     const url = await storage('norde-uat').signedUrl(KEY, { expiresInSeconds: 300 });
 
     expect(new URL(url ?? '').pathname).toBe(`/norde-test/norde-uat/${KEY}`);
+  });
+
+  it('stores an immutable object for the browser to cache, and others without caching', async () => {
+    const files = storage();
+    await files.put(
+      { key: KEY, contentType: 'image/jpeg', bytes: new Uint8Array([1]) },
+      { immutable: true },
+    );
+    await files.put({ key: 'other', contentType: 'image/jpeg', bytes: new Uint8Array([1]) });
+
+    expect(objects.get(`/norde-test/${KEY}`)?.cacheControl).toBe(
+      'private, max-age=31536000, immutable',
+    );
+    expect(objects.get('/norde-test/other')?.cacheControl).toBeUndefined();
+  });
+
+  it('signs the same reusable URL during half its validity, valid at least the other half', async () => {
+    let now = new Date('2026-10-21T12:00:10Z');
+    const files = storage(undefined, () => now);
+    const sign = () => files.signedUrl(KEY, { expiresInSeconds: 7200, reusable: true });
+
+    const first = await sign();
+    now = new Date('2026-10-21T12:59:59Z');
+    const later = await sign();
+    now = new Date('2026-10-21T13:00:00Z');
+    const nextWindow = await sign();
+
+    expect(later).toBe(first);
+    expect(nextWindow).not.toBe(first);
+    const params = new URL(first ?? '').searchParams;
+    expect(params.get('X-Amz-Date')).toBe('20261021T120000Z');
+    expect(params.get('X-Amz-Expires')).toBe('7200');
   });
 });

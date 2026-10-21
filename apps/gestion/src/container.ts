@@ -297,6 +297,7 @@ import {
   type UserNames,
 } from '@norde/core/properties';
 import {
+  CountBackgroundTasks,
   GetOwnerReport,
   GetPendingOpportunities,
   GetPortalAlerts,
@@ -307,6 +308,7 @@ import {
   GlobalSearch,
   ListAvailableDevelopments,
   ListAvailableProperties,
+  ListBackgroundTasks,
   type ReportingPropertyProfiles,
 } from '@norde/core/reporting';
 import {
@@ -411,6 +413,7 @@ import {
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
   DrizzleHomeDashboardQuery,
+  DrizzleBackgroundTaskQuery,
   DrizzleReferenceCodeSequenceQuery,
   DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
@@ -557,6 +560,11 @@ export interface Container {
   };
   /** Buscador de la barra superior: contactos, propiedades, emprendimientos y agentes. */
   readonly search: { readonly globalSearch: GlobalSearch };
+  /** La campana de la barra superior: los procesos en segundo plano (ADR 0040). */
+  readonly backgroundTasks: {
+    readonly list: ListBackgroundTasks;
+    readonly count: CountBackgroundTasks;
+  };
   /** Tasaciones: listado, alta, edición, estados y papelera (#12). */
   readonly appraisals: AppraisalsUseCases;
   /** Noticias: el feed de actividad de la empresa (#16). */
@@ -968,7 +976,7 @@ function createPropertiesUseCases(
   });
 
   return {
-    listPanelProperties: new ListPanelProperties({ properties: list, users }),
+    listPanelProperties: new ListPanelProperties({ properties: list, users, storage }),
     getPropertyMap: new GetPropertyMap({ properties: list }),
     compareProperties: new CompareProperties({ properties: list, users }),
     listOwnedProperties: new ListOwnedProperties({ properties: list, users }),
@@ -1081,6 +1089,7 @@ function createPropertiesUseCases(
     listDevelopments: new ListDevelopments({
       developments: new DrizzleDevelopmentListQuery(db),
       users,
+      storage,
     }),
     getDevelopmentMap: new GetDevelopmentMap({
       developments: new DrizzleDevelopmentListQuery(db),
@@ -1553,6 +1562,7 @@ function createContainer(): Container {
         agents: listUsers,
       }),
     },
+    backgroundTasks: createBackgroundTasks(database.db, clock),
     news: { listNews: createListNews(database.db, clock) },
     portals: createPortalsUseCases(database.db, env, { ids, clock }, { properties, settings }),
     identity: {
@@ -1596,6 +1606,19 @@ function createContainer(): Container {
       removeFavorites: new RemoveFavorites({ uow: identityUow }),
       getFavoriteIds: new GetFavoriteIds({ favorites: new DrizzleUserFavorites(database.db) }),
     },
+  };
+}
+
+function createBackgroundTasks(db: Database, clock: Clock) {
+  const tasks = new DrizzleBackgroundTaskQuery(db);
+  const directory = new DrizzleDirectory(db);
+  return {
+    list: new ListBackgroundTasks({
+      tasks,
+      users: { names: (userIds) => directory.names('user', userIds) },
+      clock,
+    }),
+    count: new CountBackgroundTasks({ tasks, clock }),
   };
 }
 

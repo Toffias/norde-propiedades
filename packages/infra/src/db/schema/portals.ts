@@ -92,6 +92,11 @@ export const portalListings = coreSchema.table(
     index('portal_listings_portal_status_idx').on(t.portal, t.status),
     index('portal_listings_property_idx').on(t.propertyId),
     index('portal_listings_development_idx').on(t.developmentId),
+    // Procesos en segundo plano (ADR 0040): las pendientes de sincronizar y las recién cambiadas.
+    index('portal_listings_pending_idx')
+      .on(t.updatedAt)
+      .where(sql`status = 'pending'`),
+    index('portal_listings_updated_idx').on(t.updatedAt),
   ],
 );
 

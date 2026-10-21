@@ -34,6 +34,8 @@ export interface BulkPermissions {
   readonly bulkEdit: boolean;
   readonly changeProducer: boolean;
   readonly markAvailable: boolean;
+  /** `properties:publish`: las opciones de "Publicación" de la ficha. */
+  readonly publish: boolean;
   /** `properties:export` o `properties:export-bulk`: el caso de uso decide según la cantidad. */
   readonly export: boolean;
   /** Editar contactos: destacarles propiedades (#11). */
@@ -85,11 +87,14 @@ async function download(format: PropertyExportFormat, selection: PropertySelecti
 export function PropertyBulkActions({
   selection,
   count,
+  onApplied,
   filters,
   permissions,
 }: {
   readonly selection: DataTableSelection;
   readonly count: number;
+  /** Después de una edición rápida que salió bien: desmarca la selección. */
+  readonly onApplied: () => void;
   readonly filters: PropertyFilterValues;
   readonly permissions: BulkPermissions;
 }) {
@@ -219,6 +224,7 @@ export function PropertyBulkActions({
         selection={target}
         count={count}
         permissions={permissions}
+        onApplied={onApplied}
       />
     </>
   );

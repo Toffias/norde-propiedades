@@ -113,6 +113,48 @@ test.describe('listado', () => {
   });
 });
 
+test.describe('edición rápida', () => {
+  test('publica en la web y desmarca la selección', async ({ page }) => {
+    const created = await createProperty(page);
+    await page.goto(`/propiedades?q=${encodeURIComponent(created.street)}`);
+    const checkbox = page.getByRole('checkbox', { name: 'Seleccionar fila' }).first();
+    await checkbox.check();
+    await page.getByRole('button', { name: 'Edición rápida' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Edición rápida' });
+    await dialog.getByRole('combobox', { name: 'Qué cambiar' }).click();
+    await page.getByRole('option', { name: 'Publicación en la web' }).click();
+    await expect(dialog.getByRole('combobox', { name: 'Publicar en web' })).toHaveText('Publicar');
+    await expect(
+      dialog.getByText('La web la muestra solo mientras esté disponible.'),
+    ).toBeVisible();
+    await dialog.getByRole('button', { name: 'Aplicar' }).click();
+
+    await expect(page.getByText('1 propiedad cambiada')).toBeVisible();
+    await expect(dialog).toBeHidden();
+    await expect(checkbox).not.toBeChecked();
+    await expect(page.getByText('1 seleccionado')).toBeHidden();
+  });
+
+  test('si falla, la selección queda para reintentar', async ({ page }) => {
+    await page.goto('/propiedades?q=P-013');
+    const checkbox = page.getByRole('checkbox', { name: 'Seleccionar fila' }).first();
+    await checkbox.check();
+    await page.getByRole('button', { name: 'Edición rápida' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Edición rápida' });
+    await dialog.getByRole('combobox', { name: 'Qué cambiar' }).click();
+    await page.getByRole('option', { name: 'Publicación en la web' }).click();
+    await dialog.getByRole('combobox', { name: 'Publicar en web' }).click();
+    await page.getByRole('option', { name: 'No cambiar' }).click();
+    await dialog.getByRole('button', { name: 'Aplicar' }).click();
+
+    await expect(dialog.getByText('Elegí qué cambiar de la publicación.')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(checkbox).toBeChecked();
+  });
+});
+
 test.describe('alta', () => {
   test('pide la calle y la ubicación', async ({ page }) => {
     await page.goto('/propiedades?panel=new');
@@ -200,8 +242,12 @@ test.describe('ficha', () => {
       .first()
       .setInputFiles({ name: 'frente.png', mimeType: 'image/png', buffer: PNG_1X1 });
 
-    await expect(page.getByText('Subida')).toBeVisible();
+    // La foto aparece enseguida como una tarjeta de la galería, y queda cuando llega la del servidor.
+    await expect(
+      page.getByRole('img', { name: 'frente.png' }).or(page.getByRole('img', { name: 'Foto' })),
+    ).toBeVisible();
     await expect(page.getByText(/Fotos y planos \(1\)/)).toBeVisible();
+    await expect(page.getByText('No se pudo subir')).toBeHidden();
   });
 });
 

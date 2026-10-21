@@ -11,11 +11,12 @@ import {
 } from '@norde/ui/components/dialog';
 import { FileDropzone } from '@norde/ui/components/file-dropzone';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
+import { ImageOffIcon, Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
+import { FallbackImage } from '../../properties/components/property-photo';
 import { FormAlert } from '../../shared/components/form-alert';
 import { changeLogoAction } from '../actions';
 
@@ -73,6 +74,7 @@ export function LogoUploader({
   }
 
   const uploadTitle = hasLogo ? 'Cambiar el logo' : 'Subir el logo';
+  const src = `/mi-empresa/logo/${which}?v=${encodeURIComponent(version)}`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -81,12 +83,17 @@ export function LogoUploader({
         {/* Damero con los tokens del tema: un logo blanco o transparente se ve en los dos temas. */}
         <div className="flex h-24 w-full min-w-40 items-center justify-center overflow-hidden rounded-md border border-border bg-[repeating-conic-gradient(var(--color-muted)_0%_25%,var(--color-border)_0%_50%)] bg-size-[16px_16px]">
           {hasLogo ? (
-            // Imagen servida por el panel (autorizada por el caso de uso), no por un CDN.
-            // eslint-disable-next-line @next/next/no-img-element -- `next/image` no sirve para una ruta que exige sesión.
-            <img
-              src={`/mi-empresa/logo/${which}?v=${encodeURIComponent(version)}`}
+            <FallbackImage
+              key={src}
+              src={src}
               alt={which === 'company' ? 'Logo de la empresa' : 'Logo de la marca de agua'}
               className="max-h-full max-w-full object-contain"
+              fallback={
+                <span className="flex flex-col items-center gap-1.5 text-xs text-muted-foreground">
+                  <ImageOffIcon className="h-5 w-5" aria-hidden />
+                  No se pudo mostrar el logo
+                </span>
+              }
             />
           ) : (
             <span className="text-xs text-muted-foreground">Sin logo</span>

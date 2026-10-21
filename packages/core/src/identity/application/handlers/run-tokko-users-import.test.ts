@@ -164,6 +164,64 @@ describe('Tokko users import', () => {
   });
 });
 
+describe('Tokko users import run tracking', () => {
+  async function requested() {
+    const context = setup();
+    unwrap(await context.start.execute({}, TEST_ADMIN));
+    const [job] = [...context.uow.tokkoUsersImports.rows.values()];
+    if (!job) throw new Error('No import was saved');
+    return { ...context, importId: job.id };
+  }
+
+  it('finishes the saved run with the summary, audited, and does not run it twice', async () => {
+    const { uow, run, source, importId } = await requested();
+
+    const summary = unwrap(await run.execute({ importId }, JOB_ACTOR));
+
+    expect(uow.tokkoUsersImports.rows.get(importId)).toMatchObject({
+      status: 'done',
+      summary,
+      requestedBy: TEST_ADMIN.id,
+      startedAt: TEST_NOW,
+      finishedAt: TEST_NOW,
+    });
+    expect(uow.audit.entries.find((e) => e.action === 'user.tokko_import_finished')).toMatchObject({
+      entityId: importId,
+      changes: { status: { before: 'running', after: 'done' } },
+    });
+    // Una entrega repetida del evento no vuelve a pedirle los usuarios a Tokko.
+    expect(unwrap(await run.execute({ importId }, JOB_ACTOR))).toEqual(summary);
+    expect(source.knownAsked).toHaveLength(1);
+  });
+
+  it('marks the saved run failed when Tokko does not answer or the setup is missing', async () => {
+    const down = await requested();
+    down.source.unavailable = true;
+    unwrapErr(await down.run.execute({ importId: down.importId }, JOB_ACTOR));
+    expect(down.uow.tokkoUsersImports.rows.get(down.importId)).toMatchObject({
+      status: 'failed',
+      failure: 'tokko_unavailable',
+    });
+
+    const noBranch = await requested();
+    noBranch.uow.branches.rows.clear();
+    unwrapErr(await noBranch.run.execute({ importId: noBranch.importId }, JOB_ACTOR));
+    expect(noBranch.uow.tokkoUsersImports.rows.get(noBranch.importId)).toMatchObject({
+      status: 'failed',
+      failure: 'main_branch_missing',
+    });
+  });
+
+  it('runs an event from before the runs were saved, without one', async () => {
+    const { uow, run } = setup();
+
+    unwrap(await run.execute({ importId: '00000000-0000-7000-8000-00000000ffff' }, JOB_ACTOR));
+
+    expect(byName(uow, 'Mariela Prueba')).toBeDefined();
+    expect(uow.tokkoUsersImports.rows.size).toBe(0);
+  });
+});
+
 describe('StartTokkoUsersImport', () => {
   it('asks the job to bring the users, audited, for who can create users', async () => {
     const { uow, start } = setup();
@@ -174,6 +232,10 @@ describe('StartTokkoUsersImport', () => {
       'identity.tokko_users_import_requested',
     ]);
     expect(uow.audit.entries.map((e) => e.action)).toEqual(['user.tokko_import_requested']);
+    // La corrida queda guardada, pendiente y a nombre de quien la pidió.
+    const [job] = [...uow.tokkoUsersImports.rows.values()];
+    expect(job).toMatchObject({ status: 'pending', requestedBy: TEST_ADMIN.id });
+    expect(uow.events.published[0]?.payload).toEqual({ requestId: job?.id });
     expect(unwrapErr(await start.execute({}, TEST_AGENT))).toEqual({ type: 'Forbidden' });
     const unconfigured = new StartTokkoUsersImport({
       uow,

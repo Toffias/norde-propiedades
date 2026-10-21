@@ -34,6 +34,12 @@ import type { BranchRepository, TeamRepository } from '../domain/organization.re
 import { Role, type RoleId, type RoleSnapshot } from '../domain/role';
 import type { RoleRepository } from '../domain/role.repository';
 import { Team, type TeamId, type TeamSnapshot } from '../domain/team';
+import {
+  TokkoUsersImport,
+  type TokkoUsersImportId,
+  type TokkoUsersImportSnapshot,
+} from '../domain/tokko-users-import';
+import type { TokkoUsersImportRepository } from '../domain/tokko-users-import.repository';
 import { User, type UserId, type UserSnapshot } from '../domain/user';
 import type { UserRepository } from '../domain/user.repository';
 
@@ -306,6 +312,20 @@ export class InMemoryUserFavorites implements UserFavorites {
   }
 }
 
+export class InMemoryTokkoUsersImportRepository implements TokkoUsersImportRepository {
+  readonly rows = new Map<string, TokkoUsersImportSnapshot>();
+
+  findById(id: TokkoUsersImportId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? TokkoUsersImport.restore(row) : undefined);
+  }
+
+  save(job: TokkoUsersImport) {
+    this.rows.set(job.id, job.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
 export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
   readonly users = new InMemoryUserRepository();
   readonly roles = new InMemoryRoleRepository(this.users);
@@ -314,6 +334,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
   readonly credentials = new InMemoryCredentialStore();
   readonly sessions = new InMemoryUserSessions();
   readonly favorites = new InMemoryUserFavorites();
+  readonly tokkoUsersImports = new InMemoryTokkoUsersImportRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
 
@@ -327,6 +348,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
       hashes: new Map(this.credentials.hashes),
       sessions: new Map(this.sessions.open),
       favorites: new Set(this.favorites.rows),
+      tokkoUsersImports: new Map(this.tokkoUsersImports.rows),
       events: this.events.published.length,
       audit: this.audit.entries.length,
     };
@@ -341,6 +363,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
       restore(this.sessions.open, backup.sessions);
       this.favorites.rows.clear();
       for (const row of backup.favorites) this.favorites.rows.add(row);
+      restore(this.tokkoUsersImports.rows, backup.tokkoUsersImports);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
     };

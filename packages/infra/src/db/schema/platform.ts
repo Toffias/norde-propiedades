@@ -99,7 +99,7 @@ export const importJobs = coreSchema.table(
   'import_jobs',
   {
     id: uuid('id').primaryKey(),
-    /** `tokko_api` / `clients_xlsx` / `units_xlsx`. */
+    /** `properties_tokko` / `clients_xlsx` / `units_xlsx` / `tokko_users`. */
     kind: text('kind').notNull(),
     /** `pending` / `running` / `done` / `failed`. */
     status: text('status').notNull().default('pending'),

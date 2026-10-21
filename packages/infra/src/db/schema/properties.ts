@@ -636,6 +636,8 @@ export const mediaItems = coreSchema.table(
     processingStatus: text('processing_status').notNull().default('ready'),
     processingError: text('processing_error'),
     uploadedBy: text('uploaded_by').notNull(),
+    /** La importación que trajo la foto (`import_jobs`, la de Tokko por API). */
+    importId: uuid('import_id'),
     ...timestamps(),
     ...authorship(),
   },
@@ -649,6 +651,10 @@ export const mediaItems = coreSchema.table(
       .where(sql`processing_status = 'pending'`),
     index('media_items_uploader_created_idx').on(t.uploadedBy, t.createdAt),
     index('media_items_created_idx').on(t.createdAt),
+    // Las fotos de una importación, que la campana muestra juntas.
+    index('media_items_import_idx')
+      .on(t.importId)
+      .where(sql`import_id is not null`),
     uniqueIndex('media_items_property_cover_uq')
       .on(t.propertyId)
       .where(sql`is_cover and property_id is not null`),

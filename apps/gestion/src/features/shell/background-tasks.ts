@@ -36,6 +36,7 @@ export const STATUS_DISPLAY: Readonly<
 };
 
 const KIND_LABELS: Readonly<Record<Exclude<BackgroundTaskKind, 'media_variants'>, string>> = {
+  import_media: 'Fotos de la importación de Tokko',
   client_import: 'Importación de contactos',
   property_import: 'Importación de propiedades',
   unit_import: 'Importación de unidades',
@@ -82,9 +83,12 @@ export function taskStatus(task: BackgroundTaskRow): {
   readonly tone: StatusTone;
 } {
   const status = STATUS_DISPLAY[task.status];
-  return task.kind === 'media_variants' && task.status === 'running'
-    ? { ...status, label: 'En curso' }
-    : status;
+  return isMedia(task) && task.status === 'running' ? { ...status, label: 'En curso' } : status;
+}
+
+/** Las variantes de fotos: las de una ficha o las que trajo una importación. */
+function isMedia(task: BackgroundTaskRow): boolean {
+  return task.kind === 'media_variants' || task.kind === 'import_media';
 }
 
 /** El título del proceso: qué es y, si corre sobre una ficha, cuál. */
@@ -104,6 +108,7 @@ export function taskTitle(task: BackgroundTaskRow): string {
       const action = lookup(BULK_ACTION_LABELS, task.detail);
       return action === undefined ? KIND_LABELS.opportunity_bulk : `${action} de oportunidades`;
     }
+    case 'import_media':
     case 'client_import':
     case 'unit_import':
     case 'tokko_users_import':
@@ -137,7 +142,7 @@ export function formatProgress(progress: BackgroundTaskRow['progress']): string 
 export function taskFailure(task: BackgroundTaskRow): string | undefined {
   if (task.status !== 'failed') return undefined;
   if (task.kind === 'portal_listing') return task.failure ?? 'El portal rechazó la publicación.';
-  if (task.kind === 'media_variants') {
+  if (isMedia(task)) {
     return task.problems === 1
       ? 'No se pudieron generar las variantes de una foto.'
       : `No se pudieron generar las variantes de ${String(task.problems)} fotos.`;
@@ -152,6 +157,7 @@ export function taskProblems(task: BackgroundTaskRow): string | undefined {
   const count = String(task.problems);
   switch (task.kind) {
     case 'media_variants':
+    case 'import_media':
       return task.problems === 1 ? 'Una foto con error' : `${count} fotos con error`;
     case 'opportunity_bulk':
       return task.problems === 1 ? 'Una salteada' : `${count} salteadas`;
@@ -186,6 +192,7 @@ export function taskHref(task: BackgroundTaskRow): string | undefined {
     case 'client_import':
       return `/contactos/importaciones?panel=${task.sourceId}`;
     case 'property_import':
+    case 'import_media':
       return `/propiedades/importaciones?panel=${task.sourceId}`;
     case 'unit_import':
       return task.subject?.kind === 'development'

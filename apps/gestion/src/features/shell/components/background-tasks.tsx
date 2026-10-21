@@ -16,6 +16,7 @@ import {
   BellIcon,
   FileTextIcon,
   ImageIcon,
+  ImagesIcon,
   type LucideIcon,
   Loader2Icon,
   MegaphoneIcon,
@@ -48,6 +49,7 @@ const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
 const KIND_ICONS: Readonly<Record<BackgroundTaskKind, LucideIcon>> = {
   media_variants: ImageIcon,
+  import_media: ImagesIcon,
   client_import: SheetIcon,
   property_import: SheetIcon,
   unit_import: SheetIcon,

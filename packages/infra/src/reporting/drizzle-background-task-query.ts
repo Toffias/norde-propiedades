@@ -139,8 +139,8 @@ export class DrizzleBackgroundTaskQuery implements BackgroundTaskQuery {
     const by = (column: SQL) =>
       criteria.requesterId === undefined ? sql`true` : sql`${column} = ${criteria.requesterId}`;
     const sources = [
-      // Las fotos y planos de una ficha que subió una persona (o la importación), agrupados. Las
-      // terminadas: subidas hasta una semana antes de `since` y terminadas después.
+      // Las fotos y planos de una ficha que subió una persona, agrupados. Las terminadas: subidas
+      // hasta una semana antes de `since` y terminadas después. Las de una importación van aparte.
       sql`
         select 'media_variants' as kind,
           'media_variants:' || coalesce(m.property_id, m.development_id)::text || ':' || m.uploaded_by as id,
@@ -161,10 +161,39 @@ export class DrizzleBackgroundTaskQuery implements BackgroundTaskQuery {
             then max(m.updated_at) end as finished_at
         from ${mediaItems} m
         where ${by(sql`m.uploaded_by`)}
+          and m.import_id is null
           and m.kind in ('photo', 'floor_plan')
           and (m.processing_status = 'pending'
             or m.created_at > ${since}::timestamptz - make_interval(days => ${FINISHED_TASKS_WINDOW_DAYS}::int))
         group by m.property_id, m.development_id, m.uploaded_by
+        having count(*) filter (where m.processing_status = 'pending') > 0
+          or max(m.updated_at) > ${since}::timestamptz
+      `,
+      // Las fotos que trajo una importación (la de Tokko), todas juntas y a nombre de quien la
+      // pidió: se siguen generando después de que la importación termina.
+      sql`
+        select 'import_media' as kind, 'import_media:' || j.id::text as id,
+          j.id::text as source_id,
+          case
+            when count(*) filter (where m.processing_status = 'pending') > 0 then 'running'
+            when count(*) filter (where m.processing_status = 'failed') > 0 then 'failed'
+            else 'done'
+          end as status,
+          null::text as property_id, null::text as development_id, null::text as detail,
+          count(*) filter (where m.processing_status <> 'pending') as done,
+          count(*) as total,
+          count(*) filter (where m.processing_status = 'failed') as problems,
+          null::text as failure, j.created_by as requester_id,
+          min(m.created_at) as created_at,
+          case when count(*) filter (where m.processing_status = 'pending') = 0
+            then max(m.updated_at) end as finished_at
+        from ${importJobs} j
+        join ${mediaItems} m on m.import_id = j.id
+        where ${by(sql`j.created_by`)}
+          and m.kind in ('photo', 'floor_plan')
+          and (m.processing_status = 'pending'
+            or m.created_at > ${since}::timestamptz - make_interval(days => ${FINISHED_TASKS_WINDOW_DAYS}::int))
+        group by j.id, j.created_by
         having count(*) filter (where m.processing_status = 'pending') > 0
           or max(m.updated_at) > ${since}::timestamptz
       `,

@@ -854,7 +854,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **Multimedia**: fotos y planos (JPG, PNG o WebP, hasta 15 MB, hasta 100 ítems por propiedad), videos (YouTube, Vimeo) y recorridos 360 (Matterport, Kuula, Roundme) por link.
 
-- Se suben varias a la vez, con el avance de cada una. La primera es la portada.
+- Se suben varias a la vez (de a 3). La primera es la portada. Cada foto aparece enseguida como una tarjeta más de la galería, al final (donde queda), con la vista previa del navegador y su estado encima: "En espera", "Subiendo…" y después "Generando variantes", sin que la imagen salte cuando llega la del servidor. Si una no se puede subir, su tarjeta muestra el motivo y deja reintentar o quitarla.
 - Se ordenan arrastrando. Por foto: portada, mostrar en la web, incluir en el PDF, es plano, rotar, descripción, bajar la original y borrar.
 - La original no se modifica: un job genera la miniatura, la versión web y la copia con marca de agua (ADR 0020). Mientras tanto, la foto se ve "Generando variantes" (ya está subida; no dice "Procesando" para que no parezca que se sigue cargando). Si no se puede (la imagen está dañada, falta la original o el storage no responde), queda "No se pudo procesar"; ante un error del storage, el job la reintenta y, si sale bien, queda lista.
 

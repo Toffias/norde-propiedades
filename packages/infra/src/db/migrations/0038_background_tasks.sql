@@ -15,7 +15,7 @@ CREATE INDEX "property_documents_updated_idx" ON "core"."property_documents" USI
 -- Procesos en segundo plano (ADR 0040): ver los de todos, los del sistema y los de los portales.
 -- Lo tiene el administrador. Idempotente.
 INSERT INTO "core"."role_permissions" ("role_id", "permission", "created_at", "created_by")
-SELECT r."id", 'background-tasks:read-others', now(), 'system:import'
+SELECT r."id", 'background-tasks:*', now(), 'system:import'
 FROM "core"."roles" r
 WHERE r."key" = 'admin'
 ON CONFLICT ("role_id", "permission") DO NOTHING;

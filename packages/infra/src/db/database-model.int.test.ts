@@ -93,8 +93,9 @@ describe('roles and permissions', () => {
 
     const code = await pgErrorCode(db.delete(roles).where(sql`${roles.id} = ${ROLE_ID}`));
 
-    // restrict_violation: `user_roles.role_id` es `on delete restrict`.
-    expect(code).toBe('23001');
+    // `user_roles.role_id` es `on delete restrict`. PostgreSQL 17 lo informa como
+    // foreign_key_violation; recién 18 usa restrict_violation (23001). ADR 0041.
+    expect(code).toBe('23503');
   });
 
   it("removes a user's roles and own permissions with the user", async () => {

@@ -91,8 +91,15 @@ export interface DataTableProps<T extends DataTableRow> {
   /** Sin `onSelectionChange` no hay casillas. */
   readonly selection?: DataTableSelection;
   readonly onSelectionChange?: (selection: DataTableSelection) => void;
-  /** Acciones masivas sobre la selección; se muestran cuando hay algo marcado. */
-  readonly bulkActions?: (selection: DataTableSelection, count: number) => ReactNode;
+  /**
+   * Acciones masivas sobre la selección; se muestran cuando hay algo marcado. `clearSelection`
+   * desmarca todo (ej. después de aplicar un cambio).
+   */
+  readonly bulkActions?: (
+    selection: DataTableSelection,
+    count: number,
+    clearSelection: () => void,
+  ) => ReactNode;
   /**
    * Clic en la fila (ej. abrir la ficha). No se dispara desde los controles de la fila (links,
    * botones, casillas, menús) ni al seleccionar texto. Con teclado, la fila necesita igual un link.
@@ -249,7 +256,9 @@ export function DataTable<T extends DataTableRow>({
           </Button>
           {bulkActions !== undefined && (
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-              {bulkActions(selection, count)}
+              {bulkActions(selection, count, () => {
+                onSelectionChange(EMPTY_SELECTION);
+              })}
             </div>
           )}
         </div>

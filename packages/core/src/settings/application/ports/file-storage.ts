@@ -15,10 +15,21 @@ export interface SignedUrlOptions {
   readonly expiresInSeconds: number;
   /** Con nombre, el navegador lo descarga con ese nombre; sin él, lo muestra (una foto). */
   readonly downloadName?: string;
+  /**
+   * La misma URL durante la mitad de la vigencia, para que el navegador reuse la copia en caché:
+   * vence entre `expiresInSeconds / 2` y `expiresInSeconds` después de pedirla.
+   */
+  readonly reusable?: boolean;
+}
+
+/** Cómo se guarda un objeto. */
+export interface PutOptions {
+  /** El contenido de esa clave no cambia nunca: el navegador lo cachea sin volver a pedirlo. */
+  readonly immutable?: boolean;
 }
 
 export interface FileStorage {
-  put(object: StoredObject): Promise<void>;
+  put(object: StoredObject, options?: PutOptions): Promise<void>;
   get(key: string): Promise<StoredObject | undefined>;
   delete(key: string): Promise<void>;
   /**

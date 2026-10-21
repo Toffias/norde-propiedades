@@ -75,7 +75,12 @@ export type {
   SettingsTransaction,
   SettingsUnitOfWork,
 } from './application/ports/settings-transaction';
-export type { FileStorage, SignedUrlOptions, StoredObject } from './application/ports/file-storage';
+export type {
+  FileStorage,
+  PutOptions,
+  SignedUrlOptions,
+  StoredObject,
+} from './application/ports/file-storage';
 export type {
   EmailAttachment,
   Mailer,

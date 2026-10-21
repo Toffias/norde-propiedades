@@ -26,6 +26,7 @@ import type {
 import type { GeocodingFailedError, Geocoder } from '../application/ports/geocoder';
 import type {
   DownloadedPhoto,
+  TokkoApiDevelopment,
   TokkoApiProperty,
   TokkoPropertySource,
 } from '../application/ports/tokko-property-source';
@@ -1393,6 +1394,11 @@ export class InMemoryDevelopmentRepository implements DevelopmentRepository {
     return Promise.resolve(row ? Development.restore(row) : undefined);
   }
 
+  findByCode(code: string) {
+    const row = [...this.rows.values()].find((development) => development.code === code);
+    return Promise.resolve(row ? Development.restore(row) : undefined);
+  }
+
   countActiveUnits(id: DevelopmentId) {
     const units = [...this.properties.rows.values()].filter(
       (property) => property.developmentId === id && property.deletedAt === undefined,
@@ -1588,14 +1594,31 @@ export class InMemoryPropertyImportRepository implements PropertyImportRepositor
  */
 export class FakeTokkoPropertySource implements TokkoPropertySource {
   readonly pages: { readonly offset: number; readonly limit: number }[] = [];
+  readonly developmentPages: { readonly offset: number; readonly limit: number }[] = [];
   readonly downloads: string[] = [];
   /** Desde esta posición del listado, Tokko no responde. */
   unavailableFrom: number | undefined;
+  /** Tokko no responde el listado de emprendimientos. */
+  developmentsUnavailable = false;
 
   constructor(
     readonly properties: TokkoApiProperty[] = [],
     readonly photos = new Map<string, DownloadedPhoto>(),
+    readonly developmentList: TokkoApiDevelopment[] = [],
   ) {}
+
+  developments(offset: number, limit: number) {
+    this.developmentPages.push({ offset, limit });
+    if (this.developmentsUnavailable) {
+      return Promise.resolve(err({ type: 'TokkoUnavailable' as const }));
+    }
+    return Promise.resolve(
+      ok({
+        total: this.developmentList.length,
+        developments: this.developmentList.slice(offset, offset + limit),
+      }),
+    );
+  }
 
   page(offset: number, limit: number) {
     this.pages.push({ offset, limit });

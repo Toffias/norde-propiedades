@@ -64,7 +64,7 @@ export default async function PropertyImportsPage({
         Norde con ese código no se duplican, y las que tienen datos inválidos quedan en el reporte
         de la importación.
         {tokko &&
-          ' Desde la API de Tokko también llegan las fotos, la descripción y las coordenadas, y se completan las que ya estaban sin pisar lo cargado.'}
+          ' Desde la API de Tokko también llegan los emprendimientos, las fotos, la descripción y las coordenadas, y se completa lo que ya estaba sin pisar lo cargado.'}
       </p>
       <Card className="gap-0 overflow-hidden p-0">
         {result.isErr() ? (

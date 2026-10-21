@@ -726,6 +726,8 @@ export {
 export type {
   DownloadedPhoto,
   PhotoUnavailableError,
+  TokkoApiDevelopment,
+  TokkoApiDevelopmentPage,
   TokkoApiOperation,
   TokkoApiOwner,
   TokkoApiPage,

@@ -5,6 +5,7 @@ import {
   StartPropertyImport,
   StartTokkoApiPropertyImport,
   type PropertyImportDirectory,
+  type TokkoApiDevelopment,
   type TokkoApiProperty,
 } from '@norde/core/properties';
 import { FakeTokkoPropertySource } from '@norde/core/properties/testing';
@@ -20,7 +21,14 @@ import { describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../test/database';
 import { UploadedSpreadsheetReader } from '../adapters/imports/uploaded-spreadsheet-reader';
 import { LocalFileStorage } from '../adapters/storage/local-file-storage';
-import { auditLog, locations, mediaItems, properties, propertyOperations } from '../db/schema';
+import {
+  auditLog,
+  developments,
+  locations,
+  mediaItems,
+  properties,
+  propertyOperations,
+} from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzlePropertyImportQuery } from './drizzle-property-imports';
@@ -187,12 +195,31 @@ describe('Tokko property imports', () => {
       latitude: -34.64,
       longitude: -58.56,
       owners: [],
-      developmentName: undefined,
+      developmentCode: 'NBU9100',
+      developmentName: 'Torre Belgrano',
       photos: [{ url: photo, fallbackUrl: undefined, order: 0, isCover: true, isFloorPlan: false }],
+    };
+    const development: TokkoApiDevelopment = {
+      referenceCode: 'NBU9100',
+      name: 'Torre Belgrano + EN POZO',
+      typeCode: 'BU',
+      address: 'Belgrano 123',
+      fullLocation: 'Argentina | G.B.A. Zona Oeste | La Matanza | Ramos Mejia',
+      constructionStatus: 3,
+      constructionDate: '2028-12-01',
+      displayOnWeb: true,
+      title: undefined,
+      description: 'Un edificio nuevo.',
+      financingDetails: undefined,
+      latitude: undefined,
+      longitude: undefined,
+      producerName: undefined,
+      photos: [],
     };
     const source = new FakeTokkoPropertySource(
       [tokko, { ...tokko, referenceCode: 'NPH 9102', typeName: 'Castillo', photos: [] }],
       new Map([[photo, { bytes: new Uint8Array([0xff, 0xd8, 0xff]), contentType: 'image/jpeg' }]]),
+      [development],
     );
     const start = new StartTokkoApiPropertyImport({ uow, configured: true, ids, clock });
     const run = new RunTokkoApiPropertyImport({
@@ -216,7 +243,14 @@ describe('Tokko property imports', () => {
       source: 'api',
       fileName: '',
       status: 'done',
-      totals: { rows: 2, processed: 2, created: 1, completed: 0, failed: 1 },
+      totals: {
+        rows: 2,
+        processed: 2,
+        created: 1,
+        completed: 0,
+        failed: 1,
+        developments: { created: 1, existing: 0, completed: 0, failed: 0 },
+      },
     });
     const problems = await query.problems({ importId, direction: 'asc', offset: 0, limit: 10 });
     expect(problems.items).toEqual([
@@ -226,13 +260,34 @@ describe('Tokko property imports', () => {
         field: 'propertyType',
         propertyId: undefined,
         reference: 'NPH-9102',
+        subject: 'property',
       },
     ]);
     const [ph] = await db
-      .select({ id: properties.id, description: properties.description })
+      .select({
+        id: properties.id,
+        description: properties.description,
+        developmentId: properties.developmentId,
+      })
       .from(properties)
       .where(eq(properties.code, 'NPH9101'));
     expect(ph?.description).toBe('Un PH luminoso.');
+    // El emprendimiento se creó antes y la unidad quedó vinculada en la misma corrida.
+    const [torre] = await db
+      .select({
+        id: developments.id,
+        name: developments.name,
+        status: developments.status,
+        constructionStatus: developments.constructionStatus,
+      })
+      .from(developments)
+      .where(eq(developments.code, 'NBU9100'));
+    expect(torre).toMatchObject({
+      name: 'Torre Belgrano',
+      status: 'marketing',
+      constructionStatus: 'pre_sale',
+    });
+    expect(ph?.developmentId).toBe(torre?.id);
     const gallery = await db
       .select({ kind: mediaItems.kind, isCover: mediaItems.isCover })
       .from(mediaItems)

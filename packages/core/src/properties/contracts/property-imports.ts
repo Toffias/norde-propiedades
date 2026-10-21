@@ -120,6 +120,7 @@ export const PROPERTY_IMPORT_PROBLEM_CODE_VALUES = [
   'total_surface_dropped',
   'photos_not_downloaded',
   'description_truncated',
+  'location_not_found',
 ] as const;
 export type PropertyImportProblemCodeValue = (typeof PROPERTY_IMPORT_PROBLEM_CODE_VALUES)[number];
 
@@ -140,6 +141,7 @@ export const PROPERTY_IMPORT_PROBLEM_LABELS: Readonly<
     'Se importó sin la superficie total: era menor que la cubierta más la semicubierta',
   photos_not_downloaded: 'No se pudieron bajar algunas fotos de Tokko',
   description_truncated: 'La descripción se recortó: era más larga de lo que admite Norde',
+  location_not_found: 'Su ubicación no está en el catálogo de Norde (otro país o región)',
 };
 
 /** Los problemas que no impidieron importar la propiedad (replica `PROPERTY_IMPORT_WARNINGS`). */
@@ -206,6 +208,13 @@ export interface PropertyImportTotalsRow {
   /** Ya estaban y se les agregó lo que no tenían (desde la API). */
   readonly completed: number;
   readonly failed: number;
+  /** Los emprendimientos que trajo la API (antes que las propiedades). */
+  readonly developments: {
+    readonly created: number;
+    readonly existing: number;
+    readonly completed: number;
+    readonly failed: number;
+  };
 }
 
 export interface PropertyImportUserRef {
@@ -236,4 +245,6 @@ export interface PropertyImportProblemRow {
   readonly propertyId: string | undefined;
   /** Desde la API: el código de Tokko, para encontrarla allá. */
   readonly reference?: string | undefined;
+  /** Desde la API: si la fila es un emprendimiento (`propertyId` es entonces su ID). */
+  readonly subject?: 'property' | 'development' | undefined;
 }

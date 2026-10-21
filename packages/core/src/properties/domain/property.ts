@@ -676,6 +676,17 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
     return ok(true);
   }
 
+  /**
+   * La suma como unidad de un emprendimiento, si todavía no es unidad de ninguno (la migración desde
+   * Tokko vincula las que entraron sueltas). Devuelve `false` si ya era unidad de uno.
+   */
+  joinDevelopment(developmentId: string, now: Date): Result<boolean, PropertyInTrashError> {
+    if (this.isDeleted) return err({ type: 'PropertyInTrash' });
+    if (this.#state.developmentId !== undefined) return ok(false);
+    this.#state = { ...this.#state, developmentId, updatedAt: now };
+    return ok(true);
+  }
+
   /** Tasadores, usuario de mantenimiento, llaves, información legal y comentarios internos. */
   updateInternalInfo(info: InternalInfo, now: Date): Result<boolean, PropertyInTrashError> {
     if (this.isDeleted) return err({ type: 'PropertyInTrash' });

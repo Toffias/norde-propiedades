@@ -211,7 +211,7 @@ function Stat({ label, value }: { readonly label: string; readonly value: number
 }
 
 function getProblemId(problem: PropertyImportProblemRow): string {
-  return `${String(problem.rowNumber)}-${problem.code}`;
+  return `${problem.subject ?? 'property'}-${String(problem.rowNumber)}-${problem.code}`;
 }
 
 function ProblemsGrid({
@@ -235,7 +235,14 @@ function ProblemsGrid({
             id: 'reference',
             header: 'Código',
             className: 'w-[170px] whitespace-normal break-all tabular-nums',
-            cell: (problem) => problem.reference ?? '—',
+            cell: (problem) => (
+              <span className="flex flex-col items-start gap-1">
+                {problem.reference ?? '—'}
+                {problem.subject === 'development' && (
+                  <Badge variant="secondary">Emprendimiento</Badge>
+                )}
+              </span>
+            ),
           }
         : {
             id: 'rowNumber',
@@ -260,17 +267,25 @@ function ProblemsGrid({
       },
       {
         id: 'property',
-        header: 'Propiedad',
-        className: 'w-[120px] text-right',
+        header: 'Ficha',
+        className: 'w-[150px] text-right',
         cell: (problem) =>
-          problem.propertyId !== undefined && (
+          problem.propertyId !== undefined &&
+          (problem.subject === 'development' ? (
+            <Link
+              href={`/emprendimientos/${problem.propertyId}` as Route}
+              className="text-primary hover:underline"
+            >
+              Ver emprendimiento
+            </Link>
+          ) : (
             <Link
               href={`/propiedades/${problem.propertyId}` as Route}
               className="text-primary hover:underline"
             >
               Ver propiedad
             </Link>
-          ),
+          )),
       },
     ],
     [source],
@@ -292,7 +307,7 @@ function ProblemsGrid({
         running
           ? 'Por ahora, ninguna con problemas.'
           : source === 'api'
-            ? 'Se trajeron todas las propiedades.'
+            ? 'Se trajo todo sin problemas.'
             : 'Se importaron todas las filas.'
       }
     />
@@ -341,14 +356,27 @@ function ImportDetail({
         <Stat label="Con errores" value={job.totals.failed} />
       </div>
       {fromApi && (
-        <p className="text-sm text-muted-foreground">
-          Completadas: ya estaban en Norde y se les agregó lo que no tenían (fotos, descripción,
-          coordenadas o comentarios de Tokko), sin pisar lo cargado.
-        </p>
+        <>
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium">Emprendimientos</h3>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <Stat label="Creados" value={job.totals.developments.created} />
+              <Stat label="Completados" value={job.totals.developments.completed} />
+              <Stat label="Ya estaban" value={job.totals.developments.existing} />
+              <Stat label="Con errores" value={job.totals.developments.failed} />
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Primero se traen los emprendimientos y después las propiedades, que quedan como sus
+            unidades. Completadas: ya estaban en Norde y se les agregó lo que no tenían (fotos,
+            descripción, coordenadas, su emprendimiento o comentarios de Tokko), sin pisar lo
+            cargado.
+          </p>
+        </>
       )}
       <div className="-mx-4 flex flex-col gap-2">
         <h3 className="px-4 text-sm font-medium">
-          {fromApi ? 'Propiedades con problemas' : 'Filas con problemas'}
+          {fromApi ? 'Con problemas' : 'Filas con problemas'}
         </h3>
         {problems.ok ? (
           <ProblemsGrid

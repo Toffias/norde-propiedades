@@ -3,6 +3,8 @@ import type { Development, DevelopmentId } from './development';
 export interface DevelopmentRepository {
   /** También los de la papelera. */
   findById(id: DevelopmentId): Promise<Development | undefined>;
+  /** Por su código de referencia, también los de la papelera. */
+  findByCode(code: string): Promise<Development | undefined>;
   /** Cuántas unidades activas (fuera de la papelera) tiene. */
   countActiveUnits(id: DevelopmentId): Promise<number>;
   /** Cuántas de esas unidades están disponibles (estado `available`). */

@@ -1,3 +1,4 @@
+import type { ConstructionStatus, DevelopmentKind } from './development';
 import type { PriceCurrency, PropertyKind } from './property-catalog';
 
 // Cómo se traduce una fila de la exportación de propiedades de Tokko (`.csv`). Decidido con Norde
@@ -172,6 +173,37 @@ export function tokkoApiPlace(fullLocation: string): TokkoPlace {
   const [country = '', region = '', ...rest] = levels;
   const last = rest.at(-1) ?? '';
   return tokkoPlace(country, region, last, rest.length > 1 ? rest[0] : undefined);
+}
+
+/** El tipo de un emprendimiento de Tokko ("Edificio", código `BU`). */
+export function tokkoDevelopmentKind(typeCode: string): DevelopmentKind {
+  return typeCode.trim().toUpperCase() === 'BU' ? 'building' : 'other';
+}
+
+/**
+ * El estado de obra de Tokko (un número). Visto en la cartera de Norde contra el estado que escriben
+ * en el nombre: 3 "en pozo", 4 "en construcción", 6 "terminado". Otro número queda sin estado.
+ */
+const CONSTRUCTION_STATUSES: Readonly<Record<number, ConstructionStatus>> = {
+  3: 'pre_sale',
+  4: 'under_construction',
+  6: 'finished',
+};
+
+export function tokkoConstructionStatus(raw: number | undefined): ConstructionStatus | undefined {
+  return raw === undefined ? undefined : CONSTRUCTION_STATUSES[raw];
+}
+
+/** La fecha de entrega de Tokko ("2028-12-01", con o sin hora) como fecha ISO. */
+export function tokkoDeliveryDate(raw: string | undefined): string | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw?.trim() ?? '');
+  if (!match) return undefined;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  return days !== undefined && day >= 1 && day <= days ? match[0] : undefined;
 }
 
 /** "AV. RIVADAVIA 9540 + EN POZO": Tokko suma el estado de obra al nombre del emprendimiento. */

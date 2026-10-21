@@ -76,8 +76,39 @@ export interface TokkoApiProperty {
   readonly latitude: number | undefined;
   readonly longitude: number | undefined;
   readonly owners: readonly TokkoApiOwner[];
+  /** El emprendimiento del que es unidad: su código de Tokko y su nombre. */
+  readonly developmentCode: string | undefined;
   readonly developmentName: string | undefined;
   readonly photos: readonly TokkoApiPhoto[];
+}
+
+/** Un emprendimiento de Tokko (`/api/v1/development/`). */
+export interface TokkoApiDevelopment {
+  readonly referenceCode: string;
+  readonly name: string;
+  /** El código del tipo ("BU": edificio). */
+  readonly typeCode: string;
+  readonly address: string;
+  readonly fullLocation: string;
+  /** El estado de obra, como número de Tokko. */
+  readonly constructionStatus: number | undefined;
+  /** La fecha de entrega, como la escribe Tokko. */
+  readonly constructionDate: string | undefined;
+  /** Si estaba publicado en la web de Tokko. */
+  readonly displayOnWeb: boolean;
+  readonly title: string | undefined;
+  readonly description: string | undefined;
+  readonly financingDetails: string | undefined;
+  readonly latitude: number | undefined;
+  readonly longitude: number | undefined;
+  /** El usuario a cargo en Tokko. */
+  readonly producerName: string | undefined;
+  readonly photos: readonly TokkoApiPhoto[];
+}
+
+export interface TokkoApiDevelopmentPage {
+  readonly total: number;
+  readonly developments: readonly TokkoApiDevelopment[];
 }
 
 export interface TokkoApiPage {
@@ -105,6 +136,11 @@ export interface PhotoUnavailableError {
 export interface TokkoPropertySource {
   /** Una página del listado, en el orden de Tokko. */
   page(offset: number, limit: number): Promise<Result<TokkoApiPage, TokkoUnavailableError>>;
+  /** Una página de los emprendimientos, en el orden de Tokko. */
+  developments(
+    offset: number,
+    limit: number,
+  ): Promise<Result<TokkoApiDevelopmentPage, TokkoUnavailableError>>;
   /** Baja una foto: solo de los servidores de Tokko. */
   photo(url: string): Promise<Result<DownloadedPhoto, PhotoUnavailableError>>;
 }

@@ -6,6 +6,7 @@ import type {
 } from '@norde/core/properties/contracts';
 
 import { routes } from '../seo/routes';
+import { htmlToText } from '../html-to-text';
 import { nonEmpty } from '../strings';
 import { formatMoney, formatPrice, formatSurface, plural } from './format';
 import {
@@ -198,7 +199,7 @@ export function toListingDetail(d: PropertyDetail): ListingDetail {
     },
     surfaceM2: d.surfaceCoveredM2 ?? d.surfaceTotalM2,
     rooms: d.rooms,
-    description: d.description,
+    description: htmlToText(d.description),
     otherOperations: d.operations
       .filter((o) => o.operation !== d.operation)
       .map((o) => ({ label: OPERATION_LABELS[o.operation], value: formatPrice(o.price) })),

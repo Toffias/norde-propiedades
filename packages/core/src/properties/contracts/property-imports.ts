@@ -127,8 +127,8 @@ export type PropertyImportProblemCodeValue = (typeof PROPERTY_IMPORT_PROBLEM_COD
 export const PROPERTY_IMPORT_PROBLEM_LABELS: Readonly<
   Record<PropertyImportProblemCodeValue, string>
 > = {
-  already_imported: 'Ya hay una propiedad con ese código',
-  code_in_trash: 'La propiedad con ese código está en la papelera',
+  already_imported: 'Ya estaba en Norde con ese código',
+  code_in_trash: 'Con ese código está en la papelera de Norde',
   invalid_code: 'Código inválido',
   missing_address: 'No tiene dirección',
   unknown_type: 'Tipo de propiedad desconocido',

@@ -917,7 +917,7 @@ Además de la propiedad publicada en alquiler, cuando se concreta el alquiler se
 
 Cada propiedad:
 
-- **Código**: el "Ref" de Tokko, en mayúsculas y con guiones en lugar de espacios ("NBU12345 AP1234567" → "NBU12345-AP1234567"). Si ya hay una propiedad con ese código, la fila no se importa ("Ya hay una propiedad con ese código"); si está en la papelera, tampoco. Importar dos veces el mismo archivo no duplica nada.
+- **Código**: el "Ref" de Tokko, en mayúsculas y con guiones en lugar de espacios ("NBU12345 AP1234567" → "NBU12345-AP1234567"). Si ya hay una propiedad con ese código, la fila no se importa ("Ya estaba en Norde con ese código"); si está en la papelera, tampoco. Importar dos veces el mismo archivo no duplica nada.
 - **Estado**: disponible. Sin fotos ni descripción (la exportación no las trae; llegan con la API de Tokko) y sin coordenadas (no se geocodifica en la importación).
 - **Ubicación** (decidido el 2026-10-20): "Capital Federal" es CABA, con su barrio del catálogo. Las regiones del GBA y la costa son de Buenos Aires: la localidad va bajo su partido (Ramos Mejía, San Justo, Lomas del Mirador y Tablada → La Matanza; Haedo → Morón; Ciudadela → Tres de Febrero; Olivos → Vicente López; Pinamar Norte → Pinamar) y, si no está en la tabla, la localidad es el partido. Si la localidad o el barrio no existen en el catálogo, se crean (auditados). Otro país (Uruguay) queda como texto.
 - **Dirección**: calle, altura, piso y unidad ("Belgrano 123, PB", "Rivadavia 9540 4º A", "Piso 4 Departamento A", "3º UF 12"). Lo que no se entiende queda como piso.

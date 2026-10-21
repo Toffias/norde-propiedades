@@ -287,8 +287,8 @@ export class RunTokkoApiPropertyImport {
 
   /**
    * Le agrega a una propiedad que ya estaba lo que no tiene: descripción, coordenadas, los
-   * comentarios de Tokko, su emprendimiento si es una unidad suelta y las fotos. Lo cargado en
-   * Norde no se pisa.
+   * comentarios de Tokko, su emprendimiento si es una unidad suelta, sus propietarios si no tiene
+   * ninguno y las fotos. Lo cargado en Norde no se pisa.
    */
   private async complete(
     run: Run,
@@ -297,12 +297,17 @@ export class RunTokkoApiPropertyImport {
   ): Promise<{ readonly changed: boolean; readonly warnings: readonly ImportRowProblem[] }> {
     const id = expectOk(parseId<'Property'>(propertyId));
     const developmentId = await run.properties.findDevelopment(row);
+    const owners = await this.missingOwners(run, id, row);
+    const warnings: ImportRowProblem[] = owners.unlinked
+      ? [{ code: 'owner_not_linked', field: 'ownerPhone', propertyId }]
+      : [];
     const edited = await this.deps.uow.run(async (tx) => {
       const property = await tx.properties.findById(id);
       if (!property || property.isDeleted) return { changed: false, galleryEmpty: false };
       const before = propertyDetailAuditState(property);
       const changed = this.fillGaps(property, row);
       const joined = await this.joinDevelopment(tx, run.runner, property, developmentId);
+      const linked = await this.linkOwners(tx, run.runner, property, owners.clientIds);
       if (changed || joined) {
         await saveEdit(
           tx,
@@ -316,16 +321,57 @@ export class RunTokkoApiPropertyImport {
         );
       }
       const galleryEmpty = await run.photos.galleryIsEmpty(tx, { kind: 'property', id });
-      return { changed: changed || joined, galleryEmpty };
+      return { changed: changed || joined || linked, galleryEmpty };
     });
     if (!edited.galleryEmpty || row.photos.length === 0) {
-      return { changed: edited.changed, warnings: [] };
+      return { changed: edited.changed, warnings };
     }
     const photos = await run.photos.add(run.runner, { kind: 'property', id }, row.photos);
-    const warnings: ImportRowProblem[] = photos.failed
-      ? [{ code: 'photos_not_downloaded', field: undefined, propertyId }]
-      : [];
+    if (photos.failed) {
+      warnings.push({ code: 'photos_not_downloaded', field: undefined, propertyId });
+    }
     return { changed: edited.changed || photos.added > 0, warnings };
+  }
+
+  /**
+   * Los contactos de los propietarios de Tokko, si la propiedad no tiene ninguno: se buscan o se
+   * crean afuera de su transacción, a cargo de su productor.
+   */
+  private async missingOwners(
+    run: Run,
+    id: Property['id'],
+    row: ApiImportedProperty,
+  ): Promise<{ readonly clientIds: readonly string[]; readonly unlinked: boolean }> {
+    if (row.owners.length === 0) return { clientIds: [], unlinked: false };
+    const property = await this.deps.uow.run(async (tx) =>
+      (await tx.owners.hasAny(id)) ? undefined : tx.properties.findById(id),
+    );
+    if (!property || property.isDeleted) return { clientIds: [], unlinked: false };
+    const producerUserId = property.producerUserId;
+    return run.properties.findOwners(
+      run.runner,
+      row,
+      producerUserId === undefined ? undefined : { userId: producerUserId, branchId: undefined },
+    );
+  }
+
+  /** Los vincula como propietarios, con su ID en `client_ids` para la supresión. */
+  private async linkOwners(
+    tx: PropertiesTransaction,
+    runner: Actor,
+    property: Property,
+    clientIds: readonly string[],
+  ): Promise<boolean> {
+    if (clientIds.length === 0 || (await tx.owners.hasAny(property.id))) return false;
+    for (const clientId of clientIds) await tx.owners.add(property.id, clientId, runner.id);
+    await tx.audit.record(
+      auditAction(
+        runner,
+        { ...propertyTarget('property.owners_imported', property.id), clientIds: [...clientIds] },
+        diffChanges({}, { ownerClientIds: [...clientIds] }),
+      ),
+    );
+    return true;
   }
 
   /**

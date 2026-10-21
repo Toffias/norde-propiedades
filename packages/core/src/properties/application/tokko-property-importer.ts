@@ -125,23 +125,9 @@ export class TokkoPropertyImporter {
     const producer =
       (row.producerName === undefined ? undefined : await this.findProducer(row.producerName)) ??
       fallback;
-    // Los propietarios se buscan o se crean en contactos, afuera de la transacción de la propiedad.
-    const ownerClientIds = new Set<string>();
-    let unlinked = false;
-    for (const owner of row.owners) {
-      const found = await this.deps.directory.findOrCreateOwner(
-        {
-          ...owner,
-          sells: row.operations.some((o) => o.operation === 'sale'),
-          rents: row.operations.some((o) => o.operation !== 'sale'),
-          agentId: producer?.userId,
-        },
-        runner,
-      );
-      if (found) ownerClientIds.add(found.clientId);
-      else unlinked = true;
-    }
-    if (unlinked) problems.push({ code: 'owner_not_linked', field: 'ownerPhone' });
+    const owners = await this.findOwners(runner, row, producer);
+    if (owners.unlinked) problems.push({ code: 'owner_not_linked', field: 'ownerPhone' });
+    const ownerClientIds = owners.clientIds;
     const developmentId = await this.findDevelopment(row);
     const inDevelopment = row.developmentName !== undefined || row.developmentCode !== undefined;
     if (inDevelopment && developmentId === undefined) {
@@ -154,7 +140,7 @@ export class TokkoPropertyImporter {
         propertyId,
         row,
         producer,
-        ownerClientIds: [...ownerClientIds],
+        ownerClientIds,
         developmentId,
       }),
     );
@@ -270,6 +256,33 @@ export class TokkoPropertyImporter {
         ),
       );
     }
+  }
+
+  /**
+   * Los contactos de los propietarios de la fila: se buscan o se crean en contactos, afuera de la
+   * transacción de la propiedad. `unlinked`: alguno no se pudo vincular.
+   */
+  async findOwners(
+    runner: Actor,
+    row: Pick<ImportedProperty, 'owners' | 'operations'>,
+    producer: RowProducer | undefined,
+  ): Promise<{ readonly clientIds: readonly string[]; readonly unlinked: boolean }> {
+    const clientIds = new Set<string>();
+    let unlinked = false;
+    for (const owner of row.owners) {
+      const found = await this.deps.directory.findOrCreateOwner(
+        {
+          ...owner,
+          sells: row.operations.some((o) => o.operation === 'sale'),
+          rents: row.operations.some((o) => o.operation !== 'sale'),
+          agentId: producer?.userId,
+        },
+        runner,
+      );
+      if (found) clientIds.add(found.clientId);
+      else unlinked = true;
+    }
+    return { clientIds: [...clientIds], unlinked };
   }
 
   /** La ubicación del catálogo (creando la localidad o el barrio que falte), o los textos. */

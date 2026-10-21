@@ -2,4 +2,6 @@
 export interface PropertyOwnerLinks {
   /** Lo vincula como propietario. Idempotente. `actorId` queda como autor del vínculo. */
   add(propertyId: string, clientId: string, actorId: string): Promise<void>;
+  /** Si tiene al menos un propietario. */
+  hasAny(propertyId: string): Promise<boolean>;
 }

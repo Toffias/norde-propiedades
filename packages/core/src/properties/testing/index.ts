@@ -758,6 +758,10 @@ export class InMemoryPropertyOwnerLinks implements PropertyOwnerLinks {
     if (!this.rows.has(key)) this.rows.set(key, actorId);
     return Promise.resolve();
   }
+
+  hasAny(propertyId: string) {
+    return Promise.resolve([...this.rows.keys()].some((key) => key.startsWith(`${propertyId}:`)));
+  }
 }
 
 function isErrResult(value: unknown): boolean {
@@ -1680,8 +1684,8 @@ export class InMemoryPropertyImportQuery implements PropertyImportQuery {
 
 /**
  * Productores, emprendimientos y propietarios para la importación de Tokko. Los propietarios se
- * buscan por teléfono o email (sin validar el formato: eso lo hace contactos) y se crean con un ID
- * correlativo; uno sin teléfono ni email no se vincula.
+ * buscan por ID de Tokko, teléfono o email (sin validar el formato: eso lo hace contactos) y se
+ * crean con un ID correlativo; uno sin teléfono, email ni ID de Tokko no se vincula.
  */
 export class FakePropertyImportDirectory implements PropertyImportDirectory {
   readonly owners: (ImportOwner & { readonly clientId: string })[] = [];
@@ -1706,9 +1710,11 @@ export class FakePropertyImportDirectory implements PropertyImportDirectory {
   }
 
   findOrCreateOwner(owner: ImportOwner) {
-    if (owner.phone === undefined && owner.email === undefined) return Promise.resolve(undefined);
+    const noContact = owner.phone === undefined && owner.email === undefined;
+    if (noContact && owner.tokkoId === undefined) return Promise.resolve(undefined);
     const existing = this.owners.find(
       (o) =>
+        (owner.tokkoId !== undefined && o.tokkoId === owner.tokkoId) ||
         (owner.phone !== undefined && o.phone === owner.phone) ||
         (owner.email !== undefined && o.email === owner.email),
     );

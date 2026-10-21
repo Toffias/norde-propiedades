@@ -37,6 +37,8 @@ export interface ImportedOwner {
   readonly name: string;
   readonly phone: string | undefined;
   readonly email: string | undefined;
+  /** Solo desde la API. */
+  readonly tokkoId: string | undefined;
 }
 
 /** Una propiedad de Tokko (una fila de la exportación o de la API), lista para crearla. */
@@ -187,7 +189,7 @@ export function readTokkoValues(
     owners:
       ownerName === undefined && ownerPhone === undefined && ownerEmail === undefined
         ? []
-        : [{ name: ownerName ?? '', phone: ownerPhone, email: ownerEmail }],
+        : [{ name: ownerName ?? '', phone: ownerPhone, email: ownerEmail, tokkoId: undefined }],
     developmentName: tokkoDevelopmentName(value('development')),
     developmentCode: undefined,
     portalTitle: undefined,

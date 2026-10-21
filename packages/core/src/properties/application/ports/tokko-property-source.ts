@@ -20,6 +20,8 @@ export interface TokkoApiOperation {
 
 /** Un propietario de la propiedad (sus datos personales no se loguean). */
 export interface TokkoApiOwner {
+  /** Su ID de contacto en Tokko. */
+  readonly tokkoId: string | undefined;
   readonly name: string;
   readonly phone: string | undefined;
   readonly email: string | undefined;

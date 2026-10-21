@@ -163,7 +163,7 @@ export function UsersGrid({
         return;
       }
       toast.success(
-        'Se están trayendo los usuarios de Tokko: aparecen acá en unos minutos. Los que ya no están en Tokko quedan suspendidos.',
+        'Se están trayendo los usuarios de Tokko: aparecen acá en unos minutos y el avance se ve en la campana de arriba. Los que ya no están en Tokko quedan suspendidos.',
       );
     });
   }

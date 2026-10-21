@@ -149,7 +149,7 @@ function TaskRow({
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex min-w-0 items-start justify-between gap-2">
           <span className="min-w-0">
-            <span className="block truncate text-sm font-medium text-foreground">
+            <span className="block text-sm leading-snug font-medium text-foreground">
               {taskTitle(task)}
             </span>
             {subtitle !== undefined && (

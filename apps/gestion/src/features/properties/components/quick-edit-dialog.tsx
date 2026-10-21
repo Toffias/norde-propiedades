@@ -53,6 +53,37 @@ const FIELD_LABELS: Readonly<Record<Field, string>> = {
   price: 'Precio',
   producer: 'Captador',
   tags: 'Etiquetas',
+  publication: 'Publicación en la web',
+};
+
+type PublicationOption = 'publishedOnWeb' | 'showPriceOnWeb' | 'showExactAddress' | 'featured';
+type PublicationChoice = 'keep' | 'on' | 'off';
+
+/** Las mismas opciones que el botón "Publicación" de la ficha, con qué hacer en cada una. */
+const PUBLICATION_OPTIONS: readonly {
+  readonly option: PublicationOption;
+  readonly label: string;
+  readonly on: string;
+  readonly off: string;
+}[] = [
+  { option: 'publishedOnWeb', label: 'Publicar en web', on: 'Publicar', off: 'Despublicar' },
+  { option: 'showPriceOnWeb', label: 'Mostrar el precio', on: 'Mostrar', off: 'Ocultar' },
+  {
+    option: 'showExactAddress',
+    label: 'Mostrar la dirección exacta',
+    on: 'Mostrar',
+    off: 'Ocultar',
+  },
+  { option: 'featured', label: 'Destacada', on: 'Destacar', off: 'Quitar destacada' },
+];
+
+const PUBLICATION_CHOICES: readonly PublicationChoice[] = ['keep', 'on', 'off'];
+
+const INITIAL_PUBLICATION: Readonly<Record<PublicationOption, PublicationChoice>> = {
+  publishedOnWeb: 'on',
+  showPriceOnWeb: 'keep',
+  showExactAddress: 'keep',
+  featured: 'keep',
 };
 
 function summary(result: BulkEditResult): string {
@@ -65,8 +96,8 @@ function summary(result: BulkEditResult): string {
 }
 
 /**
- * Edición rápida masiva: un campo (estado, precio, captador o etiquetas) para todas las
- * propiedades seleccionadas. Las que no se pueden cambiar se informan con el motivo.
+ * Edición rápida masiva: un campo (estado, precio, captador, etiquetas o publicación en la web)
+ * para todas las propiedades seleccionadas. Las que no se pueden cambiar se informan con el motivo.
  */
 export function QuickEditDialog({
   open,
@@ -90,13 +121,18 @@ export function QuickEditDialog({
   const [producer, setProducer] = useState<string | undefined>();
   const [addTags, setAddTags] = useState<readonly ComboboxOption[]>([]);
   const [removeTags, setRemoveTags] = useState<readonly ComboboxOption[]>([]);
+  const [publication, setPublication] = useState(INITIAL_PUBLICATION);
   const [error, setError] = useState<string | undefined>();
   const [result, setResult] = useState<BulkEditResult | undefined>();
   const [pending, startTransition] = useTransition();
 
-  const fields: readonly Field[] = permissions.changeProducer
-    ? ['status', 'price', 'producer', 'tags']
-    : ['status', 'price', 'tags'];
+  const fields: readonly Field[] = [
+    'status',
+    'price',
+    ...(permissions.changeProducer ? (['producer'] as const) : []),
+    'tags',
+    ...(permissions.publish ? (['publication'] as const) : []),
+  ];
   const statuses = MANUAL_STATUS_VALUES.filter(
     (value) => permissions.markAvailable || value !== 'available',
   );
@@ -128,13 +164,25 @@ export function QuickEditDialog({
           add: addTags.map((tag) => tag.value),
           remove: removeTags.map((tag) => tag.value),
         };
+      case 'publication': {
+        const chosen = PUBLICATION_OPTIONS.filter(({ option }) => publication[option] !== 'keep');
+        if (chosen.length === 0) return undefined;
+        return {
+          field,
+          ...Object.fromEntries(chosen.map(({ option }) => [option, publication[option] === 'on'])),
+        };
+      }
     }
   }
 
   function apply() {
     const next = change();
     if (next === undefined) {
-      setError('Elegí el nuevo captador.');
+      setError(
+        field === 'publication'
+          ? 'Elegí qué cambiar de la publicación.'
+          : 'Elegí el nuevo captador.',
+      );
       return;
     }
     setError(undefined);
@@ -316,6 +364,38 @@ export function QuickEditDialog({
                     searchPlaceholder="Buscar etiqueta"
                   />
                 </div>
+              </div>
+            )}
+            {field === 'publication' && (
+              <div className="flex flex-col gap-3">
+                {PUBLICATION_OPTIONS.map(({ option, label, on, off }) => (
+                  <div
+                    key={option}
+                    className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <Label htmlFor={`${id}-${option}`}>{label}</Label>
+                    <Select
+                      value={publication[option]}
+                      onValueChange={(value) => {
+                        const choice =
+                          PUBLICATION_CHOICES.find((candidate) => candidate === value) ?? 'keep';
+                        setPublication((current) => ({ ...current, [option]: choice }));
+                      }}
+                    >
+                      <SelectTrigger id={`${id}-${option}`} className="w-full sm:w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="keep">No cambiar</SelectItem>
+                        <SelectItem value="on">{on}</SelectItem>
+                        <SelectItem value="off">{off}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  La web la muestra solo mientras esté disponible.
+                </p>
               </div>
             )}
           </div>

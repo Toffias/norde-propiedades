@@ -34,6 +34,8 @@ export interface BulkPermissions {
   readonly bulkEdit: boolean;
   readonly changeProducer: boolean;
   readonly markAvailable: boolean;
+  /** `properties:publish`: las opciones de "Publicación" de la ficha. */
+  readonly publish: boolean;
   /** `properties:export` o `properties:export-bulk`: el caso de uso decide según la cantidad. */
   readonly export: boolean;
   /** Editar contactos: destacarles propiedades (#11). */

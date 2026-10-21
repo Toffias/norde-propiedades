@@ -819,6 +819,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
   - Precio de una operación que la propiedad ya tiene (vacío: a consultar). Queda en el historial de precios.
   - Captador (`properties:change-producer`): la propiedad pasa a la sucursal del nuevo captador.
   - Etiquetas: agregar y quitar.
+  - Publicación en la web (`properties:publish`): las opciones del botón "Publicación" de la ficha ("Publicar en web", mostrar el precio, mostrar la dirección exacta, destacada). Cada una se activa, se desactiva o queda como está. Se marca en cualquier estado: la web muestra la propiedad solo mientras esté disponible. Queda en el historial como `property.publication_changed`, igual que desde la ficha.
   - Las que no se pueden cambiar se informan con el motivo. Cada cambio queda en el historial de su propiedad.
 
 **Transiciones de estado**: borrador → disponible o dada de baja; disponible → reservada, pausada, vendida, alquilada o dada de baja; reservada → disponible, vendida, alquilada o dada de baja; pausada → disponible o dada de baja; vendida o alquilada → disponible (se relista) o dada de baja; dada de baja → disponible o borrador.

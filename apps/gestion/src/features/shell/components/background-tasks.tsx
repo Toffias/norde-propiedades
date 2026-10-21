@@ -36,10 +36,10 @@ import {
   clearedUntil,
   formatProgress,
   OPEN_POLL_MS,
-  STATUS_DISPLAY,
   taskFailure,
   taskHref,
   taskProblems,
+  taskStatus,
   taskSubtitle,
   taskTitle,
 } from '../background-tasks';
@@ -132,7 +132,7 @@ function TaskRow({
   readonly onNavigate: () => void;
 }) {
   const Icon = KIND_ICONS[task.kind];
-  const status = STATUS_DISPLAY[task.status];
+  const status = taskStatus(task);
   const subtitle = taskSubtitle(task);
   const progress = formatProgress(task.progress);
   const failure = taskFailure(task);
@@ -305,9 +305,9 @@ function TaskList({
 }
 
 /**
- * La campana de la barra superior: cuántos procesos en segundo plano siguen en curso y, al
- * abrirla, cada uno con su avance y su resultado. Mientras algo está en curso pregunta cada tanto
- * (más seguido con el panel abierto); sin nada en curso, no pregunta.
+ * Las notificaciones de la barra superior (la campana): cuántos procesos en segundo plano siguen
+ * en curso y, al abrirla, cada uno con su avance y su resultado. Mientras algo está en curso
+ * pregunta cada tanto (más seguido con el panel abierto); sin nada en curso, no pregunta.
  */
 export function BackgroundTasks({
   initialActive,
@@ -326,11 +326,12 @@ export function BackgroundTasks({
   }, []);
   const list = useTaskList(open, scope, onActive);
 
-  // El layout se vuelve a pintar cuando una acción encola un proceso: trae el contador nuevo.
+  // El layout se vuelve a pintar cuando una acción encola un proceso: trae el contador nuevo (de
+  // los propios). Con "Todos" son al menos esos: con algo en curso, el polling trae el número real.
   const [counted, setCounted] = useState(initialActive);
   if (counted !== initialActive) {
     setCounted(initialActive);
-    if (scope === 'mine') setActive(initialActive);
+    setActive(scope === 'mine' ? initialActive : Math.max(active, initialActive));
   }
 
   useEffect(() => {
@@ -357,10 +358,7 @@ export function BackgroundTasks({
     list.reload();
   }
 
-  const label =
-    active === 0
-      ? 'Procesos en segundo plano'
-      : `Procesos en segundo plano: ${String(active)} en curso`;
+  const label = active === 0 ? 'Notificaciones' : `Notificaciones: ${String(active)} en curso`;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -385,7 +383,7 @@ export function BackgroundTasks({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
         <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-          <h2 className="text-sm font-semibold text-foreground">Procesos en segundo plano</h2>
+          <h2 className="text-sm font-semibold text-foreground">Notificaciones</h2>
           {canSeeAll && <ScopeToggle scope={scope} onChange={setScope} />}
         </header>
         <TaskList

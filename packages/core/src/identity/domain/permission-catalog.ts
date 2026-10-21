@@ -238,11 +238,11 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
       },
       {
         resource: 'background-tasks',
-        label: 'Procesos en segundo plano',
+        label: 'Notificaciones de procesos',
         permissions: [
           {
             permission: 'background-tasks:read-others',
-            label: 'Ver los procesos de todos, los del sistema y los de los portales',
+            label: 'Ver las notificaciones de procesos de todos, del sistema y de los portales',
           },
         ],
       },

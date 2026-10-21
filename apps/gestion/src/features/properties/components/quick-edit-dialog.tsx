@@ -98,6 +98,7 @@ function summary(result: BulkEditResult): string {
 /**
  * Edición rápida masiva: un campo (estado, precio, captador, etiquetas o publicación en la web)
  * para todas las propiedades seleccionadas. Las que no se pueden cambiar se informan con el motivo.
+ * Si el cambio sale bien, al cerrar se desmarca la selección; si falla, queda para reintentar.
  */
 export function QuickEditDialog({
   open,
@@ -105,12 +106,14 @@ export function QuickEditDialog({
   selection,
   count,
   permissions,
+  onApplied,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly selection: PropertySelection;
   readonly count: number;
   readonly permissions: BulkPermissions;
+  readonly onApplied: () => void;
 }) {
   const id = useId();
   const [field, setField] = useState<Field>('status');
@@ -143,6 +146,8 @@ export function QuickEditDialog({
       setResult(undefined);
     }
     onOpenChange(next);
+    // Con el resultado a la vista, el cambio ya se aplicó: se desmarca al cerrarlo.
+    if (!next && result !== undefined) onApplied();
   }
 
   function change(): BulkEditChange | undefined {
@@ -195,8 +200,10 @@ export function QuickEditDialog({
         }
         if (response.value.updated === 0) toast.warning(summary(response.value));
         else toast.success(summary(response.value));
-        if (response.value.skippedCount === 0) close(false);
-        else setResult(response.value);
+        if (response.value.skippedCount === 0) {
+          close(false);
+          onApplied();
+        } else setResult(response.value);
       } catch {
         setError(UNEXPECTED_ERROR_MESSAGE);
       }

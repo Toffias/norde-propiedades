@@ -93,6 +93,18 @@ describe('background task display', () => {
     expect(taskHref(task({ kind: 'opportunity_bulk' }))).toBe('/oportunidades');
   });
 
+  it('shows the photos of an import as one task, linked to its report', () => {
+    const photos = task({ kind: 'import_media', detail: undefined, problems: 2 });
+    expect(taskTitle(photos)).toBe('Fotos de la importación de Tokko');
+    expect(taskStatus(photos).label).toBe('En curso');
+    expect(taskSubtitle(photos)).toBeUndefined();
+    expect(taskProblems(photos)).toBe('2 fotos con error');
+    expect(taskFailure({ ...photos, status: 'failed' })).toBe(
+      'No se pudieron generar las variantes de 2 fotos.',
+    );
+    expect(taskHref(photos)).toBe('/propiedades/importaciones?panel=i1');
+  });
+
   it('clears up to the latest finished task', () => {
     const finished = new Date('2026-10-21T11:00:00Z');
     expect(clearedUntil([task({}), task({ status: 'done', finishedAt: finished })])).toBe(

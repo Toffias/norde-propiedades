@@ -265,7 +265,7 @@ describe('Tokko API properties import', () => {
 
   it('downloads the photos in the Tokko order, with its cover and floor plans', async () => {
     const ctx = setup();
-    await runImport(ctx);
+    const importId = await runImport(ctx);
     const casa = byCode(ctx, 'NHO1001');
     const gallery = galleryOf(ctx, casa?.id);
 
@@ -279,6 +279,8 @@ describe('Tokko API properties import', () => {
       ['photo', false, 'pending'],
       ['floor_plan', false, 'pending'],
     ]);
+    // Quedan vinculadas a la importación: la campana sigue sus variantes como parte de ella.
+    expect(gallery.map((item) => item.importId)).toEqual([importId, importId, importId]);
     for (const item of gallery) {
       expect(await ctx.storage.get(item.storageKey ?? '')).toBeDefined();
     }

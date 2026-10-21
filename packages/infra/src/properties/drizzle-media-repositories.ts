@@ -98,6 +98,7 @@ function toMediaItem(row: typeof mediaItems.$inferSelect): MediaItem {
     processing: parsed.processingStatus,
     processingError: row.processingError ?? undefined,
     uploadedBy: row.uploadedBy,
+    importId: row.importId ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });
@@ -162,6 +163,7 @@ export class DrizzleMediaItemRepository implements MediaItemRepository {
         contentType: s.contentType ?? null,
         sizeBytes: s.sizeBytes ?? null,
         uploadedBy: s.uploadedBy,
+        importId: s.importId ?? null,
         createdAt: s.createdAt,
         createdBy: actorId,
         ...values,

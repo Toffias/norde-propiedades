@@ -268,6 +268,48 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
     return ok(client);
   }
 
+  /**
+   * Un propietario que en Tokko no tenía un teléfono ni un email válidos (decidido con Norde el
+   * 2026-10-20: si Tokko lo permite, Norde también). Solo para la migración: se identifica por su ID
+   * de Tokko, no por un dato de contacto. El alta manual sigue pidiendo un teléfono o un email.
+   */
+  static importedWithoutContact(input: {
+    readonly id: ClientId;
+    readonly name: string;
+    readonly clientTypes: readonly ClientType[];
+    readonly agentId: string | undefined;
+    readonly branchId: string | undefined;
+    readonly now: Date;
+  }): Result<Client, MissingNameError> {
+    const name = cleanName(input.name);
+    if (name === undefined) return err({ type: 'MissingName' });
+    const client = new Client(input.id, {
+      kind: 'person',
+      name,
+      phones: [],
+      emails: [],
+      clientTypes: normalizeTypes(input.clientTypes),
+      agentId: input.agentId,
+      branchId: input.branchId,
+      profile: EMPTY_PROFILE,
+      channels: [],
+      tagIds: [],
+      relations: [],
+      createdAt: input.now,
+      updatedAt: input.now,
+      deletedAt: undefined,
+      deletedBy: undefined,
+      mergedIntoId: undefined,
+    });
+    client.record({
+      type: 'clients.client_registered',
+      aggregateId: input.id,
+      occurredAt: input.now,
+      payload: { clientId: input.id, channel: 'office' },
+    });
+    return ok(client);
+  }
+
   static restore(snapshot: ClientSnapshot): Client {
     const { id, ...state } = snapshot;
     return new Client(id, state);

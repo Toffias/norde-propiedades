@@ -4,7 +4,7 @@ import type { SessionProfile } from '@norde/core/identity/contracts';
 import type { GlobalSearchKind } from '@norde/core/reporting/contracts';
 import type { CompanyBrandView } from '@norde/core/settings/contracts';
 import { AccountMenu } from '@norde/ui/components/account-menu';
-import { AppLogo } from '@norde/ui/components/app-logo';
+import { AppIsotype, AppLogo } from '@norde/ui/components/app-logo';
 import { AppShell } from '@norde/ui/components/app-shell';
 import {
   Breadcrumb,
@@ -31,6 +31,7 @@ import {
   SIDEBAR_COOKIE,
   type NavCounts,
 } from '../navigation';
+import { FallbackImage } from '../../properties/components/property-photo';
 import { GlobalSearch } from './global-search';
 
 const NavLink: NavLinkComponent = ({ href, className, onClick, children, ...aria }) => (
@@ -52,18 +53,21 @@ function currentSection(pathname: string): readonly string[] {
   return child === undefined ? [item.label] : [item.label, child.label];
 }
 
-/** Con un logo cargado en Mi empresa > General, reemplaza al isotipo de Norde. */
+/**
+ * Con un logo cargado en Mi empresa > General, reemplaza al isotipo de Norde (que vuelve si el
+ * logo no carga).
+ */
 function brandProps(brand: CompanyBrandView | undefined, size: string) {
   if (brand?.logoVersion === undefined) return {};
+  const src = `/mi-empresa/logo/company?v=${encodeURIComponent(brand.logoVersion)}`;
   return {
     name: brand.name,
     mark: (
-      // Imagen servida por el panel (autorizada por el caso de uso), no por un CDN.
-      // eslint-disable-next-line @next/next/no-img-element -- `next/image` no sirve para una ruta que exige sesión.
-      <img
-        src={`/mi-empresa/logo/company?v=${encodeURIComponent(brand.logoVersion)}`}
-        alt=""
+      <FallbackImage
+        key={src}
+        src={src}
         className={`${size} shrink-0 rounded-md object-contain`}
+        fallback={<AppIsotype className={size} />}
       />
     ),
   };

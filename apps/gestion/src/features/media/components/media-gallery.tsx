@@ -58,6 +58,7 @@ import { cn } from '@norde/ui/lib/utils';
 import {
   ExternalLinkIcon,
   GripVerticalIcon,
+  ImageIcon,
   ImageOffIcon,
   ImagesIcon,
   Loader2Icon,
@@ -65,9 +66,10 @@ import {
   PlayCircleIcon,
   Trash2Icon,
   VideoIcon,
+  type LucideIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState, useTransition } from 'react';
+import { useEffect, useId, useState, useTransition, type ReactNode } from 'react';
 
 import { runAction, type ActionResult } from '../../../lib/action-result';
 import {
@@ -80,6 +82,7 @@ import {
 } from '../actions';
 import { mediaFileHref } from '../paths';
 import { MEDIA_KIND_LABELS } from '../labels';
+import { FallbackImage } from '../../properties/components/property-photo';
 import { ConfirmActionDialog } from '../../shared/components/confirm-action-dialog';
 
 /** Fotos que se suben a la vez: el resto espera su turno. */
@@ -327,21 +330,24 @@ function MediaTile({
     >
       <div className="aspect-[4/3] w-full">
         {item.processing === 'failed' ? (
-          <div className="flex h-full flex-col items-center justify-center gap-1 p-2 text-center text-xs text-destructive">
-            <ImageOffIcon className="h-6 w-6" />
+          <TilePlaceholder icon={ImageOffIcon} tone="error">
             No se pudo procesar
-          </div>
+          </TilePlaceholder>
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel
-          <img
+          <FallbackImage
+            key={`${src}-${version}`}
             src={`${src}?v=${item.hasThumbnail ? 'thumbnail' : 'original'}&r=${version}`}
             alt={item.description ?? MEDIA_KIND_LABELS[item.kind]}
-            loading="lazy"
             className="h-full w-full object-cover"
-            style={
-              item.hasThumbnail
-                ? undefined
-                : { transform: `rotate(${item.rotation.toString()}deg)` }
+            {...(item.hasThumbnail
+              ? {}
+              : { style: { transform: `rotate(${item.rotation.toString()}deg)` } })}
+            fallback={
+              item.processing === 'pending' ? (
+                <TilePlaceholder icon={ImageIcon}>Preparando la vista previa…</TilePlaceholder>
+              ) : (
+                <TilePlaceholder icon={ImageOffIcon}>Sin vista previa</TilePlaceholder>
+              )
             }
           />
         )}
@@ -488,6 +494,37 @@ function MediaTile({
         onOpenChange={setDeleting}
       />
     </li>
+  );
+}
+
+/** Lo que ocupa el lugar de la foto cuando no hay imagen para mostrar. */
+function TilePlaceholder({
+  icon: Icon,
+  tone = 'muted',
+  children,
+}: {
+  readonly icon: LucideIcon;
+  readonly tone?: 'muted' | 'error';
+  readonly children: ReactNode;
+}) {
+  return (
+    // Bajado media franja de acciones: así queda centrado en toda la tarjeta, no solo en la foto.
+    <div
+      className={cn(
+        'flex h-full translate-y-7 flex-col items-center justify-center gap-2 p-3 text-center text-xs',
+        tone === 'error' ? 'text-destructive' : 'text-muted-foreground',
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-10 w-10 items-center justify-center rounded-full',
+          tone === 'error' ? 'bg-destructive/10' : 'bg-background/70',
+        )}
+      >
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      {children}
+    </div>
   );
 }
 

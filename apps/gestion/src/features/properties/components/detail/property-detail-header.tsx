@@ -49,6 +49,7 @@ import { FeatureToClientDialog } from '../../../clients/components/feature-to-cl
 import { changePropertyStatusAction, updatePropertyPublicationAction } from '../../detail-actions';
 import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../../labels';
 import { FavoriteToggle } from '../favorite-toggle';
+import { PropertyPhoto } from '../property-photo';
 import { ReservationDialog, type ReservationSubject } from '../reservations/reservation-dialog';
 import { DocumentsDialog, OwnerReportDialog, useRequestDocument } from './documents-dialogs';
 import type { DetailPermissions } from './permissions';
@@ -136,20 +137,16 @@ export function PropertyDetailHeader({
     <>
       <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-center sm:p-5">
         <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-primary-500 sm:h-20 sm:w-28">
-          {detail.cover === undefined ? (
-            <div className="flex h-full items-center justify-center">
-              <BuildingIcon className="h-8 w-8" aria-hidden />
-            </div>
-          ) : (
-            // Foto del storage privado, servida por el panel: no pasa por el optimizador de Next.
-            // eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel
-            <img
-              // Mientras se procesa, la ruta entrega la original: la versión evita que quede en caché.
-              src={`/propiedades/${detail.id}/fotos/${detail.cover.mediaId}?v=thumbnail&r=${detail.cover.hasThumbnail ? 'ready' : 'pending'}`}
-              alt="Portada"
-              className="h-full w-full object-cover"
-            />
-          )}
+          <PropertyPhoto
+            propertyId={detail.id}
+            cover={detail.cover}
+            className="h-full w-full object-cover"
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <BuildingIcon className="h-8 w-8" aria-hidden />
+              </div>
+            }
+          />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

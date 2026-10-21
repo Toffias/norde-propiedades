@@ -1,7 +1,7 @@
 'use client';
 
 import type { PropertyCover } from '@norde/core/properties/contracts';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type CoverOwner = 'property' | 'development';
 
@@ -49,11 +49,15 @@ export function PropertyPhoto({
  */
 export function FallbackImage({
   src,
+  alt = '',
   className,
+  style,
   fallback,
 }: {
   readonly src: string;
+  readonly alt?: string;
   readonly className: string;
+  readonly style?: CSSProperties;
   readonly fallback: ReactNode;
 }) {
   const [failed, setFailed] = useState(false);
@@ -70,12 +74,13 @@ export function FallbackImage({
     <img
       ref={image}
       src={src}
-      alt=""
+      alt={alt}
       loading="lazy"
       onError={() => {
         setFailed(true);
       }}
       className={className}
+      {...(style === undefined ? {} : { style })}
     />
   );
 }

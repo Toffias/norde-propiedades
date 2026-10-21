@@ -237,6 +237,16 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
         ],
       },
       {
+        resource: 'background-tasks',
+        label: 'Procesos en segundo plano',
+        permissions: [
+          {
+            permission: 'background-tasks:read-others',
+            label: 'Ver los procesos de todos, los del sistema y los de los portales',
+          },
+        ],
+      },
+      {
         resource: 'company-files',
         label: 'Archivos de la empresa',
         permissions: [

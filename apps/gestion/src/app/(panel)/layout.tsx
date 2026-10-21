@@ -1,3 +1,4 @@
+import { READ_OTHERS_BACKGROUND_TASKS } from '@norde/core/reporting';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -16,13 +17,15 @@ export default async function PanelLayout({ children }: { readonly children: Rea
   const cookieStore = await cookies();
   const collapsed = cookieStore.get(SIDEBAR_COOKIE)?.value === SIDEBAR_COLLAPSED;
   const searchKinds = parseSearchKinds(cookieStore.get(SEARCH_KINDS_COOKIE)?.value);
-  const { clients, inquiries, settings } = getContainer();
+  const { clients, inquiries, settings, backgroundTasks } = getContainer();
   // Las oportunidades nuevas asignadas a quien entra (lo que tiene pendiente de atender) y las
   // consultas sin asignar.
-  const [pending, unassigned, brand] = await Promise.all([
+  // Y los procesos en segundo plano que pidió y siguen en curso, para la campana de la barra.
+  const [pending, unassigned, brand, tasks] = await Promise.all([
     clients.countPendingOpportunities.execute(actor),
     inquiries.countPendingInquiries.execute(actor),
     settings.getCompanyBrand.execute({}, actor),
+    backgroundTasks.count.execute({}, actor),
   ]);
 
   return (
@@ -30,6 +33,11 @@ export default async function PanelLayout({ children }: { readonly children: Rea
       profile={profile}
       initiallyCollapsed={collapsed}
       searchKinds={searchKinds}
+      backgroundTasks={{
+        active: tasks.isOk() ? tasks.value.active : 0,
+        // Solo para mostrar el selector: el caso de uso vuelve a verificar el permiso.
+        canSeeAll: actor.can(READ_OTHERS_BACKGROUND_TASKS),
+      }}
       brand={brand.isOk() ? brand.value : undefined}
       counts={{
         '/oportunidades': pending.isOk() ? pending.value : 0,

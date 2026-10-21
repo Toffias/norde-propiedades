@@ -32,6 +32,7 @@ import {
   type NavCounts,
 } from '../navigation';
 import { FallbackImage } from '../../properties/components/property-photo';
+import { BackgroundTasks } from './background-tasks';
 import { GlobalSearch } from './global-search';
 
 const NavLink: NavLinkComponent = ({ href, className, onClick, children, ...aria }) => (
@@ -78,6 +79,7 @@ export function PanelShell({
   initiallyCollapsed,
   counts,
   searchKinds,
+  backgroundTasks,
   brand,
   children,
 }: {
@@ -85,6 +87,8 @@ export function PanelShell({
   readonly initiallyCollapsed: boolean;
   readonly counts: NavCounts;
   readonly searchKinds: readonly GlobalSearchKind[];
+  /** Los procesos en segundo plano en curso de quien entra y si puede ver los de todos. */
+  readonly backgroundTasks: { readonly active: number; readonly canSeeAll: boolean };
   readonly brand: CompanyBrandView | undefined;
   readonly children: ReactNode;
 }) {
@@ -146,6 +150,10 @@ export function PanelShell({
       actions={
         <>
           <GlobalSearch initialKinds={searchKinds} />
+          <BackgroundTasks
+            initialActive={backgroundTasks.active}
+            canSeeAll={backgroundTasks.canSeeAll}
+          />
           <ThemeSwitcher />
           <AccountMenu
             name={profile.name}

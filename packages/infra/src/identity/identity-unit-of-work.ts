@@ -12,6 +12,7 @@ import {
   DrizzleTeamRepository,
 } from './drizzle-organization-repositories';
 import { DrizzleRoleRepository } from './drizzle-role-repository';
+import { DrizzleTokkoUsersImportRepository } from './drizzle-tokko-users-imports';
 import { DrizzleUserFavorites } from './drizzle-user-favorites';
 import { DrizzleUserRepository } from './drizzle-user-repository';
 
@@ -27,6 +28,7 @@ export function createIdentityUnitOfWork(
     credentials: new DrizzleCredentialStore(tx, deps.ids, deps.clock),
     sessions: new DrizzleUserSessions(tx),
     favorites: new DrizzleUserFavorites(tx),
+    tokkoUsersImports: new DrizzleTokkoUsersImportRepository(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
   }));

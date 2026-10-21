@@ -408,7 +408,15 @@ export const opportunityBulkOperations = coreSchema.table(
     ...timestamps(),
     ...authorship(),
   },
-  (t) => [index('opportunity_bulk_operations_requested_idx').on(t.requestedBy, t.createdAt)],
+  (t) => [
+    index('opportunity_bulk_operations_requested_idx').on(t.requestedBy, t.createdAt),
+    // Procesos en segundo plano (ADR 0040).
+    index('opportunity_bulk_operations_active_requester_idx')
+      .on(t.requestedBy)
+      .where(sql`status in ('pending', 'running')`),
+    index('opportunity_bulk_operations_requester_updated_idx').on(t.requestedBy, t.updatedAt),
+    index('opportunity_bulk_operations_updated_idx').on(t.updatedAt),
+  ],
 );
 
 /** Estado a aplicar en cada regla automática de oportunidades (fila única). */

@@ -1,6 +1,7 @@
 import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
 import type { BranchRepository, TeamRepository } from '../../domain/organization.repository';
 import type { RoleRepository } from '../../domain/role.repository';
+import type { TokkoUsersImportRepository } from '../../domain/tokko-users-import.repository';
 import type { UserRepository } from '../../domain/user.repository';
 
 import type { UserFavorites } from './user-favorites';
@@ -26,6 +27,7 @@ export interface IdentityTransaction {
   readonly credentials: CredentialStore;
   readonly sessions: UserSessions;
   readonly favorites: UserFavorites;
+  readonly tokkoUsersImports: TokkoUsersImportRepository;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
 }

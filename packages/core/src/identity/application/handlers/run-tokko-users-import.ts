@@ -7,6 +7,7 @@ import {
   isTokkoUnassignedAgent,
   nextId,
   ok,
+  parseId,
   Phone,
   type Actor,
   type Clock,
@@ -14,6 +15,12 @@ import {
   type IdGenerator,
   type Result,
 } from '../../../shared';
+import {
+  NO_TOKKO_USERS_SUMMARY,
+  type TokkoUsersImport,
+  type TokkoUsersImportFailure,
+  type TokkoUsersImportSummary,
+} from '../../domain/tokko-users-import';
 import { User } from '../../domain/user';
 import type { IdentityTransaction, IdentityUnitOfWork } from '../ports/identity-transaction';
 import type { TokkoUser, TokkoUserSource } from '../ports/tokko-user-source';
@@ -31,18 +38,6 @@ export interface TokkoUsersUnavailableResultError {
 
 export type RunTokkoUsersImportError =
   ForbiddenError | TokkoUsersSetupMissingError | TokkoUsersUnavailableResultError;
-
-/**
- * Qué pasó con los usuarios de Tokko. `skipped`: sin un email válido para darlo de alta.
- * `unassigned`: "Libre" o "Sin Asignar", que no se copian.
- */
-export interface TokkoUsersImportSummary {
-  readonly created: number;
-  readonly suspended: number;
-  readonly existing: number;
-  readonly skipped: number;
-  readonly unassigned: number;
-}
 
 /** El rol de los usuarios importados (decidido con Norde el 2026-10-21). */
 const AGENT_ROLE_KEY = 'agent';
@@ -78,11 +73,65 @@ export class RunTokkoUsersImport {
     },
   ) {}
 
+  /**
+   * Con `importId`, la corrida guardada queda en proceso y después terminada con el resumen, o
+   * fallida. Los eventos de antes de guardarla no lo traen: esas corren igual, sin registro.
+   */
   async execute(
-    _input: Record<string, never>,
+    input: { readonly importId?: string | undefined },
     actor: Actor,
   ): Promise<Result<TokkoUsersImportSummary, RunTokkoUsersImportError>> {
     if (!actor.can('users:create')) return err({ type: 'Forbidden' });
+    const job = await this.#job(input.importId);
+    if (job?.isFinished === true) return ok(job.summary);
+    if (job) await this.#start(job, actor);
+
+    const result = await this.#copyAll(actor);
+    if (job) await this.#finish(job, actor, result);
+    return result;
+  }
+
+  async #finish(
+    job: TokkoUsersImport,
+    actor: Actor,
+    result: Result<TokkoUsersImportSummary, RunTokkoUsersImportError>,
+  ) {
+    await this.deps.uow.run(async (tx) => {
+      const before = job.status;
+      const now = this.deps.clock.now();
+      if (result.isOk()) job.finish(result.value, now);
+      else job.fail(failureOf(result.error), now);
+      await tx.tokkoUsersImports.save(job, actor.id);
+      await tx.audit.record(
+        auditAction(
+          actor,
+          {
+            action: 'user.tokko_import_finished',
+            entityType: 'user_import',
+            entityId: job.id,
+            clientIds: [],
+          },
+          { status: { before, after: job.status } },
+        ),
+      );
+    });
+  }
+
+  async #job(importId: string | undefined): Promise<TokkoUsersImport | undefined> {
+    if (importId === undefined) return undefined;
+    const id = parseId<'TokkoUsersImport'>(importId);
+    if (id.isErr()) return undefined;
+    return this.deps.uow.run((tx) => tx.tokkoUsersImports.findById(id.value));
+  }
+
+  async #start(job: TokkoUsersImport, actor: Actor) {
+    await this.deps.uow.run(async (tx) => {
+      job.start(this.deps.clock.now());
+      await tx.tokkoUsersImports.save(job, actor.id);
+    });
+  }
+
+  async #copyAll(actor: Actor): Promise<Result<TokkoUsersImportSummary, RunTokkoUsersImportError>> {
     const { source } = this.deps;
     if (!source) return err({ type: 'TokkoUnavailable' });
 
@@ -101,7 +150,7 @@ export class RunTokkoUsersImport {
     const former = await source.formerAgents(new Set(current.value.map((u) => u.tokkoId)));
     if (former.isErr()) return err({ type: 'TokkoUnavailable' });
 
-    const summary = { created: 0, suspended: 0, existing: 0, skipped: 0, unassigned: 0 };
+    const summary = { ...NO_TOKKO_USERS_SUMMARY };
     for (const user of current.value) {
       summary[await this.#copy(actor, user, target, false)] += 1;
     }
@@ -173,5 +222,16 @@ export class RunTokkoUsersImport {
       (await tx.users.findByEmail(email)) !== undefined ||
       (await tx.users.findByName(name)) !== undefined
     );
+  }
+}
+
+function failureOf(error: RunTokkoUsersImportError): TokkoUsersImportFailure {
+  switch (error.type) {
+    case 'TokkoUsersSetupMissing':
+      return error.missing === 'agent_role' ? 'agent_role_missing' : 'main_branch_missing';
+    // Sin permiso no llega a correr: el actor del job siempre lo tiene.
+    case 'TokkoUnavailable':
+    case 'Forbidden':
+      return 'tokko_unavailable';
   }
 }

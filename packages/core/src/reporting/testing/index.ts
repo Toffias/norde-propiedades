@@ -16,6 +16,11 @@ import type {
   UpcomingSigningRecord,
 } from '../application/ports/home-dashboard-query';
 import type { ReportingUserNames } from '../application/ports/user-names';
+import type {
+  BackgroundTaskCriteria,
+  BackgroundTaskQuery,
+  BackgroundTaskRecord,
+} from '../application/ports/background-task-query';
 import type { ReportingPropertyProfiles } from '../application/ports/property-profiles';
 import type {
   PropertyStatisticsQuery,
@@ -161,5 +166,54 @@ export class StubHomeDashboardQuery implements HomeDashboardQuery {
   availableDevelopments(scope: HomeScope, request: HomeListRequest) {
     this.record('availableDevelopments', scope, [request]);
     return Promise.resolve(this.developments);
+  }
+}
+
+const isActiveTask = (task: BackgroundTaskRecord) =>
+  task.status === 'pending' || task.status === 'running';
+
+/**
+ * Procesos fijos, filtrados como la query real: los del usuario (o todos), sin los portales si no
+ * se piden y sin los terminados antes de `finishedSince`. Registra los criterios pedidos.
+ */
+export class InMemoryBackgroundTaskQuery implements BackgroundTaskQuery {
+  readonly criteria: BackgroundTaskCriteria[] = [];
+
+  constructor(readonly tasks: BackgroundTaskRecord[] = []) {}
+
+  list(
+    criteria: BackgroundTaskCriteria,
+    request: {
+      readonly direction: 'asc' | 'desc';
+      readonly offset: number;
+      readonly limit: number;
+    },
+  ) {
+    this.criteria.push(criteria);
+    const sign = request.direction === 'desc' ? -1 : 1;
+    const when = (task: BackgroundTaskRecord) => (task.finishedAt ?? task.createdAt).getTime();
+    const matching = this.#matching(criteria).sort(
+      (a, b) => Number(isActiveTask(b)) - Number(isActiveTask(a)) || sign * (when(a) - when(b)),
+    );
+    const page: PageSlice<BackgroundTaskRecord> = {
+      items: matching.slice(request.offset, request.offset + request.limit),
+      total: matching.length,
+    };
+    return Promise.resolve(page);
+  }
+
+  countActive(criteria: BackgroundTaskCriteria) {
+    this.criteria.push(criteria);
+    return Promise.resolve(this.#matching(criteria).filter(isActiveTask).length);
+  }
+
+  #matching(criteria: BackgroundTaskCriteria) {
+    return this.tasks.filter(
+      (task) =>
+        (criteria.requesterId === undefined || task.requesterId === criteria.requesterId) &&
+        (criteria.includePortals || task.kind !== 'portal_listing') &&
+        (isActiveTask(task) ||
+          (task.finishedAt !== undefined && task.finishedAt > criteria.finishedSince)),
+    );
   }
 }

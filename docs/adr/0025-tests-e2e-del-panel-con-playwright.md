@@ -23,7 +23,7 @@ Los casos de uso tienen tests unitarios con fakes y los repositorios tienen test
   - En local usa `next dev`; en CI, el build de producción (`next start`).
 - **Se ingresa una vez por rol** (`auth.setup.ts`) y los specs reusan esa sesión (`storageState`). En producción Better Auth limita los ingresos a 5 por minuto.
 - Los specs no dependen del orden ni de datos que cree otro spec: usan el seed o crean lo suyo con nombres únicos.
-- **En CI corre en un job aparte** (`e2e`), con un servicio `postgres:18`. Por ahora no bloquea el deploy a UAT.
+- **En CI corre en un job aparte** (`e2e`), con un servicio `postgres:17` (ADR 0041). Por ahora no bloquea el deploy a UAT.
 
 ## Consecuencias
 

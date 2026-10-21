@@ -2,9 +2,22 @@
 -- los vacíos (y se audita como `system:import`): las sucursales sin WhatsApp toman su teléfono y
 -- los usuarios sin sucursal van a la casa central. Si algo no se puede rellenar, la migración
 -- frena con un mensaje: hay que cargar el dato a mano y volver a migrar.
+--
+-- `uuidv7()` es nativa recién en PostgreSQL 18 y el proyecto usa 17 (ADR 0041): se arma con una
+-- función temporal de la sesión (milisegundos de la época + bits aleatorios, versión 7).
+
+CREATE FUNCTION pg_temp.uuidv7() RETURNS uuid LANGUAGE sql VOLATILE AS $$
+  SELECT encode(
+    set_bit(set_bit(
+      overlay(uuid_send(gen_random_uuid())
+        PLACING substring(int8send(floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint) FROM 3)
+        FROM 1 FOR 6),
+    52, 1), 53, 1),
+  'hex')::uuid
+$$;--> statement-breakpoint
 
 INSERT INTO "core"."audit_log" ("id", "actor_id", "action", "entity_type", "entity_id", "changes", "source", "occurred_at")
-SELECT uuidv7(), 'system:import', 'branch.updated', 'branch', b."id"::text,
+SELECT pg_temp.uuidv7(), 'system:import', 'branch.updated', 'branch', b."id"::text,
   jsonb_build_object('whatsapp', jsonb_build_object('before', NULL, 'after', b."phone_e164")),
   'import', now()
 FROM "core"."branches" b
@@ -31,7 +44,7 @@ BEGIN
 END $$;--> statement-breakpoint
 
 INSERT INTO "core"."audit_log" ("id", "actor_id", "action", "entity_type", "entity_id", "changes", "source", "occurred_at")
-SELECT uuidv7(), 'system:import', 'user.updated', 'user', u."id"::text,
+SELECT pg_temp.uuidv7(), 'system:import', 'user.updated', 'user', u."id"::text,
   jsonb_build_object('branchId', jsonb_build_object('before', NULL, 'after', m."id")),
   'import', now()
 FROM "core"."users" u

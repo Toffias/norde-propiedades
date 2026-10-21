@@ -16,7 +16,7 @@ Las reglas pedían tests de integración de repositorios con Postgres real media
   - Borra el esquema `core` y aplica las migraciones desde cero en cada corrida.
   - Por seguridad, solo acepta nombres que terminan en `_test`.
 - Cada test arranca con las tablas vacías.
-- En CI corre en un job aparte con un servicio `postgres:18`.
+- En CI corre en un job aparte con un servicio `postgres:17`, la versión de UAT (ADR 0041).
 - `test:int` no forma parte de `pnpm turbo test`, porque necesita una base.
 
 ## Consecuencias

@@ -117,6 +117,22 @@ export {
 } from './application/commands/change-favorites';
 export { GetFavoriteIds } from './application/queries/get-favorite-ids';
 export { CreateUser, type CreateUserError } from './application/commands/create-user';
+export {
+  StartTokkoUsersImport,
+  type StartTokkoUsersImportError,
+  type TokkoUsersNotConfiguredError,
+} from './application/commands/start-tokko-users-import';
+export {
+  RunTokkoUsersImport,
+  type RunTokkoUsersImportError,
+  type TokkoUsersImportSummary,
+  type TokkoUsersSetupMissingError,
+} from './application/handlers/run-tokko-users-import';
+export type {
+  TokkoUser,
+  TokkoUserSource,
+  TokkoUsersUnavailableError,
+} from './application/ports/tokko-user-source';
 export { UpdateUser, type UpdateUserError } from './application/commands/update-user';
 export { SuspendUser, type SuspendUserError } from './application/commands/suspend-user';
 export { ReactivateUser, type ReactivateUserError } from './application/commands/reactivate-user';

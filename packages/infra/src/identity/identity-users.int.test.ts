@@ -213,6 +213,9 @@ describe('DrizzleUserRepository', () => {
 
     expect((await repository.findById(id.value))?.roleIds).toEqual([manager, rentals].sort());
     expect((await repository.findByEmail(email.value))?.id).toBe(id.value);
+    // Sin mayúsculas ni acentos, como compara la importación de usuarios de Tokko.
+    expect((await repository.findByName(' CÁMILA '))?.id).toBe(id.value);
+    expect(await repository.findByName('Camilo')).toBeUndefined();
   });
 });
 

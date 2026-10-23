@@ -260,6 +260,8 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
   - Un job de `apps/gestion` llama a `POST /api/revalidate` de la web, firmado con el secreto compartido (`WEB_REVALIDATE_SECRET` en gestión, `REVALIDATE_SECRET` en la web). El cuerpo lleva `propertyId` o `developmentId`.
   - La web invalida `property:<id>` y `properties`, o `development:<id>` y `developments`. Las lecturas de emprendimientos declaran los dos tags de listado: un cambio de una unidad llega como cambio de propiedad y también rearma la ficha del emprendimiento.
   - Como respaldo, las consultas cacheadas expiran cada hora.
+  - Con un `propertyId`, la web además precalienta sus fotos: las pide a `/_next/image` en los anchos que usa el sitio, una a la vez, para que la primera visita las encuentre convertidas ([ADR 0042](../adr/0042-fotos-de-la-web-en-webp-y-precalentadas.md)).
+- **Optimización de fotos** ([ADR 0042](../adr/0042-fotos-de-la-web-en-webp-y-precalentadas.md)): `next/image` entrega solo WebP y pocos anchos (`src/lib/images/sizes.ts`). El visor de la ficha baja la foto anterior y la siguiente mientras se mira la actual.
 - Los datos personales **no** se guardan en Payload. La colección `ContactMessages` de DS-DESIGN-Landing no se replica.
 
 ---

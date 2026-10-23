@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     posts: Post;
     categories: Category;
+    'team-members': TeamMember;
     media: Media;
     users: User;
     redirects: Redirect;
@@ -82,6 +83,7 @@ export interface Config {
   collectionsSelect: {
     posts: PostsSelect<false> | PostsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    'team-members': TeamMembersSelect<false> | TeamMembersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
@@ -95,8 +97,12 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'about-page': AboutPage;
+  };
+  globalsSelect: {
+    'about-page': AboutPageSelect<false> | AboutPageSelect<true>;
+  };
   locale: null;
   widgets: {
     collections: CollectionsWidget;
@@ -314,6 +320,41 @@ export interface Category {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-members".
+ */
+export interface TeamMember {
+  id: number;
+  name: string;
+  /**
+   * Ej.: "Martillera y corredora pública" o "Asesor comercial".
+   */
+  role: string;
+  /**
+   * Etiqueta corta sobre la foto. Ej.: "Ventas", "Alquileres".
+   */
+  area?: string | null;
+  /**
+   * Ej.: "CUCICBA 1234". Se muestra debajo del cargo.
+   */
+  license?: string | null;
+  /**
+   * Vertical (4:5), con la cara centrada.
+   */
+  photo?: (number | null) | Media;
+  /**
+   * Solo números, con el código de país (ej.: 5491161798942). Vacío: se usa el WhatsApp de la inmobiliaria.
+   */
+  whatsapp?: string | null;
+  /**
+   * Menor número, más arriba.
+   */
+  order?: number | null;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Redirecciones 301 para URLs que cambiaron (ej. un slug editado o URLs del sitio anterior).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -458,6 +499,10 @@ export interface PayloadLockedDocument {
         value: number | Category;
       } | null)
     | ({
+        relationTo: 'team-members';
+        value: number | TeamMember;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -552,6 +597,22 @@ export interface CategoriesSelect<T extends boolean = true> {
   description?: T;
   generateSlug?: T;
   slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-members_select".
+ */
+export interface TeamMembersSelect<T extends boolean = true> {
+  name?: T;
+  role?: T;
+  area?: T;
+  license?: T;
+  photo?: T;
+  whatsapp?: T;
+  order?: T;
+  active?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -730,6 +791,83 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "about-page".
+ */
+export interface AboutPage {
+  id: number;
+  /**
+   * Uno o dos renglones debajo de "Somos Norde", sobre la foto.
+   */
+  intro?: string | null;
+  /**
+   * Los hitos en orden, del más viejo al de hoy.
+   */
+  milestones?:
+    | {
+        /**
+         * Un año o una etapa. Ej.: "2012", "Los comienzos", "Hoy".
+         */
+        label: string;
+        title: string;
+        text: string;
+        /**
+         * Opcional. Sin foto, se usa un recorte de la fachada.
+         */
+        image?: (number | null) | Media;
+        id?: string | null;
+      }[]
+    | null;
+  stats?:
+    | {
+        /**
+         * Ej.: "+"
+         */
+        prefix?: string | null;
+        value: number;
+        /**
+         * Ej.: "%"
+         */
+        suffix?: string | null;
+        /**
+         * Ej.: "años en el barrio".
+         */
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "about-page_select".
+ */
+export interface AboutPageSelect<T extends boolean = true> {
+  intro?: T;
+  milestones?:
+    | T
+    | {
+        label?: T;
+        title?: T;
+        text?: T;
+        image?: T;
+        id?: T;
+      };
+  stats?:
+    | T
+    | {
+        prefix?: T;
+        value?: T;
+        suffix?: T;
+        label?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

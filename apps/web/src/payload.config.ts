@@ -11,13 +11,15 @@ import { getEnv } from './config/env';
 import { Categories } from './payload/collections/categories';
 import { Media } from './payload/collections/media';
 import { Posts } from './payload/collections/posts';
+import { TeamMembers } from './payload/collections/team-members';
 import { Users } from './payload/collections/users';
+import { AboutPage } from './payload/globals/about-page';
 import { plugins } from './payload/plugins';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const env = getEnv();
 
-// Payload: SOLO contenido editorial (blog, páginas, header/footer). El negocio vive en @norde/core.
+// Payload: SOLO contenido editorial (blog, Nosotros, páginas, header/footer). El negocio vive en @norde/core.
 export default buildConfig({
   secret: env.PAYLOAD_SECRET,
   serverURL: env.NEXT_PUBLIC_SERVER_URL,
@@ -35,7 +37,8 @@ export default buildConfig({
     },
   },
   i18n: { supportedLanguages: { es }, fallbackLanguage: 'es' },
-  collections: [Posts, Categories, Media, Users],
+  collections: [Posts, Categories, TeamMembers, Media, Users],
+  globals: [AboutPage],
   plugins,
   // Ejecuta la cola de jobs (publicación programada de posts). El sitio corre en un VPS
   // con un proceso de larga duración (PM2), no en serverless.

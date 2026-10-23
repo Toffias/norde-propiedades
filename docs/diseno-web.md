@@ -14,8 +14,8 @@ El 5 de octubre de 2026 se compararon tres direcciones y Norde eligió la más c
 
 ## Principios
 
-1. **Buscar primero.** El buscador está en el hero y los filtros a la vista. Todo se puede usar sin JavaScript (formularios `GET`, `<details>`).
-2. **Las fotos mandan.** Tarjetas y ficha dan el espacio a la foto. El hero usa la portada de una propiedad real, nunca una foto de stock.
+1. **Buscar sin vueltas.** El hero de la home lleva directo al listado ("Ver propiedades") y los filtros del listado están a la vista. Todo se puede usar sin JavaScript (formularios `GET`, `<details>`).
+2. **Las fotos mandan.** Tarjetas y ficha dan el espacio a la foto. El hero usa la foto real de la oficina (la fachada de Emilio Castro 7250), nunca una foto de stock.
 3. **Un solo rojo.** El de la marca: botón principal, etiqueta de operación y foco. No decora.
 4. **Cálido y redondeado.** Fondo arena (`bg-background`), tarjetas blancas (`bg-card`) con borde fino y radios grandes (`rounded-3xl` en tarjetas, `rounded-xl` en controles).
 5. **El logo como firma.** El wordmark "NORDE" en serif ancha y la línea escalonada (`deco-steps`) separan secciones y subrayan títulos. Nada más usa la serif.
@@ -52,6 +52,8 @@ Siempre tokens; **nunca hex sueltos en el `.tsx`**.
 - **Tarjeta de propiedad**: foto 4:3 con la operación arriba a la izquierda, precio grande, título (link que cubre toda la tarjeta), ubicación y hasta cinco datos con ícono.
 - **Filtros**: columna a la izquierda en desktop; plegables en mobile. Cada cambio vuelve a la página 1; el orden y la página van en la URL solo si no son los de por defecto.
 - **Ficha**: galería en mosaico (portada grande + 4) con visor a pantalla completa; a la derecha, la tarjeta de contacto fija (WhatsApp y formulario).
+- **Hero de la home**: la fachada a todo el ancho y a casi toda la pantalla, con un movimiento lento (Ken Burns), y en el centro el título y "Ver propiedades". Al tocarlo, la foto se acerca a la puerta del 7250, el texto se desvanece y la pantalla se funde con el fondo antes de abrir el listado (`components/home/hero-entrance.tsx`). Sin JS, con `prefers-reduced-motion` o abriendo en otra pestaña, es un link común.
+- **Header**: fijo arriba. En la home arranca transparente sobre el hero, con texto blanco, y se vuelve sólido al bajar (`components/layout/header-shell.tsx`).
 - **Mapa**: Leaflet con OpenStreetMap ([ADR 0019](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md)). Pin si la dirección es exacta; círculo de unas cuadras si es aproximada.
 
 ## Accesibilidad

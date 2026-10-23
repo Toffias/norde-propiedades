@@ -4,11 +4,10 @@ import { Menu } from 'lucide-react';
 import Link from 'next/link';
 
 import { BUSINESS } from '../../constants/business';
-import { isNavGroup, SITE_NAV } from '../../lib/layout/site-nav';
+import { SITE_NAV } from '../../lib/layout/site-nav';
 import { routes } from '../../lib/seo/routes';
 import { whatsappHref } from '../../lib/whatsapp';
 import { NordeLogo } from '../brand/norde-logo';
-import { NavDropdown } from './nav-dropdown';
 
 const LINK = 'text-muted-foreground hover:text-foreground rounded-lg px-3 py-2 transition-colors';
 
@@ -29,14 +28,10 @@ export function SiteHeader() {
         <nav aria-label="Principal" className="hidden md:block">
           <ul className="flex items-center gap-1 text-sm font-medium">
             {SITE_NAV.map((entry) => (
-              <li key={entry.label}>
-                {isNavGroup(entry) ? (
-                  <NavDropdown group={entry} className={LINK} />
-                ) : (
-                  <Link href={entry.href} className={LINK}>
-                    {entry.label}
-                  </Link>
-                )}
+              <li key={entry.href}>
+                <Link href={entry.href} className={LINK}>
+                  {entry.label}
+                </Link>
               </li>
             ))}
           </ul>
@@ -68,30 +63,13 @@ export function SiteHeader() {
               className="bg-popover absolute top-12 right-0 z-(--z-dropdown) max-h-[calc(100dvh-5rem)] w-64 overflow-y-auto rounded-2xl border p-2 shadow-lg"
             >
               <ul className="flex flex-col text-sm font-medium">
-                {SITE_NAV.map((entry) =>
-                  isNavGroup(entry) ? (
-                    <li key={entry.label} className="mb-2 border-b pb-2">
-                      <p className="text-foreground px-3 pt-2 pb-1 text-xs font-bold tracking-wide uppercase">
-                        {entry.label}
-                      </p>
-                      <ul>
-                        {entry.items.map((item) => (
-                          <li key={item.href}>
-                            <Link href={item.href} className={`${LINK} block`}>
-                              {item.label}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                  ) : (
-                    <li key={entry.label}>
-                      <Link href={entry.href} className={`${LINK} block`}>
-                        {entry.label}
-                      </Link>
-                    </li>
-                  ),
-                )}
+                {SITE_NAV.map((entry) => (
+                  <li key={entry.href}>
+                    <Link href={entry.href} className={`${LINK} block`}>
+                      {entry.label}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </nav>
           </details>

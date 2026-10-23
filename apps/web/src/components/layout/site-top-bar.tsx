@@ -1,22 +1,26 @@
-import { Clock, Mail, Phone } from 'lucide-react';
+import { Clock, Mail, Newspaper, Phone } from 'lucide-react';
+import Link from 'next/link';
 
 import { BUSINESS } from '../../constants/business';
 import { formatOpeningHours } from '../../lib/business/opening-hours';
 import { socialProfiles } from '../../lib/business/social-profiles';
+import { routes } from '../../lib/seo/routes';
 import { SocialIcon } from '../brand/social-icon';
 
 const LINK = 'inline-flex items-center gap-2 underline-offset-4 hover:underline';
+const ICON_LINK =
+  'hover:bg-background/10 dark:hover:bg-accent flex size-8 items-center justify-center rounded-full transition-colors';
 
 /**
- * Barra arriba del header con teléfono, email, horario y redes, todo desde `BUSINESS`. Muestra
- * solo lo que Norde confirmó; sin ningún dato, no aparece. En mobile quedan el teléfono y las redes.
+ * Barra arriba del header con teléfono, email, horario y redes, todo desde `BUSINESS`, y el ícono
+ * del blog antes de las redes. Muestra solo los datos que Norde confirmó. En mobile quedan el
+ * teléfono, el blog y las redes.
  */
 export function SiteTopBar() {
   const { email, telephone } = BUSINESS;
   const phoneLabel = BUSINESS.telephoneLabel ?? telephone;
   const hours = formatOpeningHours(BUSINESS.openingHours);
   const socials = socialProfiles(BUSINESS.sameAs);
-  if (!telephone && !email && !hours && socials.length === 0) return null;
 
   return (
     <div className="bg-ink text-background dark:bg-card dark:text-foreground text-xs font-medium dark:border-b">
@@ -45,23 +49,26 @@ export function SiteTopBar() {
             </li>
           )}
         </ul>
-        {socials.length > 0 && (
-          <ul aria-label="Redes sociales" className="flex shrink-0 items-center gap-1">
-            {socials.map((social) => (
-              <li key={social.url}>
-                <a
-                  href={social.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`${BUSINESS.name} en ${social.label}`}
-                  className="hover:bg-background/10 dark:hover:bg-accent flex size-8 items-center justify-center rounded-full transition-colors"
-                >
-                  <SocialIcon network={social.network} className="size-4" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul aria-label="Blog y redes sociales" className="flex shrink-0 items-center gap-1">
+          <li>
+            <Link href={routes.blog()} aria-label="Blog" title="Blog" className={ICON_LINK}>
+              <Newspaper aria-hidden className="size-4" />
+            </Link>
+          </li>
+          {socials.map((social) => (
+            <li key={social.url}>
+              <a
+                href={social.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${BUSINESS.name} en ${social.label}`}
+                className={ICON_LINK}
+              >
+                <SocialIcon network={social.network} className="size-4" />
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

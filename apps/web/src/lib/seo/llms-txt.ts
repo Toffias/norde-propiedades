@@ -33,7 +33,7 @@ export function buildLlmsTxt(
     `- [Propiedades](${url(routes.properties())}): propiedades en venta y en alquiler, con filtros por tipo y zona.`,
     `- [Emprendimientos](${url(routes.developments())}): desarrollos en pozo, en construcción y terminados, con sus unidades disponibles.`,
     `- [Tasaciones](${url(routes.appraisals())}): pedido de tasación de una propiedad.`,
-    `- [Contacto](${url(routes.contact())}): formulario de consulta y canales de contacto.`,
+    `- [Nosotros y contacto](${url(routes.contact())}): historia, equipo, formulario de consulta y canales de contacto.`,
     `- [Blog](${url(routes.blog())}): guías sobre comprar, vender y alquilar propiedades.`,
     '',
   );

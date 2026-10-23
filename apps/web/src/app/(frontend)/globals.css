@@ -27,6 +27,34 @@
   --tw-prose-td-borders: var(--color-border);
 }
 
+/* Nosotros: entrada de las secciones al aparecer en pantalla. Parte de un estado visible. */
+@keyframes about-rise {
+  from {
+    opacity: 0.35;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .about-reveal {
+    animation: about-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+/* La línea escalonada del logo sobre una foto oscura: en blanco, con el primer escalón rojo. */
+.about-deco-on-photo {
+  width: 120px;
+  height: 9px;
+  background:
+    linear-gradient(var(--color-brand-500), var(--color-brand-500)) 0 0 / 100% 2px no-repeat,
+    linear-gradient(#fff, #fff) 12px 4px / calc(100% - 24px) 1px no-repeat,
+    linear-gradient(#fff, #fff) 24px 8px / calc(100% - 48px) 1px no-repeat;
+}
+
 /* Hero de la home: la fachada se mueve lento en reposo (Ken Burns) y se funde al entrar. */
 @keyframes hero-drift {
   from {

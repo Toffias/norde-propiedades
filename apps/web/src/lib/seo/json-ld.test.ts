@@ -14,6 +14,7 @@ import {
   websiteSchema,
   realEstateListingSchema,
   developmentListingSchema,
+  teamSchema,
 } from './json-ld';
 
 const SITE = 'https://norde.com.ar';
@@ -258,5 +259,36 @@ describe('developmentListingSchema', () => {
     );
     expect(schema.offers).not.toHaveProperty('lowPrice');
     expect(schema.offers).not.toHaveProperty('priceCurrency');
+  });
+});
+
+describe('teamSchema', () => {
+  it('declares each member as a Person working for Norde and skips blank names', () => {
+    const schema = teamSchema(SITE, [
+      {
+        name: ' Ana Pérez ',
+        jobTitle: 'Asesora comercial',
+        imageUrl: 'https://norde.com.ar/a.jpg',
+      },
+      { name: ' ', jobTitle: 'Ventas' },
+      { name: 'Juan Gómez', jobTitle: ' ' },
+    ]);
+
+    expect(schema).toEqual([
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        name: 'Ana Pérez',
+        jobTitle: 'Asesora comercial',
+        image: 'https://norde.com.ar/a.jpg',
+        worksFor: { '@id': 'https://norde.com.ar/#organization' },
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        name: 'Juan Gómez',
+        worksFor: { '@id': 'https://norde.com.ar/#organization' },
+      },
+    ]);
   });
 });

@@ -30,6 +30,7 @@ El 5 de octubre de 2026 se compararon tres direcciones y Norde eligió la más c
 | Wordmark                                        | `apps/web/src/components/brand/norde-logo.tsx` |
 | Título de sección con la línea escalonada       | `components/layout/section-heading.tsx`        |
 | Tarjeta y grilla de propiedades                 | `components/properties/listing-card.tsx`       |
+| Foto de la fachada de la oficina                | `apps/web/src/assets/fachada-norde.jpg`        |
 | Textos de los valores del core (tipos, estados) | `lib/properties/labels.ts`                     |
 
 ## Color
@@ -54,6 +55,7 @@ Siempre tokens; **nunca hex sueltos en el `.tsx`**.
 - **Ficha**: galería en mosaico (portada grande + 4) con visor a pantalla completa; a la derecha, la tarjeta de contacto fija (WhatsApp y formulario).
 - **Hero de la home**: la fachada a todo el ancho y a casi toda la pantalla, con un movimiento lento (Ken Burns), y en el centro el título y "Ver propiedades". Al tocarlo, la foto se acerca a la puerta del 7250, el texto se desvanece y la pantalla se funde con el fondo antes de abrir el listado (`components/home/hero-entrance.tsx`). Sin JS, con `prefers-reduced-motion` o abriendo en otra pestaña, es un link común.
 - **Header**: fijo arriba. En la home arranca transparente sobre el hero, con texto blanco, y se vuelve sólido al bajar (`components/layout/header-shell.tsx`).
+- **Movimiento** (Nosotros y contacto): parallax de fotos, una línea de tiempo que se pinta al bajar, entradas suaves al aparecer y cifras que cuentan. Siempre como extra: el HTML del servidor ya muestra todo en reposo (nada arranca invisible) y con `prefers-reduced-motion` no se anima nada. Las piezas están en `components/about/` (`Parallax`, `Reveal`, `CountUp`).
 - **Mapa**: Leaflet con OpenStreetMap ([ADR 0019](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md)). Pin si la dirección es exacta; círculo de unas cuadras si es aproximada.
 
 ## Accesibilidad

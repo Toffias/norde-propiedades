@@ -188,6 +188,29 @@ export function serviceSchema(
   return schema;
 }
 
+export interface TeamMemberInput {
+  readonly name: string;
+  readonly jobTitle: string;
+  readonly imageUrl?: string | null | undefined;
+}
+
+/** El equipo como `Person` con `worksFor` (señal E-E-A-T). */
+export function teamSchema(siteUrl: string, members: readonly TeamMemberInput[]): JsonLd[] {
+  return members
+    .filter((m) => m.name.trim() !== '')
+    .map((m) => {
+      const person: JsonLd = {
+        '@context': CONTEXT,
+        '@type': 'Person',
+        name: m.name.trim(),
+        worksFor: { '@id': organizationId(siteUrl) },
+      };
+      if (m.jobTitle.trim()) person.jobTitle = m.jobTitle.trim();
+      if (m.imageUrl) person.image = m.imageUrl;
+      return person;
+    });
+}
+
 /**
  * Serializa para un `<script type="application/ld+json">`. Escapa `<` para que un texto
  * cargado en el CMS no pueda cerrar el script (XSS).

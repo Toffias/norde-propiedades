@@ -15,11 +15,8 @@ import {
 
 import { COMPANY_NAV_ITEMS } from './company-navigation';
 
-// Módulos del panel (épica #1). Los que todavía no tienen pantalla se ven deshabilitados, así el
-// menú ya tiene su forma final. Los contadores de Oportunidades y Consultas los pone el layout
+// Módulos del panel (épica #1). Los contadores de Oportunidades y Consultas los pone el layout
 // (`NavCounts`).
-
-const SOON = 'Próximamente';
 
 export const PANEL_NAVIGATION: readonly NavGroup[] = [
   {
@@ -44,7 +41,7 @@ export const PANEL_NAVIGATION: readonly NavGroup[] = [
       { href: '/emprendimientos', label: 'Emprendimientos', icon: LandmarkIcon },
       { href: '/tasaciones', label: 'Tasaciones', icon: CalculatorIcon },
       { href: '/reservas', label: 'Reservas', icon: CalendarCheckIcon },
-      { href: '/difusion', label: 'Difusión', icon: MegaphoneIcon, disabledReason: SOON },
+      { href: '/difusion', label: 'Difusión', icon: MegaphoneIcon },
     ],
   },
   {

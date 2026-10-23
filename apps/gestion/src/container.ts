@@ -303,12 +303,14 @@ import {
   GetPortalAlerts,
   GetPortfolioSummary,
   GetPropertyStatistics,
+  GetPublicationOverview,
   GetUnassignedInquiries,
   GetUpcomingSignings,
   GlobalSearch,
   ListAvailableDevelopments,
   ListAvailableProperties,
   ListBackgroundTasks,
+  ListPortalPublications,
   type ReportingPropertyProfiles,
 } from '@norde/core/reporting';
 import {
@@ -413,6 +415,7 @@ import {
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
   DrizzleHomeDashboardQuery,
+  DrizzlePublicationOverviewQuery,
   DrizzleBackgroundTaskQuery,
   DrizzleReferenceCodeSequenceQuery,
   DrizzleRoleListQuery,
@@ -1483,6 +1486,7 @@ function createDetailReadModels(
   const interest = new DrizzlePropertyInterestQuery(db);
   const statistics = new DrizzlePropertyStatisticsQuery(db);
   const home = new DrizzleHomeDashboardQuery(db);
+  const publications = new DrizzlePublicationOverviewQuery(db);
   return {
     clients: {
       listPropertyInterestedClients: new ListPropertyInterestedClients({
@@ -1507,6 +1511,9 @@ function createDetailReadModels(
       getPortfolioSummary: new GetPortfolioSummary({ home }),
       listAvailableProperties: new ListAvailableProperties({ home, users: agents }),
       listAvailableDevelopments: new ListAvailableDevelopments({ home, users: agents }),
+      // Difusión (#114): el resumen y la pantalla de cada portal.
+      getPublicationOverview: new GetPublicationOverview({ publications }),
+      listPortalPublications: new ListPortalPublications({ publications }),
     },
   };
 }

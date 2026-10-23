@@ -652,7 +652,7 @@ Diseño propuesto:
 
 > Riesgo: el acceso a las APIs de Zonaprop y Argenprop suele requerir un acuerdo comercial o ser partner. Conviene confirmarlo temprano; si no hay acceso, la alternativa es exportar un feed o cargar a mano.
 
-**MercadoLibre primero (#14)**: alta, edición y baja de propiedades y emprendimientos replicadas en ML, y sus consultas en la bandeja. El listado por portal, Zonaprop, Argenprop, el carrusel y las redes quedan para después. Se construye en cuatro etapas, detrás de `PORTALS_ENABLED` (apagado por defecto). Decisiones técnicas en el ADR 0022.
+**MercadoLibre primero (#14)**: alta, edición y baja de propiedades y emprendimientos replicadas en ML, y sus consultas en la bandeja. Zonaprop llegó después; el listado por portal está en #114 (abajo). Argenprop, el carrusel y las redes quedan para después. Se construye en cuatro etapas, detrás de `PORTALS_ENABLED` (apagado por defecto). Decisiones técnicas en el ADR 0022.
 
 1. **Cuentas** (hecha):
    - Mi empresa → Portales muestra dos tarjetas: **MercadoLibre · Propiedades** y **MercadoLibre · Emprendimientos**.
@@ -771,6 +771,14 @@ Diseño propuesto:
    - **Pendiente:** probar online un emprendimiento real. En el sandbox la cuenta no tiene créditos de Desarrollos home.
 
 ---
+
+**Difusión: resumen y pantalla por portal (#114).** Menú Cartera → Difusión (`/difusion`), con `portals:publish` o `portals:manage` y la función prendida. Es una lectura del módulo `reporting`, que cruza `portal_listings` con propiedades y emprendimientos.
+
+- **Resumen**: por tipo (propiedades sueltas disponibles, sin las unidades; emprendimientos en comercialización), cuántos hay, cuántos están en la web y cuántos tienen algún aviso online en cada portal prendido, con un acceso a los que faltan publicar.
+- **Por portal**: una tarjeta por cuenta prendida con sus contadores (Publicadas, Simples, Destacadas, A revisar, Con error, Publicando, Pausadas y Sin publicar). La regla de cada contador está en `reporting/domain/publication-buckets.ts` y en `docs/negocio/decisiones.md` (2026-10-23).
+- Cada contador abre `/difusion/<portal>?kind=property|development&bucket=…`: el listado paginado en el servidor, de lo último que cambió hacia atrás, con la ficha (pestaña Difusión), el aviso (operación, tipo o plan), el estado con el motivo del portal y "Ver en …". En Zonaprop se elige entre propiedades y emprendimientos.
+- Índice nuevo `portal_listings_portal_status_updated_idx` (migración `0040`); el test de integración verifica que ningún contador ni listado recorra la tabla entera.
+- Tokko separa "simples" y "premium": acá las destacadas incluyen los planes pagos de Zonaprop. Las redes sociales y el carrusel siguen afuera.
 
 ### 4.6 Buscador, alta corta y papelera (#5)
 

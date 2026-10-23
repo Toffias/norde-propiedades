@@ -17,7 +17,7 @@ const PROPERTY_LINKS = [
 const SITE_LINKS = [
   { label: 'Tasaciones', href: routes.appraisals() },
   { label: 'Blog', href: routes.blog() },
-  { label: 'Contacto', href: routes.contact() },
+  { label: 'Nosotros y contacto', href: routes.contact() },
 ] as const;
 
 const LINK = 'hover:text-foreground transition-colors';

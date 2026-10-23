@@ -8,14 +8,18 @@ import { SITE_NAV } from '../../lib/layout/site-nav';
 import { routes } from '../../lib/seo/routes';
 import { whatsappHref } from '../../lib/whatsapp';
 import { NordeLogo } from '../brand/norde-logo';
+import { HeaderShell } from './header-shell';
 
 const LINK = 'text-muted-foreground hover:text-foreground rounded-lg px-3 py-2 transition-colors';
+/** Sobre la foto del hero (header transparente de la home). */
+const ON_PHOTO =
+  'group-data-[overlay=true]/header:text-white/90 group-data-[overlay=true]/header:hover:text-white';
 
 export function SiteHeader() {
   const whatsapp = whatsappHref('Hola, quiero hacer una consulta.');
 
   return (
-    <header className="bg-background/90 supports-[backdrop-filter]:bg-background/75 sticky top-0 z-(--z-sticky) border-b backdrop-blur">
+    <HeaderShell>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6">
         <Link
           href={routes.home()}
@@ -29,7 +33,7 @@ export function SiteHeader() {
           <ul className="flex items-center gap-1 text-sm font-medium">
             {SITE_NAV.map((entry) => (
               <li key={entry.href}>
-                <Link href={entry.href} className={LINK}>
+                <Link href={entry.href} className={`${LINK} ${ON_PHOTO}`}>
                   {entry.label}
                 </Link>
               </li>
@@ -43,18 +47,20 @@ export function SiteHeader() {
               href={whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-whatsapp bg-whatsapp/10 hover:bg-whatsapp/15 hidden items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-bold transition-colors sm:inline-flex"
+              className="text-whatsapp bg-whatsapp/10 hover:bg-whatsapp/15 group-data-[overlay=true]/header:bg-whatsapp hidden items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-bold transition-colors group-data-[overlay=true]/header:text-white sm:inline-flex"
             >
               <WhatsAppIcon className="size-4" />
               WhatsApp
             </a>
           )}
-          <ThemeSwitcher className="text-muted-foreground hover:text-foreground size-10 rounded-xl has-[>svg]:px-0" />
+          <ThemeSwitcher
+            className={`text-muted-foreground hover:text-foreground size-10 rounded-xl has-[>svg]:px-0 ${ON_PHOTO}`}
+          />
           {/* Menú mobile sin JavaScript: `<details>` se abre y se cierra solo. */}
           <details className="group relative md:hidden">
             <summary
               aria-label="Abrir el menú"
-              className="hover:bg-accent flex size-10 cursor-pointer list-none items-center justify-center rounded-xl [&::-webkit-details-marker]:hidden"
+              className="hover:bg-accent flex size-10 cursor-pointer list-none items-center justify-center rounded-xl group-data-[overlay=true]/header:text-white group-data-[overlay=true]/header:hover:bg-white/15 [&::-webkit-details-marker]:hidden"
             >
               <Menu aria-hidden className="size-5" />
             </summary>
@@ -75,6 +81,6 @@ export function SiteHeader() {
           </details>
         </div>
       </div>
-    </header>
+    </HeaderShell>
   );
 }

@@ -1,8 +1,15 @@
 // Fakes del módulo reporting para tests (`@norde/core/reporting/testing`).
 
 import type { PropertyInterestProfile } from '../../clients';
+import type { ListingOwnerKind, PortalId } from '../../portals';
 import type { Actor, PageSlice } from '../../shared';
-import type { CountByPropertyStatus, CountByStage, PortalPublicationStats } from '../contracts';
+import type {
+  AvailabilitySummary,
+  CountByPropertyStatus,
+  CountByStage,
+  PortalPublicationRow,
+  PortalPublicationStats,
+} from '../contracts';
 import type { HomeScope } from '../application/home-scope';
 import type {
   AvailableDevelopmentRecord,
@@ -16,6 +23,12 @@ import type {
   UpcomingSigningRecord,
 } from '../application/ports/home-dashboard-query';
 import type { ReportingUserNames } from '../application/ports/user-names';
+import type {
+  PortalKindTally,
+  PortalPublicationRequest,
+  PublicationOverviewQuery,
+  PublishableStatuses,
+} from '../application/ports/publication-overview-query';
 import type {
   BackgroundTaskCriteria,
   BackgroundTaskQuery,
@@ -215,5 +228,53 @@ export class InMemoryBackgroundTaskQuery implements BackgroundTaskQuery {
         (isActiveTask(task) ||
           (task.finishedAt !== undefined && task.finishedAt > criteria.finishedSince)),
     );
+  }
+}
+
+/** Devuelve lo configurado y registra los pedidos del listado. */
+export class StubPublicationOverviewQuery implements PublicationOverviewQuery {
+  readonly requests: PortalPublicationRequest[] = [];
+  readonly missingAsked: { readonly portal: PortalId; readonly kind: ListingOwnerKind }[] = [];
+
+  constructor(
+    readonly data: {
+      enabled?: readonly PortalId[];
+      properties?: AvailabilitySummary;
+      developments?: AvailabilitySummary;
+      tallies?: readonly PortalKindTally[];
+      missing?: Partial<Record<`${PortalId}:${ListingOwnerKind}`, number>>;
+      rows?: readonly PortalPublicationRow[];
+    } = {},
+  ) {}
+
+  enabledPortals() {
+    return Promise.resolve(this.data.enabled ?? []);
+  }
+
+  availability(_publishable: PublishableStatuses) {
+    const none = { available: 0, onWeb: 0 };
+    return Promise.resolve({
+      properties: this.data.properties ?? none,
+      developments: this.data.developments ?? none,
+    });
+  }
+
+  listingTallies(portals: readonly PortalId[]) {
+    return Promise.resolve((this.data.tallies ?? []).filter((t) => portals.includes(t.portal)));
+  }
+
+  missingCount(portal: PortalId, kind: ListingOwnerKind, _publishable: PublishableStatuses) {
+    this.missingAsked.push({ portal, kind });
+    return Promise.resolve(this.data.missing?.[`${portal}:${kind}`] ?? 0);
+  }
+
+  list(request: PortalPublicationRequest) {
+    this.requests.push(request);
+    const rows = this.data.rows ?? [];
+    const page: PageSlice<PortalPublicationRow> = {
+      items: rows.slice(request.offset, request.offset + request.limit),
+      total: rows.length,
+    };
+    return Promise.resolve(page);
   }
 }

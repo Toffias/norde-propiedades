@@ -75,3 +75,28 @@ export {
   type CountBackgroundTasksError,
 } from './application/queries/count-background-tasks';
 export { FINISHED_TASKS_WINDOW_DAYS } from './domain/background-tasks';
+export type {
+  PortalKindTally,
+  PortalPublicationRequest,
+  PublicationOverviewQuery,
+  PublishableStatuses,
+} from './application/ports/publication-overview-query';
+export {
+  GetPublicationOverview,
+  type GetPublicationOverviewError,
+} from './application/queries/get-publication-overview';
+export {
+  ListPortalPublications,
+  type ListPortalPublicationsError,
+  type PortalKindNotPublishedError,
+} from './application/queries/list-portal-publications';
+export {
+  PUBLICATION_BUCKETS,
+  publicationCriteria,
+  publicationTier,
+  SIMPLE_PLANS,
+  type ListingTally,
+  type PublicationBucket,
+  type PublicationCriteria,
+  type PublicationTier,
+} from './domain/publication-buckets';

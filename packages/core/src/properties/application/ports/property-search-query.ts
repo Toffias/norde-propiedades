@@ -1,4 +1,4 @@
-import type { Currency, Operation, PropertyType, PublicSort } from '../../contracts';
+import type { Currency, MapArea, Operation, PropertyType, PublicSort } from '../../contracts';
 import type { FeatureKind } from '../../domain/feature';
 import type { MediaKind, MediaProcessingStatus, MediaVariants } from '../../domain/media-item';
 import type { PropertyStatus } from '../../domain/property-status';
@@ -88,6 +88,13 @@ export interface PropertySearchCriteria {
   readonly location?: string | undefined;
   /** La ubicación o cualquiera de sus descendientes. */
   readonly locationId?: string | undefined;
+  /**
+   * Dentro de esta área del mapa, comparando las coordenadas públicas: las exactas si la
+   * propiedad muestra la dirección; si no, redondeadas a `APPROXIMATE_DECIMALS`.
+   */
+  readonly area?: MapArea | undefined;
+  /** Solo las que tienen coordenadas (el mapa). */
+  readonly withCoordinates?: boolean | undefined;
   /**
    * Filtro de precio sobre la operación buscada (o cualquiera) en esta moneda. Las que no
    * muestran el precio en la web quedan afuera: el filtro no puede revelarlo.

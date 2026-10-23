@@ -113,3 +113,19 @@ export class Location extends AggregateRoot<LocationId, never> {
     return { id: this.id, ...this.#state };
   }
 }
+
+/**
+ * Dónde queda una ubicación, para distinguir homónimos en un buscador: los ancestros más cercanos
+ * sin el país ni nombres repetidos. Palermo (Argentina › CABA › CABA) → "CABA"; Ramos Mejía
+ * (Argentina › Buenos Aires › La Matanza) → "La Matanza, Buenos Aires".
+ */
+export function locationContext(name: string, ancestors: readonly string[]): string {
+  const seen = new Set([name]);
+  const context: string[] = [];
+  for (const ancestor of ancestors.slice(1).reverse()) {
+    if (seen.has(ancestor)) continue;
+    seen.add(ancestor);
+    context.push(ancestor);
+  }
+  return context.slice(0, 2).join(', ');
+}

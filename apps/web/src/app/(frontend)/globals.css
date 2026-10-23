@@ -54,3 +54,37 @@
     linear-gradient(#fff, #fff) 12px 4px / calc(100% - 24px) 1px no-repeat,
     linear-gradient(#fff, #fff) 24px 8px / calc(100% - 48px) 1px no-repeat;
 }
+
+/* Hero de la home: la fachada se mueve lento en reposo (Ken Burns) y se funde al entrar. */
+@keyframes hero-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.08) translate3d(-1.5%, -1%, 0);
+  }
+}
+
+@keyframes hero-entrance-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-drift {
+    animation: hero-drift 24s ease-in-out infinite alternate;
+  }
+}
+
+.hero-drift-paused {
+  animation-play-state: paused;
+}
+
+/* Empieza a la mitad del acercamiento y queda tapando hasta que carga el listado. */
+.hero-entrance-fade {
+  animation: hero-entrance-fade 450ms ease-in 450ms both;
+}

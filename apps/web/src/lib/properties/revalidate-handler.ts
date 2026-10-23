@@ -20,12 +20,15 @@ const RevalidateBodySchema = z.union([
 
 /**
  * `POST /api/revalidate`: apps/gestion avisa que una propiedad o un emprendimiento cambió (ADR
- * 0023). Con la firma válida, invalida su ficha y los listados.
+ * 0023). Con la firma válida, invalida su ficha y los listados, y avisa que la propiedad cambió
+ * para precalentar sus fotos.
  */
 export function createRevalidateHandler(options: {
   /** Compartido con `WEB_REVALIDATE_SECRET` de apps/gestion. */
   readonly secret: string;
   readonly revalidateTag: (tag: string) => void;
+  /** No espera: lo que haga corre después de responder. */
+  readonly onPropertyChanged?: (propertyId: string) => void;
 }): (request: Request) => Promise<Response> {
   return async (request) => {
     const declared = Number(request.headers.get('content-length') ?? '0');
@@ -42,6 +45,7 @@ export function createRevalidateHandler(options: {
     if ('propertyId' in parsed.data) {
       options.revalidateTag(propertyCacheTag(parsed.data.propertyId));
       options.revalidateTag(PROPERTIES_CACHE_TAG);
+      options.onPropertyChanged?.(parsed.data.propertyId);
     } else {
       options.revalidateTag(developmentCacheTag(parsed.data.developmentId));
       options.revalidateTag(DEVELOPMENTS_CACHE_TAG);

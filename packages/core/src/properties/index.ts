@@ -24,6 +24,20 @@ export {
   type SearchPropertiesError,
 } from './application/queries/search-properties';
 export { GetPublicPhoto, type GetPublicPhotoError } from './application/queries/get-public-photo';
+export {
+  GetPublicPropertyMap,
+  type GetPublicPropertyMapError,
+} from './application/queries/get-public-property-map';
+export {
+  SearchPublicLocations,
+  type SearchPublicLocationsError,
+} from './application/queries/search-public-locations';
+export type {
+  PublicLocationCriteria,
+  PublicLocationQuery,
+  PublicLocationRecord,
+} from './application/ports/public-location-query';
+export { APPROXIMATE_DECIMALS } from './domain/public-listing';
 export type { PublicSite } from './application/ports/public-site';
 export {
   RevalidatePublicProperty,
@@ -69,6 +83,7 @@ export {
   LOCATION_KINDS,
   LOCATION_KIND_LABELS,
   childKind,
+  locationContext,
   type LocationId,
   type LocationKind,
   type LocationParent,

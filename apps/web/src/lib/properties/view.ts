@@ -3,12 +3,14 @@ import type {
   PropertyDetail,
   PropertySummary,
   PublicImage,
+  PublicLocation,
+  PublicMapPin,
 } from '@norde/core/properties/contracts';
 
 import { routes } from '../seo/routes';
 import { htmlToText } from '../html-to-text';
 import { nonEmpty } from '../strings';
-import { formatMoney, formatPrice, formatSurface, plural } from './format';
+import { formatMoney, formatPrice, formatShortPrice, formatSurface, plural } from './format';
 import {
   CONDITION_LABELS,
   DISPOSITION_LABELS,
@@ -85,6 +87,76 @@ export interface ListingDetail extends ListingCard {
   readonly province: string;
   readonly propertyType: PropertySummary['propertyType'];
   readonly updatedAt: string;
+}
+
+/** Un pin del mapa del listado y su tarjeta. */
+export interface MapPinView {
+  readonly id: string;
+  readonly href: string;
+  readonly title: string;
+  readonly operationLabel: string;
+  /** "USD 150 mil": la etiqueta del pin. */
+  readonly shortPrice: string;
+  readonly priceLabel: string;
+  readonly location: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  /** `false`: aproximado a la manzana. */
+  readonly exact: boolean;
+  readonly cover: ListingImage | null;
+  /** "72 m² · 3 amb.". */
+  readonly facts: string;
+}
+
+export interface LocationOption {
+  readonly id: string;
+  readonly name: string;
+  /** "Barrio · CABA". */
+  readonly description: string;
+  readonly listingCount: number;
+}
+
+const LOCATION_KIND_LABELS: Readonly<Record<PublicLocation['kind'], string>> = {
+  country: 'País',
+  province: 'Provincia',
+  city: 'Localidad',
+  neighborhood: 'Barrio',
+  subneighborhood: 'Barrio',
+};
+
+export function toLocationOption(l: PublicLocation): LocationOption {
+  return {
+    id: l.id,
+    name: l.name,
+    description: [LOCATION_KIND_LABELS[l.kind], l.context]
+      .filter((part) => part !== '')
+      .join(' · '),
+    listingCount: l.listingCount,
+  };
+}
+
+export function toMapPinView(p: PublicMapPin): MapPinView {
+  const location = [p.neighborhood, p.city].filter((part) => part.trim() !== '').join(', ');
+  const surface = p.surfaceCoveredM2 ?? p.surfaceTotalM2;
+  return {
+    id: p.id,
+    href: routes.property(p.slug),
+    title: p.title,
+    operationLabel: OPERATION_LABELS[p.operation],
+    shortPrice: formatShortPrice(p.price),
+    priceLabel: formatPrice(p.price),
+    location,
+    latitude: p.coordinates.latitude,
+    longitude: p.coordinates.longitude,
+    exact: p.coordinates.exact,
+    cover: p.cover && toListingImage(p.cover, `${p.title}, ${location}`),
+    facts: [
+      surface === null ? null : formatSurface(surface),
+      p.rooms === null ? null : plural(p.rooms, 'amb.', 'amb.'),
+    ]
+      .filter((fact) => fact !== null)
+      .join(' · '),
+  };
 }
 
 function locationOf(p: PropertySummary): string {

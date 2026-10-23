@@ -1,5 +1,7 @@
 import type {
   Currency,
+  GetPublicPropertyMapInput,
+  MapArea,
   Operation,
   PropertyType,
   PublicSort,
@@ -31,7 +33,13 @@ export const LISTING_PARAM_NAMES = {
   minBedrooms: 'dormitorios',
   sort: 'orden',
   page: 'pagina',
+  /** Área del mapa: `sur,oeste,norte,este`. */
+  area: 'area',
+  view: 'vista',
 } as const;
+
+/** `?vista=mapa`; sin el parámetro, la grilla. */
+export const MAP_VIEW_PARAM = 'mapa';
 
 export const SORT_OPTIONS: readonly { value: PublicSort; param: string; label: string }[] = [
   { value: 'featured', param: 'destacadas', label: 'Destacadas' },
@@ -52,7 +60,12 @@ export const ROOM_OPTIONS = [1, 2, 3, 4, 5] as const;
 export interface ListingFilters {
   readonly operation?: Operation;
   readonly propertyType?: PropertyType;
+  /** Texto libre: solo si no coincidió con ninguna ubicación del catálogo. */
   readonly location?: string;
+  /** Ubicación del catálogo: incluye sus barrios. */
+  readonly locationId?: string;
+  /** "Buscar en esta zona" del mapa. */
+  readonly area?: MapArea;
   readonly currency?: Currency;
   /** En unidades (sin centavos): lo que escribe la persona. */
   readonly minPrice?: number;
@@ -61,6 +74,8 @@ export interface ListingFilters {
   readonly minBedrooms?: number;
   readonly sort: PublicSort;
   readonly page: number;
+  /** Sin valor: la grilla. */
+  readonly view?: 'map';
 }
 
 export type SearchParamsRecord = Readonly<Record<string, string | string[] | undefined>>;
@@ -82,9 +97,42 @@ function wholeNumber(value: string | undefined, max: number): number | undefined
 
 const MAX_PRICE = 100_000_000_000;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Decimales del área en la URL: unos 10 m, y una URL corta y estable. */
+const AREA_DECIMALS = 4;
+
+function roundCoordinate(value: number): number {
+  const factor = 10 ** AREA_DECIMALS;
+  return Math.round(value * factor) / factor;
+}
+
+/** `sur,oeste,norte,este`, con el sur al sur del norte y el oeste al oeste del este. */
+function parseArea(value: string | undefined): MapArea | undefined {
+  const parts = value?.split(',') ?? [];
+  if (parts.length !== 4) return undefined;
+  const [south, west, north, east] = parts.map((part) => roundCoordinate(Number(part)));
+  if (south === undefined || west === undefined || north === undefined || east === undefined) {
+    return undefined;
+  }
+  const inRange =
+    Math.abs(south) <= 90 &&
+    Math.abs(north) <= 90 &&
+    Math.abs(west) <= 180 &&
+    Math.abs(east) <= 180;
+  // `NaN` no pasa ninguna comparación: un número inválido deja el área afuera.
+  return inRange && south < north && west < east ? { south, west, north, east } : undefined;
+}
+
+export function formatArea(area: MapArea): string {
+  return [area.south, area.west, area.north, area.east].map(roundCoordinate).join(',');
+}
+
 export function parseListingFilters(params: SearchParamsRecord): ListingFilters {
   const n = LISTING_PARAM_NAMES;
   const location = single(params, n.location)?.slice(0, 100);
+  const locationId = single(params, n.locationId)?.toLowerCase();
+  const area = parseArea(single(params, n.area));
   const filters: {
     -readonly [K in keyof ListingFilters]: ListingFilters[K];
   } = {
@@ -100,7 +148,11 @@ export function parseListingFilters(params: SearchParamsRecord): ListingFilters 
   const minBedrooms = wholeNumber(single(params, n.minBedrooms), 50);
   if (operation) filters.operation = operation;
   if (propertyType) filters.propertyType = propertyType;
-  if (location) filters.location = location;
+  if (locationId && UUID.test(locationId)) filters.locationId = locationId;
+  // Con una ubicación del catálogo, el texto sobra: es su nombre.
+  else if (location) filters.location = location;
+  if (area) filters.area = area;
+  if (single(params, n.view) === MAP_VIEW_PARAM) filters.view = 'map';
   if (currency) filters.currency = currency;
   if (minPrice !== undefined) filters.minPrice = minPrice;
   if (maxPrice !== undefined) filters.maxPrice = maxPrice;
@@ -115,17 +167,26 @@ export function priceCurrency(filters: ListingFilters): Currency {
   return filters.operation === 'rent' || filters.operation === 'temporary_rent' ? 'ARS' : 'USD';
 }
 
-export function toSearchInput(filters: ListingFilters, pageSize: number): SearchPropertiesInput {
+/** Los filtros de la URL como input del mapa: los mismos que la grilla, sin orden ni página. */
+export function toMapInput(filters: ListingFilters): GetPublicPropertyMapInput {
   const hasPrice = filters.minPrice !== undefined || filters.maxPrice !== undefined;
   return {
     ...(filters.operation && { operation: filters.operation }),
     ...(filters.propertyType && { propertyType: filters.propertyType }),
     ...(filters.location && { location: filters.location }),
+    ...(filters.locationId && { locationId: filters.locationId }),
+    ...(filters.area && { area: filters.area }),
     ...(hasPrice && { currency: priceCurrency(filters) }),
     ...(filters.minPrice !== undefined && { minPriceCents: BigInt(filters.minPrice) * 100n }),
     ...(filters.maxPrice !== undefined && { maxPriceCents: BigInt(filters.maxPrice) * 100n }),
     ...(filters.minRooms !== undefined && { minRooms: filters.minRooms }),
     ...(filters.minBedrooms !== undefined && { minBedrooms: filters.minBedrooms }),
+  };
+}
+
+export function toSearchInput(filters: ListingFilters, pageSize: number): SearchPropertiesInput {
+  return {
+    ...toMapInput(filters),
     sort: filters.sort,
     page: filters.page,
     pageSize,
@@ -149,6 +210,7 @@ export function listingHref(
   set(n.operation, OPERATION_OPTIONS.find((o) => o.value === next.operation)?.param);
   set(n.propertyType, PROPERTY_TYPE_OPTIONS.find((o) => o.value === next.propertyType)?.param);
   set(n.location, next.location);
+  set(n.locationId, next.locationId);
   set(n.currency, CURRENCY_OPTIONS.find((o) => o.value === next.currency)?.param);
   set(n.minPrice, next.minPrice);
   set(n.maxPrice, next.maxPrice);
@@ -158,6 +220,8 @@ export function listingHref(
     set(n.sort, SORT_OPTIONS.find((o) => o.value === next.sort)?.param);
   }
   if (next.page !== undefined && next.page > 1) set(n.page, next.page);
+  if (next.area !== undefined) set(n.area, formatArea(next.area));
+  if (next.view === 'map') set(n.view, MAP_VIEW_PARAM);
   const search = query.toString();
   return search === '' ? routes.properties() : `${routes.properties()}?${search}`;
 }
@@ -167,7 +231,8 @@ export function activeFilterCount(filters: ListingFilters): number {
   return [
     filters.operation,
     filters.propertyType,
-    filters.location,
+    filters.location ?? filters.locationId,
+    filters.area,
     filters.minPrice,
     filters.maxPrice,
     filters.minRooms,
@@ -175,13 +240,17 @@ export function activeFilterCount(filters: ListingFilters): number {
   ].filter((value) => value !== undefined).length;
 }
 
-/** Título del listado según los filtros: "Departamentos en venta en Mataderos". */
-export function listingTitle(filters: ListingFilters): string {
+/**
+ * Título del listado según los filtros: "Departamentos en venta en Mataderos". `locationName`:
+ * el nombre de la ubicación del catálogo elegida.
+ */
+export function listingTitle(filters: ListingFilters, locationName?: string): string {
   const what = filters.propertyType ? PROPERTY_TYPE_PLURALS[filters.propertyType] : 'Propiedades';
   const operation = filters.operation
     ? OPERATION_PHRASES[filters.operation]
     : 'en venta y alquiler';
-  const where = filters.location && `en ${capitalizeWords(filters.location)}`;
+  const place = locationName ?? (filters.location && capitalizeWords(filters.location));
+  const where = place && `en ${place}`;
   return [what, operation, where].filter(Boolean).join(' ');
 }
 
@@ -194,8 +263,8 @@ function capitalizeWords(text: string): string {
 }
 
 /**
- * Un listado con filtros finos (precio, ambientes, orden) no se indexa: son infinitas URLs con
- * el mismo contenido. Operación, tipo, zona y página sí.
+ * Un listado con filtros finos (precio, ambientes, área del mapa, orden) o en la vista de mapa no
+ * se indexa: son infinitas URLs con el mismo contenido. Operación, tipo, zona y página sí.
  */
 export function isIndexable(filters: ListingFilters): boolean {
   return (
@@ -203,6 +272,8 @@ export function isIndexable(filters: ListingFilters): boolean {
     filters.maxPrice === undefined &&
     filters.minRooms === undefined &&
     filters.minBedrooms === undefined &&
+    filters.area === undefined &&
+    filters.view === undefined &&
     filters.sort === 'featured'
   );
 }

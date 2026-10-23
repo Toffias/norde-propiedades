@@ -6,6 +6,8 @@ import {
   SEARCH_PARAM_NAMES,
 } from '../../lib/properties/search-params';
 import { routes } from '../../lib/seo/routes';
+import { LocationCombobox } from '../forms/location-combobox';
+import { SiteSelect } from '../forms/site-select';
 
 const FIELD =
   'w-full bg-transparent text-[15px] font-semibold outline-none placeholder:text-muted-foreground placeholder:font-medium';
@@ -30,50 +32,38 @@ export function HeroSearch() {
         <label className={LABEL} htmlFor="search-operation">
           Quiero
         </label>
-        <select
+        <SiteSelect
           id="search-operation"
           name={SEARCH_PARAM_NAMES.operation}
-          className={FIELD}
+          variant="bare"
           defaultValue="venta"
-        >
-          {OPERATION_OPTIONS.map((o) => (
-            <option key={o.param} value={o.param}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          options={OPERATION_OPTIONS.map((o) => ({ value: o.param, label: o.label }))}
+        />
       </div>
 
       <div className={CELL}>
         <label className={LABEL} htmlFor="search-type">
           Tipo
         </label>
-        <select
+        <SiteSelect
           id="search-type"
           name={SEARCH_PARAM_NAMES.propertyType}
-          className={FIELD}
-          defaultValue=""
-        >
-          <option value="">Todos los tipos</option>
-          {PROPERTY_TYPE_OPTIONS.map((o) => (
-            <option key={o.param} value={o.param}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          variant="bare"
+          options={[
+            { value: '', label: 'Todos los tipos' },
+            ...PROPERTY_TYPE_OPTIONS.map((o) => ({ value: o.param, label: o.label })),
+          ]}
+        />
       </div>
 
       <div className={CELL}>
         <label className={LABEL} htmlFor="search-location">
           ¿Dónde?
         </label>
-        <input
+        <LocationCombobox
           id="search-location"
-          name={SEARCH_PARAM_NAMES.location}
-          type="search"
           placeholder="Barrio o localidad"
-          autoComplete="off"
-          maxLength={100}
+          variant="bare"
           className={FIELD}
         />
       </div>

@@ -200,6 +200,34 @@ describe('DrizzlePropertySearchQuery', () => {
     expect(await titles({ locationId: mataderos.id })).toEqual(['Mataderos']);
   });
 
+  it('keeps only properties with coordinates, inside the area by their public position', async () => {
+    // Exacta en el borde del área; la aproximada se redondea a -34.600 y queda adentro, aunque
+    // su posición real (-34.5996) está afuera.
+    await insertProperty({
+      title: 'Exacta',
+      latitude: -34.61,
+      longitude: -58.45,
+      showExactAddress: true,
+    });
+    await insertProperty({
+      title: 'Aproximada',
+      latitude: -34.5996,
+      longitude: -58.45,
+      showExactAddress: false,
+    });
+    await insertProperty({
+      title: 'Afuera',
+      latitude: -34.5996,
+      longitude: -58.45,
+      showExactAddress: true,
+    });
+    await insertProperty({ title: 'Sin coordenadas' });
+    const area = { south: -34.61, west: -58.5, north: -34.6, east: -58.4 };
+
+    expect(await titles({ withCoordinates: true })).toHaveLength(3);
+    expect((await titles({ area })).sort()).toEqual(['Aproximada', 'Exacta']);
+  });
+
   it('filters by any of the operations, with the price of that operation', async () => {
     await insertProperty({ title: 'Alquiler barato' }, [{ priceCents: 40_000_000n }]);
     await insertProperty({ title: 'Alquiler caro' }, [{ priceCents: 90_000_000n }]);

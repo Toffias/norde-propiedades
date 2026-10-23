@@ -5,8 +5,17 @@ import { unstable_cache } from 'next/cache';
 
 import { getContainer } from '../../container';
 import { PROPERTIES_CACHE_TAG, PROPERTIES_REVALIDATE_SECONDS } from './cache';
-import { toSearchInput, type ListingFilters } from './listing-filters';
-import { toListingCard, toListingDetail, type ListingCard, type ListingDetail } from './view';
+import { toMapInput, toSearchInput, type ListingFilters } from './listing-filters';
+import {
+  toListingCard,
+  toListingDetail,
+  toLocationOption,
+  toMapPinView,
+  type ListingCard,
+  type ListingDetail,
+  type LocationOption,
+  type MapPinView,
+} from './view';
 
 // Lecturas de propiedades para las páginas, con caché (ADR 0011 y 0023). Devuelven vistas ya
 // formateadas: el caché de Next guarda JSON y los DTO del core traen `bigint` y `Date`.
@@ -42,6 +51,59 @@ export const featuredListings = unstable_cache(
   async (count: number): Promise<readonly ListingCard[]> =>
     (await search({ sort: 'featured', page: 1 }, count)).items,
   ['properties:featured'],
+  CACHE_OPTIONS,
+);
+
+export interface ListingMap {
+  readonly pins: readonly MapPinView[];
+  /** Cuántas con ubicación en el mapa cumplen los filtros. */
+  readonly total: number;
+  /** Hay más que los pines que se muestran. */
+  readonly truncated: boolean;
+}
+
+/** Los pines del mapa del listado con los filtros de la URL. */
+export const listingMap = unstable_cache(
+  async (filters: ListingFilters): Promise<ListingMap> => {
+    const result = await getContainer().properties.map(toMapInput(filters));
+    if (result.isErr()) throw new Error(`Public map failed: ${result.error.type}`);
+    const { pins, total, truncated } = result.value;
+    return { pins: pins.map(toMapPinView), total, truncated };
+  },
+  ['properties:map'],
+  CACHE_OPTIONS,
+);
+
+/** Mínimo de letras para sugerir ubicaciones: con una sola, sale medio catálogo. */
+export const LOCATION_QUERY_MIN_LENGTH = 2;
+
+const LOCATION_SUGGESTIONS = 8;
+
+async function locations(
+  input: { readonly q: string } | { readonly ids: string[] },
+): Promise<readonly LocationOption[]> {
+  const result = await getContainer().properties.locations({
+    ...input,
+    pageSize: LOCATION_SUGGESTIONS,
+  });
+  if (result.isErr()) throw new Error(`Public locations failed: ${result.error.type}`);
+  return result.value.items.map(toLocationOption);
+}
+
+/** Barrios y localidades con propiedades publicadas que coinciden con lo que se escribe. */
+export const suggestLocations = unstable_cache(
+  async (text: string): Promise<readonly LocationOption[]> => {
+    const q = text.trim().slice(0, 80);
+    return q.length < LOCATION_QUERY_MIN_LENGTH ? [] : locations({ q });
+  },
+  ['properties:locations'],
+  CACHE_OPTIONS,
+);
+
+/** La ubicación elegida (para el título y el buscador). `undefined` si ya no tiene propiedades. */
+export const findLocation = unstable_cache(
+  async (id: string): Promise<LocationOption | undefined> => (await locations({ ids: [id] }))[0],
+  ['properties:location'],
   CACHE_OPTIONS,
 );
 

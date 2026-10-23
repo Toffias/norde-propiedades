@@ -133,6 +133,30 @@
   }
 }
 
+/* Pines del mapa del listado (Leaflet arma su HTML fuera de React). */
+@layer components {
+  .map-price-pin {
+    @apply inline-block -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border px-2.5 py-1 text-xs font-extrabold whitespace-nowrap shadow-md transition-[scale,background-color,border-color];
+  }
+
+  .map-cluster-pin {
+    @apply bg-primary text-primary-foreground flex items-center justify-center rounded-full text-sm font-extrabold shadow-lg ring-4 ring-white/70;
+  }
+}
+
+/*
+ * Safari de iOS agranda la página al tocar un campo con letra de menos de 16 px y la deja así,
+ * cortada a la derecha. En pantallas táctiles los campos van a 16 px como mínimo. Fuera de
+ * `@layer` a propósito: tiene que ganarle a `text-sm` y compañía.
+ */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 1em);
+  }
+}
+
 /*
  * La línea escalonada del logo: tres trazos que se acortan hacia el centro. Separa secciones y
  * subraya títulos. `.deco-steps` ocupa el ancho del contenedor; `.deco-steps-sm`, 120 px.

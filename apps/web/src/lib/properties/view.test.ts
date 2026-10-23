@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { aPropertyDetail } from './test-fixtures';
-import { formatMoney, formatPrice, formatSurface } from './format';
-import { toListingCard, toListingDetail } from './view';
+import { formatMoney, formatPrice, formatShortPrice, formatSurface } from './format';
+import { toListingCard, toListingDetail, toLocationOption, toMapPinView } from './view';
 
 const detail = aPropertyDetail();
 
@@ -61,5 +61,57 @@ describe('toListingDetail', () => {
     expect(view.updatedAt).toBe('2026-10-01T12:00:00.000Z');
     expect(view.offer).toEqual({ amount: 98_000, currency: 'USD' });
     expect(() => JSON.stringify(view)).not.toThrow();
+  });
+});
+
+describe('map and location views', () => {
+  it('shortens the pin price and falls back to "Consultar"', () => {
+    expect(formatShortPrice({ amountCents: 15_000_000n, currency: 'USD' })).toBe('USD 150 mil');
+    expect(formatShortPrice({ amountCents: 120_000_000n, currency: 'ARS' })).toBe('$ 1,2 M');
+    expect(formatShortPrice(null)).toBe('Consultar');
+  });
+
+  it('maps a pin with its card data', () => {
+    const pin = toMapPinView({
+      id: detail.id,
+      slug: 'depto-palermo',
+      title: 'Depto en Palermo',
+      propertyType: 'apartment',
+      operation: 'sale',
+      price: { amountCents: 15_000_000n, currency: 'USD' },
+      coordinates: { latitude: -34.58, longitude: -58.42, exact: false },
+      cover: null,
+      rooms: 3,
+      surfaceTotalM2: 80,
+      surfaceCoveredM2: 72,
+      neighborhood: 'Palermo',
+      city: 'CABA',
+    });
+
+    expect(pin).toMatchObject({
+      href: '/propiedades/depto-palermo',
+      operationLabel: 'Venta',
+      shortPrice: 'USD 150 mil',
+      priceLabel: 'USD 150.000',
+      location: 'Palermo, CABA',
+      exact: false,
+      facts: '72 m² · 3 amb.',
+    });
+  });
+
+  it('describes a location by its kind and context', () => {
+    expect(
+      toLocationOption({
+        id: 'x',
+        kind: 'subneighborhood',
+        name: 'Palermo Soho',
+        context: 'Palermo, CABA',
+        listingCount: 3,
+      }).description,
+    ).toBe('Barrio · Palermo, CABA');
+    expect(
+      toLocationOption({ id: 'y', kind: 'province', name: 'CABA', context: '', listingCount: 9 })
+        .description,
+    ).toBe('Provincia');
   });
 });

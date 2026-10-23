@@ -71,6 +71,11 @@ import type {
   PropertySearchQuery,
 } from '../application/ports/property-search-query';
 import type {
+  PublicLocationCriteria,
+  PublicLocationQuery,
+  PublicLocationRecord,
+} from '../application/ports/public-location-query';
+import type {
   ReferenceCodeAllocator,
   ReferenceCodeUnavailableError,
 } from '../application/ports/reference-code-allocator';
@@ -269,7 +274,8 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
         (criteria.propertyType === undefined || r.propertyType === criteria.propertyType) &&
         (criteria.developmentId === undefined || r.developmentId === criteria.developmentId) &&
         (criteria.location === undefined ||
-          `${r.neighborhood} ${r.city}`.toLowerCase().includes(criteria.location.toLowerCase())),
+          `${r.neighborhood} ${r.city}`.toLowerCase().includes(criteria.location.toLowerCase())) &&
+        (criteria.withCoordinates !== true || (r.latitude !== null && r.longitude !== null)),
     );
     return Promise.resolve({
       items: matches.slice(criteria.offset, criteria.offset + criteria.limit),
@@ -287,6 +293,27 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
 
   findByMediaId(mediaId: string) {
     return Promise.resolve(this.records.find((r) => r.media.some((m) => m.id === mediaId)));
+  }
+}
+
+/** Ubicaciones con propiedades publicadas, ya resueltas; guarda los criterios de cada pedido. */
+export class InMemoryPublicLocationQuery implements PublicLocationQuery {
+  readonly criteria: PublicLocationCriteria[] = [];
+
+  constructor(readonly records: PublicLocationRecord[] = []) {}
+
+  search(criteria: PublicLocationCriteria) {
+    this.criteria.push(criteria);
+    const text = criteria.text?.toLowerCase();
+    const matches = this.records.filter(
+      (r) =>
+        (text === undefined || r.name.toLowerCase().includes(text)) &&
+        (criteria.ids === undefined || criteria.ids.includes(r.id)),
+    );
+    return Promise.resolve({
+      items: matches.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: matches.length,
+    });
   }
 }
 

@@ -1,4 +1,5 @@
 import {
+  APPROXIMATE_DECIMALS,
   CURRENCIES,
   FEATURE_KINDS,
   MEDIA_KINDS,
@@ -11,8 +12,23 @@ import {
   type PropertyRecord,
   type PropertySearchCriteria,
   type PropertySearchQuery,
+  type MapArea,
 } from '@norde/core/properties';
-import { and, asc, count, eq, gte, inArray, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm';
+import {
+  type AnyColumn,
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -151,6 +167,10 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
       // "Palermo Soho", "Vicente López": alcanza con que coincida alguna palabra.
       location.length === 0 ? undefined : or(...location.map((w) => contains(place, w))),
       c.locationId === undefined ? undefined : this.withinLocation(c.locationId),
+      c.withCoordinates === true
+        ? sql`${properties.latitude} is not null and ${properties.longitude} is not null`
+        : undefined,
+      c.area === undefined ? undefined : this.withinArea(c.area),
       ...(c.featureIds ?? []).map(
         (featureId) =>
           sql`exists (select 1 from ${propertyFeatures} where ${propertyFeatures.propertyId} = ${properties.id} and ${propertyFeatures.featureId} = ${featureId})`,
@@ -189,6 +209,16 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
   /** La ubicación o cualquiera de sus descendientes, por la ruta materializada. */
   private withinLocation(locationId: string): SQL {
     return sql`exists (select 1 from ${locations} where ${locations.id} = ${properties.locationId} and ${locations.path} like (select root.path from ${locations} as root where root.id = ${locationId}) || '%')`;
+  }
+
+  /**
+   * Dentro del área, con las coordenadas que publica la ficha: las exactas o, si la dirección no
+   * se muestra, las redondeadas. Así achicar el área no revela la dirección.
+   */
+  private withinArea(area: MapArea): SQL {
+    const shown = (column: AnyColumn) =>
+      sql`case when ${properties.showExactAddress} then ${column} else round(${column}, ${APPROXIMATE_DECIMALS}) end`;
+    return sql`${shown(properties.latitude)} between ${area.south} and ${area.north} and ${shown(properties.longitude)} between ${area.west} and ${area.east}`;
   }
 
   private order(c: PropertySearchCriteria): SQL[] {

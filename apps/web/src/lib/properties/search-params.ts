@@ -14,7 +14,10 @@ interface Option<T extends string> {
 export const SEARCH_PARAM_NAMES = {
   operation: 'operacion',
   propertyType: 'tipo',
+  /** Texto libre: lo que escribió la persona sin elegir una opción (o un link viejo). */
   location: 'zona',
+  /** Ubicación del catálogo elegida en el autocompletado. */
+  locationId: 'ubicacion',
 } as const;
 
 export const OPERATION_OPTIONS: readonly Option<Operation>[] = [

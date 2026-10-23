@@ -12,6 +12,7 @@ import {
 } from '../../lib/properties/listing-filters';
 import { OPERATION_OPTIONS, PROPERTY_TYPE_OPTIONS } from '../../lib/properties/search-params';
 import { routes } from '../../lib/seo/routes';
+import { SiteSelect } from '../forms/site-select';
 
 const LABEL = 'mb-1.5 block text-xs font-bold';
 const FIELD =
@@ -100,19 +101,15 @@ function FiltersForm({
         <label className={LABEL} htmlFor={id('type')}>
           Tipo de propiedad
         </label>
-        <select
+        <SiteSelect
           id={id('type')}
           name={P.propertyType}
           defaultValue={paramOf(PROPERTY_TYPE_OPTIONS, filters.propertyType)}
-          className={FIELD}
-        >
-          <option value="">Todos</option>
-          {PROPERTY_TYPE_OPTIONS.map((o) => (
-            <option key={o.param} value={o.param}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: 'Todos' },
+            ...PROPERTY_TYPE_OPTIONS.map((o) => ({ value: o.param, label: o.label })),
+          ]}
+        />
       </div>
 
       <div>
@@ -133,18 +130,12 @@ function FiltersForm({
       <fieldset>
         <legend className={LABEL}>Precio</legend>
         <div className="grid grid-cols-[5.5rem_1fr_1fr] gap-2">
-          <select
+          <SiteSelect
             name={P.currency}
             aria-label="Moneda"
             defaultValue={paramOf(CURRENCY_OPTIONS, currency)}
-            className={FIELD}
-          >
-            {CURRENCY_OPTIONS.map((o) => (
-              <option key={o.param} value={o.param}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            options={CURRENCY_OPTIONS.map((o) => ({ value: o.param, label: o.label }))}
+          />
           <input
             name={P.minPrice}
             inputMode="numeric"
@@ -169,37 +160,29 @@ function FiltersForm({
           <label className={LABEL} htmlFor={id('rooms')}>
             Ambientes
           </label>
-          <select
+          <SiteSelect
             id={id('rooms')}
             name={P.minRooms}
-            defaultValue={filters.minRooms ?? ''}
-            className={FIELD}
-          >
-            <option value="">Todos</option>
-            {ROOM_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n === 5 ? '5 o más' : `${n} o más`}
-              </option>
-            ))}
-          </select>
+            defaultValue={filters.minRooms?.toString() ?? ''}
+            options={[
+              { value: '', label: 'Todos' },
+              ...ROOM_OPTIONS.map((n) => ({ value: String(n), label: `${n} o más` })),
+            ]}
+          />
         </div>
         <div>
           <label className={LABEL} htmlFor={id('bedrooms')}>
             Dormitorios
           </label>
-          <select
+          <SiteSelect
             id={id('bedrooms')}
             name={P.minBedrooms}
-            defaultValue={filters.minBedrooms ?? ''}
-            className={FIELD}
-          >
-            <option value="">Todos</option>
-            {ROOM_OPTIONS.slice(0, 4).map((n) => (
-              <option key={n} value={n}>
-                {`${n} o más`}
-              </option>
-            ))}
-          </select>
+            defaultValue={filters.minBedrooms?.toString() ?? ''}
+            options={[
+              { value: '', label: 'Todos' },
+              ...ROOM_OPTIONS.slice(0, 4).map((n) => ({ value: String(n), label: `${n} o más` })),
+            ]}
+          />
         </div>
       </div>
 

@@ -30,6 +30,7 @@ El 5 de octubre de 2026 se compararon tres direcciones y Norde eligió la más c
 | Wordmark                                        | `apps/web/src/components/brand/norde-logo.tsx` |
 | Título de sección con la línea escalonada       | `components/layout/section-heading.tsx`        |
 | Tarjeta y grilla de propiedades                 | `components/properties/listing-card.tsx`       |
+| Foto de la fachada de la oficina                | `apps/web/src/assets/fachada-norde.jpg`        |
 | Textos de los valores del core (tipos, estados) | `lib/properties/labels.ts`                     |
 
 ## Color
@@ -52,6 +53,7 @@ Siempre tokens; **nunca hex sueltos en el `.tsx`**.
 - **Tarjeta de propiedad**: foto 4:3 con la operación arriba a la izquierda, precio grande, título (link que cubre toda la tarjeta), ubicación y hasta cinco datos con ícono.
 - **Filtros**: columna a la izquierda en desktop; plegables en mobile. Cada cambio vuelve a la página 1; el orden y la página van en la URL solo si no son los de por defecto.
 - **Ficha**: galería en mosaico (portada grande + 4) con visor a pantalla completa; a la derecha, la tarjeta de contacto fija (WhatsApp y formulario).
+- **Movimiento** (Nosotros y contacto): parallax de fotos, una línea de tiempo que se pinta al bajar, entradas suaves al aparecer y cifras que cuentan. Siempre como extra: el HTML del servidor ya muestra todo en reposo (nada arranca invisible) y con `prefers-reduced-motion` no se anima nada. Las piezas están en `components/about/` (`Parallax`, `Reveal`, `CountUp`).
 - **Mapa**: Leaflet con OpenStreetMap ([ADR 0019](adr/0019-mapa-con-leaflet-y-geocodificacion-con-nominatim.md)). Pin si la dirección es exacta; círculo de unas cuadras si es aproximada.
 
 ## Accesibilidad

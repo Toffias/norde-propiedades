@@ -1,6 +1,8 @@
 import { withPayload } from '@payloadcms/next/withPayload';
 import type { NextConfig } from 'next';
 
+import { DEVICE_SIZES, IMAGE_SIZES } from './src/lib/images/sizes';
+
 /** Cabeceras de seguridad sitewide (también son señal de confianza para buscadores). */
 const SECURITY_HEADERS = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
@@ -22,7 +24,11 @@ const config: NextConfig = {
       // Fotos de las propiedades (ADR 0023).
       { pathname: '/fotos/**' },
     ],
-    formats: ['image/avif', 'image/webp'],
+    // Solo WebP: AVIF pesa ~40 % menos, pero tarda 2 a 3 veces más en convertirse y la primera
+    // visita a cada foto lo paga (medido en UAT: 1-2,5 s contra 0,6-0,9 s).
+    formats: ['image/webp'],
+    deviceSizes: DEVICE_SIZES,
+    imageSizes: IMAGE_SIZES,
   },
   // Sin CSP por ahora: exige nonces para los scripts inline (JSON-LD, Next.js); va aparte.
   headers() {

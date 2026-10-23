@@ -7,14 +7,17 @@ import 'server-only';
 import {
   GetPropertyDetail,
   GetPublicPhoto,
+  GetPublicPropertyMap,
   GetPublishedDevelopment,
   SearchProperties,
+  SearchPublicLocations,
   SearchPublishedDevelopments,
 } from '@norde/core/properties';
 import { Actor } from '@norde/core/shared';
 import {
   createDatabase,
   DrizzlePropertySearchQuery,
+  DrizzlePublicLocationQuery,
   DrizzlePublishedDevelopmentQuery,
   LocalFileStorage,
   S3FileStorage,
@@ -44,6 +47,13 @@ export interface PropertiesUseCases {
     input: Parameters<GetPropertyDetail['execute']>[0],
   ): ReturnType<GetPropertyDetail['execute']>;
   photo(input: Parameters<GetPublicPhoto['execute']>[0]): ReturnType<GetPublicPhoto['execute']>;
+  map(
+    input: Parameters<GetPublicPropertyMap['execute']>[0],
+  ): ReturnType<GetPublicPropertyMap['execute']>;
+  /** Barrios y localidades con propiedades publicadas (autocompletado del buscador). */
+  locations(
+    input: Parameters<SearchPublicLocations['execute']>[0],
+  ): ReturnType<SearchPublicLocations['execute']>;
 }
 
 /** Emprendimientos que se comercializan, ya con el actor de la web. */
@@ -96,6 +106,10 @@ function createContainer(): Container {
   const properties = new DrizzlePropertySearchQuery(database.db);
   const search = new SearchProperties({ properties });
   const detail = new GetPropertyDetail({ properties });
+  const map = new GetPublicPropertyMap({ properties });
+  const locations = new SearchPublicLocations({
+    locations: new DrizzlePublicLocationQuery(database.db),
+  });
   const developments = new DrizzlePublishedDevelopmentQuery(database.db);
   const photo = new GetPublicPhoto({ properties, developments, storage: createStorage(env) });
   const searchDevelopments = new SearchPublishedDevelopments({ developments });
@@ -106,6 +120,8 @@ function createContainer(): Container {
       search: (input) => search.execute(input, WEB_ACTOR),
       detail: (input) => detail.execute(input, WEB_ACTOR),
       photo: (input) => photo.execute(input, WEB_ACTOR),
+      map: (input) => map.execute(input, WEB_ACTOR),
+      locations: (input) => locations.execute(input, WEB_ACTOR),
     },
     developments: {
       search: (input) => searchDevelopments.execute(input, WEB_ACTOR),

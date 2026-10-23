@@ -7,6 +7,7 @@ import {
   listingTitle,
   parseListingFilters,
   priceCurrency,
+  toMapInput,
   toSearchInput,
 } from './listing-filters';
 
@@ -120,5 +121,78 @@ describe('listingTitle', () => {
     );
     expect(isIndexable(parseListingFilters({ ambientes: '2' }))).toBe(false);
     expect(isIndexable(parseListingFilters({ orden: 'recientes' }))).toBe(false);
+  });
+});
+
+describe('catalog location, map area and view', () => {
+  const PALERMO = '0192aaaa-0000-7000-8001-00000000001b';
+
+  it('prefers the catalog location over the free text, and ignores an invalid id', () => {
+    expect(parseListingFilters({ ubicacion: PALERMO, zona: 'palermo' })).toMatchObject({
+      locationId: PALERMO,
+    });
+    expect(parseListingFilters({ ubicacion: PALERMO }).location).toBeUndefined();
+    expect(parseListingFilters({ ubicacion: 'palermo', zona: 'palermo' })).toEqual({
+      location: 'palermo',
+      sort: 'featured',
+      page: 1,
+    });
+  });
+
+  it('reads a valid area rounded to four decimals and drops an invalid one', () => {
+    expect(parseListingFilters({ area: '-34.612345,-58.5,-34.5,-58.4' }).area).toEqual({
+      south: -34.6123,
+      west: -58.5,
+      north: -34.5,
+      east: -58.4,
+    });
+    for (const area of ['-34.5,-58.5,-34.6,-58.4', '1,2,3', 'a,b,c,d', '-95,-58.5,-34.5,-58.4']) {
+      expect(parseListingFilters({ area }).area).toBeUndefined();
+    }
+  });
+
+  it('round-trips the location, area and map view in the link', () => {
+    const filters = parseListingFilters({
+      ubicacion: PALERMO,
+      area: '-34.6,-58.5,-34.5,-58.4',
+      vista: 'mapa',
+    });
+
+    expect(listingHref(filters)).toBe(
+      `/propiedades?ubicacion=${PALERMO}&area=-34.6%2C-58.5%2C-34.5%2C-58.4&vista=mapa`,
+    );
+    expect(listingHref(filters, { view: undefined, area: undefined })).toBe(
+      `/propiedades?ubicacion=${PALERMO}`,
+    );
+    expect(activeFilterCount(filters)).toBe(2);
+  });
+
+  it('sends the location id and the area to the search and the map', () => {
+    const filters = parseListingFilters({
+      ubicacion: PALERMO,
+      area: '-34.6,-58.5,-34.5,-58.4',
+      ambientes: '2',
+      orden: 'recientes',
+    });
+    const area = { south: -34.6, west: -58.5, north: -34.5, east: -58.4 };
+
+    expect(toMapInput(filters)).toEqual({ locationId: PALERMO, area, minRooms: 2 });
+    expect(toSearchInput(filters, 12)).toEqual({
+      locationId: PALERMO,
+      area,
+      minRooms: 2,
+      sort: 'newest',
+      page: 1,
+      pageSize: 12,
+    });
+  });
+
+  it('titles the listing with the catalog name and does not index the map', () => {
+    expect(listingTitle(parseListingFilters({ ubicacion: PALERMO }), 'Palermo')).toBe(
+      'Propiedades en venta y alquiler en Palermo',
+    );
+    expect(isIndexable(parseListingFilters({ ubicacion: PALERMO }))).toBe(true);
+    expect(isIndexable(parseListingFilters({ vista: 'mapa' }))).toBe(false);
+    expect(isIndexable(parseListingFilters({ area: '-34.6,-58.5,-34.5,-58.4' }))).toBe(false);
   });
 });

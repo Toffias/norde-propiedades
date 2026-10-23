@@ -6,6 +6,7 @@ import {
   SEARCH_PARAM_NAMES,
 } from '../../lib/properties/search-params';
 import { routes } from '../../lib/seo/routes';
+import { LocationCombobox } from '../forms/location-combobox';
 import { SiteSelect } from '../forms/site-select';
 
 const FIELD =
@@ -59,13 +60,10 @@ export function HeroSearch() {
         <label className={LABEL} htmlFor="search-location">
           ¿Dónde?
         </label>
-        <input
+        <LocationCombobox
           id="search-location"
-          name={SEARCH_PARAM_NAMES.location}
-          type="search"
           placeholder="Barrio o localidad"
-          autoComplete="off"
-          maxLength={100}
+          variant="bare"
           className={FIELD}
         />
       </div>

@@ -1,11 +1,11 @@
 import { ArrowRight } from 'lucide-react';
 
-import facade from '../../assets/fachada-norde.jpg';
+import facade from '../../assets/fachada-norde.webp';
 import { routes } from '../../lib/seo/routes';
 import { EnterLink, HeroEntrance, HeroPhoto } from './hero-entrance';
 
 /** La puerta del 7250 en la foto de la fachada (proporción del ancho y del alto). */
-const FACADE_DOOR = { x: 0.507, y: 0.74 };
+const FACADE_DOOR = { x: 0.505, y: 0.7 };
 
 /**
  * Hero de la home: la fachada de la oficina a todo el ancho, con movimiento lento, y el llamado
@@ -20,7 +20,8 @@ export function HomeHero() {
             src={facade}
             alt="Fachada de la oficina de Norde Propiedades en Av. Emilio Castro 7250"
             door={FACADE_DOOR}
-            className="object-[center_62%]"
+            zoom={1.08}
+            className="object-[center_70%]"
           />
           {/* Oscurece arriba (header), al centro (texto) y abajo, sin tapar la puerta. */}
           <div

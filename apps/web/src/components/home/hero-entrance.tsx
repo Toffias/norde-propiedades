@@ -121,32 +121,37 @@ interface HeroPhotoProps {
   readonly alt: string;
   /** Dónde está la puerta en la foto original, en proporción del ancho y del alto. */
   readonly door: Point;
+  /** Acercamiento de base, para recortar una foto que entra demasiado abierta. */
+  readonly zoom?: number;
   readonly className?: string;
 }
 
 /** La foto del hero: se mueve lento en reposo y se acerca a la puerta al entrar. */
-export function HeroPhoto({ src, alt, door, className }: HeroPhotoProps) {
+export function HeroPhoto({ src, alt, door, zoom = 1, className }: HeroPhotoProps) {
   const { entering, registerPhoto } = useEntrance();
 
   return (
     <div className={cn('hero-drift absolute inset-0 -z-10', entering && 'hero-drift-paused')}>
-      <Image
-        ref={registerPhoto}
-        src={src}
-        alt={alt}
-        fill
-        priority
-        placeholder="blur"
-        sizes="100vw"
-        data-door-x={door.x}
-        data-door-y={door.y}
-        className={cn(
-          'object-cover transition-transform ease-in',
-          entering && 'duration-900',
-          className,
-        )}
-        style={entering ? { transform: `scale(${ZOOM})` } : undefined}
-      />
+      {/* El zoom de base va en su propia capa: el acercamiento a la puerta se calcula sin él. */}
+      <div className="absolute inset-0" style={{ transform: `scale(${zoom})` }}>
+        <Image
+          ref={registerPhoto}
+          src={src}
+          alt={alt}
+          fill
+          priority
+          placeholder="blur"
+          sizes="100vw"
+          data-door-x={door.x}
+          data-door-y={door.y}
+          className={cn(
+            'object-cover transition-transform ease-in',
+            entering && 'duration-900',
+            className,
+          )}
+          style={entering ? { transform: `scale(${ZOOM})` } : undefined}
+        />
+      </div>
     </div>
   );
 }

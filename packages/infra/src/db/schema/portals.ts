@@ -90,6 +90,8 @@ export const portalListings = coreSchema.table(
       .on(t.portal, t.externalId)
       .where(sql`external_id is not null`),
     index('portal_listings_portal_status_idx').on(t.portal, t.status),
+    // Difusión (#114): el listado de cada contador, de lo último que cambió hacia atrás.
+    index('portal_listings_portal_status_updated_idx').on(t.portal, t.status, t.updatedAt, t.id),
     index('portal_listings_property_idx').on(t.propertyId),
     index('portal_listings_development_idx').on(t.developmentId),
     // Procesos en segundo plano (ADR 0040): las pendientes de sincronizar y las recién cambiadas.

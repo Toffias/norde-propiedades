@@ -3,6 +3,7 @@ import type {
   PublishedDevelopmentDetail,
 } from '@norde/core/properties/contracts';
 
+import { htmlToText } from '../html-to-text';
 import { formatMoney } from '../properties/format';
 import { FEATURE_KIND_LABELS } from '../properties/labels';
 import { toListingImage, type ListingAttribute, type ListingImage } from '../properties/view';
@@ -137,7 +138,7 @@ export function toDevelopmentDetail(d: PublishedDevelopmentDetail): DevelopmentD
       amount: Number(d.priceFrom.amountCents / 100n),
       currency: d.priceFrom.currency,
     },
-    description: d.description,
+    description: htmlToText(d.description),
     province: d.province,
     coordinates: d.coordinates && {
       latitude: d.coordinates.latitude,

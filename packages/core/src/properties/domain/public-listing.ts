@@ -57,8 +57,12 @@ function clean(text: string | null): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
-/** Decimales de las coordenadas aproximadas: unos 100 m, la manzana sin el frente exacto. */
-const APPROXIMATE_DECIMALS = 3;
+/**
+ * Decimales de las coordenadas aproximadas: unos 100 m, la manzana sin el frente exacto. El
+ * filtro por área del mapa compara contra estas, no contra las exactas: si no, achicando el
+ * área se podría encontrar la dirección que no se publica.
+ */
+export const APPROXIMATE_DECIMALS = 3;
 
 export interface PublicCoordinates {
   readonly latitude: number;

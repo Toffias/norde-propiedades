@@ -43,6 +43,13 @@ export function PropertyGallery({ title, photos }: PropertyGalleryProps) {
 
   const mosaic = photos.slice(0, 5);
   const current = open === null ? undefined : photos[open];
+  // Las vecinas se bajan mientras se mira la actual, para que las flechas no esperen.
+  const neighbors =
+    open === null || photos.length < 2
+      ? []
+      : [...new Set([(open + 1) % photos.length, (open - 1 + photos.length) % photos.length])]
+          .map((index) => photos[index])
+          .filter((photo) => photo !== undefined);
   const step = (delta: number) => {
     setOpen((index) => (index === null ? index : (index + delta + photos.length) % photos.length));
   };
@@ -117,6 +124,18 @@ export function PropertyGallery({ title, photos }: PropertyGalleryProps) {
                 unoptimized={isExternal(current.src)}
                 className="object-contain"
               />
+              {neighbors.map((photo) => (
+                <Image
+                  key={photo.src}
+                  src={photo.src}
+                  alt=""
+                  fill
+                  sizes="100vw"
+                  loading="eager"
+                  unoptimized={isExternal(photo.src)}
+                  className="invisible object-contain"
+                />
+              ))}
             </div>
           )}
           {photos.length > 1 && (

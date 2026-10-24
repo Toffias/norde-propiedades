@@ -1,0 +1,1 @@
+CREATE INDEX "portal_listings_portal_status_updated_idx" ON "core"."portal_listings" USING btree ("portal","status","updated_at","id");

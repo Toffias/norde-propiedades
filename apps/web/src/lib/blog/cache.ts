@@ -1,5 +1,6 @@
 /**
- * Tag de caché de todo el contenido editorial del blog (posts, categorías y autores).
+ * Tag de caché de todo el contenido editorial: el blog (posts, categorías y autores) y Nosotros
+ * (el equipo y la historia).
  * Lo usan las consultas cacheadas y lo invalidan los hooks de Payload al publicar.
  * El volumen de cambios es bajo: un solo tag alcanza y evita olvidarse de una página.
  */

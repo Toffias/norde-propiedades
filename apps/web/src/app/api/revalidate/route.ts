@@ -1,10 +1,11 @@
 import { revalidateTag } from 'next/cache';
 
 import { getEnv } from '../../../config/env';
+import { getImageWarmer } from '../../../lib/properties/image-warmup';
 import { createRevalidateHandler } from '../../../lib/properties/revalidate-handler';
 
 // Avisos de apps/gestion cuando cambia una propiedad, un emprendimiento o su galería (ADR 0023), firmados con el
-// secreto compartido. Sin secreto configurado, no se expone.
+// secreto compartido. Sin secreto configurado, no se expone. Después precalienta las fotos de la propiedad.
 
 export async function POST(request: Request): Promise<Response> {
   const secret = getEnv().REVALIDATE_SECRET;
@@ -13,6 +14,9 @@ export async function POST(request: Request): Promise<Response> {
     secret,
     revalidateTag: (tag) => {
       revalidateTag(tag, { expire: 0 });
+    },
+    onPropertyChanged: (propertyId) => {
+      getImageWarmer().schedule(propertyId);
     },
   })(request);
 }

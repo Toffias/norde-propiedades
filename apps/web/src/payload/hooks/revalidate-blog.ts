@@ -2,6 +2,7 @@ import { revalidateTag } from 'next/cache';
 import type {
   CollectionAfterChangeHook,
   CollectionAfterDeleteHook,
+  GlobalAfterChangeHook,
   PayloadRequest,
   TypeWithID,
 } from 'payload';
@@ -11,8 +12,8 @@ import { BLOG_CACHE_TAG } from '../../lib/blog/cache';
 type Versioned = TypeWithID & { readonly _status?: 'draft' | 'published' | null };
 
 /**
- * Invalida el caché del blog. `expire: 0`: la próxima visita ya ve el cambio (el editor
- * espera verlo al publicar). Los scripts fuera de Next (seed, migraciones) pasan
+ * Invalida el caché del contenido editorial (blog y Nosotros). `expire: 0`: la próxima visita
+ * ya ve el cambio (el editor espera verlo al publicar). Los scripts fuera de Next (seed, migraciones) pasan
  * `context.disableRevalidate`, porque ahí no hay caché que invalidar.
  */
 function revalidateBlog(req: PayloadRequest, reason: string): void {
@@ -59,4 +60,12 @@ export const revalidateOnDelete: CollectionAfterDeleteHook<TypeWithID> = ({
 }) => {
   revalidateBlog(req, `${collection.slug}:${String(doc.id)}:deleted`);
   return doc;
+};
+
+/** Para los globals (Nosotros). */
+export const revalidateGlobal: GlobalAfterChangeHook = ({ doc, req, global }) => {
+  revalidateBlog(req, `global:${global.slug}`);
+  // Payload tipa el documento de un global como `any`: se devuelve sin tocarlo.
+  const unchanged: unknown = doc;
+  return unchanged;
 };

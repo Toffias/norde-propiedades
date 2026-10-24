@@ -36,6 +36,7 @@ export { DrizzleRoleListQuery } from './identity/drizzle-role-list-query';
 export { DrizzleOrganizationQuery } from './identity/drizzle-organization-query';
 
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
+export { DrizzlePublicLocationQuery } from './properties/drizzle-public-location-query';
 export { DrizzlePanelPropertyListQuery } from './properties/drizzle-panel-property-list-query';
 export { createPropertiesUnitOfWork } from './properties/properties-unit-of-work';
 export { DrizzleDevelopmentListQuery } from './properties/drizzle-development-list-query';
@@ -59,6 +60,7 @@ export { DrizzleAuditHistoryQuery } from './audit/drizzle-audit-history-query';
 export { DrizzleNewsFeedQuery } from './audit/drizzle-news-feed-query';
 export { DrizzlePropertyInterestQuery } from './clients/drizzle-property-interest-query';
 export { DrizzleHomeDashboardQuery } from './reporting/drizzle-home-dashboard-query';
+export { DrizzlePublicationOverviewQuery } from './reporting/drizzle-publication-overview-query';
 export { DrizzleBackgroundTaskQuery } from './reporting/drizzle-background-task-query';
 export { DrizzlePropertyStatisticsQuery } from './reporting/drizzle-property-statistics-query';
 export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-document-renderer';

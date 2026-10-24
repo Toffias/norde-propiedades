@@ -15,9 +15,11 @@ function sign(body: string, secret = SECRET) {
 
 function setup() {
   const tags: string[] = [];
+  const changed: string[] = [];
   const handle = createRevalidateHandler({
     secret: SECRET,
     revalidateTag: (tag) => tags.push(tag),
+    onPropertyChanged: (propertyId) => changed.push(propertyId),
   });
   const post = (body: string, signature: string | null = sign(body)) =>
     handle(
@@ -27,30 +29,33 @@ function setup() {
         headers: signature ? { 'x-norde-signature': signature } : {},
       }),
     );
-  return { tags, post };
+  return { tags, changed, post };
 }
 
 describe('POST /api/revalidate', () => {
-  it('invalidates the property page and the listings', async () => {
-    const { tags, post } = setup();
+  it('invalidates the property page and the listings, and reports the change to warm its photos', async () => {
+    const { tags, changed, post } = setup();
     const response = await post(JSON.stringify({ propertyId: PROPERTY_ID }));
     expect(response.status).toBe(200);
     expect(tags).toEqual([`property:${PROPERTY_ID}`, 'properties']);
+    expect(changed).toEqual([PROPERTY_ID]);
   });
 
   it('invalidates the development page and the developments listing', async () => {
-    const { tags, post } = setup();
+    const { tags, changed, post } = setup();
     const response = await post(JSON.stringify({ developmentId: DEVELOPMENT_ID }));
     expect(response.status).toBe(200);
     expect(tags).toEqual([`development:${DEVELOPMENT_ID}`, 'developments']);
+    expect(changed).toEqual([]);
   });
 
   it('rejects a missing or wrong signature without touching the cache', async () => {
-    const { tags, post } = setup();
+    const { tags, changed, post } = setup();
     const body = JSON.stringify({ propertyId: PROPERTY_ID });
     expect((await post(body, null)).status).toBe(401);
     expect((await post(body, sign(body, 'otro-secreto'))).status).toBe(401);
     expect(tags).toEqual([]);
+    expect(changed).toEqual([]);
   });
 
   it('rejects a signed body that is not a property id', async () => {

@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import type { FeatureKindValue } from './catalog';
+import type { FeatureKindValue, LocationKindValue } from './catalog';
 import {
   CURRENCIES,
   OPERATIONS,
@@ -28,6 +28,17 @@ export const PUBLIC_SORT_VALUES = [
 ] as const;
 export type PublicSort = (typeof PUBLIC_SORT_VALUES)[number];
 
+const Latitude = z.number().min(-90).max(90);
+const Longitude = z.number().min(-180).max(180);
+
+/** Rectángulo visible del mapa ("Buscar en esta zona"). */
+export const MapAreaSchema = z
+  .object({ south: Latitude, west: Longitude, north: Latitude, east: Longitude })
+  .refine((area) => area.south < area.north && area.west < area.east, {
+    message: 'El área del mapa no es válida.',
+  });
+export type MapArea = z.infer<typeof MapAreaSchema>;
+
 export const SearchPropertiesInputSchema = z.object({
   operation: z.enum(OPERATIONS).optional(),
   propertyType: z.enum(PROPERTY_TYPES).optional(),
@@ -35,6 +46,8 @@ export const SearchPropertiesInputSchema = z.object({
   location: z.string().trim().min(1).max(100).optional(),
   /** Ubicación del catálogo (web): incluye sus barrios y sub-barrios. */
   locationId: z.uuid().optional(),
+  /** Solo las que caen en esta área del mapa (con su ubicación pública, no la exacta). */
+  area: MapAreaSchema.optional(),
   /** Moneda del filtro de precio. */
   currency: z.enum(CURRENCIES).optional(),
   minPriceCents: z.bigint().nonnegative().optional(),
@@ -60,6 +73,50 @@ export const SearchPropertiesInputSchema = z.object({
 });
 
 export type SearchPropertiesInput = z.input<typeof SearchPropertiesInputSchema>;
+
+/** Pines por pedido del mapa público: la cartera entera de Norde entra holgada. */
+export const MAX_PUBLIC_MAP_PINS = 300;
+
+/** Los pines del mapa del listado: los mismos filtros que la búsqueda, sin orden ni páginas. */
+export const GetPublicPropertyMapInputSchema = SearchPropertiesInputSchema.pick({
+  operation: true,
+  propertyType: true,
+  location: true,
+  locationId: true,
+  area: true,
+  currency: true,
+  minPriceCents: true,
+  maxPriceCents: true,
+  minRooms: true,
+  minBedrooms: true,
+});
+export type GetPublicPropertyMapInput = z.input<typeof GetPublicPropertyMapInputSchema>;
+
+/** Tope del autocompletado de ubicaciones de la web. */
+export const PUBLIC_LOCATIONS_MAX_PAGE_SIZE = 10;
+
+/**
+ * Ubicaciones del catálogo con propiedades publicadas: el autocompletado del buscador (`q`) o
+ * las elegidas, para mostrar su nombre (`ids`).
+ */
+export const SearchPublicLocationsInputSchema = z.object({
+  /** Nombre, sin distinguir mayúsculas ni acentos. */
+  q: z.string().trim().min(2).max(80).optional(),
+  ids: z.array(z.uuid()).min(1).max(10).optional(),
+  page: z.int().min(1).max(100).default(1),
+  pageSize: z.int().min(1).max(PUBLIC_LOCATIONS_MAX_PAGE_SIZE).default(8),
+});
+export type SearchPublicLocationsInput = z.input<typeof SearchPublicLocationsInputSchema>;
+
+export interface PublicLocation {
+  readonly id: string;
+  readonly kind: LocationKindValue;
+  readonly name: string;
+  /** Dónde queda, para distinguir homónimos: "CABA", "La Matanza, Buenos Aires". */
+  readonly context: string;
+  /** Propiedades publicadas en la ubicación y sus barrios. */
+  readonly listingCount: number;
+}
 
 /** La ficha se busca por id (agente) o por slug (URL de la web). */
 export const GetPropertyDetailInputSchema = z.union([
@@ -161,6 +218,32 @@ export interface PublicCoordinatesDto {
   readonly longitude: number;
   /** `false`: aproximadas a la manzana; el mapa muestra una zona. */
   readonly exact: boolean;
+}
+
+/** Un pin del mapa del listado, con lo que muestra su tarjeta. */
+export interface PublicMapPin {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly propertyType: PropertyType;
+  readonly operation: Operation;
+  /** `null`: "Consultar precio". */
+  readonly price: MoneyDto | null;
+  readonly coordinates: PublicCoordinatesDto;
+  readonly cover: PublicImage | null;
+  readonly rooms: number | null;
+  readonly surfaceTotalM2: number | null;
+  readonly surfaceCoveredM2: number | null;
+  readonly neighborhood: string;
+  readonly city: string;
+}
+
+export interface PublicMapResult {
+  readonly pins: readonly PublicMapPin[];
+  /** Cuántas propiedades con ubicación en el mapa cumplen los filtros. */
+  readonly total: number;
+  /** Hay más de `MAX_PUBLIC_MAP_PINS`: se muestran las primeras (destacadas y más nuevas). */
+  readonly truncated: boolean;
 }
 
 export interface PropertyDetail extends PropertySummary {

@@ -4,6 +4,8 @@ import Link from 'next/link';
 import {
   activeFilterCount,
   CURRENCY_OPTIONS,
+  formatArea,
+  MAP_VIEW_PARAM,
   LISTING_PARAM_NAMES as P,
   priceCurrency,
   ROOM_OPTIONS,
@@ -12,6 +14,8 @@ import {
 } from '../../lib/properties/listing-filters';
 import { OPERATION_OPTIONS, PROPERTY_TYPE_OPTIONS } from '../../lib/properties/search-params';
 import { routes } from '../../lib/seo/routes';
+import { LocationCombobox } from '../forms/location-combobox';
+import { SiteSelect } from '../forms/site-select';
 
 const LABEL = 'mb-1.5 block text-xs font-bold';
 const FIELD =
@@ -28,7 +32,19 @@ function paramOf<T extends string>(
  * Filtros del listado: un `<form method="get">` que reescribe la URL y funciona sin JavaScript.
  * En desktop van siempre a la vista; en mobile, plegados para que los resultados se vean primero.
  */
-export function ListingFiltersPanel({ filters }: { readonly filters: ListingFilters }) {
+/** La ubicación del catálogo elegida, con su nombre. */
+export interface SelectedLocation {
+  readonly id: string;
+  readonly name: string;
+}
+
+export function ListingFiltersPanel({
+  filters,
+  location,
+}: {
+  readonly filters: ListingFilters;
+  readonly location?: SelectedLocation | undefined;
+}) {
   const count = activeFilterCount(filters);
 
   return (
@@ -47,11 +63,11 @@ export function ListingFiltersPanel({ filters }: { readonly filters: ListingFilt
           </span>
         </summary>
         <div className="px-5 pb-5">
-          <FiltersForm filters={filters} idPrefix="mobile" />
+          <FiltersForm filters={filters} location={location} idPrefix="mobile" />
         </div>
       </details>
       <div className="hidden lg:block">
-        <FiltersForm filters={filters} idPrefix="desktop" />
+        <FiltersForm filters={filters} location={location} idPrefix="desktop" />
       </div>
     </>
   );
@@ -60,9 +76,11 @@ export function ListingFiltersPanel({ filters }: { readonly filters: ListingFilt
 /** `idPrefix`: el formulario se dibuja dos veces (mobile y desktop) y los IDs no se repiten. */
 function FiltersForm({
   filters,
+  location,
   idPrefix,
 }: {
   readonly filters: ListingFilters;
+  readonly location: SelectedLocation | undefined;
   readonly idPrefix: string;
 }) {
   const count = activeFilterCount(filters);
@@ -100,32 +118,26 @@ function FiltersForm({
         <label className={LABEL} htmlFor={id('type')}>
           Tipo de propiedad
         </label>
-        <select
+        <SiteSelect
           id={id('type')}
           name={P.propertyType}
           defaultValue={paramOf(PROPERTY_TYPE_OPTIONS, filters.propertyType)}
-          className={FIELD}
-        >
-          <option value="">Todos</option>
-          {PROPERTY_TYPE_OPTIONS.map((o) => (
-            <option key={o.param} value={o.param}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: 'Todos' },
+            ...PROPERTY_TYPE_OPTIONS.map((o) => ({ value: o.param, label: o.label })),
+          ]}
+        />
       </div>
 
       <div>
         <label className={LABEL} htmlFor={id('location')}>
           Barrio o localidad
         </label>
-        <input
+        <LocationCombobox
           id={id('location')}
-          name={P.location}
-          type="search"
-          defaultValue={filters.location ?? ''}
+          selected={location}
+          defaultText={filters.location}
           placeholder="Mataderos, Ramos Mejía…"
-          maxLength={100}
           className={FIELD}
         />
       </div>
@@ -133,18 +145,12 @@ function FiltersForm({
       <fieldset>
         <legend className={LABEL}>Precio</legend>
         <div className="grid grid-cols-[5.5rem_1fr_1fr] gap-2">
-          <select
+          <SiteSelect
             name={P.currency}
             aria-label="Moneda"
             defaultValue={paramOf(CURRENCY_OPTIONS, currency)}
-            className={FIELD}
-          >
-            {CURRENCY_OPTIONS.map((o) => (
-              <option key={o.param} value={o.param}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            options={CURRENCY_OPTIONS.map((o) => ({ value: o.param, label: o.label }))}
+          />
           <input
             name={P.minPrice}
             inputMode="numeric"
@@ -169,40 +175,34 @@ function FiltersForm({
           <label className={LABEL} htmlFor={id('rooms')}>
             Ambientes
           </label>
-          <select
+          <SiteSelect
             id={id('rooms')}
             name={P.minRooms}
-            defaultValue={filters.minRooms ?? ''}
-            className={FIELD}
-          >
-            <option value="">Todos</option>
-            {ROOM_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n === 5 ? '5 o más' : `${n} o más`}
-              </option>
-            ))}
-          </select>
+            defaultValue={filters.minRooms?.toString() ?? ''}
+            options={[
+              { value: '', label: 'Todos' },
+              ...ROOM_OPTIONS.map((n) => ({ value: String(n), label: `${n} o más` })),
+            ]}
+          />
         </div>
         <div>
           <label className={LABEL} htmlFor={id('bedrooms')}>
             Dormitorios
           </label>
-          <select
+          <SiteSelect
             id={id('bedrooms')}
             name={P.minBedrooms}
-            defaultValue={filters.minBedrooms ?? ''}
-            className={FIELD}
-          >
-            <option value="">Todos</option>
-            {ROOM_OPTIONS.slice(0, 4).map((n) => (
-              <option key={n} value={n}>
-                {`${n} o más`}
-              </option>
-            ))}
-          </select>
+            defaultValue={filters.minBedrooms?.toString() ?? ''}
+            options={[
+              { value: '', label: 'Todos' },
+              ...ROOM_OPTIONS.slice(0, 4).map((n) => ({ value: String(n), label: `${n} o más` })),
+            ]}
+          />
         </div>
       </div>
 
+      {filters.view === 'map' && <input type="hidden" name={P.view} value={MAP_VIEW_PARAM} />}
+      {filters.area && <input type="hidden" name={P.area} value={formatArea(filters.area)} />}
       {filters.sort !== 'featured' && (
         <input type="hidden" name={P.sort} value={paramOf(SORT_OPTIONS, filters.sort)} />
       )}

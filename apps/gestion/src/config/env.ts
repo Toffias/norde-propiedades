@@ -56,7 +56,7 @@ const EnvSchema = z.object({
    * secreto, el webhook de consultas de la web no se expone.
    */
   INQUIRY_WEBHOOK_SECRET: z.string().min(32).optional(),
-  /** Pedidos por minuto por IP al webhook de consultas. */
+  /** Pedidos rechazados (sin firma válida) por minuto por IP al webhook de consultas. */
   INQUIRY_WEBHOOK_RATE_PER_MINUTE: z.coerce.number().int().positive().default(60),
   /**
    * Revalidación del sitio público (ADR 0023): `https://<web>/api/revalidate` y el secreto que

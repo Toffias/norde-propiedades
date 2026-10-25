@@ -10,7 +10,8 @@ const BUTTON_BODY_LIMIT = 1024;
 
 /**
  * Convierte el texto final del agente, más lo que pidieron las tools, en **un** mensaje de
- * WhatsApp (cada envío se cobra). Prioridad: foto > botones > texto.
+ * WhatsApp (cada envío se cobra). Foto y botones juntos van como botones con la foto de
+ * encabezado; si no, prioridad: foto > botones > texto.
  */
 export function buildWhatsAppReply(
   finalText: string | undefined,
@@ -18,11 +19,17 @@ export function buildWhatsAppReply(
 ): OutboundMessage {
   const text = cleanForWhatsApp(finalText ?? '') || FALLBACK_TEXT;
 
+  const buttons = context.buttons && context.buttons.length > 0 ? context.buttons : undefined;
+  if (buttons && text.length <= BUTTON_BODY_LIMIT) {
+    return {
+      type: 'buttons',
+      text,
+      buttons: [...buttons],
+      ...(context.photo ? { imageUrl: context.photo.url } : {}),
+    };
+  }
   if (context.photo) {
     return { type: 'image', imageUrl: context.photo.url, caption: text.slice(0, CAPTION_LIMIT) };
-  }
-  if (context.buttons && context.buttons.length > 0 && text.length <= BUTTON_BODY_LIMIT) {
-    return { type: 'buttons', text, buttons: [...context.buttons] };
   }
   return { type: 'text', text };
 }

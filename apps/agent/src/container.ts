@@ -18,6 +18,7 @@ import {
   createDatabase,
   DrizzlePropertySearchQuery,
   MetaWhatsAppMessenger,
+  openAIModeration,
   SystemClock,
   UuidV7IdGenerator,
   WebChatMessenger,
@@ -25,6 +26,7 @@ import {
 import type { Logger } from 'pino';
 
 import { createCustomerAssistant } from './assistant/customer-assistant';
+import { DailyBudget } from './channels/shared/daily-budget';
 import { FailureBreaker } from './channels/shared/failure-breaker';
 import type { WhatsAppInbound } from './channels/whatsapp/inbound';
 import { KeyedQueue } from './channels/shared/keyed-queue';
@@ -142,12 +144,28 @@ export function createContainer(
           onToolError: (tool, error) => {
             logger.error({ err: error, tool }, 'Agent tool failed');
           },
+          moderation: env.AGENT_MODERATION
+            ? openAIModeration({
+                apiKey: env.OPENAI_API_KEY,
+                onError: (error) => {
+                  logger.error({ err: error }, 'OpenAI moderation failed: message let through');
+                },
+              })
+            : undefined,
+          onUnverifiedAmounts: (amounts) => {
+            logger.warn({ amounts }, 'Agent reply mentions amounts not seen in tools or messages');
+          },
           actor: AGENT_ACTOR,
           siteUrl: env.PUBLIC_SITE_URL,
           searchProperties,
           getPropertyDetail,
           registerContact,
         });
+  const budget = new DailyBudget(env.AGENT_DAILY_BUDGET_USD, {
+    inputPerMillion: env.OPENAI_PRICE_INPUT_PER_MTOK,
+    cachedInputPerMillion: env.OPENAI_PRICE_CACHED_INPUT_PER_MTOK,
+    outputPerMillion: env.OPENAI_PRICE_OUTPUT_PER_MTOK,
+  });
   const breaker = new FailureBreaker(
     env.AGENT_BREAKER_THRESHOLD,
     env.AGENT_BREAKER_COOLDOWN_MINUTES * 60_000,
@@ -165,6 +183,7 @@ export function createContainer(
       assistant,
       actor: AGENT_ACTOR,
       breaker,
+      budget,
       siteUrl: env.PUBLIC_SITE_URL,
       notices: new NoticeThrottle(HOUR_MS),
       now: () => clock.now(),
@@ -203,6 +222,7 @@ export function createContainer(
       assistant,
       actor: AGENT_ACTOR,
       breaker,
+      budget,
       siteUrl: env.PUBLIC_SITE_URL,
       now: () => clock.now(),
       logger,

@@ -206,10 +206,11 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 - Modelo chico con razonamiento bajo.
 - Cache de prompts: las instrucciones son texto fijo y lo que cambia por turno (fecha, nombre) va al final, con `prompt_cache_key` compartido, así todas las conversaciones reutilizan el mismo prefijo (#150).
 - Respuesta estructurada (`text`, `buttons`, `photoPropertyId`) en lugar de las tools `offer_buttons` y `show_photo`: cada llamada a una tool costaba otra vuelta al modelo con todo el contexto (#150).
-- Historial recortado y tools que devuelven resúmenes compactos.
-- Registrar el uso de tokens por turno (ya lo hace el MVP) para reportes de costo.
+- Historial recortado y compactado (#151): los dos últimos turnos van completos; en los anteriores se quita el razonamiento y los resultados de `search_properties` y `get_property` quedan en id, título, precio y link.
+- Uso por turno con tokens cacheados y de razonamiento, guardado con cada respuesta junto con la versión del prompt (`PROMPT_VERSION`). El log `Agent turn` trae el costo estimado (`costUsd`).
+- Tope de gasto en USD de las últimas 24 h (`AGENT_DAILY_BUDGET_USD`, ADR 0046), sumando los dos canales: al llegar, WhatsApp no responde y el chat del sitio contesta "no disponible".
 
-**Web chat**: solo el costo del LLM, más el rate limit por IP para evitar abuso.
+**Web chat**: solo el costo del LLM. Límites por IP: 20 mensajes cada 10 minutos, 150 por día y 10 conversaciones nuevas por día (así "Nueva conversación" no reinicia los límites del agente).
 
 ---
 
@@ -272,6 +273,16 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
   - El nombre de perfil de WhatsApp lo elige el cliente: entra en las instrucciones saneado (solo letras, espacios, apóstrofos, puntos y guiones; hasta 40 caracteres), al final y presentado como dato.
   - Las respuestas solo pueden llevar links al sitio de Norde y a `wa.me`. El agente quita los demás antes de responder (y lo loguea en `warn`). El widget del sitio, además, muestra como texto cualquier link a otro dominio.
   - `register_client` registra una sola vez por turno y no le dice al modelo si el teléfono o el email ya eran de un cliente: en el chat del sitio los escribe cualquiera.
+- **Privacidad y abuso** (#151, ADR 0046):
+  - OpenAI no guarda las conversaciones (`store: false`); el razonamiento viaja cifrado en la memoria.
+  - Cada mensaje pasa antes por la moderación de OpenAI (`AGENT_MODERATION`). Si la frena, se responde un texto fijo sin llamar al modelo.
+  - La nota de una consulta (de cualquier canal) se guarda con el DNI, el CUIT/CUIL y las tarjetas ocultos.
+  - Los argumentos de las tools van al log de depuración sin nombre, email, teléfono ni notas.
+  - Si la respuesta menciona un monto que no salió de las tools ni del cliente, se loguea en `warn` (posible precio inventado).
+- **Fluidez** (#151):
+  - Si va a responder el agente, WhatsApp muestra "escribiendo…" junto con el acuse de lectura.
+  - Una foto con botones sale en un solo mensaje: botones con la foto de encabezado.
+  - Tras el período de inactividad se olvida la memoria pero no la última búsqueda: el agente la recibe como dato para retomarla, y sabe si el contacto ya es cliente.
 
 ### 8.3 Pendiente
 

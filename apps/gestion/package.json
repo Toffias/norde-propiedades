@@ -28,6 +28,7 @@
     "next": "catalog:",
     "next-themes": "catalog:",
     "pino": "catalog:",
+    "qrcode.react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-hook-form": "catalog:",

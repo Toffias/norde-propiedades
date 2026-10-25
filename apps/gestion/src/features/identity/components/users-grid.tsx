@@ -22,6 +22,7 @@ import {
   PlusIcon,
   SearchIcon,
   ShieldIcon,
+  ShieldOffIcon,
   UserCheckIcon,
   UserXIcon,
 } from 'lucide-react';
@@ -37,7 +38,7 @@ import type { CatalogGroup } from './permission-picker';
 import type { RoleOption } from './role-checkboxes';
 import { startTokkoUsersImportAction } from '../actions';
 
-import { ResetPasswordDialog, UserStatusDialog } from './user-action-dialogs';
+import { ResetPasswordDialog, ResetTwoFactorDialog, UserStatusDialog } from './user-action-dialogs';
 import { UserSheet, type UserSheetData } from './user-sheet';
 
 /** Qué puede hacer quien mira la grilla: solo para no mostrar botones que van a fallar. */
@@ -168,13 +169,14 @@ export function UsersGrid({
     });
   }
   const [resetting, setResetting] = useState<UserListItem | undefined>();
+  const [resettingTwoFactor, setResettingTwoFactor] = useState<UserListItem | undefined>();
 
   const columns = useMemo((): readonly DataTableColumn<UserListItem>[] => {
     const actions: DataTableColumn<UserListItem> = {
       id: 'actions',
       header: 'Acciones',
       hideHeader: true,
-      className: 'w-[150px] text-right',
+      className: 'w-[180px] text-right',
       cell: (user) => (
         <RowActions>
           {permissions.update && (
@@ -204,6 +206,15 @@ export function UsersGrid({
               label="Blanquear contraseña"
               onClick={() => {
                 setResetting(user);
+              }}
+            />
+          )}
+          {permissions.resetPassword && user.twoFactorEnabled && (
+            <RowAction
+              icon={ShieldOffIcon}
+              label="Quitar verificación en dos pasos"
+              onClick={() => {
+                setResettingTwoFactor(user);
               }}
             />
           )}
@@ -370,6 +381,12 @@ export function UsersGrid({
         user={resetting}
         onOpenChange={(open) => {
           if (!open) setResetting(undefined);
+        }}
+      />
+      <ResetTwoFactorDialog
+        user={resettingTwoFactor}
+        onOpenChange={(open) => {
+          if (!open) setResettingTwoFactor(undefined);
         }}
       />
     </>

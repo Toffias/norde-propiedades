@@ -45,7 +45,7 @@ Roles propuestos (a validar con Norde):
 | **Administrativo de alquileres** | Contratos de alquiler, propietarios, inquilinos y actualizaciones                               |
 
 - Los permisos se definen por recurso y acción (ver, crear, editar, borrar, exportar), para poder ajustar roles sin tocar código.
-- Login con email y contraseña, con sesión segura. Se puede agregar 2FA opcional para administradores.
+- Login con email y contraseña, con sesión segura, y verificación en dos pasos opcional para cada usuario (#113).
 
 **Implementado (#2, ADR 0016):**
 
@@ -73,7 +73,19 @@ Roles propuestos (a validar con Norde):
 - Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
 - Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
 - Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
-- Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera y el 2FA quedan fuera por ahora (preguntas abiertas de #3).
+- Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera queda fuera por ahora (pregunta abierta de #3); el 2FA llegó con #113.
+
+**Implementado (#113, verificación en dos pasos, ADR 0044):**
+
+- **Opcional para todos los usuarios**, con app autenticadora (TOTP) y 10 códigos de respaldo de un uso. Plugin `twoFactor` de Better Auth.
+- **Mi cuenta** (`/mi-cuenta`, desde el menú de la cuenta): cambiar la contraseña y activar, desactivar o generar códigos de respaldo nuevos, siempre confirmando la contraseña.
+  - Activar: QR (o la clave para cargarla a mano), el primer código de la app y los códigos de respaldo para copiar o descargar. Hasta confirmar el primer código no queda activa.
+  - Desactivar pide una sesión de menos de un día.
+- **Ingreso**: con la verificación activa, después de la contraseña se pide el código de la app o uno de respaldo; sin el código no hay sesión.
+  - "No pedir el código en este dispositivo por 30 días".
+  - El desafío vence a los 10 minutos o con 5 códigos incorrectos (vuelve a pedir la contraseña); 10 incorrectos seguidos bloquean la cuenta 15 minutos.
+- **Recuperación**: si se perdieron el celular y los códigos, un administrador con `users:reset-password` le quita la verificación desde Mi empresa → Usuarios (acción de la fila, solo en quien la tiene activa). Vuelve a entrar solo con la contraseña.
+- Auditoría contra el usuario: `user.signed-in` con el factor usado (`secondFactor`), `user.sign-in-failed` con el motivo y el factor, `user.two-factor-enabled`, `user.two-factor-disabled`, `user.two-factor-backup-codes-regenerated` y `user.two-factor-reset`.
 
 **Implementado (#3, roles y permisos):**
 

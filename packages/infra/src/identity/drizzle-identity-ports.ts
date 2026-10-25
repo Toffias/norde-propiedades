@@ -3,7 +3,7 @@ import type { Clock, IdGenerator } from '@norde/core/shared';
 import { and, eq } from 'drizzle-orm';
 
 import type { DbExecutor } from '../db/executor';
-import { accounts, sessions } from '../db/schema';
+import { accounts, sessions, twoFactors, users } from '../db/schema';
 
 /** Better Auth guarda la contraseña en la cuenta `credential` cuyo `account_id` es el usuario. */
 const CREDENTIAL_PROVIDER = 'credential';
@@ -41,6 +41,21 @@ export class DrizzleCredentialStore implements CredentialStore {
         target: [accounts.providerId, accounts.accountId],
         set: { password: hash, updatedAt: now },
       });
+  }
+
+  async hasTwoFactor(userId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ enabled: users.twoFactorEnabled })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return row?.enabled === true;
+  }
+
+  async removeTwoFactor(userId: string): Promise<void> {
+    // Mismas tablas que el plugin `twoFactor` de Better Auth (`/two-factor/disable`).
+    await this.db.delete(twoFactors).where(eq(twoFactors.userId, userId));
+    await this.db.update(users).set({ twoFactorEnabled: false }).where(eq(users.id, userId));
   }
 }
 

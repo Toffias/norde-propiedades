@@ -191,6 +191,28 @@ describe('UpdateClientDetails', () => {
     });
   });
 
+  it('does not let who cannot see an owner remove the owner type to unmask them', async () => {
+    const { uow, useCase } = setup();
+    const owner = await seedClient(uow, { clientTypes: ['owner_seller'] });
+
+    const error = unwrapErr(
+      await useCase.execute({ clientId: owner.id, clientTypes: ['buyer'] }, TEST_AGENT),
+    );
+
+    expect(error).toEqual({ type: 'Forbidden' });
+    expect(uow.clients.rows.get(owner.id)?.clientTypes).toEqual(['owner_seller']);
+    expect(uow.audit.entries).toHaveLength(0);
+  });
+
+  it('lets who sees owners change the types of an owner', async () => {
+    const { uow, useCase } = setup();
+    const owner = await seedClient(uow, { clientTypes: ['owner_seller'] });
+
+    unwrap(await useCase.execute({ clientId: owner.id, clientTypes: ['buyer'] }, TEST_MANAGER));
+
+    expect(uow.clients.rows.get(owner.id)?.clientTypes).toEqual(['buyer']);
+  });
+
   it('does not edit a contact in the trash', async () => {
     const { uow, useCase } = setup();
     const client = await seedClient(uow, { deleted: true });

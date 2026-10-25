@@ -18,6 +18,7 @@ import type {
   MissingContactInfoError,
   MissingNameError,
 } from '../../domain/client';
+import { hasOwnerType } from '../../domain/client-values';
 import { contactConflicts } from '../../domain/duplicate-check';
 import {
   clientAuditState,
@@ -81,6 +82,8 @@ export class UpdateClientDetails {
       if (!canActOn(actor, rule, client.ownership)) return err({ type: 'Forbidden' });
       if (client.isDeleted) return err({ type: 'ClientInTrash' });
       const before = clientAuditState(client);
+      // Con los tipos de antes: quitarle el de propietario no destapa sus datos.
+      const masked = masksOwnerContact(actor, client.toSnapshot().clientTypes);
 
       if (data.name !== undefined && data.name !== client.name) {
         if (!actor.can('clients:rename')) return err({ type: 'Forbidden' });
@@ -89,9 +92,7 @@ export class UpdateClientDetails {
       }
 
       if (contact !== undefined) {
-        if (masksOwnerContact(actor, client.toSnapshot().clientTypes)) {
-          return err({ type: 'Forbidden' });
-        }
+        if (masked) return err({ type: 'Forbidden' });
         const keys = {
           phones: contact.phones.map((p) => p.phone),
           emails: contact.emails.map((e) => e.email),
@@ -109,6 +110,7 @@ export class UpdateClientDetails {
       }
 
       if (data.clientTypes !== undefined) {
+        if (masked && !hasOwnerType(data.clientTypes)) return err({ type: 'Forbidden' });
         const changed = client.changeTypes(data.clientTypes, now);
         if (changed.isErr()) return err(changed.error);
       }
@@ -116,11 +118,10 @@ export class UpdateClientDetails {
       if (data.kind !== undefined || data.profile !== undefined) {
         const profile = data.profile === undefined ? {} : toProfile(data.profile);
         // Quien no ve el documento de un propietario (lo recibe enmascarado) no lo cambia.
-        const keepDocument = masksOwnerContact(actor, client.toSnapshot().clientTypes);
         const changed = client.updateDetails(
           {
             kind: data.kind,
-            profile: keepDocument
+            profile: masked
               ? { ...profile, documentNumber: client.toSnapshot().profile.documentNumber }
               : profile,
           },

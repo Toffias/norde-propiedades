@@ -45,6 +45,14 @@ export interface ListingVisibility {
   readonly publishedOnWeb: boolean;
 }
 
+/**
+ * Un borrador todavía no se ofreció: para el público no existe (404), no "ya no está disponible".
+ * Si volvió a borrador después de una baja, su ficha ya dejó de ofrecerse antes, con la baja.
+ */
+export function isUnreleased(property: Pick<ListingVisibility, 'status'>): boolean {
+  return property.status === 'draft';
+}
+
 /** Una propiedad se muestra al público si está disponible y marcada "Publicar en web". */
 export function isPubliclyListed(property: ListingVisibility): boolean {
   return property.publishedOnWeb && PUBLICLY_LISTED_STATUSES.includes(property.status);

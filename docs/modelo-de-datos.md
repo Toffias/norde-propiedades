@@ -122,6 +122,8 @@ El resultado vive en la fila de la tasación: los valores sugeridos en `sale_*_c
 | `notifications`            | Notificaciones, idempotentes por (`source_event_id`, `user_id`) (`user_id`, `entity_id`) |
 | `notification_preferences` | Preferencias por tipo (`user_id`)                                                        |
 
+Los avisos de la campana (ADR 0043, migración `0042`) guardan el tipo (`client.assigned`…), la entidad (`entity_type`, `entity_id`) y en `client_ids` los clientes de los que hablan (el primero, el de la ficha; índice GIN para la supresión y la unificación). No guardan texto: la campana lo arma con el nombre de hoy del contacto. No llevan autoría ni se auditan. La lista de cada usuario usa `notifications_user_created_idx` y el contador de no leídas, `notifications_user_read_created_idx`.
+
 ### `conversations` (`conversations.ts`)
 
 `conversations` y `conversation_messages`, de la `0000` (`client_id`).
@@ -171,5 +173,6 @@ Se dejan en la `0001` porque había código que las leía. Se pasan a las tablas
 | `properties.amenities`                                                  | `features` + `property_features` |
 | `properties.image_urls`                                                 | `media_items`                    |
 | `opportunities.notes`                                                   | `client_activities`              |
+| `notifications.title`, `notifications.body`, `notifications.link`       | El tipo y los IDs (ADR 0043)     |
 
 Después del backfill, también pasan a `not null` las columnas de autoría (`created_by`, `updated_by`) de las tablas de la `0000` y `opportunities.stage_id`.

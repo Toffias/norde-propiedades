@@ -55,8 +55,11 @@ export interface NotificationRow {
   readonly type: NotificationTypeValue;
   /** El contacto, la oportunidad o la consulta. */
   readonly entityId: string;
-  /** El contacto de la ficha a la que lleva, con su nombre de hoy. Sin él, ya no existe. */
-  readonly client: { readonly id: string; readonly name: string } | undefined;
+  /**
+   * El contacto de la ficha a la que lleva, con su nombre de hoy (puede no tener). Sin él, ya no
+   * existe.
+   */
+  readonly client: { readonly id: string; readonly name: string | undefined } | undefined;
   readonly read: boolean;
   readonly createdAt: Date;
 }

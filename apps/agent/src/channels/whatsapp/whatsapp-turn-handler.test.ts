@@ -271,13 +271,16 @@ describe('WhatsAppTurnHandler', () => {
     expect(ctx.messenger.sent[0]?.message).toEqual({ type: 'text', text: MODERATED_TEXT });
   });
 
-  it('leaves the message unanswered when the daily OpenAI budget is reached', async () => {
+  it('answers once with a notice when the daily OpenAI budget is reached', async () => {
     const ctx = setup({ budgetUsd: 0 });
 
     await ctx.handler.handle([ctx.inbound('hola')]);
+    await ctx.handler.handle([ctx.inbound('¿hola?')]);
 
     expect(ctx.model.calls).toHaveLength(0);
-    expect(ctx.messenger.sent).toEqual([]);
+    expect(ctx.messenger.sent.map((s) => s.message)).toEqual([
+      { type: 'text', text: NOTICE_TEXT.agent_unavailable },
+    ]);
   });
 
   it('stores the prompt version and the usage with the reply', async () => {
@@ -355,7 +358,7 @@ describe('WhatsAppTurnHandler', () => {
     expect(ctx.toolErrors).toEqual([]);
   });
 
-  it('sends a fallback when the agent fails, and stops once the breaker opens', async () => {
+  it('sends a fallback when the agent fails, and one notice once the breaker opens', async () => {
     const ctx = setup({ breakerThreshold: 2 });
     ctx.model.enqueue(modelError(new Error('503')), modelError(new Error('503')));
 
@@ -365,6 +368,7 @@ describe('WhatsAppTurnHandler', () => {
 
     expect(ctx.messenger.sent.map((s) => s.message)).toEqual([
       { type: 'text', text: FALLBACK_TEXT },
+      { type: 'text', text: NOTICE_TEXT.agent_unavailable },
     ]);
     // El turno fallido no queda en la memoria.
     expect(ctx.conversation()?.agentMemory).toEqual([]);

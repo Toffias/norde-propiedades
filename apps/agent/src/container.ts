@@ -134,7 +134,7 @@ export function createContainer(
   });
   const sendReply = new SendReply({ uow: conversationsUow, ids, clock, messengers });
 
-  // El mismo agente y el mismo breaker para todos los canales: si OpenAI falla, falla en todos.
+  // El mismo agente para todos los canales.
   const assistant =
     env.OPENAI_API_KEY === undefined
       ? undefined
@@ -166,10 +166,9 @@ export function createContainer(
     cachedInputPerMillion: env.OPENAI_PRICE_CACHED_INPUT_PER_MTOK,
     outputPerMillion: env.OPENAI_PRICE_OUTPUT_PER_MTOK,
   });
-  const breaker = new FailureBreaker(
-    env.AGENT_BREAKER_THRESHOLD,
-    env.AGENT_BREAKER_COOLDOWN_MINUTES * 60_000,
-  );
+  // Un breaker por canal: si el abuso del chat del sitio hace fallar al agente, WhatsApp sigue.
+  const newBreaker = () =>
+    new FailureBreaker(env.AGENT_BREAKER_THRESHOLD, env.AGENT_BREAKER_COOLDOWN_MINUTES * 60_000);
 
   // WhatsApp y el chat del sitio comparten la cola: las claves (número, sesión) no se pisan.
   const queue = new KeyedQueue();
@@ -182,7 +181,7 @@ export function createContainer(
       sendReply,
       assistant,
       actor: AGENT_ACTOR,
-      breaker,
+      breaker: newBreaker(),
       budget,
       siteUrl: env.PUBLIC_SITE_URL,
       notices: new NoticeThrottle(HOUR_MS),
@@ -221,7 +220,7 @@ export function createContainer(
       sendReply,
       assistant,
       actor: AGENT_ACTOR,
-      breaker,
+      breaker: newBreaker(),
       budget,
       siteUrl: env.PUBLIC_SITE_URL,
       now: () => clock.now(),

@@ -51,16 +51,25 @@ export function presentSummary(property: PropertySummary, siteUrl: string) {
     operation: OPERATION_LABEL[property.operation],
     type: PROPERTY_TYPE_LABEL[property.propertyType],
     price: property.price ? formatMoney(property.price) : 'Consultar',
-    // Una propiedad puede estar en venta y en alquiler a la vez.
-    operations: property.operations.map(
-      (o) => `${OPERATION_LABEL[o.operation]}: ${o.price ? formatMoney(o.price) : 'Consultar'}`,
-    ),
+    // Una propiedad puede estar en venta y en alquiler a la vez. Con una sola operación, ya está
+    // en `operation` y `price`: no se repite (son tokens en cada búsqueda).
+    ...(property.operations.length > 1
+      ? {
+          operations: property.operations.map(
+            (o) =>
+              `${OPERATION_LABEL[o.operation]}: ${o.price ? formatMoney(o.price) : 'Consultar'}`,
+          ),
+        }
+      : {}),
     expenses: property.expenses ? formatMoney(property.expenses) : null,
     rooms: property.rooms,
     bedrooms: property.bedrooms,
     bathrooms: property.bathrooms,
     surfaceTotalM2: property.surfaceTotalM2,
-    surfaceCoveredM2: property.surfaceCoveredM2,
+    // La cubierta solo si suma: en un departamento suele ser igual a la total.
+    ...(property.surfaceCoveredM2 !== null && property.surfaceCoveredM2 !== property.surfaceTotalM2
+      ? { surfaceCoveredM2: property.surfaceCoveredM2 }
+      : {}),
     neighborhood: property.neighborhood,
     city: property.city,
     amenities: property.amenities,

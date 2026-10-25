@@ -273,6 +273,12 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
   - El nombre de perfil de WhatsApp lo elige el cliente: entra en las instrucciones saneado (solo letras, espacios, apóstrofos, puntos y guiones; hasta 40 caracteres), al final y presentado como dato.
   - Las respuestas solo pueden llevar links al sitio de Norde y a `wa.me`. El agente quita los demás antes de responder (y lo loguea en `warn`). El widget del sitio, además, muestra como texto cualquier link a otro dominio.
   - `register_client` registra una sola vez por turno y no le dice al modelo si el teléfono o el email ya eran de un cliente: en el chat del sitio los escribe cualquiera.
+- **Ajustes de baja prioridad** (#152):
+  - El chat del sitio firma la fecha junto con el body (`x-norde-timestamp`) y el agente rechaza mensajes de más de 5 minutos.
+  - El verify token del webhook de WhatsApp se compara en tiempo constante.
+  - Cada canal tiene su breaker: fallas en el chat del sitio no apagan WhatsApp.
+  - Si el agente no puede responder en WhatsApp (breaker abierto o tope de gasto), manda un aviso fijo una vez por hora por contacto, en lugar de dejarlo sin respuesta.
+  - Los resultados de búsqueda no repiten el precio ni una superficie cubierta igual a la total.
 - **Privacidad y abuso** (#151, ADR 0046):
   - OpenAI no guarda las conversaciones (`store: false`); el razonamiento viaja cifrado en la memoria.
   - Cada mensaje pasa antes por la moderación de OpenAI (`AGENT_MODERATION`). Si la frena, se responde un texto fijo sin llamar al modelo.

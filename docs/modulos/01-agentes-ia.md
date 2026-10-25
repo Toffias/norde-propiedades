@@ -55,6 +55,7 @@ El MVP ya es un bot inmobiliario para Argentina (CABA/GBA, español rioplatense)
   - Verificación del webhook y firma HMAC calculada sobre el body crudo.
   - Idempotencia y descarte de mensajes viejos.
   - Agrupación de mensajes seguidos en un solo turno (debounce) y cola secuencial por usuario.
+    - Un lote de más de 50 mensajes se registra en partes y se responde una sola vez, según lo que decide la última parte. El nombre del perfil se recorta a 120 caracteres. Así no se pierde ningún lote.
   - Límites por usuario y globales, y un circuit breaker si el agente falla varias veces seguidas.
 - **Lecciones aprendidas que hay que respetar**:
   - `maxTokens` incluye los tokens de razonamiento: usar alrededor de 3000 con `reasoning.effort: 'low'`.

@@ -17,11 +17,16 @@ export const InboundMessageSchema = z.object({
   rawType: z.string().min(1).max(40),
 });
 
+/** Largo máximo del nombre del contacto: el canal recorta el que le llega (perfil de WhatsApp). */
+export const MAX_CONTACT_NAME_LENGTH = 120;
+/** Mensajes por llamada a `ReceiveInboundMessages`: el canal parte un lote más grande. */
+export const MAX_INBOUND_MESSAGES_PER_CALL = 50;
+
 export const ReceiveInboundMessagesInputSchema = z.object({
   channel: z.enum(CONVERSATION_CHANNEL_VALUES),
   externalId: z.string().trim().min(1).max(200),
-  contactName: z.string().trim().max(120).optional(),
-  messages: z.array(InboundMessageSchema).min(1).max(50),
+  contactName: z.string().trim().max(MAX_CONTACT_NAME_LENGTH).optional(),
+  messages: z.array(InboundMessageSchema).min(1).max(MAX_INBOUND_MESSAGES_PER_CALL),
 });
 
 export type InboundMessage = z.infer<typeof InboundMessageSchema>;

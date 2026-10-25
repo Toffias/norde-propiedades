@@ -117,6 +117,15 @@ describe('parseInbound', () => {
     ).toEqual([]);
     expect(parseInbound('no es un objeto')).toEqual([]);
   });
+
+  it('cuts a profile name longer than the core accepts', () => {
+    const text = { from: '1', id: 'wamid.1', timestamp: '1', type: 'text', text: { body: 'x' } };
+    const named = (name: string) =>
+      parseInbound(payload([text], [{ wa_id: '1', profile: { name } }]))[0]?.profileName;
+
+    expect(named(` ${'a'.repeat(200)}`)).toBe('a'.repeat(120));
+    expect(named('   ')).toBeUndefined();
+  });
 });
 
 describe('buildWhatsAppReply', () => {

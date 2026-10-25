@@ -143,6 +143,18 @@ describe('buildWhatsAppReply', () => {
     expect(buildWhatsAppReply(undefined, empty)).toEqual({ type: 'text', text: FALLBACK_TEXT });
   });
 
+  it('cuts a text longer than WhatsApp accepts instead of sending nothing', () => {
+    const reply = buildWhatsAppReply('a'.repeat(5000), empty);
+
+    expect(reply).toEqual({ type: 'text', text: 'a'.repeat(4096) });
+  });
+
+  it('does not split an emoji when cutting', () => {
+    const reply = buildWhatsAppReply(`${'a'.repeat(4095)}🏠 casa`, empty);
+
+    expect(reply).toEqual({ type: 'text', text: 'a'.repeat(4095) });
+  });
+
   it('cleans markdown that WhatsApp does not render', () => {
     expect(cleanForWhatsApp('## Opciones\n- **Depto** [ficha](https://x.com/p)\n\n\n\nFin')).toBe(
       'Opciones\n• *Depto* ficha: https://x.com/p\n\nFin',

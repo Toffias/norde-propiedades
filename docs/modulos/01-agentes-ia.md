@@ -97,7 +97,7 @@ La idea es **separar el agente del canal**. El núcleo (agente, tools, memoria, 
   - WhatsApp: formato `*negrita*`, sin markdown y un solo mensaje por turno.
   - Web: se puede usar markdown liviano y mostrar tarjetas de propiedad.
 - **Salida por canal**: `buildOutbound` pasa a ser una función por canal.
-  - WhatsApp: se mantiene la lógica actual (foto > botones > texto).
+  - WhatsApp: se mantiene la lógica actual (foto > botones > texto). Un texto de más de 4096 caracteres (el máximo de WhatsApp) se recorta, para no quedarse sin respuesta.
   - Web: devuelve una respuesta estructurada (texto, tarjetas de propiedades, botones), que el widget dibuja.
 
 ### 3.2 Adaptador WhatsApp

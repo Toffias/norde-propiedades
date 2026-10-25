@@ -801,7 +801,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 - La propiedad nace como **borrador**, con quien la carga como captador y su sucursal.
 - El código de referencia sale de la numeración de Mi empresa (§14.2).
 - Si se dejan vacías, la dirección para publicar se arma con la calle y la altura redondeada a la centena ("Gurruchaga al 1800"), y el título para portales con tipo, operación y barrio ("Departamento en venta en Palermo").
-- El propietario se carga en la etapa 2: necesita el buscador de clientes (#8).
+- **Propietario** (opcional, privado): un contacto activo, buscado entre los que el usuario ve (#107). Si son varios, el resto se suma desde la ficha. Queda en el alta del historial, con el contacto en `client_ids`.
 
 **Papelera**: borrar es baja lógica. Se ven quién la borró y cuándo, y se restaura. Borra o restaura sus propiedades quien tiene `properties:delete`, y las de cualquiera quien tiene `properties:delete-others`. Las propiedades de la papelera no aparecen en la web ni en el agente.
 
@@ -840,7 +840,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 - **Servicios y ambientes**: servicios, ambientes y adicionales. Un ítem no se borra: se desactiva.
 - **Etiquetas**: sueltas o en grupos. Un grupo con etiquetas o una etiqueta en uso no se borran.
 
-**Pendiente de #5**: el panel "Más filtros" (se define con Norde qué filtros sirven), el propietario en el alta (necesita el buscador de clientes, #8) y el envío por email o WhatsApp (#8 y #11). Las columnas viejas de `properties` se retiran en #33.
+**Pendiente de #5**: el panel "Más filtros" (se define con Norde qué filtros sirven) y el envío por email o WhatsApp (#8 y #11). Las columnas viejas de `properties` se retiran en #33.
 
 ### 4.8 Ficha de propiedad (#6)
 
@@ -858,7 +858,8 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 - Características: ambientes, superficies y medidas, antigüedad, orientación, estado de conservación y disposición. La superficie cubierta más la semicubierta no supera la total. Se muestran los atributos que el tipo de propiedad tiene habilitados en Mi empresa.
 - Ubicación: dirección real (privada), dirección para publicar (vacía: se sugiere), ubicación del catálogo y coordenadas. Si cambia la dirección y no hay coordenadas cargadas a mano, se ubica de nuevo en el mapa.
 - Título para portales y descripción. Servicios, ambientes y adicionales como checklists del catálogo. Etiquetas. Atributos personalizados (se definen en Mi empresa → Propiedades: texto, número, sí o no, o lista; no se borran ni cambian de tipo, se desactivan). **Ocultos (#50)**: Norde no creó ninguno en Tokko; con `CUSTOM_ATTRIBUTES_ENABLED=false` (por defecto) no se muestran ni en Mi empresa ni en la ficha.
-- Información interna: código de referencia (editable, sin repetir), captador (`properties:change-producer`), tasadores, usuario de mantenimiento, ubicación de las llaves, información legal y comentarios internos. Los propietarios se muestran; se cargan cuando exista el buscador de contactos (#8).
+- Información interna: código de referencia (editable, sin repetir), captador (`properties:change-producer`), tasadores, usuario de mantenimiento, ubicación de las llaves, información legal y comentarios internos.
+- Propietarios (#107): se ven con enlace a su ficha de contacto. Con el mismo permiso que el captador ("Cambiar el productor o los propietarios") se suman y se quitan de a uno, hasta 20: un contacto en la papelera o unificado no se puede sumar, y quitarlo no borra el contacto. Cada cambio queda en el historial de la propiedad (`property.owner_added`, `property.owner_removed`, filtro "Captador, propietarios y etiquetas") con el contacto en `client_ids`, así la supresión lo borra. La unificación de contactos mueve los vínculos y la supresión los quita (§3.3.2 y §3.3.4).
 
 **Multimedia**: fotos y planos (JPG, PNG o WebP, hasta 15 MB, hasta 100 ítems por propiedad), videos (YouTube, Vimeo) y recorridos 360 (Matterport, Kuula, Roundme) por link.
 
@@ -876,7 +877,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **PDF** (con `properties:export`, queda en el historial): ficha (con las fotos marcadas para el PDF), vidriera (una hoja con una foto grande) y reporte al propietario de un período de hasta un año (publicaciones activas, visitas por portal, envíos, consultas e interesados). Siguen "Ficha y PDF" de Mi empresa (dirección al descargar, precio, agente). Los arma un job; el diálogo muestra el estado y se descargan cuando están listos. El reporte se puede mandar por email con el PDF adjunto: el email del propietario no queda en el historial.
 
-**Pendiente de #6**: cargar propietarios (#8), compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
+**Pendiente de #6**: compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
 
 ### 4.9 Reservas (#13)
 

@@ -47,6 +47,8 @@ export interface CustomerTurnContext {
   buttons: readonly { readonly id: string; readonly title: string }[] | undefined;
   /** Cliente y oportunidad registrados en este turno. */
   registration: { readonly clientId: string; readonly opportunityId: string } | undefined;
+  /** Hay un registro en curso: el modelo puede llamar a la tool dos veces en paralelo. */
+  registering: boolean;
 }
 
 export function createTurnContext(input: {
@@ -69,5 +71,6 @@ export function createTurnContext(input: {
     photo: undefined,
     buttons: undefined,
     registration: undefined,
+    registering: false,
   };
 }

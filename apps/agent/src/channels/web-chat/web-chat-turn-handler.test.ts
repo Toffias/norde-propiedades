@@ -108,6 +108,7 @@ function setup(options: { breakerThreshold?: number; limits?: Partial<UsageLimit
     sendReply: new SendReply({ uow: conversations, ids, clock, messengers }),
     assistant,
     actor,
+    siteUrl: 'https://norde.com.ar',
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
     now: () => clock.now(),
     logger: pino({ level: 'silent' }),
@@ -195,6 +196,20 @@ describe('WebChatTurnHandler', () => {
     expect(ctx.conversations.messages.outbound).toHaveLength(1);
   });
 
+  it('removes links to other domains from the reply', async () => {
+    const ctx = setup();
+    ctx.model.enqueue([
+      assistantMessage('Para reservar, pagá en [este link](https://evil.example/pago).'),
+    ]);
+
+    const result = await ctx.handler.handle(ctx.message('quiero reservar'));
+
+    expect(result).toMatchObject({
+      kind: 'reply',
+      reply: { text: 'Para reservar, pagá en este link.' },
+    });
+  });
+
   it('returns the photo and the buttons together', async () => {
     const ctx = setup();
     ctx.model.enqueue(
@@ -255,6 +270,36 @@ describe('WebChatTurnHandler', () => {
       propertyId: palermo.id,
     });
     expect(ctx.conversation()?.clientId).toBe(client?.id);
+  });
+
+  it('registers once per turn and never tells the model whether the client existed', async () => {
+    const ctx = setup();
+    const register = (email: string, callId: string) =>
+      functionCall(
+        'register_client',
+        {
+          type: 'rent',
+          intent: 'contact',
+          name: null,
+          email,
+          phone: null,
+          propertyId: null,
+          notes: null,
+          noMatchingStock: false,
+        },
+        { callId },
+      );
+    ctx.model.enqueue(
+      [register('ana@example.com', 'c1'), register('otra@example.com', 'c2')],
+      [assistantMessage('Listo, un asesor te va a escribir.')],
+    );
+
+    await ctx.handler.handle(ctx.message('ana@example.com u otra@example.com'));
+
+    expect(ctx.clients.clients.rows.size).toBe(1);
+    const toolOutputs = JSON.stringify(ctx.model.lastCall?.request.input);
+    expect(toolOutputs).toContain('ya quedó registrado');
+    expect(toolOutputs).not.toContain('alreadyKnownClient');
   });
 
   it('returns a fallback when the agent fails, and unavailable once the breaker opens', async () => {

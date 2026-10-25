@@ -9,6 +9,7 @@ import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
 
 import type { CustomerAssistant } from '../../assistant/customer-assistant';
+import { keepAllowedLinks } from '../../assistant/link-policy';
 import { createTurnContext } from '../../assistant/turn-context';
 
 import type { FailureBreaker } from '../shared/failure-breaker';
@@ -22,6 +23,8 @@ export interface WhatsAppTurnHandlerDeps {
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
+  /** Sitio público: los links del agente a otros dominios se quitan antes de responder. */
+  readonly siteUrl: string;
   readonly notices: NoticeThrottle;
   readonly now: () => Date;
   readonly logger: Logger;
@@ -123,7 +126,11 @@ export class WhatsAppTurnHandler {
       { ...turn.usage, tools: turn.toolCalls, registered: context.registration !== undefined },
       'Agent turn',
     );
-    await this.send(conversation, buildWhatsAppReply(turn.text, context), log, {
+    const links = keepAllowedLinks(turn.text ?? '', deps.siteUrl);
+    if (links.removed > 0) {
+      log.warn({ removed: links.removed }, 'Agent reply had links to other domains: removed');
+    }
+    await this.send(conversation, buildWhatsAppReply(links.text, context), log, {
       agentTurn: { memory: turn.memory, searchCriteria: context.lastSearch, usage: turn.usage },
       clientId: context.registration?.clientId,
     });

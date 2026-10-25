@@ -295,6 +295,13 @@
       "when": 1792768106835,
       "tag": "0041_location_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792941318408,
+      "tag": "0042_notifications_panel",
+      "breakpoints": true
     }
   ]
 }

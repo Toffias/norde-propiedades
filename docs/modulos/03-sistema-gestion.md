@@ -876,7 +876,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **PDF** (con `properties:export`, queda en el historial): ficha (con las fotos marcadas para el PDF), vidriera (una hoja con una foto grande) y reporte al propietario de un período de hasta un año (publicaciones activas, visitas por portal, envíos, consultas e interesados). Siguen "Ficha y PDF" de Mi empresa (dirección al descargar, precio, agente). Los arma un job; el diálogo muestra el estado y se descargan cuando están listos. El reporte se puede mandar por email con el PDF adjunto: el email del propietario no queda en el historial.
 
-**Pendiente de #6**: cargar propietarios (#8), compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
+**Pendiente de #6**: cargar propietarios (#8), compartir por email o WhatsApp (#11) y "Completar con IA". Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
 
 ### 4.9 Reservas (#13)
 
@@ -1032,6 +1032,7 @@ La tasación tiene pantalla propia (no panel lateral).
 - Un job de properties reacciona y crea la **propiedad en borrador** con ese ID: tipo, dirección (en la calle; altura, ubicación y coordenadas se completan en la ficha), superficies, ambientes, dormitorios, baños y estado de conservación, **una operación por cada valor sugerido, al máximo**, el productor como captador con su sucursal, el tasador, el **solicitante como propietario** y una copia de las fotos (la primera es la portada; se generan las miniaturas como en cualquier galería). El código de referencia sale de la numeración de Mi empresa. Queda en el historial de la propiedad (`property.created_from_appraisal`, con la tasación de origen).
 - Mientras el job crea la propiedad, la ficha dice "Creando la propiedad…"; después muestra su código con el link. Es idempotente: si el evento llega dos veces, la propiedad no se duplica.
 - Si las superficies de la tasación no cierran (cubierta mayor que la total), la propiedad se crea sin ellas.
+- La ficha de la propiedad muestra la **tasación de origen** en "Información interna": código con link a la tasación, estado y valores sugeridos (#110). Se lee por la API pública de appraisals (`GetSourceAppraisal`, por el ID de la propiedad que guardó la tasación); solo la ve quien puede ver esa tasación (`appraisals:read`, con la regla de productor y tasador). Si la tasación está en la papelera, lo aclara.
 
 ### 6.6 Informe en PDF
 

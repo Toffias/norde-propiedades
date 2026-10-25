@@ -187,19 +187,17 @@ async function main(): Promise<void> {
     for (const p of seed) {
       const saved = await client.query<{ id: string }>(
         `insert into core.properties (
-           id, code, slug, title, description, operation, property_type, status, published_on_web,
-           featured, address, show_exact_address, neighborhood, city, province, price_cents, currency,
-           expenses_cents, rooms, bedrooms, bathrooms, surface_total_m2, surface_covered_m2,
-           created_at, updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,now(),now())
+           id, code, slug, title, description, property_type, status, published_on_web, featured,
+           address, show_exact_address, neighborhood, city, province, expenses_cents, rooms,
+           bedrooms, bathrooms, surface_total_m2, surface_covered_m2, created_at, updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),now())
          on conflict (code) do update set
            slug = excluded.slug, title = excluded.title, description = excluded.description,
-           operation = excluded.operation, property_type = excluded.property_type,
+           property_type = excluded.property_type,
            status = excluded.status, published_on_web = excluded.published_on_web,
            featured = excluded.featured, address = excluded.address,
            show_exact_address = excluded.show_exact_address, neighborhood = excluded.neighborhood,
-           city = excluded.city, province = excluded.province, price_cents = excluded.price_cents,
-           currency = excluded.currency, expenses_cents = excluded.expenses_cents,
+           city = excluded.city, province = excluded.province, expenses_cents = excluded.expenses_cents,
            rooms = excluded.rooms, bedrooms = excluded.bedrooms, bathrooms = excluded.bathrooms,
            surface_total_m2 = excluded.surface_total_m2,
            surface_covered_m2 = excluded.surface_covered_m2, updated_at = now()
@@ -210,7 +208,6 @@ async function main(): Promise<void> {
           p.slug,
           p.title,
           p.description,
-          p.operation,
           p.propertyType,
           p.status,
           p.publishedOnWeb,
@@ -220,8 +217,6 @@ async function main(): Promise<void> {
           p.neighborhood,
           p.city,
           p.province,
-          p.price === null ? null : BigInt(p.price) * 100n,
-          p.currency,
           p.expenses === null ? null : BigInt(p.expenses) * 100n,
           p.rooms,
           p.bedrooms,

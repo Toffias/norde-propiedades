@@ -302,6 +302,13 @@
       "when": 1792941318408,
       "tag": "0042_notifications_panel",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792947030499,
+      "tag": "0043_properties_legacy_nullable",
+      "breakpoints": true
     }
   ]
 }

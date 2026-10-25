@@ -30,7 +30,8 @@ src/
 │   ├── turn-context.ts       # Estado del turno que completan las tools
 │   ├── property-presenter.ts # Vista compacta de propiedades para el modelo (precios, links)
 │   ├── instructions/         # Prompt: base común + bloque por canal
-│   └── tools/                # search_properties, get_property, show_photo, offer_buttons, register_client
+│   ├── customer-reply.ts     # Respuesta estructurada del agente: texto, botones y foto
+│   └── tools/                # search_properties, get_property, register_client
 ├── channels/
 │   ├── shared/               # Cola por contacto (KeyedQueue) y breaker del agente (FailureBreaker)
 │   ├── whatsapp/             # Webhook (firma, parser), batcher, avisos, armado de la respuesta

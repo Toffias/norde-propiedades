@@ -1,36 +1,58 @@
-import { AgentRunner, type AgentRunnerOptions } from '@norde/agent-kit';
+import { AgentRunner, type AgentRunnerOptions, type AgentTurnResult } from '@norde/agent-kit';
 
+import { applyCustomerReply, CustomerReplySchema } from './customer-reply';
 import { AGENT_NAME } from './instructions/base';
 import { buildInstructions } from './instructions/build-instructions';
-import { offerButtonsTool } from './tools/offer-buttons.tool';
-import { getPropertyTool, showPhotoTool } from './tools/property-detail.tools';
+import { getPropertyTool } from './tools/property-detail.tools';
 import { registerClientTool } from './tools/register-client.tool';
 import { searchPropertiesTool } from './tools/search-properties.tool';
 import type { AssistantToolDeps } from './tools/tool-deps';
 import type { CustomerTurnContext } from './turn-context';
 
-export type CustomerAssistant = AgentRunner<CustomerTurnContext>;
+/** Todas las conversaciones comparten el prefijo del pedido: tools e instrucciones fijas. */
+const PROMPT_CACHE_KEY = 'norde-customer-assistant';
 
-/** El agente que atiende clientes, igual en todos los canales (cambia el bloque de instrucciones). */
-export function createCustomerAssistant(
-  options: {
-    readonly model: AgentRunnerOptions<CustomerTurnContext>['model'];
-    readonly maxMemoryItems: number;
-    readonly onToolError: (tool: string, error: unknown) => void;
-  } & AssistantToolDeps,
-): CustomerAssistant {
-  return new AgentRunner<CustomerTurnContext>({
-    name: AGENT_NAME,
-    model: options.model,
-    instructions: buildInstructions,
-    tools: [
-      searchPropertiesTool(options),
-      getPropertyTool(options),
-      showPhotoTool(options),
-      offerButtonsTool(),
-      registerClientTool(options),
-    ],
-    maxMemoryItems: options.maxMemoryItems,
-    onToolError: options.onToolError,
-  });
+type CustomerAssistantOptions = {
+  readonly model: AgentRunnerOptions<CustomerTurnContext>['model'];
+  readonly maxMemoryItems: number;
+  readonly onToolError: (tool: string, error: unknown) => void;
+} & AssistantToolDeps;
+
+/**
+ * El agente que atiende clientes, igual en todos los canales (cambia el bloque de instrucciones).
+ * Termina cada turno con una respuesta estructurada (`CustomerReplySchema`): el texto, los botones
+ * y la foto quedan en el turno, sin tools que solo marcan cómo responder.
+ */
+export class CustomerAssistant {
+  readonly #runner: AgentRunner<CustomerTurnContext>;
+
+  constructor(private readonly options: CustomerAssistantOptions) {
+    this.#runner = new AgentRunner<CustomerTurnContext>({
+      name: AGENT_NAME,
+      model: options.model,
+      instructions: buildInstructions,
+      tools: [searchPropertiesTool(options), getPropertyTool(options), registerClientTool(options)],
+      outputSchema: CustomerReplySchema,
+      promptCacheKey: PROMPT_CACHE_KEY,
+      maxMemoryItems: options.maxMemoryItems,
+      onToolError: options.onToolError,
+    });
+  }
+
+  async run(
+    input: Parameters<AgentRunner<CustomerTurnContext>['run']>[0],
+  ): Promise<AgentTurnResult> {
+    const turn = await this.#runner.run(input);
+    if (!turn.ok) return turn;
+    try {
+      const text = await applyCustomerReply(turn.output, input.context, this.options);
+      return { ...turn, text };
+    } catch (error) {
+      return { ok: false, error };
+    }
+  }
+}
+
+export function createCustomerAssistant(options: CustomerAssistantOptions): CustomerAssistant {
+  return new CustomerAssistant(options);
 }

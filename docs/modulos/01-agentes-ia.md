@@ -115,7 +115,7 @@ Primera versión hecha (ADR 0037):
 | Transporte         | El navegador llama a una Server Action de `apps/web`, que manda el mensaje firmado (HMAC) a `POST /chat/messages` de `apps/agent`. La respuesta vuelve entera, sin streaming (por ahora)                                                                                                                                                                                          |
 | Identidad          | Sesión anónima en una cookie `httpOnly` de la web (`norde_chat`, 30 días). Cuando el visitante deja teléfono o email, `register_client` vincula la conversación al cliente                                                                                                                                                                                                        |
 | Widget             | Burbuja flotante abajo a la derecha en todas las páginas. Al abrirse se transforma en el panel en su mismo lugar, y al cerrarse (desde la barra del chat o con Esc) vuelve a ser burbuja con la animación inversa. En mobile el chat ocupa la pantalla. En desktop se agranda solo cuando el agente muestra propiedades; el visitante puede achicarlo o agrandarlo desde la barra |
-| Respuesta          | Texto con markdown liviano (negrita, listas, links a las fichas), la foto de `show_photo` y los botones de `offer_buttons` como respuestas rápidas                                                                                                                                                                                                                                |
+| Respuesta          | Texto con markdown liviano (negrita, listas, links a las fichas), la foto y los botones de respuesta rápida que pide el agente en su respuesta estructurada                                                                                                                                                                                                                       |
 | Tarjetas           | Cada propiedad que el agente nombra con el link de su ficha se dibuja como tarjeta debajo del mensaje: portada, operación y precio, nombre, ubicación, ambientes, dormitorios y m², y "Ver propiedad" en otra pestaña                                                                                                                                                             |
 | Búsqueda guiada    | Si una búsqueda trae más de 6 resultados, el agente muestra igual las 3 que mejor encajan y hace una pregunta para acotar (presupuesto, ambientes, zona más precisa, amenities), con botones cuando hay opciones claras. Vale para todos los canales                                                                                                                              |
 | Listado en la web  | Cuando el agente buscó en el turno y encontró algo, el chat suma "Ver todas las opciones en la web": abre en otra pestaña `/propiedades` con la operación, el tipo, la zona, el precio, los ambientes y los dormitorios de esa búsqueda (los filtros que el listado no tiene, como amenities, no se pasan)                                                                        |
@@ -204,6 +204,8 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 **OpenAI:**
 
 - Modelo chico con razonamiento bajo.
+- Cache de prompts: las instrucciones son texto fijo y lo que cambia por turno (fecha, nombre) va al final, con `prompt_cache_key` compartido, así todas las conversaciones reutilizan el mismo prefijo (#150).
+- Respuesta estructurada (`text`, `buttons`, `photoPropertyId`) en lugar de las tools `offer_buttons` y `show_photo`: cada llamada a una tool costaba otra vuelta al modelo con todo el contexto (#150).
 - Historial recortado y tools que devuelven resúmenes compactos.
 - Registrar el uso de tokens por turno (ya lo hace el MVP) para reportes de costo.
 
@@ -248,7 +250,7 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
 - **`@norde/agent-kit`**: el runner del MVP sobre el OpenAI Agents SDK (ADR 0009).
 - **`apps/agent`**:
   - Instrucciones del MVP adaptadas a Norde, con un bloque por canal.
-  - Las tools `search_properties`, `get_property`, `show_photo`, `offer_buttons` y `register_client`.
+  - Las tools `search_properties`, `get_property` y `register_client`. Los botones y la foto salen de la respuesta estructurada del agente (`CustomerReplySchema`).
   - Canal WhatsApp completo: firma, debounce, cola por contacto, límites, breaker y un mensaje por turno.
   - Canal web chat (F5, ADR 0037): `POST /chat/messages` firmado por `apps/web`, cola por sesión, los mismos límites y breaker, y la respuesta en la misma petición. El widget vive en `apps/web`.
 - **Jobs**: outbox → pg-boss → aviso al equipo por webhook (Slack, Teams, n8n) o, sin webhook configurado, al log. Desde el ADR 0021 corren en `apps/gestion`, no en el agente.

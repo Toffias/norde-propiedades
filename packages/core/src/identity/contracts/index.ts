@@ -59,6 +59,19 @@ export const ChangeOwnPasswordInputSchema = z.object({
 });
 export type ChangeOwnPasswordInput = z.input<typeof ChangeOwnPasswordInputSchema>;
 
+/**
+ * Código de la verificación en dos pasos (#113): los 6 dígitos de la app autenticadora o un código
+ * de respaldo (`xxxxx-xxxxx`). Lo verifica Better Auth; esto valida el formulario.
+ */
+export const TwoFactorCodeInputSchema = z.object({ code: z.string().trim().min(6).max(32) });
+export type TwoFactorCodeInput = z.input<typeof TwoFactorCodeInputSchema>;
+
+/** Contraseña propia para confirmar un cambio de seguridad de la cuenta. */
+export const ConfirmPasswordInputSchema = z.object({
+  password: z.string().min(1).max(MAX_PASSWORD_LENGTH),
+});
+export type ConfirmPasswordInput = z.input<typeof ConfirmPasswordInputSchema>;
+
 export const USER_SORT_FIELDS = ['name', 'email', 'lastLoginAt', 'createdAt'] as const;
 export type UserSortField = (typeof USER_SORT_FIELDS)[number];
 
@@ -167,6 +180,8 @@ export interface UserListItem {
   readonly branch: { readonly id: string; readonly name: string } | undefined;
   readonly roles: readonly UserRole[];
   readonly mustChangePassword: boolean;
+  /** Tiene activa la verificación en dos pasos. */
+  readonly twoFactorEnabled: boolean;
   readonly lastLoginAt: Date | undefined;
   readonly createdAt: Date;
 }
@@ -295,6 +310,8 @@ export interface SessionProfile {
   readonly roles: readonly RoleSummary[];
   /** Entró con una contraseña temporal: no puede hacer nada hasta cambiarla. */
   readonly mustChangePassword: boolean;
+  /** Tiene activa la verificación en dos pasos (la pantalla "Mi cuenta" la muestra). */
+  readonly twoFactorEnabled: boolean;
 }
 
 // ---------- Favoritos ----------

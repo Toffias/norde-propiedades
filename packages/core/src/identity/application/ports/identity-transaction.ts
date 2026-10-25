@@ -10,6 +10,10 @@ import type { UserFavorites } from './user-favorites';
 export interface CredentialStore {
   findPasswordHash(userId: string): Promise<string | undefined>;
   setPasswordHash(userId: string, hash: string): Promise<void>;
+  /** Tiene activa la verificación en dos pasos (#113). */
+  hasTwoFactor(userId: string): Promise<boolean>;
+  /** Le quita el segundo factor: el secreto de la app, los códigos de respaldo y la marca. */
+  removeTwoFactor(userId: string): Promise<void>;
 }
 
 /** Sesiones abiertas de un usuario en el panel. */

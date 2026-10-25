@@ -9,11 +9,9 @@ import {
   type BackgroundTasksPage,
 } from '@norde/core/reporting/contracts';
 import { Button } from '@norde/ui/components/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@norde/ui/components/popover';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
 import {
-  BellIcon,
   FileTextIcon,
   ImageIcon,
   ImagesIcon,
@@ -307,26 +305,18 @@ function TaskList({
 }
 
 /**
- * Las notificaciones de la barra superior (la campana): cuántos procesos en segundo plano siguen
- * en curso y, al abrirla, cada uno con su avance y su resultado. Mientras algo está en curso
- * pregunta cada tanto (más seguido con el panel abierto); sin nada en curso, no pregunta.
+ * Cuántos procesos en segundo plano siguen en curso, para la campana. Mientras algo está en curso
+ * y la campana está cerrada, pregunta cada `CLOSED_POLL_MS`; sin nada en curso, no pregunta. Con la
+ * campana abierta lo actualiza la lista (`onActive`).
  */
-export function BackgroundTasks({
-  initialActive,
-  canSeeAll,
-}: {
-  /** Los en curso de quien entra, contados por el layout. */
-  readonly initialActive: number;
-  /** Puede ver los de todos: el caso de uso lo vuelve a verificar. */
-  readonly canSeeAll: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<BackgroundTaskScope>('mine');
+export function useActiveTasks(
+  initialActive: number,
+  { open, scope }: { readonly open: boolean; readonly scope: BackgroundTaskScope },
+) {
   const [active, setActive] = useState(initialActive);
   const onActive = useCallback((count: number) => {
     setActive(count);
   }, []);
-  const list = useTaskList(open, scope, onActive);
 
   // El layout se vuelve a pintar cuando una acción encola un proceso: trae el contador nuevo (de
   // los propios). Con "Todos" son al menos esos: con algo en curso, el polling trae el número real.
@@ -351,6 +341,31 @@ export function BackgroundTasks({
     };
   }, [open, active, scope]);
 
+  return { active, onActive };
+}
+
+/**
+ * La pestaña "Procesos" de la campana: cada proceso en segundo plano con su avance y su resultado.
+ * Los trae mientras está a la vista (`open`) y, con algo en curso, pregunta más seguido.
+ */
+export function BackgroundTasksPanel({
+  open,
+  scope,
+  onScopeChange,
+  canSeeAll,
+  onActive,
+  onNavigate,
+}: {
+  readonly open: boolean;
+  readonly scope: BackgroundTaskScope;
+  readonly onScopeChange: (scope: BackgroundTaskScope) => void;
+  /** Puede ver los de todos: el caso de uso lo vuelve a verificar. */
+  readonly canSeeAll: boolean;
+  readonly onActive: (count: number) => void;
+  readonly onNavigate: () => void;
+}) {
+  const list = useTaskList(open, scope, onActive);
+
   const finished =
     list.loaded.status === 'ready' ? clearedUntil(list.loaded.page.items) : undefined;
   function clearFinished() {
@@ -360,49 +375,21 @@ export function BackgroundTasks({
     list.reload();
   }
 
-  const label = active === 0 ? 'Notificaciones' : `Notificaciones: ${String(active)} en curso`;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="relative px-2"
-          aria-label={label}
-          title={label}
-        >
-          <BellIcon className="h-4 w-4" aria-hidden />
-          {active > 0 && (
-            <span
-              aria-hidden
-              className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] leading-none font-bold text-primary-foreground"
-            >
-              {active > 99 ? '99+' : active}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
-        <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-          <h2 className="text-sm font-semibold text-foreground">Notificaciones</h2>
-          {canSeeAll && <ScopeToggle scope={scope} onChange={setScope} />}
-        </header>
-        <TaskList
-          list={list}
-          scope={scope}
-          onNavigate={() => {
-            setOpen(false);
-          }}
-        />
-        {finished !== undefined && (
-          <footer className="flex justify-end border-t border-border px-3 py-2">
-            <Button type="button" variant="ghost" size="sm" onClick={clearFinished}>
-              Limpiar terminados
-            </Button>
-          </footer>
-        )}
-      </PopoverContent>
-    </Popover>
+    <>
+      {canSeeAll && (
+        <div className="flex justify-end border-b border-border px-3 py-2">
+          <ScopeToggle scope={scope} onChange={onScopeChange} />
+        </div>
+      )}
+      <TaskList list={list} scope={scope} onNavigate={onNavigate} />
+      {finished !== undefined && (
+        <footer className="flex justify-end border-t border-border px-3 py-2">
+          <Button type="button" variant="ghost" size="sm" onClick={clearFinished}>
+            Limpiar terminados
+          </Button>
+        </footer>
+      )}
+    </>
   );
 }

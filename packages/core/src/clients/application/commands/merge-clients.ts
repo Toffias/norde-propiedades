@@ -16,7 +16,7 @@ import {
   type MergeClientsInput,
   type MergeClientsOutput,
 } from '../../contracts';
-import type { Client, ClientInTrashError, SameClientError } from '../../domain/client';
+import type { AbsorbClientError, Client } from '../../domain/client';
 import { mergeActivity } from '../../domain/client-activity';
 import {
   clientAuditState,
@@ -29,8 +29,9 @@ import {
 import type { ClientRecordCounts } from '../ports/client-linked-records';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
+/** Además de los permisos, lo que impide el dominio (ver `Client.absorb`). */
 export type MergeClientsError =
-  ForbiddenError | InvalidInputError | ClientNotFoundError | ClientInTrashError | SameClientError;
+  ForbiddenError | InvalidInputError | ClientNotFoundError | AbsorbClientError;
 
 /** Lo que se audita del contacto además de sus campos: etiquetas y relaciones, por ID. */
 function mergeAuditState(client: Client) {

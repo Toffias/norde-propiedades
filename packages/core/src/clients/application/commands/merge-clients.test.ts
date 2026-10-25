@@ -15,6 +15,7 @@ import {
   TEST_MANAGER,
   TEST_OUTSIDER,
 } from '../../testing';
+import { MAX_CLIENT_TAGS } from '../../domain/client-tag';
 import { PreviewClientMerge } from '../queries/preview-client-merge';
 
 import { MergeClients } from './merge-clients';
@@ -140,6 +141,24 @@ describe('MergeClients', () => {
     expect(
       unwrapErr(await useCase.execute({ primaryId: primary.id, duplicateId: MISSING }, MERGER)),
     ).toEqual({ type: 'ClientNotFound' });
+    expect(uow.audit.entries).toEqual([]);
+  });
+
+  it('does not merge when the union breaks a rule of the contact, and saves nothing', async () => {
+    const { uow, primary, duplicate, useCase } = await setup();
+    const tags = (k: string) =>
+      Array.from({ length: MAX_CLIENT_TAGS / 2 + 1 }, (_, n) => `${k}-${n.toString()}`);
+    primary.changeTags(tags('a'), clock.now());
+    duplicate.changeTags(tags('b'), clock.now());
+    await uow.clients.save(primary, AGENT_ID);
+    await uow.clients.save(duplicate, AGENT_ID);
+
+    expect(
+      unwrapErr(
+        await useCase.execute({ primaryId: primary.id, duplicateId: duplicate.id }, MERGER),
+      ),
+    ).toEqual({ type: 'TooManyTags', max: MAX_CLIENT_TAGS });
+    expect(uow.clients.rows.get(duplicate.id)?.mergedIntoId).toBeUndefined();
     expect(uow.audit.entries).toEqual([]);
   });
 

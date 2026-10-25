@@ -33,20 +33,36 @@ export interface TooManyRelationsError {
   readonly type: 'TooManyRelations';
 }
 
+/** ¿Puede un registro de tipo `from` declarar esta relación, sea con quien sea? */
+export function relationAllowedFrom(kind: ClientRelationKind, from: ClientKind): boolean {
+  switch (kind) {
+    case 'works_at':
+      return from === 'person';
+    case 'member_of':
+      return from !== 'group';
+    case 'related':
+      return true;
+  }
+}
+
+function relationAllowedTo(kind: ClientRelationKind, to: ClientKind): boolean {
+  switch (kind) {
+    case 'works_at':
+      return to === 'company';
+    case 'member_of':
+      return to === 'group';
+    case 'related':
+      return true;
+  }
+}
+
 /** ¿Puede un registro de tipo `from` tener esta relación con uno de tipo `to`? */
 export function relationAllowed(
   kind: ClientRelationKind,
   from: ClientKind,
   to: ClientKind,
 ): boolean {
-  switch (kind) {
-    case 'works_at':
-      return from === 'person' && to === 'company';
-    case 'member_of':
-      return from !== 'group' && to === 'group';
-    case 'related':
-      return true;
-  }
+  return relationAllowedFrom(kind, from) && relationAllowedTo(kind, to);
 }
 
 export function cleanRelationLabel(label: string | undefined): string | undefined {

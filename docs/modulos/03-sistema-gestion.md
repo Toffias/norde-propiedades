@@ -262,6 +262,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - El principal se queda con todo: teléfonos, emails, canales, tipos de cliente, etiquetas, relaciones (las suyas y las que otros declaran hacia el duplicado), oportunidades, actividad, búsquedas guardadas, destacadas, envíos y consultas. Lo que ya tiene el principal manda (nombre, agente, teléfono y email principales, datos cargados); los datos vacíos se completan con los del duplicado. Si los dos tenían destacada la misma propiedad, la del duplicado pasa como quitada.
 - El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
 - Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
+- La unión respeta las reglas de la ficha: si el principal no puede tener una relación del duplicado (por ejemplo, una empresa no "trabaja en" otra) o juntos pasan el tope de 50 relaciones o de 50 etiquetas, no se unifica y se avisa qué corregir. No se descarta nada en silencio.
 - Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. El historial del principal muestra también el del duplicado.
 - El mapeo con Tokko pasa al principal en la misma transacción: una reimportación resuelve al contacto que quedó.
 - **Lo de los otros módulos también pasa al principal**, al recibir `clients.clients_merged` (en segundos, por el agente):

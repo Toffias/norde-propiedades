@@ -21,6 +21,12 @@ import type {
   RemoveErasedClientFavorites,
   RunTokkoUsersImport,
 } from '@norde/core/identity';
+import type {
+  MoveMergedClientNotifications,
+  NotifyAssignment,
+  NotifyAssignmentInput,
+  RemoveErasedClientNotifications,
+} from '@norde/core/notifications';
 import {
   PORTALS,
   PORTAL_CATALOG,
@@ -210,6 +216,7 @@ export interface ErasureJobs {
   readonly conversations: Pick<EraseClientConversations, 'execute'>;
   readonly properties: Pick<UnlinkErasedClients, 'execute'>;
   readonly favorites: Pick<RemoveErasedClientFavorites, 'execute'>;
+  readonly notifications: Pick<RemoveErasedClientNotifications, 'execute'>;
 }
 
 /**
@@ -221,6 +228,99 @@ export interface MergeJobs {
   readonly conversations: Pick<MoveMergedClientConversations, 'execute'>;
   readonly properties: Pick<MoveMergedClientLinks, 'execute'>;
   readonly favorites: Pick<MoveMergedClientFavorites, 'execute'>;
+  readonly notifications: Pick<MoveMergedClientNotifications, 'execute'>;
+}
+
+/**
+ * Lo que traen las reasignaciones de clients. Quién asignó y la consulta que la provocó faltan en
+ * los eventos de antes de las notificaciones; un agente vacío llega como `null` o no llega.
+ */
+const AssignmentPayloadSchema = z.object({
+  clientId: z.uuid(),
+  fromAgentId: z.string().nullish(),
+  toAgentId: z.string().nullish(),
+  assignedBy: z.string().nullish(),
+  inquiryId: z.string().nullish(),
+});
+const InquiryAssignedPayloadSchema = z.object({
+  inquiryId: z.uuid(),
+  clientId: z.uuid(),
+  agentId: z.string().nullish(),
+  assignedBy: z.string().nullish(),
+});
+
+/** Le avisa al agente nuevo, en la campana, que le asignaron un contacto, una oportunidad o una consulta. */
+function notificationSubscriptions(
+  notify: Pick<NotifyAssignment, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription[] {
+  const run = async (event: DeliveredEvent, input: NotifyAssignmentInput) => {
+    const result = await notify.execute(input, actor);
+    if (result.isErr()) {
+      logger.error({ eventId: event.id, error: result.error }, 'Assignment notification skipped');
+    }
+  };
+  const optional = (value: string | null | undefined) => value ?? undefined;
+  const reassignment = (
+    event: DeliveredEvent,
+    payload: z.infer<typeof AssignmentPayloadSchema>,
+    subject:
+      | { readonly type: 'client.assigned' }
+      | { readonly type: 'opportunity.assigned'; readonly opportunityId: string },
+  ): NotifyAssignmentInput => ({
+    sourceEventId: event.id,
+    type: subject.type,
+    entityId: subject.type === 'client.assigned' ? payload.clientId : subject.opportunityId,
+    clientId: payload.clientId,
+    fromAgentId: optional(payload.fromAgentId),
+    toAgentId: optional(payload.toAgentId),
+    assignedBy: optional(payload.assignedBy),
+    inquiryId: optional(payload.inquiryId),
+    occurredAt: event.occurredAt,
+  });
+  return [
+    {
+      eventType: 'clients.client_reassigned',
+      name: 'notify-assignee',
+      handle: async (event) => {
+        const payload = AssignmentPayloadSchema.parse(event.payload);
+        await run(event, reassignment(event, payload, { type: 'client.assigned' }));
+      },
+    },
+    {
+      eventType: 'clients.opportunity_reassigned',
+      name: 'notify-assignee',
+      handle: async (event) => {
+        const payload = AssignmentPayloadSchema.extend({ opportunityId: z.uuid() }).parse(
+          event.payload,
+        );
+        await run(
+          event,
+          reassignment(event, payload, {
+            type: 'opportunity.assigned',
+            opportunityId: payload.opportunityId,
+          }),
+        );
+      },
+    },
+    {
+      eventType: 'clients.inquiry_assigned',
+      name: 'notify-assignee',
+      handle: async (event) => {
+        const payload = InquiryAssignedPayloadSchema.parse(event.payload);
+        await run(event, {
+          sourceEventId: event.id,
+          type: 'inquiry.assigned',
+          entityId: payload.inquiryId,
+          clientId: payload.clientId,
+          toAgentId: optional(payload.agentId),
+          assignedBy: optional(payload.assignedBy),
+          occurredAt: event.occurredAt,
+        });
+      },
+    },
+  ];
 }
 
 /** Los jobs de la ficha de propiedad (#6): variantes de fotos, limpieza del storage y PDF. */
@@ -567,6 +667,7 @@ function erasureSubscriptions(
     erase('unlink-properties', jobs.properties),
     erase('remove-favorites', jobs.favorites),
     erase('erase-appraisals', jobs.appraisals),
+    erase('remove-notifications', jobs.notifications),
   ];
 }
 
@@ -594,6 +695,7 @@ function mergeSubscriptions(jobs: MergeJobs, actor: Actor, logger: Logger): Even
     move('move-properties', jobs.properties),
     move('move-favorites', jobs.favorites),
     move('move-appraisals', jobs.appraisals),
+    move('move-notifications', jobs.notifications),
   ];
 }
 
@@ -621,6 +723,8 @@ function routeInquirySubscription(
 export function eventSubscriptions(deps: {
   readonly notifyTeam: Pick<NotifyTeamOfOpportunity, 'execute'>;
   readonly recordActivity: Pick<RecordClientActivity, 'execute'>;
+  /** Avisarle en la campana al agente al que le asignaron algo. */
+  readonly notifyAssignment: Pick<NotifyAssignment, 'execute'>;
   readonly properties: PropertyJobs;
   readonly appraisals: AppraisalJobs;
   readonly erasure: ErasureJobs;
@@ -677,6 +781,7 @@ export function eventSubscriptions(deps: {
     ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),
     ...mergeSubscriptions(deps.merge, deps.actor, deps.logger),
     ...opportunitySubscriptions(deps.opportunities, deps.actor, deps.logger),
+    ...notificationSubscriptions(deps.notifyAssignment, deps.actor, deps.logger),
     {
       eventType: 'clients.import_requested',
       name: 'run-import',

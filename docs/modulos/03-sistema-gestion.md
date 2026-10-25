@@ -1090,7 +1090,7 @@ El feed de actividad de la empresa (`/noticias`, permiso `news:read`). Se lee de
 - **Scroll infinito**, paginado por tarjetas en la base (15 por tanda).
 - **Tipos**: el selector "Mostrando N tipos de noticias" se guarda por usuario en una cookie.
 - **Alcance**: lo define "Noticias" en Mi empresa → General. Con "Sucursal", cada usuario ve las propiedades y contactos de su sucursal; un usuario sin sucursal ve todo. Las reglas de lectura de propiedades y contactos no se aplican al feed: se ve la novedad aunque no se pueda abrir la ficha.
-- **No se construye** (queda en #16): notificaciones por usuario (en el panel y por mail), sus preferencias y la configuración personal.
+- Los avisos a cada usuario (lo que le asignan) van en la campana de la barra (§9, #112).
 
 ### 7.1 Ventas y orígenes
 
@@ -1138,7 +1138,14 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Desde dos letras, despliega los primeros 5 resultados de cada tipo, agrupados, con un link "Ver los N" al listado del módulo filtrado por el texto. Las flechas recorren los resultados y Enter abre la ficha (un agente abre su panel en Usuarios).
   - Reusa el listado de cada módulo (caso de uso `GlobalSearch` en `reporting`): cada uno aplica sus permisos y su alcance (un agente ve sus contactos). Un tipo que el usuario no puede ver no aparece; los agentes requieren `users:read`.
   - En mobile, un botón de lupa abre el buscador arriba de la pantalla.
-- **Notificaciones** (la campana de la barra superior, ADR 0040): los procesos que corren en los jobs, para saber qué se está procesando y cuándo termina.
+- **Notificaciones** (la campana de la barra superior, ADR 0040 y 0043), en dos pestañas: "Avisos", lo que le toca a quien entra, y "Procesos", lo que corre en los jobs. El número de la campana suma los avisos sin leer y los procesos en curso; cada pestaña muestra el suyo. Al abrirla va a "Avisos", salvo que no haya avisos sin leer y sí procesos en curso.
+- **Avisos** (#112): solo dentro del panel; ni email ni WhatsApp.
+  - Hoy avisan las asignaciones: "Te asignaron el contacto…", "…una oportunidad de…" y "…una consulta de…", con el nombre de hoy del contacto. Cada aviso lleva a la ficha del contacto (las oportunidades y las consultas, a su pestaña Oportunidades).
+  - No se avisa a quien se asigna algo a sí mismo ni cuando solo cambia la sucursal. Una consulta asignada se anuncia una vez, como consulta, aunque también le cambie el agente al contacto y a la oportunidad.
+  - Abrir un aviso lo marca leído; "Marcar todos como leídos" marca los demás. De a 10, con "Ver más" hasta 50. Con la campana cerrada, las no leídas se vuelven a contar cada minuto.
+  - Un contacto suprimido se lleva sus avisos; los de un duplicado unificado pasan al contacto que queda.
+  - Pendiente (#112): las preferencias por tipo con un interruptor general, y el resto del catálogo (productor y tasador asignados, cambios en contactos y propiedades, unificaciones, búsquedas con coincidencias nuevas, borrados y restauraciones, reservas por vencer, interacción del cliente con las fichas, importaciones).
+- **Procesos** (ADR 0040): los procesos que corren en los jobs, para saber qué se está procesando y cuándo termina.
   - Muestra las fotos y planos procesándose (agrupados por ficha y por quien los subió; las que trajo una importación de Tokko, en una sola tarea "Fotos de la importación de Tokko" a nombre de quien la pidió, que sigue en curso después de que la importación termina), las importaciones (contactos, propiedades por planilla o por la API de Tokko, unidades y usuarios de Tokko), las acciones masivas de oportunidades, los PDF de la ficha y, para quien ve todos, las publicaciones en los portales.
   - Cada uno con su estado (En espera, Procesando, Listo, Con error; las fotos dicen "Generando variantes"), su avance si se conoce ("1.200 de 2.780", con barra), las filas con problemas o el motivo del error, y un link: el reporte de la importación, la pestaña Multimedia o Difusión de la ficha, la descarga del PDF, Usuarios o el pipeline.
   - El número de la campana cuenta los que siguen en curso. Mientras hay alguno, vuelve a preguntar cada 15 segundos (cada 5 con el panel abierto); sin nada en curso no pregunta.
@@ -1147,7 +1154,7 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Las exportaciones no aparecen: se arman en la misma descarga, no en un job.
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
 - **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
-- **Notificaciones**: un servicio único (panel, mail, WhatsApp) que usan los alquileres, los clientes asignados y las oportunidades.
+- **Notificaciones**: los avisos a cada usuario viven en la campana del panel (módulo `notifications`, ADR 0043). Los avisos por mail o WhatsApp a usuarios del panel no se construyen (#112).
 - **Tareas programadas**: cálculo de IPC, avisos de vencimiento, sincronización con portales y cruce de oportunidades. Corren como jobs de pg-boss en el proceso `apps/gestion` (ADR 0021).
 - **Backups** diarios de la base de datos.
 

@@ -32,8 +32,8 @@ import {
   type NavCounts,
 } from '../navigation';
 import { FallbackImage } from '../../properties/components/property-photo';
-import { BackgroundTasks } from './background-tasks';
 import { GlobalSearch } from './global-search';
+import { NotificationBell } from './notification-bell';
 
 const NavLink: NavLinkComponent = ({ href, className, onClick, children, ...aria }) => (
   // Rutas de `PANEL_NAVIGATION`: typedRoutes no puede verificar los strings del array.
@@ -79,7 +79,7 @@ export function PanelShell({
   initiallyCollapsed,
   counts,
   searchKinds,
-  backgroundTasks,
+  notifications,
   brand,
   children,
 }: {
@@ -87,8 +87,15 @@ export function PanelShell({
   readonly initiallyCollapsed: boolean;
   readonly counts: NavCounts;
   readonly searchKinds: readonly GlobalSearchKind[];
-  /** Los procesos en segundo plano en curso de quien entra y si puede ver los de todos. */
-  readonly backgroundTasks: { readonly active: number; readonly canSeeAll: boolean };
+  /**
+   * La campana: los avisos sin leer de quien entra, sus procesos en segundo plano en curso y si
+   * puede ver los de todos.
+   */
+  readonly notifications: {
+    readonly unread: number;
+    readonly activeTasks: number;
+    readonly canSeeAllTasks: boolean;
+  };
   readonly brand: CompanyBrandView | undefined;
   readonly children: ReactNode;
 }) {
@@ -150,9 +157,10 @@ export function PanelShell({
       actions={
         <>
           <GlobalSearch initialKinds={searchKinds} />
-          <BackgroundTasks
-            initialActive={backgroundTasks.active}
-            canSeeAll={backgroundTasks.canSeeAll}
+          <NotificationBell
+            initialUnread={notifications.unread}
+            initialActive={notifications.activeTasks}
+            canSeeAllTasks={notifications.canSeeAllTasks}
           />
           <ThemeSwitcher />
           <AccountMenu

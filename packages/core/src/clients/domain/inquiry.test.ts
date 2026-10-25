@@ -147,6 +147,7 @@ describe('Inquiry.assign', () => {
           clientId: assignment.clientId,
           opportunityId: assignment.opportunityId,
           agentId: 'agent-1',
+          assignedBy: 'user-1',
         },
       }),
     ]);

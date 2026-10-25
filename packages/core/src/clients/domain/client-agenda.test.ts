@@ -173,12 +173,53 @@ describe('Client editing', () => {
   it('assigns an agent with its branch', () => {
     const client = aClient();
     expect(
-      client.assignAgent({ agentId: 'agent-1', branchId: 'branch-1' }, T1).unwrapOr(true),
+      client
+        .assignAgent({ agentId: 'agent-1', branchId: 'branch-1' }, T1, { by: 'manager-1' })
+        .unwrapOr(true),
     ).toBe(false);
     expect(
-      client.assignAgent({ agentId: 'agent-2', branchId: 'branch-2' }, T1).unwrapOr(false),
+      client
+        .assignAgent({ agentId: 'agent-2', branchId: 'branch-2' }, T1, { by: 'manager-1' })
+        .unwrapOr(false),
     ).toBe(true);
     expect(client.ownership).toEqual({ ownerId: 'agent-2', ownerBranchId: 'branch-2' });
+  });
+
+  it('records the reassignment with who assigned it and the inquiry behind it', () => {
+    const client = aClient();
+    client.pullEvents();
+
+    client.assignAgent({ agentId: 'agent-2', branchId: 'branch-2' }, T1, {
+      by: 'manager-1',
+      inquiryId: 'inquiry-1',
+    });
+
+    expect(client.pullEvents()).toEqual([
+      {
+        type: 'clients.client_reassigned',
+        aggregateId: client.id,
+        occurredAt: T1,
+        payload: {
+          clientId: client.id,
+          fromAgentId: 'agent-1',
+          toAgentId: 'agent-2',
+          assignedBy: 'manager-1',
+          inquiryId: 'inquiry-1',
+        },
+      },
+    ]);
+  });
+
+  it('does not record a reassignment when only the branch changes', () => {
+    const client = aClient();
+    client.pullEvents();
+
+    const changed = client.assignAgent({ agentId: 'agent-1', branchId: 'branch-2' }, T1, {
+      by: 'manager-1',
+    });
+
+    expect(changed.unwrapOr(false)).toBe(true);
+    expect(client.pullEvents()).toEqual([]);
   });
 });
 
@@ -211,7 +252,7 @@ describe('Client trash', () => {
       client.rename('Otra', T1),
       client.changeTypes(['buyer'], T1),
       client.updateDetails({ kind: 'company' }, T1),
-      client.assignAgent({ agentId: undefined, branchId: undefined }, T1),
+      client.assignAgent({ agentId: undefined, branchId: undefined }, T1, { by: 'manager-1' }),
       client.changeContactInfo({ phones: client.phones, emails: [] }, T1),
     ];
     for (const result of results) {

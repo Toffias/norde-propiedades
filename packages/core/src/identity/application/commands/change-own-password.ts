@@ -20,9 +20,15 @@ export type ChangeOwnPasswordError =
   | { readonly type: 'WrongPassword' }
   | { readonly type: 'SamePassword' };
 
+/** La sesión del request, que es la única que sigue abierta después del cambio. */
+export type ChangeOwnPasswordCommand = ChangeOwnPasswordInput & { readonly sessionId: string };
+
 /**
  * El usuario de la sesión cambia su contraseña. No pide permisos: cualquier usuario puede, incluso
  * con una contraseña temporal (es lo único que puede hacer hasta cambiarla).
+ *
+ * Cierra las demás sesiones del usuario: si alguien más entró con la contraseña vieja (o con la
+ * temporal, sin permisos), no sigue adentro con la nueva.
  */
 export class ChangeOwnPassword {
   constructor(
@@ -34,7 +40,7 @@ export class ChangeOwnPassword {
   ) {}
 
   async execute(
-    input: ChangeOwnPasswordInput,
+    input: ChangeOwnPasswordCommand,
     actor: Actor,
   ): Promise<Result<void, ChangeOwnPasswordError>> {
     if (actor.kind !== 'user') return err({ type: 'Forbidden' });
@@ -62,6 +68,7 @@ export class ChangeOwnPassword {
       user.passwordChanged(now);
       await tx.users.save(user, actor.id);
       await tx.credentials.setPasswordHash(user.id, await this.deps.hasher.hash(newPassword));
+      await tx.sessions.revokeOthers(user.id, input.sessionId);
       await tx.audit.record(auditAction(actor, userTarget('user.password-changed', user.id)));
       return ok(undefined);
     });

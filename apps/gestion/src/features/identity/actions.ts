@@ -35,6 +35,8 @@ import {
   type UserIdInput,
 } from '@norde/core/identity/contracts';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 import { getContainer } from '../../container';
 import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-result';
@@ -145,8 +147,14 @@ export async function changeOwnPasswordAction(
   const { actor } = await requireSession();
   const parsed = ChangeOwnPasswordInputSchema.safeParse(input);
   if (!parsed.success) return actionFailed(INVALID);
+  const container = getContainer();
+  const sessionId = await container.sessions.currentSessionId(await headers());
+  if (sessionId === undefined) redirect('/ingresar');
 
-  const result = await getContainer().identity.changeOwnPassword.execute(parsed.data, actor);
+  const result = await container.identity.changeOwnPassword.execute(
+    { ...parsed.data, sessionId },
+    actor,
+  );
   if (result.isErr()) return actionFailed(messageForError(result.error, USER_ERROR_MESSAGES));
   // Con la contraseña propia, la sesión vuelve a tener sus permisos en todo el panel.
   revalidatePath('/', 'layout');

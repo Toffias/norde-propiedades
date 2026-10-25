@@ -156,6 +156,7 @@ export {
 } from './application/commands/reset-user-two-factor';
 export {
   ChangeOwnPassword,
+  type ChangeOwnPasswordCommand,
   type ChangeOwnPasswordError,
 } from './application/commands/change-own-password';
 export {

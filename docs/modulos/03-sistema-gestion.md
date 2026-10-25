@@ -70,6 +70,7 @@ Roles propuestos (a validar con Norde):
   - **Suspender** cierra sus sesiones abiertas en la misma transacción; nadie se puede suspender a sí mismo. **Reactivar** le devuelve el acceso.
   - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
 - **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.
+- **Cambiar la contraseña propia** cierra las demás sesiones del usuario y deja abierta la del cambio: quien haya entrado con la contraseña vieja o con la temporal no sigue adentro.
 - Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
 - Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
 - Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).

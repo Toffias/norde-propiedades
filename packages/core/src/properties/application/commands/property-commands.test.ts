@@ -126,6 +126,38 @@ describe('CreateProperty', () => {
     expect(unwrapErr(await create.execute(withoutPlace, TEST_PRODUCER)).type).toBe('InvalidInput');
   });
 
+  it('links the chosen owner and audits it with the client', async () => {
+    const { uow, codes, create } = setup();
+    const owner = '00000000-0000-7000-8000-0000000000d1';
+    uow.owners.clients.add(owner);
+
+    const { propertyId } = unwrap(
+      await create.execute({ ...INPUT, ownerClientId: owner }, TEST_PRODUCER),
+    );
+
+    expect(uow.owners.rows.get(`${propertyId}:${owner}`)).toBe(PRODUCER_ID);
+    expect(uow.audit.entries[0]).toMatchObject({
+      action: 'property.created',
+      clientIds: [owner],
+      changes: { ownerClientIds: { before: null, after: [owner] } },
+    });
+    expect(codes.requests).toHaveLength(1);
+  });
+
+  it('rejects an owner that is not an active contact, before taking a code', async () => {
+    const { uow, codes, create } = setup();
+    expect(
+      unwrapErr(
+        await create.execute(
+          { ...INPUT, ownerClientId: '00000000-0000-7000-8000-0000000000d1' },
+          TEST_PRODUCER,
+        ),
+      ),
+    ).toEqual({ type: 'OwnerClientNotFound' });
+    expect(uow.properties.rows.size).toBe(0);
+    expect(codes.requests).toHaveLength(0);
+  });
+
   it('rejects a property type the company disabled', async () => {
     const { uow, create } = setup();
     uow.typeSettings.rows.set('apartment', {

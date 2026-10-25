@@ -224,6 +224,10 @@ export type ChangePropertyTagsInput = z.input<typeof ChangePropertyTagsInputSche
 export const ChangePropertyProducerInputSchema = z.object({ ...PropertyId, userId: z.uuid() });
 export type ChangePropertyProducerInput = z.input<typeof ChangePropertyProducerInputSchema>;
 
+/** Un propietario (cliente) que se suma a la propiedad o se quita. */
+export const PropertyOwnerInputSchema = z.object({ ...PropertyId, clientId: z.uuid() });
+export type PropertyOwnerInput = z.input<typeof PropertyOwnerInputSchema>;
+
 export const MAX_APPRAISERS = 10;
 
 export const UpdatePropertyInternalInfoInputSchema = z.object({

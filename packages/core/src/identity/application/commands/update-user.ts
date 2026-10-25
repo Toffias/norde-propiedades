@@ -12,7 +12,7 @@ import {
   type Result,
 } from '../../../shared';
 import { UpdateUserInputSchema, type UpdateUserInput } from '../../contracts';
-import type { UserNeedsRoleError } from '../../domain/user';
+import type { CannotChangeOwnRolesError, UserNeedsRoleError } from '../../domain/user';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
@@ -34,7 +34,8 @@ export type UpdateUserError =
   | EmailTakenError
   | RoleNotFoundError
   | BranchNotFoundError
-  | UserNeedsRoleError;
+  | UserNeedsRoleError
+  | CannotChangeOwnRolesError;
 
 /** Edita los datos de un usuario y sus roles. Sin cambios, no se guarda ni se audita nada. */
 export class UpdateUser {
@@ -77,7 +78,7 @@ export class UpdateUser {
         { name: data.name, email: email.value, phone, branchId: data.branchId },
         now,
       );
-      const assigned = user.assignRoles(data.roleIds, now);
+      const assigned = user.assignRoles(data.roleIds, actor.id, now);
       if (assigned.isErr()) return err(assigned.error);
 
       const entry = auditUpdated(

@@ -71,6 +71,7 @@ export type { RoleRepository } from './domain/role.repository';
 export {
   User,
   type CannotChangeOwnPermissionsError,
+  type CannotChangeOwnRolesError,
   type CannotSuspendSelfError,
   type DuplicatePermissionError,
   type UserAlreadyActiveError,

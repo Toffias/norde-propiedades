@@ -227,7 +227,7 @@ describe('DrizzleUserRepository', () => {
     await repository.save(created.value, ADMIN.id);
 
     const user = await repository.findById(id.value);
-    user?.assignRoles([manager, rentals], now);
+    user?.assignRoles([manager, rentals], ADMIN.id, now);
     if (user) await repository.save(user, ADMIN.id);
 
     expect((await repository.findById(id.value))?.roleIds).toEqual([manager, rentals].sort());

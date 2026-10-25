@@ -66,7 +66,7 @@ Roles propuestos (a validar con Norde):
 - **Mi empresa → Usuarios** (`/mi-empresa/usuarios`), grilla paginada en el servidor:
   - Activos o suspendidos, búsqueda por nombre o email (sin acentos), orden por nombre, email, último ingreso o alta.
   - **Alta** con nombre, email, teléfono, uno o más roles y una **contraseña temporal** (se puede generar).
-  - **Edición** de los datos y los roles. Sin cambios no se audita nada.
+  - **Edición** de los datos y los roles. Sin cambios no se audita nada. Nadie cambia sus propios roles, como pasa con los permisos: con eso se podría dar cualquier permiso.
   - **Suspender** cierra sus sesiones abiertas en la misma transacción; nadie se puede suspender a sí mismo. **Reactivar** le devuelve el acceso.
   - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
 - **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.

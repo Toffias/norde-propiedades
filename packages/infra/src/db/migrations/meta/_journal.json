@@ -309,6 +309,13 @@
       "when": 1792947030499,
       "tag": "0043_properties_legacy_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792949435083,
+      "tag": "0044_properties_drop_legacy_columns",
+      "breakpoints": true
     }
   ]
 }

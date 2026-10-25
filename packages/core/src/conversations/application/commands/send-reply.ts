@@ -97,6 +97,9 @@ export class SendReply {
           body: {
             ...message.data,
             ...(input.agentTurn?.usage ? { usage: input.agentTurn.usage } : {}),
+            ...(input.agentTurn?.promptVersion
+              ? { promptVersion: input.agentTurn.promptVersion }
+              : {}),
             sentBy: actor.id,
           },
           recordedAt: now,

@@ -78,9 +78,16 @@ export class MetaWhatsAppMessenger implements ChannelMessenger {
     }
   }
 
-  /** Doble tilde azul. No tiene costo; si falla, solo se registra. */
-  async markAsRead(channelMessageId: string): Promise<void> {
-    const outcome = await this.post({ status: 'read', message_id: channelMessageId });
+  /** Doble tilde azul (y "escribiendo…"). No tiene costo; si falla, solo se registra. */
+  async markAsRead(
+    channelMessageId: string,
+    options?: { readonly typing: boolean },
+  ): Promise<void> {
+    const outcome = await this.post({
+      status: 'read',
+      message_id: channelMessageId,
+      ...(options?.typing ? { typing_indicator: { type: 'text' } } : {}),
+    });
     if (outcome.kind !== 'ok') {
       this.options.logger.warn(
         { outcome: outcome.kind },
@@ -162,6 +169,9 @@ function toPayload(message: OutboundMessage): Record<string, unknown> {
         type: 'interactive',
         interactive: {
           type: 'button',
+          ...(message.imageUrl
+            ? { header: { type: 'image', image: { link: message.imageUrl } } }
+            : {}),
           body: { text: truncate(message.text, WHATSAPP_BUTTON_BODY_LIMIT) },
           action: {
             buttons: message.buttons.slice(0, WHATSAPP_MAX_BUTTONS).map((b) => ({

@@ -16,8 +16,11 @@ export interface ChannelMessenger {
     to: string,
     message: OutboundMessage,
   ): Promise<Result<{ readonly channelMessageId: string | undefined }, DeliveryFailedError>>;
-  /** Acuse de lectura. Es opcional para el negocio: la implementación registra si falla. */
-  markAsRead(channelMessageId: string): Promise<void>;
+  /**
+   * Acuse de lectura. Con `typing`, además muestra "escribiendo…" hasta la respuesta (WhatsApp lo
+   * apaga solo a los 25 s). Es opcional para el negocio: la implementación registra si falla.
+   */
+  markAsRead(channelMessageId: string, options?: { readonly typing: boolean }): Promise<void>;
 }
 
 export type ChannelMessengers = Readonly<

@@ -201,6 +201,21 @@ describe('client tags (Postgres)', () => {
         .orderBy(clientTagAssignments.clientId),
     ).toEqual([ana, bruno].sort().map((clientId) => ({ clientId, tagId: target })));
     expect(await db.select({ id: clientTags.id }).from(clientTags)).toEqual([{ id: target }]);
+    // Cada contacto lo ve en su historial.
+    const history = await db
+      .select({ entityId: auditLog.entityId, changes: auditLog.changes })
+      .from(auditLog)
+      .where(eq(auditLog.action, 'client.tags_changed'))
+      .orderBy(auditLog.id);
+    expect(history.slice(-2).sort((a, b) => a.entityId.localeCompare(b.entityId))).toEqual(
+      [
+        {
+          entityId: ana,
+          changes: { tagIds: { before: [source, target].sort(), after: [target] } },
+        },
+        { entityId: bruno, changes: { tagIds: { before: [source], after: [target] } } },
+      ].sort((a, b) => a.entityId.localeCompare(b.entityId)),
+    );
   });
 
   it('pages more than 1.000 tags with LIMIT', async () => {

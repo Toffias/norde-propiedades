@@ -120,6 +120,7 @@ import {
   type FeaturedListingRepository,
   type InquiryRepository,
   type InquiryRuleRepository,
+  type MovedTagAssignment,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
   type OpportunityRepository,
@@ -425,11 +426,16 @@ export class InMemoryClientTagRepository implements ClientTagRepository {
     );
   }
 
-  moveAssignments(source: ClientTagId, target: ClientTagId) {
-    let moved = 0;
+  /** Cuántas veces se llamó a `moveAssignments`: los tests verifican los lotes. */
+  moveCalls = 0;
+
+  moveAssignments(source: ClientTagId, target: ClientTagId, limit: number) {
+    this.moveCalls += 1;
+    const moved: MovedTagAssignment[] = [];
     for (const [id, row] of this.clients.rows) {
+      if (moved.length >= limit) break;
       if (!row.tagIds.includes(source)) continue;
-      moved += 1;
+      moved.push({ clientId: id, tagIdsBefore: [...row.tagIds] });
       const tagIds = [...new Set(row.tagIds.map((tag) => (tag === source ? target : tag)))];
       this.clients.rows.set(id, { ...row, tagIds });
     }

@@ -82,6 +82,7 @@ export {
   type ClientRepository,
   type ClientTagGroupRepository,
   type ClientTagRepository,
+  type MovedTagAssignment,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
   type OpportunityRepository,

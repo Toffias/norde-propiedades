@@ -70,7 +70,8 @@ const TIMEOUT_MS = 90_000;
 
 /**
  * Manda un mensaje del chat del sitio a `apps/agent` (`POST /chat/messages`), firmado con el
- * secreto compartido (`x-norde-signature: sha256=` + HMAC del body). Un error de red o del agente
+ * secreto compartido (`x-norde-signature: sha256=` + HMAC de `<x-norde-timestamp>.<body>`). Un
+ * error de red o del agente
  * lanza.
  */
 export class WebChatClient {
@@ -80,15 +81,24 @@ export class WebChatClient {
       readonly url: string;
       readonly secret: string;
       readonly fetch?: typeof fetch;
+      readonly now?: () => number;
     },
   ) {}
 
   async send(message: WebChatMessage): Promise<WebChatOutcome> {
     const body = JSON.stringify(message);
-    const signature = createHmac('sha256', this.options.secret).update(body).digest('hex');
+    // La fecha va firmada con el body: el agente rechaza un mensaje viejo reenviado.
+    const timestamp = String((this.options.now ?? Date.now)());
+    const signature = createHmac('sha256', this.options.secret)
+      .update(`${timestamp}.${body}`)
+      .digest('hex');
     const response = await (this.options.fetch ?? fetch)(this.options.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-norde-signature': `sha256=${signature}` },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-norde-signature': `sha256=${signature}`,
+        'x-norde-timestamp': timestamp,
+      },
       body,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

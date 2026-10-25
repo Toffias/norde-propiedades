@@ -8,7 +8,7 @@ import { WHATSAPP_WEBHOOK_PATH } from '../channels/whatsapp/webhook-routes';
 
 import type { HealthStatus } from './routes/health';
 import { buildServer } from './server';
-import { signBody } from './signature';
+import { signBody, signTimestamped } from './signature';
 
 const silent = pino({ level: 'silent' });
 
@@ -166,19 +166,39 @@ describe('Web chat endpoint', () => {
     messageId: '00000000-0000-4000-8000-0000000000b1',
     text: '  busco depto  ',
   };
-  const post = (payload: string, signature = signBody(payload, secret)) =>
+  const post = (
+    payload: string,
+    timestamp = String(Date.now()),
+    signature = signTimestamped(payload, timestamp, secret),
+  ) =>
     app.inject({
       method: 'POST',
       url: WEB_CHAT_PATH,
-      headers: { 'content-type': 'application/json', 'x-norde-signature': signature },
+      headers: {
+        'content-type': 'application/json',
+        'x-norde-signature': signature,
+        'x-norde-timestamp': timestamp,
+      },
       payload,
     });
 
   it('rejects a message without a valid signature', async () => {
     const payload = JSON.stringify(message);
-    const response = await post(payload, signBody(payload, 'other-'.repeat(8)));
+    const now = String(Date.now());
+    const response = await post(payload, now, signTimestamped(payload, now, 'other-'.repeat(8)));
 
     expect(response.statusCode).toBe(401);
+    expect(handled).toEqual([]);
+  });
+
+  it('rejects a replayed message: old date, or a date that is not the signed one', async () => {
+    const payload = JSON.stringify(message);
+    const old = String(Date.now() - 10 * 60_000);
+    const now = String(Date.now());
+
+    expect((await post(payload, old)).statusCode).toBe(401);
+    expect((await post(payload, now, signTimestamped(payload, old, secret))).statusCode).toBe(401);
+    expect((await post(payload, now, signBody(payload, secret))).statusCode).toBe(401);
     expect(handled).toEqual([]);
   });
 

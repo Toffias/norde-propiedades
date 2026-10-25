@@ -48,6 +48,18 @@ describe('ReassignClient', () => {
         },
       }),
     ]);
+    expect(uow.events.published).toEqual([
+      expect.objectContaining({
+        type: 'clients.client_reassigned',
+        payload: {
+          clientId: client.id,
+          fromAgentId: AGENT_ID,
+          toAgentId: OTHER_AGENT_ID,
+          assignedBy: TEST_MANAGER.id,
+          inquiryId: undefined,
+        },
+      }),
+    ]);
   });
 
   it('leaves the contact without an agent', async () => {

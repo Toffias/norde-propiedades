@@ -236,8 +236,18 @@ describe('AssignInquiry to a new client', () => {
     expect(uow.events.published.map((e) => e.type)).toEqual([
       'clients.client_registered',
       'clients.opportunity_created',
+      'clients.client_reassigned',
       'clients.opportunity_reassigned',
       'clients.inquiry_assigned',
+    ]);
+    // El contacto y la oportunidad se reasignaron por la consulta: se anuncia una vez, como consulta.
+    const origin = { assignedBy: MANAGER.id, inquiryId };
+    expect(uow.events.published.map((e) => e.payload)).toEqual([
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining(origin),
+      expect.objectContaining(origin),
+      expect.objectContaining({ assignedBy: MANAGER.id, agentId: AGENT_ID }),
     ]);
   });
 

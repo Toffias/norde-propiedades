@@ -28,6 +28,8 @@ export type InquiryAssigned = DomainEvent<
     readonly clientId: string;
     readonly opportunityId: string;
     readonly agentId: string | undefined;
+    /** Quién la asignó: falta en los eventos de antes de las notificaciones. */
+    readonly assignedBy: string;
   }
 >;
 

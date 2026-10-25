@@ -4,6 +4,7 @@ import { err, ok, type Result } from '../../shared/domain/result';
 import type { Email } from '../../shared/domain/value-objects/email';
 import type { Phone } from '../../shared/domain/value-objects/phone';
 
+import type { AssignmentOrigin } from './assignment-origin';
 import type { ClientEvent } from './client.events';
 import {
   cleanRelationLabel,
@@ -495,13 +496,18 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
     return ok(true);
   }
 
-  /** Cambia el agente responsable; el contacto pasa a la sucursal del agente. */
+  /**
+   * Cambia el agente responsable; el contacto pasa a la sucursal del agente. Si cambió el agente
+   * (no solo la sucursal), lo avisa con quién lo asignó.
+   */
   assignAgent(
     agent: { readonly agentId: string | undefined; readonly branchId: string | undefined },
     now: Date,
+    origin: AssignmentOrigin,
   ): Result<boolean, ClientInTrashError> {
     if (this.isDeleted) return err({ type: 'ClientInTrash' });
-    if (agent.agentId === this.#state.agentId && agent.branchId === this.#state.branchId) {
+    const from = this.#state.agentId;
+    if (agent.agentId === from && agent.branchId === this.#state.branchId) {
       return ok(false);
     }
     this.#state = {
@@ -510,6 +516,20 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
       branchId: agent.branchId,
       updatedAt: now,
     };
+    if (agent.agentId !== from) {
+      this.record({
+        type: 'clients.client_reassigned',
+        aggregateId: this.id,
+        occurredAt: now,
+        payload: {
+          clientId: this.id,
+          fromAgentId: from,
+          toAgentId: agent.agentId,
+          assignedBy: origin.by,
+          inquiryId: origin.inquiryId,
+        },
+      });
+    }
     return ok(true);
   }
 

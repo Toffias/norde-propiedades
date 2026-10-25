@@ -1,5 +1,6 @@
 import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
 import type { RunTokkoUsersImport } from '@norde/core/identity';
+import type { NotifyAssignment } from '@norde/core/notifications';
 import type {
   RunDevelopmentUnitImport,
   RunPropertyImport,
@@ -97,6 +98,7 @@ const importActor = Actor.system('import', ['clients:run-imports', 'properties:r
 function clientJobs(calls: unknown[] = []): {
   readonly erasure: ErasureJobs;
   readonly merge: MergeJobs;
+  readonly notifyAssignment: Pick<NotifyAssignment, 'execute'>;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
   readonly runPropertyImport: Pick<RunPropertyImport, 'execute'>;
@@ -127,12 +129,20 @@ function clientJobs(calls: unknown[] = []): {
       properties: erase('properties'),
       favorites: erase('favorites'),
       appraisals: erase('appraisals'),
+      notifications: erase('notifications'),
     },
     merge: {
       conversations: move('merge-conversations'),
       properties: move('merge-properties'),
       favorites: move('merge-favorites'),
       appraisals: move('merge-appraisals'),
+      notifications: move('merge-notifications'),
+    },
+    notifyAssignment: {
+      execute: (input, by) => {
+        calls.push(['notify', input, by.id]);
+        return Promise.resolve(ok({ notified: true }));
+      },
     },
     runImport: {
       execute: (input, by) => {
@@ -242,15 +252,20 @@ describe('eventSubscriptions', () => {
       'clients.client_erased.unlink-properties',
       'clients.client_erased.remove-favorites',
       'clients.client_erased.erase-appraisals',
+      'clients.client_erased.remove-notifications',
       'clients.clients_merged.move-conversations',
       'clients.clients_merged.move-properties',
       'clients.clients_merged.move-favorites',
       'clients.clients_merged.move-appraisals',
+      'clients.clients_merged.move-notifications',
       'clients.opportunity_reassigned.apply-rules',
       'clients.opportunity_request_added.apply-rules',
       'clients.opportunity_listings_featured.apply-rules',
       'clients.opportunity_created.apply-rules',
       'clients.opportunity_bulk_requested.run-bulk',
+      'clients.client_reassigned.notify-assignee',
+      'clients.opportunity_reassigned.notify-assignee',
+      'clients.inquiry_assigned.notify-assignee',
       'clients.import_requested.run-import',
       'properties.unit_import_requested.run-unit-import',
       'properties.import_requested.run-property-import',
@@ -472,6 +487,7 @@ describe('eventSubscriptions', () => {
       'unlink-properties',
       'remove-favorites',
       'erase-appraisals',
+      'remove-notifications',
     ]);
     expect(calls).toEqual([
       ['import', { importId: IMPORT_ID }, 'system:import'],
@@ -483,15 +499,112 @@ describe('eventSubscriptions', () => {
       ['properties', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['favorites', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
       ['appraisals', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
-      ...['merge-conversations', 'merge-properties', 'merge-favorites', 'merge-appraisals'].map(
-        (name) => [name, { clientId: CLIENT_ID, mergedClientId: DUPLICATE_ID }, 'system:scheduler'],
-      ),
+      ['notifications', { clientIds: [CLIENT_ID] }, 'system:scheduler'],
+      ...[
+        'merge-conversations',
+        'merge-properties',
+        'merge-favorites',
+        'merge-appraisals',
+        'merge-notifications',
+      ].map((name) => [
+        name,
+        { clientId: CLIENT_ID, mergedClientId: DUPLICATE_ID },
+        'system:scheduler',
+      ]),
     ]);
     await expect(
       byType('clients.clients_merged')[0]?.handle({ ...event, payload: { clientId: CLIENT_ID } }),
     ).rejects.toThrow();
     await expect(
       byType('clients.client_erased')[0]?.handle({ ...event, payload: { erasedClientIds: [] } }),
+    ).rejects.toThrow();
+  });
+
+  it('notifies the assignee of a contact, an opportunity or an inquiry', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(calls),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const notify = (type: string) =>
+      subscriptions.find((s) => s.eventType === type && s.name === 'notify-assignee');
+    const OPPORTUNITY_ID = '00000000-0000-7000-8000-0000000000d2';
+    const INQUIRY_ID = '00000000-0000-7000-8000-0000000000f3';
+    const MANAGER_ID = '00000000-0000-7000-8000-0000000000a3';
+    const AGENT_ID = '00000000-0000-7000-8000-0000000000a4';
+
+    await notify('clients.client_reassigned')?.handle({
+      ...event,
+      payload: {
+        clientId: CLIENT_ID,
+        fromAgentId: null,
+        toAgentId: AGENT_ID,
+        assignedBy: MANAGER_ID,
+        inquiryId: INQUIRY_ID,
+      },
+    });
+    // Los eventos de antes de las notificaciones no traen quién asignó.
+    await notify('clients.opportunity_reassigned')?.handle({
+      ...event,
+      payload: { opportunityId: OPPORTUNITY_ID, clientId: CLIENT_ID, toAgentId: AGENT_ID },
+    });
+    await notify('clients.inquiry_assigned')?.handle({
+      ...event,
+      payload: {
+        inquiryId: INQUIRY_ID,
+        clientId: CLIENT_ID,
+        opportunityId: OPPORTUNITY_ID,
+        agentId: AGENT_ID,
+        assignedBy: MANAGER_ID,
+      },
+    });
+
+    const base = { sourceEventId: event.id, clientId: CLIENT_ID, occurredAt: event.occurredAt };
+    expect(calls).toEqual([
+      [
+        'notify',
+        {
+          ...base,
+          type: 'client.assigned',
+          entityId: CLIENT_ID,
+          fromAgentId: undefined,
+          toAgentId: AGENT_ID,
+          assignedBy: MANAGER_ID,
+          inquiryId: INQUIRY_ID,
+        },
+        'system:scheduler',
+      ],
+      [
+        'notify',
+        {
+          ...base,
+          type: 'opportunity.assigned',
+          entityId: OPPORTUNITY_ID,
+          fromAgentId: undefined,
+          toAgentId: AGENT_ID,
+          assignedBy: undefined,
+          inquiryId: undefined,
+        },
+        'system:scheduler',
+      ],
+      [
+        'notify',
+        {
+          ...base,
+          type: 'inquiry.assigned',
+          entityId: INQUIRY_ID,
+          toAgentId: AGENT_ID,
+          assignedBy: MANAGER_ID,
+        },
+        'system:scheduler',
+      ],
+    ]);
+    await expect(
+      notify('clients.opportunity_reassigned')?.handle({ ...event, payload: { clientId: 'x' } }),
     ).rejects.toThrow();
   });
 

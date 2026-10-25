@@ -72,7 +72,7 @@ export function SiteFooter() {
               )}
               {email && (
                 <p>
-                  <a href={`mailto:${email}`} className={LINK}>
+                  <a href={`mailto:${email}`} className={`${LINK} wrap-anywhere`}>
                     {email}
                   </a>
                 </p>

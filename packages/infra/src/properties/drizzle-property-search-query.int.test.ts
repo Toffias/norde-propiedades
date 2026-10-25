@@ -189,6 +189,14 @@ describe('DrizzlePropertySearchQuery', () => {
     expect(await titles({ location: 'Palermo Soho' })).toEqual(['Palermo']);
   });
 
+  it('ignores punctuation in the location text', async () => {
+    await insertProperty({ title: 'Palermo', neighborhood: 'Palermo', city: 'CABA' });
+    await insertProperty({ title: 'VL', neighborhood: 'Florida', city: 'Vicente López' });
+
+    expect(await titles({ location: 'Capital (CABA)' })).toEqual(['Palermo']);
+    expect(await titles({ location: 'Palermo, CABA.' })).toEqual(['Palermo']);
+  });
+
   it('matches a catalog location with its descendants', async () => {
     const caba = await insertLocation('CABA');
     const mataderos = await insertLocation('Mataderos', caba);

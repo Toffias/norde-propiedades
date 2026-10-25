@@ -234,4 +234,14 @@ export class DrizzleAppraisalQuery implements AppraisalQuery {
       )
     );
   }
+
+  /** Por el índice único `appraisals_converted_property_uq`. */
+  async findIdByConvertedProperty(propertyId: string): Promise<string | undefined> {
+    const [row] = await this.db
+      .select({ id: appraisals.id })
+      .from(appraisals)
+      .where(eq(appraisals.convertedPropertyId, propertyId))
+      .limit(1);
+    return row?.id;
+  }
 }

@@ -5,6 +5,7 @@ import {
   DeleteAppraisal,
   EraseClientAppraisals,
   GetAppraisal,
+  GetSourceAppraisal,
   ListAppraisals,
   MoveMergedClientAppraisals,
   RecordAppraisalResult,
@@ -394,6 +395,16 @@ describe('appraisals (Postgres)', () => {
 
     const linked = unwrap(await get.execute({ appraisalId }, PRODUCER_ACTOR));
     expect(linked.convertedProperty).toEqual({ id: propertyId, code: 'DEP0001' });
+    // La ficha de la propiedad muestra la tasación de origen.
+    const source = new GetSourceAppraisal({ appraisals: query, directory });
+    expect(unwrap(await source.execute({ propertyId }, PRODUCER_ACTOR))).toMatchObject({
+      id: appraisalId,
+      status: 'converted',
+      sale: { minCents: 11_000_000n, maxCents: 12_000_000n, currency: 'USD' },
+    });
+    expect(unwrap(await source.execute({ propertyId: ids.next() }, PRODUCER_ACTOR))).toBe(
+      undefined,
+    );
     expect(
       await db
         .select({ clientId: propertyOwners.clientId })

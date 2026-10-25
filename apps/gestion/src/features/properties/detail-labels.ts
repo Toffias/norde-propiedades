@@ -91,7 +91,7 @@ export const HISTORY_CATEGORY_LABELS: Readonly<Record<PropertyHistoryCategory, s
   media: 'Fotos y videos',
   files: 'Archivos',
   publication: 'Publicación',
-  assignments: 'Captador y etiquetas',
+  assignments: 'Captador, propietarios y etiquetas',
   reservations: 'Reservas',
 };
 
@@ -103,6 +103,8 @@ export const HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'property.status_changed': 'cambió el estado',
   'property.producer_changed': 'cambió el captador',
   'property.tags_changed': 'cambió las etiquetas',
+  'property.owner_added': 'sumó un propietario',
+  'property.owner_removed': 'quitó un propietario',
   'property.publication_changed': 'cambió la publicación',
   'property.deleted': 'mandó la propiedad a la papelera',
   'property.restored': 'restauró la propiedad',

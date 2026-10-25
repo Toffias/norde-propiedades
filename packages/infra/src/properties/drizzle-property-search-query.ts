@@ -257,9 +257,10 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     }
   }
 
+  /** "Capital (CABA)" → `capital`, `caba`: la puntuación no forma parte de ninguna palabra. */
   private locationWords(location: string): string[] {
     return normalizeTerm(location)
-      .split(/\s+/)
+      .split(/[^\p{L}\p{N}]+/u)
       .filter((word) => word.length > 2);
   }
 

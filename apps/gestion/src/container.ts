@@ -174,6 +174,15 @@ import {
 } from '@norde/core/clients';
 import { EraseClientConversations, MoveMergedClientConversations } from '@norde/core/conversations';
 import {
+  CountUnreadNotifications,
+  ListNotifications,
+  MarkAllNotificationsRead,
+  MarkNotificationRead,
+  MoveMergedClientNotifications,
+  NotifyAssignment,
+  RemoveErasedClientNotifications,
+} from '@norde/core/notifications';
+import {
   AddMediaLink,
   BulkEditProperties,
   ChangePropertyCode,
@@ -418,6 +427,7 @@ import {
   DrizzleHomeDashboardQuery,
   DrizzlePublicationOverviewQuery,
   DrizzleBackgroundTaskQuery,
+  DrizzleNotifications,
   DrizzleReferenceCodeSequenceQuery,
   DrizzleRoleListQuery,
   DrizzleUserAccessQuery,
@@ -570,6 +580,13 @@ export interface Container {
     readonly list: ListBackgroundTasks;
     readonly count: CountBackgroundTasks;
   };
+  /** La campana de la barra superior: los avisos a quien entra (#112, ADR 0043). */
+  readonly notifications: {
+    readonly list: ListNotifications;
+    readonly countUnread: CountUnreadNotifications;
+    readonly markRead: MarkNotificationRead;
+    readonly markAllRead: MarkAllNotificationsRead;
+  };
   /** Tasaciones: listado, alta, edición, estados y papelera (#12). */
   readonly appraisals: AppraisalsUseCases;
   /** Noticias: el feed de actividad de la empresa (#16). */
@@ -606,10 +623,13 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'conversations:erase-client-data',
   'properties:erase-client-data',
   'identity:erase-client-data',
+  'notifications:erase-client-data',
   'appraisals:merge-client-data',
   'conversations:merge-client-data',
   'properties:merge-client-data',
   'identity:merge-client-data',
+  'notifications:merge-client-data',
+  'notifications:create',
   'opportunities:apply-rules',
   'opportunities:run-bulk',
   'inquiries:route',
@@ -1572,6 +1592,7 @@ function createContainer(): Container {
       }),
     },
     backgroundTasks: createBackgroundTasks(database.db, clock),
+    notifications: createNotifications(database.db, clock),
     news: { listNews: createListNews(database.db, clock) },
     portals: createPortalsUseCases(database.db, env, { ids, clock }, { properties, settings }),
     identity: {
@@ -1616,6 +1637,16 @@ function createContainer(): Container {
       removeFavorites: new RemoveFavorites({ uow: identityUow }),
       getFavoriteIds: new GetFavoriteIds({ favorites: new DrizzleUserFavorites(database.db) }),
     },
+  };
+}
+
+function createNotifications(db: Database, clock: Clock) {
+  const notifications = new DrizzleNotifications(db);
+  return {
+    list: new ListNotifications({ notifications }),
+    countUnread: new CountUnreadNotifications({ notifications }),
+    markRead: new MarkNotificationRead({ notifications, clock }),
+    markAllRead: new MarkAllNotificationsRead({ notifications, clock }),
   };
 }
 
@@ -1930,6 +1961,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     env.TOKKO_API_KEY === undefined
       ? undefined
       : new TokkoPropertyApi({ config: { apiKey: env.TOKKO_API_KEY }, logger });
+  const notifications = new DrizzleNotifications(db);
   for (const subscription of eventSubscriptions({
     notifyTeam: new NotifyTeamOfOpportunity({
       clients: new DrizzleClientRepository(db, ids),
@@ -1939,6 +1971,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
         : new LogTeamNotifier(logger),
     }),
     recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, deps) }),
+    notifyAssignment: new NotifyAssignment({ notifications, ids }),
     properties: createPropertyJobs(db, storage, deps),
     appraisals: {
       deletePhotoFiles: new DeleteAppraisalPhotoFiles({ storage }),
@@ -1966,6 +1999,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       favorites: new RemoveErasedClientFavorites({
         favorites: new DrizzleClientFavoriteErasure(db),
       }),
+      notifications: new RemoveErasedClientNotifications({ notifications }),
     },
     merge: {
       appraisals: new MoveMergedClientAppraisals({ uow: createAppraisalsUnitOfWork(db, deps) }),
@@ -1974,6 +2008,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       }),
       properties: new MoveMergedClientLinks({ uow: createPropertiesUnitOfWork(db, deps) }),
       favorites: new MoveMergedClientFavorites({ uow: createIdentityUnitOfWork(db, deps) }),
+      notifications: new MoveMergedClientNotifications({ notifications }),
     },
     runImport: new RunClientImport({
       uow: createClientsUnitOfWork(db, deps),

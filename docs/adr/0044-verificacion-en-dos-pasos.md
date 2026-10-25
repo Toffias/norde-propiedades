@@ -1,4 +1,4 @@
-# ADR 0043: Verificación en dos pasos con el plugin de Better Auth
+# ADR 0044: Verificación en dos pasos con el plugin de Better Auth
 
 - **Estado**: aceptada
 - **Fecha**: 2026-10-25
@@ -11,7 +11,7 @@ La issue #113 pide un segundo factor al ingresar al panel: alta, verificación y
 ## Decisión
 
 - **Plugin `twoFactor` de Better Auth** (`packages/infra/src/identity/better-auth.ts`), no un caso de uso propio. Ya resuelve lo delicado: el secreto TOTP y los códigos de respaldo cifrados con el secreto de Better Auth, el desafío entre la contraseña y el código (cookie firmada de 10 minutos y 5 intentos), el bloqueo de la cuenta tras 10 códigos fallidos seguidos (15 minutos), el "confiar en este dispositivo" (30 días) y el rate limit de `/two-factor/*`.
-  - Tabla `two_factors` (una fila por usuario) y columna `users.two_factor_enabled` (migración `0042`, solo expand).
+  - Tabla `two_factors` (una fila por usuario) y columna `users.two_factor_enabled` (migración `0043`, solo expand).
   - Solo TOTP (`otpauth://`, emisor "Norde Gestión") y 10 códigos de respaldo de un uso. El método `otp` (código por mail o SMS) queda apagado.
 - **Pantallas**:
   - `/mi-cuenta` (menú de la cuenta): activar (contraseña → QR o clave a mano → primer código → códigos de respaldo), generar códigos nuevos y desactivar, siempre con la contraseña.

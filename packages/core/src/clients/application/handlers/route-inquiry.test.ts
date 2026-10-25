@@ -121,6 +121,7 @@ describe('RouteInquiry', () => {
     expect(uow.events.published.map((e) => e.type)).toEqual([
       'clients.client_registered',
       'clients.opportunity_created',
+      'clients.client_reassigned',
       'clients.opportunity_reassigned',
       'clients.inquiry_assigned',
     ]);

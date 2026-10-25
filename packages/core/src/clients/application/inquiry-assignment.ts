@@ -68,16 +68,17 @@ function assignmentState(inquiry: Inquiry) {
   };
 }
 
-/** Un cliente sin agente queda a cargo del de la oportunidad. */
+/** Un cliente sin agente queda a cargo del de la oportunidad de la consulta. */
 async function takeCharge(
   tx: ClientsTransaction,
   client: Client,
   agent: AgentRef,
   actor: Actor,
-  now: Date,
+  context: { readonly now: Date; readonly inquiryId: string },
 ): Promise<void> {
+  const { now, inquiryId } = context;
   const before = clientAuditState(client);
-  const changed = client.assignAgent(agent, now);
+  const changed = client.assignAgent(agent, now, { by: actor.id, inquiryId });
   // `recordIncomingContact` lo restaura si estaba en la papelera.
   if (changed.isErr()) throw new Error(`Client ${client.id} is in the trash`);
   if (!changed.value) return;
@@ -136,9 +137,9 @@ export async function assignInquiryIn(
   const current = opportunity.toSnapshot();
   const agent = await input.chooseAgent({ agentId: current.agentId, branchId: current.branchId });
   if (client.ownership.ownerId === undefined && agent.agentId !== undefined) {
-    await takeCharge(tx, client, agent, actor, now);
+    await takeCharge(tx, client, agent, actor, { now, inquiryId: inquiry.id });
   }
-  const reassigned = await reassignOpportunityTo(tx, opportunity, agent, actor, now);
+  const reassigned = await reassignOpportunityTo(tx, opportunity, agent, actor, now, inquiry.id);
   // Recién abierta o actualizada por una consulta: está abierta.
   if (reassigned.isErr()) throw new Error(`Opportunity ${opportunity.id} is closed`);
 

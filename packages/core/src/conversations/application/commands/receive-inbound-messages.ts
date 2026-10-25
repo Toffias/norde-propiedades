@@ -17,7 +17,12 @@ import {
   type ReplyPlan,
 } from '../../contracts';
 import { Conversation } from '../../domain/conversation';
-import { evaluateUsage, isAcknowledgementOnly, isStale } from '../../domain/reply-policy';
+import {
+  evaluateUsage,
+  isAcknowledgementOnly,
+  isStale,
+  repliedWithQuestion,
+} from '../../domain/reply-policy';
 import type { ConversationPolicy } from '../conversation-policy';
 import type { ChannelMessengers } from '../ports/channel-messenger';
 import type {
@@ -150,11 +155,14 @@ export class ReceiveInboundMessages {
     if (fresh.length === 0) return { action: 'ignore' };
     if (!conversation.canBotReply()) return { action: 'silent', reason: 'handed_off' };
 
-    const texts = fresh.filter((m) => m.kind !== 'unsupported' && m.text !== '').map((m) => m.text);
-    if (texts.length === 0) return { action: 'notice', notice: 'unsupported_content' };
+    const readable = fresh.filter((m) => m.kind !== 'unsupported' && m.text !== '');
+    if (readable.length === 0) return { action: 'notice', notice: 'unsupported_content' };
 
-    const userText = texts.join('\n');
-    if (isAcknowledgementOnly(userText)) return { action: 'silent', reason: 'acknowledgement' };
+    const userText = readable.map((m) => m.text).join('\n');
+    const afterQuestion = repliedWithQuestion(await tx.messages.lastOutbound(conversation.id));
+    if (isAcknowledgementOnly(userText, afterQuestion)) {
+      return { action: 'silent', reason: 'acknowledgement' };
+    }
 
     const limits = this.deps.policy.usageLimits[conversation.channel];
     if (limits) {
@@ -174,6 +182,10 @@ export class ReceiveInboundMessages {
       }
     }
 
-    return { action: 'agent', userText };
+    // El agente sabe qué fue un audio: la transcripción puede tener errores.
+    const agentText = readable
+      .map((m) => (m.kind === 'audio' ? `(audio) ${m.text}` : m.text))
+      .join('\n');
+    return { action: 'agent', userText: agentText };
   }
 }

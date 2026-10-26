@@ -1,7 +1,12 @@
 import Link from 'next/link';
 import { Fragment } from 'react';
 
-import { internalPath, parseChatMarkdown, type ChatLine } from '../../lib/chat/markdown';
+import {
+  internalPath,
+  isAllowedExternalLink,
+  parseChatMarkdown,
+  type ChatLine,
+} from '../../lib/chat/markdown';
 
 interface ChatTextProps {
   readonly text: string;
@@ -21,6 +26,10 @@ function Line({
     const content = part.bold ? <strong>{part.text}</strong> : part.text;
     if (part.kind === 'text') return <Fragment key={index}>{content}</Fragment>;
     const path = internalPath(part.href, siteUrl);
+    // Un link a otro dominio se muestra como texto: lo escribió el LLM.
+    if (!path && !isAllowedExternalLink(part.href)) {
+      return <Fragment key={index}>{content}</Fragment>;
+    }
     return path ? (
       <Link key={index} href={path} className={LINK} onClick={onInternalNavigation}>
         {content}

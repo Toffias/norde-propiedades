@@ -1,14 +1,17 @@
 import { OpportunitySearchSchema } from '@norde/core/clients';
 import type {
+  InboundMessage,
   OutboundMessage,
   ReceiveInboundMessages,
   ReceiveInboundMessagesOutput,
   SendReply,
+  TranscribeAudioMessage,
 } from '@norde/core/conversations';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
 
 import type { CustomerAssistant } from '../../assistant/customer-assistant';
+import { keepAllowedLinks } from '../../assistant/link-policy';
 import { createTurnContext } from '../../assistant/turn-context';
 
 import type { FailureBreaker } from '../shared/failure-breaker';
@@ -19,9 +22,13 @@ import { buildWhatsAppReply, FALLBACK_TEXT } from './reply-builder';
 export interface WhatsAppTurnHandlerDeps {
   readonly receiveInbound: Pick<ReceiveInboundMessages, 'execute'>;
   readonly sendReply: Pick<SendReply, 'execute'>;
+  /** Sin transcripción, un audio se contesta con el aviso de contenido no soportado. */
+  readonly transcribeAudio?: Pick<TranscribeAudioMessage, 'execute'> | undefined;
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
+  /** Sitio público: los links del agente a otros dominios se quitan antes de responder. */
+  readonly siteUrl: string;
   readonly notices: NoticeThrottle;
   readonly now: () => Date;
   readonly logger: Logger;
@@ -41,12 +48,13 @@ export class WhatsAppTurnHandler {
     const { deps } = this;
     const contact = first.from;
 
+    const messages = await Promise.all(batch.map((m) => this.readable(m)));
     const received = await deps.receiveInbound.execute(
       {
         channel: 'whatsapp',
         externalId: contact,
         contactName: batch.findLast((m) => m.profileName)?.profileName,
-        messages: batch.map((m) => m.message),
+        messages,
       },
       deps.actor,
     );
@@ -77,6 +85,26 @@ export class WhatsAppTurnHandler {
       case 'agent':
         await this.replyWithAgent(conversation, plan.userText, log);
         return;
+    }
+  }
+
+  /** El mensaje tal como lo lee el agente: un audio, transcrito. Si no se puede, queda como llegó. */
+  private async readable(inbound: WhatsAppInbound): Promise<InboundMessage> {
+    const { deps } = this;
+    if (!inbound.audioMediaId || !deps.transcribeAudio) return inbound.message;
+    try {
+      const result = await deps.transcribeAudio.execute(
+        { mediaId: inbound.audioMediaId },
+        deps.actor,
+      );
+      if (result.isErr()) {
+        deps.logger.info({ reason: result.error.type }, 'WhatsApp audio not transcribed');
+        return inbound.message;
+      }
+      return { ...inbound.message, kind: 'audio', text: result.value.text };
+    } catch (error) {
+      deps.logger.error({ err: error }, 'WhatsApp audio transcription failed');
+      return inbound.message;
     }
   }
 
@@ -123,7 +151,11 @@ export class WhatsAppTurnHandler {
       { ...turn.usage, tools: turn.toolCalls, registered: context.registration !== undefined },
       'Agent turn',
     );
-    await this.send(conversation, buildWhatsAppReply(turn.text, context), log, {
+    const links = keepAllowedLinks(turn.text ?? '', deps.siteUrl);
+    if (links.removed > 0) {
+      log.warn({ removed: links.removed }, 'Agent reply had links to other domains: removed');
+    }
+    await this.send(conversation, buildWhatsAppReply(links.text, context), log, {
       agentTurn: { memory: turn.memory, searchCriteria: context.lastSearch, usage: turn.usage },
       clientId: context.registration?.clientId,
     });

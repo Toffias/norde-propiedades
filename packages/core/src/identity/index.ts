@@ -151,6 +151,10 @@ export {
   type ResetUserPasswordError,
 } from './application/commands/reset-user-password';
 export {
+  ResetUserTwoFactor,
+  type ResetUserTwoFactorError,
+} from './application/commands/reset-user-two-factor';
+export {
   ChangeOwnPassword,
   type ChangeOwnPasswordError,
 } from './application/commands/change-own-password';

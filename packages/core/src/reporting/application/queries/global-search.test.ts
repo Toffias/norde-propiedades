@@ -89,6 +89,7 @@ const agent = (): UserListItem => ({
   branch: undefined,
   roles: [],
   mustChangePassword: false,
+  twoFactorEnabled: false,
   lastLoginAt: undefined,
   createdAt: UPDATED_AT,
 });

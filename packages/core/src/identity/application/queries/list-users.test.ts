@@ -15,6 +15,7 @@ const ROW: UserListItem = {
   branch: undefined,
   roles: [],
   mustChangePassword: false,
+  twoFactorEnabled: false,
   lastLoginAt: undefined,
   createdAt: new Date('2026-09-01T12:00:00Z'),
 };

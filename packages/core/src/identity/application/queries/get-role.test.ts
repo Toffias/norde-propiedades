@@ -45,6 +45,7 @@ describe('GetUserPermissions', () => {
       status: 'active',
       branchId: undefined,
       mustChangePassword: false,
+      twoFactorEnabled: false,
       roles: [],
       rolePermissions: ['clients:read', 'rentals:*', 'clients:read'],
       userPermissions: [{ permission: 'rentals:delete', effect: 'deny' }],

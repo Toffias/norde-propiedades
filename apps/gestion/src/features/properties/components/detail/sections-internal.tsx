@@ -1,5 +1,6 @@
 'use client';
 
+import type { SourceAppraisal } from '@norde/core/appraisals/contracts';
 import {
   ChangePropertyCodeInputSchema,
   UpdatePropertyInternalInfoInputSchema,
@@ -27,6 +28,9 @@ import { useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatDateTime } from '../../../../lib/format';
 import { contractResolver } from '../../../../lib/form';
+import { formatAppraisalRange } from '../../../appraisals/format';
+import { APPRAISAL_STATUS_DISPLAY } from '../../../appraisals/labels';
+import { appraisalHref } from '../../../appraisals/paths';
 import { loadClientOptions } from '../../../clients/actions';
 import { loadUserOptions } from '../../../identity/actions';
 import { EntityPicker } from '../../../identity/components/entity-picker';
@@ -59,13 +63,38 @@ function text(value: string | undefined): string {
   return value === undefined || value === '' ? EMPTY_VALUE : value;
 }
 
+/** "TAS0001 · Ingresada · Venta: US$ 110.000 a US$ 120.000", con link a la ficha de la tasación. */
+function SourceAppraisalFact({ appraisal }: { readonly appraisal: SourceAppraisal }) {
+  const parts = [
+    APPRAISAL_STATUS_DISPLAY[appraisal.status].label,
+    appraisal.sale && `Venta: ${formatAppraisalRange(appraisal.sale)}`,
+    appraisal.rent && `Alquiler: ${formatAppraisalRange(appraisal.rent)}`,
+    appraisal.deletedAt !== undefined && 'En la papelera',
+  ].filter((part) => typeof part === 'string');
+  return (
+    <span>
+      <Link
+        // La ficha de la tasación: typedRoutes no verifica un segmento armado.
+        href={appraisalHref(appraisal.id) as Route}
+        className="font-semibold text-primary underline-offset-2 hover:underline"
+      >
+        {appraisal.code}
+      </Link>
+      <span className="font-normal text-muted-foreground"> · {parts.join(' · ')}</span>
+    </span>
+  );
+}
+
 /** Información interna: no sale en la web ni en los portales. */
 export function InternalSection({
   detail,
+  sourceAppraisal,
   canEdit,
   canChangeProducer,
 }: {
   readonly detail: PanelPropertyDetail;
+  /** La tasación que se convirtió en esta propiedad, si el usuario la puede ver. */
+  readonly sourceAppraisal: SourceAppraisal | undefined;
   readonly canEdit: boolean;
   readonly canChangeProducer: boolean;
 }) {
@@ -88,6 +117,14 @@ export function InternalSection({
                     ? EMPTY_VALUE
                     : internal.appraisers.map((user) => name(user)).join(', '),
               },
+              ...(sourceAppraisal === undefined
+                ? []
+                : [
+                    {
+                      label: 'Tasación de origen',
+                      value: <SourceAppraisalFact appraisal={sourceAppraisal} />,
+                    },
+                  ]),
               { label: 'Mantenimiento', value: name(internal.maintenance) },
               { label: 'Ubicación de las llaves', value: text(internal.keysLocation) },
               { label: 'Propietarios', value: <OwnerLinks owners={detail.owners} /> },

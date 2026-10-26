@@ -45,7 +45,7 @@ Roles propuestos (a validar con Norde):
 | **Administrativo de alquileres** | Contratos de alquiler, propietarios, inquilinos y actualizaciones                               |
 
 - Los permisos se definen por recurso y acción (ver, crear, editar, borrar, exportar), para poder ajustar roles sin tocar código.
-- Login con email y contraseña, con sesión segura. Se puede agregar 2FA opcional para administradores.
+- Login con email y contraseña, con sesión segura, y verificación en dos pasos opcional para cada usuario (#113).
 
 **Implementado (#2, ADR 0016):**
 
@@ -73,7 +73,19 @@ Roles propuestos (a validar con Norde):
 - Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
 - Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
 - Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
-- Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera y el 2FA quedan fuera por ahora (preguntas abiertas de #3).
+- Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera queda fuera por ahora (pregunta abierta de #3); el 2FA llegó con #113.
+
+**Implementado (#113, verificación en dos pasos, ADR 0044):**
+
+- **Opcional para todos los usuarios**, con app autenticadora (TOTP) y 10 códigos de respaldo de un uso. Plugin `twoFactor` de Better Auth.
+- **Mi cuenta** (`/mi-cuenta`, desde el menú de la cuenta): cambiar la contraseña y activar, desactivar o generar códigos de respaldo nuevos, siempre confirmando la contraseña.
+  - Activar: QR (o la clave para cargarla a mano), el primer código de la app y los códigos de respaldo para copiar o descargar. Hasta confirmar el primer código no queda activa.
+  - Desactivar pide una sesión de menos de un día.
+- **Ingreso**: con la verificación activa, después de la contraseña se pide el código de la app o uno de respaldo; sin el código no hay sesión.
+  - "No pedir el código en este dispositivo por 30 días".
+  - El desafío vence a los 10 minutos o con 5 códigos incorrectos (vuelve a pedir la contraseña); 10 incorrectos seguidos bloquean la cuenta 15 minutos.
+- **Recuperación**: si se perdieron el celular y los códigos, un administrador con `users:reset-password` le quita la verificación desde Mi empresa → Usuarios (acción de la fila, solo en quien la tiene activa). Vuelve a entrar solo con la contraseña.
+- Auditoría contra el usuario: `user.signed-in` con el factor usado (`secondFactor`), `user.sign-in-failed` con el motivo y el factor, `user.two-factor-enabled`, `user.two-factor-disabled`, `user.two-factor-backup-codes-regenerated` y `user.two-factor-reset`.
 
 **Implementado (#3, roles y permisos):**
 
@@ -877,7 +889,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **PDF** (con `properties:export`, queda en el historial): ficha (con las fotos marcadas para el PDF), vidriera (una hoja con una foto grande) y reporte al propietario de un período de hasta un año (publicaciones activas, visitas por portal, envíos, consultas e interesados). Siguen "Ficha y PDF" de Mi empresa (dirección al descargar, precio, agente). Los arma un job; el diálogo muestra el estado y se descargan cuando están listos. El reporte se puede mandar por email con el PDF adjunto: el email del propietario no queda en el historial.
 
-**Pendiente de #6**: compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
+**Pendiente de #6**: compartir por email o WhatsApp (#11) y "Completar con IA". Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
 
 ### 4.9 Reservas (#13)
 
@@ -1033,6 +1045,7 @@ La tasación tiene pantalla propia (no panel lateral).
 - Un job de properties reacciona y crea la **propiedad en borrador** con ese ID: tipo, dirección (en la calle; altura, ubicación y coordenadas se completan en la ficha), superficies, ambientes, dormitorios, baños y estado de conservación, **una operación por cada valor sugerido, al máximo**, el productor como captador con su sucursal, el tasador, el **solicitante como propietario** y una copia de las fotos (la primera es la portada; se generan las miniaturas como en cualquier galería). El código de referencia sale de la numeración de Mi empresa. Queda en el historial de la propiedad (`property.created_from_appraisal`, con la tasación de origen).
 - Mientras el job crea la propiedad, la ficha dice "Creando la propiedad…"; después muestra su código con el link. Es idempotente: si el evento llega dos veces, la propiedad no se duplica.
 - Si las superficies de la tasación no cierran (cubierta mayor que la total), la propiedad se crea sin ellas.
+- La ficha de la propiedad muestra la **tasación de origen** en "Información interna": código con link a la tasación, estado y valores sugeridos (#110). Se lee por la API pública de appraisals (`GetSourceAppraisal`, por el ID de la propiedad que guardó la tasación); solo la ve quien puede ver esa tasación (`appraisals:read`, con la regla de productor y tasador). Si la tasación está en la papelera, lo aclara.
 
 ### 6.6 Informe en PDF
 

@@ -18,6 +18,7 @@ import {
   UploadAppraisalPhoto,
   DeleteAppraisal,
   GetAppraisal,
+  GetSourceAppraisal,
   ListAppraisalHistory,
   ListAppraisals,
   RestoreAppraisal,
@@ -51,6 +52,7 @@ import {
   MakeMainBranch,
   ReactivateUser,
   ResetUserPassword,
+  ResetUserTwoFactor,
   RemoveFavorites,
   RemoveTeamMember,
   ResolveSessionActor,
@@ -530,6 +532,7 @@ export interface Container {
     readonly suspendUser: SuspendUser;
     readonly reactivateUser: ReactivateUser;
     readonly resetUserPassword: ResetUserPassword;
+    readonly resetUserTwoFactor: ResetUserTwoFactor;
     readonly changeOwnPassword: ChangeOwnPassword;
     readonly getUserPermissions: GetUserPermissions;
     readonly setUserPermissions: SetUserPermissions;
@@ -1347,6 +1350,7 @@ function createAppraisalsUseCases(
   return {
     listAppraisals: new ListAppraisals({ appraisals, directory }),
     getAppraisal: new GetAppraisal({ appraisals, directory }),
+    getSourceAppraisal: new GetSourceAppraisal({ appraisals, directory }),
     listAppraisalHistory: new ListAppraisalHistory({
       appraisals,
       history: new DrizzleAuditHistoryQuery(db),
@@ -1611,6 +1615,7 @@ function createContainer(): Container {
       suspendUser: new SuspendUser({ uow: identityUow, clock }),
       reactivateUser: new ReactivateUser({ uow: identityUow, clock }),
       resetUserPassword: new ResetUserPassword({ uow: identityUow, hasher, clock }),
+      resetUserTwoFactor: new ResetUserTwoFactor({ uow: identityUow }),
       changeOwnPassword: new ChangeOwnPassword({ uow: identityUow, hasher, clock }),
       getUserPermissions: new GetUserPermissions({ users: userAccess }),
       setUserPermissions: new SetUserPermissions({ uow: identityUow, clock }),

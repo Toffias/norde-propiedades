@@ -9,7 +9,7 @@ import type { Result } from '@norde/core/shared';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
-import { clientIp, createRateLimiter } from '../../lib/request-guards';
+import { clientIp, createRateLimiter, createRejectionLimiter } from '../../lib/request-guards';
 import { verifySignature } from '../../lib/signature';
 
 export const WEB_INQUIRY_SIGNATURE_HEADER = 'x-norde-signature';
@@ -20,8 +20,16 @@ const BODY_LIMIT_BYTES = 16 * 1024;
 export interface WebInquiryHandlerOptions {
   /** Secreto compartido con apps/web: firma `sha256=` + HMAC del body crudo. */
   readonly secret: string;
-  /** Pedidos por minuto por IP. */
+  /**
+   * Pedidos rechazados (sin firma válida o demasiado grandes) por minuto por IP. Al llegar, 429
+   * sin leer el body.
+   */
   readonly ratePerMinute: number;
+  /**
+   * Consultas bien firmadas por minuto, en total. Todas llegan desde el servidor de apps/web (el
+   * mismo IP), que ya limita a cada visitante: este tope solo frena un bucle o un secreto filtrado.
+   */
+  readonly signedRatePerMinute: number;
   /** `ReceiveInquiry` con el actor de la web. */
   readonly receive: (
     input: ReceiveInquiryInput,
@@ -59,25 +67,30 @@ const REJECTED: ReadonlySet<ReceiveInquiryError['type']> = new Set([
 export function createWebInquiryHandler(
   options: WebInquiryHandlerOptions,
 ): (request: Request) => Promise<Response> {
-  const allow = createRateLimiter(options.ratePerMinute, options.now);
+  const rejections = createRejectionLimiter(options.ratePerMinute, options.now);
+  const allowSigned = createRateLimiter(options.signedRatePerMinute, options.now);
+  const tooMany = () => Response.json({ error: 'too many requests' }, { status: 429 });
 
   return async (request) => {
     const ip = clientIp(request);
-    if (!allow(ip)) return Response.json({ error: 'too many requests' }, { status: 429 });
+    if (rejections.blocked(ip)) return tooMany();
+    const tooLarge = () => {
+      rejections.record(ip);
+      return Response.json({ error: 'body too large' }, { status: 413 });
+    };
 
     const declaredLength = Number(request.headers.get('content-length') ?? 0);
-    if (declaredLength > BODY_LIMIT_BYTES) {
-      return Response.json({ error: 'body too large' }, { status: 413 });
-    }
+    if (declaredLength > BODY_LIMIT_BYTES) return tooLarge();
     const raw = Buffer.from(await request.arrayBuffer());
-    if (raw.byteLength > BODY_LIMIT_BYTES) {
-      return Response.json({ error: 'body too large' }, { status: 413 });
-    }
+    if (raw.byteLength > BODY_LIMIT_BYTES) return tooLarge();
 
     if (!verifySignature(raw, request.headers.get(WEB_INQUIRY_SIGNATURE_HEADER), options.secret)) {
+      rejections.record(ip);
       options.logger.warn({ ip }, 'Web inquiry webhook with invalid signature');
       return Response.json({ error: 'invalid signature' }, { status: 401 });
     }
+    // Firmada: viene del servidor de apps/web, que ya limitó al visitante. No gasta el cupo del IP.
+    if (!allowSigned('apps/web')) return tooMany();
 
     let payload: unknown;
     try {

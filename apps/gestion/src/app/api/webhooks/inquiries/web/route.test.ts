@@ -4,7 +4,11 @@ import { POST } from './route';
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../../../../config/env', () => ({
-  getEnv: () => ({ INQUIRY_WEBHOOK_SECRET: undefined, INQUIRY_WEBHOOK_RATE_PER_MINUTE: 60 }),
+  getEnv: () => ({
+    INQUIRY_WEBHOOK_SECRET: undefined,
+    INQUIRY_WEBHOOK_RATE_PER_MINUTE: 60,
+    INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE: 600,
+  }),
 }));
 vi.mock('../../../../../container', () => ({
   getContainer: () => {

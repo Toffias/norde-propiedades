@@ -445,7 +445,9 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 
 - **Body**: JSON con `externalId` (un UUID que la web genera por envío; si reintenta, manda el mismo), `name`, `email`, `phone`, `message` y `propertyId`. Hasta 16 KB.
 - **Firma**: header `x-norde-signature: sha256=<HMAC-SHA256 del body crudo>`, con el secreto compartido `INQUIRY_WEBHOOK_SECRET`. Sin esa variable el webhook no se expone.
-- **Rate limit**: `INQUIRY_WEBHOOK_RATE_PER_MINUTE` pedidos por minuto por IP (60 por defecto), en memoria del proceso. Como el que llama es el servidor de la web, el límite por visitante va en `apps/web`.
+- **Rate limit**, en memoria del proceso:
+  - Por IP, solo los pedidos rechazados (firma inválida o body de más de 16 KB): `INQUIRY_WEBHOOK_RATE_PER_MINUTE` por minuto (60 por defecto). Al llegar, ese IP recibe 429 sin que se lea el body.
+  - Las consultas bien firmadas no gastan ese cupo: todas llegan desde el servidor de la web (el mismo IP), y el límite por visitante va en `apps/web`. Tienen un tope total de `INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE` por minuto (600 por defecto), que solo corta un bucle o un secreto filtrado.
 - **Respuestas**:
   - 201 si la consulta es nueva, 200 si era un reintento (`{ inquiryId, duplicate }`).
   - 400 si el body no valida.
@@ -475,7 +477,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Coincidencias** (`ListInquiryMatches`): los contactos que comparten el teléfono o el email de la consulta, en cualquiera de los suyos, también los de otros agentes y los de la papelera. Paginadas en el servidor: primero los que coinciden por teléfono, después los activos. Cada una muestra el nombre, el agente, el alta, el último contacto y si coincide por teléfono, por email o por los dos. La ficha se puede abrir solo si el actor puede ver ese contacto.
 - **"Asignar a este cliente"**: solo a uno de los que coinciden. Si estaba en la papelera, vuelve a la agenda.
 - **"Crear cliente nuevo"**: solo si no coincide ninguno. Es la misma regla del alta manual: no se crean dos contactos con el mismo teléfono o email.
-- **Contacto**: se registra con la misma regla que `RegisterContact`. Se suma el canal de la consulta (identificado por el email o, sin él, el teléfono) y se completan los datos que faltan, sin pisar los que tiene.
+- **Contacto**: se registra con la misma regla que `RegisterContact`. Se suma el canal de la consulta (identificado por el email o, sin él, el teléfono) y se completan los datos que faltan, sin pisar los que tiene. Un teléfono o un email que ya usa **otro** cliente no se le suma (no se le saca a ese cliente): si son la misma persona, se unifican desde el panel.
 - **Oportunidad**: se abre una por la propiedad consultada, con el mensaje como nota (hasta 2.000 caracteres), o se suma el pedido a la abierta por lo mismo. Nace en el estado de la regla "al crear".
 - **Tipo**: se propone alquiler si la propiedad solo se alquila (también temporario) y compra en el resto de los casos, también sin propiedad. Quien asigna lo puede cambiar.
 - **Agente a cargo**: se elige en el diálogo (con `users:read`). Sin elegir, queda el de la oportunidad (el del contacto) o, si nadie la tiene, quien asigna.

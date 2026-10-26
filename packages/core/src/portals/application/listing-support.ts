@@ -11,7 +11,15 @@ import {
   type Result,
 } from '../../shared';
 import type { PropertyListingView } from '../contracts';
-import type { Listing, ListingId, ListingStatus, RemoteListingState } from '../domain/listing';
+import type {
+  Listing,
+  ListingId,
+  ListingOperation,
+  ListingOwner,
+  ListingStatus,
+  RemoteListingState,
+} from '../domain/listing';
+import type { PortalId } from '../domain/portal';
 import type { ListingSourcePhoto } from './ports/listing-source';
 import type { PortalListingContent } from './ports/portal-connector';
 import type { PortalsTransaction, PortalsUnitOfWork } from './ports/portals-transaction';
@@ -38,6 +46,21 @@ export async function applyRemoteState(
     await auditStatusChange(tx, actor, listing, before.status, { lastError: before.lastError });
     return true;
   });
+}
+
+/**
+ * La publicación de ese dueño (y operación) en el portal, bloqueada hasta el final de la
+ * transacción: un `SyncListing` en curso termina antes de que se la vuelva a pedir, y no se pisa
+ * el aviso que creó.
+ */
+export async function lockExistingListing(
+  tx: PortalsTransaction,
+  portal: PortalId,
+  owner: ListingOwner,
+  operation: ListingOperation | undefined,
+): Promise<Listing | undefined> {
+  const found = await tx.listings.findOne(portal, owner, operation);
+  return found && tx.listings.lockById(found.id);
 }
 
 export interface ListingNotFoundError {
@@ -218,7 +241,8 @@ export async function editListing<E>(input: {
   if (id === undefined) return err({ type: 'ListingNotFound' });
 
   return uow.run(async (tx): Promise<Result<void, ListingEditError | E>> => {
-    const listing = await tx.listings.findById(id);
+    // Bloqueada: si `SyncListing` está creando el aviso, se espera y no se pisa su `externalId`.
+    const listing = await tx.listings.lockById(id);
     if (!listing) return err({ type: 'ListingNotFound' });
     const changed = input.change(listing);
     if (changed.isErr()) return err(changed.error);

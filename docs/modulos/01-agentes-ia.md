@@ -55,6 +55,7 @@ El MVP ya es un bot inmobiliario para Argentina (CABA/GBA, español rioplatense)
   - Verificación del webhook y firma HMAC calculada sobre el body crudo.
   - Idempotencia y descarte de mensajes viejos.
   - Agrupación de mensajes seguidos en un solo turno (debounce) y cola secuencial por usuario.
+    - Un lote de más de 50 mensajes se registra en partes y se responde una sola vez, según lo que decide la última parte. El nombre del perfil se recorta a 120 caracteres. Así no se pierde ningún lote.
   - Límites por usuario y globales, y un circuit breaker si el agente falla varias veces seguidas.
 - **Lecciones aprendidas que hay que respetar**:
   - `maxTokens` incluye los tokens de razonamiento: usar alrededor de 3000 con `reasoning.effort: 'low'`.
@@ -97,7 +98,7 @@ La idea es **separar el agente del canal**. El núcleo (agente, tools, memoria, 
   - WhatsApp: formato `*negrita*`, sin markdown y un solo mensaje por turno.
   - Web: se puede usar markdown liviano y mostrar tarjetas de propiedad.
 - **Salida por canal**: `buildOutbound` pasa a ser una función por canal.
-  - WhatsApp: se mantiene la lógica actual (foto > botones > texto).
+  - WhatsApp: se mantiene la lógica actual (foto > botones > texto). Un texto de más de 4096 caracteres (el máximo de WhatsApp) se recorta, para no quedarse sin respuesta.
   - Web: devuelve una respuesta estructurada (texto, tarjetas de propiedades, botones), que el widget dibuja.
 
 ### 3.2 Adaptador WhatsApp

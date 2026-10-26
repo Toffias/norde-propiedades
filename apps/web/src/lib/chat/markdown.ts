@@ -107,6 +107,16 @@ export function parseChatMarkdown(source: string): ChatBlock[] {
   return blocks;
 }
 
+/** Hosts externos que el chat muestra como link. El agente ya filtra el resto; esto es la red. */
+const EXTERNAL_HOSTS = new Set(['wa.me']);
+
+/** Si un link externo del agente se puede mostrar como link (si no, va como texto). */
+export function isAllowedExternalLink(href: string): boolean {
+  if (!URL.canParse(href)) return false;
+  const { protocol, host, username, password } = new URL(href);
+  return protocol === 'https:' && username === '' && password === '' && EXTERNAL_HOSTS.has(host);
+}
+
 /** Ruta relativa si el link es del propio sitio; `undefined` si es externo. */
 export function internalPath(href: string, siteUrl: string): string | undefined {
   const base = siteUrl.replace(/\/+$/, '');

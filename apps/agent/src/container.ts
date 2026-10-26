@@ -165,6 +165,7 @@ export function createContainer(
       assistant,
       actor: AGENT_ACTOR,
       breaker,
+      siteUrl: env.PUBLIC_SITE_URL,
       notices: new NoticeThrottle(HOUR_MS),
       now: () => clock.now(),
       logger,
@@ -202,6 +203,7 @@ export function createContainer(
       assistant,
       actor: AGENT_ACTOR,
       breaker,
+      siteUrl: env.PUBLIC_SITE_URL,
       now: () => clock.now(),
       logger,
     });

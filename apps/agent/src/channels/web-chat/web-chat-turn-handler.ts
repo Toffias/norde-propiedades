@@ -8,6 +8,7 @@ import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
 
 import type { CustomerAssistant } from '../../assistant/customer-assistant';
+import { keepAllowedLinks } from '../../assistant/link-policy';
 import { createTurnContext } from '../../assistant/turn-context';
 import type { FailureBreaker } from '../shared/failure-breaker';
 
@@ -41,6 +42,8 @@ export interface WebChatTurnHandlerDeps {
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
+  /** Sitio público: los links del agente a otros dominios se quitan antes de responder. */
+  readonly siteUrl: string;
   readonly now: () => Date;
   readonly logger: Logger;
 }
@@ -140,7 +143,11 @@ export class WebChatTurnHandler {
       { ...turn.usage, tools: turn.toolCalls, registered: context.registration !== undefined },
       'Agent turn',
     );
-    return this.reply(conversation, buildWebChatReply(turn.text, context), log, {
+    const links = keepAllowedLinks(turn.text ?? '', deps.siteUrl);
+    if (links.removed > 0) {
+      log.warn({ removed: links.removed }, 'Agent reply had links to other domains: removed');
+    }
+    return this.reply(conversation, buildWebChatReply(links.text, context), log, {
       agentTurn: { memory: turn.memory, searchCriteria: context.lastSearch, usage: turn.usage },
       clientId: context.registration?.clientId,
     });

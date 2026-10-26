@@ -31,7 +31,12 @@ import { useForm } from 'react-hook-form';
 
 import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
-import { reactivateUserAction, resetUserPasswordAction, suspendUserAction } from '../actions';
+import {
+  reactivateUserAction,
+  resetUserPasswordAction,
+  resetUserTwoFactorAction,
+  suspendUserAction,
+} from '../actions';
 import { generateTemporaryPassword } from '../temporary-password';
 import { FormAlert } from '../../shared/components/form-alert';
 
@@ -99,6 +104,71 @@ export function UserStatusDialog({
           >
             {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
             {suspending ? 'Suspender' : 'Reactivar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Quitar la verificación en dos pasos a quien perdió el celular y los códigos de respaldo (#113):
+ * una confirmación, porque deja la cuenta protegida solo por la contraseña.
+ */
+export function ResetTwoFactorDialog({
+  user,
+  onOpenChange,
+}: {
+  readonly user: UserListItem | undefined;
+  readonly onOpenChange: (open: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | undefined>();
+  const name = user?.name ?? '';
+
+  function close(next: boolean) {
+    if (!next) setError(undefined);
+    onOpenChange(next);
+  }
+
+  function confirm() {
+    if (!user) return;
+    startTransition(async () => {
+      const message = await runAction(() => resetUserTwoFactorAction({ userId: user.id }));
+      if (message !== undefined) {
+        setError(message);
+        return;
+      }
+      toast.success('Verificación en dos pasos quitada', {
+        description: `${name} entra solo con la contraseña y la puede volver a activar desde Mi cuenta.`,
+      });
+      close(false);
+    });
+  }
+
+  return (
+    <Dialog open={user !== undefined} onOpenChange={close}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Quitar verificación en dos pasos</DialogTitle>
+          <DialogDescription>
+            {`Hacelo solo si ${name} perdió el celular y los códigos de respaldo, y confirmaste que el pedido es suyo. Va a entrar solo con la contraseña hasta que la vuelva a activar.`}
+          </DialogDescription>
+        </DialogHeader>
+        <FormAlert message={error} />
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              close(false);
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button type="button" variant="destructive" disabled={pending} onClick={confirm}>
+            {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
+            Quitar
           </Button>
         </DialogFooter>
       </DialogContent>

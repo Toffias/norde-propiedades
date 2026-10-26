@@ -128,6 +128,17 @@ export async function resetUserPasswordAction(
   return ACTION_OK;
 }
 
+export async function resetUserTwoFactorAction(input: UserIdInput): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = UserIdInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+
+  const result = await getContainer().identity.resetUserTwoFactor.execute(parsed.data, actor);
+  if (result.isErr()) return actionFailed(messageForError(result.error, USER_ERROR_MESSAGES));
+  revalidatePath(USERS_PATH);
+  return ACTION_OK;
+}
+
 export async function changeOwnPasswordAction(
   input: ChangeOwnPasswordInput,
 ): Promise<ActionResult> {

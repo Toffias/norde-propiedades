@@ -245,6 +245,8 @@ export class InMemoryTeamRepository implements TeamRepository {
 
 export class InMemoryCredentialStore implements CredentialStore {
   readonly hashes = new Map<string, string>();
+  /** Usuarios con la verificación en dos pasos activa. */
+  readonly twoFactor = new Set<string>();
 
   findPasswordHash(userId: string) {
     return Promise.resolve(this.hashes.get(userId));
@@ -252,6 +254,15 @@ export class InMemoryCredentialStore implements CredentialStore {
 
   setPasswordHash(userId: string, hash: string) {
     this.hashes.set(userId, hash);
+    return Promise.resolve();
+  }
+
+  hasTwoFactor(userId: string) {
+    return Promise.resolve(this.twoFactor.has(userId));
+  }
+
+  removeTwoFactor(userId: string) {
+    this.twoFactor.delete(userId);
     return Promise.resolve();
   }
 }
@@ -346,6 +357,7 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
       teams: new Map(this.teams.rows),
       members: new Set(this.teams.members),
       hashes: new Map(this.credentials.hashes),
+      twoFactor: new Set(this.credentials.twoFactor),
       sessions: new Map(this.sessions.open),
       favorites: new Set(this.favorites.rows),
       tokkoUsersImports: new Map(this.tokkoUsersImports.rows),
@@ -360,6 +372,8 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
       this.teams.members.clear();
       for (const member of backup.members) this.teams.members.add(member);
       restore(this.credentials.hashes, backup.hashes);
+      this.credentials.twoFactor.clear();
+      for (const userId of backup.twoFactor) this.credentials.twoFactor.add(userId);
       restore(this.sessions.open, backup.sessions);
       this.favorites.rows.clear();
       for (const row of backup.favorites) this.favorites.rows.add(row);
@@ -386,7 +400,11 @@ export class InMemoryIdentityUnitOfWork implements IdentityUnitOfWork {
 export function seedUser(
   uow: InMemoryIdentityUnitOfWork,
   user: UserSnapshot,
-  options: { readonly password?: string; readonly openSessions?: number } = {},
+  options: {
+    readonly password?: string;
+    readonly openSessions?: number;
+    readonly twoFactor?: boolean;
+  } = {},
 ): void {
   uow.users.rows.set(user.id, user);
   for (const roleId of user.roleIds) {
@@ -396,6 +414,7 @@ export function seedUser(
     uow.credentials.hashes.set(user.id, `hashed:${options.password}`);
   }
   if (options.openSessions !== undefined) uow.sessions.open.set(user.id, options.openSessions);
+  if (options.twoFactor === true) uow.credentials.twoFactor.add(user.id);
 }
 
 export function seedBranch(uow: InMemoryIdentityUnitOfWork, branch: BranchSnapshot): void {

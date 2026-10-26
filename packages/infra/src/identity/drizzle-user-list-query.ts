@@ -73,6 +73,7 @@ export class DrizzleUserListQuery implements UserListQuery {
           branchId: branches.id,
           branchName: branches.name,
           mustChangePassword: users.mustChangePassword,
+          twoFactorEnabled: users.twoFactorEnabled,
           lastLoginAt: users.lastLoginAt,
           createdAt: users.createdAt,
         })
@@ -98,6 +99,7 @@ export class DrizzleUserListQuery implements UserListQuery {
           : { id: row.branchId, name: row.branchName },
       roles: rolesByUser.get(row.id) ?? [],
       mustChangePassword: row.mustChangePassword,
+      twoFactorEnabled: row.twoFactorEnabled,
       lastLoginAt: row.lastLoginAt ?? undefined,
       createdAt: row.createdAt,
     }));

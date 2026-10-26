@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { verifySignature } from '../../http/signature';
+import { safeEqual, verifySignature } from '../../http/signature';
 import type { AppInstance } from '../../http/types';
 
 import { parseInbound, type WhatsAppInbound } from './inbound';
@@ -36,7 +36,7 @@ export function registerWhatsAppWebhook(app: AppInstance, options: WhatsAppWebho
     // Verificación inicial: Meta hace un GET con el verify token y espera el challenge.
     scope.get(WHATSAPP_WEBHOOK_PATH, async (request, reply) => {
       const query = VerifyQuerySchema.safeParse(request.query);
-      if (!query.success || query.data['hub.verify_token'] !== options.verifyToken) {
+      if (!query.success || !safeEqual(query.data['hub.verify_token'], options.verifyToken)) {
         return reply.code(403).send({ error: 'invalid verify token' });
       }
       return reply.code(200).type('text/plain').send(query.data['hub.challenge']);

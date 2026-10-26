@@ -17,7 +17,7 @@ El core ya conocía el canal `web_chat` (conversaciones, contactos y el bloque d
 
 - **El navegador habla con `apps/web`, nunca con el agente.**
   - El widget llama a una Server Action (`sendChatMessage`).
-  - La Server Action le manda el mensaje a `apps/agent` por `POST /chat/messages`, con el body firmado (`x-norde-signature: sha256=` + HMAC), igual que las consultas del formulario (ADR 0021).
+  - La Server Action le manda el mensaje a `apps/agent` por `POST /chat/messages`, con el body firmado (`x-norde-signature: sha256=` + HMAC), igual que las consultas del formulario (ADR 0021). Desde #152 la firma cubre también la fecha (`x-norde-timestamp`, HMAC de `<timestamp>.<body>`) y el agente rechaza los mensajes de más de 5 minutos: un mensaje capturado no se puede reenviar.
   - Así no hace falta CORS, el agente sigue sin endpoints públicos sin firma, y el rate limit por IP queda en la web, que ve el IP real.
   - Secreto compartido: `AGENT_CHAT_SECRET` (web) = `WEB_CHAT_SECRET` (agente). Sin las variables, la web no muestra la burbuja y el agente no expone la ruta.
 - **Sesión anónima en una cookie `httpOnly`** (`norde_chat`, 30 días), que crea la Server Action.

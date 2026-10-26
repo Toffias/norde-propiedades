@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { verifySignature } from '../../http/signature';
+import { verifyTimestampedSignature } from '../../http/signature';
 import type { AppInstance } from '../../http/types';
 
 import type { WebChatInbound, WebChatTurnResult } from './web-chat-turn-handler';
@@ -15,6 +15,7 @@ export interface WebChatRouteOptions {
   readonly secret: string;
   /** Atiende el mensaje en la cola de su sesión y devuelve la respuesta. */
   readonly handle: (message: WebChatInbound) => Promise<WebChatTurnResult>;
+  readonly now?: () => number;
 }
 
 const BodySchema = z.object({
@@ -41,9 +42,16 @@ export function registerWebChatRoutes(app: AppInstance, options: WebChatRouteOpt
     scope.post(WEB_CHAT_PATH, async (request, reply) => {
       const raw = request.body;
       const signature = request.headers['x-norde-signature'];
+      const timestamp = request.headers['x-norde-timestamp'];
       if (
         !Buffer.isBuffer(raw) ||
-        !verifySignature(raw, typeof signature === 'string' ? signature : undefined, options.secret)
+        !verifyTimestampedSignature({
+          rawBody: raw,
+          timestamp: typeof timestamp === 'string' ? timestamp : undefined,
+          signature: typeof signature === 'string' ? signature : undefined,
+          secret: options.secret,
+          now: (options.now ?? Date.now)(),
+        })
       ) {
         request.log.warn({ ip: request.ip }, 'Web chat message with invalid signature');
         return reply.code(401).send({ error: 'invalid signature' });

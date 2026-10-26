@@ -96,10 +96,12 @@ export class WhatsAppTurnHandler {
     const { deps } = this;
     if (deps.breaker.isOpen()) {
       log.error('Agent breaker open after consecutive failures: message left unanswered');
+      await this.unavailable(conversation, log);
       return;
     }
     if (deps.budget.exceeded()) {
       log.error('Daily OpenAI budget reached: message left unanswered');
+      await this.unavailable(conversation, log);
       return;
     }
 
@@ -126,7 +128,10 @@ export class WhatsAppTurnHandler {
       if (deps.breaker.recordFailure()) {
         log.error('Agent breaker opened: no more fallback replies until it recovers');
       }
-      if (deps.breaker.isOpen()) return;
+      if (deps.breaker.isOpen()) {
+        await this.unavailable(conversation, log);
+        return;
+      }
       // El turno fallido no se guarda en la memoria.
       await this.send(conversation, { type: 'text', text: FALLBACK_TEXT }, log);
       return;
@@ -159,6 +164,15 @@ export class WhatsAppTurnHandler {
       },
       clientId: context.registration?.clientId,
     });
+  }
+
+  /**
+   * El agente no puede responder (OpenAI caído o tope de gasto): un aviso fijo, una sola vez por
+   * hora por contacto, en lugar de dejarlo sin respuesta. Cada aviso se cobra.
+   */
+  private async unavailable(conversation: ReceiveInboundMessagesOutput, log: Logger) {
+    if (!this.deps.notices.allow('agent_unavailable', conversation.externalId)) return;
+    await this.send(conversation, { type: 'text', text: NOTICE_TEXT.agent_unavailable }, log);
   }
 
   private async send(

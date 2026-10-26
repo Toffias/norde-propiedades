@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { signBody, verifySignature } from '../../http/signature';
+import { safeEqual, signBody, verifySignature } from '../../http/signature';
 
 import { FailureBreaker } from '../shared/failure-breaker';
 import { parseInbound } from './inbound';
@@ -116,6 +116,14 @@ describe('parseInbound', () => {
       ),
     ).toEqual([]);
     expect(parseInbound('no es un objeto')).toEqual([]);
+  });
+});
+
+describe('safeEqual', () => {
+  it('compares secrets', () => {
+    expect(safeEqual('verify-me', 'verify-me')).toBe(true);
+    expect(safeEqual('verify-mx', 'verify-me')).toBe(false);
+    expect(safeEqual('verify', 'verify-me')).toBe(false);
   });
 });
 

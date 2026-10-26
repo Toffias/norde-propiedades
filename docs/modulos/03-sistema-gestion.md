@@ -447,7 +447,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Firma**: header `x-norde-signature: sha256=<HMAC-SHA256 del body crudo>`, con el secreto compartido `INQUIRY_WEBHOOK_SECRET`. Sin esa variable el webhook no se expone.
 - **Rate limit**, en memoria del proceso:
   - Por IP, solo los pedidos rechazados (firma inválida o body de más de 16 KB): `INQUIRY_WEBHOOK_RATE_PER_MINUTE` por minuto (60 por defecto). Al llegar, ese IP recibe 429 sin que se lea el body.
-  - Las consultas bien firmadas no gastan ese cupo: todas llegan desde el servidor de la web (el mismo IP), y el límite por visitante va en `apps/web`. Tienen un tope total de 600 por minuto, que solo corta un bucle o un secreto filtrado.
+  - Las consultas bien firmadas no gastan ese cupo: todas llegan desde el servidor de la web (el mismo IP), y el límite por visitante va en `apps/web`. Tienen un tope total de `INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE` por minuto (600 por defecto), que solo corta un bucle o un secreto filtrado.
 - **Respuestas**:
   - 201 si la consulta es nueva, 200 si era un reintento (`{ inquiryId, duplicate }`).
   - 400 si el body no valida.

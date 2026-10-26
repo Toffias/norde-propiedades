@@ -59,6 +59,11 @@ const EnvSchema = z.object({
   /** Pedidos rechazados (sin firma válida) por minuto por IP al webhook de consultas. */
   INQUIRY_WEBHOOK_RATE_PER_MINUTE: z.coerce.number().int().positive().default(60),
   /**
+   * Consultas firmadas por minuto, en total. apps/web ya limita a cada visitante (5 cada 10
+   * minutos): este tope solo corta un bucle o un secreto filtrado.
+   */
+  INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE: z.coerce.number().int().positive().default(600),
+  /**
    * Revalidación del sitio público (ADR 0023): `https://<web>/api/revalidate` y el secreto que
    * comparte con apps/web (HMAC-SHA256 del body). Las dos o ninguna; sin ellas, la web se
    * refresca sola cada hora.

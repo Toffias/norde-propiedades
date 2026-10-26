@@ -5,20 +5,14 @@ import { createWebInquiryHandler } from '../../../../../features/inquiries/web-i
 
 // Endpoint público: lo llama apps/web por cada envío del formulario de contacto (#10, ADR 0021).
 
-/**
- * Consultas firmadas por minuto, en total. apps/web ya limita a cada visitante (5 cada 10
- * minutos): este tope solo corta un bucle o un secreto filtrado.
- */
-const SIGNED_RATE_PER_MINUTE = 600;
-
 let handler: ((request: Request) => Promise<Response>) | undefined;
 
 /** Se arma al primer pedido (no en build) y se reutiliza: el rate limit vive en el proceso. */
-function webInquiryHandler(secret: string, ratePerMinute: number) {
+function webInquiryHandler(secret: string, ratePerMinute: number, signedRatePerMinute: number) {
   handler ??= createWebInquiryHandler({
     secret,
     ratePerMinute,
-    signedRatePerMinute: SIGNED_RATE_PER_MINUTE,
+    signedRatePerMinute,
     receive: (input) => getContainer().webInquiries.receive(input),
     logger: getLogger().child({ component: 'web-inquiry-webhook' }),
     now: () => Date.now(),
@@ -33,5 +27,6 @@ export async function POST(request: Request): Promise<Response> {
   return webInquiryHandler(
     env.INQUIRY_WEBHOOK_SECRET,
     env.INQUIRY_WEBHOOK_RATE_PER_MINUTE,
+    env.INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE,
   )(request);
 }

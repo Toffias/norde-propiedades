@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Email } from '../../../shared';
+import { Actor, Email } from '../../../shared';
 import { FixedClock } from '../../../shared/testing';
 import type { UpdateUserInput } from '../../contracts';
 import {
@@ -50,6 +50,31 @@ function setup() {
 }
 
 describe('UpdateUser', () => {
+  it('does not let a user give themselves another role', async () => {
+    const { uow, useCase } = setup();
+
+    const result = await useCase.execute(
+      { ...UNCHANGED, roleIds: [ROLE_AGENT_ID, ROLE_MANAGER_ID] },
+      Actor.user(CAMILA.id, ['users:update']),
+    );
+
+    expect(result.isErr() && result.error).toEqual({ type: 'CannotChangeOwnRoles' });
+    expect(uow.users.rows.get(CAMILA.id)?.roleIds).toEqual([ROLE_AGENT_ID]);
+    expect(uow.audit.entries).toEqual([]);
+  });
+
+  it('lets a user edit their own data while keeping their roles', async () => {
+    const { uow, useCase } = setup();
+
+    const result = await useCase.execute(
+      { ...UNCHANGED, name: 'Camila Pérez Ruiz' },
+      Actor.user(CAMILA.id, ['users:update']),
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(uow.users.rows.get(CAMILA.id)?.name).toBe('Camila Pérez Ruiz');
+  });
+
   it('saves the changes and audits only the fields that changed', async () => {
     const { uow, useCase } = setup();
 

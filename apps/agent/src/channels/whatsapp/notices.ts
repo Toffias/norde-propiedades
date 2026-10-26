@@ -7,7 +7,7 @@ export const NOTICE_TEXT: Readonly<Record<Notice, string>> = {
   agent_unavailable:
     'Perdón, en este momento no puedo responderte. Volvé a escribirme en un rato y seguimos.',
   unsupported_content:
-    'Por ahora solo puedo leer mensajes de texto. ¿Me contás por escrito qué estás buscando?',
+    'Por ahora solo puedo leer mensajes de texto y audios. ¿Me contás qué estás buscando?',
   contact_limit:
     'Recibí muchos mensajes seguidos. Para seguir ayudándote, un asesor va a revisar la conversación. ¡Gracias por la paciencia!',
 };

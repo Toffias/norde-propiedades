@@ -4,6 +4,7 @@ import {
   err,
   ok,
   type Actor,
+  type AuditState,
   type Clock,
   type Result,
 } from '../../../shared';
@@ -42,7 +43,8 @@ export class DeleteMedia {
       if (loaded.isErr()) return err(loaded.error);
       const item = loaded.value;
 
-      const before = childState(`media.${item.id}`, mediaAuditState(item));
+      let before = childState(`media.${item.id}`, mediaAuditState(item));
+      let after: AuditState = {};
       item.delete(now);
       await tx.media.delete(item.id);
       await tx.events.publish(item.pullEvents());
@@ -52,12 +54,16 @@ export class DeleteMedia {
           (other) => other.kind === 'photo',
         );
         if (next) {
+          // La nueva portada también va al historial y avisa su cambio, como en SetMediaCover.
+          before = { ...before, [`media.${next.id}.isCover`]: next.isCover };
           next.markCover(true, now);
+          after = { [`media.${next.id}.isCover`]: next.isCover };
           await tx.media.save(next, actor.id);
+          await tx.events.publish(next.pullEvents());
         }
       }
       await tx.audit.record(
-        auditAction(actor, ownerTarget('media_deleted', item.owner), diffChanges(before, {})),
+        auditAction(actor, ownerTarget('media_deleted', item.owner), diffChanges(before, after)),
       );
       return ok(undefined);
     });

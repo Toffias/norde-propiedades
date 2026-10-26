@@ -271,8 +271,17 @@ export class InMemoryUserSessions implements UserSessions {
   /** Cantidad de sesiones abiertas por usuario. */
   readonly open = new Map<string, number>();
 
+  /** La sesión que quedó abierta al cerrar las demás, por usuario. */
+  readonly kept = new Map<string, string>();
+
   revokeAll(userId: string) {
     this.open.delete(userId);
+    return Promise.resolve();
+  }
+
+  revokeOthers(userId: string, keepSessionId: string) {
+    if (this.open.has(userId)) this.open.set(userId, 1);
+    this.kept.set(userId, keepSessionId);
     return Promise.resolve();
   }
 }

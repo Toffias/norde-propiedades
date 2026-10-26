@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Actor } from '../../../shared';
+import { Actor, parseId } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
 import {
   AGENT_ID,
@@ -21,7 +21,7 @@ import { CreateClientTag } from './create-client-tag';
 import { CreateClientTagGroup } from './create-client-tag-group';
 import { DeleteClientTag } from './delete-client-tag';
 import { DeleteClientTagGroup } from './delete-client-tag-group';
-import { MergeClientTags } from './merge-client-tags';
+import { MERGE_CLIENT_TAGS_BATCH_SIZE, MergeClientTags } from './merge-client-tags';
 import { RenameClientTagGroup } from './rename-client-tag-group';
 import { UpdateClientTag } from './update-client-tag';
 
@@ -136,6 +136,7 @@ describe('client tag catalog', () => {
     const both = await seedClient(uow, { phones: ['+541147770001'] });
     unwrap(await changeTags.execute({ clientId: onlySource.id, tagIds: [source] }, TEST_AGENT));
     unwrap(await changeTags.execute({ clientId: both.id, tagIds: [source, target] }, TEST_AGENT));
+    const audited = uow.audit.entries.length;
 
     const result = unwrap(
       await mergeTags.execute({ sourceTagId: source, targetTagId: target }, EDITOR),
@@ -154,12 +155,56 @@ describe('client tag catalog', () => {
         clients: { before: null, after: 2 },
       },
     });
+    // Cada contacto lo ve en su historial, con sus etiquetas de antes y de después.
+    expect(
+      uow.audit.entries
+        .slice(audited, -1)
+        .map((e) => [e.action, e.entityId, e.clientIds, e.changes]),
+    ).toEqual([
+      [
+        'client.tags_changed',
+        onlySource.id,
+        [onlySource.id],
+        { tagIds: { before: [source], after: [target] } },
+      ],
+      [
+        'client.tags_changed',
+        both.id,
+        [both.id],
+        { tagIds: { before: [source, target].sort(), after: [target] } },
+      ],
+    ]);
     expect(
       unwrapErr(await mergeTags.execute({ sourceTagId: target, targetTagId: target }, EDITOR)).type,
     ).toBe('InvalidInput');
     expect(
       unwrapErr(await mergeTags.execute({ sourceTagId: MISSING, targetTagId: target }, EDITOR)),
     ).toEqual({ type: 'TagNotFound' });
+  });
+
+  it('merges tags in batches, auditing every contact', async () => {
+    const { uow, createTag, mergeTags } = setup();
+    const source = unwrap(await createTag.execute({ name: 'Zona prop' }, EDITOR)).tagId;
+    const target = unwrap(await createTag.execute({ name: 'Zonaprop' }, EDITOR)).tagId;
+    const template = (await seedClient(uow)).toSnapshot();
+    const total = MERGE_CLIENT_TAGS_BATCH_SIZE + 1;
+    for (let i = 0; i < total; i += 1) {
+      const id = unwrap(
+        parseId<'Client'>(`00000000-0000-7000-8000-a${i.toString().padStart(11, '0')}`),
+      );
+      uow.clients.rows.set(id, { ...template, id, tagIds: [source] });
+    }
+    const audited = uow.audit.entries.length;
+
+    expect(
+      unwrap(await mergeTags.execute({ sourceTagId: source, targetTagId: target }, EDITOR)),
+    ).toEqual({ moved: total });
+
+    expect(uow.tags.moveCalls).toBe(2);
+    const perClient = uow.audit.entries
+      .slice(audited)
+      .filter((e) => e.action === 'client.tags_changed');
+    expect(new Set(perClient.map((e) => e.entityId)).size).toBe(total);
   });
 
   it('requires "Editar etiquetas" for every catalog change', async () => {

@@ -1,3 +1,8 @@
+/** La ficha de la tasación. */
+export function appraisalHref(appraisalId: string): string {
+  return `/tasaciones/${appraisalId}`;
+}
+
 /** Una foto de la tasación, servida por su ficha (el storage es privado). */
 export function appraisalPhotoHref(appraisalId: string, photoId: string): string {
   return `/tasaciones/${appraisalId}/fotos/${photoId}`;

@@ -28,4 +28,8 @@ export interface MessageLog {
   appendOutbound(entry: OutboundMessageEntry): Promise<void>;
   countInboundSince(conversationId: ConversationId, since: Date): Promise<number>;
   countOutboundSince(channel: ConversationChannel, since: Date): Promise<number>;
+  /** La última respuesta enviada en la conversación, o `undefined` si no hubo ninguna. */
+  lastOutbound(
+    conversationId: ConversationId,
+  ): Promise<Pick<OutboundMessageEntry, 'kind' | 'body'> | undefined>;
 }

@@ -1,3 +1,4 @@
+import type { SourceAppraisal } from '@norde/core/appraisals/contracts';
 import type {
   FeatureRow,
   PanelPropertyDetail,
@@ -18,6 +19,7 @@ import { DescriptionSection, LocationSection, OperationsSection } from './sectio
 /** La pestaña Detalles: cada bloque se edita en el lugar con su propio caso de uso. */
 export function DetailSections({
   detail,
+  sourceAppraisal,
   permissions,
   visibleAttributes,
   catalog,
@@ -25,6 +27,7 @@ export function DetailSections({
   showCustomAttributes,
 }: {
   readonly detail: PanelPropertyDetail;
+  readonly sourceAppraisal: SourceAppraisal | undefined;
   readonly permissions: DetailPermissions;
   readonly visibleAttributes: readonly PropertyAttributeValue[];
   readonly catalog: readonly FeatureRow[];
@@ -43,6 +46,7 @@ export function DetailSections({
       <LocationSection detail={detail} canEdit={canEdit} />
       <InternalSection
         detail={detail}
+        sourceAppraisal={sourceAppraisal}
         canEdit={canEdit}
         canChangeProducer={permissions.changeProducer}
       />

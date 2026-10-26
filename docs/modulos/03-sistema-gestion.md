@@ -66,10 +66,11 @@ Roles propuestos (a validar con Norde):
 - **Mi empresa → Usuarios** (`/mi-empresa/usuarios`), grilla paginada en el servidor:
   - Activos o suspendidos, búsqueda por nombre o email (sin acentos), orden por nombre, email, último ingreso o alta.
   - **Alta** con nombre, email, teléfono, uno o más roles y una **contraseña temporal** (se puede generar).
-  - **Edición** de los datos y los roles. Sin cambios no se audita nada.
+  - **Edición** de los datos y los roles. Sin cambios no se audita nada. Nadie cambia sus propios roles, como pasa con los permisos: con eso se podría dar cualquier permiso.
   - **Suspender** cierra sus sesiones abiertas en la misma transacción; nadie se puede suspender a sí mismo. **Reactivar** le devuelve el acceso.
   - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
 - **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.
+- **Cambiar la contraseña propia** cierra las demás sesiones del usuario y deja abierta la del cambio: quien haya entrado con la contraseña vieja o con la temporal no sigue adentro.
 - Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
 - Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
 - Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
@@ -232,7 +233,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 
 - Editar los propios pide `clients:update`; los de otros, `clients:update-others`. Cambiar el nombre pide además `clients:rename`.
 - Un teléfono o email que ya usa otro contacto no se acepta en la edición.
-- **Datos de propietarios**: sin `clients:read-owners`, los teléfonos, emails y documento de un propietario se ven enmascarados (`+54 •••• 9124`) en la grilla, la ficha y la exportación, y no se pueden editar.
+- **Datos de propietarios**: sin `clients:read-owners`, los teléfonos, emails y documento de un propietario se ven enmascarados (`+54 •••• 9124`) en la grilla, la ficha y la exportación, y no se pueden editar. Tampoco se le puede quitar el tipo de propietario, que es lo que los oculta.
 
 **Papelera** (`?view=trash`, con permiso de borrar): quién borró y cuándo, con restaurar. Los propios con `clients:delete`, los de otros con `clients:delete-others`.
 
@@ -243,7 +244,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 **Etiquetas** (`/contactos/etiquetas` y `/contactos/etiquetas/grupos`, con "Editar etiquetas" `tags:update`):
 
 - Grupos de etiquetas (Origen, Alquileres, Colegas) con cuántas etiquetas y cuántos contactos activos tienen. Etiquetas sueltas o dentro de un grupo, con su contador de contactos.
-- Crear, renombrar, mover de grupo, borrar y **unificar**: los contactos de una etiqueta pasan a otra (quien tenía las dos queda con una) y la primera se borra. Una etiqueta en uso no se borra; se unifica con otra o se quita de los contactos. Un grupo con etiquetas no se borra.
+- Crear, renombrar, mover de grupo, borrar y **unificar**: los contactos de una etiqueta pasan a otra (quien tenía las dos queda con una) y la primera se borra. La unificación queda en el historial de la etiqueta de destino y en el de cada contacto que cambió (sus etiquetas de antes y de después); los contactos se recorren por lotes, en la misma transacción. Una etiqueta en uso no se borra; se unifica con otra o se quita de los contactos. Un grupo con etiquetas no se borra.
 - En la ficha, la sección Etiquetas se edita con un selector paginado (hasta 50 por contacto). La edita quien puede editar el contacto y queda en su historial.
 - Filtros de la agenda: con o sin etiquetas y una etiqueta puntual (en "Más filtros").
 
@@ -261,6 +262,8 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - El principal se queda con todo: teléfonos, emails, canales, tipos de cliente, etiquetas, relaciones (las suyas y las que otros declaran hacia el duplicado), oportunidades, actividad, búsquedas guardadas, destacadas, envíos y consultas. Lo que ya tiene el principal manda (nombre, agente, teléfono y email principales, datos cargados); los datos vacíos se completan con los del duplicado. Si los dos tenían destacada la misma propiedad, la del duplicado pasa como quitada.
 - El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
 - Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
+- La unión respeta las reglas de la ficha: si el principal no puede tener una relación del duplicado (por ejemplo, una empresa no "trabaja en" otra) o juntos pasan el tope de 50 relaciones o de 50 etiquetas, no se unifica y se avisa qué corregir. No se descarta nada en silencio.
+- Las relaciones que **otros** contactos declaran hacia el duplicado pasan igual, aunque no encajen con el tipo del principal (alguien que "trabaja en" una empresa que se unifica en una persona): son datos de esos otros contactos. Antes de confirmar, la pantalla avisa cuántas no encajan para revisarlas después.
 - Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. El historial del principal muestra también el del duplicado.
 - El mapeo con Tokko pasa al principal en la misma transacción: una reimportación resuelve al contacto que quedó.
 - **Lo de los otros módulos también pasa al principal**, al recibir `clients.clients_merged` (en segundos, por el agente):
@@ -444,7 +447,9 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 
 - **Body**: JSON con `externalId` (un UUID que la web genera por envío; si reintenta, manda el mismo), `name`, `email`, `phone`, `message` y `propertyId`. Hasta 16 KB.
 - **Firma**: header `x-norde-signature: sha256=<HMAC-SHA256 del body crudo>`, con el secreto compartido `INQUIRY_WEBHOOK_SECRET`. Sin esa variable el webhook no se expone.
-- **Rate limit**: `INQUIRY_WEBHOOK_RATE_PER_MINUTE` pedidos por minuto por IP (60 por defecto), en memoria del proceso. Como el que llama es el servidor de la web, el límite por visitante va en `apps/web`.
+- **Rate limit**, en memoria del proceso:
+  - Por IP, solo los pedidos rechazados (firma inválida o body de más de 16 KB): `INQUIRY_WEBHOOK_RATE_PER_MINUTE` por minuto (60 por defecto). Al llegar, ese IP recibe 429 sin que se lea el body.
+  - Las consultas bien firmadas no gastan ese cupo: todas llegan desde el servidor de la web (el mismo IP), y el límite por visitante va en `apps/web`. Tienen un tope total de `INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE` por minuto (600 por defecto), que solo corta un bucle o un secreto filtrado.
 - **Respuestas**:
   - 201 si la consulta es nueva, 200 si era un reintento (`{ inquiryId, duplicate }`).
   - 400 si el body no valida.
@@ -474,7 +479,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Coincidencias** (`ListInquiryMatches`): los contactos que comparten el teléfono o el email de la consulta, en cualquiera de los suyos, también los de otros agentes y los de la papelera. Paginadas en el servidor: primero los que coinciden por teléfono, después los activos. Cada una muestra el nombre, el agente, el alta, el último contacto y si coincide por teléfono, por email o por los dos. La ficha se puede abrir solo si el actor puede ver ese contacto.
 - **"Asignar a este cliente"**: solo a uno de los que coinciden. Si estaba en la papelera, vuelve a la agenda.
 - **"Crear cliente nuevo"**: solo si no coincide ninguno. Es la misma regla del alta manual: no se crean dos contactos con el mismo teléfono o email.
-- **Contacto**: se registra con la misma regla que `RegisterContact`. Se suma el canal de la consulta (identificado por el email o, sin él, el teléfono) y se completan los datos que faltan, sin pisar los que tiene.
+- **Contacto**: se registra con la misma regla que `RegisterContact`. Se suma el canal de la consulta (identificado por el email o, sin él, el teléfono) y se completan los datos que faltan, sin pisar los que tiene. Un teléfono o un email que ya usa **otro** cliente no se le suma (no se le saca a ese cliente): si son la misma persona, se unifican desde el panel.
 - **Oportunidad**: se abre una por la propiedad consultada, con el mensaje como nota (hasta 2.000 caracteres), o se suma el pedido a la abierta por lo mismo. Nace en el estado de la regla "al crear".
 - **Tipo**: se propone alquiler si la propiedad solo se alquila (también temporario) y compra en el resto de los casos, también sin propiedad. Quien asigna lo puede cambiar.
 - **Agente a cargo**: se elige en el diálogo (con `users:read`). Sin elegir, queda el de la oportunidad (el del contacto) o, si nadie la tiene, quien asigna.
@@ -813,7 +818,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 - La propiedad nace como **borrador**, con quien la carga como captador y su sucursal.
 - El código de referencia sale de la numeración de Mi empresa (§14.2).
 - Si se dejan vacías, la dirección para publicar se arma con la calle y la altura redondeada a la centena ("Gurruchaga al 1800"), y el título para portales con tipo, operación y barrio ("Departamento en venta en Palermo").
-- El propietario se carga en la etapa 2: necesita el buscador de clientes (#8).
+- **Propietario** (opcional, privado): un contacto activo, buscado entre los que el usuario ve (#107). Si son varios, el resto se suma desde la ficha. Queda en el alta del historial, con el contacto en `client_ids`.
 
 **Papelera**: borrar es baja lógica. Se ven quién la borró y cuándo, y se restaura. Borra o restaura sus propiedades quien tiene `properties:delete`, y las de cualquiera quien tiene `properties:delete-others`. Las propiedades de la papelera no aparecen en la web ni en el agente.
 
@@ -852,7 +857,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 - **Servicios y ambientes**: servicios, ambientes y adicionales. Un ítem no se borra: se desactiva.
 - **Etiquetas**: sueltas o en grupos. Un grupo con etiquetas o una etiqueta en uso no se borran.
 
-**Pendiente de #5**: el panel "Más filtros" (se define con Norde qué filtros sirven), el propietario en el alta (necesita el buscador de clientes, #8) y el envío por email o WhatsApp (#8 y #11). Las columnas viejas de `properties` se retiran en #33.
+**Pendiente de #5**: el panel "Más filtros" (se define con Norde qué filtros sirven) y el envío por email o WhatsApp (#8 y #11).
 
 ### 4.8 Ficha de propiedad (#6)
 
@@ -870,7 +875,8 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 - Características: ambientes, superficies y medidas, antigüedad, orientación, estado de conservación y disposición. La superficie cubierta más la semicubierta no supera la total. Se muestran los atributos que el tipo de propiedad tiene habilitados en Mi empresa.
 - Ubicación: dirección real (privada), dirección para publicar (vacía: se sugiere), ubicación del catálogo y coordenadas. Si cambia la dirección y no hay coordenadas cargadas a mano, se ubica de nuevo en el mapa.
 - Título para portales y descripción. Servicios, ambientes y adicionales como checklists del catálogo. Etiquetas. Atributos personalizados (se definen en Mi empresa → Propiedades: texto, número, sí o no, o lista; no se borran ni cambian de tipo, se desactivan). **Ocultos (#50)**: Norde no creó ninguno en Tokko; con `CUSTOM_ATTRIBUTES_ENABLED=false` (por defecto) no se muestran ni en Mi empresa ni en la ficha.
-- Información interna: código de referencia (editable, sin repetir), captador (`properties:change-producer`), tasadores, usuario de mantenimiento, ubicación de las llaves, información legal y comentarios internos. Los propietarios se muestran; se cargan cuando exista el buscador de contactos (#8).
+- Información interna: código de referencia (editable, sin repetir), captador (`properties:change-producer`), tasadores, usuario de mantenimiento, ubicación de las llaves, información legal y comentarios internos.
+- Propietarios (#107): se ven con enlace a su ficha de contacto. Con el mismo permiso que el captador ("Cambiar el productor o los propietarios") se suman y se quitan de a uno, hasta 20: un contacto en la papelera o unificado no se puede sumar, y quitarlo no borra el contacto. Cada cambio queda en el historial de la propiedad (`property.owner_added`, `property.owner_removed`, filtro "Captador, propietarios y etiquetas") con el contacto en `client_ids`, así la supresión lo borra. La unificación de contactos mueve los vínculos y la supresión los quita (§3.3.2 y §3.3.4).
 
 **Multimedia**: fotos y planos (JPG, PNG o WebP, hasta 15 MB, hasta 100 ítems por propiedad), videos (YouTube, Vimeo) y recorridos 360 (Matterport, Kuula, Roundme) por link.
 
@@ -888,7 +894,7 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 **PDF** (con `properties:export`, queda en el historial): ficha (con las fotos marcadas para el PDF), vidriera (una hoja con una foto grande) y reporte al propietario de un período de hasta un año (publicaciones activas, visitas por portal, envíos, consultas e interesados). Siguen "Ficha y PDF" de Mi empresa (dirección al descargar, precio, agente). Los arma un job; el diálogo muestra el estado y se descargan cuando están listos. El reporte se puede mandar por email con el PDF adjunto: el email del propietario no queda en el historial.
 
-**Pendiente de #6**: cargar propietarios (#8), compartir por email o WhatsApp (#11), "Completar con IA" y la tasación de origen (#12). Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
+**Pendiente de #6**: compartir por email o WhatsApp (#11) y "Completar con IA". Los interesados, envíos, consultas y publicaciones se ven vacíos hasta que #8, #10, #11 y #14 escriban esos datos. Descripción y PDF solo en español.
 
 ### 4.9 Reservas (#13)
 
@@ -1044,6 +1050,7 @@ La tasación tiene pantalla propia (no panel lateral).
 - Un job de properties reacciona y crea la **propiedad en borrador** con ese ID: tipo, dirección (en la calle; altura, ubicación y coordenadas se completan en la ficha), superficies, ambientes, dormitorios, baños y estado de conservación, **una operación por cada valor sugerido, al máximo**, el productor como captador con su sucursal, el tasador, el **solicitante como propietario** y una copia de las fotos (la primera es la portada; se generan las miniaturas como en cualquier galería). El código de referencia sale de la numeración de Mi empresa. Queda en el historial de la propiedad (`property.created_from_appraisal`, con la tasación de origen).
 - Mientras el job crea la propiedad, la ficha dice "Creando la propiedad…"; después muestra su código con el link. Es idempotente: si el evento llega dos veces, la propiedad no se duplica.
 - Si las superficies de la tasación no cierran (cubierta mayor que la total), la propiedad se crea sin ellas.
+- La ficha de la propiedad muestra la **tasación de origen** en "Información interna": código con link a la tasación, estado y valores sugeridos (#110). Se lee por la API pública de appraisals (`GetSourceAppraisal`, por el ID de la propiedad que guardó la tasación); solo la ve quien puede ver esa tasación (`appraisals:read`, con la regla de productor y tasador). Si la tasación está en la papelera, lo aclara.
 
 ### 6.6 Informe en PDF
 

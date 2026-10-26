@@ -223,13 +223,21 @@ export class FakePortalAccountDirectory implements PortalAccountDirectory {
 
 export class InMemoryListingRepository implements ListingRepository {
   readonly rows = new Map<string, ListingSnapshot>();
+  /**
+   * Simula otra transacción que tiene la fila bloqueada (un `SyncListing` en curso): `lockById`
+   * la espera, una sola vez, antes de leer. `findById` no espera.
+   */
+  holdingLock: (() => Promise<unknown>) | undefined;
 
   findById(id: ListingId) {
     const row = this.rows.get(id);
     return Promise.resolve(row && Listing.restore(row));
   }
 
-  lockById(id: ListingId) {
+  async lockById(id: ListingId) {
+    const holder = this.holdingLock;
+    this.holdingLock = undefined;
+    if (holder) await holder();
     return this.findById(id);
   }
 

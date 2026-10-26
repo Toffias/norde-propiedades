@@ -154,13 +154,32 @@ describe('identity users against Postgres', () => {
     await expect(signInCookie('camila@norde.com.ar', TEMPORARY)).rejects.toThrow();
   });
 
+  it('closes the other sessions when the user changes their password', async () => {
+    const agent = await insertRole('agent', 'Agente');
+    const userId = await createUser('camila@norde.com.ar', [agent]);
+    const current = await signInCookie('camila@norde.com.ar', TEMPORARY);
+    const other = await signInCookie('camila@norde.com.ar', TEMPORARY);
+    const sessionId = await sessionReader.currentSessionId(current);
+    if (sessionId === undefined) throw new Error('no session');
+
+    const changed = await new ChangeOwnPassword({ uow, hasher, clock }).execute(
+      { currentPassword: TEMPORARY, newPassword: OWN, sessionId },
+      Actor.user(userId, []),
+    );
+
+    expect(changed.isOk()).toBe(true);
+    expect(await sessionReader.currentUserId(current)).toBe(userId);
+    expect(await sessionReader.currentUserId(other)).toBeUndefined();
+  });
+
   it('resets the password and lets the user choose their own', async () => {
     const agent = await insertRole('agent', 'Agente');
     const userId = await createUser('camila@norde.com.ar', [agent]);
     const session = Actor.user(userId, []);
 
+    // Sin sesiones abiertas: no hay ninguna que cerrar.
     const changed = await new ChangeOwnPassword({ uow, hasher, clock }).execute(
-      { currentPassword: TEMPORARY, newPassword: OWN },
+      { currentPassword: TEMPORARY, newPassword: OWN, sessionId: ids.next() },
       session,
     );
     expect(changed.isOk()).toBe(true);
@@ -208,7 +227,7 @@ describe('DrizzleUserRepository', () => {
     await repository.save(created.value, ADMIN.id);
 
     const user = await repository.findById(id.value);
-    user?.assignRoles([manager, rentals], now);
+    user?.assignRoles([manager, rentals], ADMIN.id, now);
     if (user) await repository.save(user, ADMIN.id);
 
     expect((await repository.findById(id.value))?.roleIds).toEqual([manager, rentals].sort());

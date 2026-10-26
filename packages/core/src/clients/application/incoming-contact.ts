@@ -14,6 +14,7 @@ import {
 import { Client, type MissingContactInfoError } from '../domain/client';
 import type { ContactChannel } from '../domain/contact-channel';
 import { maskSensitiveNumbers } from '../domain/contact-masking';
+import { unclaimedContact } from '../domain/duplicate-check';
 import {
   findOpenOpportunityAbout,
   Opportunity,
@@ -80,7 +81,13 @@ export async function recordIncomingContact(
     // Estaba en la papelera y volvió a escribir: vuelve a la agenda.
     restored = client.restoreFromTrash(now).isOk();
     client.recordContact(input.channel, input.channelExternalId, now);
-    client.completeProfile(contact);
+    // El teléfono o email que ya usa otro cliente no se le suma (no se le saca a ese cliente).
+    const keys = {
+      phones: contact.phone ? [contact.phone] : [],
+      emails: contact.email ? [contact.email] : [],
+    };
+    const candidates = await tx.clients.findMatching(keys);
+    client.completeProfile({ ...contact, ...unclaimedContact(client, candidates, contact) });
   } else {
     const registered = Client.register({
       id: nextId<'Client'>(deps.ids),

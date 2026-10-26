@@ -37,6 +37,25 @@ export function contactConflicts(
   return candidates.filter((c) => c.id !== client.id && c.sharesContactWith(contact));
 }
 
+/**
+ * Los datos de un contacto entrante que se le pueden sumar al cliente: sin el teléfono ni el email
+ * que ya usa **otro** cliente (activo o en la papelera). Un contacto no le saca un dato a otro: si
+ * es la misma persona, se unifican desde el panel.
+ */
+export function unclaimedContact(
+  client: Client,
+  candidates: readonly Client[],
+  contact: { readonly phone: Phone | undefined; readonly email: Email | undefined },
+): { readonly phone: Phone | undefined; readonly email: Email | undefined } {
+  const others = candidates.filter((c) => c.id !== client.id);
+  const { phone, email } = contact;
+  const taken = (keys: ContactKeys) => others.some((c) => c.sharesContactWith(keys));
+  return {
+    phone: phone && !taken({ phones: [phone], emails: [] }) ? phone : undefined,
+    email: email && !taken({ phones: [], emails: [email] }) ? email : undefined,
+  };
+}
+
 /** Nombre comparable: sin mayúsculas, acentos ni espacios de más. */
 export function normalizeName(name: string): string {
   return name

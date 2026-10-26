@@ -71,6 +71,7 @@ export type { RoleRepository } from './domain/role.repository';
 export {
   User,
   type CannotChangeOwnPermissionsError,
+  type CannotChangeOwnRolesError,
   type CannotSuspendSelfError,
   type DuplicatePermissionError,
   type UserAlreadyActiveError,
@@ -156,6 +157,7 @@ export {
 } from './application/commands/reset-user-two-factor';
 export {
   ChangeOwnPassword,
+  type ChangeOwnPasswordCommand,
   type ChangeOwnPasswordError,
 } from './application/commands/change-own-password';
 export {

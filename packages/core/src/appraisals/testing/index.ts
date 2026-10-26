@@ -327,6 +327,10 @@ export class StubAppraisalQuery implements AppraisalQuery {
   findDetail(appraisalId: string) {
     return Promise.resolve(this.rows.find((row) => row.id === appraisalId));
   }
+
+  findIdByConvertedProperty(propertyId: string) {
+    return Promise.resolve(this.rows.find((row) => row.convertedProperty?.id === propertyId)?.id);
+  }
 }
 
 /** Guarda lo que recibe (con las fotos ya leídas) y devuelve un PDF de mentira. */

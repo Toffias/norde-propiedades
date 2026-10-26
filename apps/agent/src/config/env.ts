@@ -27,6 +27,8 @@ const EnvSchema = z
     // Agente de IA
     OPENAI_API_KEY: z.string().min(1).optional(),
     OPENAI_MODEL: z.string().min(1).default('gpt-5-mini'),
+    /** Transcribe los audios de WhatsApp para que el agente los lea como texto. */
+    OPENAI_TRANSCRIBE_MODEL: z.string().min(1).default('gpt-4o-mini-transcribe'),
     AGENT_MAX_MEMORY_ITEMS: positiveInt(60),
     /** Fallos seguidos del agente antes de dejar de mandar respuestas de error (que se cobran). */
     AGENT_BREAKER_THRESHOLD: positiveInt(5),

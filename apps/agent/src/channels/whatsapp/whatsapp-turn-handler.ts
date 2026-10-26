@@ -1,10 +1,15 @@
 import { OpportunitySearchSchema } from '@norde/core/clients';
-import type {
-  OutboundMessage,
-  ReceiveInboundMessages,
-  ReceiveInboundMessagesOutput,
-  SendReply,
+import {
+  MAX_INBOUND_MESSAGES_PER_CALL,
+  type InboundMessage,
+  type OutboundMessage,
+  type ReceiveInboundMessages,
+  type ReceiveInboundMessagesError,
+  type ReceiveInboundMessagesOutput,
+  type SendReply,
+  type TranscribeAudioMessage,
 } from '@norde/core/conversations';
+import type { Result } from '@norde/core/shared';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
 
@@ -23,6 +28,8 @@ import { buildWhatsAppReply, FALLBACK_TEXT } from './reply-builder';
 export interface WhatsAppTurnHandlerDeps {
   readonly receiveInbound: Pick<ReceiveInboundMessages, 'execute'>;
   readonly sendReply: Pick<SendReply, 'execute'>;
+  /** Sin transcripción, un audio se contesta con el aviso de contenido no soportado. */
+  readonly transcribeAudio?: Pick<TranscribeAudioMessage, 'execute'> | undefined;
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
@@ -49,15 +56,8 @@ export class WhatsAppTurnHandler {
     const { deps } = this;
     const contact = first.from;
 
-    const received = await deps.receiveInbound.execute(
-      {
-        channel: 'whatsapp',
-        externalId: contact,
-        contactName: batch.findLast((m) => m.profileName)?.profileName,
-        messages: batch.map((m) => m.message),
-      },
-      deps.actor,
-    );
+    const messages = await Promise.all(batch.map((m) => this.readable(m)));
+    const received = await this.record(contact, batch, messages);
     if (received.isErr()) {
       deps.logger.error({ error: received.error }, 'Could not record inbound WhatsApp messages');
       return;
@@ -85,6 +85,55 @@ export class WhatsAppTurnHandler {
       case 'agent':
         await this.replyWithAgent(conversation, plan.userText, log);
         return;
+    }
+  }
+
+  /**
+   * Registra el lote. Uno de más mensajes de los que acepta el core se registra en partes, en
+   * orden, y responde lo que decide la última que registró algo: sigue siendo **una** respuesta.
+   */
+  private async record(
+    contact: string,
+    batch: readonly WhatsAppInbound[],
+    messages: readonly InboundMessage[],
+  ): Promise<Result<ReceiveInboundMessagesOutput, ReceiveInboundMessagesError>> {
+    const { deps } = this;
+    const contactName = batch.findLast((m) => m.profileName)?.profileName;
+    let decided: Result<ReceiveInboundMessagesOutput, ReceiveInboundMessagesError> | undefined;
+    for (let start = 0; start < messages.length; start += MAX_INBOUND_MESSAGES_PER_CALL) {
+      const received = await deps.receiveInbound.execute(
+        {
+          channel: 'whatsapp',
+          externalId: contact,
+          contactName,
+          messages: messages.slice(start, start + MAX_INBOUND_MESSAGES_PER_CALL),
+        },
+        deps.actor,
+      );
+      if (received.isErr()) return received;
+      if (decided === undefined || received.value.plan.action !== 'ignore') decided = received;
+    }
+    if (decided === undefined) throw new Error('A WhatsApp batch cannot be empty');
+    return decided;
+  }
+
+  /** El mensaje tal como lo lee el agente: un audio, transcrito. Si no se puede, queda como llegó. */
+  private async readable(inbound: WhatsAppInbound): Promise<InboundMessage> {
+    const { deps } = this;
+    if (!inbound.audioMediaId || !deps.transcribeAudio) return inbound.message;
+    try {
+      const result = await deps.transcribeAudio.execute(
+        { mediaId: inbound.audioMediaId },
+        deps.actor,
+      );
+      if (result.isErr()) {
+        deps.logger.info({ reason: result.error.type }, 'WhatsApp audio not transcribed');
+        return inbound.message;
+      }
+      return { ...inbound.message, kind: 'audio', text: result.value.text };
+    } catch (error) {
+      deps.logger.error({ err: error }, 'WhatsApp audio transcription failed');
+      return inbound.message;
     }
   }
 

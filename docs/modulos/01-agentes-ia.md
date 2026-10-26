@@ -55,6 +55,7 @@ El MVP ya es un bot inmobiliario para Argentina (CABA/GBA, español rioplatense)
   - Verificación del webhook y firma HMAC calculada sobre el body crudo.
   - Idempotencia y descarte de mensajes viejos.
   - Agrupación de mensajes seguidos en un solo turno (debounce) y cola secuencial por usuario.
+    - Un lote de más de 50 mensajes se registra en partes y se responde una sola vez, según lo que decide la última parte. El nombre del perfil se recorta a 120 caracteres. Así no se pierde ningún lote.
   - Límites por usuario y globales, y un circuit breaker si el agente falla varias veces seguidas.
 - **Lecciones aprendidas que hay que respetar**:
   - `maxTokens` incluye los tokens de razonamiento: usar alrededor de 3000 con `reasoning.effort: 'low'`.
@@ -97,7 +98,7 @@ La idea es **separar el agente del canal**. El núcleo (agente, tools, memoria, 
   - WhatsApp: formato `*negrita*`, sin markdown y un solo mensaje por turno.
   - Web: se puede usar markdown liviano y mostrar tarjetas de propiedad.
 - **Salida por canal**: `buildOutbound` pasa a ser una función por canal.
-  - WhatsApp: se mantiene la lógica actual (foto > botones > texto).
+  - WhatsApp: se mantiene la lógica actual (foto > botones > texto). Un texto de más de 4096 caracteres (el máximo de WhatsApp) se recorta, para no quedarse sin respuesta.
   - Web: devuelve una respuesta estructurada (texto, tarjetas de propiedades, botones), que el widget dibuja.
 
 ### 3.2 Adaptador WhatsApp
@@ -182,7 +183,7 @@ Qué hay que construir:
 ### 4.5 WhatsApp: temas pendientes
 
 - **Plantillas (templates)**: hacen falta para escribirle al cliente pasadas las 24 h. Por ejemplo, para un seguimiento, un aviso de propiedad nueva que coincide con su búsqueda o una respuesta del asesor fuera de la ventana. Se aprueban en Meta y tienen otro costo.
-- **Audios**: hoy se responde "solo texto". Se puede transcribir con la API de OpenAI (Whisper o `gpt-4o-transcribe`) y tratar el audio como texto. En Argentina hay muchos audios.
+- **Audios**: se transcriben con OpenAI (`gpt-4o-mini-transcribe`) y el agente los lee como texto, marcados con "(audio)" (ADR 0045). Si no se pueden transcribir, se responde el aviso de contenido no soportado.
 - **Ubicación**: aceptar un pin de ubicación como zona de búsqueda.
 - **`criteria` guardado**: hoy se guarda pero no se usa. Se puede inyectar en el prompt para retomar la búsqueda anterior.
 
@@ -197,7 +198,7 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 **WhatsApp** (desde el 1/10/2026 Meta cobra por mensaje de servicio entregado; en Argentina, aproximadamente 0,026 USD):
 
 - Un solo mensaje por turno, con agrupación de mensajes seguidos.
-- No responder a "ok", "gracias", "👍".
+- No responder a "gracias" ni "🙏". Un "ok", "dale" o "👍" tampoco se responde, salvo que conteste una pregunta del bot (la última respuesta terminó en pregunta u ofreció botones): ahí es una respuesta y pasa al agente (#150).
 - Límites por usuario (30 por hora, 120 por día) y un tope global diario.
 - Estimación del MVP: alrededor de 0,17 USD por conversación de 6 respuestas.
 

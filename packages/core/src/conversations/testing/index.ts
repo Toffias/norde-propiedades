@@ -72,6 +72,10 @@ export class InMemoryMessageLog implements MessageLog {
       this.outbound.filter((e) => e.channel === channel && e.recordedAt > since).length,
     );
   }
+
+  lastOutbound(conversationId: ConversationId) {
+    return Promise.resolve(this.outbound.findLast((e) => e.conversationId === conversationId));
+  }
 }
 
 /** Unidad de trabajo en memoria, con rollback ante un `Err` o una excepción. */

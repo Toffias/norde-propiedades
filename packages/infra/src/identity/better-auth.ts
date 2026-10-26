@@ -296,4 +296,9 @@ export class BetterAuthSessionReader {
     const session = await this.auth.api.getSession({ headers });
     return session?.user.id;
   }
+
+  async currentSessionId(headers: Headers): Promise<string | undefined> {
+    const session = await this.auth.api.getSession({ headers });
+    return session?.session.id;
+  }
 }

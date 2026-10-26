@@ -254,11 +254,10 @@ export class DrizzlePropertyRepository implements PropertyRepository {
 
   /**
    * El alta inserta la fila completa; después, el upsert actualiza todo lo que modela el aggregate.
-   * Las columnas que todavía no maneja (videos sueltos, columnas legacy de #33) no se pisan.
+   * Las columnas que todavía no maneja (videos sueltos) no se pisan.
    */
   async save(property: Property, actorId: string): Promise<void> {
     const s = property.toSnapshot();
-    const [first] = s.operations;
     const c = s.characteristics;
     const mutable = {
       code: s.code,
@@ -323,10 +322,6 @@ export class DrizzlePropertyRepository implements PropertyRepository {
       .values({
         id: s.id,
         slug: s.slug,
-        // Columnas legacy que todavía lee la búsqueda pública (#33): la primera operación del alta.
-        operation: first?.operation ?? 'sale',
-        currency: first?.currency ?? 'USD',
-        priceCents: first?.priceCents ?? null,
         propertyType: s.kind,
         createdAt: s.createdAt,
         createdBy: actorId,

@@ -1,4 +1,5 @@
 import { FixedClock } from '@norde/core/shared/testing';
+import { sql } from 'drizzle-orm';
 import { describe, expect, inject, it } from 'vitest';
 
 import { useTestDatabase } from '../../test/database';
@@ -65,6 +66,45 @@ describe('OutboxRelay', () => {
 });
 
 describe('PgBossEventBus', () => {
+  it('applies the current options to a queue that already exists', async () => {
+    // Una cola por corrida: el esquema de pg-boss no se vacía entre tests.
+    const eventType = `tests.queue_options_${new UuidV7IdGenerator().next().replaceAll('-', '')}`;
+    async function startWith(options: { retryLimit?: number; expireInSeconds?: number }) {
+      const bus = new PgBossEventBus({
+        connectionString: inject('databaseUrl'),
+        logger: silent,
+        applicationName: 'norde-infra-tests',
+        schema: 'pgboss_test',
+        ...(options.retryLimit === undefined ? {} : { retryLimit: options.retryLimit }),
+      });
+      bus.subscribe({
+        eventType,
+        name: 'handler',
+        handle: () => Promise.resolve(),
+        ...(options.expireInSeconds === undefined
+          ? {}
+          : { expireInSeconds: options.expireInSeconds }),
+      });
+      await bus.start();
+      await bus.stop();
+      const result = await db.execute<{ retry_limit: number; expire_seconds: number }>(
+        sql`select retry_limit, expire_seconds from pgboss_test.queue where name = ${`${eventType}.handler`}`,
+      );
+      return result.rows[0];
+    }
+
+    expect(await startWith({ expireInSeconds: 600 })).toEqual({
+      retry_limit: 5,
+      expire_seconds: 600,
+    });
+    expect(await startWith({ retryLimit: 3, expireInSeconds: 1800 })).toEqual({
+      retry_limit: 3,
+      expire_seconds: 1800,
+    });
+    // Sin vencimiento propio vuelve al de pg-boss, no se queda con el anterior.
+    expect(await startWith({})).toEqual({ retry_limit: 5, expire_seconds: 900 });
+  });
+
   it('delivers an event once to each subscriber, even if published twice', async () => {
     const received: string[] = [];
     const bus = new PgBossEventBus({

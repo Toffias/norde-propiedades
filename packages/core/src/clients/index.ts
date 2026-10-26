@@ -31,6 +31,7 @@ export {
   MAX_CLIENT_RELATIONS,
   type ClientRelation,
   type ClientRelationKind,
+  type IncomingRelationKinds,
 } from './domain/client-relation';
 export {
   ClientTag,
@@ -82,6 +83,7 @@ export {
   type ClientRepository,
   type ClientTagGroupRepository,
   type ClientTagRepository,
+  type MovedTagAssignment,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
   type OpportunityRepository,

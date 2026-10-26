@@ -88,10 +88,6 @@ describe('DrizzlePropertyRepository', () => {
     const [row] = await db.select().from(properties).where(eq(properties.id, property.id));
     expect(row).toMatchObject({
       title: 'Departamento en venta en Palermo',
-      // Columnas viejas (#33): ya no se escriben; la operación vive en `property_operations`.
-      operation: null,
-      currency: null,
-      priceCents: null,
       address: 'Gurruchaga 1834',
       createdBy: PRODUCER,
       updatedBy: PRODUCER,

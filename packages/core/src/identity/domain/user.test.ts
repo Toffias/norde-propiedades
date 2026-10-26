@@ -78,7 +78,7 @@ describe('User.assignRoles', () => {
     const user = newUser();
     user.pullEvents();
 
-    expect(user.assignRoles([ROLE_B], LATER).isOk()).toBe(true);
+    expect(user.assignRoles([ROLE_B], ADMIN_ID, LATER).isOk()).toBe(true);
     expect(user.roleIds).toEqual([ROLE_B]);
     expect(user.pullEvents()).toMatchObject([
       { type: 'identity.user_roles_changed', payload: { roleIds: [ROLE_B] } },
@@ -89,7 +89,7 @@ describe('User.assignRoles', () => {
     const user = newUser([ROLE_A, ROLE_B]);
     user.pullEvents();
 
-    user.assignRoles([ROLE_B, ROLE_A], LATER);
+    user.assignRoles([ROLE_B, ROLE_A], ADMIN_ID, LATER);
 
     expect(user.pullEvents()).toEqual([]);
     expect(user.toSnapshot().updatedAt).toEqual(NOW);
@@ -98,8 +98,25 @@ describe('User.assignRoles', () => {
   it('does not leave a user without roles', () => {
     const user = newUser();
 
-    expect(user.assignRoles([], LATER).isErr()).toBe(true);
+    expect(user.assignRoles([], ADMIN_ID, LATER).isErr()).toBe(true);
     expect(user.roleIds).toEqual([ROLE_A]);
+  });
+
+  it('does not let a user change their own roles', () => {
+    const user = newUser();
+    user.pullEvents();
+
+    const result = user.assignRoles([ROLE_A, ROLE_B], ID, LATER);
+
+    expect(result.isErr() && result.error).toEqual({ type: 'CannotChangeOwnRoles' });
+    expect(user.roleIds).toEqual([ROLE_A]);
+    expect(user.pullEvents()).toEqual([]);
+  });
+
+  it('lets a user keep their own roles unchanged', () => {
+    const user = newUser([ROLE_A, ROLE_B]);
+
+    expect(user.assignRoles([ROLE_B, ROLE_A], ID, LATER).isOk()).toBe(true);
   });
 });
 

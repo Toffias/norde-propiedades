@@ -67,6 +67,7 @@ export const USER_ERROR_MESSAGES = {
   DuplicatePermission: ({ permission }) => `El permiso ${permission} aparece dos veces.`,
   CannotChangeOwnPermissions:
     'No podés cambiar tus propios permisos: pedíselo a otro administrador.',
+  CannotChangeOwnRoles: 'No podés cambiar tus propios roles: pedíselo a otro administrador.',
 } satisfies ErrorMessages<UserError>;
 
 export const TOKKO_USERS_IMPORT_ERROR_MESSAGES = {

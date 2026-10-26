@@ -66,10 +66,11 @@ Roles propuestos (a validar con Norde):
 - **Mi empresa → Usuarios** (`/mi-empresa/usuarios`), grilla paginada en el servidor:
   - Activos o suspendidos, búsqueda por nombre o email (sin acentos), orden por nombre, email, último ingreso o alta.
   - **Alta** con nombre, email, teléfono, uno o más roles y una **contraseña temporal** (se puede generar).
-  - **Edición** de los datos y los roles. Sin cambios no se audita nada.
+  - **Edición** de los datos y los roles. Sin cambios no se audita nada. Nadie cambia sus propios roles, como pasa con los permisos: con eso se podría dar cualquier permiso.
   - **Suspender** cierra sus sesiones abiertas en la misma transacción; nadie se puede suspender a sí mismo. **Reactivar** le devuelve el acceso.
   - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
 - **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.
+- **Cambiar la contraseña propia** cierra las demás sesiones del usuario y deja abierta la del cambio: quien haya entrado con la contraseña vieja o con la temporal no sigue adentro.
 - Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
 - Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
 - Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
@@ -232,7 +233,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 
 - Editar los propios pide `clients:update`; los de otros, `clients:update-others`. Cambiar el nombre pide además `clients:rename`.
 - Un teléfono o email que ya usa otro contacto no se acepta en la edición.
-- **Datos de propietarios**: sin `clients:read-owners`, los teléfonos, emails y documento de un propietario se ven enmascarados (`+54 •••• 9124`) en la grilla, la ficha y la exportación, y no se pueden editar.
+- **Datos de propietarios**: sin `clients:read-owners`, los teléfonos, emails y documento de un propietario se ven enmascarados (`+54 •••• 9124`) en la grilla, la ficha y la exportación, y no se pueden editar. Tampoco se le puede quitar el tipo de propietario, que es lo que los oculta.
 
 **Papelera** (`?view=trash`, con permiso de borrar): quién borró y cuándo, con restaurar. Los propios con `clients:delete`, los de otros con `clients:delete-others`.
 
@@ -243,7 +244,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 **Etiquetas** (`/contactos/etiquetas` y `/contactos/etiquetas/grupos`, con "Editar etiquetas" `tags:update`):
 
 - Grupos de etiquetas (Origen, Alquileres, Colegas) con cuántas etiquetas y cuántos contactos activos tienen. Etiquetas sueltas o dentro de un grupo, con su contador de contactos.
-- Crear, renombrar, mover de grupo, borrar y **unificar**: los contactos de una etiqueta pasan a otra (quien tenía las dos queda con una) y la primera se borra. Una etiqueta en uso no se borra; se unifica con otra o se quita de los contactos. Un grupo con etiquetas no se borra.
+- Crear, renombrar, mover de grupo, borrar y **unificar**: los contactos de una etiqueta pasan a otra (quien tenía las dos queda con una) y la primera se borra. La unificación queda en el historial de la etiqueta de destino y en el de cada contacto que cambió (sus etiquetas de antes y de después); los contactos se recorren por lotes, en la misma transacción. Una etiqueta en uso no se borra; se unifica con otra o se quita de los contactos. Un grupo con etiquetas no se borra.
 - En la ficha, la sección Etiquetas se edita con un selector paginado (hasta 50 por contacto). La edita quien puede editar el contacto y queda en su historial.
 - Filtros de la agenda: con o sin etiquetas y una etiqueta puntual (en "Más filtros").
 
@@ -261,6 +262,8 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - El principal se queda con todo: teléfonos, emails, canales, tipos de cliente, etiquetas, relaciones (las suyas y las que otros declaran hacia el duplicado), oportunidades, actividad, búsquedas guardadas, destacadas, envíos y consultas. Lo que ya tiene el principal manda (nombre, agente, teléfono y email principales, datos cargados); los datos vacíos se completan con los del duplicado. Si los dos tenían destacada la misma propiedad, la del duplicado pasa como quitada.
 - El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
 - Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
+- La unión respeta las reglas de la ficha: si el principal no puede tener una relación del duplicado (por ejemplo, una empresa no "trabaja en" otra) o juntos pasan el tope de 50 relaciones o de 50 etiquetas, no se unifica y se avisa qué corregir. No se descarta nada en silencio.
+- Las relaciones que **otros** contactos declaran hacia el duplicado pasan igual, aunque no encajen con el tipo del principal (alguien que "trabaja en" una empresa que se unifica en una persona): son datos de esos otros contactos. Antes de confirmar, la pantalla avisa cuántas no encajan para revisarlas después.
 - Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. El historial del principal muestra también el del duplicado.
 - El mapeo con Tokko pasa al principal en la misma transacción: una reimportación resuelve al contacto que quedó.
 - **Lo de los otros módulos también pasa al principal**, al recibir `clients.clients_merged` (en segundos, por el agente):
@@ -444,7 +447,9 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 
 - **Body**: JSON con `externalId` (un UUID que la web genera por envío; si reintenta, manda el mismo), `name`, `email`, `phone`, `message` y `propertyId`. Hasta 16 KB.
 - **Firma**: header `x-norde-signature: sha256=<HMAC-SHA256 del body crudo>`, con el secreto compartido `INQUIRY_WEBHOOK_SECRET`. Sin esa variable el webhook no se expone.
-- **Rate limit**: `INQUIRY_WEBHOOK_RATE_PER_MINUTE` pedidos por minuto por IP (60 por defecto), en memoria del proceso. Como el que llama es el servidor de la web, el límite por visitante va en `apps/web`.
+- **Rate limit**, en memoria del proceso:
+  - Por IP, solo los pedidos rechazados (firma inválida o body de más de 16 KB): `INQUIRY_WEBHOOK_RATE_PER_MINUTE` por minuto (60 por defecto). Al llegar, ese IP recibe 429 sin que se lea el body.
+  - Las consultas bien firmadas no gastan ese cupo: todas llegan desde el servidor de la web (el mismo IP), y el límite por visitante va en `apps/web`. Tienen un tope total de `INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE` por minuto (600 por defecto), que solo corta un bucle o un secreto filtrado.
 - **Respuestas**:
   - 201 si la consulta es nueva, 200 si era un reintento (`{ inquiryId, duplicate }`).
   - 400 si el body no valida.
@@ -474,7 +479,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Coincidencias** (`ListInquiryMatches`): los contactos que comparten el teléfono o el email de la consulta, en cualquiera de los suyos, también los de otros agentes y los de la papelera. Paginadas en el servidor: primero los que coinciden por teléfono, después los activos. Cada una muestra el nombre, el agente, el alta, el último contacto y si coincide por teléfono, por email o por los dos. La ficha se puede abrir solo si el actor puede ver ese contacto.
 - **"Asignar a este cliente"**: solo a uno de los que coinciden. Si estaba en la papelera, vuelve a la agenda.
 - **"Crear cliente nuevo"**: solo si no coincide ninguno. Es la misma regla del alta manual: no se crean dos contactos con el mismo teléfono o email.
-- **Contacto**: se registra con la misma regla que `RegisterContact`. Se suma el canal de la consulta (identificado por el email o, sin él, el teléfono) y se completan los datos que faltan, sin pisar los que tiene.
+- **Contacto**: se registra con la misma regla que `RegisterContact`. Se suma el canal de la consulta (identificado por el email o, sin él, el teléfono) y se completan los datos que faltan, sin pisar los que tiene. Un teléfono o un email que ya usa **otro** cliente no se le suma (no se le saca a ese cliente): si son la misma persona, se unifican desde el panel.
 - **Oportunidad**: se abre una por la propiedad consultada, con el mensaje como nota (hasta 2.000 caracteres), o se suma el pedido a la abierta por lo mismo. Nace en el estado de la regla "al crear".
 - **Tipo**: se propone alquiler si la propiedad solo se alquila (también temporario) y compra en el resto de los casos, también sin propiedad. Quien asigna lo puede cambiar.
 - **Agente a cargo**: se elige en el diálogo (con `users:read`). Sin elegir, queda el de la oportunidad (el del contacto) o, si nadie la tiene, quien asigna.

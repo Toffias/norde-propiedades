@@ -29,6 +29,7 @@ import {
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { createClientsUnitOfWork } from './clients-unit-of-work';
+import { DrizzleClientLinkedRecords } from './drizzle-client-linked-records';
 import { DrizzleClientListQuery } from './drizzle-client-list-query';
 import { DrizzleClientRelationQuery } from './drizzle-client-relation-query';
 import { DrizzleClientRepository } from './drizzle-client-repositories';
@@ -201,6 +202,21 @@ describe('client tags (Postgres)', () => {
         .orderBy(clientTagAssignments.clientId),
     ).toEqual([ana, bruno].sort().map((clientId) => ({ clientId, tagId: target })));
     expect(await db.select({ id: clientTags.id }).from(clientTags)).toEqual([{ id: target }]);
+    // Cada contacto lo ve en su historial.
+    const history = await db
+      .select({ entityId: auditLog.entityId, changes: auditLog.changes })
+      .from(auditLog)
+      .where(eq(auditLog.action, 'client.tags_changed'))
+      .orderBy(auditLog.id);
+    expect(history.slice(-2).sort((a, b) => a.entityId.localeCompare(b.entityId))).toEqual(
+      [
+        {
+          entityId: ana,
+          changes: { tagIds: { before: [source, target].sort(), after: [target] } },
+        },
+        { entityId: bruno, changes: { tagIds: { before: [source], after: [target] } } },
+      ].sort((a, b) => a.entityId.localeCompare(b.entityId)),
+    );
   });
 
   it('pages more than 1.000 tags with LIMIT', async () => {
@@ -426,6 +442,30 @@ describe('MergeClients (Postgres)', () => {
       { action: 'client.merged', entityId: primary },
       { action: 'client.merged_into', entityId: duplicate },
     ]);
+  });
+});
+
+describe('DrizzleClientLinkedRecords (Postgres)', () => {
+  it('counts the incoming relations of a contact by kind', async () => {
+    const acme = await createClient('Acme', '+541147770001', { kind: 'company' });
+    const ana = await createClient('Ana', '+5491166899101');
+    const bruno = await createClient('Bruno', '+5491166899102');
+    const carla = await createClient('Carla', '+5491166899103');
+    const relation = (from: string, kind: string) => ({
+      clientId: from,
+      relatedClientId: acme,
+      kind,
+      createdAt: NOW,
+      createdBy: AGENT,
+    });
+    await db
+      .insert(clientRelations)
+      .values([relation(ana, 'works_at'), relation(bruno, 'works_at'), relation(carla, 'related')]);
+
+    const records = new DrizzleClientLinkedRecords(db);
+
+    expect(await records.incomingRelationKinds(acme)).toEqual({ works_at: 2, related: 1 });
+    expect(await records.incomingRelationKinds(ana)).toEqual({});
   });
 });
 

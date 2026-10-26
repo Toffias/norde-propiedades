@@ -495,6 +495,11 @@ export interface ClientMergeSide {
   readonly agent: ClientUserRef | undefined;
   readonly tagCount: number;
   readonly relationCount: number;
+  /**
+   * Si este se absorbe en el otro: relaciones de terceros hacia este que no encajan con el tipo
+   * del otro (alguien que "trabaja en" una persona). Se mueven igual; la pantalla avisa.
+   */
+  readonly incomingRelationsThatDoNotFit: number;
   readonly createdAt: Date;
   readonly records: ClientRecordCountsDto;
 }

@@ -20,6 +20,8 @@ export interface CredentialStore {
 export interface UserSessions {
   /** Cierra todas: el próximo request de ese usuario vuelve al login. */
   revokeAll(userId: string): Promise<void>;
+  /** Cierra todas menos la indicada (la del request que cambió la contraseña). */
+  revokeOthers(userId: string, keepSessionId: string): Promise<void>;
 }
 
 /** Lo que un command de identity usa dentro de la transacción, ligado a la misma conexión. */

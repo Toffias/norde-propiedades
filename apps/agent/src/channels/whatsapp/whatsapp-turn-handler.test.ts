@@ -73,7 +73,13 @@ const NO_FILTERS = {
   page: null,
 };
 
-function setup(options: { breakerThreshold?: number; transcript?: string | Error } = {}) {
+function setup(
+  options: {
+    breakerThreshold?: number;
+    perContactPerHour?: number;
+    transcript?: string | Error;
+  } = {},
+) {
   const model = new ScriptedModel();
   const clock = new FixedClock('2026-03-01T13:00:00Z');
   const ids = new SequentialIdGenerator();
@@ -105,7 +111,11 @@ function setup(options: { breakerThreshold?: number; transcript?: string | Error
         maxInboundAgeMs: 12 * HOUR,
         maxInboundTextChars: 1000,
         usageLimits: {
-          whatsapp: { perContactPerHour: 30, perContactPerDay: 120, outboundPerDay: 3000 },
+          whatsapp: {
+            perContactPerHour: options.perContactPerHour ?? 30,
+            perContactPerDay: 120,
+            outboundPerDay: 3000,
+          },
         },
       },
     }),
@@ -379,6 +389,31 @@ describe('WhatsAppTurnHandler', () => {
     expect(ctx.messenger.sent.map((s) => s.message)).toEqual([
       { type: 'text', text: NOTICE_TEXT.unsupported_content },
     ]);
+  });
+
+  it('records a batch of more than 50 messages and answers it once', async () => {
+    const ctx = setup();
+    const batch = Array.from({ length: 60 }, (_, i) => ctx.inbound(`mensaje ${i.toString()}`));
+
+    await ctx.handler.handle(batch);
+
+    expect(ctx.conversations.messages.inbound).toHaveLength(60);
+    // Los 60 cuentan para el límite por hora (30): un solo aviso, sin correr el agente.
+    expect(ctx.messenger.sent.map((s) => s.message)).toEqual([
+      { type: 'text', text: NOTICE_TEXT.contact_limit },
+    ]);
+    expect(ctx.model.calls).toHaveLength(0);
+  });
+
+  it('answers with the agent a batch split in parts under the limits', async () => {
+    const ctx = setup({ perContactPerHour: 100 });
+    ctx.model.enqueue([assistantMessage('¡Hola!')]);
+    const batch = Array.from({ length: 55 }, (_, i) => ctx.inbound(`mensaje ${i.toString()}`));
+
+    await ctx.handler.handle(batch);
+
+    expect(ctx.conversations.messages.inbound).toHaveLength(55);
+    expect(ctx.messenger.sent.map((s) => s.message)).toEqual([{ type: 'text', text: '¡Hola!' }]);
   });
 
   it('stays silent while a person handles the conversation', async () => {

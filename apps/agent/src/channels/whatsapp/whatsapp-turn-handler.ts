@@ -1,12 +1,15 @@
 import { OpportunitySearchSchema } from '@norde/core/clients';
-import type {
-  InboundMessage,
-  OutboundMessage,
-  ReceiveInboundMessages,
-  ReceiveInboundMessagesOutput,
-  SendReply,
-  TranscribeAudioMessage,
+import {
+  MAX_INBOUND_MESSAGES_PER_CALL,
+  type InboundMessage,
+  type OutboundMessage,
+  type ReceiveInboundMessages,
+  type ReceiveInboundMessagesError,
+  type ReceiveInboundMessagesOutput,
+  type SendReply,
+  type TranscribeAudioMessage,
 } from '@norde/core/conversations';
+import type { Result } from '@norde/core/shared';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
 
@@ -49,15 +52,7 @@ export class WhatsAppTurnHandler {
     const contact = first.from;
 
     const messages = await Promise.all(batch.map((m) => this.readable(m)));
-    const received = await deps.receiveInbound.execute(
-      {
-        channel: 'whatsapp',
-        externalId: contact,
-        contactName: batch.findLast((m) => m.profileName)?.profileName,
-        messages,
-      },
-      deps.actor,
-    );
+    const received = await this.record(contact, batch, messages);
     if (received.isErr()) {
       deps.logger.error({ error: received.error }, 'Could not record inbound WhatsApp messages');
       return;
@@ -86,6 +81,35 @@ export class WhatsAppTurnHandler {
         await this.replyWithAgent(conversation, plan.userText, log);
         return;
     }
+  }
+
+  /**
+   * Registra el lote. Uno de más mensajes de los que acepta el core se registra en partes, en
+   * orden, y responde lo que decide la última que registró algo: sigue siendo **una** respuesta.
+   */
+  private async record(
+    contact: string,
+    batch: readonly WhatsAppInbound[],
+    messages: readonly InboundMessage[],
+  ): Promise<Result<ReceiveInboundMessagesOutput, ReceiveInboundMessagesError>> {
+    const { deps } = this;
+    const contactName = batch.findLast((m) => m.profileName)?.profileName;
+    let decided: Result<ReceiveInboundMessagesOutput, ReceiveInboundMessagesError> | undefined;
+    for (let start = 0; start < messages.length; start += MAX_INBOUND_MESSAGES_PER_CALL) {
+      const received = await deps.receiveInbound.execute(
+        {
+          channel: 'whatsapp',
+          externalId: contact,
+          contactName,
+          messages: messages.slice(start, start + MAX_INBOUND_MESSAGES_PER_CALL),
+        },
+        deps.actor,
+      );
+      if (received.isErr()) return received;
+      if (decided === undefined || received.value.plan.action !== 'ignore') decided = received;
+    }
+    if (decided === undefined) throw new Error('A WhatsApp batch cannot be empty');
+    return decided;
   }
 
   /** El mensaje tal como lo lee el agente: un audio, transcrito. Si no se puede, queda como llegó. */

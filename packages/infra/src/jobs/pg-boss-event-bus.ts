@@ -79,7 +79,7 @@ export class PgBossEventBus {
   async start(): Promise<void> {
     await this.#boss.start();
     for (const job of this.#scheduled) {
-      await this.#boss.createQueue(job.name, { retryLimit: 0 });
+      await this.#ensureQueue(job.name, { retryLimit: 0 });
       await this.#boss.schedule(job.name, job.cron, null, {
         tz: 'America/Argentina/Buenos_Aires',
       });
@@ -89,12 +89,10 @@ export class PgBossEventBus {
     }
     for (const subscription of [...this.#subscriptions.values()].flat()) {
       const queue = queueName(subscription);
-      await this.#boss.createQueue(queue, {
+      await this.#ensureQueue(queue, {
         retryLimit: this.options.retryLimit ?? 5,
         retryBackoff: true,
-        ...(subscription.expireInSeconds === undefined
-          ? {}
-          : { expireInSeconds: subscription.expireInSeconds }),
+        expireInSeconds: subscription.expireInSeconds ?? DEFAULT_EXPIRE_SECONDS,
       });
       await this.#boss.work<unknown>(queue, async (jobs) => {
         for (const job of jobs) {
@@ -113,12 +111,34 @@ export class PgBossEventBus {
     }
   }
 
+  /**
+   * Crea la cola o, si ya existía, le aplica las opciones de ahora: `createQueue` de pg-boss no
+   * toca una cola existente, y cambiar los reintentos o el vencimiento no tendría efecto.
+   */
+  async #ensureQueue(name: string, settings: QueueSettings): Promise<void> {
+    await this.#boss.createQueue(name, settings);
+    await this.#boss.updateQueue(name, settings);
+  }
+
   async stop(): Promise<void> {
     if (!this.#started) return;
     await this.#boss.stop({ graceful: true, timeout: 10_000 });
     this.#started = false;
   }
 }
+
+/**
+ * Lo que se configura de cada cola. Todo explícito: al actualizar una cola existente, lo que no
+ * se pasa queda como estaba (y sacar `expireInSeconds` de un handler no volvería al default).
+ */
+interface QueueSettings {
+  readonly retryLimit: number;
+  readonly retryBackoff?: boolean;
+  readonly expireInSeconds?: number;
+}
+
+/** El vencimiento de pg-boss si el handler no dice otro: 15 minutos. */
+const DEFAULT_EXPIRE_SECONDS = 15 * 60;
 
 function queueName(subscription: EventSubscription): string {
   return `${subscription.eventType}.${subscription.name}`;

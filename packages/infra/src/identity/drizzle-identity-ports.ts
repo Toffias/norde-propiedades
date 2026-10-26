@@ -1,6 +1,6 @@
 import type { CredentialStore, UserSessions } from '@norde/core/identity';
 import type { Clock, IdGenerator } from '@norde/core/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 
 import type { DbExecutor } from '../db/executor';
 import { accounts, sessions, twoFactors, users } from '../db/schema';
@@ -65,5 +65,11 @@ export class DrizzleUserSessions implements UserSessions {
 
   async revokeAll(userId: string): Promise<void> {
     await this.db.delete(sessions).where(eq(sessions.userId, userId));
+  }
+
+  async revokeOthers(userId: string, keepSessionId: string): Promise<void> {
+    await this.db
+      .delete(sessions)
+      .where(and(eq(sessions.userId, userId), ne(sessions.id, keepSessionId)));
   }
 }

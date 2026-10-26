@@ -14,13 +14,20 @@ const EXTERNAL_ID = '0199c3a0-0000-7000-8000-000000000001';
 const INQUIRY_ID = '0199c3a0-0000-7000-8000-0000000000f1';
 const URL = 'http://localhost:3001/api/webhooks/inquiries/web';
 
-function setup(options: { ratePerMinute?: number; error?: ReceiveInquiryError } = {}) {
+function setup(
+  options: {
+    ratePerMinute?: number;
+    signedRatePerMinute?: number;
+    error?: ReceiveInquiryError;
+  } = {},
+) {
   const received: ReceiveInquiryInput[] = [];
   const seen = new Set<string>();
   const clock = { now: 0 };
   const handle = createWebInquiryHandler({
     secret: SECRET,
     ratePerMinute: options.ratePerMinute ?? 60,
+    signedRatePerMinute: options.signedRatePerMinute ?? 600,
     logger: pino({ level: 'silent' }),
     now: () => clock.now,
     receive: (input) => {
@@ -129,15 +136,37 @@ describe('Web inquiry webhook', () => {
     expect(received).toEqual([]);
   });
 
-  it('limits the requests per IP, by the address the proxy appended', async () => {
-    const { post, clock } = setup({ ratePerMinute: 2 });
+  it('limits the rejected requests per IP, by the address the proxy appended', async () => {
+    const { post, clock, received } = setup({ ratePerMinute: 2 });
 
-    expect((await post(BODY)).status).toBe(201);
-    expect((await post(BODY)).status).toBe(200);
+    expect((await post(BODY, 'sha256=bad')).status).toBe(401);
+    expect((await post(BODY, null)).status).toBe(401);
+    // Llegó al máximo: desde ese IP, ni una bien firmada.
     expect((await post(BODY)).status).toBe(429);
     // Un IP falso antes del que agregó Nginx no saltea el límite.
     expect((await post(BODY, undefined, '198.51.100.1, 203.0.113.7')).status).toBe(429);
+    expect((await post(BODY, undefined, '198.51.100.1')).status).toBe(201);
+
+    clock.now = 60_000;
+    expect((await post(BODY)).status).toBe(200);
+    expect(received).toHaveLength(2);
+  });
+
+  it('does not limit by IP the signed inquiries, which all come from apps/web', async () => {
+    const { post, received } = setup({ ratePerMinute: 2 });
+
+    for (let i = 0; i < 5; i += 1) {
+      expect((await post(BODY)).status).toBeLessThan(300);
+    }
+    expect(received).toHaveLength(5);
+  });
+
+  it('caps the signed inquiries per minute in total', async () => {
+    const { post, clock } = setup({ signedRatePerMinute: 2 });
+
+    expect((await post(BODY)).status).toBe(201);
     expect((await post(BODY, undefined, '198.51.100.1')).status).toBe(200);
+    expect((await post(BODY, undefined, '198.51.100.2')).status).toBe(429);
 
     clock.now = 60_000;
     expect((await post(BODY)).status).toBe(200);

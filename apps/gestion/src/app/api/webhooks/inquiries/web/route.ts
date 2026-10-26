@@ -8,10 +8,11 @@ import { createWebInquiryHandler } from '../../../../../features/inquiries/web-i
 let handler: ((request: Request) => Promise<Response>) | undefined;
 
 /** Se arma al primer pedido (no en build) y se reutiliza: el rate limit vive en el proceso. */
-function webInquiryHandler(secret: string, ratePerMinute: number) {
+function webInquiryHandler(secret: string, ratePerMinute: number, signedRatePerMinute: number) {
   handler ??= createWebInquiryHandler({
     secret,
     ratePerMinute,
+    signedRatePerMinute,
     receive: (input) => getContainer().webInquiries.receive(input),
     logger: getLogger().child({ component: 'web-inquiry-webhook' }),
     now: () => Date.now(),
@@ -26,5 +27,6 @@ export async function POST(request: Request): Promise<Response> {
   return webInquiryHandler(
     env.INQUIRY_WEBHOOK_SECRET,
     env.INQUIRY_WEBHOOK_RATE_PER_MINUTE,
+    env.INQUIRY_WEBHOOK_SIGNED_RATE_PER_MINUTE,
   )(request);
 }

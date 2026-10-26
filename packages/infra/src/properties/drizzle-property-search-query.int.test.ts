@@ -197,6 +197,23 @@ describe('DrizzlePropertySearchQuery', () => {
     expect(await titles({ location: 'Palermo, CABA.' })).toEqual(['Palermo']);
   });
 
+  it('matches the street only when the address is published', async () => {
+    await insertProperty({ title: 'Oculta', address: 'Gorriti 4520', showExactAddress: false });
+    await insertProperty({
+      title: 'Aproximada',
+      address: 'Thames 1234',
+      publishAddress: 'Thames al 1200',
+      showExactAddress: false,
+    });
+    await insertProperty({ title: 'Exacta', address: 'Malabia 900', showExactAddress: true });
+
+    expect(await titles({ location: 'Gorriti' })).toEqual([]);
+    expect(await titles({ location: '4520' })).toEqual([]);
+    expect(await titles({ location: '1234' })).toEqual([]);
+    expect(await titles({ location: 'Thames' })).toEqual(['Aproximada']);
+    expect(await titles({ location: 'Malabia' })).toEqual(['Exacta']);
+  });
+
   it('matches a catalog location with its descendants', async () => {
     const caba = await insertLocation('CABA');
     const mataderos = await insertLocation('Mataderos', caba);
@@ -234,6 +251,22 @@ describe('DrizzlePropertySearchQuery', () => {
 
     expect(await titles({ withCoordinates: true })).toHaveLength(3);
     expect((await titles({ area })).sort()).toEqual(['Aproximada', 'Exacta']);
+  });
+
+  it('rounds a negative half away from zero, like the pin of the listing (publicCoordinates)', async () => {
+    await insertProperty({
+      title: 'Mitad',
+      latitude: -34.6125,
+      longitude: -58.3815,
+      showExactAddress: false,
+    });
+    // El pin publicado es -34.613 / -58.382 (test de `publicCoordinates`): un área que lo
+    // contiene justo en el borde la encuentra.
+    const pin = { south: -34.613, west: -58.382, north: -34.613, east: -58.382 };
+    const truncated = { south: -34.612, west: -58.381, north: -34.612, east: -58.381 };
+
+    expect(await titles({ area: pin })).toEqual(['Mitad']);
+    expect(await titles({ area: truncated })).toEqual([]);
   });
 
   it('filters by any of the operations, with the price of that operation', async () => {

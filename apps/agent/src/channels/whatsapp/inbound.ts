@@ -1,4 +1,4 @@
-import type { InboundMessage } from '@norde/core/conversations';
+import { MAX_CONTACT_NAME_LENGTH, type InboundMessage } from '@norde/core/conversations';
 import { z } from 'zod';
 
 // Subconjunto del webhook de WhatsApp Cloud API que usa el agente. Lo desconocido se ignora
@@ -74,7 +74,9 @@ export function parseInbound(payload: unknown): WhatsAppInbound[] {
     for (const change of entry.changes ?? []) {
       if (change.field !== 'messages') continue;
       const { value } = change;
-      const names = new Map((value.contacts ?? []).map((c) => [c.wa_id, c.profile?.name]));
+      const names = new Map(
+        (value.contacts ?? []).map((c) => [c.wa_id, profileName(c.profile?.name)]),
+      );
 
       for (const raw of value.messages ?? []) {
         const message = MessageSchema.safeParse(raw);
@@ -96,6 +98,12 @@ export function parseInbound(payload: unknown): WhatsAppInbound[] {
     }
   }
   return out;
+}
+
+/** El nombre del perfil, recortado al máximo del core: uno largo no hace perder el lote. */
+function profileName(name: string | undefined): string | undefined {
+  const trimmed = name?.trim().slice(0, MAX_CONTACT_NAME_LENGTH).trim();
+  return trimmed === '' ? undefined : trimmed;
 }
 
 function content(m: z.infer<typeof MessageSchema>): Pick<InboundMessage, 'kind' | 'text'> {

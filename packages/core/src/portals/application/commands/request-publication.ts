@@ -19,7 +19,7 @@ import {
   type ListingPlanError,
   type PlanRequiredError,
 } from '../listing-plan';
-import { listingAuditTarget, listingAuditValue } from '../listing-support';
+import { listingAuditTarget, listingAuditValue, lockExistingListing } from '../listing-support';
 import type { PortalAccountDirectory } from '../ports/portal-account-directory';
 import type { ListingSourceReader } from '../ports/listing-source';
 import type { PortalConnector } from '../ports/portal-connector';
@@ -163,7 +163,7 @@ export class RequestPublication {
         if (!account.canPublish) return err({ type: 'PortalNotEnabled', portal });
 
         const owner = { kind: 'property', id: propertyId } as const;
-        const existing = await tx.listings.findOne(portal, owner, operation);
+        const existing = await lockExistingListing(tx, portal, owner, operation);
         let listing: Listing;
         if (existing) {
           const republished = existing.republish({ listingType, plan }, now);

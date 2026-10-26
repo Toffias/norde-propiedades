@@ -57,9 +57,6 @@ async function insertProperty(
     code: `P-${sequence}`,
     slug: `propiedad-${sequence}`,
     title: `Propiedad ${sequence}`,
-    // Columnas viejas (#33): NOT NULL hasta la migración contract; la búsqueda no las lee.
-    operation: 'sale',
-    currency: 'USD',
     propertyType: 'apartment',
     status: 'available',
     publishedOnWeb: true,

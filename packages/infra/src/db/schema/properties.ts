@@ -143,8 +143,8 @@ export const properties = coreSchema.table(
     slug: text('slug').notNull().unique(),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
-    /** Se reemplaza por `property_operations` (columna a retirar en la migración contract). */
-    operation: text('operation').notNull(),
+    /** Se reemplaza por `property_operations`: nadie la escribe; se borra en la migración contract (#33). */
+    operation: text('operation'),
     propertyType: text('property_type').notNull(),
     status: text('status').notNull(),
     statusChangedAt: timestamp('status_changed_at', { withTimezone: true }),
@@ -169,9 +169,9 @@ export const properties = coreSchema.table(
     latitude: numeric('latitude', { precision: 9, scale: 6, mode: 'number' }),
     longitude: numeric('longitude', { precision: 9, scale: 6, mode: 'number' }),
     portalTitle: text('portal_title'),
-    /** Se reemplaza por `property_operations` (columna a retirar en la migración contract). */
+    /** Se reemplaza por `property_operations`: nadie la escribe; se borra en la migración contract (#33). */
     priceCents: bigint('price_cents', { mode: 'bigint' }),
-    currency: text('currency').notNull(),
+    currency: text('currency'),
     /** Mostrar el precio en la web y los portales. */
     priceOnWeb: boolean('price_on_web').notNull().default(true),
     /** Centavos de pesos. */

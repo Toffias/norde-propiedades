@@ -18,6 +18,7 @@ import {
   UploadAppraisalPhoto,
   DeleteAppraisal,
   GetAppraisal,
+  GetSourceAppraisal,
   ListAppraisalHistory,
   ListAppraisals,
   RestoreAppraisal,
@@ -1345,6 +1346,7 @@ function createAppraisalsUseCases(
   return {
     listAppraisals: new ListAppraisals({ appraisals, directory }),
     getAppraisal: new GetAppraisal({ appraisals, directory }),
+    getSourceAppraisal: new GetSourceAppraisal({ appraisals, directory }),
     listAppraisalHistory: new ListAppraisalHistory({
       appraisals,
       history: new DrizzleAuditHistoryQuery(db),

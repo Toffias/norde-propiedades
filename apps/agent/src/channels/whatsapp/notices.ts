@@ -4,7 +4,7 @@ type Notice = Extract<ReplyPlan, { action: 'notice' }>['notice'];
 
 export const NOTICE_TEXT: Readonly<Record<Notice, string>> = {
   unsupported_content:
-    'Por ahora solo puedo leer mensajes de texto. ¿Me contás por escrito qué estás buscando?',
+    'Por ahora solo puedo leer mensajes de texto y audios. ¿Me contás qué estás buscando?',
   contact_limit:
     'Recibí muchos mensajes seguidos. Para seguir ayudándote, un asesor va a revisar la conversación. ¡Gracias por la paciencia!',
 };

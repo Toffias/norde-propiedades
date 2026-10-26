@@ -4,12 +4,15 @@
 import { z } from 'zod';
 
 export const CONVERSATION_CHANNEL_VALUES = ['whatsapp', 'web_chat'] as const;
-export const INBOUND_MESSAGE_KINDS = ['text', 'button', 'unsupported'] as const;
+export const INBOUND_MESSAGE_KINDS = ['text', 'button', 'audio', 'unsupported'] as const;
 
 export const InboundMessageSchema = z.object({
   /** ID del mensaje en el canal (wamid de WhatsApp): clave de idempotencia. */
   channelMessageId: z.string().min(1).max(200),
-  /** `button`: el contacto tocó un botón; `text` es su título. `unsupported`: audio, sticker… */
+  /**
+   * `button`: el contacto tocó un botón; `text` es su título. `audio`: un audio, con `text` ya
+   * transcrito. `unsupported`: imagen, sticker, ubicación…
+   */
   kind: z.enum(INBOUND_MESSAGE_KINDS),
   text: z.string().max(10_000),
   sentAt: z.date(),
@@ -30,6 +33,13 @@ export const ReceiveInboundMessagesInputSchema = z.object({
 });
 
 export type InboundMessage = z.infer<typeof InboundMessageSchema>;
+
+export const TranscribeAudioMessageInputSchema = z.object({
+  /** ID del archivo en el canal (el media ID de WhatsApp). */
+  mediaId: z.string().trim().min(1).max(200),
+});
+
+export type TranscribeAudioMessageInput = z.input<typeof TranscribeAudioMessageInputSchema>;
 export type ReceiveInboundMessagesInput = z.input<typeof ReceiveInboundMessagesInputSchema>;
 
 export const OutboundMessageSchema = z.discriminatedUnion('type', [

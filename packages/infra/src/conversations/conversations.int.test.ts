@@ -102,6 +102,23 @@ describe('conversations persistence', () => {
     ]);
   });
 
+  it('answers a "dale" only when the last reply asked something', async () => {
+    const { conversationId } = await receiveFrom([message('hola')]);
+    await reply.execute(
+      { conversationId, message: { type: 'text', text: 'Te paso las opciones.' } },
+      agent,
+    );
+    clock.advance(1000);
+    await reply.execute(
+      { conversationId, message: { type: 'text', text: '¿Querés que te llame un asesor?' } },
+      agent,
+    );
+
+    const answer = await receiveFrom([message('dale')]);
+
+    expect(answer.plan).toEqual({ action: 'agent', userText: 'dale' });
+  });
+
   it('counts messages for the usage limits', async () => {
     await receiveFrom([message('uno')]);
     await receiveFrom([message('dos')]);

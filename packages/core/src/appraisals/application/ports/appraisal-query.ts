@@ -52,4 +52,6 @@ export interface AppraisalQuery {
   ): Promise<PageSlice<AppraisalSearchItem>>;
   /** También las de la papelera. */
   findDetail(appraisalId: string): Promise<AppraisalDetailItem | undefined>;
+  /** La tasación que se convirtió en la propiedad (también en la papelera), por su ID. */
+  findIdByConvertedProperty(propertyId: string): Promise<string | undefined>;
 }

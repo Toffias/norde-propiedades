@@ -183,7 +183,7 @@ Qué hay que construir:
 ### 4.5 WhatsApp: temas pendientes
 
 - **Plantillas (templates)**: hacen falta para escribirle al cliente pasadas las 24 h. Por ejemplo, para un seguimiento, un aviso de propiedad nueva que coincide con su búsqueda o una respuesta del asesor fuera de la ventana. Se aprueban en Meta y tienen otro costo.
-- **Audios**: hoy se responde "solo texto". Se puede transcribir con la API de OpenAI (Whisper o `gpt-4o-transcribe`) y tratar el audio como texto. En Argentina hay muchos audios.
+- **Audios**: se transcriben con OpenAI (`gpt-4o-mini-transcribe`) y el agente los lee como texto, marcados con "(audio)" (ADR 0045). Si no se pueden transcribir, se responde el aviso de contenido no soportado.
 - **Ubicación**: aceptar un pin de ubicación como zona de búsqueda.
 - **`criteria` guardado**: hoy se guarda pero no se usa. Se puede inyectar en el prompt para retomar la búsqueda anterior.
 
@@ -198,7 +198,7 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 **WhatsApp** (desde el 1/10/2026 Meta cobra por mensaje de servicio entregado; en Argentina, aproximadamente 0,026 USD):
 
 - Un solo mensaje por turno, con agrupación de mensajes seguidos.
-- No responder a "ok", "gracias", "👍".
+- No responder a "gracias" ni "🙏". Un "ok", "dale" o "👍" tampoco se responde, salvo que conteste una pregunta del bot (la última respuesta terminó en pregunta u ofreció botones): ahí es una respuesta y pasa al agente (#150).
 - Límites por usuario (30 por hora, 120 por día) y un tope global diario.
 - Estimación del MVP: alrededor de 0,17 USD por conversación de 6 respuestas.
 
@@ -267,6 +267,10 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
 - **Topes de uso**: ventanas móviles (última hora y últimas 24 h) en lugar del día calendario UTC del MVP.
 - **Auditoría**: se auditan los cambios de estado (conversación iniciada o vinculada a un cliente, cliente registrado, oportunidad abierta o actualizada). Cada mensaje no se audita: el registro de mensajes ya es su traza.
 - **Memoria del agente**: se guarda en la conversación y es opaca para el core. Si el turno falla, no se guarda.
+- **Defensas contra prompt injection y phishing** (#150):
+  - El nombre de perfil de WhatsApp lo elige el cliente: entra en las instrucciones saneado (solo letras, espacios, apóstrofos, puntos y guiones; hasta 40 caracteres), al final y presentado como dato.
+  - Las respuestas solo pueden llevar links al sitio de Norde y a `wa.me`. El agente quita los demás antes de responder (y lo loguea en `warn`). El widget del sitio, además, muestra como texto cualquier link a otro dominio.
+  - `register_client` registra una sola vez por turno y no le dice al modelo si el teléfono o el email ya eran de un cliente: en el chat del sitio los escribe cualquiera.
 
 ### 8.3 Pendiente
 

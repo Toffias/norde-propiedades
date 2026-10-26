@@ -6,6 +6,7 @@ import { RegisterContact } from '@norde/core/clients';
 import {
   ReceiveInboundMessages,
   SendReply,
+  TranscribeAudioMessage,
   type ChannelMessenger,
   type ChannelMessengers,
   type ConversationPolicy,
@@ -21,6 +22,7 @@ import {
   SystemClock,
   UuidV7IdGenerator,
   WebChatMessenger,
+  WhatsAppAudioTranscriber,
 } from '@norde/infra';
 import type { Logger } from 'pino';
 
@@ -159,12 +161,25 @@ export function createContainer(
   let whatsapp: Container['whatsapp'];
 
   if (whatsappMessenger && assistant) {
+    const transcribeAudio =
+      credentials && env.OPENAI_API_KEY
+        ? new TranscribeAudioMessage({
+            transcriber: new WhatsAppAudioTranscriber({
+              accessToken: credentials.accessToken,
+              apiVersion: env.WHATSAPP_API_VERSION,
+              baseUrl: env.WHATSAPP_API_BASE_URL,
+              openai: { apiKey: env.OPENAI_API_KEY, model: env.OPENAI_TRANSCRIBE_MODEL },
+            }),
+          })
+        : undefined;
     const handler = new WhatsAppTurnHandler({
       receiveInbound,
       sendReply,
+      transcribeAudio,
       assistant,
       actor: AGENT_ACTOR,
       breaker,
+      siteUrl: env.PUBLIC_SITE_URL,
       notices: new NoticeThrottle(HOUR_MS),
       now: () => clock.now(),
       logger,
@@ -202,6 +217,7 @@ export function createContainer(
       assistant,
       actor: AGENT_ACTOR,
       breaker,
+      siteUrl: env.PUBLIC_SITE_URL,
       now: () => clock.now(),
       logger,
     });

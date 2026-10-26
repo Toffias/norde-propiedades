@@ -35,6 +35,11 @@ export {
 } from './application/commands/receive-inbound-messages';
 export { SendReply, type SendReplyError } from './application/commands/send-reply';
 export {
+  TranscribeAudioMessage,
+  type TranscribeAudioMessageError,
+} from './application/commands/transcribe-audio-message';
+export type { AudioTooLargeError, AudioTranscriber } from './application/ports/audio-transcriber';
+export {
   EraseClientConversations,
   type EraseClientConversationsError,
 } from './application/handlers/erase-client-conversations';

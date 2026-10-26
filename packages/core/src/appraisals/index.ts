@@ -122,6 +122,10 @@ export {
 export { ListAppraisals, type ListAppraisalsError } from './application/queries/list-appraisals';
 export { GetAppraisal, type GetAppraisalError } from './application/queries/get-appraisal';
 export {
+  GetSourceAppraisal,
+  type GetSourceAppraisalError,
+} from './application/queries/get-source-appraisal';
+export {
   ListAppraisalHistory,
   type ListAppraisalHistoryError,
 } from './application/queries/list-appraisal-history';

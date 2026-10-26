@@ -10,12 +10,14 @@ import {
   type OutboundMessageEntry,
 } from '@norde/core/conversations';
 import { parseId } from '@norde/core/shared';
-import { and, count, eq, gt, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, gt, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
 import { fromJsonb, toJsonb } from '../db/json';
 import { conversationMessages, conversations } from '../db/schema';
+
+const BodySchema = z.record(z.string(), z.unknown());
 
 const RowSchema = z.object({
   channel: z.enum(CONVERSATION_CHANNELS),
@@ -150,5 +152,23 @@ export class DrizzleMessageLog implements MessageLog {
         ),
       );
     return row?.n ?? 0;
+  }
+
+  async lastOutbound(conversationId: ConversationId) {
+    // Usa el índice (conversation_id, recorded_at).
+    const [row] = await this.db
+      .select({ kind: conversationMessages.kind, body: conversationMessages.body })
+      .from(conversationMessages)
+      .where(
+        and(
+          eq(conversationMessages.conversationId, conversationId),
+          eq(conversationMessages.direction, 'out'),
+        ),
+      )
+      .orderBy(desc(conversationMessages.recordedAt))
+      .limit(1);
+    if (!row) return undefined;
+    const body = BodySchema.safeParse(fromJsonb(row.body));
+    return { kind: row.kind, body: body.success ? body.data : {} };
   }
 }

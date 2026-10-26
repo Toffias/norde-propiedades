@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { internalPath, parseChatMarkdown, parseLine } from './markdown';
+import { internalPath, isAllowedExternalLink, parseChatMarkdown, parseLine } from './markdown';
 
 const text = (value: string, bold = false) => ({ kind: 'text', text: value, bold });
 const link = (value: string, href: string, bold = false) => ({
@@ -115,5 +115,15 @@ describe('internalPath', () => {
     expect(internalPath('https://norde.com.ar.evil.com/x', site)).toBeUndefined();
     expect(internalPath('https://maps.google.com', site)).toBeUndefined();
     expect(internalPath('https://norde.com.ar//evil.com', site)).toBeUndefined();
+  });
+});
+
+describe('isAllowedExternalLink', () => {
+  it('allows WhatsApp links only', () => {
+    expect(isAllowedExternalLink('https://wa.me/5491100000000')).toBe(true);
+    expect(isAllowedExternalLink('https://evil.example/pago')).toBe(false);
+    expect(isAllowedExternalLink('http://wa.me/5491100000000')).toBe(false);
+    expect(isAllowedExternalLink('https://wa.me@evil.example/')).toBe(false);
+    expect(isAllowedExternalLink('no es una url')).toBe(false);
   });
 });

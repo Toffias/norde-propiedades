@@ -31,14 +31,10 @@ import {
   type InlineFormControls,
 } from '../../shared/components/inline-section';
 import { recordAppraisalResultAction } from '../actions';
+import { formatAppraisalRange } from '../format';
 
-/** "US$ 110.000 a US$ 120.000". */
 function formatRange(range: AppraisalValueRangeDto | undefined): string {
-  if (range === undefined) return 'Sin cargar';
-  const { currency } = range;
-  const min = formatMoney({ amountCents: range.minCents, currency });
-  const max = formatMoney({ amountCents: range.maxCents, currency });
-  return range.minCents === range.maxCents ? max : `${min} a ${max}`;
+  return range === undefined ? 'Sin cargar' : formatAppraisalRange(range);
 }
 
 function formatSurface(m2: number | undefined): string {

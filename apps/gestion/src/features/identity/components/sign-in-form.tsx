@@ -23,6 +23,7 @@ import { useForm } from 'react-hook-form';
 import { authClient } from '../../../lib/auth-client';
 import { contractResolver } from '../../../lib/form';
 import { signInErrorMessage } from '../sign-in';
+import { TwoFactorChallenge } from './two-factor-challenge';
 
 export interface SignInFormProps {
   /** Ruta del panel a la que volver (ya validada con `safeReturnPath`). */
@@ -38,6 +39,8 @@ export function SignInForm({ returnTo, suspended }: SignInFormProps) {
   const [error, setError] = useState<string | undefined>(
     suspended ? 'Tu usuario no tiene acceso al panel. Hablá con un administrador.' : undefined,
   );
+  // La contraseña fue correcta y falta el código de la verificación en dos pasos.
+  const [challenged, setChallenged] = useState(false);
   const form = useForm<SignInInput>({
     resolver: contractResolver(SignInInputSchema),
     defaultValues: { email: '', password: '' },
@@ -50,7 +53,7 @@ export function SignInForm({ returnTo, suspended }: SignInFormProps) {
 
   async function submit(values: SignInInput) {
     setError(undefined);
-    const { error: failure } = await authClient.signIn.email({
+    const { data, error: failure } = await authClient.signIn.email({
       email: values.email,
       password: values.password,
       rememberMe: remember,
@@ -60,9 +63,30 @@ export function SignInForm({ returnTo, suspended }: SignInFormProps) {
       form.resetField('password');
       return;
     }
+    if ('twoFactorRedirect' in data) {
+      setChallenged(true);
+      return;
+    }
+    goToPanel();
+  }
+
+  function goToPanel() {
     // Ruta del panel validada por `safeReturnPath`: typedRoutes no puede verificar un string.
     router.replace(returnTo as Route);
     router.refresh();
+  }
+
+  if (challenged) {
+    return (
+      <TwoFactorChallenge
+        onSignedIn={goToPanel}
+        onRestart={(message) => {
+          setChallenged(false);
+          setError(message);
+          form.resetField('password');
+        }}
+      />
+    );
   }
 
   const pending = form.formState.isSubmitting;

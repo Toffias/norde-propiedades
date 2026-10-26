@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   primaryKey,
   text,
   timestamp,
@@ -38,6 +39,8 @@ export const users = coreSchema.table(
     notificationsEnabled: boolean('notifications_enabled').notNull().default(true),
     /** Lo exige la importación de Tokko y el blanqueo de contraseña. */
     mustChangePassword: boolean('must_change_password').notNull().default(false),
+    /** Verificación en dos pasos activa (la escribe el plugin `twoFactor` de Better Auth). */
+    twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     ...timestamps(),
     /** Nullable: el primer usuario lo crea el setup, sin actor. */
@@ -111,6 +114,28 @@ export const verifications = coreSchema.table(
     ...timestamps(),
   },
   (t) => [index('verifications_identifier_idx').on(t.identifier)],
+);
+
+/**
+ * Segundo factor de Better Auth (plugin `twoFactor`, #113): uno por usuario. El secreto TOTP y los
+ * códigos de respaldo van cifrados con el secreto de Better Auth. `verified` queda en `false`
+ * mientras el usuario no confirma el primer código de la app autenticadora.
+ */
+export const twoFactors = coreSchema.table(
+  'two_factors',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    secret: text('secret').notNull(),
+    backupCodes: text('backup_codes').notNull(),
+    verified: boolean('verified').notNull().default(true),
+    /** Códigos fallidos seguidos al ingresar: al décimo se bloquea la cuenta un rato. */
+    failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('two_factors_user_uq').on(t.userId)],
 );
 
 /**

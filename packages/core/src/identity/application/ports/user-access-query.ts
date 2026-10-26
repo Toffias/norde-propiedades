@@ -11,6 +11,7 @@ export interface UserAccessRecord {
   readonly branchId: string | undefined;
   /** Entró con una contraseña temporal y todavía no la cambió. */
   readonly mustChangePassword: boolean;
+  readonly twoFactorEnabled: boolean;
   readonly roles: readonly RoleSummary[];
   /** Permisos de todos sus roles (puede haber repetidos). */
   readonly rolePermissions: readonly PermissionClaim[];

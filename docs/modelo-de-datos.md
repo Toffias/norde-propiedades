@@ -164,7 +164,7 @@ Un rol asignado a algún usuario no se puede borrar (`user_roles.role_id` es `on
 
 Se dejan en la `0001` porque había código que las leía. Se pasan a las tablas nuevas con un backfill y se borran cuando ya nadie las lea.
 
-Las de `properties` (`operation`, `price_cents`, `currency`, `amenities` e `image_urls`, con los índices `properties_listing_idx` y `properties_price_idx`) ya se retiraron: la `0043` las dejó de escribir y la `0044` las borró (#33). La operación y el precio viven en `property_operations`, los servicios y amenities en `property_features`, y las fotos en `media_items`.
+Las de `properties` (`operation`, `price_cents`, `currency`, `amenities` e `image_urls`, con los índices `properties_listing_idx` y `properties_price_idx`) ya se retiraron: la `0044` las dejó de escribir y la `0045` las borró (#33). La operación y el precio viven en `property_operations`, los servicios y amenities en `property_features`, y las fotos en `media_items`.
 
 | Columna                                                           | Reemplazo                    |
 | ----------------------------------------------------------------- | ---------------------------- |

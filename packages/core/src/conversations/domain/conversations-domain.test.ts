@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Conversation, type ConversationId } from './conversation';
-import { evaluateUsage, isAcknowledgementOnly, isStale } from './reply-policy';
+import { evaluateUsage, isAcknowledgementOnly, isStale, repliedWithQuestion } from './reply-policy';
 
 const T0 = new Date('2026-03-01T10:00:00Z');
 const HOUR = 3_600_000;
@@ -126,6 +126,26 @@ describe('reply policy', () => {
       expect(isAcknowledgementOnly(text)).toBe(false);
     },
   );
+
+  it.each(['dale', 'OK!', '👍', 'listo'])('"%s" answers a question of the bot', (text) => {
+    expect(isAcknowledgementOnly(text, true)).toBe(false);
+  });
+
+  it.each(['gracias', 'Muchas gracias!', '🙏'])('"%s" closes even after a question', (text) => {
+    expect(isAcknowledgementOnly(text, true)).toBe(true);
+  });
+
+  it('knows when the last reply asked something', () => {
+    expect(repliedWithQuestion(undefined)).toBe(false);
+    expect(repliedWithQuestion({ kind: 'text', body: { text: 'Te paso las opciones.' } })).toBe(
+      false,
+    );
+    expect(repliedWithQuestion({ kind: 'text', body: { text: '¿Querés que te contacten?' } })).toBe(
+      true,
+    );
+    expect(repliedWithQuestion({ kind: 'image', body: { caption: '¿Te gusta?' } })).toBe(true);
+    expect(repliedWithQuestion({ kind: 'buttons', body: { text: 'Elegí una opción' } })).toBe(true);
+  });
 
   it('detects stale messages', () => {
     expect(isStale(T0, new Date(T0.getTime() + 13 * HOUR), 12 * HOUR)).toBe(true);

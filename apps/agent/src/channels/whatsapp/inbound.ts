@@ -17,6 +17,7 @@ const MessageSchema = z.object({
     })
     .optional(),
   button: z.object({ text: z.string() }).optional(),
+  audio: z.object({ id: z.string().min(1) }).optional(),
   errors: z.array(z.unknown()).optional(),
 });
 
@@ -55,6 +56,8 @@ export interface WhatsAppInbound {
   /** wa_id del remitente: el número en formato internacional sin `+`. */
   readonly from: string;
   readonly profileName: string | undefined;
+  /** Media ID de un audio: llega como `unsupported` y el handler lo transcribe si puede. */
+  readonly audioMediaId?: string | undefined;
   readonly message: InboundMessage;
 }
 
@@ -81,6 +84,7 @@ export function parseInbound(payload: unknown): WhatsAppInbound[] {
           phoneNumberId: value.metadata.phone_number_id,
           from: m.from,
           profileName: names.get(m.from),
+          audioMediaId: m.type === 'audio' ? m.audio?.id : undefined,
           message: {
             channelMessageId: m.id,
             sentAt: new Date(Number(m.timestamp) * 1000),
@@ -99,6 +103,6 @@ function content(m: z.infer<typeof MessageSchema>): Pick<InboundMessage, 'kind' 
   const reply = m.interactive?.button_reply ?? m.interactive?.list_reply;
   if (m.type === 'interactive' && reply) return { kind: 'button', text: reply.title };
   if (m.type === 'button' && m.button) return { kind: 'button', text: m.button.text };
-  // Audio, imagen, sticker, ubicación…: por ahora el agente solo lee texto.
+  // Imagen, sticker, ubicación…: el agente solo lee texto. Un audio se transcribe después.
   return { kind: 'unsupported', text: '' };
 }

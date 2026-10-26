@@ -92,6 +92,7 @@ describe('parseInbound', () => {
         message: expect.objectContaining({ kind: 'button', text: 'Alquilar' }) as unknown,
       }),
       expect.objectContaining({
+        audioMediaId: 'a',
         message: expect.objectContaining({ kind: 'unsupported', rawType: 'audio' }) as unknown,
       }),
     ]);

@@ -6,8 +6,10 @@ import {
   tool,
   user,
   type AgentInputItem,
+  type AgentOutputType,
   type Model,
 } from '@openai/agents';
+import type { z } from 'zod';
 
 import { toToolOutput, type AgentTool } from './agent-tool';
 import { trimMemory } from './memory';
@@ -30,6 +32,17 @@ export interface AgentRunnerOptions<TContext> {
   readonly maxOutputTokens?: number;
   /** El costo se acota con el esfuerzo de razonamiento, no con el techo de tokens. */
   readonly reasoningEffort?: ReasoningEffort;
+  /**
+   * Salida estructurada: el turno termina con un objeto que cumple el esquema (en `output`) en
+   * lugar de texto. Evita tools que solo marcan cómo responder, y la vuelta extra al modelo que
+   * cuesta cada llamada a una tool.
+   */
+  readonly outputSchema?: z.ZodObject;
+  /**
+   * Agrupa los pedidos que comparten el mismo prefijo (tools + instrucciones fijas) para que
+   * OpenAI los mande al mismo cache. Lo variable de las instrucciones va al final.
+   */
+  readonly promptCacheKey?: string;
   readonly maxTurns?: number;
   readonly timeoutMs?: number;
   /** Error inesperado dentro de una tool. El modelo recibe un error genérico y sigue. */
@@ -45,8 +58,10 @@ export interface AgentTurnUsage {
 export type AgentTurnResult =
   | {
       readonly ok: true;
-      /** Texto final del modelo. `undefined` si no escribió nada. */
+      /** Texto final del modelo. `undefined` si no escribió nada o si la salida es estructurada. */
       readonly text: string | undefined;
+      /** Con `outputSchema`: el objeto final, ya validado por el SDK (sin tipo: lo valida la app). */
+      readonly output: unknown;
       /** Memoria para guardar: la anterior más este turno completo. */
       readonly memory: readonly unknown[];
       readonly usage: AgentTurnUsage;
@@ -66,20 +81,24 @@ export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'low';
  * monorepo que conoce el SDK: las apps definen instrucciones y tools, y guardan la memoria.
  */
 export class AgentRunner<TContext> {
-  readonly #agent: Agent<TContext>;
+  readonly #agent: Agent<TContext, AgentOutputType>;
   readonly #runner: Runner;
 
   constructor(private readonly options: AgentRunnerOptions<TContext>) {
     const model = 'instance' in options.model ? options.model.instance : options.model.name;
-    this.#agent = new Agent<TContext>({
+    this.#agent = new Agent<TContext, AgentOutputType>({
       name: options.name,
       model,
       instructions: (runContext) => options.instructions(runContext.context),
       tools: options.tools.map((t) => this.toSdkTool(t)),
+      outputType: options.outputSchema ?? 'text',
       // Los modelos gpt-5 no aceptan temperature.
       modelSettings: {
         maxTokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         reasoning: { effort: options.reasoningEffort ?? DEFAULT_REASONING_EFFORT },
+        ...(options.promptCacheKey === undefined
+          ? {}
+          : { providerData: { prompt_cache_key: options.promptCacheKey } }),
       },
     });
     this.#runner = new Runner({
@@ -91,11 +110,17 @@ export class AgentRunner<TContext> {
   }
 
   /** Configuración efectiva del modelo (para tests y logs). */
-  get modelSettings(): { readonly maxTokens?: number; readonly reasoningEffort?: string } {
+  get modelSettings(): {
+    readonly maxTokens?: number;
+    readonly reasoningEffort?: string;
+    readonly promptCacheKey?: string;
+  } {
     const settings = this.#agent.modelSettings;
+    const cacheKey: unknown = settings.providerData?.prompt_cache_key;
     return {
       ...(settings.maxTokens === undefined ? {} : { maxTokens: settings.maxTokens }),
       ...(settings.reasoning?.effort ? { reasoningEffort: settings.reasoning.effort } : {}),
+      ...(typeof cacheKey === 'string' ? { promptCacheKey: cacheKey } : {}),
     };
   }
 
@@ -121,6 +146,10 @@ export class AgentRunner<TContext> {
       return {
         ok: true,
         text: text?.trim() === '' ? undefined : text,
+        output:
+          typeof result.finalOutput === 'object' && result.finalOutput !== null
+            ? result.finalOutput
+            : undefined,
         memory: result.history,
         usage: {
           requests: runContext.usage.requests,

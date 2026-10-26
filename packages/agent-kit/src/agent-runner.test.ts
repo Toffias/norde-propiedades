@@ -102,4 +102,28 @@ describe('AgentRunner', () => {
     expect(runner.modelSettings.maxTokens).toBeGreaterThanOrEqual(2000);
     expect(runner.modelSettings.reasoningEffort).toBe('low');
   });
+
+  it('returns the structured output when the agent has an output schema', async () => {
+    const model = new ScriptedModel([
+      [assistantMessage(JSON.stringify({ text: 'Hola', buttons: ['Sí', 'No'] }))],
+    ]);
+    const runner = new AgentRunner<Context>({
+      name: 'Test',
+      model: { instance: model },
+      instructions: () => 'Sos un agente de prueba.',
+      tools: [],
+      maxMemoryItems: 10,
+      outputSchema: z.object({ text: z.string(), buttons: z.array(z.string()) }),
+      promptCacheKey: 'test-agent',
+    });
+
+    const result = await runner.run({ memory: [], userText: 'hola', context: { calls: [] } });
+
+    expect(result.ok && result.output).toEqual({ text: 'Hola', buttons: ['Sí', 'No'] });
+    expect(result.ok && result.text).toBeUndefined();
+    expect(runner.modelSettings.promptCacheKey).toBe('test-agent');
+    expect(model.firstCall?.request.modelSettings.providerData).toEqual({
+      prompt_cache_key: 'test-agent',
+    });
+  });
 });

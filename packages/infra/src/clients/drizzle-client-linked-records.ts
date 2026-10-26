@@ -1,4 +1,8 @@
-import type { ClientLinkedRecords, ClientRecordCounts } from '@norde/core/clients';
+import type {
+  ClientLinkedRecords,
+  ClientRecordCounts,
+  IncomingRelationKinds,
+} from '@norde/core/clients';
 import { and, count, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 
 import type { DbExecutor } from '../db/executor';
@@ -65,6 +69,15 @@ export class DrizzleClientLinkedRecords implements ClientLinkedRecords {
           .where(eq(clientRelations.relatedClientId, clientId)),
       ),
     };
+  }
+
+  async incomingRelationKinds(clientId: string): Promise<IncomingRelationKinds> {
+    const rows = await this.db
+      .select({ kind: clientRelations.kind, total: count() })
+      .from(clientRelations)
+      .where(eq(clientRelations.relatedClientId, clientId))
+      .groupBy(clientRelations.kind);
+    return Object.fromEntries(rows.map((row) => [row.kind, row.total]));
   }
 
   async moveAll(fromId: string, toId: string, now: Date): Promise<ClientRecordCounts> {

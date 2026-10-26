@@ -18,6 +18,7 @@ import {
   UploadAppraisalPhoto,
   DeleteAppraisal,
   GetAppraisal,
+  GetSourceAppraisal,
   ListAppraisalHistory,
   ListAppraisals,
   RestoreAppraisal,
@@ -187,6 +188,8 @@ import {
   BulkEditProperties,
   ChangePropertyCode,
   ChangePropertyProducer,
+  AddPropertyOwner,
+  RemovePropertyOwner,
   ChangePropertyStatus,
   ChangePropertyTags,
   CompareProperties,
@@ -1061,6 +1064,8 @@ function createPropertiesUseCases(
     updatePropertyCustomAttributes: new UpdatePropertyCustomAttributes({ uow, clock }),
     changePropertyTags: new ChangePropertyTags({ uow, clock }),
     changePropertyProducer: new ChangePropertyProducer({ uow, producers, clock }),
+    addPropertyOwner: new AddPropertyOwner({ uow }),
+    removePropertyOwner: new RemovePropertyOwner({ uow }),
     updatePropertyInternalInfo: new UpdatePropertyInternalInfo({ uow, producers, clock }),
     updatePropertyPublication: new UpdatePropertyPublication({ uow, clock }),
     listCustomAttributes: new ListCustomAttributes({ catalog }),
@@ -1345,6 +1350,7 @@ function createAppraisalsUseCases(
   return {
     listAppraisals: new ListAppraisals({ appraisals, directory }),
     getAppraisal: new GetAppraisal({ appraisals, directory }),
+    getSourceAppraisal: new GetSourceAppraisal({ appraisals, directory }),
     listAppraisalHistory: new ListAppraisalHistory({
       appraisals,
       history: new DrizzleAuditHistoryQuery(db),

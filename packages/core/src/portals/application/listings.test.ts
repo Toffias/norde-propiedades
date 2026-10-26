@@ -144,6 +144,21 @@ describe('RequestPublication', () => {
     });
   });
 
+  it('waits for a sync in progress before asking for the listing again', async () => {
+    const { request, unpublish, sync, connector, uow, listingId } = await published();
+    unwrap(await unpublish.execute({ listingId }, AGENT));
+    uow.listings.holdingLock = () => sync.execute({ listingId }, PORTAL_SYNC);
+
+    unwrap(await request.execute(SALE, AGENT));
+
+    expect(connector.calls.map((c) => c.method)).toEqual(['close']);
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'pending',
+      intent: 'active',
+      externalId: undefined,
+    });
+  });
+
   it('requires a connected and enabled account', async () => {
     const { request, uow } = setup();
     uow.accounts.rows.set('mercadolibre', connectedAccount(false));
@@ -422,6 +437,18 @@ describe('team actions on a listing', () => {
     unwrap(await unpublish.execute({ listingId }, AGENT));
     expect(uow.audit.entries.at(-1)?.action).toBe('property.portal_unpublish_requested');
     expect(unwrapErr(await pause.execute({ listingId }, AGENT))).toEqual({ type: 'ListingClosed' });
+  });
+
+  it('waits for the sync that is creating the listing and keeps its portal id', async () => {
+    const { request, unpublish, sync, uow } = setup();
+    const { listingId } = unwrap(await request.execute(SALE, AGENT));
+    uow.listings.holdingLock = () => sync.execute({ listingId }, PORTAL_SYNC);
+
+    unwrap(await unpublish.execute({ listingId }, AGENT));
+
+    const row = uow.listings.rows.get(listingId);
+    expect(row?.intent).toBe('closed');
+    expect(row?.externalId).toBeDefined();
   });
 
   it('changes the type and sends it again', async () => {

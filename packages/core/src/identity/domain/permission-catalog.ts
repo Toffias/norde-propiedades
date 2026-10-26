@@ -101,7 +101,10 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
           { permission: 'properties:update', label: 'Editar sus propiedades' },
           { permission: 'properties:update-branch', label: 'Editar propiedades de su sucursal' },
           { permission: 'properties:update-all', label: 'Editar propiedades de otras sucursales' },
-          { permission: 'properties:change-producer', label: 'Cambiar el productor' },
+          {
+            permission: 'properties:change-producer',
+            label: 'Cambiar el productor o los propietarios',
+          },
           { permission: 'properties:change-owner', label: 'Cambiar el propietario' },
           { permission: 'properties:mark-available', label: 'Marcar como disponible' },
           { permission: 'properties:bulk-edit', label: 'Edición rápida masiva' },

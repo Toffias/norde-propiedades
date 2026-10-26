@@ -7,6 +7,24 @@ export type ClientTagId = Id<'ClientTag'>;
 /** Tope de etiquetas por contacto: más deja de servir como filtro. */
 export const MAX_CLIENT_TAGS = 50;
 
+/** Pasaría el tope de etiquetas por contacto. */
+export interface TooManyClientTagsError {
+  readonly type: 'TooManyTags';
+  readonly max: number;
+}
+
+/**
+ * Las etiquetas de un contacto después de unificar `source` con `target`: la de origen pasa a ser
+ * la de destino y quien tenía las dos queda con una.
+ */
+export function mergeTagIds(
+  tagIds: readonly string[],
+  source: string,
+  target: string,
+): readonly string[] {
+  return [...new Set(tagIds.map((id) => (id === source ? target : id)))];
+}
+
 /** Largo máximo del nombre de una etiqueta o un grupo: lo que sobra se corta. */
 export const MAX_TAG_NAME_LENGTH = 60;
 

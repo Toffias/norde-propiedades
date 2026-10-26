@@ -1,3 +1,5 @@
+import type { IncomingRelationKinds } from '../../domain/client-relation';
+
 /** Lo que cuelga de un contacto fuera de su aggregate, por tipo. */
 export interface ClientRecordCounts {
   readonly opportunities: number;
@@ -18,6 +20,8 @@ export interface ClientRecordCounts {
  */
 export interface ClientLinkedRecords {
   countFor(clientId: string): Promise<ClientRecordCounts>;
+  /** Las relaciones que otros contactos declaran hacia él, contadas por tipo de relación. */
+  incomingRelationKinds(clientId: string): Promise<IncomingRelationKinds>;
   /**
    * Reapunta todo de `fromId` a `toId` y devuelve cuántos se movieron. Lo que chocaría con algo
    * que el principal ya tiene (la misma propiedad destacada, la misma relación) no se pierde: la

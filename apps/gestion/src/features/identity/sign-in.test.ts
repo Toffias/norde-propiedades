@@ -20,6 +20,13 @@ describe('safeReturnPath', () => {
     expect(safeReturnPath('contactos')).toBe('/');
   });
 
+  it('does not leave the panel through characters the browser drops', () => {
+    expect(safeReturnPath('/\t/evil.example')).toBe('/');
+    expect(safeReturnPath('/\n/evil.example')).toBe('/');
+    expect(safeReturnPath('/\r\n/evil.example')).toBe('/');
+    expect(safeReturnPath('/\t\\evil.example')).toBe('/');
+  });
+
   it('does not loop back to the sign-in page', () => {
     expect(safeReturnPath('/ingresar?motivo=suspendido')).toBe('/');
   });

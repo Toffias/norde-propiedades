@@ -17,6 +17,7 @@ import { ChangeOwnPassword } from './change-own-password';
 const CAMILA = userSnapshot({ mustChangePassword: true });
 // Con una contraseña temporal, la sesión no tiene permisos: igual puede cambiarla.
 const CAMILA_SESSION = Actor.user(CAMILA.id, []);
+const SESSION_ID = 'session-current';
 
 function setup() {
   const uow = new InMemoryIdentityUnitOfWork();
@@ -34,7 +35,7 @@ describe('ChangeOwnPassword', () => {
     const { uow, useCase } = setup();
 
     const result = await useCase.execute(
-      { currentPassword: TEMPORARY_PASSWORD, newPassword: OWN_PASSWORD },
+      { currentPassword: TEMPORARY_PASSWORD, newPassword: OWN_PASSWORD, sessionId: SESSION_ID },
       CAMILA_SESSION,
     );
 
@@ -52,11 +53,38 @@ describe('ChangeOwnPassword', () => {
     expect(uow.audit.entries[0]).not.toHaveProperty('changes');
   });
 
+  it('closes the other sessions of the user and keeps the current one', async () => {
+    const { uow, useCase } = setup();
+    // Alguien más entró con la contraseña temporal: sin permisos hasta que se cambie.
+    uow.sessions.open.set(CAMILA.id, 2);
+
+    const result = await useCase.execute(
+      { currentPassword: TEMPORARY_PASSWORD, newPassword: OWN_PASSWORD, sessionId: SESSION_ID },
+      CAMILA_SESSION,
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(uow.sessions.open.get(CAMILA.id)).toBe(1);
+    expect(uow.sessions.kept.get(CAMILA.id)).toBe(SESSION_ID);
+  });
+
+  it('keeps every session when the password is not changed', async () => {
+    const { uow, useCase } = setup();
+    uow.sessions.open.set(CAMILA.id, 2);
+
+    await useCase.execute(
+      { currentPassword: OTHER_PASSWORD, newPassword: OWN_PASSWORD, sessionId: SESSION_ID },
+      CAMILA_SESSION,
+    );
+
+    expect(uow.sessions.open.get(CAMILA.id)).toBe(2);
+  });
+
   it('rejects a wrong current password', async () => {
     const { uow, useCase } = setup();
 
     const result = await useCase.execute(
-      { currentPassword: OTHER_PASSWORD, newPassword: OWN_PASSWORD },
+      { currentPassword: OTHER_PASSWORD, newPassword: OWN_PASSWORD, sessionId: SESSION_ID },
       CAMILA_SESSION,
     );
 
@@ -68,7 +96,11 @@ describe('ChangeOwnPassword', () => {
     const { useCase } = setup();
 
     const result = await useCase.execute(
-      { currentPassword: TEMPORARY_PASSWORD, newPassword: TEMPORARY_PASSWORD },
+      {
+        currentPassword: TEMPORARY_PASSWORD,
+        newPassword: TEMPORARY_PASSWORD,
+        sessionId: SESSION_ID,
+      },
       CAMILA_SESSION,
     );
 
@@ -79,11 +111,11 @@ describe('ChangeOwnPassword', () => {
     const { useCase } = setup();
 
     const system = await useCase.execute(
-      { currentPassword: TEMPORARY_PASSWORD, newPassword: OWN_PASSWORD },
+      { currentPassword: TEMPORARY_PASSWORD, newPassword: OWN_PASSWORD, sessionId: SESSION_ID },
       Actor.system('import', ['users:*']),
     );
     const ghost = await useCase.execute(
-      { currentPassword: TEMPORARY_PASSWORD, newPassword: OWN_PASSWORD },
+      { currentPassword: TEMPORARY_PASSWORD, newPassword: OWN_PASSWORD, sessionId: SESSION_ID },
       Actor.user('00000000-0000-7000-8000-00000000ffff', []),
     );
 

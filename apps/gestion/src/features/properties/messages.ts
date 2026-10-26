@@ -42,6 +42,7 @@ export const PROPERTY_ERROR_MESSAGES = {
   LocationNotFound: 'No encontramos esa ubicación. Elegila de nuevo en el buscador.',
   PropertyTypeDisabled:
     'Ese tipo de propiedad está deshabilitado en Mi empresa → Propiedades. Elegí otro o habilitalo.',
+  OwnerClientNotFound: 'Ese contacto ya no está: puede que lo hayan borrado o unificado con otro.',
 } satisfies ErrorMessages<CreatePropertyError | DeletePropertyError | RestorePropertyError>;
 
 export const PROPERTY_LIST_ERROR_MESSAGES = {

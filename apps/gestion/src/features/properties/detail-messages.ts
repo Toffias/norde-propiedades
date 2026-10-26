@@ -3,6 +3,7 @@ import type {
   ListPropertySendsError,
 } from '@norde/core/clients';
 import type {
+  AddPropertyOwnerError,
   ChangePropertyCodeError,
   ChangePropertyProducerError,
   ChangePropertyStatusError,
@@ -11,6 +12,7 @@ import type {
   GetPanelPropertyDetailError,
   ListPropertyDocumentsError,
   ListPropertyHistoryError,
+  RemovePropertyOwnerError,
   RequestPropertyDocumentError,
   SendOwnerReportError,
   UpdateCustomAttributeError,
@@ -43,6 +45,8 @@ export type PropertyDetailEditError =
   | UpdatePropertyCustomAttributesError
   | ChangePropertyTagsError
   | ChangePropertyProducerError
+  | AddPropertyOwnerError
+  | RemovePropertyOwnerError
   | UpdatePropertyInternalInfoError
   | UpdatePropertyPublicationError;
 
@@ -72,6 +76,8 @@ export const DETAIL_ERROR_MESSAGES = {
   TagNotFound: 'Alguna de las etiquetas ya no existe. Elegilas de nuevo.',
   ProducerNotFound: 'Ese usuario no existe o está suspendido: no puede ser captador.',
   UserNotFound: 'Algún usuario elegido no existe o está suspendido.',
+  OwnerClientNotFound: 'Ese contacto ya no está: puede que lo hayan borrado o unificado con otro.',
+  TooManyOwners: (error) => `La propiedad puede tener hasta ${error.max.toString()} propietarios.`,
 } satisfies ErrorMessages<PropertyDetailEditError>;
 
 export const DETAIL_READ_ERROR_MESSAGES = {

@@ -91,6 +91,34 @@ describe('publicCoordinates', () => {
     });
   });
 
+  it('rounds halves away from zero, like round() in Postgres filters the map area', () => {
+    const approximate = (latitude: number, longitude: number) =>
+      publicCoordinates({ latitude, longitude, showExactAddress: false });
+
+    // Math.round daría -34.612 y -58.381: el pin quedaría fuera del área que filtra la base.
+    expect(approximate(-34.6125, -58.3815)).toEqual({
+      latitude: -34.613,
+      longitude: -58.382,
+      exact: false,
+    });
+    expect(approximate(34.6125, 58.3815)).toEqual({
+      latitude: 34.613,
+      longitude: 58.382,
+      exact: false,
+    });
+    expect(approximate(-34.612499, -0.0004)).toEqual({
+      latitude: -34.612,
+      longitude: 0,
+      exact: false,
+    });
+    // Valores que en coma flotante quedan apenas debajo de la mitad (1.0005 * 1000 = 1000.4999…).
+    expect(approximate(1.0005, -1.0005)).toEqual({
+      latitude: 1.001,
+      longitude: -1.001,
+      exact: false,
+    });
+  });
+
   it('returns null without coordinates', () => {
     expect(publicCoordinates({ ...property, latitude: null })).toBeNull();
   });

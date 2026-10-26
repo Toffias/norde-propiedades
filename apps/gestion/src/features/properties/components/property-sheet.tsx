@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@norde/ui/components/select';
+import type { LoadComboboxPage } from '@norde/ui/components/paged-combobox';
 import { SheetBody, SheetFooter } from '@norde/ui/components/sheet';
 import { toast } from '@norde/ui/components/sonner';
 import { Loader2Icon } from 'lucide-react';
@@ -37,11 +38,15 @@ import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { contractResolver } from '../../../lib/form';
 import { EntitySheet, type PanelNavigation } from '../../shared/components/entity-sheet';
 import { FormAlert } from '../../shared/components/form-alert';
+import { loadClientOptions } from '../../clients/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
 import { createPropertyAction, loadLocationOptions } from '../actions';
 import { CURRENCY_LABELS, OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../labels';
 
 type PropertyValues = CreatePropertyInput;
+
+/** Contactos activos que el actor ve, por nombre, teléfono o email. */
+const loadOwners: LoadComboboxPage = (search, page) => loadClientOptions(search, page);
 
 const INITIAL_VALUES: PropertyValues = {
   propertyType: 'apartment',
@@ -60,6 +65,7 @@ const INITIAL_VALUES: PropertyValues = {
   portalTitle: '',
   latitude: '',
   longitude: '',
+  ownerClientId: undefined,
 };
 
 function Section({
@@ -262,6 +268,36 @@ function NewPropertyForm({
                 {textField('unit', 'Unidad', { optional: true })}
               </div>
             </div>
+          </Section>
+
+          <Section
+            title="Propietario"
+            description="Es privado: no se publica. Si son varios, sumá el resto desde la ficha."
+          >
+            <FormField
+              control={form.control}
+              name="ownerClientId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Propietario (opcional)</FormLabel>
+                  <FormControl>
+                    <EntityPicker
+                      value={field.value}
+                      initial={undefined}
+                      onChange={field.onChange}
+                      loadPage={loadOwners}
+                      placeholder="Buscar contacto"
+                      searchPlaceholder="Nombre, teléfono o email"
+                      clearLabel="Quitar el propietario"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Buscalo en contactos. Si no está, cargalo primero ahí.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </Section>
 
           <Section

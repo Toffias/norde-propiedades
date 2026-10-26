@@ -92,6 +92,7 @@ describe('parseInbound', () => {
         message: expect.objectContaining({ kind: 'button', text: 'Alquilar' }) as unknown,
       }),
       expect.objectContaining({
+        audioMediaId: 'a',
         message: expect.objectContaining({ kind: 'unsupported', rawType: 'audio' }) as unknown,
       }),
     ]);
@@ -117,6 +118,15 @@ describe('parseInbound', () => {
     ).toEqual([]);
     expect(parseInbound('no es un objeto')).toEqual([]);
   });
+
+  it('cuts a profile name longer than the core accepts', () => {
+    const text = { from: '1', id: 'wamid.1', timestamp: '1', type: 'text', text: { body: 'x' } };
+    const named = (name: string) =>
+      parseInbound(payload([text], [{ wa_id: '1', profile: { name } }]))[0]?.profileName;
+
+    expect(named(` ${'a'.repeat(200)}`)).toBe('a'.repeat(120));
+    expect(named('   ')).toBeUndefined();
+  });
 });
 
 describe('buildWhatsAppReply', () => {
@@ -141,6 +151,18 @@ describe('buildWhatsAppReply', () => {
 
   it('falls back to a generic text when the model wrote nothing', () => {
     expect(buildWhatsAppReply(undefined, empty)).toEqual({ type: 'text', text: FALLBACK_TEXT });
+  });
+
+  it('cuts a text longer than WhatsApp accepts instead of sending nothing', () => {
+    const reply = buildWhatsAppReply('a'.repeat(5000), empty);
+
+    expect(reply).toEqual({ type: 'text', text: 'a'.repeat(4096) });
+  });
+
+  it('does not split an emoji when cutting', () => {
+    const reply = buildWhatsAppReply(`${'a'.repeat(4095)}🏠 casa`, empty);
+
+    expect(reply).toEqual({ type: 'text', text: 'a'.repeat(4095) });
   });
 
   it('cleans markdown that WhatsApp does not render', () => {

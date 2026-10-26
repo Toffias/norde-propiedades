@@ -128,12 +128,46 @@ describe('ReceiveInboundMessages', () => {
     expect(output.plan).toEqual({ action: 'notice', notice: 'unsupported_content' });
   });
 
+  it('tells the agent which messages were audios', async () => {
+    const ctx = setup();
+
+    const output = await planFor(ctx, [
+      ctx.message('hola'),
+      ctx.message('busco en Palermo', { kind: 'audio', rawType: 'audio' }),
+    ]);
+
+    expect(output.plan).toEqual({ action: 'agent', userText: 'hola\n(audio) busco en Palermo' });
+  });
+
   it('stays silent on acknowledgements', async () => {
     const ctx = setup();
 
     const output = await planFor(ctx, [ctx.message('gracias!')]);
 
     expect(output.plan).toEqual({ action: 'silent', reason: 'acknowledgement' });
+  });
+
+  it('answers a "dale" that replies to a question of the bot, but not a plain one', async () => {
+    const ctx = setup();
+    const first = await planFor(ctx, [ctx.message('hola')]);
+    expect((await planFor(ctx, [ctx.message('dale')])).plan).toEqual({
+      action: 'silent',
+      reason: 'acknowledgement',
+    });
+
+    const sent = await ctx.reply.execute(
+      {
+        conversationId: first.conversationId,
+        message: { type: 'text', text: '¿Querés que te contacte un asesor?' },
+      },
+      agent,
+    );
+    expect(sent.isOk()).toBe(true);
+
+    expect((await planFor(ctx, [ctx.message('dale')])).plan).toEqual({
+      action: 'agent',
+      userText: 'dale',
+    });
   });
 
   it('stays silent while a person handles the conversation', async () => {

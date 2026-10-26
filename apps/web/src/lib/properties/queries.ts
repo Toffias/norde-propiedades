@@ -109,7 +109,10 @@ export const findLocation = unstable_cache(
 
 export type ListingLookup =
   | { readonly kind: 'listed'; readonly listing: ListingDetail }
-  /** Existe pero ya no se ofrece (vendida, reservada, despublicada): la página responde 410. */
+  /**
+   * Existe pero ya no se ofrece (vendida, reservada, despublicada): "ya no está disponible", con
+   * `noindex`. Responde 200: Next no deja elegir otro estado desde una página (doc 02).
+   */
   | { readonly kind: 'not_listed' }
   | { readonly kind: 'not_found' };
 

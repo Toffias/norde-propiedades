@@ -119,6 +119,13 @@ export interface ClientTagGroupRepository {
   delete(id: ClientTagGroupId): Promise<void>;
 }
 
+/** Un contacto que pasó de una etiqueta a otra al unificarlas. */
+export interface MovedTagAssignment {
+  readonly clientId: string;
+  /** Todas sus etiquetas antes de la unificación. */
+  readonly tagIdsBefore: readonly string[];
+}
+
 export interface ClientTagRepository {
   findById(id: ClientTagId): Promise<ClientTag | undefined>;
   /** Otra etiqueta con el mismo nombre en el mismo grupo (sin distinguir mayúsculas). */
@@ -128,15 +135,17 @@ export interface ClientTagRepository {
   /** Cuántos contactos la tienen (también los de la papelera): una etiqueta en uso no se borra. */
   countUses(id: ClientTagId): Promise<number>;
   /**
-   * Pasa los contactos de `source` a `target` (los que ya tenían las dos quedan con una) y
-   * devuelve cuántos contactos tenían `source`. No borra `source`.
+   * Pasa a `target` hasta `limit` contactos que tienen `source` (los que ya tenían las dos quedan
+   * con una) y devuelve cuáles, con las etiquetas que tenían antes. Se llama hasta que devuelve
+   * menos de `limit`: así no se trae toda la agenda. No borra `source`.
    */
   moveAssignments(
     source: ClientTagId,
     target: ClientTagId,
+    limit: number,
     actorId: string,
     now: Date,
-  ): Promise<number>;
+  ): Promise<readonly MovedTagAssignment[]>;
   save(tag: ClientTag, actorId: string): Promise<void>;
   delete(id: ClientTagId): Promise<void>;
 }

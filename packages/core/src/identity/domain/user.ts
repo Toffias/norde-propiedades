@@ -46,6 +46,9 @@ export interface UserAlreadyActiveError {
 export interface CannotChangeOwnPermissionsError {
   readonly type: 'CannotChangeOwnPermissions';
 }
+export interface CannotChangeOwnRolesError {
+  readonly type: 'CannotChangeOwnRoles';
+}
 export interface DuplicatePermissionError {
   readonly type: 'DuplicatePermission';
   readonly permission: string;
@@ -147,11 +150,18 @@ export class User extends AggregateRoot<UserId, UserEvent> {
     };
   }
 
-  assignRoles(roleIds: readonly string[], now: Date): Result<void, UserNeedsRoleError> {
+  /** Reemplaza sus roles (al menos uno). Nadie cambia los suyos. */
+  assignRoles(
+    roleIds: readonly string[],
+    by: string,
+    now: Date,
+  ): Result<void, UserNeedsRoleError | CannotChangeOwnRolesError> {
     const normalized = normalizeRoles(roleIds);
     if (normalized.isErr()) return err(normalized.error);
     const changed = normalized.value.join() !== this.#state.roleIds.join();
     if (!changed) return ok(undefined);
+    // Como con los permisos propios: con sus roles se podría dar cualquier permiso.
+    if (by === this.id) return err({ type: 'CannotChangeOwnRoles' });
 
     this.#state = { ...this.#state, roleIds: normalized.value, updatedAt: now };
     this.record({

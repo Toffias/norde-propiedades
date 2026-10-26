@@ -16,7 +16,7 @@ import {
 import { Listing, type ListingNotClosedError } from '../../domain/listing';
 import { PORTAL_CATALOG, portalPublishes } from '../../domain/portal';
 import { checkPlanCredits, type ListingPlanError, type PlanRequiredError } from '../listing-plan';
-import { listingAuditTarget, listingAuditValue } from '../listing-support';
+import { listingAuditTarget, listingAuditValue, lockExistingListing } from '../listing-support';
 import type { DevelopmentListingSourceReader } from '../ports/development-listing-source';
 import type { PortalAccountDirectory } from '../ports/portal-account-directory';
 import type { PortalConnector } from '../ports/portal-connector';
@@ -135,7 +135,7 @@ export class RequestDevelopmentPublication {
         const account = await tx.accounts.get(portal);
         if (!account.canPublish) return err({ type: 'PortalNotEnabled', portal });
 
-        const existing = await tx.listings.findOne(portal, owner, undefined);
+        const existing = await lockExistingListing(tx, portal, owner, undefined);
         let listing: Listing;
         if (existing) {
           const republished = existing.republish({ listingType: 'simple', plan }, now);

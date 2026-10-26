@@ -80,12 +80,27 @@ export function publicCoordinates(property: {
   const { latitude, longitude, showExactAddress } = property;
   if (latitude === null || longitude === null) return null;
   if (showExactAddress) return { latitude, longitude, exact: true };
-  const factor = 10 ** APPROXIMATE_DECIMALS;
   return {
-    latitude: Math.round(latitude * factor) / factor,
-    longitude: Math.round(longitude * factor) / factor,
+    latitude: roundLikePostgres(latitude, APPROXIMATE_DECIMALS),
+    longitude: roundLikePostgres(longitude, APPROXIMATE_DECIMALS),
     exact: false,
   };
+}
+
+/** Decimales con que se guardan las coordenadas (`numeric(9, 6)`). */
+const STORED_DECIMALS = 6;
+
+/**
+ * Redondea como `round(numeric, n)` de Postgres, con el que la base filtra el área del mapa: la
+ * mitad se aleja del cero (-34.6125 → -34.613; `Math.round` daría -34.612, y el pin quedaría fuera
+ * de "Buscar en esta zona"). Cuenta en millonésimas enteras, lo que guarda la base, para no
+ * arrastrar errores de coma flotante.
+ */
+function roundLikePostgres(value: number, decimals: number): number {
+  const stored = Math.round(Math.abs(value) * 10 ** STORED_DECIMALS);
+  const step = 10 ** (STORED_DECIMALS - decimals);
+  const rounded = Math.floor((stored + step / 2) / step) / 10 ** decimals;
+  return value < 0 && rounded !== 0 ? -rounded : rounded;
 }
 
 export interface PublicMediaSource {

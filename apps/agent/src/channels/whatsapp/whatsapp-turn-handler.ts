@@ -9,9 +9,12 @@ import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
 
 import type { CustomerAssistant } from '../../assistant/customer-assistant';
+import { PROMPT_VERSION } from '../../assistant/instructions/build-instructions';
 import { keepAllowedLinks } from '../../assistant/link-policy';
+import { toolCallsForLog } from '../../assistant/tool-call-log';
 import { createTurnContext } from '../../assistant/turn-context';
 
+import type { DailyBudget } from '../shared/daily-budget';
 import type { FailureBreaker } from '../shared/failure-breaker';
 import type { WhatsAppInbound } from './inbound';
 import { NOTICE_TEXT, type NoticeThrottle } from './notices';
@@ -23,6 +26,8 @@ export interface WhatsAppTurnHandlerDeps {
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
+  /** Tope de gasto en OpenAI, compartido por los canales. */
+  readonly budget: DailyBudget;
   /** Sitio público: los links del agente a otros dominios se quitan antes de responder. */
   readonly siteUrl: string;
   readonly notices: NoticeThrottle;
@@ -93,6 +98,10 @@ export class WhatsAppTurnHandler {
       log.error('Agent breaker open after consecutive failures: message left unanswered');
       return;
     }
+    if (deps.budget.exceeded()) {
+      log.error('Daily OpenAI budget reached: message left unanswered');
+      return;
+    }
 
     const previousSearch = OpportunitySearchSchema.safeParse(conversation.searchCriteria);
     const context = createTurnContext({
@@ -102,6 +111,8 @@ export class WhatsAppTurnHandler {
       contactName: conversation.contactName,
       previousSearch: previousSearch.success ? previousSearch.data : undefined,
       now: deps.now(),
+      knownClient: conversation.clientId !== undefined,
+      freshMemory: conversation.agentMemory.length === 0,
     });
 
     const turn = await deps.assistant.run({
@@ -122,16 +133,30 @@ export class WhatsAppTurnHandler {
     }
     deps.breaker.recordSuccess();
 
+    const costUsd = deps.budget.record(turn.usage);
     log.info(
-      { ...turn.usage, tools: turn.toolCalls, registered: context.registration !== undefined },
+      {
+        ...turn.usage,
+        costUsd,
+        promptVersion: PROMPT_VERSION,
+        tools: turn.toolCalls.map((call) => call.name),
+        flagged: turn.flagged,
+        registered: context.registration !== undefined,
+      },
       'Agent turn',
     );
+    log.debug({ tools: toolCallsForLog(turn.toolCalls) }, 'Agent tool calls');
     const links = keepAllowedLinks(turn.text ?? '', deps.siteUrl);
     if (links.removed > 0) {
       log.warn({ removed: links.removed }, 'Agent reply had links to other domains: removed');
     }
     await this.send(conversation, buildWhatsAppReply(links.text, context), log, {
-      agentTurn: { memory: turn.memory, searchCriteria: context.lastSearch, usage: turn.usage },
+      agentTurn: {
+        memory: turn.memory,
+        searchCriteria: context.lastSearch,
+        usage: turn.usage,
+        promptVersion: PROMPT_VERSION,
+      },
       clientId: context.registration?.clientId,
     });
   }

@@ -12,7 +12,8 @@ import {
 import type { z } from 'zod';
 
 import { toToolOutput, type AgentTool } from './agent-tool';
-import { trimMemory } from './memory';
+import { compactMemory, trimMemory, type ToolOutputCompactor } from './memory';
+import type { InputModeration } from './moderation';
 
 export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 
@@ -25,6 +26,12 @@ export interface AgentRunnerOptions<TContext> {
   readonly tools: readonly AgentTool<TContext>[];
   /** Tope de ítems de memoria que se le pasan al modelo (recorte seguro, ver `trimMemory`). */
   readonly maxMemoryItems: number;
+  /** Turnos que la memoria guarda completos; en los anteriores se compacta (ver `compactMemory`). */
+  readonly fullMemoryTurns?: number;
+  /** Resume la salida de una tool de un turno viejo. Sin esto, solo se quita el razonamiento. */
+  readonly compactToolOutput?: ToolOutputCompactor;
+  /** Frena el mensaje del usuario antes de llamar al modelo (moderación). */
+  readonly moderation?: InputModeration;
   /**
    * Techo de la respuesta completa, **razonamiento incluido**. Con un techo bajo el modelo
    * gasta el presupuesto pensando y termina sin responder (MVP: 700 fallaba siempre).
@@ -53,6 +60,16 @@ export interface AgentTurnUsage {
   readonly requests: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  /** Parte de `inputTokens` que salió del cache de prompts (se cobra más barata). */
+  readonly cachedInputTokens: number;
+  /** Parte de `outputTokens` que fue razonamiento. */
+  readonly reasoningTokens: number;
+}
+
+export interface AgentToolCall {
+  readonly name: string;
+  /** Argumentos que mandó el modelo, ya parseados (o el texto crudo si no eran JSON). */
+  readonly arguments: unknown;
 }
 
 export type AgentTurnResult =
@@ -62,11 +79,13 @@ export type AgentTurnResult =
       readonly text: string | undefined;
       /** Con `outputSchema`: el objeto final, ya validado por el SDK (sin tipo: lo valida la app). */
       readonly output: unknown;
-      /** Memoria para guardar: la anterior más este turno completo. */
+      /** Memoria para guardar: la anterior más este turno completo (compactada). */
       readonly memory: readonly unknown[];
       readonly usage: AgentTurnUsage;
-      /** Nombres de las tools llamadas en el turno, en orden. */
-      readonly toolCalls: readonly string[];
+      /** Tools llamadas en el turno, en orden. */
+      readonly toolCalls: readonly AgentToolCall[];
+      /** La moderación frenó el mensaje: no se llamó al modelo y la memoria no cambió. */
+      readonly flagged: boolean;
     }
   | {
       readonly ok: false;
@@ -75,6 +94,15 @@ export type AgentTurnResult =
 
 export const DEFAULT_MAX_OUTPUT_TOKENS = 3000;
 export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'low';
+export const DEFAULT_FULL_MEMORY_TURNS = 2;
+
+const NO_USAGE: AgentTurnUsage = {
+  requests: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cachedInputTokens: 0,
+  reasoningTokens: 0,
+};
 
 /**
  * Corre un turno de un agente de IA sobre el OpenAI Agents SDK. Es el único lugar del
@@ -96,9 +124,15 @@ export class AgentRunner<TContext> {
       modelSettings: {
         maxTokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
         reasoning: { effort: options.reasoningEffort ?? DEFAULT_REASONING_EFFORT },
-        ...(options.promptCacheKey === undefined
-          ? {}
-          : { providerData: { prompt_cache_key: options.promptCacheKey } }),
+        // OpenAI no guarda las conversaciones (datos personales, Ley 25.326). Sin `store`, el
+        // razonamiento se reenvía cifrado en la memoria en lugar de referenciarse por id.
+        store: false,
+        providerData: {
+          include: ['reasoning.encrypted_content'],
+          ...(options.promptCacheKey === undefined
+            ? {}
+            : { prompt_cache_key: options.promptCacheKey }),
+        },
       },
     });
     this.#runner = new Runner({
@@ -114,6 +148,7 @@ export class AgentRunner<TContext> {
     readonly maxTokens?: number;
     readonly reasoningEffort?: string;
     readonly promptCacheKey?: string;
+    readonly store?: boolean;
   } {
     const settings = this.#agent.modelSettings;
     const cacheKey: unknown = settings.providerData?.prompt_cache_key;
@@ -121,6 +156,7 @@ export class AgentRunner<TContext> {
       ...(settings.maxTokens === undefined ? {} : { maxTokens: settings.maxTokens }),
       ...(settings.reasoning?.effort ? { reasoningEffort: settings.reasoning.effort } : {}),
       ...(typeof cacheKey === 'string' ? { promptCacheKey: cacheKey } : {}),
+      ...(settings.store === undefined ? {} : { store: settings.store }),
     };
   }
 
@@ -129,11 +165,22 @@ export class AgentRunner<TContext> {
     readonly userText: string;
     readonly context: TContext;
   }): Promise<AgentTurnResult> {
-    const previous = trimMemory(input.memory, this.options.maxMemoryItems);
-    const items: AgentInputItem[] = [...toInputItems(previous), user(input.userText)];
     const runContext = new RunContext<TContext>(input.context);
 
     try {
+      if (await this.options.moderation?.(input.userText)) {
+        return {
+          ok: true,
+          text: undefined,
+          output: undefined,
+          memory: input.memory,
+          usage: NO_USAGE,
+          toolCalls: [],
+          flagged: true,
+        };
+      }
+      const previous = this.compact(trimMemory(input.memory, this.options.maxMemoryItems));
+      const items: AgentInputItem[] = [...toInputItems(previous), user(input.userText)];
       const result = await this.#runner.run(this.#agent, items, {
         context: runContext,
         maxTurns: this.options.maxTurns ?? 8,
@@ -141,8 +188,11 @@ export class AgentRunner<TContext> {
       });
       const text = typeof result.finalOutput === 'string' ? result.finalOutput : undefined;
       const toolCalls = result.newItems.flatMap((item) =>
-        item.type === 'tool_call_item' && 'name' in item.rawItem ? [item.rawItem.name] : [],
+        item.type === 'tool_call_item' && item.rawItem.type === 'function_call'
+          ? [{ name: item.rawItem.name, arguments: parseArguments(item.rawItem.arguments) }]
+          : [],
       );
+      const { usage } = runContext;
       return {
         ok: true,
         text: text?.trim() === '' ? undefined : text,
@@ -150,17 +200,29 @@ export class AgentRunner<TContext> {
           typeof result.finalOutput === 'object' && result.finalOutput !== null
             ? result.finalOutput
             : undefined,
-        memory: result.history,
+        memory: this.compact(result.history),
         usage: {
-          requests: runContext.usage.requests,
-          inputTokens: runContext.usage.inputTokens,
-          outputTokens: runContext.usage.outputTokens,
+          requests: usage.requests,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cachedInputTokens: sumDetail(usage.inputTokensDetails, 'cached_tokens'),
+          reasoningTokens: sumDetail(usage.outputTokensDetails, 'reasoning_tokens'),
         },
         toolCalls,
+        flagged: false,
       };
     } catch (error) {
       return { ok: false, error };
     }
+  }
+
+  private compact(memory: readonly unknown[]): readonly unknown[] {
+    return compactMemory(memory, {
+      fullTurns: this.options.fullMemoryTurns ?? DEFAULT_FULL_MEMORY_TURNS,
+      ...(this.options.compactToolOutput
+        ? { compactToolOutput: this.options.compactToolOutput }
+        : {}),
+    });
   }
 
   private toSdkTool(agentTool: AgentTool<TContext>) {
@@ -189,4 +251,17 @@ export class AgentRunner<TContext> {
 function toInputItems(memory: readonly unknown[]): AgentInputItem[] {
   // El SDK valida cada ítem al enviarlo; acá solo se recupera el tipo perdido al persistir.
   return memory.filter((item) => typeof item === 'object' && item !== null) as AgentInputItem[];
+}
+
+/** Suma un detalle de uso (`cached_tokens`, `reasoning_tokens`) de todos los pedidos del turno. */
+function sumDetail(details: readonly Record<string, number>[], key: string): number {
+  return details.reduce((total, detail) => total + (detail[key] ?? 0), 0);
+}
+
+function parseArguments(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
 }

@@ -122,11 +122,17 @@ describe('parseInbound', () => {
 describe('buildWhatsAppReply', () => {
   const empty = { photo: undefined, buttons: undefined };
 
-  it('prioritizes photo, then buttons, then text', () => {
+  it('sends photo and buttons together, else photo, then buttons, then text', () => {
     const buttons = [{ id: 'opt_1', title: 'Ver más' }];
     const photo = { url: 'https://x.com/a.jpg', propertyId: 'p1' };
 
     expect(buildWhatsAppReply('Mirá', { photo, buttons })).toEqual({
+      type: 'buttons',
+      text: 'Mirá',
+      buttons,
+      imageUrl: 'https://x.com/a.jpg',
+    });
+    expect(buildWhatsAppReply('Mirá', { photo, buttons: undefined })).toEqual({
       type: 'image',
       imageUrl: 'https://x.com/a.jpg',
       caption: 'Mirá',

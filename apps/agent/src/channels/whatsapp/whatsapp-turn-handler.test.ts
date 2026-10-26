@@ -22,9 +22,13 @@ import { FixedClock, SequentialIdGenerator } from '@norde/core/shared/testing';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { createCustomerAssistant } from '../../assistant/customer-assistant';
+import { createCustomerAssistant, MODERATED_TEXT } from '../../assistant/customer-assistant';
+import { PROMPT_VERSION } from '../../assistant/instructions/build-instructions';
 
+import { DailyBudget } from '../shared/daily-budget';
 import { FailureBreaker } from '../shared/failure-breaker';
+
+const PRICES = { inputPerMillion: 0.25, cachedInputPerMillion: 0.025, outputPerMillion: 2 };
 import type { WhatsAppInbound } from './inbound';
 import { NOTICE_TEXT, NoticeThrottle } from './notices';
 import { FALLBACK_TEXT } from './reply-builder';
@@ -77,7 +81,7 @@ const NO_FILTERS = {
   page: null,
 };
 
-function setup(options: { breakerThreshold?: number } = {}) {
+function setup(options: { breakerThreshold?: number; budgetUsd?: number } = {}) {
   const model = new ScriptedModel();
   const clock = new FixedClock('2026-03-01T13:00:00Z');
   const ids = new SequentialIdGenerator();
@@ -92,6 +96,7 @@ function setup(options: { breakerThreshold?: number } = {}) {
     model: { instance: model },
     maxMemoryItems: 60,
     onToolError: (tool) => toolErrors.push(tool),
+    moderation: (text) => Promise.resolve(text.includes('prohibido')),
     actor,
     siteUrl: 'https://norde.com.ar',
     searchProperties: new SearchProperties({ properties }),
@@ -117,6 +122,7 @@ function setup(options: { breakerThreshold?: number } = {}) {
     assistant,
     actor,
     siteUrl: 'https://norde.com.ar',
+    budget: new DailyBudget(options.budgetUsd, PRICES),
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
     notices: new NoticeThrottle(HOUR),
     now: () => clock.now(),
@@ -254,6 +260,36 @@ describe('WhatsAppTurnHandler', () => {
       'clients.opportunity_created',
     );
     expect(ctx.messenger.sent.at(-1)?.message).toMatchObject({ type: 'text' });
+  });
+
+  it('answers a flagged message with a fixed text, without calling the model', async () => {
+    const ctx = setup();
+
+    await ctx.handler.handle([ctx.inbound('algo prohibido')]);
+
+    expect(ctx.model.calls).toHaveLength(0);
+    expect(ctx.messenger.sent[0]?.message).toEqual({ type: 'text', text: MODERATED_TEXT });
+  });
+
+  it('leaves the message unanswered when the daily OpenAI budget is reached', async () => {
+    const ctx = setup({ budgetUsd: 0 });
+
+    await ctx.handler.handle([ctx.inbound('hola')]);
+
+    expect(ctx.model.calls).toHaveLength(0);
+    expect(ctx.messenger.sent).toEqual([]);
+  });
+
+  it('stores the prompt version and the usage with the reply', async () => {
+    const ctx = setup();
+    ctx.model.enqueue([reply('¡Hola! ¿Qué estás buscando?')]);
+
+    await ctx.handler.handle([ctx.inbound('hola')]);
+
+    expect(ctx.conversations.messages.outbound[0]?.body).toMatchObject({
+      promptVersion: PROMPT_VERSION,
+      usage: { requests: 1, cachedInputTokens: 0, reasoningTokens: 0 },
+    });
   });
 
   it('sends the photo with the text as caption', async () => {

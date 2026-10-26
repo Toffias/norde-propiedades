@@ -23,7 +23,10 @@ import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
 import { createCustomerAssistant } from '../../assistant/customer-assistant';
+import { DailyBudget } from '../shared/daily-budget';
 import { FailureBreaker } from '../shared/failure-breaker';
+
+const PRICES = { inputPerMillion: 0.25, cachedInputPerMillion: 0.025, outputPerMillion: 2 };
 
 import { FALLBACK_TEXT } from './reply-builder';
 import { WebChatTurnHandler } from './web-chat-turn-handler';
@@ -74,7 +77,9 @@ const NO_FILTERS = {
   page: null,
 };
 
-function setup(options: { breakerThreshold?: number; limits?: Partial<UsageLimits> } = {}) {
+function setup(
+  options: { breakerThreshold?: number; limits?: Partial<UsageLimits>; budgetUsd?: number } = {},
+) {
   const model = new ScriptedModel();
   const clock = new FixedClock('2026-03-01T13:00:00Z');
   const ids = new SequentialIdGenerator();
@@ -118,6 +123,7 @@ function setup(options: { breakerThreshold?: number; limits?: Partial<UsageLimit
     assistant,
     actor,
     siteUrl: 'https://norde.com.ar',
+    budget: new DailyBudget(options.budgetUsd, PRICES),
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
     now: () => clock.now(),
     logger: pino({ level: 'silent' }),
@@ -348,6 +354,13 @@ describe('WebChatTurnHandler', () => {
 
     expect(result).toEqual({ kind: 'busy' });
     expect(ctx.model.calls).toHaveLength(1);
+  });
+
+  it('answers unavailable when the daily OpenAI budget is reached', async () => {
+    const ctx = setup({ budgetUsd: 0 });
+
+    expect(await ctx.handler.handle(ctx.message('hola'))).toEqual({ kind: 'unavailable' });
+    expect(ctx.model.calls).toHaveLength(0);
   });
 
   it('answers unavailable when the daily cap of the channel is reached', async () => {

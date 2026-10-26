@@ -31,6 +31,14 @@ const EnvSchema = z
     /** Fallos seguidos del agente antes de dejar de mandar respuestas de error (que se cobran). */
     AGENT_BREAKER_THRESHOLD: positiveInt(5),
     AGENT_BREAKER_COOLDOWN_MINUTES: positiveInt(10),
+    /** Tope de gasto estimado en OpenAI de las últimas 24 h, en USD. Sin valor, solo se mide. */
+    AGENT_DAILY_BUDGET_USD: z.coerce.number().positive().optional(),
+    /** Precios del modelo en USD por millón de tokens (los de gpt-5-mini por defecto). */
+    OPENAI_PRICE_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(0.25),
+    OPENAI_PRICE_CACHED_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(0.025),
+    OPENAI_PRICE_OUTPUT_PER_MTOK: z.coerce.number().nonnegative().default(2),
+    /** Moderación de OpenAI (gratis) antes de cada turno del agente. */
+    AGENT_MODERATION: z.stringbool().default(true),
 
     // Conversaciones
     CONVERSATION_IDLE_RESET_HOURS: positiveInt(24),

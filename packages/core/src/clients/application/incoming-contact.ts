@@ -13,6 +13,7 @@ import {
 } from '../../shared';
 import { Client, type MissingContactInfoError } from '../domain/client';
 import type { ContactChannel } from '../domain/contact-channel';
+import { maskSensitiveNumbers } from '../domain/contact-masking';
 import {
   findOpenOpportunityAbout,
   Opportunity,
@@ -92,7 +93,10 @@ export async function recordIncomingContact(
     client = registered.value;
   }
 
-  const { type, intent, propertyId, search, note, noMatchingStock } = input.opportunity;
+  const { type, intent, propertyId, search, noMatchingStock } = input.opportunity;
+  // La nota es texto libre (de un formulario o del agente de IA): no guarda documentos ni tarjetas.
+  const note =
+    input.opportunity.note === undefined ? undefined : maskSensitiveNumbers(input.opportunity.note);
   const open = findOpenOpportunityAbout(await tx.opportunities.findOpenByClient(client.id), {
     type,
     propertyId,

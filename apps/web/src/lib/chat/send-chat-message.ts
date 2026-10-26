@@ -18,18 +18,31 @@ import { chatListingHref } from './listing-link';
 const SESSION_COOKIE = 'norde_chat';
 const SESSION_MAX_AGE_S = 30 * 24 * 3600;
 
+const DAY_MS = 24 * 3_600_000;
+
 /** Mensajes por IP cada 10 minutos. El agente suma sus propios límites por sesión. */
 const allow = createRateLimiter(20, () => Date.now());
+/** Mensajes por IP por día: cada uno es un turno del LLM. */
+const allowToday = createRateLimiter(150, () => Date.now(), DAY_MS);
+/**
+ * Conversaciones nuevas por IP por día. "Nueva conversación" crea otra sesión con contadores en
+ * cero en el agente: sin este tope, se esquivarían sus límites por sesión.
+ */
+const allowNewSession = createRateLimiter(10, () => Date.now(), DAY_MS);
 
 const UNAVAILABLE =
   'El asistente no está disponible en este momento. Probá de nuevo en unos minutos.';
 const BUSY = 'Recibimos muchos mensajes seguidos. Esperá unos minutos y volvé a escribir.';
 
-/** La sesión del visitante; si no tiene (o no es válida), se crea una nueva. */
-async function sessionId(): Promise<string> {
+/**
+ * La sesión del visitante; si no tiene (o no es válida), se crea una nueva. `undefined` si ese IP
+ * ya abrió demasiadas hoy.
+ */
+async function sessionId(ip: string): Promise<string | undefined> {
   const store = await cookies();
   const current = z.uuid().safeParse(store.get(SESSION_COOKIE)?.value);
   if (current.success) return current.data;
+  if (!allowNewSession(ip)) return undefined;
 
   const created = randomUUID();
   store.set(SESSION_COOKIE, created, {
@@ -53,11 +66,14 @@ export async function sendChatMessage(input: unknown): Promise<ChatActionResult>
 
   const chat = getContainer().chat;
   if (!chat) return { status: 'error', message: UNAVAILABLE };
-  if (!allow(await clientIp())) return { status: 'error', message: BUSY };
+  const ip = await clientIp();
+  if (!allow(ip) || !allowToday(ip)) return { status: 'error', message: BUSY };
+  const session = await sessionId(ip);
+  if (!session) return { status: 'error', message: BUSY };
 
   const logger = getLogger().child({ component: 'site-chat' });
   try {
-    const outcome = await chat.send({ sessionId: await sessionId(), ...parsed.data });
+    const outcome = await chat.send({ sessionId: session, ...parsed.data });
     switch (outcome.kind) {
       case 'reply':
         return { status: 'ok', reply: outcome.reply && toChatReply(outcome.reply) };

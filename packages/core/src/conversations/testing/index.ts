@@ -129,8 +129,11 @@ export class RecordingMessenger implements ChannelMessenger {
     return Promise.resolve(ok({ channelMessageId: `wamid.out-${this.sent.length}` }));
   }
 
-  markAsRead(channelMessageId: string) {
+  readonly typing: string[] = [];
+
+  markAsRead(channelMessageId: string, options?: { readonly typing: boolean }) {
     this.read.push(channelMessageId);
+    if (options?.typing) this.typing.push(channelMessageId);
     return Promise.resolve();
   }
 }

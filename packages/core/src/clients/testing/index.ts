@@ -100,6 +100,7 @@ import {
   type OpportunityBulkOperationSnapshot,
 } from '../domain/opportunity-bulk-operation';
 import type { ClientActivity } from '../domain/client-activity';
+import type { IncomingRelationKinds } from '../domain/client-relation';
 import type { ErasureRecord } from '../domain/client-erasure';
 import {
   ClientImport,
@@ -120,6 +121,7 @@ import {
   type FeaturedListingRepository,
   type InquiryRepository,
   type InquiryRuleRepository,
+  type MovedTagAssignment,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
   type OpportunityRepository,
@@ -425,11 +427,16 @@ export class InMemoryClientTagRepository implements ClientTagRepository {
     );
   }
 
-  moveAssignments(source: ClientTagId, target: ClientTagId) {
-    let moved = 0;
+  /** Cuántas veces se llamó a `moveAssignments`: los tests verifican los lotes. */
+  moveCalls = 0;
+
+  moveAssignments(source: ClientTagId, target: ClientTagId, limit: number) {
+    this.moveCalls += 1;
+    const moved: MovedTagAssignment[] = [];
     for (const [id, row] of this.clients.rows) {
+      if (moved.length >= limit) break;
       if (!row.tagIds.includes(source)) continue;
-      moved += 1;
+      moved.push({ clientId: id, tagIdsBefore: [...row.tagIds] });
       const tagIds = [...new Set(row.tagIds.map((tag) => (tag === source ? target : tag)))];
       this.clients.rows.set(id, { ...row, tagIds });
     }
@@ -462,8 +469,15 @@ export class InMemoryClientLinkedRecords implements ClientLinkedRecords {
   readonly counts = new Map<string, ClientRecordCounts>();
   readonly moves: { readonly fromId: string; readonly toId: string }[] = [];
 
+  /** Relaciones entrantes por tipo, para la vista previa de una unificación. */
+  readonly incomingKinds = new Map<string, IncomingRelationKinds>();
+
   countFor(clientId: string) {
     return Promise.resolve(this.counts.get(clientId) ?? NO_RECORDS);
+  }
+
+  incomingRelationKinds(clientId: string) {
+    return Promise.resolve(this.incomingKinds.get(clientId) ?? {});
   }
 
   moveAll(fromId: string, toId: string) {

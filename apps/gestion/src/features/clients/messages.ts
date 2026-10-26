@@ -261,6 +261,12 @@ export const MERGE_CLIENTS_ERROR_MESSAGES = {
   ClientNotFound: 'No encontramos uno de los contactos. Puede que lo hayan borrado.',
   ClientInTrash: 'Uno de los dos contactos está en la papelera: restauralo primero.',
   SameClient: 'Elegí otro contacto para unificar.',
+  InvalidRelation:
+    'El duplicado tiene una relación que el principal no puede tener (por ejemplo, "trabaja en" para una empresa). Quitala del duplicado antes de unificar.',
+  TooManyRelations:
+    'Juntos superan el tope de relaciones de un contacto. Quitá alguna antes de unificar.',
+  TooManyTags: (error) =>
+    `Juntos superan el tope de ${error.max.toLocaleString('es-AR')} etiquetas por contacto. Quitá alguna antes de unificar.`,
 } satisfies ErrorMessages<MergeClientsError>;
 
 // ---------- Ficha completa: actividad, notas, oportunidades, destacadas ----------

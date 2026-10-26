@@ -244,7 +244,7 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 **Etiquetas** (`/contactos/etiquetas` y `/contactos/etiquetas/grupos`, con "Editar etiquetas" `tags:update`):
 
 - Grupos de etiquetas (Origen, Alquileres, Colegas) con cuántas etiquetas y cuántos contactos activos tienen. Etiquetas sueltas o dentro de un grupo, con su contador de contactos.
-- Crear, renombrar, mover de grupo, borrar y **unificar**: los contactos de una etiqueta pasan a otra (quien tenía las dos queda con una) y la primera se borra. Una etiqueta en uso no se borra; se unifica con otra o se quita de los contactos. Un grupo con etiquetas no se borra.
+- Crear, renombrar, mover de grupo, borrar y **unificar**: los contactos de una etiqueta pasan a otra (quien tenía las dos queda con una) y la primera se borra. La unificación queda en el historial de la etiqueta de destino y en el de cada contacto que cambió (sus etiquetas de antes y de después); los contactos se recorren por lotes, en la misma transacción. Una etiqueta en uso no se borra; se unifica con otra o se quita de los contactos. Un grupo con etiquetas no se borra.
 - En la ficha, la sección Etiquetas se edita con un selector paginado (hasta 50 por contacto). La edita quien puede editar el contacto y queda en su historial.
 - Filtros de la agenda: con o sin etiquetas y una etiqueta puntual (en "Más filtros").
 
@@ -262,6 +262,8 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 - El principal se queda con todo: teléfonos, emails, canales, tipos de cliente, etiquetas, relaciones (las suyas y las que otros declaran hacia el duplicado), oportunidades, actividad, búsquedas guardadas, destacadas, envíos y consultas. Lo que ya tiene el principal manda (nombre, agente, teléfono y email principales, datos cargados); los datos vacíos se completan con los del duplicado. Si los dos tenían destacada la misma propiedad, la del duplicado pasa como quitada.
 - El duplicado queda vacío en la papelera, apuntando al principal: no se lista ni se restaura, y su dirección redirige a la ficha del principal.
 - Pide poder editar los dos. Un propietario cuyos datos el usuario no ve no se puede unificar.
+- La unión respeta las reglas de la ficha: si el principal no puede tener una relación del duplicado (por ejemplo, una empresa no "trabaja en" otra) o juntos pasan el tope de 50 relaciones o de 50 etiquetas, no se unifica y se avisa qué corregir. No se descarta nada en silencio.
+- Las relaciones que **otros** contactos declaran hacia el duplicado pasan igual, aunque no encajen con el tipo del principal (alguien que "trabaja en" una empresa que se unifica en una persona): son datos de esos otros contactos. Antes de confirmar, la pantalla avisa cuántas no encajan para revisarlas después.
 - Queda en el historial de los dos, con el diff y cuántos registros de cada tipo se movieron. El historial del principal muestra también el del duplicado.
 - El mapeo con Tokko pasa al principal en la misma transacción: una reimportación resuelve al contacto que quedó.
 - **Lo de los otros módulos también pasa al principal**, al recibir `clients.clients_merged` (en segundos, por el agente):

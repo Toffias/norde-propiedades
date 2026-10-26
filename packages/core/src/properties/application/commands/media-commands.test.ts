@@ -386,8 +386,17 @@ describe('gallery edits', () => {
     expect(uow.media.rows.get(b)?.isCover).toBe(true);
     expect(uow.events.published).toMatchObject([
       { type: 'properties.media_deleted', payload: { mediaId: a, storageKeys: keys } },
+      { type: 'properties.media_changed', payload: { mediaId: b } },
     ]);
-    expect(uow.audit.entries[0]).toMatchObject({ action: 'property.media_deleted' });
+    expect(uow.audit.entries).toHaveLength(1);
+    expect(uow.audit.entries[0]).toMatchObject({
+      action: 'property.media_deleted',
+      entityId: PROPERTY_ID,
+      changes: {
+        [`media.${a}.isCover`]: { before: true, after: null },
+        [`media.${b}.isCover`]: { before: false, after: true },
+      },
+    });
 
     unwrap(await new DeleteStoredMediaFiles({ storage }).execute({ storageKeys: keys }, JOBS));
     expect([...storage.objects.keys()].some((key) => key.includes(a))).toBe(false);

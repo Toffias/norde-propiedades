@@ -5,8 +5,12 @@ import { Email } from '../../shared/domain/value-objects/email';
 import { Phone } from '../../shared/domain/value-objects/phone';
 
 import { Client, type ClientId } from './client';
-import { MAX_CLIENT_RELATIONS, relationAllowed } from './client-relation';
-import { ClientTag, ClientTagGroup } from './client-tag';
+import {
+  incomingRelationsThatDoNotFit,
+  MAX_CLIENT_RELATIONS,
+  relationAllowed,
+} from './client-relation';
+import { ClientTag, ClientTagGroup, MAX_CLIENT_TAGS } from './client-tag';
 
 const T0 = new Date('2026-03-01T10:00:00Z');
 const T1 = new Date('2026-03-02T10:00:00Z');
@@ -84,6 +88,15 @@ describe('Client relations', () => {
     expect(relationAllowed('member_of', 'company', 'group')).toBe(true);
     expect(relationAllowed('member_of', 'group', 'group')).toBe(false);
     expect(relationAllowed('related', 'group', 'person')).toBe(true);
+  });
+
+  it('counts the incoming relations that would not fit a contact of another kind', () => {
+    const incoming = { works_at: 3, member_of: 2, related: 4 };
+
+    expect(incomingRelationsThatDoNotFit(incoming, 'company')).toBe(2);
+    expect(incomingRelationsThatDoNotFit(incoming, 'person')).toBe(5);
+    expect(incomingRelationsThatDoNotFit(incoming, 'group')).toBe(3);
+    expect(incomingRelationsThatDoNotFit({}, 'person')).toBe(0);
   });
 
   it('links a person to a company and only updates the label when linked again', () => {
@@ -205,6 +218,49 @@ describe('Client.absorb (unificar contactos)', () => {
     expect(merged.agentId).toBe('agent-1');
     expect(merged.profile).toMatchObject({ companyName: 'Acme', birthDate: '1980-05-01' });
     expect(merged.createdAt).toEqual(T0);
+  });
+
+  it('does not merge a relation the principal cannot declare, and changes nothing', () => {
+    const company = aClient(10, { kind: 'company', name: 'Acme' });
+    const primary = aClient(1, { kind: 'company', name: 'Acme SA' });
+    const duplicate = aClient(2);
+    duplicate.link(ref(company), 'works_at', undefined, T1);
+    const before = primary.toSnapshot();
+
+    expect(primary.absorb(duplicate, 'agent-1', T2)).toMatchObject({
+      error: { type: 'InvalidRelation' },
+    });
+    expect(primary.toSnapshot()).toEqual(before);
+    expect(duplicate.isDeleted).toBe(false);
+  });
+
+  it('does not merge when together they pass the relation or tag limits', () => {
+    const half = MAX_CLIENT_RELATIONS / 2 + 1;
+    const primary = aClient(1);
+    const duplicate = aClient(2);
+    for (let n = 0; n < half; n += 1) {
+      const other = (k: string) => ({
+        id: `${k}-${n.toString()}`,
+        kind: 'person' as const,
+        isDeleted: false,
+      });
+      primary.link(other('a'), 'related', undefined, T1);
+      duplicate.link(other('b'), 'related', undefined, T1);
+    }
+    expect(primary.absorb(duplicate, 'agent-1', T2)).toMatchObject({
+      error: { type: 'TooManyRelations' },
+    });
+
+    const tagged = aClient(3);
+    const other = aClient(4);
+    const tags = (k: string) =>
+      Array.from({ length: MAX_CLIENT_TAGS / 2 + 1 }, (_, n) => `${k}-${n.toString()}`);
+    tagged.changeTags(tags('a'), T1);
+    other.changeTags(tags('b'), T1);
+    expect(tagged.absorb(other, 'agent-1', T2)).toMatchObject({
+      error: { type: 'TooManyTags', max: MAX_CLIENT_TAGS },
+    });
+    expect(tagged.tagIds).toHaveLength(MAX_CLIENT_TAGS / 2 + 1);
   });
 
   it('leaves the duplicate empty in the trash pointing to the principal', () => {

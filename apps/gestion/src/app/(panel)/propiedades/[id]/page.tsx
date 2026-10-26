@@ -181,13 +181,17 @@ async function renderTab(
   actor: SessionActor['actor'],
   query: SearchParams,
 ) {
-  const { properties, clients, reporting, portals } = getContainer();
+  const { properties, clients, reporting, portals, appraisals } = getContainer();
   const propertyId = detail.id;
   const owner = { kind: 'property', id: propertyId } as const;
 
   switch (tab) {
     case 'detalles': {
-      const [configuration, ...features] = await Promise.all([
+      const [source, configuration, ...features] = await Promise.all([
+        // Sin permiso para ver tasaciones, la ficha no muestra la de origen.
+        actor.can('appraisals:read')
+          ? appraisals.getSourceAppraisal.execute({ propertyId }, actor)
+          : undefined,
         properties.getPropertyConfiguration.execute(actor),
         ...(['service', 'room', 'amenity'] as const).map((kind) =>
           properties.listFeatures.execute(
@@ -202,6 +206,7 @@ async function renderTab(
       return (
         <DetailSections
           detail={detail}
+          sourceAppraisal={source?.isOk() ? source.value : undefined}
           permissions={permissions}
           visibleAttributes={type?.visibleAttributes ?? []}
           catalog={features.flatMap((page) => (page.isOk() ? page.value.items : []))}

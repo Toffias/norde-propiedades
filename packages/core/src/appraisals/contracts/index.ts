@@ -115,6 +115,10 @@ export type ChangeAppraisalStatusInput = z.input<typeof ChangeAppraisalStatusInp
 export const AppraisalIdInputSchema = z.object({ appraisalId: z.uuid() });
 export type AppraisalIdInput = z.input<typeof AppraisalIdInputSchema>;
 
+/** La tasación de origen de una propiedad: la que se convirtió en ella. */
+export const SourceAppraisalQuerySchema = z.object({ propertyId: z.uuid() });
+export type SourceAppraisalQuery = z.input<typeof SourceAppraisalQuerySchema>;
+
 // ---------- Resultado ----------
 
 /** Replica `MAX_APPRAISAL_COMPARABLES` del dominio. */
@@ -355,6 +359,20 @@ export interface AppraisalDetail extends AppraisalListRow {
   readonly convertible: boolean;
   /** Se puede descargar el PDF: está tasada (o convertida) y tiene un valor (lo decide el dominio). */
   readonly reportable: boolean;
+}
+
+// ---------- Tasación de origen (ficha de propiedad) ----------
+
+/** La tasación que se convirtió en una propiedad, para mostrarla en su ficha con un link. */
+export interface SourceAppraisal {
+  readonly id: string;
+  readonly code: string;
+  readonly status: AppraisalStatusValue;
+  readonly appraiser: AppraisalRef | undefined;
+  readonly createdAt: Date;
+  readonly sale: AppraisalValueRangeDto | undefined;
+  readonly rent: AppraisalValueRangeDto | undefined;
+  readonly deletedAt: Date | undefined;
 }
 
 export const ListAppraisalHistoryQuerySchema = historyQuerySchema().extend({

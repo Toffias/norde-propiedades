@@ -19,7 +19,7 @@ import {
 import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
 import { cn } from '@norde/ui/lib/utils';
-import { Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
@@ -48,6 +48,33 @@ function recordSummary(side: ClientMergeSide): string {
   if (side.tagCount > 0) parts.push(`${String(side.tagCount)} etiquetas`);
   if (side.relationCount > 0) parts.push(`${String(side.relationCount)} relaciones`);
   return parts.length === 0 ? 'Nada más cargado.' : parts.join(' · ');
+}
+
+/** Relaciones de otros contactos hacia el que se absorbe que no encajan con el que queda. */
+function RelationsWarning({
+  duplicate,
+  primary,
+}: {
+  readonly duplicate: ClientMergeSide;
+  readonly primary: ClientMergeSide;
+}) {
+  const count = duplicate.incomingRelationsThatDoNotFit;
+  if (count === 0) return null;
+  const relations = count === 1 ? '1 relación' : `${count.toLocaleString('es-AR')} relaciones`;
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 rounded-md border border-warning-300 bg-warning-50 px-3 py-2 text-sm text-foreground dark:border-warning-500/50 dark:bg-warning-500/10"
+    >
+      <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>
+        {relations} de otros contactos hacia {clientName(duplicate.name)} no{' '}
+        {count === 1 ? 'encaja' : 'encajan'} con un contacto de tipo{' '}
+        {CLIENT_KIND_LABELS[primary.kind].toLowerCase()}. Igual se pasan a{' '}
+        {clientName(primary.name)}: revisalas después de unificar.
+      </span>
+    </div>
+  );
 }
 
 function SideCard({
@@ -230,6 +257,12 @@ export function ClientMergeDialog({
             />
           </fieldset>
         )}
+        {preview !== undefined &&
+          (keepCurrent ? (
+            <RelationsWarning duplicate={preview.duplicate} primary={preview.primary} />
+          ) : (
+            <RelationsWarning duplicate={preview.primary} primary={preview.duplicate} />
+          ))}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={close}>
             Cancelar

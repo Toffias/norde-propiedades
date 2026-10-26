@@ -219,6 +219,27 @@ describe('PreviewClientMerge', () => {
     });
   });
 
+  it('tells, for each side, how many incoming relations would not fit the other one', async () => {
+    const uow = new InMemoryClientsUnitOfWork();
+    const person = await seedClient(uow, { name: 'Ana Pérez', phones: ['+5491166899124'] });
+    const company = await seedClient(uow, {
+      name: 'Acme',
+      kind: 'company',
+      phones: ['+541147770000'],
+    });
+    // Dos personas "trabajan en" Acme y alguien está relacionado con Ana.
+    uow.records.incomingKinds.set(company.id, { works_at: 2, related: 1 });
+    uow.records.incomingKinds.set(person.id, { related: 1 });
+    const useCase = new PreviewClientMerge({ uow, agents: new InMemoryClientAgents() });
+
+    const preview = unwrap(
+      await useCase.execute({ primaryId: person.id, duplicateId: company.id }, MERGER),
+    );
+
+    expect(preview.duplicate.incomingRelationsThatDoNotFit).toBe(2);
+    expect(preview.primary.incomingRelationsThatDoNotFit).toBe(0);
+  });
+
   it('uses the same permissions as merging', async () => {
     const { uow, primary, duplicate } = await setup();
     const useCase = new PreviewClientMerge({ uow, agents: new InMemoryClientAgents() });

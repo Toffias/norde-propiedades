@@ -56,6 +56,24 @@ function relationAllowedTo(kind: ClientRelationKind, to: ClientKind): boolean {
   }
 }
 
+/** Relaciones que otros contactos declaran hacia uno, por tipo de relación. */
+export type IncomingRelationKinds = Readonly<Partial<Record<ClientRelationKind, number>>>;
+
+/**
+ * Al unificar, las relaciones que otros declaran hacia el duplicado pasan al principal. Cuántas de
+ * ellas no encajan con el tipo del principal: alguien que "trabaja en" una empresa terminaría
+ * trabajando en una persona. Se mueven igual (son datos de otros contactos), pero se avisa.
+ */
+export function incomingRelationsThatDoNotFit(
+  incoming: IncomingRelationKinds,
+  to: ClientKind,
+): number {
+  return CLIENT_RELATION_KINDS.reduce(
+    (total, kind) => (relationAllowedTo(kind, to) ? total : total + (incoming[kind] ?? 0)),
+    0,
+  );
+}
+
 /** ¿Puede un registro de tipo `from` tener esta relación con uno de tipo `to`? */
 export function relationAllowed(
   kind: ClientRelationKind,

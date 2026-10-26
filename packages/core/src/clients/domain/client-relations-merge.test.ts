@@ -5,7 +5,11 @@ import { Email } from '../../shared/domain/value-objects/email';
 import { Phone } from '../../shared/domain/value-objects/phone';
 
 import { Client, type ClientId } from './client';
-import { MAX_CLIENT_RELATIONS, relationAllowed } from './client-relation';
+import {
+  incomingRelationsThatDoNotFit,
+  MAX_CLIENT_RELATIONS,
+  relationAllowed,
+} from './client-relation';
 import { ClientTag, ClientTagGroup, MAX_CLIENT_TAGS } from './client-tag';
 
 const T0 = new Date('2026-03-01T10:00:00Z');
@@ -84,6 +88,15 @@ describe('Client relations', () => {
     expect(relationAllowed('member_of', 'company', 'group')).toBe(true);
     expect(relationAllowed('member_of', 'group', 'group')).toBe(false);
     expect(relationAllowed('related', 'group', 'person')).toBe(true);
+  });
+
+  it('counts the incoming relations that would not fit a contact of another kind', () => {
+    const incoming = { works_at: 3, member_of: 2, related: 4 };
+
+    expect(incomingRelationsThatDoNotFit(incoming, 'company')).toBe(2);
+    expect(incomingRelationsThatDoNotFit(incoming, 'person')).toBe(5);
+    expect(incomingRelationsThatDoNotFit(incoming, 'group')).toBe(3);
+    expect(incomingRelationsThatDoNotFit({}, 'person')).toBe(0);
   });
 
   it('links a person to a company and only updates the label when linked again', () => {

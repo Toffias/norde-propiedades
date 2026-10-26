@@ -31,6 +31,7 @@ export {
   MAX_CLIENT_RELATIONS,
   type ClientRelation,
   type ClientRelationKind,
+  type IncomingRelationKinds,
 } from './domain/client-relation';
 export {
   ClientTag,

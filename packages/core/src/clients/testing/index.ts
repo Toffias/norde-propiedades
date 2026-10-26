@@ -100,6 +100,7 @@ import {
   type OpportunityBulkOperationSnapshot,
 } from '../domain/opportunity-bulk-operation';
 import type { ClientActivity } from '../domain/client-activity';
+import type { IncomingRelationKinds } from '../domain/client-relation';
 import type { ErasureRecord } from '../domain/client-erasure';
 import {
   ClientImport,
@@ -468,8 +469,15 @@ export class InMemoryClientLinkedRecords implements ClientLinkedRecords {
   readonly counts = new Map<string, ClientRecordCounts>();
   readonly moves: { readonly fromId: string; readonly toId: string }[] = [];
 
+  /** Relaciones entrantes por tipo, para la vista previa de una unificación. */
+  readonly incomingKinds = new Map<string, IncomingRelationKinds>();
+
   countFor(clientId: string) {
     return Promise.resolve(this.counts.get(clientId) ?? NO_RECORDS);
+  }
+
+  incomingRelationKinds(clientId: string) {
+    return Promise.resolve(this.incomingKinds.get(clientId) ?? {});
   }
 
   moveAll(fromId: string, toId: string) {

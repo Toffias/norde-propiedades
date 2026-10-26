@@ -29,6 +29,7 @@ import {
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { createClientsUnitOfWork } from './clients-unit-of-work';
+import { DrizzleClientLinkedRecords } from './drizzle-client-linked-records';
 import { DrizzleClientListQuery } from './drizzle-client-list-query';
 import { DrizzleClientRelationQuery } from './drizzle-client-relation-query';
 import { DrizzleClientRepository } from './drizzle-client-repositories';
@@ -441,6 +442,30 @@ describe('MergeClients (Postgres)', () => {
       { action: 'client.merged', entityId: primary },
       { action: 'client.merged_into', entityId: duplicate },
     ]);
+  });
+});
+
+describe('DrizzleClientLinkedRecords (Postgres)', () => {
+  it('counts the incoming relations of a contact by kind', async () => {
+    const acme = await createClient('Acme', '+541147770001', { kind: 'company' });
+    const ana = await createClient('Ana', '+5491166899101');
+    const bruno = await createClient('Bruno', '+5491166899102');
+    const carla = await createClient('Carla', '+5491166899103');
+    const relation = (from: string, kind: string) => ({
+      clientId: from,
+      relatedClientId: acme,
+      kind,
+      createdAt: NOW,
+      createdBy: AGENT,
+    });
+    await db
+      .insert(clientRelations)
+      .values([relation(ana, 'works_at'), relation(bruno, 'works_at'), relation(carla, 'related')]);
+
+    const records = new DrizzleClientLinkedRecords(db);
+
+    expect(await records.incomingRelationKinds(acme)).toEqual({ works_at: 2, related: 1 });
+    expect(await records.incomingRelationKinds(ana)).toEqual({});
   });
 });
 

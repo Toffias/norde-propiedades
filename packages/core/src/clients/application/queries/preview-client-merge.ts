@@ -8,6 +8,10 @@ import {
 } from '../../contracts';
 import type { Client } from '../../domain/client';
 import {
+  incomingRelationsThatDoNotFit,
+  type IncomingRelationKinds,
+} from '../../domain/client-relation';
+import {
   findClient,
   invalidInput,
   masksOwnerContact,
@@ -22,7 +26,9 @@ export type PreviewClientMergeError = ForbiddenError | InvalidInputError | Clien
 
 function side(
   client: Client,
+  other: Client,
   records: ClientRecordCounts,
+  incoming: IncomingRelationKinds,
   names: ReadonlyMap<string, string>,
 ): ClientMergeSide {
   const s = client.toSnapshot();
@@ -36,6 +42,7 @@ function side(
     agent: s.agentId === undefined ? undefined : { id: s.agentId, name: names.get(s.agentId) },
     tagCount: s.tagIds.length,
     relationCount: s.relations.length + records.incomingRelations,
+    incomingRelationsThatDoNotFit: incomingRelationsThatDoNotFit(incoming, other.kind),
     createdAt: s.createdAt,
     records,
   };
@@ -70,6 +77,8 @@ export class PreviewClientMerge {
         duplicate,
         primaryRecords: await tx.records.countFor(primary.id),
         duplicateRecords: await tx.records.countFor(duplicate.id),
+        primaryIncoming: await tx.records.incomingRelationKinds(primary.id),
+        duplicateIncoming: await tx.records.incomingRelationKinds(duplicate.id),
       };
     });
     if (!loaded || loaded.primary.isDeleted || loaded.duplicate.isDeleted) {
@@ -88,8 +97,8 @@ export class PreviewClientMerge {
     const agentIds = [primary, duplicate].flatMap((c) => c.ownership.ownerId ?? []);
     const names = await this.deps.agents.names(agentIds);
     return ok({
-      primary: side(primary, loaded.primaryRecords, names),
-      duplicate: side(duplicate, loaded.duplicateRecords, names),
+      primary: side(primary, duplicate, loaded.primaryRecords, loaded.primaryIncoming, names),
+      duplicate: side(duplicate, primary, loaded.duplicateRecords, loaded.duplicateIncoming, names),
     });
   }
 }

@@ -67,6 +67,8 @@ export const CreatePropertyInputSchema = z
     /** Vacío: se sugiere a partir del tipo, la operación y el barrio. */
     portalTitle: OptionalText(120),
     ...CoordinateFields,
+    /** Cliente de contactos, buscado en el selector. Privado. Se suman más desde la ficha. */
+    ownerClientId: z.uuid().optional(),
   })
   .refine((input) => (input.latitude === undefined) === (input.longitude === undefined), {
     message: 'Completá la latitud y la longitud, o ninguna de las dos.',

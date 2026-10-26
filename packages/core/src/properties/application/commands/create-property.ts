@@ -29,6 +29,7 @@ import type {
   ReferenceCodeUnavailableError,
 } from '../ports/reference-code-allocator';
 import { propertyAuditState, propertyTarget, type InvalidInputError } from '../property-support';
+import type { OwnerClientNotFoundError } from './add-property-owner';
 
 export type CreatePropertyError =
   | ForbiddenError
@@ -37,7 +38,8 @@ export type CreatePropertyError =
   | NegativePriceError
   | LocationNotFoundError
   | PropertyTypeDisabledError
-  | ReferenceCodeUnavailableError;
+  | ReferenceCodeUnavailableError
+  | OwnerClientNotFoundError;
 
 export interface CreatePropertyOutput {
   readonly propertyId: string;
@@ -47,8 +49,9 @@ export interface CreatePropertyOutput {
 }
 
 /**
- * Alta corta de una propiedad: tipo, operación, dirección y ubicación. Queda como borrador, con
- * quien la carga como captador y su sucursal. El resto se completa en la ficha.
+ * Alta corta de una propiedad: tipo, operación, dirección, ubicación y, si se elige, el propietario.
+ * Queda como borrador, con quien la carga como captador y su sucursal. El resto se completa en la
+ * ficha.
  *
  * Sin coordenadas, se buscan con el geocodificador. Si no las encuentra o el servicio falla, la
  * propiedad se crea igual y el resultado lo dice, para completarlas en la ficha.
@@ -85,6 +88,10 @@ export class CreateProperty {
 
     const place = await this.deps.uow.run((tx) => resolvePlace(tx, data));
     if (place.isErr()) return err(place.error);
+    const owner = data.ownerClientId;
+    if (owner !== undefined && !(await this.deps.uow.run((tx) => tx.owners.isLinkable(owner)))) {
+      return err({ type: 'OwnerClientNotFound' });
+    }
     const { locationId, ...texts } = place.value;
     const address: PropertyAddress = {
       street: data.street,
@@ -134,12 +141,19 @@ export class CreateProperty {
     return this.deps.uow.run(
       async (tx): Promise<Result<CreatePropertyOutput, CreatePropertyError>> => {
         await tx.properties.save(property, actor.id);
+        if (owner !== undefined) await tx.owners.add(property.id, owner, actor.id);
         await tx.events.publish(property.pullEvents());
         await tx.audit.record(
           auditCreated(
             actor,
-            propertyTarget('property.created', property.id),
-            propertyAuditState(property),
+            {
+              ...propertyTarget('property.created', property.id),
+              clientIds: owner === undefined ? [] : [owner],
+            },
+            {
+              ...propertyAuditState(property),
+              ...(owner === undefined ? {} : { ownerClientIds: [owner] }),
+            },
           ),
         );
         return ok({ propertyId: property.id, code: property.code, geocoding });

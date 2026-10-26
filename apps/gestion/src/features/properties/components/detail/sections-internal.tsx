@@ -18,11 +18,12 @@ import {
   FormMessage,
 } from '@norde/ui/components/form';
 import { Label } from '@norde/ui/components/label';
-import { PagedMultiSelect } from '@norde/ui/components/paged-combobox';
-import { LockIcon } from 'lucide-react';
+import { PagedMultiSelect, type LoadComboboxPage } from '@norde/ui/components/paged-combobox';
+import { Button } from '@norde/ui/components/button';
+import { LockIcon, XIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { useState, type SyntheticEvent } from 'react';
+import { Fragment, useState, type SyntheticEvent } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatDateTime } from '../../../../lib/format';
@@ -30,11 +31,14 @@ import { contractResolver } from '../../../../lib/form';
 import { formatAppraisalRange } from '../../../appraisals/format';
 import { APPRAISAL_STATUS_DISPLAY } from '../../../appraisals/labels';
 import { appraisalHref } from '../../../appraisals/paths';
+import { loadClientOptions } from '../../../clients/actions';
 import { loadUserOptions } from '../../../identity/actions';
 import { EntityPicker } from '../../../identity/components/entity-picker';
 import {
+  addPropertyOwnerAction,
   changePropertyCodeAction,
   changePropertyProducerAction,
+  removePropertyOwnerAction,
   updatePropertyInternalInfoAction,
 } from '../../detail-actions';
 import { TextareaField, TextField, submitWith } from '../../../shared/components/form-fields';
@@ -44,6 +48,9 @@ import {
   InlineSection,
   type InlineFormControls,
 } from '../../../shared/components/inline-section';
+
+/** Contactos activos que el actor ve, por nombre, teléfono o email. */
+const loadOwners: LoadComboboxPage = (search, page) => loadClientOptions(search, page);
 
 function name(user: PanelUserRef | undefined): string {
   if (user === undefined) return EMPTY_VALUE;
@@ -120,13 +127,7 @@ export function InternalSection({
                   ]),
               { label: 'Mantenimiento', value: name(internal.maintenance) },
               { label: 'Ubicación de las llaves', value: text(internal.keysLocation) },
-              {
-                label: 'Propietarios',
-                value:
-                  detail.owners.length === 0
-                    ? 'Se cargan cuando estén los contactos'
-                    : detail.owners.map((owner) => owner.name).join(', '),
-              },
+              { label: 'Propietarios', value: <OwnerLinks owners={detail.owners} /> },
               {
                 label: 'Creada por',
                 value: `${name(detail.createdBy)} · ${formatDateTime(detail.createdAt)}`,
@@ -161,6 +162,7 @@ function InternalForms({
     <div className="flex flex-col gap-6">
       <CodeForm detail={detail} controls={controls} />
       {canChangeProducer && <ProducerForm detail={detail} controls={controls} />}
+      {canChangeProducer && <OwnersForm detail={detail} controls={controls} />}
       <InternalInfoForm detail={detail} controls={controls} />
     </div>
   );
@@ -246,6 +248,95 @@ function ProducerForm({
         Cambiar captador
       </button>
     </form>
+  );
+}
+
+/** Los propietarios, con el enlace a su ficha de contacto. */
+function OwnerLinks({ owners }: { readonly owners: PanelPropertyDetail['owners'] }) {
+  if (owners.length === 0) return EMPTY_VALUE;
+  return owners.map((owner, index) => (
+    <Fragment key={owner.id}>
+      {index > 0 && ', '}
+      <Link
+        // La ficha del contacto: typedRoutes no verifica un segmento armado.
+        href={`/contactos/${owner.id}` as Route}
+        className="hover:underline"
+      >
+        {owner.name}
+      </Link>
+    </Fragment>
+  ));
+}
+
+/** Suma o quita propietarios, uno por vez: cada cambio queda en el historial. */
+function OwnersForm({
+  detail,
+  controls,
+}: {
+  readonly detail: PanelPropertyDetail;
+  readonly controls: InlineFormControls;
+}) {
+  const [clientId, setClientId] = useState<string | undefined>();
+  const owned = new Set(detail.owners.map((owner) => owner.id));
+  function submit(event: SyntheticEvent) {
+    event.preventDefault();
+    if (clientId === undefined) return;
+    controls.save(
+      () => addPropertyOwnerAction({ propertyId: detail.id, clientId }),
+      'Propietario agregado.',
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>Propietarios (privado)</Label>
+      {detail.owners.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {detail.owners.map((owner) => (
+            <li
+              key={owner.id}
+              className="flex items-center gap-1 rounded-md border border-input py-0.5 pr-0.5 pl-2 text-sm"
+            >
+              {owner.name}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                aria-label={`Quitar a ${owner.name} como propietario`}
+                disabled={controls.pending}
+                onClick={() => {
+                  controls.save(
+                    () => removePropertyOwnerAction({ propertyId: detail.id, clientId: owner.id }),
+                    'Propietario quitado.',
+                  );
+                }}
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="flex items-end gap-2" onSubmit={submit}>
+        <div className="min-w-0 flex-1">
+          <EntityPicker
+            value={clientId}
+            initial={undefined}
+            onChange={setClientId}
+            loadPage={loadOwners}
+            placeholder="Buscar contacto"
+            searchPlaceholder="Nombre, teléfono o email"
+          />
+        </div>
+        <button
+          type="submit"
+          className="mb-0.5 h-9 rounded-md border border-input px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          disabled={controls.pending || clientId === undefined || owned.has(clientId)}
+        >
+          Agregar propietario
+        </button>
+      </form>
+    </div>
   );
 }
 

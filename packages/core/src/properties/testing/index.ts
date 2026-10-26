@@ -776,9 +776,13 @@ export class InMemoryFavoriteSearchRepository implements FavoriteSearchRepositor
   }
 }
 
-/** Vínculos de propietarios, con la clave `propiedad:cliente` y el autor. */
+/**
+ * Vínculos de propietarios, con la clave `propiedad:cliente` y el autor. `clients` son los
+ * clientes que pueden quedar como propietarios (existen y no están en la papelera).
+ */
 export class InMemoryPropertyOwnerLinks implements PropertyOwnerLinks {
   readonly rows = new Map<string, string>();
+  readonly clients = new Set<string>();
 
   add(propertyId: string, clientId: string, actorId: string) {
     const key = `${propertyId}:${clientId}`;
@@ -786,8 +790,27 @@ export class InMemoryPropertyOwnerLinks implements PropertyOwnerLinks {
     return Promise.resolve();
   }
 
+  remove(propertyId: string, clientId: string) {
+    this.rows.delete(`${propertyId}:${clientId}`);
+    return Promise.resolve();
+  }
+
   hasAny(propertyId: string) {
-    return Promise.resolve([...this.rows.keys()].some((key) => key.startsWith(`${propertyId}:`)));
+    return this.count(propertyId).then((count) => count > 0);
+  }
+
+  has(propertyId: string, clientId: string) {
+    return Promise.resolve(this.rows.has(`${propertyId}:${clientId}`));
+  }
+
+  count(propertyId: string) {
+    return Promise.resolve(
+      [...this.rows.keys()].filter((key) => key.startsWith(`${propertyId}:`)).length,
+    );
+  }
+
+  isLinkable(clientId: string) {
+    return Promise.resolve(this.clients.has(clientId));
   }
 }
 

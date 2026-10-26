@@ -99,9 +99,6 @@ async function insertUnit(
     code: `DEP${sequence}`,
     slug: `unidad-${sequence}`,
     title: `Unidad ${sequence}`,
-    // Columnas viejas (#33): NOT NULL hasta la migración contract.
-    operation: 'sale',
-    currency: 'USD',
     propertyType: 'apartment',
     status: 'available',
     publishedOnWeb: true,

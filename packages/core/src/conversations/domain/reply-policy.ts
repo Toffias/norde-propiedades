@@ -1,12 +1,34 @@
 // Cuándo conviene que el bot responda. En WhatsApp cada mensaje enviado se cobra, así que
 // estas reglas también son control de costos.
 
-/** Mensajes que no ameritan respuesta: solo se registran. */
-const ACKNOWLEDGEMENT_ONLY =
-  /^(ok|oka|okey|dale|listo|gracias|muchas gracias|genial|perfecto|buenísimo|buenisimo|joya|bárbaro|barbaro|de nada|👍|🙏|👌|❤️)[.!\s]*$/iu;
+/** Cierres que nunca ameritan respuesta: solo se registran. */
+const CLOSING = /^(gracias|muchas gracias|de nada|🙏|❤️)[.!\s]*$/iu;
 
-export function isAcknowledgementOnly(text: string): boolean {
-  return ACKNOWLEDGEMENT_ONLY.test(text.trim());
+/** Asentimientos: no ameritan respuesta, salvo que contesten una pregunta del bot ("¿te registro?"). */
+const AGREEMENT =
+  /^(ok|oka|okey|dale|listo|genial|perfecto|buenísimo|buenisimo|joya|bárbaro|barbaro|👍|👌)[.!\s]*$/iu;
+
+/**
+ * Si el mensaje es solo un acuse ("gracias", "ok") y no hace falta responder. Un "dale" después de
+ * una pregunta del bot es una respuesta: `afterQuestion` lo deja pasar al agente.
+ */
+export function isAcknowledgementOnly(text: string, afterQuestion = false): boolean {
+  const trimmed = text.trim();
+  return CLOSING.test(trimmed) || (!afterQuestion && AGREEMENT.test(trimmed));
+}
+
+/** La última respuesta enviada en la conversación, como quedó en el registro de mensajes. */
+export interface LastReply {
+  readonly kind: string;
+  readonly body: Readonly<Record<string, unknown>>;
+}
+
+/** Si la última respuesta le preguntó algo al contacto: ofreció botones o terminó en pregunta. */
+export function repliedWithQuestion(last: LastReply | undefined): boolean {
+  if (!last) return false;
+  if (last.kind === 'buttons') return true;
+  const text = last.body.text ?? last.body.caption;
+  return typeof text === 'string' && text.includes('?');
 }
 
 /** Reentregas tardías del canal: responderlas horas después confunde al cliente. */

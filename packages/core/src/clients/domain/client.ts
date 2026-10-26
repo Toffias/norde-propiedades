@@ -4,11 +4,14 @@ import { err, ok, type Result } from '../../shared/domain/result';
 import type { Email } from '../../shared/domain/value-objects/email';
 import type { Phone } from '../../shared/domain/value-objects/phone';
 
+import type { AssignmentOrigin } from './assignment-origin';
 import type { ClientEvent } from './client.events';
+import { MAX_CLIENT_TAGS, type TooManyClientTagsError } from './client-tag';
 import {
   cleanRelationLabel,
   MAX_CLIENT_RELATIONS,
   relationAllowed,
+  relationAllowedFrom,
   sameRelation,
   type ClientRelation,
   type ClientRelationKind,
@@ -93,6 +96,13 @@ export interface ClientMergedError {
 export interface SameClientError {
   readonly type: 'SameClient';
 }
+/** Lo que impide unificar un duplicado en un contacto. */
+export type AbsorbClientError =
+  | SameClientError
+  | ClientInTrashError
+  | InvalidRelationError
+  | TooManyRelationsError
+  | TooManyClientTagsError;
 
 const MAX_NAME_LENGTH = 120;
 
@@ -495,13 +505,18 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
     return ok(true);
   }
 
-  /** Cambia el agente responsable; el contacto pasa a la sucursal del agente. */
+  /**
+   * Cambia el agente responsable; el contacto pasa a la sucursal del agente. Si cambió el agente
+   * (no solo la sucursal), lo avisa con quién lo asignó.
+   */
   assignAgent(
     agent: { readonly agentId: string | undefined; readonly branchId: string | undefined },
     now: Date,
+    origin: AssignmentOrigin,
   ): Result<boolean, ClientInTrashError> {
     if (this.isDeleted) return err({ type: 'ClientInTrash' });
-    if (agent.agentId === this.#state.agentId && agent.branchId === this.#state.branchId) {
+    const from = this.#state.agentId;
+    if (agent.agentId === from && agent.branchId === this.#state.branchId) {
       return ok(false);
     }
     this.#state = {
@@ -510,6 +525,20 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
       branchId: agent.branchId,
       updatedAt: now,
     };
+    if (agent.agentId !== from) {
+      this.record({
+        type: 'clients.client_reassigned',
+        aggregateId: this.id,
+        occurredAt: now,
+        payload: {
+          clientId: this.id,
+          fromAgentId: from,
+          toAgentId: agent.agentId,
+          assignedBy: origin.by,
+          inquiryId: origin.inquiryId,
+        },
+      });
+    }
     return ok(true);
   }
 
@@ -583,17 +612,28 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
    * principales). El duplicado queda vacío en la papelera, apuntando al principal.
    *
    * Las oportunidades, la actividad y lo demás que cuelga del duplicado las mueve el caso de uso.
+   *
+   * Las invariantes de la ficha valen también para la unión: si el principal no puede declarar
+   * una relación del duplicado (otro tipo de registro) o la unión pasa el tope de relaciones o de
+   * etiquetas, no se unifica y no se pierde nada. Se corrige antes en alguna de las dos fichas.
    */
-  absorb(
-    duplicate: Client,
-    by: string,
-    now: Date,
-  ): Result<void, SameClientError | ClientInTrashError> {
+  absorb(duplicate: Client, by: string, now: Date): Result<void, AbsorbClientError> {
     if (duplicate.id === this.id) return err({ type: 'SameClient' });
     if (this.isDeleted || duplicate.isDeleted) return err({ type: 'ClientInTrash' });
     const mine = this.#state;
     const theirs = duplicate.#state;
     const keepAgent = mine.agentId !== undefined;
+    const relations = mergeRelations(
+      mine.relations.filter((r) => r.relatedClientId !== duplicate.id),
+      theirs.relations.filter((r) => r.relatedClientId !== this.id),
+    );
+    // Del otro lado no cambia nada: el duplicado ya las tenía con registros del tipo correcto.
+    if (relations.some((r) => !relationAllowedFrom(r.kind, mine.kind))) {
+      return err({ type: 'InvalidRelation' });
+    }
+    if (relations.length > MAX_CLIENT_RELATIONS) return err({ type: 'TooManyRelations' });
+    const tagIds = [...new Set([...mine.tagIds, ...theirs.tagIds])];
+    if (tagIds.length > MAX_CLIENT_TAGS) return err({ type: 'TooManyTags', max: MAX_CLIENT_TAGS });
 
     this.#state = {
       ...mine,
@@ -605,11 +645,8 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
       branchId: keepAgent ? mine.branchId : theirs.branchId,
       profile: fillProfile(mine.profile, theirs.profile),
       channels: mergeChannels(mine.channels, theirs.channels),
-      tagIds: [...new Set([...mine.tagIds, ...theirs.tagIds])],
-      relations: mergeRelations(
-        mine.relations.filter((r) => r.relatedClientId !== duplicate.id),
-        theirs.relations.filter((r) => r.relatedClientId !== this.id),
-      ),
+      tagIds,
+      relations,
       createdAt: mine.createdAt < theirs.createdAt ? mine.createdAt : theirs.createdAt,
       updatedAt: now,
     };

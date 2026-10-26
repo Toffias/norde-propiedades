@@ -14,6 +14,7 @@ const CAMILA: UserAccessRecord = {
   status: 'active',
   branchId: '00000000-0000-7000-8000-0000000000b1',
   mustChangePassword: false,
+  twoFactorEnabled: false,
   roles: [
     { key: 'agent', name: 'Agente' },
     { key: 'rentals-admin', name: 'Administrativo de alquileres' },
@@ -50,6 +51,7 @@ describe('ResolveSessionActor', () => {
       email: 'camila@norde.com.ar',
       roles: CAMILA.roles,
       mustChangePassword: false,
+      twoFactorEnabled: false,
     });
   });
 

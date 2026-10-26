@@ -63,7 +63,7 @@ export class ReassignClient {
         return err({ type: 'Forbidden' });
       }
       const before = clientAuditState(client);
-      const changed = client.assignAgent(agent.value, now);
+      const changed = client.assignAgent(agent.value, now, { by: actor.id });
       if (changed.isErr()) return err(changed.error);
       if (!changed.value) return ok(undefined);
 

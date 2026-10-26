@@ -50,6 +50,7 @@ export class ResolveSessionActor {
         email: user.email,
         roles: user.roles,
         mustChangePassword: user.mustChangePassword,
+        twoFactorEnabled: user.twoFactorEnabled,
       },
     });
   }

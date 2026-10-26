@@ -1,23 +1,30 @@
 import {
   auditAction,
+  diffChanges,
   err,
   ok,
+  toAuditValue,
   type Actor,
   type Clock,
   type ForbiddenError,
   type Result,
 } from '../../../shared';
 import { MergeClientTagsInputSchema, type MergeClientTagsInput } from '../../contracts';
-import { invalidInput, type InvalidInputError } from '../client-support';
+import { mergeTagIds } from '../../domain/client-tag';
+import { clientTarget, invalidInput, type InvalidInputError } from '../client-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 import { findTag, tagCatalogTarget, type ClientTagNotFoundError } from '../tag-support';
 
 export type MergeClientTagsError = ForbiddenError | InvalidInputError | ClientTagNotFoundError;
 
+/** Contactos por consulta: la agenda se recorre de a lotes, sin cargarla entera en memoria. */
+export const MERGE_CLIENT_TAGS_BATCH_SIZE = 200;
+
 /**
  * Unifica dos etiquetas: los contactos de la de origen pasan a la de destino (quien tenía las dos
  * queda con una) y la de origen se borra. Se audita contra la de destino, con cuántos contactos
- * la tenían: para cada contacto es la misma etiqueta con otro nombre.
+ * la tenían, y contra cada contacto, para que el cambio aparezca en su historial. Todo en una
+ * transacción: la unificación no queda a medias.
  */
 export class MergeClientTags {
   constructor(private readonly deps: { readonly uow: ClientsUnitOfWork; readonly clock: Clock }) {}
@@ -39,7 +46,31 @@ export class MergeClientTags {
         const target = await findTag(tx, targetTagId);
         if (!source || !target) return err({ type: 'TagNotFound' });
 
-        const moved = await tx.tags.moveAssignments(source.id, target.id, actor.id, now);
+        let moved = 0;
+        for (;;) {
+          const batch = await tx.tags.moveAssignments(
+            source.id,
+            target.id,
+            MERGE_CLIENT_TAGS_BATCH_SIZE,
+            actor.id,
+            now,
+          );
+          for (const { clientId, tagIdsBefore } of batch) {
+            // Ordenadas, como en ChangeClientTags: el orden no es un cambio.
+            const before = [...tagIdsBefore].sort();
+            const after = [...mergeTagIds(tagIdsBefore, source.id, target.id)].sort();
+            await tx.audit.record(
+              auditAction(
+                actor,
+                clientTarget('client.tags_changed', clientId),
+                diffChanges({ tagIds: toAuditValue(before) }, { tagIds: toAuditValue(after) }),
+              ),
+            );
+          }
+          moved += batch.length;
+          if (batch.length < MERGE_CLIENT_TAGS_BATCH_SIZE) break;
+        }
+
         await tx.tags.delete(source.id);
         const s = source.toSnapshot();
         await tx.audit.record(

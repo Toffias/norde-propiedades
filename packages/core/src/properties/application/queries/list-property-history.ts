@@ -53,7 +53,14 @@ const CATEGORIES: Readonly<
     ],
   },
   publication: { actions: ['property.publication_changed'] },
-  assignments: { actions: ['property.producer_changed', 'property.tags_changed'] },
+  assignments: {
+    actions: [
+      'property.producer_changed',
+      'property.tags_changed',
+      'property.owner_added',
+      'property.owner_removed',
+    ],
+  },
   reservations: {
     actions: [
       'property.reserved',

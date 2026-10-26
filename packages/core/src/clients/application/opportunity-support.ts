@@ -255,16 +255,20 @@ export async function closeOpportunityWith(
   return ok(undefined);
 }
 
-/** La pasa a otro agente (o a ninguno) y a su sucursal, y lo guarda. Devuelve si cambió. */
+/**
+ * La pasa a otro agente (o a ninguno) y a su sucursal, y lo guarda. Devuelve si cambió. Con
+ * `inquiryId`, la reasignó la asignación de esa consulta.
+ */
 export async function reassignOpportunityTo(
   tx: ClientsTransaction,
   opportunity: Opportunity,
   agent: OpportunityAgent,
   actor: Actor,
   now: Date,
+  inquiryId?: string,
 ): Promise<Result<boolean, OpportunityClosedError>> {
   const before = opportunityAuditState(opportunity);
-  const changed = opportunity.assignAgent(agent, now);
+  const changed = opportunity.assignAgent(agent, now, { by: actor.id, inquiryId });
   if (changed.isErr()) return err(changed.error);
   if (!changed.value) return ok(false);
   await tx.opportunities.save(opportunity, actor.id);

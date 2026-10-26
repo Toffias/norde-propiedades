@@ -15,6 +15,7 @@ import {
   TEST_MANAGER,
   TEST_OUTSIDER,
 } from '../../testing';
+import { MAX_CLIENT_TAGS } from '../../domain/client-tag';
 import { PreviewClientMerge } from '../queries/preview-client-merge';
 
 import { MergeClients } from './merge-clients';
@@ -143,6 +144,24 @@ describe('MergeClients', () => {
     expect(uow.audit.entries).toEqual([]);
   });
 
+  it('does not merge when the union breaks a rule of the contact, and saves nothing', async () => {
+    const { uow, primary, duplicate, useCase } = await setup();
+    const tags = (k: string) =>
+      Array.from({ length: MAX_CLIENT_TAGS / 2 + 1 }, (_, n) => `${k}-${n.toString()}`);
+    primary.changeTags(tags('a'), clock.now());
+    duplicate.changeTags(tags('b'), clock.now());
+    await uow.clients.save(primary, AGENT_ID);
+    await uow.clients.save(duplicate, AGENT_ID);
+
+    expect(
+      unwrapErr(
+        await useCase.execute({ primaryId: primary.id, duplicateId: duplicate.id }, MERGER),
+      ),
+    ).toEqual({ type: 'TooManyTags', max: MAX_CLIENT_TAGS });
+    expect(uow.clients.rows.get(duplicate.id)?.mergedIntoId).toBeUndefined();
+    expect(uow.audit.entries).toEqual([]);
+  });
+
   it('needs clients:merge and to edit both contacts', async () => {
     const { uow, primary, duplicate, useCase } = await setup();
     const others = await seedClient(uow, {
@@ -198,6 +217,27 @@ describe('PreviewClientMerge', () => {
       emails: ['ana@acme.com'],
       records: { opportunities: 2, activities: 14 },
     });
+  });
+
+  it('tells, for each side, how many incoming relations would not fit the other one', async () => {
+    const uow = new InMemoryClientsUnitOfWork();
+    const person = await seedClient(uow, { name: 'Ana Pérez', phones: ['+5491166899124'] });
+    const company = await seedClient(uow, {
+      name: 'Acme',
+      kind: 'company',
+      phones: ['+541147770000'],
+    });
+    // Dos personas "trabajan en" Acme y alguien está relacionado con Ana.
+    uow.records.incomingKinds.set(company.id, { works_at: 2, related: 1 });
+    uow.records.incomingKinds.set(person.id, { related: 1 });
+    const useCase = new PreviewClientMerge({ uow, agents: new InMemoryClientAgents() });
+
+    const preview = unwrap(
+      await useCase.execute({ primaryId: person.id, duplicateId: company.id }, MERGER),
+    );
+
+    expect(preview.duplicate.incomingRelationsThatDoNotFit).toBe(2);
+    expect(preview.primary.incomingRelationsThatDoNotFit).toBe(0);
   });
 
   it('uses the same permissions as merging', async () => {

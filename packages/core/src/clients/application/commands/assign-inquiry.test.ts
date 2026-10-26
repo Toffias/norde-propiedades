@@ -107,6 +107,25 @@ describe('AssignInquiry to a matching client', () => {
     ]);
   });
 
+  it('does not give the chosen client the email of another client', async () => {
+    const { uow, inquiryId, assign } = await setup();
+    const client = await seedClient(uow);
+    const other = await seedClient(uow, {
+      name: 'Bruno',
+      phones: ['+5491155550000'],
+      emails: ['ana@example.com'],
+    });
+
+    unwrap(
+      await assign.execute({ inquiryId, target: { kind: 'client', clientId: client.id } }, MANAGER),
+    );
+
+    expect(uow.clients.rows.get(client.id)?.emails).toEqual([]);
+    expect(uow.clients.rows.get(other.id)?.emails.map((e) => e.email.value)).toEqual([
+      'ana@example.com',
+    ]);
+  });
+
   it('audits the assignment against the client, without the sender data', async () => {
     const { uow, inquiryId, assign } = await setup();
     const client = await seedClient(uow, { agentId: OTHER_AGENT_ID, branchId: OTHER_BRANCH_ID });
@@ -236,8 +255,18 @@ describe('AssignInquiry to a new client', () => {
     expect(uow.events.published.map((e) => e.type)).toEqual([
       'clients.client_registered',
       'clients.opportunity_created',
+      'clients.client_reassigned',
       'clients.opportunity_reassigned',
       'clients.inquiry_assigned',
+    ]);
+    // El contacto y la oportunidad se reasignaron por la consulta: se anuncia una vez, como consulta.
+    const origin = { assignedBy: MANAGER.id, inquiryId };
+    expect(uow.events.published.map((e) => e.payload)).toEqual([
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining(origin),
+      expect.objectContaining(origin),
+      expect.objectContaining({ assignedBy: MANAGER.id, agentId: AGENT_ID }),
     ]);
   });
 

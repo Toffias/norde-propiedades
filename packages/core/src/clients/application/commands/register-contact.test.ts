@@ -158,6 +158,40 @@ describe('RegisterContact', () => {
     expect([...uow.clients.rows.values()][0]?.phones[0]?.phone.e164).toBe('+5491166899124');
   });
 
+  it('does not take the email of another client when the phone matches', async () => {
+    const { uow, useCase } = setup();
+    await useCase.execute(whatsappContact(), agent);
+    await useCase.execute(
+      {
+        channel: 'zonaprop',
+        channelExternalId: 'lead-1',
+        email: 'bruno@mail.com',
+        opportunity: { type: 'rent', intent: 'info' },
+      },
+      agent,
+    );
+
+    const result = await useCase.execute(
+      {
+        channel: 'web_form',
+        channelExternalId: 'form-1',
+        phone: '+5491166899124',
+        email: 'bruno@mail.com',
+        opportunity: { type: 'sale', intent: 'contact' },
+      },
+      agent,
+    );
+
+    expect(result.isOk() && result.value.clientCreated).toBe(false);
+    const withEmail = [...uow.clients.rows.values()].filter((c) =>
+      c.emails.some((e) => e.email.value === 'bruno@mail.com'),
+    );
+    expect(withEmail).toHaveLength(1);
+    const ana = [...uow.clients.rows.values()].find((c) => c.name === 'Ana');
+    expect(ana?.channels.map((c) => c.channel)).toEqual(['whatsapp', 'web_form']);
+    expect(ana?.emails).toEqual([]);
+  });
+
   it('adds the request to the open opportunity about the same property', async () => {
     const { uow, useCase } = setup();
     await useCase.execute(

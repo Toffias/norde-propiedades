@@ -122,8 +122,9 @@ export class Conversation extends AggregateRoot<ConversationId, ConversationEven
   }
 
   /**
-   * El contacto escribió. Tras un período de inactividad la conversación arranca de cero:
-   * se olvida la memoria del agente y, si la había tomado una persona, vuelve al bot.
+   * El contacto escribió. Tras un período de inactividad la conversación arranca de cero: se
+   * olvida la memoria del agente y, si la había tomado una persona, vuelve al bot. La última
+   * búsqueda se conserva, para que el agente pueda retomarla ("la otra vez buscabas…").
    */
   registerInbound(input: {
     readonly now: Date;
@@ -140,7 +141,6 @@ export class Conversation extends AggregateRoot<ConversationId, ConversationEven
       ...(memoryReset
         ? {
             agentMemory: [],
-            searchCriteria: undefined,
             status: this.#state.status === 'handed_off' ? 'active' : this.#state.status,
           }
         : {}),

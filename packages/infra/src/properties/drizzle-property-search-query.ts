@@ -144,7 +144,10 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
 
   private filters(c: PropertySearchCriteria): (SQL | undefined)[] {
     const location = c.location === undefined ? [] : this.locationWords(c.location);
-    const place = sql`${properties.neighborhood} || ' ' || ${properties.city} || ' ' || coalesce(${properties.address}, '')`;
+    // La dirección que se publica (`publicAddress`): con la exacta oculta, buscar una calle o una
+    // altura no tiene que confirmar dónde está la propiedad.
+    const address = sql`coalesce(case when ${properties.showExactAddress} then ${properties.address} end, ${properties.publishAddress}, '')`;
+    const place = sql`${properties.neighborhood} || ' ' || ${properties.city} || ' ' || ${address}`;
     const surface = sql`coalesce(${properties.surfaceTotalM2}, ${properties.surfaceCoveredM2})`;
 
     return [
@@ -257,9 +260,10 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     }
   }
 
+  /** "Capital (CABA)" → `capital`, `caba`: la puntuación no forma parte de ninguna palabra. */
   private locationWords(location: string): string[] {
     return normalizeTerm(location)
-      .split(/\s+/)
+      .split(/[^\p{L}\p{N}]+/u)
       .filter((word) => word.length > 2);
   }
 

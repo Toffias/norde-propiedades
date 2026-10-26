@@ -236,6 +236,15 @@ describe('GetPropertyDetail', () => {
     }
   });
 
+  it('does not show a draft as "no longer available": it was never offered', async () => {
+    const draft = aPropertyRecord({ status: 'draft' });
+    const useCase = new GetPropertyDetail({ properties: new InMemoryPropertySearchQuery([draft]) });
+
+    const result = await useCase.execute({ slug: draft.slug }, reader);
+
+    expect(result.isErr() && result.error).toEqual({ type: 'PropertyNotFound' });
+  });
+
   it('requires properties:read', async () => {
     const useCase = new GetPropertyDetail({ properties: new InMemoryPropertySearchQuery() });
 

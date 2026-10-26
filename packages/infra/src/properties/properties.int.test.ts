@@ -87,11 +87,7 @@ describe('DrizzlePropertyRepository', () => {
     expect(loaded?.toSnapshot()).toEqual(property.toSnapshot());
     const [row] = await db.select().from(properties).where(eq(properties.id, property.id));
     expect(row).toMatchObject({
-      // Columnas legacy que lee la búsqueda pública.
       title: 'Departamento en venta en Palermo',
-      operation: 'sale',
-      currency: 'USD',
-      priceCents: 12_000_000n,
       address: 'Gurruchaga 1834',
       createdBy: PRODUCER,
       updatedBy: PRODUCER,
@@ -341,14 +337,12 @@ async function seedPortfolio(): Promise<void> {
       code: `P${(i + 1).toString().padStart(5, '0')}`,
       slug: `p-${i + 1}`,
       title: `Propiedad ${i + 1}`,
-      operation: pick(OPERATIONS, i),
       propertyType: pick(TYPES, i),
       status: pick(STATUSES, i),
       neighborhood,
       city,
       province,
       street: `Calle ${i + 1}`,
-      currency: i % 2 === 0 ? 'USD' : 'ARS',
       producerUserId: i % 10 === 0 ? PRODUCER : OTHER,
       branchId: i % 4 === 0 ? BRANCH : null,
       createdAt: new Date(Date.UTC(2025, 0, 1) + i * 60_000),
@@ -366,8 +360,8 @@ async function seedPortfolio(): Promise<void> {
   const operations = rows.map((row, i) => ({
     id: `00000000-0000-7000-9000-${(i + 1).toString().padStart(12, '0')}`,
     propertyId: row.id,
-    operation: row.operation,
-    currency: row.currency,
+    operation: pick(OPERATIONS, i),
+    currency: i % 2 === 0 ? 'USD' : 'ARS',
     // Precios distintos y conocidos: 1.000 a 5.000.000 unidades.
     priceCents: BigInt((i + 1) * 1_000) * 100n,
     createdAt: NOW,

@@ -20,6 +20,7 @@ import type {
   GetUserPermissionsError,
   ReactivateUserError,
   ResetUserPasswordError,
+  ResetUserTwoFactorError,
   RestoreRoleError,
   SetUserPermissionsError,
   SuspendUserError,
@@ -38,6 +39,7 @@ type UserError =
   | SuspendUserError
   | ReactivateUserError
   | ResetUserPasswordError
+  | ResetUserTwoFactorError
   | ChangeOwnPasswordError
   | SetUserPermissionsError
   | GetUserPermissionsError;
@@ -60,10 +62,12 @@ export const USER_ERROR_MESSAGES = {
   UserAlreadyActive: 'El usuario ya estaba activo.',
   WrongPassword: 'La contraseña actual no es correcta.',
   SamePassword: 'La contraseña nueva tiene que ser distinta de la actual.',
+  TwoFactorNotEnabled: 'El usuario ya no tenía la verificación en dos pasos activa.',
   UnknownPermission: ({ permission }) => `El permiso ${permission} no existe.`,
   DuplicatePermission: ({ permission }) => `El permiso ${permission} aparece dos veces.`,
   CannotChangeOwnPermissions:
     'No podés cambiar tus propios permisos: pedíselo a otro administrador.',
+  CannotChangeOwnRoles: 'No podés cambiar tus propios roles: pedíselo a otro administrador.',
 } satisfies ErrorMessages<UserError>;
 
 export const TOKKO_USERS_IMPORT_ERROR_MESSAGES = {

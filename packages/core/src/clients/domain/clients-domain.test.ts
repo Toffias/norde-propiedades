@@ -5,6 +5,7 @@ import { Email } from '../../shared/domain/value-objects/email';
 import { Phone } from '../../shared/domain/value-objects/phone';
 
 import { Client, type ClientId } from './client';
+import { unclaimedContact } from './duplicate-check';
 import { findOpenOpportunityAbout, latestOpenOpportunity, Opportunity } from './opportunity';
 import { canTransition, OPPORTUNITY_STATUSES } from './opportunity-status';
 
@@ -159,6 +160,42 @@ describe('Opportunity', () => {
     }
     expect(canTransition('won', 'new')).toBe(false);
     expect(canTransition('referred_to_partner', 'new')).toBe(true);
+  });
+});
+
+describe('unclaimedContact', () => {
+  const otherEmail = Email.create('bruno@mail.com').unwrapOr(undefined as never);
+  const otherPhone = Phone.create('+5491155550000').unwrapOr(undefined as never);
+
+  function otherClient(): Client {
+    const result = Client.register({
+      id: '00000000-0000-7000-8000-000000000002' as ClientId,
+      name: 'Bruno',
+      phone: otherPhone,
+      email: otherEmail,
+      channel: 'zonaprop',
+      channelExternalId: 'lead-1',
+      now: T0,
+    });
+    if (result.isErr()) throw new Error('unexpected');
+    return result.value;
+  }
+
+  it('drops the phone and email that another client already uses', () => {
+    const client = registeredClient();
+
+    expect(
+      unclaimedContact(client, [client, otherClient()], { phone: otherPhone, email: otherEmail }),
+    ).toEqual({ phone: undefined, email: undefined });
+  });
+
+  it('keeps the data that no other client uses', () => {
+    const client = registeredClient();
+
+    expect(unclaimedContact(client, [client, otherClient()], { phone, email })).toEqual({
+      phone,
+      email,
+    });
   });
 });
 

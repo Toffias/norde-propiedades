@@ -213,13 +213,11 @@ describe('tags', () => {
       code: 'DEP0001',
       slug: 'dep0001',
       title: 'Departamento',
-      operation: 'sale',
       propertyType: 'apartment',
       status: 'draft',
       neighborhood: 'Palermo',
       city: 'CABA',
       province: 'CABA',
-      currency: 'USD',
       createdAt: NOW,
       updatedAt: NOW,
     });

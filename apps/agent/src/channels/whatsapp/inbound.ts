@@ -1,4 +1,4 @@
-import type { InboundMessage } from '@norde/core/conversations';
+import { MAX_CONTACT_NAME_LENGTH, type InboundMessage } from '@norde/core/conversations';
 import { z } from 'zod';
 
 // Subconjunto del webhook de WhatsApp Cloud API que usa el agente. Lo desconocido se ignora
@@ -17,6 +17,7 @@ const MessageSchema = z.object({
     })
     .optional(),
   button: z.object({ text: z.string() }).optional(),
+  audio: z.object({ id: z.string().min(1) }).optional(),
   errors: z.array(z.unknown()).optional(),
 });
 
@@ -55,6 +56,8 @@ export interface WhatsAppInbound {
   /** wa_id del remitente: el número en formato internacional sin `+`. */
   readonly from: string;
   readonly profileName: string | undefined;
+  /** Media ID de un audio: llega como `unsupported` y el handler lo transcribe si puede. */
+  readonly audioMediaId?: string | undefined;
   readonly message: InboundMessage;
 }
 
@@ -71,7 +74,9 @@ export function parseInbound(payload: unknown): WhatsAppInbound[] {
     for (const change of entry.changes ?? []) {
       if (change.field !== 'messages') continue;
       const { value } = change;
-      const names = new Map((value.contacts ?? []).map((c) => [c.wa_id, c.profile?.name]));
+      const names = new Map(
+        (value.contacts ?? []).map((c) => [c.wa_id, profileName(c.profile?.name)]),
+      );
 
       for (const raw of value.messages ?? []) {
         const message = MessageSchema.safeParse(raw);
@@ -81,6 +86,7 @@ export function parseInbound(payload: unknown): WhatsAppInbound[] {
           phoneNumberId: value.metadata.phone_number_id,
           from: m.from,
           profileName: names.get(m.from),
+          audioMediaId: m.type === 'audio' ? m.audio?.id : undefined,
           message: {
             channelMessageId: m.id,
             sentAt: new Date(Number(m.timestamp) * 1000),
@@ -94,11 +100,17 @@ export function parseInbound(payload: unknown): WhatsAppInbound[] {
   return out;
 }
 
+/** El nombre del perfil, recortado al máximo del core: uno largo no hace perder el lote. */
+function profileName(name: string | undefined): string | undefined {
+  const trimmed = name?.trim().slice(0, MAX_CONTACT_NAME_LENGTH).trim();
+  return trimmed === '' ? undefined : trimmed;
+}
+
 function content(m: z.infer<typeof MessageSchema>): Pick<InboundMessage, 'kind' | 'text'> {
   if (m.type === 'text' && m.text) return { kind: 'text', text: m.text.body };
   const reply = m.interactive?.button_reply ?? m.interactive?.list_reply;
   if (m.type === 'interactive' && reply) return { kind: 'button', text: reply.title };
   if (m.type === 'button' && m.button) return { kind: 'button', text: m.button.text };
-  // Audio, imagen, sticker, ubicación…: por ahora el agente solo lee texto.
+  // Imagen, sticker, ubicación…: el agente solo lee texto. Un audio se transcribe después.
   return { kind: 'unsupported', text: '' };
 }

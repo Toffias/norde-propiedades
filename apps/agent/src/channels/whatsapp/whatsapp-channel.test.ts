@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { signBody, verifySignature } from '../../http/signature';
+import { safeEqual, signBody, verifySignature } from '../../http/signature';
 
 import { FailureBreaker } from '../shared/failure-breaker';
 import { parseInbound } from './inbound';
@@ -92,6 +92,7 @@ describe('parseInbound', () => {
         message: expect.objectContaining({ kind: 'button', text: 'Alquilar' }) as unknown,
       }),
       expect.objectContaining({
+        audioMediaId: 'a',
         message: expect.objectContaining({ kind: 'unsupported', rawType: 'audio' }) as unknown,
       }),
     ]);
@@ -117,16 +118,39 @@ describe('parseInbound', () => {
     ).toEqual([]);
     expect(parseInbound('no es un objeto')).toEqual([]);
   });
+
+  it('cuts a profile name longer than the core accepts', () => {
+    const text = { from: '1', id: 'wamid.1', timestamp: '1', type: 'text', text: { body: 'x' } };
+    const named = (name: string) =>
+      parseInbound(payload([text], [{ wa_id: '1', profile: { name } }]))[0]?.profileName;
+
+    expect(named(` ${'a'.repeat(200)}`)).toBe('a'.repeat(120));
+    expect(named('   ')).toBeUndefined();
+  });
+});
+
+describe('safeEqual', () => {
+  it('compares secrets', () => {
+    expect(safeEqual('verify-me', 'verify-me')).toBe(true);
+    expect(safeEqual('verify-mx', 'verify-me')).toBe(false);
+    expect(safeEqual('verify', 'verify-me')).toBe(false);
+  });
 });
 
 describe('buildWhatsAppReply', () => {
   const empty = { photo: undefined, buttons: undefined };
 
-  it('prioritizes photo, then buttons, then text', () => {
+  it('sends photo and buttons together, else photo, then buttons, then text', () => {
     const buttons = [{ id: 'opt_1', title: 'Ver más' }];
     const photo = { url: 'https://x.com/a.jpg', propertyId: 'p1' };
 
     expect(buildWhatsAppReply('Mirá', { photo, buttons })).toEqual({
+      type: 'buttons',
+      text: 'Mirá',
+      buttons,
+      imageUrl: 'https://x.com/a.jpg',
+    });
+    expect(buildWhatsAppReply('Mirá', { photo, buttons: undefined })).toEqual({
       type: 'image',
       imageUrl: 'https://x.com/a.jpg',
       caption: 'Mirá',
@@ -141,6 +165,18 @@ describe('buildWhatsAppReply', () => {
 
   it('falls back to a generic text when the model wrote nothing', () => {
     expect(buildWhatsAppReply(undefined, empty)).toEqual({ type: 'text', text: FALLBACK_TEXT });
+  });
+
+  it('cuts a text longer than WhatsApp accepts instead of sending nothing', () => {
+    const reply = buildWhatsAppReply('a'.repeat(5000), empty);
+
+    expect(reply).toEqual({ type: 'text', text: 'a'.repeat(4096) });
+  });
+
+  it('does not split an emoji when cutting', () => {
+    const reply = buildWhatsAppReply(`${'a'.repeat(4095)}🏠 casa`, empty);
+
+    expect(reply).toEqual({ type: 'text', text: 'a'.repeat(4095) });
   });
 
   it('cleans markdown that WhatsApp does not render', () => {

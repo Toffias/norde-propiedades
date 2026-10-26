@@ -4,12 +4,15 @@
 import { z } from 'zod';
 
 export const CONVERSATION_CHANNEL_VALUES = ['whatsapp', 'web_chat'] as const;
-export const INBOUND_MESSAGE_KINDS = ['text', 'button', 'unsupported'] as const;
+export const INBOUND_MESSAGE_KINDS = ['text', 'button', 'audio', 'unsupported'] as const;
 
 export const InboundMessageSchema = z.object({
   /** ID del mensaje en el canal (wamid de WhatsApp): clave de idempotencia. */
   channelMessageId: z.string().min(1).max(200),
-  /** `button`: el contacto tocó un botón; `text` es su título. `unsupported`: audio, sticker… */
+  /**
+   * `button`: el contacto tocó un botón; `text` es su título. `audio`: un audio, con `text` ya
+   * transcrito. `unsupported`: imagen, sticker, ubicación…
+   */
   kind: z.enum(INBOUND_MESSAGE_KINDS),
   text: z.string().max(10_000),
   sentAt: z.date(),
@@ -17,14 +20,26 @@ export const InboundMessageSchema = z.object({
   rawType: z.string().min(1).max(40),
 });
 
+/** Largo máximo del nombre del contacto: el canal recorta el que le llega (perfil de WhatsApp). */
+export const MAX_CONTACT_NAME_LENGTH = 120;
+/** Mensajes por llamada a `ReceiveInboundMessages`: el canal parte un lote más grande. */
+export const MAX_INBOUND_MESSAGES_PER_CALL = 50;
+
 export const ReceiveInboundMessagesInputSchema = z.object({
   channel: z.enum(CONVERSATION_CHANNEL_VALUES),
   externalId: z.string().trim().min(1).max(200),
-  contactName: z.string().trim().max(120).optional(),
-  messages: z.array(InboundMessageSchema).min(1).max(50),
+  contactName: z.string().trim().max(MAX_CONTACT_NAME_LENGTH).optional(),
+  messages: z.array(InboundMessageSchema).min(1).max(MAX_INBOUND_MESSAGES_PER_CALL),
 });
 
 export type InboundMessage = z.infer<typeof InboundMessageSchema>;
+
+export const TranscribeAudioMessageInputSchema = z.object({
+  /** ID del archivo en el canal (el media ID de WhatsApp). */
+  mediaId: z.string().trim().min(1).max(200),
+});
+
+export type TranscribeAudioMessageInput = z.input<typeof TranscribeAudioMessageInputSchema>;
 export type ReceiveInboundMessagesInput = z.input<typeof ReceiveInboundMessagesInputSchema>;
 
 export const OutboundMessageSchema = z.discriminatedUnion('type', [
@@ -37,6 +52,8 @@ export const OutboundMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('buttons'),
     text: z.string().min(1).max(1024),
+    /** Foto de encabezado (WhatsApp la muestra arriba del texto y los botones). */
+    imageUrl: z.url({ protocol: /^https$/ }).optional(),
     buttons: z
       .array(z.object({ id: z.string().min(1).max(256), title: z.string().min(1).max(20) }))
       .min(1)
@@ -80,6 +97,10 @@ export interface AgentTurnUsage {
   readonly requests: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  /** Parte de `inputTokens` que salió del cache de prompts. */
+  readonly cachedInputTokens?: number;
+  /** Parte de `outputTokens` que fue razonamiento. */
+  readonly reasoningTokens?: number;
 }
 
 export interface SendReplyInput {
@@ -90,6 +111,8 @@ export interface SendReplyInput {
     readonly memory: readonly unknown[];
     readonly searchCriteria?: unknown;
     readonly usage?: AgentTurnUsage | undefined;
+    /** Versión de las instrucciones con que respondió, para comparar versiones del prompt. */
+    readonly promptVersion?: string | undefined;
   };
   /** Cliente que se registró durante el turno. */
   readonly clientId?: string | undefined;

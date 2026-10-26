@@ -20,6 +20,7 @@ import {
   TEST_PRODUCER,
 } from '../../testing';
 import { GetAppraisal } from './get-appraisal';
+import { GetSourceAppraisal } from './get-source-appraisal';
 import { ListAppraisalHistory } from './list-appraisal-history';
 import { ListAppraisals } from './list-appraisals';
 
@@ -184,6 +185,65 @@ describe('GetAppraisal', () => {
     expect(unwrapErr(await get.execute({ appraisalId: APPRAISAL_ID }, TEST_PRODUCER))).toEqual({
       type: 'AppraisalNotFound',
     });
+  });
+});
+
+describe('GetSourceAppraisal', () => {
+  const PROPERTY_ID = '00000000-0000-7000-8000-0000000000e1';
+  const CONVERTED = appraisalDetailItem(
+    appraisalSnapshot({
+      appraiserUserId: APPRAISER_ID,
+      status: 'converted',
+      convertedPropertyId: PROPERTY_ID,
+      result: {
+        sale: { minCents: 11_000_000n, maxCents: 12_000_000n, currency: 'USD' },
+        rent: undefined,
+        comparables: [],
+        observations: undefined,
+      },
+    }),
+  );
+
+  function source(rows = [CONVERTED]) {
+    return new GetSourceAppraisal({ appraisals: new StubAppraisalQuery(rows), directory });
+  }
+
+  it('returns the appraisal the property came from', async () => {
+    const found = unwrap(await source().execute({ propertyId: PROPERTY_ID }, TEST_PRODUCER));
+    expect(found).toEqual({
+      id: APPRAISAL_ID,
+      code: 'TAS0001',
+      status: 'converted',
+      appraiser: { id: APPRAISER_ID, name: 'Juan Gómez' },
+      createdAt: CONVERTED.createdAt,
+      sale: { minCents: 11_000_000n, maxCents: 12_000_000n, currency: 'USD' },
+      rent: undefined,
+      deletedAt: undefined,
+    });
+  });
+
+  it('returns nothing for a property that did not come from an appraisal', async () => {
+    expect(unwrap(await source([ITEM]).execute({ propertyId: PROPERTY_ID }, TEST_MANAGER))).toBe(
+      undefined,
+    );
+  });
+
+  it("hides another agent's appraisal without read-others", async () => {
+    expect(
+      unwrap(await source().execute({ propertyId: PROPERTY_ID }, TEST_OTHER_AGENT)),
+    ).toBeUndefined();
+    expect(unwrap(await source().execute({ propertyId: PROPERTY_ID }, TEST_MANAGER))).toMatchObject(
+      { id: APPRAISAL_ID },
+    );
+  });
+
+  it('rejects a user without appraisals:read and an invalid ID', async () => {
+    expect(unwrapErr(await source().execute({ propertyId: PROPERTY_ID }, TEST_OUTSIDER))).toEqual({
+      type: 'Forbidden',
+    });
+    expect(unwrapErr(await source().execute({ propertyId: 'nope' }, TEST_PRODUCER)).type).toBe(
+      'InvalidInput',
+    );
   });
 });
 

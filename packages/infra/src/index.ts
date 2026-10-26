@@ -176,7 +176,13 @@ export {
   WHATSAPP_TEXT_LIMIT,
   type MetaWhatsAppMessengerOptions,
 } from './adapters/whatsapp/meta-whatsapp-messenger';
+export { openAIModeration } from './adapters/openai/openai-moderation';
+export {
+  WhatsAppAudioTranscriber,
+  type WhatsAppAudioTranscriberOptions,
+} from './adapters/whatsapp/whatsapp-audio-transcriber';
 export { LogTeamNotifier, WebhookTeamNotifier } from './adapters/notifications/team-notifiers';
+export { DrizzleNotifications } from './notifications/drizzle-notifications';
 export { LogPublicSite, WebhookPublicSite } from './adapters/public-site/webhook-public-site';
 export {
   WebInquiryClient,

@@ -1,10 +1,13 @@
 import type { ReplyPlan } from '@norde/core/conversations';
 
-type Notice = Extract<ReplyPlan, { action: 'notice' }>['notice'];
+/** Los avisos del plan del core, más el de agente no disponible (breaker abierto o tope de gasto). */
+type Notice = Extract<ReplyPlan, { action: 'notice' }>['notice'] | 'agent_unavailable';
 
 export const NOTICE_TEXT: Readonly<Record<Notice, string>> = {
+  agent_unavailable:
+    'Perdón, en este momento no puedo responderte. Volvé a escribirme en un rato y seguimos.',
   unsupported_content:
-    'Por ahora solo puedo leer mensajes de texto. ¿Me contás por escrito qué estás buscando?',
+    'Por ahora solo puedo leer mensajes de texto y audios. ¿Me contás qué estás buscando?',
   contact_limit:
     'Recibí muchos mensajes seguidos. Para seguir ayudándote, un asesor va a revisar la conversación. ¡Gracias por la paciencia!',
 };

@@ -7,6 +7,7 @@ import {
   ChangePropertyTagsInputSchema,
   CreateCustomAttributeInputSchema,
   ListPropertyDocumentsQuerySchema,
+  PropertyOwnerInputSchema,
   RequestPropertyDocumentInputSchema,
   SendOwnerReportInputSchema,
   UpdateCustomAttributeInputSchema,
@@ -25,6 +26,7 @@ import {
   type ChangePropertyTagsInput,
   type CreateCustomAttributeInput,
   type GeocodingOutcome,
+  type PropertyOwnerInput,
   type PropertyDocumentRow,
   type RequestPropertyDocumentInput,
   type SendOwnerReportInput,
@@ -188,6 +190,22 @@ export async function changePropertyProducerAction(
   const parsed = ChangePropertyProducerInputSchema.safeParse(input);
   if (!parsed.success) return actionFailed(INVALID);
   const result = await properties().changePropertyProducer.execute(parsed.data, actor);
+  return done(result, DETAIL_ERROR_MESSAGES, parsed.data.propertyId);
+}
+
+export async function addPropertyOwnerAction(input: PropertyOwnerInput): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = PropertyOwnerInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+  const result = await properties().addPropertyOwner.execute(parsed.data, actor);
+  return done(result, DETAIL_ERROR_MESSAGES, parsed.data.propertyId);
+}
+
+export async function removePropertyOwnerAction(input: PropertyOwnerInput): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = PropertyOwnerInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(INVALID);
+  const result = await properties().removePropertyOwner.execute(parsed.data, actor);
   return done(result, DETAIL_ERROR_MESSAGES, parsed.data.propertyId);
 }
 

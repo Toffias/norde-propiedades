@@ -1,16 +1,25 @@
 import { OpportunitySearchSchema } from '@norde/core/clients';
-import type {
-  OutboundMessage,
-  ReceiveInboundMessages,
-  ReceiveInboundMessagesOutput,
-  SendReply,
+import {
+  MAX_INBOUND_MESSAGES_PER_CALL,
+  type InboundMessage,
+  type OutboundMessage,
+  type ReceiveInboundMessages,
+  type ReceiveInboundMessagesError,
+  type ReceiveInboundMessagesOutput,
+  type SendReply,
+  type TranscribeAudioMessage,
 } from '@norde/core/conversations';
+import type { Result } from '@norde/core/shared';
 import type { Actor } from '@norde/core/shared';
 import type { Logger } from 'pino';
 
 import type { CustomerAssistant } from '../../assistant/customer-assistant';
+import { PROMPT_VERSION } from '../../assistant/instructions/build-instructions';
+import { keepAllowedLinks } from '../../assistant/link-policy';
+import { toolCallsForLog } from '../../assistant/tool-call-log';
 import { createTurnContext } from '../../assistant/turn-context';
 
+import type { DailyBudget } from '../shared/daily-budget';
 import type { FailureBreaker } from '../shared/failure-breaker';
 import type { WhatsAppInbound } from './inbound';
 import { NOTICE_TEXT, type NoticeThrottle } from './notices';
@@ -19,9 +28,15 @@ import { buildWhatsAppReply, FALLBACK_TEXT } from './reply-builder';
 export interface WhatsAppTurnHandlerDeps {
   readonly receiveInbound: Pick<ReceiveInboundMessages, 'execute'>;
   readonly sendReply: Pick<SendReply, 'execute'>;
+  /** Sin transcripción, un audio se contesta con el aviso de contenido no soportado. */
+  readonly transcribeAudio?: Pick<TranscribeAudioMessage, 'execute'> | undefined;
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
+  /** Tope de gasto en OpenAI, compartido por los canales. */
+  readonly budget: DailyBudget;
+  /** Sitio público: los links del agente a otros dominios se quitan antes de responder. */
+  readonly siteUrl: string;
   readonly notices: NoticeThrottle;
   readonly now: () => Date;
   readonly logger: Logger;
@@ -41,15 +56,8 @@ export class WhatsAppTurnHandler {
     const { deps } = this;
     const contact = first.from;
 
-    const received = await deps.receiveInbound.execute(
-      {
-        channel: 'whatsapp',
-        externalId: contact,
-        contactName: batch.findLast((m) => m.profileName)?.profileName,
-        messages: batch.map((m) => m.message),
-      },
-      deps.actor,
-    );
+    const messages = await Promise.all(batch.map((m) => this.readable(m)));
+    const received = await this.record(contact, batch, messages);
     if (received.isErr()) {
       deps.logger.error({ error: received.error }, 'Could not record inbound WhatsApp messages');
       return;
@@ -80,6 +88,55 @@ export class WhatsAppTurnHandler {
     }
   }
 
+  /**
+   * Registra el lote. Uno de más mensajes de los que acepta el core se registra en partes, en
+   * orden, y responde lo que decide la última que registró algo: sigue siendo **una** respuesta.
+   */
+  private async record(
+    contact: string,
+    batch: readonly WhatsAppInbound[],
+    messages: readonly InboundMessage[],
+  ): Promise<Result<ReceiveInboundMessagesOutput, ReceiveInboundMessagesError>> {
+    const { deps } = this;
+    const contactName = batch.findLast((m) => m.profileName)?.profileName;
+    let decided: Result<ReceiveInboundMessagesOutput, ReceiveInboundMessagesError> | undefined;
+    for (let start = 0; start < messages.length; start += MAX_INBOUND_MESSAGES_PER_CALL) {
+      const received = await deps.receiveInbound.execute(
+        {
+          channel: 'whatsapp',
+          externalId: contact,
+          contactName,
+          messages: messages.slice(start, start + MAX_INBOUND_MESSAGES_PER_CALL),
+        },
+        deps.actor,
+      );
+      if (received.isErr()) return received;
+      if (decided === undefined || received.value.plan.action !== 'ignore') decided = received;
+    }
+    if (decided === undefined) throw new Error('A WhatsApp batch cannot be empty');
+    return decided;
+  }
+
+  /** El mensaje tal como lo lee el agente: un audio, transcrito. Si no se puede, queda como llegó. */
+  private async readable(inbound: WhatsAppInbound): Promise<InboundMessage> {
+    const { deps } = this;
+    if (!inbound.audioMediaId || !deps.transcribeAudio) return inbound.message;
+    try {
+      const result = await deps.transcribeAudio.execute(
+        { mediaId: inbound.audioMediaId },
+        deps.actor,
+      );
+      if (result.isErr()) {
+        deps.logger.info({ reason: result.error.type }, 'WhatsApp audio not transcribed');
+        return inbound.message;
+      }
+      return { ...inbound.message, kind: 'audio', text: result.value.text };
+    } catch (error) {
+      deps.logger.error({ err: error }, 'WhatsApp audio transcription failed');
+      return inbound.message;
+    }
+  }
+
   private async replyWithAgent(
     conversation: ReceiveInboundMessagesOutput,
     userText: string,
@@ -88,6 +145,12 @@ export class WhatsAppTurnHandler {
     const { deps } = this;
     if (deps.breaker.isOpen()) {
       log.error('Agent breaker open after consecutive failures: message left unanswered');
+      await this.unavailable(conversation, log);
+      return;
+    }
+    if (deps.budget.exceeded()) {
+      log.error('Daily OpenAI budget reached: message left unanswered');
+      await this.unavailable(conversation, log);
       return;
     }
 
@@ -99,6 +162,8 @@ export class WhatsAppTurnHandler {
       contactName: conversation.contactName,
       previousSearch: previousSearch.success ? previousSearch.data : undefined,
       now: deps.now(),
+      knownClient: conversation.clientId !== undefined,
+      freshMemory: conversation.agentMemory.length === 0,
     });
 
     const turn = await deps.assistant.run({
@@ -112,21 +177,51 @@ export class WhatsAppTurnHandler {
       if (deps.breaker.recordFailure()) {
         log.error('Agent breaker opened: no more fallback replies until it recovers');
       }
-      if (deps.breaker.isOpen()) return;
+      if (deps.breaker.isOpen()) {
+        await this.unavailable(conversation, log);
+        return;
+      }
       // El turno fallido no se guarda en la memoria.
       await this.send(conversation, { type: 'text', text: FALLBACK_TEXT }, log);
       return;
     }
     deps.breaker.recordSuccess();
 
+    const costUsd = deps.budget.record(turn.usage);
     log.info(
-      { ...turn.usage, tools: turn.toolCalls, registered: context.registration !== undefined },
+      {
+        ...turn.usage,
+        costUsd,
+        promptVersion: PROMPT_VERSION,
+        tools: turn.toolCalls.map((call) => call.name),
+        flagged: turn.flagged,
+        registered: context.registration !== undefined,
+      },
       'Agent turn',
     );
-    await this.send(conversation, buildWhatsAppReply(turn.text, context), log, {
-      agentTurn: { memory: turn.memory, searchCriteria: context.lastSearch, usage: turn.usage },
+    log.debug({ tools: toolCallsForLog(turn.toolCalls) }, 'Agent tool calls');
+    const links = keepAllowedLinks(turn.text ?? '', deps.siteUrl);
+    if (links.removed > 0) {
+      log.warn({ removed: links.removed }, 'Agent reply had links to other domains: removed');
+    }
+    await this.send(conversation, buildWhatsAppReply(links.text, context), log, {
+      agentTurn: {
+        memory: turn.memory,
+        searchCriteria: context.lastSearch,
+        usage: turn.usage,
+        promptVersion: PROMPT_VERSION,
+      },
       clientId: context.registration?.clientId,
     });
+  }
+
+  /**
+   * El agente no puede responder (OpenAI caído o tope de gasto): un aviso fijo, una sola vez por
+   * hora por contacto, en lugar de dejarlo sin respuesta. Cada aviso se cobra.
+   */
+  private async unavailable(conversation: ReceiveInboundMessagesOutput, log: Logger) {
+    if (!this.deps.notices.allow('agent_unavailable', conversation.externalId)) return;
+    await this.send(conversation, { type: 'text', text: NOTICE_TEXT.agent_unavailable }, log);
   }
 
   private async send(

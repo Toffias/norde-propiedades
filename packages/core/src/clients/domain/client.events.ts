@@ -25,5 +25,25 @@ export type ClientsMerged = DomainEvent<
   { readonly clientId: string; readonly mergedClientId: string }
 >;
 
+/**
+ * Pasó a otro agente (o quedó sin agente). `assignedBy` es quien lo asignó e `inquiryId`, la
+ * consulta que lo provocó, si la hubo.
+ */
+export type ClientReassigned = DomainEvent<
+  'clients.client_reassigned',
+  {
+    readonly clientId: string;
+    readonly fromAgentId: string | undefined;
+    readonly toAgentId: string | undefined;
+    readonly assignedBy: string;
+    readonly inquiryId: string | undefined;
+  }
+>;
+
 export type ClientEvent =
-  ClientRegistered | ClientChannelAdded | ClientDeleted | ClientRestored | ClientsMerged;
+  | ClientRegistered
+  | ClientChannelAdded
+  | ClientDeleted
+  | ClientRestored
+  | ClientsMerged
+  | ClientReassigned;

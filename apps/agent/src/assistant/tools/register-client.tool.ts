@@ -51,24 +51,33 @@ export function registerClientTool(deps: AssistantToolDeps) {
       'Registra al cliente y su consulta para que lo contacte un asesor de Norde. Usala cuando quiere visitar, reservar, negociar, hablar con una persona, tasar, o cuando Norde no tiene hoy nada para ofrecerle.',
     parameters: Parameters,
     execute: async (args, context) => {
-      const result = await deps.registerContact.execute(
-        {
-          channel: context.channel,
-          channelExternalId: context.channelExternalId,
-          name: args.name ?? context.contactName,
-          phone: context.phone ?? args.phone ?? undefined,
-          email: args.email ?? undefined,
-          opportunity: {
-            type: args.type,
-            intent: args.intent,
-            propertyId: args.propertyId ?? undefined,
-            search: context.lastSearch,
-            note: args.notes ?? undefined,
-            noMatchingStock: args.noMatchingStock,
+      // Un registro por turno: probar varios teléfonos o emails en un mensaje no suma nada.
+      if (context.registration || context.registering) {
+        return { ok: false, reason: 'El cliente ya quedó registrado en este mensaje' };
+      }
+      context.registering = true;
+      const result = await deps.registerContact
+        .execute(
+          {
+            channel: context.channel,
+            channelExternalId: context.channelExternalId,
+            name: args.name ?? context.contactName,
+            phone: context.phone ?? args.phone ?? undefined,
+            email: args.email ?? undefined,
+            opportunity: {
+              type: args.type,
+              intent: args.intent,
+              propertyId: args.propertyId ?? undefined,
+              search: context.lastSearch,
+              note: args.notes ?? undefined,
+              noMatchingStock: args.noMatchingStock,
+            },
           },
-        },
-        deps.actor,
-      );
+          deps.actor,
+        )
+        .finally(() => {
+          context.registering = false;
+        });
 
       if (result.isErr()) {
         if (result.error.type === 'Forbidden') {
@@ -81,7 +90,9 @@ export function registerClientTool(deps: AssistantToolDeps) {
         clientId: result.value.clientId,
         opportunityId: result.value.opportunityId,
       };
-      return { ok: true, alreadyKnownClient: !result.value.clientCreated };
+      // No se le dice al modelo si el cliente ya existía: en el chat del sitio el teléfono o el
+      // email los escribe cualquiera, y así se podría averiguar quién es cliente de Norde.
+      return { ok: true };
     },
   });
 }

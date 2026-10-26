@@ -72,6 +72,10 @@ export class InMemoryMessageLog implements MessageLog {
       this.outbound.filter((e) => e.channel === channel && e.recordedAt > since).length,
     );
   }
+
+  lastOutbound(conversationId: ConversationId) {
+    return Promise.resolve(this.outbound.findLast((e) => e.conversationId === conversationId));
+  }
 }
 
 /** Unidad de trabajo en memoria, con rollback ante un `Err` o una excepción. */
@@ -129,8 +133,11 @@ export class RecordingMessenger implements ChannelMessenger {
     return Promise.resolve(ok({ channelMessageId: `wamid.out-${this.sent.length}` }));
   }
 
-  markAsRead(channelMessageId: string) {
+  readonly typing: string[] = [];
+
+  markAsRead(channelMessageId: string, options?: { readonly typing: boolean }) {
     this.read.push(channelMessageId);
+    if (options?.typing) this.typing.push(channelMessageId);
     return Promise.resolve();
   }
 }

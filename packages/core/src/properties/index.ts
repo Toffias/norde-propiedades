@@ -345,6 +345,16 @@ export {
   type ProducerNotFoundError,
 } from './application/commands/change-property-producer';
 export {
+  AddPropertyOwner,
+  type AddPropertyOwnerError,
+  type OwnerClientNotFoundError,
+} from './application/commands/add-property-owner';
+export {
+  RemovePropertyOwner,
+  type RemovePropertyOwnerError,
+} from './application/commands/remove-property-owner';
+export { MAX_PROPERTY_OWNERS, type TooManyOwnersError } from './domain/property-owners';
+export {
   UpdatePropertyInternalInfo,
   type UpdatePropertyInternalInfoError,
   type UserNotFoundError,

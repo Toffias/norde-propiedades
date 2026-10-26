@@ -238,6 +238,7 @@ export class Inquiry extends AggregateRoot<InquiryId, InquiryEvent> {
         clientId: input.clientId,
         opportunityId: input.opportunityId,
         agentId,
+        assignedBy: input.by,
       },
     });
     return ok(undefined);

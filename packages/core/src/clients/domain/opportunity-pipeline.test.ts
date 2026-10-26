@@ -371,7 +371,9 @@ describe('Opportunity.assignAgent', () => {
   it('moves it to another agent and branch, and records it', () => {
     const opportunity = openAt(aStage('new'));
 
-    const changed = opportunity.assignAgent({ agentId: 'agent-2', branchId: 'branch-2' }, T1);
+    const changed = opportunity.assignAgent({ agentId: 'agent-2', branchId: 'branch-2' }, T1, {
+      by: 'manager-1',
+    });
 
     expect(changed.isOk() && changed.value).toBe(true);
 
@@ -380,7 +382,12 @@ describe('Opportunity.assignAgent', () => {
     expect(opportunity.pullEvents()).toMatchObject([
       {
         type: 'clients.opportunity_reassigned',
-        payload: { fromAgentId: 'agent-1', toAgentId: 'agent-2' },
+        payload: {
+          fromAgentId: 'agent-1',
+          toAgentId: 'agent-2',
+          assignedBy: 'manager-1',
+          inquiryId: undefined,
+        },
       },
     ]);
   });
@@ -388,7 +395,9 @@ describe('Opportunity.assignAgent', () => {
   it('does nothing with the same agent and branch', () => {
     const opportunity = openAt(aStage('new'));
 
-    const changed = opportunity.assignAgent({ agentId: 'agent-1', branchId: 'branch-1' }, T1);
+    const changed = opportunity.assignAgent({ agentId: 'agent-1', branchId: 'branch-1' }, T1, {
+      by: 'manager-1',
+    });
 
     expect(changed.isOk() && !changed.value).toBe(true);
     expect(opportunity.pullEvents()).toEqual([]);
@@ -398,7 +407,9 @@ describe('Opportunity.assignAgent', () => {
     const opportunity = openAt(aStage('visiting'));
     opportunity.close(aReason('positive').ref(), aStage('won').ref(), change(T1));
 
-    const result = opportunity.assignAgent({ agentId: 'agent-2', branchId: undefined }, T2);
+    const result = opportunity.assignAgent({ agentId: 'agent-2', branchId: undefined }, T2, {
+      by: 'manager-1',
+    });
 
     expect(result.isErr() && result.error).toEqual({ type: 'OpportunityClosed' });
   });

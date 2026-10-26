@@ -2,6 +2,7 @@ import { AggregateRoot } from '../../shared/domain/aggregate-root';
 import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
+import type { AssignmentOrigin } from './assignment-origin';
 import type { ClientId } from './client';
 import type { ContactChannel } from './contact-channel';
 import type { OpportunityEvent } from './opportunity.events';
@@ -469,7 +470,11 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
    * Pasa a otro agente (o a ninguno) y a su sucursal. Una cerrada no se reasigna. Devuelve si
    * cambió.
    */
-  assignAgent(agent: OpportunityAgent, now: Date): Result<boolean, OpportunityClosedError> {
+  assignAgent(
+    agent: OpportunityAgent,
+    now: Date,
+    origin: AssignmentOrigin,
+  ): Result<boolean, OpportunityClosedError> {
     if (!this.isOpen()) return err({ type: 'OpportunityClosed' });
     const from = this.#state.agentId;
     if (from === agent.agentId && this.#state.branchId === agent.branchId) return ok(false);
@@ -488,6 +493,8 @@ export class Opportunity extends AggregateRoot<OpportunityId, OpportunityEvent> 
         clientId: this.#state.clientId,
         fromAgentId: from,
         toAgentId: agent.agentId,
+        assignedBy: origin.by,
+        inquiryId: origin.inquiryId,
       },
     });
     return ok(true);

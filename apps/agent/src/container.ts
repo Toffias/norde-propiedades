@@ -6,6 +6,7 @@ import { RegisterContact } from '@norde/core/clients';
 import {
   ReceiveInboundMessages,
   SendReply,
+  TranscribeAudioMessage,
   type ChannelMessenger,
   type ChannelMessengers,
   type ConversationPolicy,
@@ -18,13 +19,16 @@ import {
   createDatabase,
   DrizzlePropertySearchQuery,
   MetaWhatsAppMessenger,
+  openAIModeration,
   SystemClock,
   UuidV7IdGenerator,
   WebChatMessenger,
+  WhatsAppAudioTranscriber,
 } from '@norde/infra';
 import type { Logger } from 'pino';
 
 import { createCustomerAssistant } from './assistant/customer-assistant';
+import { DailyBudget } from './channels/shared/daily-budget';
 import { FailureBreaker } from './channels/shared/failure-breaker';
 import type { WhatsAppInbound } from './channels/whatsapp/inbound';
 import { KeyedQueue } from './channels/shared/keyed-queue';
@@ -132,7 +136,7 @@ export function createContainer(
   });
   const sendReply = new SendReply({ uow: conversationsUow, ids, clock, messengers });
 
-  // El mismo agente y el mismo breaker para todos los canales: si OpenAI falla, falla en todos.
+  // El mismo agente para todos los canales.
   const assistant =
     env.OPENAI_API_KEY === undefined
       ? undefined
@@ -142,16 +146,31 @@ export function createContainer(
           onToolError: (tool, error) => {
             logger.error({ err: error, tool }, 'Agent tool failed');
           },
+          moderation: env.AGENT_MODERATION
+            ? openAIModeration({
+                apiKey: env.OPENAI_API_KEY,
+                onError: (error) => {
+                  logger.error({ err: error }, 'OpenAI moderation failed: message let through');
+                },
+              })
+            : undefined,
+          onUnverifiedAmounts: (amounts) => {
+            logger.warn({ amounts }, 'Agent reply mentions amounts not seen in tools or messages');
+          },
           actor: AGENT_ACTOR,
           siteUrl: env.PUBLIC_SITE_URL,
           searchProperties,
           getPropertyDetail,
           registerContact,
         });
-  const breaker = new FailureBreaker(
-    env.AGENT_BREAKER_THRESHOLD,
-    env.AGENT_BREAKER_COOLDOWN_MINUTES * 60_000,
-  );
+  const budget = new DailyBudget(env.AGENT_DAILY_BUDGET_USD, {
+    inputPerMillion: env.OPENAI_PRICE_INPUT_PER_MTOK,
+    cachedInputPerMillion: env.OPENAI_PRICE_CACHED_INPUT_PER_MTOK,
+    outputPerMillion: env.OPENAI_PRICE_OUTPUT_PER_MTOK,
+  });
+  // Un breaker por canal: si el abuso del chat del sitio hace fallar al agente, WhatsApp sigue.
+  const newBreaker = () =>
+    new FailureBreaker(env.AGENT_BREAKER_THRESHOLD, env.AGENT_BREAKER_COOLDOWN_MINUTES * 60_000);
 
   // WhatsApp y el chat del sitio comparten la cola: las claves (número, sesión) no se pisan.
   const queue = new KeyedQueue();
@@ -159,12 +178,26 @@ export function createContainer(
   let whatsapp: Container['whatsapp'];
 
   if (whatsappMessenger && assistant) {
+    const transcribeAudio =
+      credentials && env.OPENAI_API_KEY
+        ? new TranscribeAudioMessage({
+            transcriber: new WhatsAppAudioTranscriber({
+              accessToken: credentials.accessToken,
+              apiVersion: env.WHATSAPP_API_VERSION,
+              baseUrl: env.WHATSAPP_API_BASE_URL,
+              openai: { apiKey: env.OPENAI_API_KEY, model: env.OPENAI_TRANSCRIBE_MODEL },
+            }),
+          })
+        : undefined;
     const handler = new WhatsAppTurnHandler({
       receiveInbound,
       sendReply,
+      transcribeAudio,
       assistant,
       actor: AGENT_ACTOR,
-      breaker,
+      breaker: newBreaker(),
+      budget,
+      siteUrl: env.PUBLIC_SITE_URL,
       notices: new NoticeThrottle(HOUR_MS),
       now: () => clock.now(),
       logger,
@@ -201,7 +234,9 @@ export function createContainer(
       sendReply,
       assistant,
       actor: AGENT_ACTOR,
-      breaker,
+      breaker: newBreaker(),
+      budget,
+      siteUrl: env.PUBLIC_SITE_URL,
       now: () => clock.now(),
       logger,
     });

@@ -143,8 +143,6 @@ export const properties = coreSchema.table(
     slug: text('slug').notNull().unique(),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
-    /** Se reemplaza por `property_operations` (columna a retirar en la migración contract). */
-    operation: text('operation').notNull(),
     propertyType: text('property_type').notNull(),
     status: text('status').notNull(),
     statusChangedAt: timestamp('status_changed_at', { withTimezone: true }),
@@ -169,9 +167,6 @@ export const properties = coreSchema.table(
     latitude: numeric('latitude', { precision: 9, scale: 6, mode: 'number' }),
     longitude: numeric('longitude', { precision: 9, scale: 6, mode: 'number' }),
     portalTitle: text('portal_title'),
-    /** Se reemplaza por `property_operations` (columna a retirar en la migración contract). */
-    priceCents: bigint('price_cents', { mode: 'bigint' }),
-    currency: text('currency').notNull(),
     /** Mostrar el precio en la web y los portales. */
     priceOnWeb: boolean('price_on_web').notNull().default(true),
     /** Centavos de pesos. */
@@ -207,16 +202,6 @@ export const properties = coreSchema.table(
     internalComments: text('internal_comments'),
     videoUrl: text('video_url'),
     tour360Url: text('tour_360_url'),
-    /** Se reemplaza por `property_features` (columna a retirar en la migración contract). */
-    amenities: text('amenities')
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    /** Se reemplaza por `media_items` (columna a retirar en la migración contract). */
-    imageUrls: text('image_urls')
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
     /** Captador. Usuario del módulo identity: solo el ID, sin foreign key entre módulos. */
     producerUserId: uuid('producer_user_id'),
     /** Sucursal del módulo identity: solo el ID, sin foreign key entre módulos. */
@@ -232,15 +217,12 @@ export const properties = coreSchema.table(
     ...trash(),
   },
   (t) => [
-    // Columna vieja: se borra con la migración contract de #33.
-    index('properties_listing_idx').on(t.status, t.publishedOnWeb, t.operation, t.propertyType),
     // Búsqueda de la web y del agente: solo el stock publicado (unas centenas de filas), en el
     // orden por defecto. El resto de los filtros recorre este subconjunto; el precio y la
     // operación van por `property_operations_price_idx`.
     index('properties_public_listing_idx')
       .on(t.featured.desc(), t.createdAt.desc(), t.id)
       .where(sql`published_on_web and status = 'available' and deleted_at is null`),
-    index('properties_price_idx').on(t.currency, t.priceCents),
     // Grilla del panel.
     index('properties_status_updated_idx').on(t.status, t.updatedAt).where(notDeleted),
     index('properties_created_idx').on(t.createdAt).where(notDeleted),

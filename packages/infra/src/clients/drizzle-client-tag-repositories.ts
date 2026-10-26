@@ -5,6 +5,7 @@ import {
   type ClientTagGroupRepository,
   type ClientTagId,
   type ClientTagRepository,
+  type MovedTagAssignment,
 } from '@norde/core/clients';
 import { parseId, type Result } from '@norde/core/shared';
 import { and, count, eq, inArray, isNull, max, sql, type SQL } from 'drizzle-orm';
@@ -114,23 +115,47 @@ export class DrizzleClientTagRepository implements ClientTagRepository {
   async moveAssignments(
     source: ClientTagId,
     target: ClientTagId,
+    limit: number,
     actorId: string,
     now: Date,
-  ): Promise<number> {
-    const [row] = await this.db
-      .select({ total: count() })
+  ): Promise<readonly MovedTagAssignment[]> {
+    // De a un lote: los movidos ya no tienen `source`, así que la próxima llamada sigue con otros.
+    const batch = await this.db
+      .select({ clientId: clientTagAssignments.clientId })
       .from(clientTagAssignments)
-      .where(eq(clientTagAssignments.tagId, source));
-    // Una sola sentencia por paso, sin traer las filas: puede ser media agenda.
-    await this.db.execute(sql`
-      insert into ${clientTagAssignments} (client_id, tag_id, created_at, created_by)
-      select client_id, ${target}, ${now}, ${actorId}
-      from ${clientTagAssignments}
-      where tag_id = ${source}
-      on conflict do nothing
-    `);
-    await this.db.delete(clientTagAssignments).where(eq(clientTagAssignments.tagId, source));
-    return row?.total ?? 0;
+      .where(eq(clientTagAssignments.tagId, source))
+      .orderBy(clientTagAssignments.clientId)
+      .limit(limit);
+    const clientIds = batch.map((row) => row.clientId);
+    if (clientIds.length === 0) return [];
+
+    const assigned = await this.db
+      .select({ clientId: clientTagAssignments.clientId, tagId: clientTagAssignments.tagId })
+      .from(clientTagAssignments)
+      .where(inArray(clientTagAssignments.clientId, clientIds));
+    await this.db
+      .insert(clientTagAssignments)
+      .values(
+        clientIds.map((clientId) => ({
+          clientId,
+          tagId: target,
+          createdAt: now,
+          createdBy: actorId,
+        })),
+      )
+      .onConflictDoNothing();
+    await this.db
+      .delete(clientTagAssignments)
+      .where(
+        and(
+          eq(clientTagAssignments.tagId, source),
+          inArray(clientTagAssignments.clientId, clientIds),
+        ),
+      );
+    const before = new Map<string, string[]>();
+    for (const row of assigned)
+      before.set(row.clientId, [...(before.get(row.clientId) ?? []), row.tagId]);
+    return clientIds.map((clientId) => ({ clientId, tagIdsBefore: before.get(clientId) ?? [] }));
   }
 
   async save(tag: ClientTag, actorId: string): Promise<void> {

@@ -27,12 +27,17 @@ export type OpportunityStatusChanged = DomainEvent<
   }
 >;
 
-/** Pasó a otro agente (o quedó sin agente). Dispara la regla "al asignar" (#9, etapa 4). */
+/**
+ * Pasó a otro agente (o quedó sin agente). Dispara la regla "al asignar" (#9, etapa 4) y la
+ * notificación. `assignedBy` e `inquiryId` faltan en los eventos de antes de las notificaciones.
+ */
 export type OpportunityReassigned = DomainEvent<
   'clients.opportunity_reassigned',
   OpportunityPayload & {
     readonly fromAgentId: string | undefined;
     readonly toAgentId: string | undefined;
+    readonly assignedBy: string;
+    readonly inquiryId: string | undefined;
   }
 >;
 

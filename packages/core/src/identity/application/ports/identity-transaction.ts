@@ -10,12 +10,18 @@ import type { UserFavorites } from './user-favorites';
 export interface CredentialStore {
   findPasswordHash(userId: string): Promise<string | undefined>;
   setPasswordHash(userId: string, hash: string): Promise<void>;
+  /** Tiene activa la verificación en dos pasos (#113). */
+  hasTwoFactor(userId: string): Promise<boolean>;
+  /** Le quita el segundo factor: el secreto de la app, los códigos de respaldo y la marca. */
+  removeTwoFactor(userId: string): Promise<void>;
 }
 
 /** Sesiones abiertas de un usuario en el panel. */
 export interface UserSessions {
   /** Cierra todas: el próximo request de ese usuario vuelve al login. */
   revokeAll(userId: string): Promise<void>;
+  /** Cierra todas menos la indicada (la del request que cambió la contraseña). */
+  revokeOthers(userId: string, keepSessionId: string): Promise<void>;
 }
 
 /** Lo que un command de identity usa dentro de la transacción, ligado a la misma conexión. */

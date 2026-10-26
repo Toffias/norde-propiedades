@@ -95,12 +95,14 @@ async function seedInquiries(client: pg.Client): Promise<number> {
          -- La clave de deduplicación de Phone: el celular argentino sin el 9.
          case when $7 like '+549%' then '+54' || substr($7, 5) else $7 end, $8,
          p.id, p.branch_id, case when $9 then 'deleted' else 'pending' end,
-         array_remove(array[
-           'channel:' || $2::text,
-           'operation:' || p.operation,
-           'type:' || p.property_type,
-           'neighborhood:' || nullif(p.neighborhood, '')
-         ], null),
+         array_remove(
+           array['channel:' || $2::text]
+           || coalesce(
+             (select array_agg('operation:' || o.operation order by o.operation)
+              from core.property_operations o where o.property_id = p.id),
+             '{}'::text[])
+           || array['type:' || p.property_type, 'neighborhood:' || nullif(p.neighborhood, '')],
+           null),
          now(), now(), 'system:import', 'system:import',
          case when $9 then now() end, case when $9 then 'system:import' end
        from (select 1) one

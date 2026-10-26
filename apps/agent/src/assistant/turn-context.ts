@@ -35,6 +35,13 @@ export interface CustomerTurnContext {
   readonly phone: string | undefined;
   readonly contactName: string | undefined;
   readonly now: Date;
+  /** La conversación ya está vinculada a un cliente de Norde (se registró antes). */
+  readonly knownClient: boolean;
+  /**
+   * La charla arranca sin memoria (es nueva o pasó el período de inactividad) pero hay una
+   * búsqueda anterior: el agente puede retomarla.
+   */
+  readonly resumedSearch: ContactSearch | undefined;
   /** Propiedades que el agente vio o mostró en este turno. */
   readonly shownProperties: Map<string, ShownProperty>;
   /** Última búsqueda, para guardarla en la conversación y en la oportunidad. */
@@ -58,6 +65,9 @@ export function createTurnContext(input: {
   readonly contactName?: string | undefined;
   readonly previousSearch?: ContactSearch | undefined;
   readonly now: Date;
+  readonly knownClient?: boolean;
+  /** Si la memoria del agente está vacía en este turno. */
+  readonly freshMemory?: boolean;
 }): CustomerTurnContext {
   return {
     channel: input.channel,
@@ -65,6 +75,8 @@ export function createTurnContext(input: {
     phone: input.phone,
     contactName: input.contactName,
     now: input.now,
+    knownClient: input.knownClient ?? false,
+    resumedSearch: input.freshMemory ? input.previousSearch : undefined,
     shownProperties: new Map(),
     lastSearch: input.previousSearch,
     searchResult: undefined,

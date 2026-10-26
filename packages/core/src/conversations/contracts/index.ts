@@ -52,6 +52,8 @@ export const OutboundMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('buttons'),
     text: z.string().min(1).max(1024),
+    /** Foto de encabezado (WhatsApp la muestra arriba del texto y los botones). */
+    imageUrl: z.url({ protocol: /^https$/ }).optional(),
     buttons: z
       .array(z.object({ id: z.string().min(1).max(256), title: z.string().min(1).max(20) }))
       .min(1)
@@ -95,6 +97,10 @@ export interface AgentTurnUsage {
   readonly requests: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  /** Parte de `inputTokens` que salió del cache de prompts. */
+  readonly cachedInputTokens?: number;
+  /** Parte de `outputTokens` que fue razonamiento. */
+  readonly reasoningTokens?: number;
 }
 
 export interface SendReplyInput {
@@ -105,6 +111,8 @@ export interface SendReplyInput {
     readonly memory: readonly unknown[];
     readonly searchCriteria?: unknown;
     readonly usage?: AgentTurnUsage | undefined;
+    /** Versión de las instrucciones con que respondió, para comparar versiones del prompt. */
+    readonly promptVersion?: string | undefined;
   };
   /** Cliente que se registró durante el turno. */
   readonly clientId?: string | undefined;

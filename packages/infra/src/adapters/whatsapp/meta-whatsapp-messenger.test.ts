@@ -148,6 +148,37 @@ describe('MetaWhatsAppMessenger', () => {
 
     expect(calls[0]?.body).toMatchObject({ status: 'read', message_id: 'wamid.IN' });
   });
+
+  it('shows the typing indicator with the read receipt when asked', async () => {
+    const { calls, fetchImpl } = fakeFetch([json({ success: true })]);
+
+    await messenger(fetchImpl).markAsRead('wamid.IN', { typing: true });
+
+    expect(calls[0]?.body).toMatchObject({
+      status: 'read',
+      message_id: 'wamid.IN',
+      typing_indicator: { type: 'text' },
+    });
+  });
+
+  it('sends buttons with the photo as header', async () => {
+    const { calls, fetchImpl } = fakeFetch([json({ messages: [{ id: 'wamid.OUT' }] })]);
+
+    await messenger(fetchImpl).send('5491166899124', {
+      type: 'buttons',
+      text: '¿Te gusta?',
+      imageUrl: 'https://norde.com.ar/fotos/1/a',
+      buttons: [{ id: 'opt_1', title: 'Visitarla' }],
+    });
+
+    expect(calls[0]?.body).toMatchObject({
+      interactive: {
+        type: 'button',
+        header: { type: 'image', image: { link: 'https://norde.com.ar/fotos/1/a' } },
+        body: { text: '¿Te gusta?' },
+      },
+    });
+  });
 });
 
 describe('helpers', () => {

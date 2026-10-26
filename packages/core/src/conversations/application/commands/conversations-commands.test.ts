@@ -74,6 +74,8 @@ describe('ReceiveInboundMessages', () => {
     expect(ctx.uow.conversations.rows.size).toBe(1);
     expect(ctx.uow.messages.inbound).toHaveLength(2);
     expect(ctx.messenger.read).toEqual(['wamid.2']);
+    // Va a responder el agente: el contacto ve "escribiendo…".
+    expect(ctx.messenger.typing).toEqual(['wamid.2']);
     expect(ctx.uow.audit.entries).toEqual([
       expect.objectContaining({
         kind: 'created',
@@ -145,6 +147,7 @@ describe('ReceiveInboundMessages', () => {
     const output = await planFor(ctx, [ctx.message('gracias!')]);
 
     expect(output.plan).toEqual({ action: 'silent', reason: 'acknowledgement' });
+    expect(ctx.messenger.typing).toEqual([]);
   });
 
   it('answers a "dale" that replies to a question of the bot, but not a plain one', async () => {

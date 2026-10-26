@@ -68,7 +68,15 @@ export function buildWebChatReply(
   };
 
   if (buttons.length > 0 && text.length <= SHORT_BODY_LIMIT) {
-    return { view, stored: { type: 'buttons', text, buttons: [...buttons] } };
+    return {
+      view,
+      stored: {
+        type: 'buttons',
+        text,
+        buttons: [...buttons],
+        ...(context.photo ? { imageUrl: context.photo.url } : {}),
+      },
+    };
   }
   if (context.photo && text.length <= SHORT_BODY_LIMIT) {
     return { view, stored: { type: 'image', imageUrl: context.photo.url, caption: text } };

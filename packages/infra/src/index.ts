@@ -176,6 +176,7 @@ export {
   WHATSAPP_TEXT_LIMIT,
   type MetaWhatsAppMessengerOptions,
 } from './adapters/whatsapp/meta-whatsapp-messenger';
+export { openAIModeration } from './adapters/openai/openai-moderation';
 export {
   WhatsAppAudioTranscriber,
   type WhatsAppAudioTranscriberOptions,

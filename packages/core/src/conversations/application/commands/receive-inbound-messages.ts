@@ -130,8 +130,13 @@ export class ReceiveInboundMessages {
 
     const { conversation, recorded, memoryReset, plan } = outcome;
     const last = recorded.at(-1);
-    // El acuse de lectura del último marca también los anteriores.
-    if (last) await this.deps.messengers[data.channel]?.markAsRead(last.channelMessageId);
+    // El acuse de lectura del último marca también los anteriores. Si va a responder el agente,
+    // el contacto ve "escribiendo…" mientras tanto.
+    if (last) {
+      await this.deps.messengers[data.channel]?.markAsRead(last.channelMessageId, {
+        typing: plan.action === 'agent',
+      });
+    }
 
     return ok({
       conversationId: conversation.id,

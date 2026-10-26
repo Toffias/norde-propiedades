@@ -50,7 +50,7 @@ describe('Conversation', () => {
     expect(conversation.agentMemory).toHaveLength(1);
   });
 
-  it('forgets the memory and returns to the bot after the idle period', () => {
+  it('forgets the memory (not the last search) and returns to the bot after the idle period', () => {
     const conversation = started();
     conversation.recordAgentTurn({ memory: [{ role: 'user' }], searchCriteria: { zona: 'x' } });
     conversation.handOff(T0);
@@ -63,7 +63,7 @@ describe('Conversation', () => {
 
     expect(memoryReset).toBe(true);
     expect(conversation.agentMemory).toEqual([]);
-    expect(conversation.searchCriteria).toBeUndefined();
+    expect(conversation.searchCriteria).toEqual({ zona: 'x' });
     expect(conversation.status).toBe('active');
     expect(conversation.contactName).toBe('Ana María');
   });

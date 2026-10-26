@@ -45,14 +45,16 @@ const reply = {
 };
 
 function clientAnswering(status: number, body: unknown = {}) {
-  const requests: { body: string; signature: string | null }[] = [];
+  const requests: { body: string; signature: string | null; timestamp: string | null }[] = [];
   const client = new WebChatClient({
     url: URL,
     secret: SECRET,
+    now: () => 1_767_225_600_000,
     fetch: (_url, init) => {
       requests.push({
         body: typeof init?.body === 'string' ? init.body : '',
         signature: new Headers(init?.headers).get('x-norde-signature'),
+        timestamp: new Headers(init?.headers).get('x-norde-timestamp'),
       });
       return Promise.resolve(Response.json(body, { status }));
     },
@@ -66,7 +68,11 @@ describe('WebChatClient', () => {
     expect(await client.send(message)).toEqual({ kind: 'reply', reply });
     const body = JSON.stringify(message);
     expect(requests).toEqual([
-      { body, signature: `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
+      {
+        body,
+        timestamp: '1767225600000',
+        signature: `sha256=${createHmac('sha256', SECRET).update(`1767225600000.${body}`).digest('hex')}`,
+      },
     ]);
   });
 

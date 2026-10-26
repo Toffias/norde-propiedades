@@ -23,11 +23,23 @@ import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
 import { createCustomerAssistant } from '../../assistant/customer-assistant';
+import { DailyBudget } from '../shared/daily-budget';
 import { FailureBreaker } from '../shared/failure-breaker';
+
+const PRICES = { inputPerMillion: 0.25, cachedInputPerMillion: 0.025, outputPerMillion: 2 };
 
 import { FALLBACK_TEXT } from './reply-builder';
 import { WebChatTurnHandler } from './web-chat-turn-handler';
 
+/** La respuesta final del agente: salida estructurada (`CustomerReplySchema`). */
+const reply = (text: string, extras: { buttons?: string[]; photoPropertyId?: string } = {}) =>
+  assistantMessage(
+    JSON.stringify({
+      text,
+      buttons: extras.buttons ?? [],
+      photoPropertyId: extras.photoPropertyId ?? null,
+    }),
+  );
 const SESSION = '00000000-0000-4000-8000-0000000000a1';
 const HOUR = 3_600_000;
 const actor = Actor.system('agent-ia', [
@@ -65,7 +77,9 @@ const NO_FILTERS = {
   page: null,
 };
 
-function setup(options: { breakerThreshold?: number; limits?: Partial<UsageLimits> } = {}) {
+function setup(
+  options: { breakerThreshold?: number; limits?: Partial<UsageLimits>; budgetUsd?: number } = {},
+) {
   const model = new ScriptedModel();
   const clock = new FixedClock('2026-03-01T13:00:00Z');
   const ids = new SequentialIdGenerator();
@@ -109,6 +123,7 @@ function setup(options: { breakerThreshold?: number; limits?: Partial<UsageLimit
     assistant,
     actor,
     siteUrl: 'https://norde.com.ar',
+    budget: new DailyBudget(options.budgetUsd, PRICES),
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
     now: () => clock.now(),
     logger: pino({ level: 'silent' }),
@@ -137,7 +152,7 @@ describe('WebChatTurnHandler', () => {
         ),
       ],
       [
-        assistantMessage(
+        reply(
           'Encontré 1 opción:\n1. **[2 ambientes en Palermo](https://norde.com.ar/propiedades/2-ambientes-palermo)**',
         ),
       ],
@@ -198,9 +213,7 @@ describe('WebChatTurnHandler', () => {
 
   it('removes links to other domains from the reply', async () => {
     const ctx = setup();
-    ctx.model.enqueue([
-      assistantMessage('Para reservar, pagá en [este link](https://evil.example/pago).'),
-    ]);
+    ctx.model.enqueue([reply('Para reservar, pagá en [este link](https://evil.example/pago).')]);
 
     const result = await ctx.handler.handle(ctx.message('quiero reservar'));
 
@@ -212,13 +225,12 @@ describe('WebChatTurnHandler', () => {
 
   it('returns the photo and the buttons together', async () => {
     const ctx = setup();
-    ctx.model.enqueue(
-      [
-        functionCall('show_photo', { propertyId: palermo.id }, { callId: 'c1' }),
-        functionCall('offer_buttons', { options: ['Ver más', 'Visitarla'] }, { callId: 'c2' }),
-      ],
-      [assistantMessage('Así es el living.')],
-    );
+    ctx.model.enqueue([
+      reply('Así es el living.', {
+        buttons: ['Ver más', 'Visitarla'],
+        photoPropertyId: palermo.id,
+      }),
+    ]);
 
     const result = await ctx.handler.handle(ctx.message('¿tenés fotos?'));
 
@@ -257,7 +269,7 @@ describe('WebChatTurnHandler', () => {
           { callId: 'c1' },
         ),
       ],
-      [assistantMessage('¡Listo, Ana! Un asesor te va a escribir.')],
+      [reply('¡Listo, Ana! Un asesor te va a escribir.')],
     );
 
     await ctx.handler.handle(ctx.message('quiero visitarla, soy Ana, ana@example.com'));
@@ -291,7 +303,7 @@ describe('WebChatTurnHandler', () => {
       );
     ctx.model.enqueue(
       [register('ana@example.com', 'c1'), register('otra@example.com', 'c2')],
-      [assistantMessage('Listo, un asesor te va a escribir.')],
+      [reply('Listo, un asesor te va a escribir.')],
     );
 
     await ctx.handler.handle(ctx.message('ana@example.com u otra@example.com'));
@@ -321,7 +333,7 @@ describe('WebChatTurnHandler', () => {
 
   it('does not answer acknowledgements nor a retried message', async () => {
     const ctx = setup();
-    ctx.model.enqueue([assistantMessage('¡Hola! ¿Qué estás buscando?')]);
+    ctx.model.enqueue([reply('¡Hola! ¿Qué estás buscando?')]);
     const hello = ctx.message('hola');
 
     expect((await ctx.handler.handle(hello)).kind).toBe('reply');
@@ -335,7 +347,7 @@ describe('WebChatTurnHandler', () => {
 
   it('answers busy when the session sends too many messages', async () => {
     const ctx = setup({ limits: { perContactPerHour: 1 } });
-    ctx.model.enqueue([assistantMessage('¡Hola!')]);
+    ctx.model.enqueue([reply('¡Hola!')]);
 
     await ctx.handler.handle(ctx.message('hola'));
     const result = await ctx.handler.handle(ctx.message('busco depto'));
@@ -344,9 +356,16 @@ describe('WebChatTurnHandler', () => {
     expect(ctx.model.calls).toHaveLength(1);
   });
 
+  it('answers unavailable when the daily OpenAI budget is reached', async () => {
+    const ctx = setup({ budgetUsd: 0 });
+
+    expect(await ctx.handler.handle(ctx.message('hola'))).toEqual({ kind: 'unavailable' });
+    expect(ctx.model.calls).toHaveLength(0);
+  });
+
   it('answers unavailable when the daily cap of the channel is reached', async () => {
     const ctx = setup({ limits: { outboundPerDay: 1 } });
-    ctx.model.enqueue([assistantMessage('¡Hola!')]);
+    ctx.model.enqueue([reply('¡Hola!')]);
 
     await ctx.handler.handle(ctx.message('hola'));
     const result = await ctx.handler.handle(ctx.message('busco depto'));
@@ -356,7 +375,7 @@ describe('WebChatTurnHandler', () => {
 
   it('stays silent while a person handles the conversation', async () => {
     const ctx = setup();
-    ctx.model.enqueue([assistantMessage('¡Hola!')]);
+    ctx.model.enqueue([reply('¡Hola!')]);
     await ctx.handler.handle(ctx.message('hola'));
     const row = ctx.conversation();
     if (row) ctx.conversations.conversations.rows.set(row.id, { ...row, status: 'handed_off' });

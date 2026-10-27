@@ -164,4 +164,37 @@ describe('PgBossEventBus', () => {
 
     expect(received.sort()).toEqual(['audit-trail:agg-1', 'notify-team:agg-1']);
   });
+
+  it('gathers a burst of events of the same aggregate when the handler throttles', async () => {
+    const eventType = `tests.throttled_${new UuidV7IdGenerator().next().replaceAll('-', '')}`;
+    const bus = new PgBossEventBus({
+      connectionString: inject('databaseUrl'),
+      logger: silent,
+      applicationName: 'norde-infra-tests',
+      schema: 'pgboss_test',
+    });
+    bus.subscribe({
+      eventType,
+      name: 'handler',
+      throttleSeconds: 60,
+      handle: () => Promise.resolve(),
+    });
+    await bus.start();
+    for (let n = 0; n < 5; n += 1) {
+      await bus.publish({
+        id: new UuidV7IdGenerator().next(),
+        type: eventType,
+        aggregateId: 'mercadolibre',
+        occurredAt: clock.now(),
+        payload: {},
+      });
+    }
+    await bus.stop();
+
+    const result = await db.execute<{ jobs: number }>(
+      sql`select count(*)::int as jobs from pgboss_test.job where name = ${`${eventType}.handler`}`,
+    );
+    // Uno en este minuto y uno en el siguiente, que junta el resto de la ráfaga.
+    expect(result.rows[0]?.jobs).toBe(2);
+  });
 });

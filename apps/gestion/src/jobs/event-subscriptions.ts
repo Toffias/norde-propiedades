@@ -72,6 +72,8 @@ export interface EventSubscription {
   handle(event: DeliveredEvent): Promise<void>;
   /** Cuánto puede tardar antes de que la cola lo dé por vencido (15 minutos si no se dice). */
   readonly expireInSeconds?: number;
+  /** Como mucho un job cada tantos segundos por aggregate: los del medio se juntan en uno. */
+  readonly throttleSeconds?: number;
 }
 
 const OpportunityPayloadSchema = z.object({ opportunityId: z.string(), clientId: z.string() });
@@ -582,6 +584,8 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
       // El portal avisó que llegó un contacto: se leen sus contactos (no lo que trajo el aviso).
       eventType: 'portals.leads_arrived',
       name: 'pull-portal-leads',
+      // El aviso del portal no viene firmado: una ráfaga se junta en una lectura por minuto.
+      throttleSeconds: 60,
       handle: async (event) => {
         const { portal } = LeadsPayloadSchema.parse(event.payload);
         const result = await jobs.pullLeads.execute({ portal }, jobs.actor);

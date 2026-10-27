@@ -135,15 +135,31 @@ export function listingProblems(content: PropertyListingContent): string[] {
     problems.push(
       'La propiedad no tiene sucursal, y MercadoLibre exige el WhatsApp de la sucursal en cada aviso. La propiedad toma la sucursal de su captador: volvé a elegirlo en "Cambiar captador".',
     );
-  } else if (source.contact.whatsapp === undefined) {
-    problems.push(
-      `La sucursal ${source.contact.name} no tiene WhatsApp: cargalo en Mi empresa → Sucursales. MercadoLibre lo exige en cada aviso.`,
-    );
+  } else {
+    problems.push(...whatsappProblems(source.contact));
   }
   if (source.location.city === undefined && source.location.neighborhood === undefined) {
     problems.push('Falta la ubicación (localidad o barrio).');
   }
   return problems;
+}
+
+/**
+ * Lo que le falta al WhatsApp de la sucursal: MercadoLibre lo exige y solo toma números de Argentina
+ * (con otro código de país rechaza el aviso sin explicar por qué).
+ */
+export function whatsappProblems(contact: ListingSource['contact']): string[] {
+  if (contact.whatsapp === undefined) {
+    return [
+      `La sucursal ${contact.name} no tiene WhatsApp: cargalo en Mi empresa → Sucursales. MercadoLibre lo exige en cada aviso.`,
+    ];
+  }
+  if (splitPhone(contact.whatsapp) === undefined) {
+    return [
+      `El WhatsApp de la sucursal ${contact.name} no es de Argentina (+54): MercadoLibre solo toma números argentinos. Cambialo en Mi empresa → Sucursales.`,
+    ];
+  }
+  return [];
 }
 
 export interface MlAttribute {

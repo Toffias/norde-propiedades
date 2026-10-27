@@ -1,5 +1,6 @@
 import {
   DeleteInquiry,
+  FindReceivedInquiries,
   ReceiveInquiry,
   RestoreInquiry,
   type InquiryInboxCriteria,
@@ -93,6 +94,18 @@ describe('ReceiveInquiry (Postgres)', () => {
     });
     expect(await db.select().from(outbox)).toHaveLength(1);
     expect(await db.select().from(auditLog)).toHaveLength(1);
+  });
+
+  it('finds which external IDs of a channel already came in', async () => {
+    unwrap(await receive.execute(INPUT, WEB));
+    const find = new FindReceivedInquiries({ uow });
+
+    expect(
+      unwrap(await find.execute({ channel: 'zonaprop', externalIds: ['ZP-4521', 'ZP-9999'] }, WEB)),
+    ).toEqual(['ZP-4521']);
+    expect(
+      unwrap(await find.execute({ channel: 'mercadolibre', externalIds: ['ZP-4521'] }, WEB)),
+    ).toEqual([]);
   });
 
   it('two deliveries at the same time create a single inquiry', async () => {

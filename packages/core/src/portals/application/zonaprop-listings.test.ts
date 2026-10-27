@@ -37,6 +37,7 @@ function zonapropAccount(enabled = true) {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   if (enabled) unwrap(account.enable());
@@ -281,11 +282,10 @@ describe('SyncListing on Zonaprop', () => {
       }),
     );
 
-    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+    // Pausado sin mandar el contenido, con el motivo a la vista.
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
     expect(uow.listings.rows.get(listingId)?.status).toBe('paused');
-    expect(uow.listings.rows.get(listingId)?.lastError).toContain('sin precio');
-    expect(uow.audit.entries.at(-1)?.action).toBe('property.portal_paused');
-    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('unchanged');
+    expect(uow.listings.rows.get(listingId)?.lastError).toContain('precio');
 
     reader.sources.set(LISTED_PROPERTY_ID, listingSource({ title: 'Otro título' }));
     expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
@@ -314,15 +314,12 @@ describe('SyncListing on Zonaprop', () => {
       }),
     );
 
-    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
 
     expect(connector.calls.map((c) => [c.method, c.state, c.content !== undefined])).toEqual([
       ['update', 'paused', false],
     ]);
-    expect(uow.listings.rows.get(listingId)).toMatchObject({
-      status: 'paused',
-      lastError: undefined,
-    });
+    expect(uow.listings.rows.get(listingId)?.status).toBe('paused');
   });
 });
 

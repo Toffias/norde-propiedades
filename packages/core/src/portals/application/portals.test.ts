@@ -212,6 +212,35 @@ describe('ConnectPortalAccount', () => {
     });
   });
 
+  it('does not connect another MercadoLibre user while the listings are live', async () => {
+    const { connect, uow, authorizer } = await connected();
+    const row = listingRow(1, {});
+    uow.listings.rows.set(row.id, row);
+    authorizer.grant = { ...authorizer.grant, externalAccountId: '999', accountName: 'NUEVA' };
+
+    expect(unwrapErr(await connect.execute(CALLBACK, ADMIN))).toEqual({
+      type: 'PortalAccountChanged',
+    });
+    expect(uow.accounts.rows.get('mercadolibre')?.connection?.externalAccountId).toBe('123456789');
+  });
+
+  it('asks again for the listings that failed for credentials once it reconnects', async () => {
+    const { connect, uow } = await connected();
+    const reconnect = listingRow(1, {
+      status: 'error',
+      lastError: 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).',
+    });
+    const rejected = listingRow(2, { status: 'error', lastError: 'Falta la superficie.' });
+    uow.listings.rows.set(reconnect.id, reconnect);
+    uow.listings.rows.set(rejected.id, rejected);
+
+    unwrap(await connect.execute(CALLBACK, ADMIN));
+
+    expect(uow.events.published.map((e) => [e.type, e.aggregateId])).toEqual([
+      ['portals.listing_sync_requested', reconnect.id],
+    ]);
+  });
+
   it('requires portals:manage', async () => {
     const { connect, authorizer } = setup();
     expect(unwrapErr(await connect.execute(CALLBACK, PUBLISHER))).toEqual({ type: 'Forbidden' });
@@ -230,6 +259,7 @@ describe('DisconnectPortalAccount', () => {
       portal: 'mercadolibre',
       isEnabled: false,
       connection: undefined,
+      formerExternalAccountId: '123456789',
     });
     expect(uow.credentials.stored.has('mercadolibre')).toBe(false);
     expect(uow.audit.entries.at(-1)).toMatchObject({
@@ -320,6 +350,7 @@ describe('ListPortalAccounts', () => {
           linksExisting: true,
           isEnabled: false,
           isConnected: true,
+          needsReconnect: false,
           accountName: 'NORDEPROPIEDADES',
           connectedAt: new Date(NOW),
           linked: { property: NO_LINKED, development: NO_LINKED },
@@ -332,6 +363,7 @@ describe('ListPortalAccounts', () => {
           linksExisting: false,
           isEnabled: false,
           isConnected: false,
+          needsReconnect: false,
           accountName: undefined,
           connectedAt: undefined,
           linked: { property: NO_LINKED, development: NO_LINKED },
@@ -344,6 +376,7 @@ describe('ListPortalAccounts', () => {
           linksExisting: true,
           isEnabled: false,
           isConnected: false,
+          needsReconnect: false,
           accountName: undefined,
           connectedAt: undefined,
           linked: { property: NO_LINKED, development: NO_LINKED },

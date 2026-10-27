@@ -14,8 +14,8 @@ import {
 } from '../testing';
 import { ChangeListingType } from './commands/change-listing-type';
 import { PauseListing } from './commands/pause-listing';
+import { RequestAllListingsSync } from './commands/request-all-listings-sync';
 import { RequestListingSync } from './commands/request-listing-sync';
-import { RequestPortalListingsSync } from './commands/request-portal-listings-sync';
 import { RequestPublication } from './commands/request-publication';
 import { ResumeListing } from './commands/resume-listing';
 import { ResyncListing } from './commands/resync-listing';
@@ -40,6 +40,7 @@ function connectedAccount(enabled = true) {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   if (enabled) unwrap(account.enable());
@@ -64,7 +65,7 @@ function setup() {
     }),
     sync: new SyncListing(deps),
     syncProperty: new RequestListingSync({ uow, clock }),
-    syncPortal: new RequestPortalListingsSync({ uow, clock }),
+    syncAll: new RequestAllListingsSync({ uow, clock }),
     pause: new PauseListing({ uow, clock }),
     resume: new ResumeListing({ uow, directory: new FakePortalAccountDirectory(), clock }),
     unpublish: new UnpublishListing({ uow, clock }),
@@ -370,6 +371,21 @@ describe('SyncListing', () => {
     s.connector.failWith = { type: 'PortalCredentialsMissing' };
     unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
     expect(s.uow.listings.rows.get(listingId)?.lastError).toContain('volver a conectar');
+
+    // La cuenta queda pidiendo reconectar, una sola vez.
+    expect(s.uow.accounts.rows.get('mercadolibre')?.connection?.credentialsRejectedAt).toEqual(
+      new Date(NOW),
+    );
+    unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
+    expect(
+      s.uow.audit.entries.filter((e) => e.action === 'portal_account.credentials_rejected'),
+    ).toEqual([
+      expect.objectContaining({
+        entityType: 'portal_account',
+        entityId: 'mercadolibre',
+        actorId: 'system:portal-sync',
+      }),
+    ]);
   });
 
   it('does not call the portal when the account was disabled', async () => {
@@ -380,7 +396,7 @@ describe('SyncListing', () => {
     expect(s.connector.calls).toEqual([]);
   });
 
-  it('pauses a listing that lost its price instead of sending it', async () => {
+  it('pauses a listing that lost its price instead of leaving the old one online', async () => {
     const { sync, connector, reader, listingId, uow } = await published();
     reader.sources.set(
       LISTED_PROPERTY_ID,
@@ -390,27 +406,80 @@ describe('SyncListing', () => {
         ],
       }),
     );
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
+    // Se pausa sin mandar el contenido nuevo.
+    expect(connector.calls).toEqual([{ method: 'update', externalId: 'MLA1', state: 'paused' }]);
+    expect(uow.listings.rows.get(listingId)).toMatchObject({ status: 'paused', intent: 'active' });
+    expect(uow.listings.rows.get(listingId)?.lastError).toContain('precio');
+    expect(uow.audit.entries.at(-1)?.action).toBe('property.portal_paused');
+
+    // Con el precio de vuelta, manda el contenido y lo reactiva.
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource());
     expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
-    expect(connector.calls.map((c) => [c.method, c.state, c.content !== undefined])).toEqual([
-      ['update', 'paused', false],
-    ]);
-    expect(uow.listings.rows.get(listingId)?.status).toBe('paused');
-    expect(uow.listings.rows.get(listingId)?.lastError).toContain('sin precio');
+    expect(connector.calls.at(-1)).toMatchObject({ method: 'update', state: 'active' });
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'published',
+      lastError: undefined,
+    });
   });
 
-  it('fails when the property no longer offers the operation of the listing', async () => {
+  it('pauses a listing whose operation the property no longer offers', async () => {
     const { sync, connector, reader, listingId, uow } = await published();
     reader.sources.set(
       LISTED_PROPERTY_ID,
       listingSource({
         operations: [
-          { operation: 'rent', currency: 'ARS', priceCents: 100_000_00n, priceOnRequest: false },
+          { operation: 'rent', currency: 'ARS', priceCents: 50_000_000n, priceOnRequest: false },
         ],
       }),
     );
-    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
-    expect(connector.calls).toEqual([]);
-    expect(uow.listings.rows.get(listingId)?.lastError).toContain('ya no ofrece');
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+    expect(connector.calls.map((c) => [c.method, c.state])).toEqual([['update', 'paused']]);
+    expect(uow.listings.rows.get(listingId)?.lastError).toBe(
+      'La propiedad ya no ofrece esta operación.',
+    );
+  });
+
+  it('keeps the error when the stale listing cannot be paused', async () => {
+    const { sync, connector, reader, listingId, uow } = await published();
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource({ title: 'Otro' }));
+    connector.problemsFound = ['Falta la superficie cubierta.'];
+    connector.failWith = { type: 'PortalUnavailable' };
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('retry');
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'error',
+      lastError: 'Falta la superficie cubierta.',
+    });
+  });
+
+  it('does not create a listing that has no price', async () => {
+    const s = setup();
+    const { listingId } = unwrap(await s.request.execute(SALE, AGENT));
+    s.reader.sources.set(
+      LISTED_PROPERTY_ID,
+      listingSource({
+        operations: [
+          { operation: 'sale', currency: 'USD', priceCents: undefined, priceOnRequest: true },
+        ],
+      }),
+    );
+    expect(unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
+    expect(s.connector.calls).toEqual([]);
+    expect(s.uow.listings.rows.get(listingId)?.status).toBe('error');
+  });
+
+  it('keeps the listing paused with the reason when the portal cannot activate it', async () => {
+    const { sync, connector, reader, listingId, uow } = await published();
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource({ title: 'Otro' }));
+    connector.remoteState = 'paused';
+    connector.remoteReason = 'MercadoLibre está revisando el aviso.';
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'paused',
+      intent: 'active',
+      lastError: 'MercadoLibre está revisando el aviso.',
+      retryCount: 0,
+    });
   });
 
   it('requires portals:sync', async () => {
@@ -511,45 +580,29 @@ describe('team actions on a listing', () => {
   });
 });
 
-describe('RequestPortalListingsSync', () => {
-  it('requests a sync of every live listing of the portal', async () => {
-    const { syncPortal, uow, listingId } = await published();
+describe('RequestAllListingsSync', () => {
+  it('skips the listings already closed in the portal', async () => {
+    const { syncAll, sync, unpublish, uow, listingId } = await published();
+    unwrap(await unpublish.execute({ listingId }, AGENT));
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
     const before = uow.events.published.length;
 
-    expect(
-      unwrap(await syncPortal.execute({ portal: 'mercadolibre', scope: 'live' }, PORTAL_SYNC)),
-    ).toEqual({ requested: 1 });
-    expect(
-      unwrap(await syncPortal.execute({ portal: 'zonaprop', scope: 'live' }, PORTAL_SYNC)),
-    ).toEqual({ requested: 0 });
-    expect(uow.events.published.slice(before)).toEqual([
-      expect.objectContaining({ type: 'portals.listing_sync_requested', aggregateId: listingId }),
+    expect(unwrap(await syncAll.execute({}, PORTAL_SYNC))).toEqual({ requested: 0 });
+    expect(uow.events.published).toHaveLength(before);
+  });
+
+  it('requests a sync for a published listing', async () => {
+    const { syncAll, uow, listingId } = await published();
+    const before = uow.events.published.length;
+    expect(unwrap(await syncAll.execute({}, PORTAL_SYNC))).toEqual({ requested: 1 });
+    expect(uow.events.published.slice(before).map((e) => [e.type, e.aggregateId])).toEqual([
+      ['portals.listing_sync_requested', listingId],
     ]);
   });
 
-  it('retries only the listings left in error, even the ones never created', async () => {
-    const s = setup();
-    s.connector.failWith = { type: 'PortalUnavailable' };
-    const { listingId } = unwrap(await s.request.execute(SALE, AGENT));
-    unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
-    expect(s.uow.listings.rows.get(listingId)?.status).toBe('error');
-
-    expect(
-      unwrap(await s.syncPortal.execute({ portal: 'mercadolibre', scope: 'failed' }, PORTAL_SYNC)),
-    ).toEqual({ requested: 1 });
-
-    s.connector.failWith = undefined;
-    unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
-    expect(
-      unwrap(await s.syncPortal.execute({ portal: 'mercadolibre', scope: 'failed' }, PORTAL_SYNC)),
-    ).toEqual({ requested: 0 });
-  });
-
   it('requires portals:sync', async () => {
-    const { syncPortal } = setup();
-    expect(
-      unwrapErr(await syncPortal.execute({ portal: 'mercadolibre', scope: 'live' }, AGENT)),
-    ).toEqual({ type: 'Forbidden' });
+    const { syncAll } = setup();
+    expect(unwrapErr(await syncAll.execute({}, AGENT))).toEqual({ type: 'Forbidden' });
   });
 });
 

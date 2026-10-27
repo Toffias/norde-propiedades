@@ -690,19 +690,24 @@ Diseño propuesto:
      - Que la cuenta esté conectada y activa.
      - Que la propiedad esté disponible y la operación tenga precio (sin precio o con "a consultar", no se publica).
      - Que tenga al menos una foto lista y marcada "Mostrar en la web".
-     - Que la propiedad tenga sucursal y que esa sucursal tenga WhatsApp. La propiedad toma la sucursal de su captador al crearse o al cambiar el captador; si no tiene, se pide volver a elegir el captador.
+     - Que la propiedad tenga sucursal y que esa sucursal tenga WhatsApp de Argentina (+54: ML no toma otros). La propiedad toma la sucursal de su captador al crearse o al cambiar el captador; si no tiene, se pide volver a elegir el captador.
      - Que tenga los datos que ML exige por tipo: superficie total y cubierta, ambientes, dormitorios y baños. Las cocheras vacías van como 0.
      - Si falta algo, se dice qué.
    - **Fuera de esta etapa:**
      - Las unidades de un emprendimiento se publican con su emprendimiento (etapa 4).
      - El alquiler temporario todavía no se publica: ML pide huéspedes, horarios y estadía mínima, que no cargamos.
-   - **Sincronización.** El aviso lo crea un job, y después los cambios de la ficha y de sus fotos llegan solos (si lo que se manda no cambió, no se llama a ML). Según el estado de la propiedad:
+   - **Sincronización.** El aviso lo crea un job, y después los cambios de la ficha y de sus fotos llegan solos (si lo que se manda no cambió, no se llama a ML). También los cambios del contacto de la sucursal, del pie de la descripción para portales y de la URL de la ficha en la web: se pide sincronizar todo lo publicado. Según el estado de la propiedad:
      - Reservada o pausada → aviso pausado. Vuelve a disponible → se reactiva.
      - Vendida, alquilada, retirada, borrador o en la papelera → aviso cerrado. Cerrar es definitivo en ML: volver a mostrarlo es "Volver a publicar", un aviso nuevo.
+     - Si el aviso ya está publicado y el contenido nuevo no se puede mandar (se sacó la operación, el precio pasó a "a consultar", falta un dato), el aviso **se pausa** con el motivo, para que ML no siga mostrando el precio viejo. Cuando se corrige, se manda y se reactiva.
+     - Si ML está revisando el aviso, lo inactivó, espera un pago o lo pausó por moderación, no se intenta activarlo: queda pausado con el motivo hasta que se resuelva en ML.
+     - El tipo se compara como simple o destacado: un aviso vinculado de Tokko en Oro u Oro Especial ya es destacado y no se pasa a Oro Premium.
+     - Cada aviso nuevo lleva el ID de la publicación en el campo del vendedor. Si el alta se corta después de que ML creó el ítem, el reintento lo encuentra por ese campo y no publica otro.
    - **Errores.**
      - Si ML rechaza el aviso, el motivo queda en la fila, con el status de ML. Si ML no lo explica, se dice qué significa el status (402: la cuenta no tiene paquete de inmuebles con cupo; 403: no tiene permiso para publicar inmuebles).
-     - Si ML no responde, se reintenta solo.
-     - Si ML revocó la cuenta, la fila pide reconectarla.
+     - Si ML no responde, se reintenta solo durante unos 15 minutos. Lo que siga en error por eso se vuelve a pedir en la conciliación diaria.
+     - Si ML rechaza las credenciales de la cuenta, la fila pide reconectarla y la tarjeta de Mi empresa → Portales muestra "Pide reconectar". Al reconectar, se vuelve a pedir lo que falló por credenciales.
+     - Con avisos publicados, solo se puede volver a conectar **el mismo usuario de ML** (también después de desconectar): con otro, los avisos quedarían apuntando a otro vendedor.
    - **Qué se publica:**
      - El título para portales y la descripción con el pie de Mi empresa → Portales.
      - La dirección para publicar (nunca piso ni unidad), con coordenadas y la ubicación del catálogo (resuelta contra las de ML).
@@ -717,7 +722,7 @@ Diseño propuesto:
      - **Reactivado en ML**: vuelve a "Publicada". Si el equipo lo había pausado, se vuelve a pausar.
      - Se audita contra la propiedad por `system:portal-sync` (`property.portal_unpublished` o `property.portal_paused`, con el motivo).
      - **Al instante** (ADR 0035): MercadoLibre avisa cada cambio de un aviso (tópico `items` de la app). El sistema lee cómo quedó ese aviso y lo refleja enseguida, con la misma regla. La corrida diaria sigue como respaldo.
-   - **Estadísticas de cada aviso** (ADR 0036): en Difusión, cada aviso de MercadoLibre muestra las visitas, preguntas, vistas del teléfono y WhatsApp de los últimos 30 días, y las visitas desde que se publicó. Se leen de MercadoLibre al abrir la pestaña. Si ML no responde, la fila lo dice.
+   - **Estadísticas de cada aviso** (ADR 0036): en Difusión, cada aviso de MercadoLibre muestra las visitas, preguntas, vistas del teléfono y WhatsApp de los últimos 30 días, y las visitas desde que se publicó. Se leen de MercadoLibre al abrir la pestaña y se guardan 5 minutos. Si ML no responde, la fila lo dice.
    - **Cupo de los paquetes (2b).** Las tarjetas de MercadoLibre de Mi empresa → Portales muestran los paquetes activos de la cuenta: nombre, para qué sirven (publicaciones, destaques, emprendimientos), vencimiento y el cupo libre de cada tipo de aviso (Plata, Oro, Oro Premium). Se lee de MercadoLibre en el momento. Sin paquetes, la tarjeta avisa que no se puede publicar.
 3. **Vincular los avisos que hoy publica Tokko** (hecha, ADR 0033), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
    - **Mi empresa → Portales → Avisos en MercadoLibre** lista los avisos activos de la cuenta de propiedades, con su operación, y propone la propiedad que tiene el código que Tokko cargó en el aviso. Se vincula con un clic.
@@ -741,8 +746,9 @@ Diseño propuesto:
 
 **Consultas de MercadoLibre** (hecha, ADR 0032): los contactos de los avisos de las dos cuentas entran a la **bandeja de consultas** con canal MercadoLibre.
 
-- Entran solos **cada 10 minutos**, leídos de MercadoLibre (los de los últimos 2 días; los que ya estaban no se repiten).
-- **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y los tópicos `vis_leads` e `items` (este, para los cambios de los avisos). MercadoLibre avisa y el sistema vuelve a leer de la API.
+- Entran solos **cada 10 minutos**, leídos de MercadoLibre (los de los últimos 2 días; los que ya estaban no se repiten, y de esos no se vuelve a pedir el texto de la pregunta).
+- **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y los tópicos `vis_leads` e `items` (este, para los cambios de los avisos). MercadoLibre avisa y el sistema vuelve a leer de la API. Una ráfaga de avisos se junta en una lectura por minuto.
+- Un contacto con el teléfono o el email mal cargado entra igual con el dato válido; el inválido queda escrito al final del mensaje. Solo se descarta si no trae ningún dato válido.
 - Entran preguntas (con su texto), WhatsApp, llamadas, pedidos de contacto, visitas y cotizaciones de usuarios con sesión (la de un emprendimiento publicado por el sistema, con su unidad). Los anónimos no traen datos y no entran.
 - Si el aviso es del sistema, la consulta queda con su propiedad. Los avisos de Tokko, hasta vincularlos, entran sin propiedad.
 
@@ -761,7 +767,7 @@ Diseño propuesto:
    - Se puede **cambiar el plan** de un aviso publicado: consume un crédito del plan nuevo. **Reactivar** un aviso pausado también consume uno: antes se revisa que queden.
    - Pausar nunca falla por el contenido: si falta algo que Zonaprop exige, se pausa igual y se manda al reactivar.
    - Cambiar el **pie para portales**, el link de la web o el contacto de una **sucursal** actualiza todos los avisos. Las fotos de una unidad actualizan el aviso de su emprendimiento.
-   - Las publicaciones que quedan **con error** (Zonaprop no respondió, no había créditos) se vuelven a intentar solas una vez por día.
+   - Las publicaciones que quedan **con error** porque Zonaprop no respondió se vuelven a intentar solas una vez por día. Las que fallaron por falta de créditos, cuando cambia la propiedad o con "Sincronizar".
    - **Conciliación diaria**: a la mañana se lee de Zonaprop si cada aviso está online. Uno que Zonaprop puso offline por su cuenta (plan vencido, calidad, fotos) queda pausado con el motivo, para resolverlo y sincronizar. De paso se guarda el link de los avisos que no lo tenían.
    - **Reservada o pausada**, el aviso pasa a offline en Zonaprop, y vuelve online cuando la propiedad está disponible otra vez. El crédito se usa mientras el aviso está online: offline lo libera. Vendida, alquilada o dada de baja, sale de Zonaprop.
    - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección.

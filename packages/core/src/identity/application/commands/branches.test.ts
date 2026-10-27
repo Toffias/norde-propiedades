@@ -136,12 +136,21 @@ describe('UpdateBranch', () => {
         },
       }),
     ]);
-    expect(uow.events.published).toEqual([
-      expect.objectContaining({
-        type: 'identity.branch_updated',
-        payload: { branchId: MAIN_BRANCH_ID },
-      }),
-    ]);
+    // Los avisos de los portales llevan el contacto de la sucursal: se actualizan.
+    expect(uow.events.published.map((e) => e.type)).toEqual(['identity.branch_updated']);
+  });
+
+  it('does not announce a change when nothing changed', async () => {
+    const { uow, update } = setup();
+    seedBranch(uow, branchSnapshot());
+    const { name, address, whatsapp } = branchSnapshot();
+
+    await update.execute(
+      { branchId: MAIN_BRANCH_ID, name, address, whatsapp: whatsapp.e164 },
+      TEST_ADMIN,
+    );
+
+    expect(uow.events.published).toEqual([]);
   });
 
   it('fails for a missing branch and needs branches:update', async () => {

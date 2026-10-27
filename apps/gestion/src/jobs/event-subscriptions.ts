@@ -33,8 +33,8 @@ import {
   type PullPortalLeads,
   type ReconcileListing,
   type ReconcileListings,
+  type RequestAllListingsSync,
   type RequestListingSync,
-  type RequestPortalListingsSync,
   type SyncListing,
 } from '@norde/core/portals';
 import {
@@ -73,6 +73,8 @@ export interface EventSubscription {
   handle(event: DeliveredEvent): Promise<void>;
   /** Cuánto puede tardar antes de que la cola lo dé por vencido (15 minutos si no se dice). */
   readonly expireInSeconds?: number;
+  /** Como mucho un job cada tantos segundos por aggregate: los del medio se juntan en uno. */
+  readonly throttleSeconds?: number;
 }
 
 const OpportunityPayloadSchema = z.object({ opportunityId: z.string(), clientId: z.string() });
@@ -441,8 +443,8 @@ function publicSiteSubscriptions(
  */
 export interface PortalJobs {
   readonly requestSync: Pick<RequestListingSync, 'execute'>;
-  /** Todas las publicaciones de un portal: las vivas o las que quedaron con error. */
-  readonly requestPortalSync: Pick<RequestPortalListingsSync, 'execute'>;
+  /** Pide sincronizar todo lo publicado: cambió algo que entra en todos los avisos. */
+  readonly requestAll: Pick<RequestAllListingsSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
   /**
    * El emprendimiento de una unidad, para reenviar su aviso cuando cambian sus fotos
@@ -475,9 +477,12 @@ const UnitPayloadSchema = z.object({
 });
 const DevelopmentPayloadSchema = z.object({ developmentId: z.uuid() });
 const LeadsPayloadSchema = z.object({ portal: z.enum(PORTALS) });
-const SettingsPayloadSchema = z.object({ section: z.string() });
-/** Las secciones de Mi empresa que van en los avisos (el pie para portales, el link de la web). */
-const LISTING_SETTINGS_SECTIONS = new Set(['general', 'portals']);
+const SettingsSectionPayloadSchema = z.object({ section: z.string() });
+/**
+ * Las secciones de Mi empresa que entran en los avisos: la URL de la ficha en la web (general) y el
+ * pie de la descripción (portales).
+ */
+const LISTED_SETTINGS_SECTIONS: readonly string[] = ['general', 'portals'];
 
 /** Los portales que traen consultas a la bandeja (hoy, Zonaprop). */
 const LEAD_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].leadChannel !== undefined);
@@ -507,27 +512,6 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
   return allAnswered;
 }
 
-/**
- * Pide sincronizar todas las publicaciones de cada portal: las vivas (cambió algo que va en todos los
- * avisos) o las que quedaron con error (el reintento diario).
- */
-export async function requestPortalListingsSync(
-  jobs: PortalJobs,
-  scope: 'live' | 'failed',
-  logger: Logger,
-): Promise<void> {
-  for (const portal of PORTALS) {
-    const result = await jobs.requestPortalSync.execute({ portal, scope }, jobs.actor);
-    if (result.isErr()) {
-      logger.error({ portal, scope, error: result.error }, 'Portal listings sync request failed');
-      continue;
-    }
-    if (result.value.requested > 0) {
-      logger.info({ portal, scope, ...result.value }, 'Portal listings sync requested');
-    }
-  }
-}
-
 const RECONCILED_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].reconciles);
 
 /**
@@ -551,6 +535,12 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     owner: { readonly propertyId: string } | { readonly developmentId: string },
   ) => {
     const result = await jobs.requestSync.execute(owner, jobs.actor);
+    if (result.isErr()) {
+      logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
+    }
+  };
+  const requestAll = async (event: DeliveredEvent) => {
+    const result = await jobs.requestAll.execute({}, jobs.actor);
     if (result.isErr()) {
       logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
     }
@@ -599,22 +589,19 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     media('properties.media_changed'),
     media('properties.media_deleted'),
     {
-      // El pie para portales o el link de la web cambian en todos los avisos.
-      eventType: 'settings.company_settings_changed',
+      // El contacto de la sucursal va en los avisos.
+      eventType: 'identity.branch_updated',
       name: 'sync-portal-listings',
       handle: async (event) => {
-        const { section } = SettingsPayloadSchema.parse(event.payload);
-        if (LISTING_SETTINGS_SECTIONS.has(section)) {
-          await requestPortalListingsSync(jobs, 'live', logger);
-        }
+        await requestAll(event);
       },
     },
     {
-      // El contacto de los avisos es el de la sucursal de cada propiedad.
-      eventType: 'identity.branch_updated',
+      eventType: 'settings.company_settings_changed',
       name: 'sync-portal-listings',
-      handle: async () => {
-        await requestPortalListingsSync(jobs, 'live', logger);
+      handle: async (event) => {
+        const { section } = SettingsSectionPayloadSchema.parse(event.payload);
+        if (LISTED_SETTINGS_SECTIONS.includes(section)) await requestAll(event);
       },
     },
     {
@@ -652,6 +639,8 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
       // El portal avisó que llegó un contacto: se leen sus contactos (no lo que trajo el aviso).
       eventType: 'portals.leads_arrived',
       name: 'pull-portal-leads',
+      // El aviso del portal no viene firmado: una ráfaga se junta en una lectura por minuto.
+      throttleSeconds: 60,
       handle: async (event) => {
         const { portal } = LeadsPayloadSchema.parse(event.payload);
         const result = await jobs.pullLeads.execute({ portal }, jobs.actor);

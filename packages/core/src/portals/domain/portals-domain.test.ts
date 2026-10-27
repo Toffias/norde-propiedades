@@ -13,7 +13,7 @@ function connection(externalAccountId: string, accountName = 'NORDEPROP'): Porta
 
 function connected(portal: PortalId, externalAccountId: string) {
   const account = PortalAccount.notConnected(portal);
-  unwrap(account.connect(connection(externalAccountId), []));
+  unwrap(account.connect(connection(externalAccountId), [], false));
   return account;
 }
 
@@ -61,13 +61,13 @@ describe('PortalAccount', () => {
 
   it('connects an account and keeps its data', () => {
     const account = PortalAccount.notConnected('mercadolibre');
-    unwrap(account.connect(connection('123'), []));
+    unwrap(account.connect(connection('123'), [], false));
     expect(account.toSnapshot().connection).toEqual(connection('123'));
   });
 
   it('replaces the previous account when it reconnects', () => {
     const account = connected('mercadolibre', '123');
-    unwrap(account.connect(connection('456', 'OTRA'), []));
+    unwrap(account.connect(connection('456', 'OTRA'), [], false));
     expect(account.toSnapshot().connection?.externalAccountId).toBe('456');
   });
 
@@ -75,7 +75,7 @@ describe('PortalAccount', () => {
     const properties = connected('mercadolibre', '123');
     const developments = PortalAccount.notConnected('mercadolibre_developments');
 
-    expect(unwrapErr(developments.connect(connection('123'), [properties]))).toEqual({
+    expect(unwrapErr(developments.connect(connection('123'), [properties], false))).toEqual({
       type: 'PortalAccountInUse',
       portal: 'mercadolibre',
     });
@@ -86,21 +86,53 @@ describe('PortalAccount', () => {
     const mercadolibre = connected('mercadolibre', '123');
     const zonaprop = PortalAccount.notConnected('zonaprop');
 
-    unwrap(zonaprop.connect(connection('123'), [mercadolibre]));
+    unwrap(zonaprop.connect(connection('123'), [mercadolibre], false));
     expect(zonaprop.isConnected).toBe(true);
   });
 
   it('ignores itself when it reconnects the same account', () => {
     const account = connected('mercadolibre', '123');
-    unwrap(account.connect(connection('123'), [account]));
+    unwrap(account.connect(connection('123'), [account], false));
     expect(account.isConnected).toBe(true);
+  });
+
+  it('does not connect another portal account while the listings of the previous one are live', () => {
+    const account = connected('mercadolibre', '123');
+    expect(unwrapErr(account.connect(connection('456'), [], true))).toEqual({
+      type: 'PortalAccountChanged',
+    });
+    expect(account.toSnapshot().connection?.externalAccountId).toBe('123');
+    unwrap(account.connect(connection('123'), [], true));
+  });
+
+  it('remembers the disconnected account while its listings are live', () => {
+    const account = connected('mercadolibre', '123');
+    unwrap(account.disconnect());
+    expect(account.toSnapshot().formerExternalAccountId).toBe('123');
+
+    expect(unwrapErr(account.connect(connection('456'), [], true)).type).toBe(
+      'PortalAccountChanged',
+    );
+    unwrap(account.connect(connection('456'), [], false));
+    expect(account.toSnapshot().formerExternalAccountId).toBeUndefined();
+  });
+
+  it('asks to reconnect once the portal rejects the credentials, until it reconnects', () => {
+    const account = connected('mercadolibre', '123');
+    expect(account.rejectCredentials(AT)).toBe(true);
+    expect(account.rejectCredentials(AT)).toBe(false);
+    expect(account.needsReconnect).toBe(true);
+
+    unwrap(account.connect(connection('123'), [], true));
+    expect(account.needsReconnect).toBe(false);
+    expect(PortalAccount.notConnected('zonaprop').rejectCredentials(AT)).toBe(false);
   });
 
   it('enables only a connected account', () => {
     const account = PortalAccount.notConnected('mercadolibre');
     expect(unwrapErr(account.enable())).toEqual({ type: 'PortalNotConnected' });
 
-    unwrap(account.connect(connection('123'), []));
+    unwrap(account.connect(connection('123'), [], false));
     unwrap(account.enable());
     expect(account.toSnapshot().isEnabled).toBe(true);
 
@@ -118,6 +150,7 @@ describe('PortalAccount', () => {
       portal: 'mercadolibre',
       isEnabled: false,
       connection: undefined,
+      formerExternalAccountId: '123',
     });
   });
 
@@ -152,11 +185,11 @@ describe('PortalAccount leads cursor', () => {
       connectedAt: NOW,
       connectedBy: 'admin-1',
     };
-    unwrap(account.connect(connection, []));
+    unwrap(account.connect(connection, [], false));
     account.recordLeadsPulled(days(5));
-    unwrap(account.connect(connection, []));
+    unwrap(account.connect(connection, [], false));
     expect(account.toSnapshot().leadsPulledAt).toEqual(days(5));
-    unwrap(account.connect({ ...connection, externalAccountId: '2' }, []));
+    unwrap(account.connect({ ...connection, externalAccountId: '2' }, [], false));
     expect(account.toSnapshot().leadsPulledAt).toBeUndefined();
   });
 });

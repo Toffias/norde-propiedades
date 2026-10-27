@@ -10,6 +10,8 @@ import {
 } from '../../testing';
 
 import { DeleteInquiry } from './delete-inquiry';
+import { FindReceivedInquiries } from '../queries/find-received-inquiries';
+
 import { ReceiveInquiry } from './receive-inquiry';
 import { RestoreInquiry } from './restore-inquiry';
 
@@ -27,10 +29,6 @@ const INPUT = {
   message: 'Hola, ¿sigue disponible?',
   propertyId: PROPERTY_ID,
 } as const;
-
-const { phone: _phone, ...withoutPhone } = INPUT;
-const { email: _email, ...withoutEmail } = INPUT;
-const { message: _message, ...withoutMessage } = INPUT;
 
 function setup() {
   const uow = new InMemoryClientsUnitOfWork();
@@ -145,21 +143,41 @@ describe('ReceiveInquiry', () => {
     });
   });
 
+  it('keeps the inquiry with the valid contact data and notes the invalid one', async () => {
+    const { uow, receive } = setup();
+
+    const { inquiryId } = unwrap(await receive.execute({ ...INPUT, phone: '123' }, WEB));
+
+    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
+      sender: { email: 'ana@example.com', phoneE164: undefined },
+      message: 'Hola, ¿sigue disponible?\n\nTeléfono que dejó (no es válido): 123',
+    });
+    expect(uow.audit.entries.at(-1)?.action).toBe('inquiry.received');
+
+    const other = { ...INPUT, externalId: 'ml-2', email: 'ana@', message: undefined };
+    const second = unwrap(await receive.execute(other, WEB));
+    expect(uow.inquiries.rows.get(second.inquiryId)).toMatchObject({
+      sender: { email: undefined, phoneE164: '+5491166899124' },
+      message: 'Email que dejó (no es válido): ana@',
+    });
+  });
+
   it('reports invalid input, phone, email and a sender without contact data', async () => {
     const { uow, receive } = setup();
 
     expect(unwrapErr(await receive.execute({ ...INPUT, externalId: '' }, WEB)).type).toBe(
       'InvalidInput',
     );
+    // Sin ningún dato de contacto válido no hay consulta.
+    expect(
+      unwrapErr(await receive.execute({ ...INPUT, phone: '123', email: undefined }, WEB)),
+    ).toEqual({ type: 'InvalidPhone' });
+    expect(
+      unwrapErr(await receive.execute({ ...INPUT, phone: undefined, email: 'ana@' }, WEB)),
+    ).toEqual({ type: 'InvalidEmail' });
     expect(
       unwrapErr(await receive.execute({ ...INPUT, phone: '123', email: 'ana@' }, WEB)),
     ).toEqual({ type: 'InvalidPhone' });
-    expect(unwrapErr(await receive.execute({ ...withoutPhone, email: 'ana@' }, WEB))).toEqual({
-      type: 'InvalidEmail',
-    });
-    expect(unwrapErr(await receive.execute({ ...withoutEmail, phone: '4444' }, WEB))).toEqual({
-      type: 'InvalidPhone',
-    });
     const anonymous = { channel: INPUT.channel, externalId: INPUT.externalId, name: INPUT.name };
     expect(unwrapErr(await receive.execute(anonymous, WEB))).toEqual({
       type: 'MissingContactInfo',
@@ -167,29 +185,22 @@ describe('ReceiveInquiry', () => {
     expect(uow.inquiries.rows.size).toBe(0);
   });
 
-  it('enters with the valid email and keeps a phone it could not validate in the message', async () => {
+  it('tells which external IDs of a channel already came in', async () => {
     const { uow, receive } = setup();
+    unwrap(await receive.execute(INPUT, WEB));
+    const find = new FindReceivedInquiries({ uow });
 
-    const { inquiryId } = unwrap(
-      await receive.execute({ ...INPUT, phone: '4444-5555 int 2' }, WEB),
-    );
-
-    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
-      sender: { name: 'Ana Pérez', email: 'ana@example.com', phoneE164: undefined },
-      message:
-        'Hola, ¿sigue disponible?\n\nTeléfono que dejó (no se pudo validar): 4444-5555 int 2',
-    });
-  });
-
-  it('enters with the valid phone and keeps an email it could not validate in the message', async () => {
-    const { uow, receive } = setup();
-
-    const { inquiryId } = unwrap(await receive.execute({ ...withoutMessage, email: 'ana@' }, WEB));
-
-    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
-      sender: { email: undefined, phoneE164: '+5491166899124' },
-      message: 'Email que dejó (no se pudo validar): ana@',
-    });
+    expect(
+      unwrap(
+        await find.execute({ channel: 'web_form', externalIds: [INPUT.externalId, 'other'] }, WEB),
+      ),
+    ).toEqual([INPUT.externalId]);
+    expect(
+      unwrap(await find.execute({ channel: 'zonaprop', externalIds: [INPUT.externalId] }, WEB)),
+    ).toEqual([]);
+    expect(
+      unwrapErr(await find.execute({ channel: 'web_form', externalIds: [] }, MANAGER)),
+    ).toEqual({ type: 'Forbidden' });
   });
 
   it('only runs for system actors with inquiries:receive', async () => {

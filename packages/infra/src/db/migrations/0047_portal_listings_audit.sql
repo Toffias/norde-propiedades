@@ -1,2 +1,0 @@
-ALTER TABLE "core"."portal_accounts" ADD COLUMN "leads_pulled_at" timestamp with time zone;--> statement-breakpoint
-CREATE INDEX "portal_listings_failed_idx" ON "core"."portal_listings" USING btree ("portal","id") WHERE status = 'error';

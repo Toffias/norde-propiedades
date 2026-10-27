@@ -158,6 +158,12 @@ function PortalAccountCard({
           <p className="line-clamp-2 text-sm text-muted-foreground">
             {PORTAL_DESCRIPTIONS[account.portal]}
           </p>
+          {account.needsReconnect && (
+            <p className="text-sm text-destructive">
+              El portal rechazó el acceso de la cuenta: no se sincroniza nada hasta volver a
+              conectarla{canManage ? ' (Gestionar conexión → Reconectar).' : '.'}
+            </p>
+          )}
         </div>
 
         {account.isConnected ? (

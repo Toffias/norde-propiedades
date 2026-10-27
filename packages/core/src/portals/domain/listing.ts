@@ -401,8 +401,9 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   }
 
   /**
-   * El aviso quedó pausado (o nunca se creó y queda en pausa). Con `reason`, lo pausó Norde por algo
-   * que el equipo tiene que resolver ("la propiedad quedó sin precio"): queda a la vista.
+   * El aviso quedó pausado (o nunca se creó y queda en pausa). Con `reason`, queda el motivo a la
+   * vista: Norde lo pausó por algo que el equipo tiene que resolver (la propiedad quedó sin precio)
+   * o el portal lo dejó pausado aunque se pidió activarlo (lo está moderando).
    */
   recordPaused(contentHash: string | undefined, now: Date, reason?: string): void {
     this.#state = {
@@ -425,6 +426,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
    *   es "Volver a publicar", como cualquier aviso cerrado.
    * - Pausado allá (moderación, o alguien lo pausó en el portal): queda pausada, con el motivo si el
    *   equipo lo quería activo. No se reactiva sola: hay que resolverlo en el portal y sincronizar.
+   *   Si Norde ya la había pausado (el equipo, una reserva, sin precio), queda como está.
    * - Activo allá: si estaba pausada por el portal, vuelve a publicada; si el equipo la había
    *   pausado, se pide sincronizar para pausarlo otra vez. Un error de la última sincronización
    *   queda a la vista: es sobre el contenido, no sobre el estado.

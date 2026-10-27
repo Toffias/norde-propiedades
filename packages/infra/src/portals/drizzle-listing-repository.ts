@@ -175,25 +175,6 @@ export class DrizzleListingRepository implements ListingRepository {
     return rows.map(toListing);
   }
 
-  async findFailedOnPortal(
-    portal: PortalId,
-    page: { readonly after: ListingId | undefined; readonly limit: number },
-  ): Promise<readonly Listing[]> {
-    const rows = await this.db
-      .select()
-      .from(portalListings)
-      .where(
-        and(
-          eq(portalListings.portal, portal),
-          eq(portalListings.status, 'error'),
-          page.after === undefined ? undefined : gt(portalListings.id, page.after),
-        ),
-      )
-      .orderBy(asc(portalListings.id))
-      .limit(page.limit);
-    return rows.map(toListing);
-  }
-
   async save(listing: Listing, actorId: string): Promise<void> {
     const s = listing.toSnapshot();
     const now = this.clock.now();

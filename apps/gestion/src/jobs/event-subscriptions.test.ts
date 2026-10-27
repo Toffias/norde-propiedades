@@ -724,10 +724,10 @@ describe('portal subscriptions', () => {
             return Promise.resolve(ok({ requested: 1 }));
           },
         },
-        requestPortalSync: {
+        requestAll: {
           execute: (input, by) => {
-            calls.push(['request-portal-sync', input, by.id]);
-            return Promise.resolve(ok({ requested: 0 }));
+            calls.push(['request-all', input, by.id]);
+            return Promise.resolve(ok({ requested: 3 }));
           },
         },
         propertySummaries: {
@@ -757,7 +757,7 @@ describe('portal subscriptions', () => {
             calls.push(['reconcile', input, by.id]);
             return Promise.resolve(
               input.portal === 'mercadolibre'
-                ? ok({ checked: 3, changed: 1 })
+                ? ok({ checked: 3, changed: 1, retried: 0 })
                 : err({ type: 'PortalUnavailable' as const }),
             );
           },
@@ -831,34 +831,6 @@ describe('portal subscriptions', () => {
     ]);
   });
 
-  it('resends every live listing when the portal footer or a branch contact changes', async () => {
-    const { find, calls } = portalSetup();
-    await find('settings.company_settings_changed.sync-portal-listings').handle({
-      ...event,
-      type: 'settings.company_settings_changed',
-      payload: { section: 'watermark' },
-    });
-    expect(calls).toEqual([]);
-
-    await find('settings.company_settings_changed.sync-portal-listings').handle({
-      ...event,
-      type: 'settings.company_settings_changed',
-      payload: { section: 'portals' },
-    });
-    await find('identity.branch_updated.sync-portal-listings').handle({
-      ...event,
-      type: 'identity.branch_updated',
-      payload: { branchId: '00000000-0000-7000-8000-0000000000b1' },
-    });
-    const live = (portal: string) => [
-      'request-portal-sync',
-      { portal, scope: 'live' },
-      'system:portal-sync',
-    ];
-    const everyPortal = ['mercadolibre', 'mercadolibre_developments', 'zonaprop'].map(live);
-    expect(calls).toEqual([...everyPortal, ...everyPortal]);
-  });
-
   it('asks to sync the development listings when it, its photos or its units change', async () => {
     const { find, calls } = portalSetup();
     const developmentId = '00000000-0000-7000-8000-0000000000d1';
@@ -928,6 +900,33 @@ describe('portal subscriptions', () => {
     });
     expect(calls).toEqual([['pull-leads', { portal: 'zonaprop' }, 'system:portal-sync']]);
   });
+
+  it('syncs every listing when the branch contact or the listed settings change', async () => {
+    const { find, calls } = portalSetup();
+    await find('identity.branch_updated.sync-portal-listings').handle({
+      ...event,
+      type: 'identity.branch_updated',
+      payload: { branchId: LISTING_ID },
+    });
+    const settings = find('settings.company_settings_changed.sync-portal-listings');
+    for (const section of ['portals', 'general', 'pdf']) {
+      await settings.handle({
+        ...event,
+        type: 'settings.company_settings_changed',
+        payload: { section },
+      });
+    }
+    expect(calls).toEqual([
+      ['request-all', {}, 'system:portal-sync'],
+      ['request-all', {}, 'system:portal-sync'],
+      ['request-all', {}, 'system:portal-sync'],
+    ]);
+  });
+
+  it('gathers a burst of portal notices into one read per minute', () => {
+    const { find } = portalSetup();
+    expect(find('portals.leads_arrived.pull-portal-leads').throttleSeconds).toBe(60);
+  });
 });
 
 describe('reconcilePortalListings', () => {
@@ -937,7 +936,7 @@ describe('reconcilePortalListings', () => {
     await reconcilePortalListings(
       {
         requestSync: { execute: unused },
-        requestPortalSync: { execute: unused },
+        requestAll: { execute: unused },
         sync: { execute: unused },
         propertySummaries: { execute: unused },
         pullLeads: { execute: unused },
@@ -948,7 +947,7 @@ describe('reconcilePortalListings', () => {
             return Promise.resolve(
               input.portal === 'mercadolibre'
                 ? err({ type: 'PortalUnavailable' as const })
-                : ok({ checked: 0, changed: 0 }),
+                : ok({ checked: 0, changed: 0, retried: 0 }),
             );
           },
         },

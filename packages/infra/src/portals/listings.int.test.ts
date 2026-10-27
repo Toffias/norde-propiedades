@@ -216,7 +216,7 @@ describe('portal listings (Postgres)', () => {
       ),
     );
 
-    expect(outcome).toEqual({ checked: 1, changed: 1 });
+    expect(outcome).toEqual({ checked: 1, changed: 1, retried: 0 });
     const [row] = await db.select().from(portalListings).where(eq(portalListings.id, listingId));
     expect(row).toMatchObject({
       status: 'unpublished',

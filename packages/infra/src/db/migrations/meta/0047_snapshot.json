@@ -1,5 +1,5 @@
 {
-  "id": "12d8a283-b0d2-40e4-88a3-b90c13435a69",
+  "id": "8cc4b06f-ef8e-4883-b1c0-603c3919899f",
   "prevId": "c977a5c6-1c78-47ec-b6a1-906e2c4afca6",
   "version": "7",
   "dialect": "postgresql",
@@ -8613,28 +8613,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "portal_listings_failed_idx": {
-          "name": "portal_listings_failed_idx",
-          "columns": [
-            {
-              "expression": "portal",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "status = 'error'",
           "concurrently": false,
           "method": "btree",
           "with": {}

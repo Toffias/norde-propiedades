@@ -330,6 +330,13 @@ describe('Listing.reconcile', () => {
     expect(listing.toSnapshot().lastError).toBeUndefined();
   });
 
+  it('keeps the reason Norde paused it with', () => {
+    const listing = published();
+    listing.recordPaused(undefined, NOW, 'La propiedad ya no ofrece esta operación.');
+    expect(listing.reconcile(MODERATED, LATER)).toBe(false);
+    expect(listing.toSnapshot().lastError).toBe('La propiedad ya no ofrece esta operación.');
+  });
+
   it('marks as published again a listing the portal reactivated', () => {
     const listing = published();
     listing.reconcile(MODERATED, NOW);

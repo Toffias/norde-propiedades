@@ -157,6 +157,7 @@ import {
   UpdateInquiryRule,
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
+  FindReceivedInquiries,
   ReceiveInquiry,
   RecordClientActivity,
   RouteInquiry,
@@ -382,8 +383,8 @@ import {
   ListRemoteListings,
   PauseListing,
   RequestDevelopmentPublication,
+  RequestAllListingsSync,
   RequestListingSync,
-  RequestPortalListingsSync,
   RequestPublication,
   ResumeListing,
   ResyncListing,
@@ -516,7 +517,6 @@ import { propertyCodeLookup } from './features/portals/property-code-lookup';
 import {
   eventSubscriptions,
   pullPortalLeads,
-  requestPortalListingsSync,
   reconcilePortalListings,
 } from './jobs/event-subscriptions';
 
@@ -760,7 +760,10 @@ function createPortalServices(
     mercadolibre: new MercadoLibreListingCatalog({ tokens, logger }),
   });
   const leads = new ZonapropLeads({ api: zonaprop, catalog: zonapropCatalog, logger });
-  const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR));
+  const findReceived = new FindReceivedInquiries({ uow: createClientsUnitOfWork(db, deps) });
+  const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR), {
+    find: (input) => findReceived.execute(input, PORTAL_LEADS_ACTOR),
+  });
   const codes = propertyCodeLookup({
     findByCode: modules.properties.findPropertiesByCode,
     actor: PORTAL_SYNC_ACTOR,
@@ -1966,7 +1969,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   });
   const portalJobs = portals && {
     requestSync: new RequestListingSync({ uow: portals.uow, clock }),
-    requestPortalSync: new RequestPortalListingsSync({ uow: portals.uow, clock }),
+    requestAll: new RequestAllListingsSync({ uow: portals.uow, clock }),
     sync: new SyncListing({ ...portals, clock }),
     propertySummaries: properties.getPropertySummaries,
     pullLeads: new PullPortalLeads({
@@ -2097,15 +2100,6 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       cron: '*/10 * * * *',
       run: async () => {
         await pullPortalLeads(portalJobs, logger);
-      },
-    });
-    // Las publicaciones que quedaron con error (el portal no respondió, no había créditos)
-    // vuelven a intentar solas una vez por día.
-    bus.schedule({
-      name: 'portals.retry-failed-listings',
-      cron: '30 6 * * *',
-      run: async () => {
-        await requestPortalListingsSync(portalJobs, 'failed', logger);
       },
     });
     // Lo que el portal venció, cerró o pausó por moderación, antes de que empiece el día.

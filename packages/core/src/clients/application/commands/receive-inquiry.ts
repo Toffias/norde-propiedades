@@ -17,8 +17,7 @@ import {
   type ReceiveInquiryOutput,
 } from '../../contracts';
 import type { MissingContactInfoError } from '../../domain/client';
-import { Inquiry } from '../../domain/inquiry';
-import { inquiryContact } from '../../domain/inquiry-contact';
+import { Inquiry, inquiryContact } from '../../domain/inquiry';
 import { inquiryAutoTags } from '../../domain/inquiry-tags';
 import { invalidInput, type InvalidInputError } from '../client-support';
 import { inquiryAuditState, inquiryTarget } from '../inquiry-support';
@@ -36,8 +35,7 @@ export type ReceiveInquiryError =
  * Registra una consulta entrante de un portal o de la web, pendiente en la bandeja. Es idempotente:
  * si ya entró una con el mismo canal e ID externo (un reintento del portal, un doble envío del
  * formulario), devuelve esa y no escribe nada. Toma las etiquetas automáticas y la sucursal de la
- * propiedad consultada. Un teléfono o un email inválidos no la frenan si el otro sirve: quedan
- * escritos en el mensaje.
+ * propiedad consultada.
  *
  * Solo la ejecutan los procesos que reciben consultas (web, portales, agente de IA).
  */
@@ -63,11 +61,7 @@ export class ReceiveInquiry {
     if (!parsed.success) return err(invalidInput(parsed.error));
     const data = parsed.data;
 
-    const contact = inquiryContact({
-      phone: data.phone,
-      email: data.email,
-      message: data.message,
-    });
+    const contact = inquiryContact({ phone: data.phone, email: data.email, message: data.message });
     if (contact.isErr()) return err(contact.error);
     const { phone, email, message } = contact.value;
 

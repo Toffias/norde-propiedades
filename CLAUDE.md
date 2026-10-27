@@ -54,7 +54,7 @@ Las dependencias apuntan **solo hacia adentro**: presentación (`apps/*`) → in
 
 ### Módulos
 
-- Módulos del core: `properties`, `clients`, `rentals`, `appraisals`, `promotions`, `conversations`, `portals`, `identity`, `audit`, `reporting`, más `shared`.
+- Módulos del core: `properties`, `clients`, `rentals`, `appraisals`, `promotions`, `conversations`, `portals`, `identity`, `audit`, `reporting`, `cash`, más `shared`.
 - Entre módulos se importa **solo** desde el `index.ts` del otro módulo (su API pública). PROHIBIDO `import ... from '../other-module/domain/...'`.
 - Un aggregate referencia a otro módulo **solo por ID**.
 - **Reacciones** entre módulos: con eventos de dominio (outbox + pg-boss), no con llamadas encadenadas.

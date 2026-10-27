@@ -98,6 +98,15 @@ El código de la tasación (`TAS0001`) sale de la secuencia `core.appraisal_code
 
 El resultado vive en la fila de la tasación: los valores sugeridos en `sale_*_cents` / `rent_*_cents` con su moneda, y los comparables en `comparables` (jsonb, una lista de `{ address, priceCents, currency, surfaceM2?, url?, note? }` con los centavos como texto). Las fotos (`appraisal_photos`) guardan la clave de la original en el storage privado (`appraisals/<tasación>/photos/<foto>/original`). Al convertir, `converted_property_id` apunta a la propiedad que crea properties, que copia las fotos a su galería y suma al solicitante en `property_owners`.
 
+### `cash` (`cash.ts`)
+
+| Tabla            | Qué es                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------- |
+| `cash_movements` | Ingresos y egresos de las cajas de la oficina (`box`: `office` / `osvaldo`). Anular o borrar no elimina |
+| `cash_closings`  | Cierre de cada mes de cada caja (único por `box` + `period`). El alta es el cierre; se recalcula        |
+
+Los montos van en centavos (`amount_cents`, `*_cents`) con `currency` = `ARS`. `period` (`AAAA-MM`) sale de `date` y agrupa la planilla. Solo los movimientos con `status = 'active'` suman al saldo: `voided` es el último del mes anulado y `deleted` uno borrado con permiso. El saldo de cada fila de la planilla se calcula en la consulta, con una suma acumulada por fecha y orden de carga. La migración `0046` crea el rol de sistema `cash-control` (Control de caja) y le da `cash:*` al administrador.
+
 ### `portals` (`portals.ts`)
 
 | Tabla                        | Qué es (IDs de otros módulos)                                                      |

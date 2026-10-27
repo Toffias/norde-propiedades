@@ -1,1 +1,0 @@
-ALTER TABLE "core"."portal_accounts" ADD COLUMN "leads_pulled_at" timestamp with time zone;

@@ -36,7 +36,7 @@ La auditoría de la integración (#162) encontró avisos que quedaban online cua
 
 ## Consecuencias
 
-- Migraciones solo de expansión: `0046` (columna `leads_pulled_at`, nula) y `0047` (índice parcial).
+- Migración solo de expansión: `0047` (columna `leads_pulled_at`, nula, e índice parcial).
 - La conciliación diaria hace una llamada por aviso de Zonaprop. Con cientos de avisos son unos minutos a las 6:00.
 - La ficha lee los créditos con un cache de 2 minutos (`CachedPortalCredits`, solo para mostrar): abrir Difusión seguido no llama a Zonaprop cada vez. Publicar, reactivar y cambiar de plan leen en vivo.
 - Queda por verificar con datos reales: la forma de `vencimientos` en `disponibilidad` (sin documentar, no se muestra todavía), el `status` de un emprendimiento, el cambio de plan sobre un aviso online y `publicacion` en cada unidad.

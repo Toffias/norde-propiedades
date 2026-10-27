@@ -1313,3 +1313,52 @@ Módulo `settings`. Es un único registro de configuración (mono-tenant). Todo 
 
 - Fuera de alcance: facturación y plan, API key, redes y asociaciones, tipos de evento. La configuración de oportunidades, propiedades, reservas, respuestas rápidas y seguimientos vive en la sub-issue de cada módulo.
 - Las credenciales del proveedor de email no se cargan en el panel: van por variables de entorno.
+
+---
+
+## 15. Caja chica (#164)
+
+Reemplaza a `norde-caja`, la app aparte con la que la oficina lleva el efectivo. Módulo `cash`. La etapa 1 deja el dominio, la base y los permisos; la pantalla (`/caja`) llega en la etapa 2.
+
+### 15.1 Cajas y movimientos
+
+- Dos cajas fijas e independientes: **Caja de oficina** y **Caja Osvaldo**. Cada una tiene sus movimientos, saldos y cierres. Agregar una es un cambio de código.
+- Un movimiento es un **ingreso** o un **egreso** en pesos, con fecha (día de Buenos Aires, no futura), concepto (obligatorio, hasta 255 caracteres) y observaciones (hasta 500). El monto se escribe como en la planilla: `125000`, `125.000` o `125.000,50`.
+- La caja se ve por **mes calendario**. El saldo inicial de un mes es el acumulado de todos los meses anteriores; la planilla muestra el saldo después de cada movimiento, en orden de fecha y de carga.
+
+### 15.2 Qué se puede hacer en cada mes
+
+| Acción                                  | Mes vigente   | Mes cerrado                          |
+| --------------------------------------- | ------------- | ------------------------------------ |
+| Cargar                                  | `cash:create` | `cash:create` + `cash:manage-closed` |
+| Editar (también cambiarlo de mes)       | `cash:update` | `cash:update` + `cash:manage-closed` |
+| Anular el **último** movimiento cargado | `cash:void`   | `cash:void` + `cash:manage-closed`   |
+| Borrar cualquier movimiento             | `cash:delete` | `cash:delete`                        |
+
+- Al editar se controlan el mes de antes y el de después: quien no tiene `cash:manage-closed` no puede llevar un movimiento a un mes cerrado.
+- Si alguien cargó otro movimiento mientras tanto, anular falla: no se anula algo distinto de lo que se confirmó.
+- Anular y borrar no eliminan la fila: el movimiento queda inactivo, deja de sumar y figura en su historial.
+
+### 15.3 Cierre mensual
+
+- Un mes anterior al vigente está **cerrado**. La primera vez que alguien abre la caja en el mes nuevo, se guarda el cierre de los meses que falten, en orden: saldo inicial, ingresos, egresos y saldo final. Cada mes se cierra una sola vez aunque entren dos personas a la vez.
+- Si se carga, edita, anula o borra algo de un mes cerrado, se recalculan ese cierre y los siguientes de la misma caja.
+- Los cierres quedan seguidos, del primer mes con movimientos al anterior al vigente.
+
+### 15.4 Rol Control de caja y permisos
+
+- Rol de sistema **Control de caja** (`cash-control`): `cash:read`, `cash:create`, `cash:update`, `cash:void` y `cash:export`. El Administrador tiene `cash:*`. Se ajusta desde el ABM de roles.
+- `cash:audit` (ver el log de la caja) y `cash:export` (Excel) se usan en la etapa 3.
+- Quien solo tiene permisos de caja entra directo a la caja, sin el menú del panel; quien tiene caja y otros permisos ve "Caja" en el menú (etapa 2).
+
+### 15.5 Historial
+
+- Cada movimiento registra su alta, sus ediciones (solo los campos que cambiaron) y su anulación o borrado en `audit_log` (`cash_movement.recorded`, `.updated`, `.voided`, `.deleted`). Cada cierre registra su alta y sus recálculos (`cash_closing.closed`, `.recalculated`). No aparecen en Noticias.
+- La caja no emite eventos de dominio: ningún otro módulo reacciona a sus cambios.
+
+### 15.6 Diferencias con `norde-caja`
+
+- Montos en centavos, sin decimales de punto flotante.
+- Los usuarios son los del panel: el rol ADMIN / USUARIO de `norde-caja` pasa a ser permisos `cash:*`.
+- El log propio se reemplaza por `audit_log`.
+- Arranca vacío. Cuando salga a producción se importa una copia de la base MySQL de `norde-caja` (issue aparte).

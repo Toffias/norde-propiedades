@@ -118,6 +118,7 @@ packages/core/src/
 ├── identity/                        # Usuarios, roles, permisos, sucursales, equipos
 ├── settings/                        # Configuración general de la empresa, numeración, archivos
 ├── notifications/                   # Avisos a cada usuario en la campana del panel (ADR 0043)
+├── cash/                            # Caja chica de la oficina: movimientos y cierres mensuales (#164)
 ├── audit/                           # Trazabilidad de cambios: lectura del historial y feed de
 │                                    # Noticias (#16). La escritura, `AuditLog`, está en el shared kernel
 └── reporting/                       # Consultas de reportes (solo lectura): estadísticas de la ficha,
@@ -208,6 +209,7 @@ packages/infra/src/
 | `identity`      | Usuarios, roles, permisos, sucursales, equipos, favoritos                                    | `UserCreated`, `RoleChanged`                                         |
 | `settings`      | Configuración general de la empresa, numeración de códigos, archivos de la empresa           | `CompanySettingsChanged`                                             |
 | `notifications` | Avisos a cada usuario en la campana del panel (sin mail ni WhatsApp) y sus preferencias      | —                                                                    |
+| `cash`          | Caja chica de la oficina: ingresos, egresos, anulaciones y cierres mensuales por caja        | —                                                                    |
 | `audit`         | Registro de cambios (quién, qué, cuándo, antes y después) y feed de Noticias                 | —                                                                    |
 | `reporting`     | Consultas de solo lectura para reportes (ventas, orígenes, embudo, costos)                   | —                                                                    |
 

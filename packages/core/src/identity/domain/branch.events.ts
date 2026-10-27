@@ -6,7 +6,10 @@ interface BranchPayload {
 
 export type BranchCreated = DomainEvent<'identity.branch_created', BranchPayload>;
 export type BranchMadeMain = DomainEvent<'identity.branch_made_main', BranchPayload>;
+/** Cambiaron los datos de contacto (van en los avisos de los portales de sus propiedades). */
+export type BranchUpdated = DomainEvent<'identity.branch_updated', BranchPayload>;
 export type BranchDeleted = DomainEvent<'identity.branch_deleted', BranchPayload>;
 export type BranchRestored = DomainEvent<'identity.branch_restored', BranchPayload>;
 
-export type BranchEvent = BranchCreated | BranchMadeMain | BranchDeleted | BranchRestored;
+export type BranchEvent =
+  BranchCreated | BranchMadeMain | BranchUpdated | BranchDeleted | BranchRestored;

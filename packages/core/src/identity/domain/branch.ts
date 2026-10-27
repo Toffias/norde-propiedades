@@ -104,8 +104,15 @@ export class Branch extends AggregateRoot<BranchId, BranchEvent> {
     return this.#state.deletedAt !== undefined;
   }
 
+  /** Cambia los datos de contacto. El caso de uso no lo guarda si no cambió nada. */
   update(contact: BranchContact, now: Date): void {
     this.#state = { ...this.#state, ...clean(contact), updatedAt: now };
+    this.record({
+      type: 'identity.branch_updated',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: { branchId: this.id },
+    });
   }
 
   /** Pasa a ser la casa central. El caso de uso le saca la marca a la anterior. */

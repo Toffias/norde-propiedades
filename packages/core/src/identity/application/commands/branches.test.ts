@@ -136,6 +136,12 @@ describe('UpdateBranch', () => {
         },
       }),
     ]);
+    expect(uow.events.published).toEqual([
+      expect.objectContaining({
+        type: 'identity.branch_updated',
+        payload: { branchId: MAIN_BRANCH_ID },
+      }),
+    ]);
   });
 
   it('fails for a missing branch and needs branches:update', async () => {

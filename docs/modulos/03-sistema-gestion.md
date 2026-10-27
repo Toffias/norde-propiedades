@@ -286,7 +286,7 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 - **Conversaciones del agente de IA**: una entrada cuando la conversación queda vinculada al cliente (`conversations.conversation_linked_to_client`).
 - **Unificaciones**: queda en el principal, con quién la hizo. La actividad del duplicado pasa al principal.
 - **Cambios de estado**: cada cambio de estado o cierre de una oportunidad, con quién lo hizo (§3.3.6).
-- Envíos, propiedades vistas y reacciones ya se muestran; los va a registrar #11.
+- **Envíos**, **aperturas** (la primera vez que abre el link) y **reacciones** ("me gusta" / "no me gusta"): los registran los casos de uso de envíos (§3.3.10); las aperturas y reacciones figuran como hechas por el contacto.
 - Las entradas que salen de un evento usan el ID del evento (una reentrega no las duplica) y no se auditan aparte: son la proyección de algo que ya quedó registrado.
 
 **Oportunidades**: todas las del contacto (abiertas y cerradas), con su estado, origen y agente.
@@ -358,7 +358,7 @@ Configuración en **Mi empresa → Oportunidades** (`/mi-empresa/oportunidades`)
 
 - **Al crear**: el estado de una oportunidad nueva (de fábrica, "Nuevo"). Si Norde no tiene stock para ofrecerle, nace en el primer estado de "Aplica a otra inmobiliaria".
 - **Al asignar a un agente**, **al reactivar** (una derivada que vuelve a consultar) y **para propietarios**: se configuran acá y se aplican desde la etapa 4.
-- Las reglas "tras enviar email o WhatsApp" y "tras me gusta / no me gusta" llegan con los envíos de fichas (#11).
+- **Tras enviar email o WhatsApp**, **tras "me gusta"** y **tras "no me gusta"** (#104): mueven la oportunidad abierta a la que quedó atado el envío. Las aplica el mismo job que las demás, idempotente por evento (`clients.listings_sent`, `clients.listing_reacted`).
 
 **Historial y agente**: cada cambio de estado queda en `opportunity_status_changes` (estado y categoría de origen y destino, quién y cuándo). De ahí sale la **vigencia**, el tiempo en el estado actual. La oportunidad tiene agente y sucursal propios: al crearse hereda los del contacto. La migración pasó cada oportunidad al primer estado de su categoría, le copió el agente y la sucursal del contacto y le dejó su estado actual como primera entrada del historial.
 
@@ -544,7 +544,20 @@ Cada destacada guarda:
 - La **oportunidad abierta más reciente** del contacto. Si tiene una, se publica `clients.opportunity_listings_featured` y la regla "al reactivar" puede sacarla de "Aplica a otra inmobiliaria".
 - **Auto-envío de novedades** (switch por destacada): queda guardado y auditado; los envíos llegan con la etapa 4.
 
-Por fila: ver la ficha de la propiedad, reservarla (si está disponible y hay `reservations:create`, con el contacto ya elegido y la oportunidad de la destacada; ver §4.9) y quitar la destacada. Enviar llega con la etapa 2.
+Por fila: ver la ficha de la propiedad, reservarla (si está disponible y hay `reservations:create`, con el contacto ya elegido y la oportunidad de la destacada; ver §4.9) y quitar la destacada. Marcando varias, **Enviar** las manda juntas (hasta 20).
+
+**Envíos** (#104, etapa 1; ADR 0048). Quien puede editar el contacto le manda una o varias destacadas:
+
+- **Por email**: con la plantilla de Norde (Resend), el mensaje del asesor, una tarjeta por propiedad y el botón al link. Si el email no sale, el envío no queda registrado.
+- **Por WhatsApp**: el panel abre el WhatsApp del asesor (`wa.me`) con el mensaje y el link escritos; el asesor lo manda desde ahí. No pasa por el agente de IA.
+- Se elige el email o el teléfono entre los del contacto. Solo van propiedades que se ven en el sitio.
+- Cada envío es un **link público** `<sitio>/e/<token>`: el token es al azar, se guarda hasheado, no lleva IDs ni datos del cliente, **vence a los 90 días** y se puede **revocar**. La página muestra las propiedades, el nombre del asesor y los botones "me gusta" / "no me gusta"; no se indexa.
+- La **apertura** la registra el navegador (la vista previa de WhatsApp o del correo no cuenta). La primera queda en la actividad y en el historial; las siguientes suman al contador.
+- Cada **reacción** (se puede cambiar de opinión) queda en la actividad, el historial y la columna Reacción de la destacada, y dispara su regla.
+- El envío queda atado a la **oportunidad abierta más reciente** del contacto: es la que mueven las reglas "tras enviar" y "tras me gusta / no me gusta".
+- Pestaña **Envíos** de la ficha: cada envío con su canal, quién lo mandó, las propiedades (con lo que le pareció cada una), si lo abrió y si el link sigue vigente. Paginada en el servidor.
+
+Pendiente de #104: compartir desde la ficha de la propiedad y la vista rápida del emprendimiento (etapa 2) y el email masivo desde Oportunidades (etapa 3).
 
 **Búsquedas guardadas** (pestaña Búsquedas, en un panel lateral sobre la grilla):
 

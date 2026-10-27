@@ -314,6 +314,32 @@ describe('MercadoLibreAccountReader.stats', () => {
     expect(requests[4]?.query.get('date_from')).toBe('2026-09-18');
   });
 
+  it('keeps the stats five minutes instead of asking ML again', async () => {
+    const zero = () => Response.json({ total: 0 });
+    const { reader, requests } = setup([
+      () => Response.json({ MLA473861358: 950 }),
+      () => Response.json({ total_visits: 120 }),
+      zero,
+      zero,
+      zero,
+      () => Response.json({ MLA473861358: 951 }),
+      () => Response.json({ total_visits: 121 }),
+      zero,
+      zero,
+      zero,
+    ]);
+    const later = (minutes: number) => ({
+      ...INPUT,
+      endingAt: new Date(INPUT.endingAt.getTime() + minutes * 60_000),
+    });
+
+    expect(unwrap(await reader.stats(INPUT)).totalVisits).toBe(950);
+    expect(unwrap(await reader.stats(later(4))).totalVisits).toBe(950);
+    expect(requests).toHaveLength(5);
+    expect(unwrap(await reader.stats(later(6))).totalVisits).toBe(951);
+    expect(requests).toHaveLength(10);
+  });
+
   it('counts 0 for a listing ML has no visits for, and takes the visits as a list', async () => {
     const { reader } = setup([
       () => Response.json({}),

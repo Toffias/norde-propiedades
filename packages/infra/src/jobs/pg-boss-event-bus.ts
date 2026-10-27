@@ -92,6 +92,8 @@ export class PgBossEventBus {
       await this.#ensureQueue(queue, {
         retryLimit: this.options.retryLimit ?? 5,
         retryBackoff: true,
+        retryDelay: RETRY_DELAY_SECONDS,
+        retryDelayMax: RETRY_DELAY_MAX_SECONDS,
         expireInSeconds: subscription.expireInSeconds ?? DEFAULT_EXPIRE_SECONDS,
       });
       await this.#boss.work<unknown>(queue, async (jobs) => {
@@ -134,8 +136,18 @@ export class PgBossEventBus {
 interface QueueSettings {
   readonly retryLimit: number;
   readonly retryBackoff?: boolean;
+  readonly retryDelay?: number;
+  readonly retryDelayMax?: number;
   readonly expireInSeconds?: number;
 }
+
+/**
+ * Base del backoff de los reintentos: con la de pg-boss (1 segundo) los cinco intentos entran en un
+ * minuto, y una caída de un portal o un 429 que dure más agota los reintentos. Con 30 segundos
+ * duplicando hasta 10 minutos, los cinco cubren unos 15 minutos.
+ */
+const RETRY_DELAY_SECONDS = 30;
+const RETRY_DELAY_MAX_SECONDS = 10 * 60;
 
 /** El vencimiento de pg-boss si el handler no dice otro: 15 minutos. */
 const DEFAULT_EXPIRE_SECONDS = 15 * 60;

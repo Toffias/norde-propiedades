@@ -25,6 +25,36 @@ import type { PortalListingContent } from './ports/portal-connector';
 import type { PortalsTransaction, PortalsUnitOfWork } from './ports/portals-transaction';
 import type { ValidationFailedError } from './portals-input';
 
+/** El motivo de una sincronización que falló porque el portal no respondió. */
+export const SYNC_UNAVAILABLE = 'El portal no respondió. Se vuelve a intentar en unos minutos.';
+/** El motivo de una sincronización que falló porque el portal pidió volver a conectar la cuenta. */
+export const SYNC_RECONNECT = 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).';
+
+/**
+ * Pide sincronizar las publicaciones bloqueadas que quedaron en error por uno de esos motivos (el
+ * portal no respondió, pidió reconectar): no hay nada que corregir en Norde, así que se reintentan
+ * solas. Devuelve cuántas pidió.
+ */
+export async function retryFailedListings(
+  deps: { readonly uow: PortalsUnitOfWork; readonly clock: Clock },
+  ids: readonly ListingId[],
+  reasons: readonly string[],
+): Promise<number> {
+  let requested = 0;
+  for (const id of ids) {
+    const retried = await deps.uow.run(async (tx) => {
+      const listing = await tx.listings.lockById(id);
+      const { status, lastError } = listing?.toSnapshot() ?? {};
+      if (!listing || status !== 'error' || !reasons.includes(lastError ?? '')) return false;
+      listing.requestSync(deps.clock.now());
+      await tx.events.publish(listing.pullEvents());
+      return true;
+    });
+    if (retried) requested += 1;
+  }
+  return requested;
+}
+
 /**
  * Refleja en la publicación, bloqueada, cómo está su aviso en el portal (vencido, cerrado, pausado
  * por moderación): la conciliación diaria y la de un aviso que el portal avisó que cambió. Se

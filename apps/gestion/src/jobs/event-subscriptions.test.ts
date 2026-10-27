@@ -740,7 +740,7 @@ describe('portal subscriptions', () => {
             calls.push(['reconcile', input, by.id]);
             return Promise.resolve(
               input.portal === 'mercadolibre'
-                ? ok({ checked: 3, changed: 1 })
+                ? ok({ checked: 3, changed: 1, retried: 0 })
                 : err({ type: 'PortalUnavailable' as const }),
             );
           },
@@ -885,7 +885,7 @@ describe('reconcilePortalListings', () => {
             return Promise.resolve(
               input.portal === 'mercadolibre'
                 ? err({ type: 'PortalUnavailable' as const })
-                : ok({ checked: 0, changed: 0 }),
+                : ok({ checked: 0, changed: 0, retried: 0 }),
             );
           },
         },

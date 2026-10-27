@@ -105,6 +105,27 @@ describe('PgBossEventBus', () => {
     expect(await startWith({})).toEqual({ retry_limit: 5, expire_seconds: 900 });
   });
 
+  it('spaces the retries so a portal outage of minutes does not exhaust them', async () => {
+    const eventType = `tests.queue_retry_${new UuidV7IdGenerator().next().replaceAll('-', '')}`;
+    const bus = new PgBossEventBus({
+      connectionString: inject('databaseUrl'),
+      logger: silent,
+      applicationName: 'norde-infra-tests',
+      schema: 'pgboss_test',
+    });
+    bus.subscribe({ eventType, name: 'handler', handle: () => Promise.resolve() });
+    await bus.start();
+    await bus.stop();
+    const result = await db.execute<{
+      retry_backoff: boolean;
+      retry_delay: number;
+      retry_delay_max: number;
+    }>(
+      sql`select retry_backoff, retry_delay, retry_delay_max from pgboss_test.queue where name = ${`${eventType}.handler`}`,
+    );
+    expect(result.rows[0]).toEqual({ retry_backoff: true, retry_delay: 30, retry_delay_max: 600 });
+  });
+
   it('delivers an event once to each subscriber, even if published twice', async () => {
     const received: string[] = [];
     const bus = new PgBossEventBus({

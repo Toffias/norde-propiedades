@@ -7,6 +7,8 @@ import {
   auditStatusChange,
   contentFingerprint,
   listingIdOf,
+  SYNC_RECONNECT,
+  SYNC_UNAVAILABLE,
   type ListingNotFoundError,
 } from '../listing-support';
 import type { DevelopmentListingSourceReader } from '../ports/development-listing-source';
@@ -31,8 +33,6 @@ export type SyncListingOutcome = 'synced' | 'unchanged' | 'failed' | 'retry';
 
 const NOT_ENABLED =
   'La cuenta del portal no está conectada o está desactivada (Mi empresa → Portales).';
-const RECONNECT = 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).';
-const UNAVAILABLE = 'El portal no respondió. Se vuelve a intentar en unos minutos.';
 const GONE: Readonly<Record<ListingOwnerKind, string>> = {
   property: 'La propiedad ya no existe.',
   development: 'El emprendimiento ya no existe.',
@@ -45,9 +45,9 @@ function reasonOf(error: PortalSyncError): string {
     case 'PortalRejected':
       return error.reason;
     case 'PortalCredentialsMissing':
-      return RECONNECT;
+      return SYNC_RECONNECT;
     case 'PortalUnavailable':
-      return UNAVAILABLE;
+      return SYNC_UNAVAILABLE;
   }
 }
 

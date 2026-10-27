@@ -636,6 +636,42 @@ export {
   type ListInquiryRulesError,
 } from './application/queries/list-inquiry-rules';
 export { GetInquiryRule, type GetInquiryRuleError } from './application/queries/get-inquiry-rule';
+export {
+  fillVariables,
+  firstNameOf,
+  QUICK_REPLY_VARIABLES,
+  QuickReply,
+  unknownVariables,
+  type InvalidQuickReplyError,
+  type QuickReplyId,
+  type QuickReplySnapshot,
+  type QuickReplyValues,
+  type QuickReplyVariable,
+} from './domain/quick-reply';
+export type { QuickReplyRepository } from './domain/client.repository';
+export type { QuickReplyCriteria, QuickReplyQuery } from './application/ports/quick-reply-query';
+export type { QuickReplyNotFoundError } from './application/quick-reply-support';
+export {
+  CreateQuickReply,
+  type CreateQuickReplyError,
+} from './application/commands/create-quick-reply';
+export {
+  UpdateQuickReply,
+  type UpdateQuickReplyError,
+} from './application/commands/update-quick-reply';
+export {
+  SetQuickReplyActive,
+  type SetQuickReplyActiveError,
+} from './application/commands/set-quick-reply-active';
+export {
+  DeleteQuickReply,
+  type DeleteQuickReplyError,
+} from './application/commands/delete-quick-reply';
+export {
+  ListQuickReplies,
+  type ListQuickRepliesError,
+} from './application/queries/list-quick-replies';
+export { GetQuickReply, type GetQuickReplyError } from './application/queries/get-quick-reply';
 export { RouteInquiry, type InquiryRouteOutcome } from './application/handlers/route-inquiry';
 export {
   ChangeOpportunityStage,

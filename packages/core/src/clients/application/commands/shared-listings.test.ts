@@ -22,6 +22,7 @@ import {
   TEST_OUTSIDER,
 } from '../../testing';
 import { NO_RULES } from '../../domain/opportunity-settings';
+import { firstNameOf } from '../../domain/quick-reply';
 import type { ClientSendItem, ClientSendsQuery } from '../ports/shared-listing-ports';
 import { ApplyOpportunityRules } from '../handlers/apply-opportunity-rules';
 import { GetSharedListing } from '../queries/get-shared-listing';
@@ -186,6 +187,48 @@ describe('SendListings', () => {
       `https://wa.me/5491166899124?text=${encodeURIComponent(`Hola Ana\n\n${output.url}`)}`,
     );
     expect(mailer.sent).toHaveLength(0);
+  });
+
+  it('fills the quick reply variables in the subject and the message', async () => {
+    const { client, send, emails } = await setup();
+
+    unwrap(
+      await send.execute(
+        {
+          clientId: client.id,
+          propertyIds: [PROPERTY_ID],
+          channel: 'email',
+          subject: '[[primer_nombre_contacto]], de [[nombre_empresa]]',
+          message: 'Hola [[nombre_contacto]], soy [[nombre_asesor]]. [[otra]]',
+        },
+        TEST_AGENT,
+      ),
+    );
+
+    expect(emails.composed[0]).toMatchObject({
+      subject: `${firstNameOf(client.name) ?? ''}, de Norde Propiedades`,
+      message: `Hola ${client.name ?? ''}, soy Camila. [[otra]]`,
+    });
+  });
+
+  it('fills the variables in the WhatsApp message too', async () => {
+    const { client, send } = await setup();
+
+    const output = unwrap(
+      await send.execute(
+        {
+          clientId: client.id,
+          propertyIds: [PROPERTY_ID],
+          channel: 'whatsapp',
+          message: 'Hola [[primer_nombre_contacto]]',
+        },
+        TEST_AGENT,
+      ),
+    );
+
+    expect(decodeURIComponent(output.whatsappUrl ?? '')).toContain(
+      `Hola ${firstNameOf(client.name) ?? ''}\n\n`,
+    );
   });
 
   it('leaves nothing behind when the email does not go out', async () => {

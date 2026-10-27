@@ -80,6 +80,8 @@ import type {
   InquiryRuleItem,
   InquiryRuleQuery,
 } from '../application/ports/inquiry-rule-query';
+import type { QuickReplyCriteria, QuickReplyQuery } from '../application/ports/quick-reply-query';
+import { QuickReply, type QuickReplyId, type QuickReplySnapshot } from '../domain/quick-reply';
 import {
   ANY_INQUIRY,
   InquiryAssignmentRule,
@@ -133,6 +135,7 @@ import {
   type SharedListingRepository,
   type InquiryRepository,
   type InquiryRuleRepository,
+  type QuickReplyRepository,
   type MovedTagAssignment,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
@@ -904,6 +907,76 @@ export class InMemoryInquiryRuleRepository implements InquiryRuleRepository {
   }
 }
 
+export class InMemoryQuickReplyRepository implements QuickReplyRepository {
+  readonly rows = new Map<string, QuickReplySnapshot>();
+
+  findById(id: QuickReplyId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && QuickReply.restore(row));
+  }
+
+  save(reply: QuickReply) {
+    this.rows.set(reply.id, reply.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: QuickReplyId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+/** Como el SQL: por nombre, y "contiene" sin mayúsculas ni acentos. */
+export class InMemoryQuickReplyQuery implements QuickReplyQuery {
+  readonly searches: QuickReplyCriteria[] = [];
+
+  constructor(private readonly repository: InMemoryQuickReplyRepository) {}
+
+  search(criteria: QuickReplyCriteria) {
+    this.searches.push(criteria);
+    const text = criteria.text === undefined ? undefined : normalizeName(criteria.text);
+    const sign = criteria.direction === 'asc' ? 1 : -1;
+    const matching = [...this.repository.rows.values()]
+      .filter((row) => row.isActive === criteria.active)
+      .filter((row) => text === undefined || normalizeName(row.name).includes(text))
+      .sort((a, b) => sign * (a.name.localeCompare(b.name) || a.id.localeCompare(b.id)));
+    return Promise.resolve({
+      items: matching.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: matching.length,
+    });
+  }
+}
+
+/** Una respuesta rápida cargada directo en el fake (activa, salvo que se diga otra cosa). */
+export async function seedQuickReply(
+  uow: InMemoryClientsUnitOfWork,
+  overrides: {
+    readonly id?: string;
+    readonly name?: string;
+    readonly subject?: string;
+    readonly body?: string;
+    readonly isActive?: boolean;
+  } = {},
+): Promise<QuickReply> {
+  const id = parseId<'QuickReply'>(
+    overrides.id ??
+      `00000000-0000-7000-8000-7${String(uow.quickReplies.rows.size + 1).padStart(11, '0')}`,
+  );
+  if (id.isErr()) throw new Error('Invalid test fixture');
+  const created = QuickReply.create({
+    id: id.value,
+    name: overrides.name ?? 'Primer contacto',
+    subject: overrides.subject,
+    body: overrides.body ?? 'Hola [[primer_nombre_contacto]], soy [[nombre_asesor]].',
+    now: new Date('2026-02-01T10:00:00Z'),
+  });
+  if (created.isErr()) throw new Error(`Invalid seed quick reply: ${created.error.reason}`);
+  const reply = created.value;
+  if (overrides.isActive === false) reply.setActive(false, new Date('2026-02-01T10:00:00Z'));
+  await uow.quickReplies.save(reply);
+  return reply;
+}
+
 /** Los IDs de Tokko de los contactos, por `origen:id`. */
 export class InMemoryClientExternalIds implements ClientExternalIds {
   readonly rows = new Map<string, ClientExternalId>();
@@ -966,6 +1039,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly bulkOperations = new InMemoryOpportunityBulkOperationRepository();
   readonly inquiries = new InMemoryInquiryRepository();
   readonly inquiryRules = new InMemoryInquiryRuleRepository();
+  readonly quickReplies = new InMemoryQuickReplyRepository();
   readonly developmentChances = new InMemoryDevelopmentChances();
 
   async run<T>(work: (tx: ClientsTransaction) => Promise<T>): Promise<T> {
@@ -988,6 +1062,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       bulkOperations: new Map(this.bulkOperations.rows),
       inquiries: new Map(this.inquiries.rows),
       inquiryRules: new Map(this.inquiryRules.rows),
+      quickReplies: new Map(this.quickReplies.rows),
       developmentChances: new Map(this.developmentChances.rows),
       problems: this.imports.problems.length,
       events: this.events.published.length,
@@ -1016,6 +1091,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.bulkOperations.rows, backup.bulkOperations);
       restore(this.inquiries.rows, backup.inquiries);
       restore(this.inquiryRules.rows, backup.inquiryRules);
+      restore(this.quickReplies.rows, backup.quickReplies);
       restore(this.developmentChances.rows, backup.developmentChances);
       this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);

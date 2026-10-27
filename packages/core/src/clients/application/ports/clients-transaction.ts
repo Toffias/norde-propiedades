@@ -13,6 +13,7 @@ import type {
   OpportunityRepository,
   OpportunitySettingsRepository,
   OpportunityStageRepository,
+  QuickReplyRepository,
   SavedSearchRepository,
   SharedListingRepository,
 } from '../../domain/client.repository';
@@ -42,6 +43,7 @@ export interface ClientsTransaction {
   readonly bulkOperations: OpportunityBulkOperationRepository;
   readonly inquiries: InquiryRepository;
   readonly inquiryRules: InquiryRuleRepository;
+  readonly quickReplies: QuickReplyRepository;
   readonly developmentChances: DevelopmentChances;
   readonly events: EventPublisher;
   readonly audit: AuditLog;

@@ -931,7 +931,7 @@ describe('portal subscriptions', () => {
 });
 
 describe('reconcilePortalListings', () => {
-  it('reconciles each MercadoLibre account as system:portal-sync, and goes on when one fails', async () => {
+  it('reconciles each portal account as system:portal-sync, and goes on when one fails', async () => {
     const calls: unknown[] = [];
     const unused = () => Promise.reject(new Error('not used'));
     await reconcilePortalListings(
@@ -959,6 +959,7 @@ describe('reconcilePortalListings', () => {
     expect(calls).toEqual([
       ['mercadolibre', 'system:portal-sync'],
       ['mercadolibre_developments', 'system:portal-sync'],
+      ['zonaprop', 'system:portal-sync'],
     ]);
   });
 });

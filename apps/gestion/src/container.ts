@@ -487,9 +487,11 @@ import {
   PortalConnectorsByProvider,
   PortalLeadSourcesByProvider,
   PortalListingCatalogsByProvider,
+  PortalListingStatesByProvider,
   ZonapropAccountDirectory,
   ZonapropApi,
   ZonapropLeads,
+  ZonapropListingStates,
   ZonapropListingCatalog,
   ZonapropLocations,
   ZonapropPortalConnector,
@@ -712,6 +714,9 @@ function createPortalServices(
   const directory = new ZonapropAccountDirectory({ api: zonaprop, logger });
   const accounts = new DrizzlePortalAccountRepository(db, clock);
   const tokens = new MercadoLibreTokens({ db, cipher, authorizer, clock, logger });
+  // El código de inmobiliaria de la cuenta conectada en Mi empresa → Portales.
+  const zonapropAgencyCode = async () =>
+    (await accounts.get('zonaprop')).toSnapshot().connection?.externalAccountId;
   const connector = new PortalConnectorsByProvider({
     mercadolibre: new MercadoLibrePortalConnector({
       tokens,
@@ -721,11 +726,14 @@ function createPortalServices(
     zonaprop: new ZonapropPortalConnector({
       api: zonaprop,
       locations: new ZonapropLocations({ api: zonaprop }),
-      // El código de inmobiliaria de la cuenta conectada en Mi empresa → Portales.
-      agencyCode: async () =>
-        (await accounts.get('zonaprop')).toSnapshot().connection?.externalAccountId,
+      agencyCode: zonapropAgencyCode,
       logger,
     }),
+  });
+  const mercadoLibre = new MercadoLibreAccountReader({ tokens, logger });
+  const states = new PortalListingStatesByProvider({
+    mercadolibre: mercadoLibre,
+    zonaprop: new ZonapropListingStates({ api: zonaprop, agencyCode: zonapropAgencyCode, logger }),
   });
   const branch = new GetBranch({ organization: new DrizzleOrganizationQuery(db) });
   const reader = listingSourceReader({
@@ -765,7 +773,8 @@ function createPortalServices(
     authorizer,
     connector,
     directory,
-    mercadoLibre: new MercadoLibreAccountReader({ tokens, logger }),
+    mercadoLibre,
+    states,
     reader,
     developments,
     catalog,
@@ -1962,8 +1971,8 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       properties: portals.codes,
       clock,
     }),
-    reconcile: new ReconcileListings({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
-    reconcileOne: new ReconcileListing({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
+    reconcile: new ReconcileListings({ uow: portals.uow, reader: portals.states, clock }),
+    reconcileOne: new ReconcileListing({ uow: portals.uow, reader: portals.states, clock }),
     actor: PORTAL_SYNC_ACTOR,
   };
   // La migración desde Tokko (#17): sin API key, sus jobs fallan con un error claro.

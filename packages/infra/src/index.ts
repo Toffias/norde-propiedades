@@ -151,6 +151,8 @@ export {
 export { PortalConnectorsByProvider } from './adapters/portals/portal-connectors';
 export { PortalLeadSourcesByProvider } from './adapters/portals/portal-lead-sources';
 export { PortalListingCatalogsByProvider } from './adapters/portals/portal-listing-catalogs';
+export { PortalListingStatesByProvider } from './adapters/portals/portal-listing-states';
+export { ZonapropListingStates } from './adapters/portals/zonaprop/zonaprop-listing-states';
 export {
   MercadoLibreListingCatalog,
   type MercadoLibreListingCatalogOptions,

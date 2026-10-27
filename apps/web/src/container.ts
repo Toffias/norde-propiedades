@@ -1,9 +1,11 @@
 import 'server-only';
 
 // Composition root: único archivo de la app que importa @norde/infra.
-// Arma los casos de uso de @norde/core (propiedades, emprendimientos, contactos) que usa el sitio.
+// Arma los casos de uso de @norde/core (propiedades, emprendimientos, contactos, envíos) que usa
+// el sitio.
 // El contenido editorial NO pasa por acá: se lee con la Local API de Payload.
 
+import { GetSharedListing, OpenSharedListing, ReactToSharedListing } from '@norde/core/clients';
 import {
   GetPropertyDetail,
   GetPublicPhoto,
@@ -15,12 +17,17 @@ import {
 } from '@norde/core/properties';
 import { Actor } from '@norde/core/shared';
 import {
+  createClientsUnitOfWork,
   createDatabase,
+  DrizzleDirectory,
   DrizzlePropertySearchQuery,
   DrizzlePublicLocationQuery,
   DrizzlePublishedDevelopmentQuery,
   LocalFileStorage,
+  RandomSharedListingTokens,
   S3FileStorage,
+  SystemClock,
+  UuidV7IdGenerator,
   WebChatClient,
   WebInquiryClient,
   type WebChatMessage,
@@ -37,6 +44,9 @@ import { getEnv, type Env } from './config/env';
  * (ADR 0023). Los formularios suman sus permisos cuando lleguen (contacto, tasación).
  */
 const WEB_ACTOR = Actor.system('web', ['properties:read']);
+
+/** La página `/e/<token>` de un envío: la lee y registra lo que hace el cliente (#104). */
+const SHARED_LISTING_ACTOR = Actor.system('web', ['clients:respond-to-listings']);
 
 /** Casos de uso de propiedades, ya con el actor de la web. */
 export interface PropertiesUseCases {
@@ -66,6 +76,17 @@ export interface DevelopmentsUseCases {
   ): ReturnType<GetPublishedDevelopment['execute']>;
 }
 
+/** La página de un envío de propiedades, ya con el actor de la web. */
+export interface SharedListingsUseCases {
+  get(input: Parameters<GetSharedListing['execute']>[0]): ReturnType<GetSharedListing['execute']>;
+  open(
+    input: Parameters<OpenSharedListing['execute']>[0],
+  ): ReturnType<OpenSharedListing['execute']>;
+  react(
+    input: Parameters<ReactToSharedListing['execute']>[0],
+  ): ReturnType<ReactToSharedListing['execute']>;
+}
+
 /** Las consultas del formulario, que se mandan a apps/gestion. `undefined` si no está configurado. */
 export interface InquirySender {
   send(inquiry: WebInquiry): Promise<WebInquiryOutcome>;
@@ -83,6 +104,7 @@ export interface Container {
   readonly database: DatabaseConnection;
   readonly properties: PropertiesUseCases;
   readonly developments: DevelopmentsUseCases;
+  readonly sharedListings: SharedListingsUseCases;
   readonly inquiries: InquirySender | undefined;
   readonly chat: ChatSender | undefined;
 }
@@ -114,6 +136,7 @@ function createContainer(): Container {
   const photo = new GetPublicPhoto({ properties, developments, storage: createStorage(env) });
   const searchDevelopments = new SearchPublishedDevelopments({ developments });
   const developmentDetail = new GetPublishedDevelopment({ developments });
+  const sharedListings = createSharedListings(database);
   return {
     database,
     properties: {
@@ -127,6 +150,7 @@ function createContainer(): Container {
       search: (input) => searchDevelopments.execute(input, WEB_ACTOR),
       detail: (input) => developmentDetail.execute(input, WEB_ACTOR),
     },
+    sharedListings,
     inquiries:
       env.INQUIRY_WEBHOOK_URL && env.INQUIRY_WEBHOOK_SECRET
         ? new WebInquiryClient({ url: env.INQUIRY_WEBHOOK_URL, secret: env.INQUIRY_WEBHOOK_SECRET })
@@ -135,6 +159,23 @@ function createContainer(): Container {
       env.AGENT_CHAT_URL && env.AGENT_CHAT_SECRET
         ? new WebChatClient({ url: env.AGENT_CHAT_URL, secret: env.AGENT_CHAT_SECRET })
         : undefined,
+  };
+}
+
+function createSharedListings(database: DatabaseConnection): SharedListingsUseCases {
+  const ids = new UuidV7IdGenerator();
+  const clock = new SystemClock();
+  const uow = createClientsUnitOfWork(database.db, { ids, clock });
+  const tokens = new RandomSharedListingTokens();
+  const directory = new DrizzleDirectory(database.db);
+  const agents = { names: (userIds: readonly string[]) => directory.names('user', userIds) };
+  const get = new GetSharedListing({ uow, tokens, agents, clock });
+  const open = new OpenSharedListing({ uow, tokens, ids, clock });
+  const react = new ReactToSharedListing({ uow, tokens, ids, clock });
+  return {
+    get: (input) => get.execute(input, SHARED_LISTING_ACTOR),
+    open: (input) => open.execute(input, SHARED_LISTING_ACTOR),
+    react: (input) => react.execute(input, SHARED_LISTING_ACTOR),
   };
 }
 

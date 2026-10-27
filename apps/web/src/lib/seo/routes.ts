@@ -21,6 +21,8 @@ export const routes = {
       : `/emprendimientos/${encodeURIComponent(slug)}/pagina/${page}`,
   appraisals: () => '/tasar-mi-propiedad',
   contact: () => '/contacto',
+  /** Las propiedades que un asesor le mandó a un cliente (#104). Privada: no se indexa. */
+  sharedListing: (token: string) => `/e/${encodeURIComponent(token)}`,
   defaultOgImage: () => '/og-image.png',
 } as const;
 

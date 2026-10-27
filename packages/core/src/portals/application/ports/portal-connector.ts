@@ -50,6 +50,11 @@ export type PortalListingState = 'active' | 'paused' | 'closed';
 export interface PortalListingUpdate {
   readonly state: PortalListingState;
   readonly permalink: string | undefined;
+  /**
+   * Por qué quedó pausado aunque se pidió activarlo (el portal lo está moderando o espera un pago),
+   * para mostrarlo en la publicación.
+   */
+  readonly reason?: string;
 }
 
 /**

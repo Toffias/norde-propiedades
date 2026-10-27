@@ -29,6 +29,7 @@ import {
   listingPrice,
   listingProblems,
   listingTitle,
+  listingTypeOf,
   sellerContact,
 } from './mercadolibre-listing';
 import type { MercadoLibreLocations } from './mercadolibre-locations';
@@ -56,16 +57,32 @@ export interface MercadoLibrePortalConnectorOptions {
   readonly fetch?: typeof fetch;
 }
 
+/**
+ * Los estados en que MercadoLibre no deja activar el aviso: pedirlo da 400. El aviso queda pausado
+ * con el motivo hasta que se resuelva en la cuenta de ML (la conciliación lo ve cuando pasa).
+ */
+const NOT_ACTIVATABLE: Readonly<Record<string, string>> = {
+  under_review:
+    'MercadoLibre está revisando el aviso: no se puede activar hasta que termine. Revisalo en la cuenta de MercadoLibre.',
+  inactive:
+    'MercadoLibre inactivó el aviso: no se puede activar desde Norde. Revisalo en la cuenta de MercadoLibre.',
+  payment_required: 'MercadoLibre espera un pago para mostrar el aviso.',
+};
+const MODERATION_PENALTY =
+  'MercadoLibre pausó el aviso por moderación: no se puede activar desde Norde. Revisalo en la cuenta de MercadoLibre.';
+
 const CreatedSchema = z.object({ id: z.string(), permalink: z.string().optional() });
 const ItemSchema = z.object({
   id: z.string(),
   status: z.string(),
   listing_type_id: z.string(),
+  tags: z.array(z.string()).nullish(),
   variations: z
     .array(z.object({ id: z.number(), seller_custom_field: z.string().nullish() }).loose())
     .nullish(),
 });
 const MeSchema = z.object({ id: z.union([z.number(), z.string()]).transform(String) });
+const SearchSchema = z.object({ results: z.array(z.string()) }).loose();
 const DevelopmentPacksSchema = z.array(
   z
     .object({
@@ -129,8 +146,14 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     }
     const body = await this.#itemBody(content);
     if (body.isErr()) return err(body.error);
+    const user = await this.#userId(portal);
+    if (user.isErr()) return err(user.error);
+    const existing = await this.#createdBefore(portal, user.value, content.listingId);
+    if (existing.isErr()) return err(existing.error);
+    if (existing.value !== undefined) return ok(existing.value);
     const created = await this.#call(portal, 'POST', '/items', {
       ...body.value,
+      seller_custom_field: content.listingId,
       category_id: category,
       available_quantity: 1,
       buying_mode: 'classified',
@@ -187,16 +210,21 @@ export class MercadoLibrePortalConnector implements PortalConnector {
         plain_text: content.source.description,
       });
       if (description.isErr()) return err(description.error);
-      const listingType = ML_LISTING_TYPES[content.listingType];
-      if (item.data.listing_type_id !== listingType) {
+      // Se compara simple contra destacado: un aviso vinculado de Tokko en `gold` o `gold_special`
+      // ya es destacado y no se pasa a `gold_premium` (otro costo y otro cupo).
+      if (listingTypeOf(item.data.listing_type_id) !== content.listingType) {
         const upgraded = await this.#call(portal, 'POST', `${path}/listing_type`, {
-          id: listingType,
+          id: ML_LISTING_TYPES[content.listingType],
         });
         if (upgraded.isErr()) return err(upgraded.error);
       }
     }
 
-    if (item.data.status !== change.state) {
+    const blocked = blockedReason(item.data);
+    if (change.state === 'active' && blocked !== undefined) {
+      return ok({ state: 'paused', permalink: undefined, reason: blocked });
+    }
+    if (item.data.status !== change.state && blocked === undefined) {
       const moved = await this.#call(portal, 'PUT', path, { status: change.state });
       if (moved.isErr()) return err(moved.error);
     }
@@ -276,7 +304,13 @@ export class MercadoLibrePortalConnector implements PortalConnector {
         reason: 'MercadoLibre no tiene categoría de emprendimientos para estas unidades.',
       });
     }
-    const listingType = await this.#developmentListingType(portal);
+    const user = await this.#userId(portal);
+    if (user.isErr()) return err(user.error);
+    // Antes que el cupo: un aviso que ya se creó ya lo consumió.
+    const existing = await this.#createdBefore(portal, user.value, content.listingId);
+    if (existing.isErr()) return err(existing.error);
+    if (existing.value !== undefined) return ok(existing.value);
+    const listingType = await this.#developmentListingType(portal, user.value);
     if (listingType.isErr()) return err(listingType.error);
     const place = await this.#place(content.source);
     if (place.isErr()) return err(place.error);
@@ -284,6 +318,7 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     const created = await this.#call(portal, 'POST', '/items', {
       ...item,
       ...place.value,
+      seller_custom_field: content.listingId,
       category_id: category,
       available_quantity: item.variations.length,
       buying_mode: 'classified',
@@ -330,14 +365,51 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     return description.isErr() ? err(description.error) : ok(undefined);
   }
 
-  /** El tipo de aviso de un paquete de emprendimientos activo y con cupo. */
-  async #developmentListingType(portal: PortalId): Promise<Result<string, PortalSyncError>> {
+  /**
+   * El aviso que ya se creó para esta publicación, si hay (ADR 0024): cuando ML crea el ítem pero
+   * la respuesta no llega (se vence el pedido), el reintento lo encuentra por el
+   * `seller_custom_field` y no publica otro.
+   */
+  async #createdBefore(
+    portal: PortalId,
+    userId: string,
+    listingId: string,
+  ): Promise<
+    Result<
+      { readonly externalId: string; readonly permalink: string | undefined } | undefined,
+      PortalSyncError
+    >
+  > {
+    const query = new URLSearchParams({ seller_sku: listingId });
+    const path = `/users/${encodeURIComponent(userId)}/items/search?${query.toString()}`;
+    const found = await this.#call(portal, 'GET', path);
+    if (found.isErr()) return err(found.error);
+    const search = SearchSchema.safeParse(found.value);
+    if (!search.success) return this.#unexpected(portal, '/items/search');
+    const externalId = search.data.results[0];
+    if (externalId === undefined) return ok(undefined);
+    this.options.logger.warn(
+      { portal, externalId },
+      'MercadoLibre listing was already created: taking it instead of posting another',
+    );
+    return ok({ externalId, permalink: undefined });
+  }
+
+  /** El `user_id` de la cuenta en ML. */
+  async #userId(portal: PortalId): Promise<Result<string, PortalSyncError>> {
     const me = await this.#call(portal, 'GET', '/users/me');
     if (me.isErr()) return err(me.error);
     const user = MeSchema.safeParse(me.value);
-    if (!user.success) return this.#unexpected(portal, '/users/me');
+    return user.success ? ok(user.data.id) : this.#unexpected(portal, '/users/me');
+  }
+
+  /** El tipo de aviso de un paquete de emprendimientos activo y con cupo. */
+  async #developmentListingType(
+    portal: PortalId,
+    userId: string,
+  ): Promise<Result<string, PortalSyncError>> {
     const query = new URLSearchParams({ package_content: 'developments', status: 'active' });
-    const packsPath = `/users/${encodeURIComponent(user.data.id)}/classifieds_promotion_packs?${query.toString()}`;
+    const packsPath = `/users/${encodeURIComponent(userId)}/classifieds_promotion_packs?${query.toString()}`;
     const packs = await this.#call(portal, 'GET', packsPath);
     if (packs.isErr()) return err(packs.error);
     const parsed = DevelopmentPacksSchema.safeParse(packs.value);
@@ -404,6 +476,14 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     this.options.logger.error({ portal, path }, 'Unexpected MercadoLibre response');
     return err({ type: 'PortalUnavailable' });
   }
+}
+
+/** Por qué MercadoLibre no deja activar el aviso ahora; `undefined` si se puede. */
+function blockedReason(item: z.infer<typeof ItemSchema>): string | undefined {
+  if (item.status === 'paused') {
+    return item.tags?.includes('moderation_penalty') === true ? MODERATION_PENALTY : undefined;
+  }
+  return NOT_ACTIVATABLE[item.status];
 }
 
 /**

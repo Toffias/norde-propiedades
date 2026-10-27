@@ -8,6 +8,7 @@ import {
   FakePortalLeadNotifications,
   FakePortalLeadSink,
   FakePortalLeadSource,
+  FakePropertyCodeLookup,
   InMemoryPortalsUnitOfWork,
   portalLead,
 } from '../testing';
@@ -27,6 +28,7 @@ function connect(uow: InMemoryPortalsUnitOfWork, portal: PortalId, externalAccou
     account.connect(
       { externalAccountId, accountName: 'NORDE', connectedAt: new Date(NOW), connectedBy: 'u' },
       [],
+      false,
     ),
   );
   uow.accounts.rows.set(portal, account.toSnapshot());
@@ -99,7 +101,13 @@ describe('PullPortalLeads on MercadoLibre', () => {
     const source = new FakePortalLeadSource();
     source.leads = [portalLead({ externalId: '6b4aebf8-5570-47b8-9224-c1c177621575' })];
     const sink = new FakePortalLeadSink();
-    const pull = new PullPortalLeads({ uow, source, sink, clock });
+    const pull = new PullPortalLeads({
+      uow,
+      source,
+      sink,
+      properties: new FakePropertyCodeLookup(),
+      clock,
+    });
 
     const outcome = unwrap(await pull.execute({ portal: 'mercadolibre' }, PORTAL_SYNC));
 

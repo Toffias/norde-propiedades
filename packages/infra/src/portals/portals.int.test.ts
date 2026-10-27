@@ -90,6 +90,19 @@ describe('portal accounts (Postgres)', () => {
     expect(entry?.entityId).toBe('zonaprop');
   });
 
+  it('keeps where the leads pull left off', async () => {
+    const { connectWithCode, accounts } = setup();
+    unwrap(await connectWithCode.execute({ portal: 'zonaprop', accountCode: '17310373' }, ADMIN));
+
+    const account = await accounts.get('zonaprop');
+    account.recordLeadsPulled(new Date('2026-10-16T12:00:00Z'));
+    await accounts.save(account, 'system:portal-sync');
+
+    expect((await accounts.get('zonaprop')).toSnapshot().leadsPulledAt).toEqual(
+      new Date('2026-10-16T12:00:00Z'),
+    );
+  });
+
   it('connects an account with its credentials encrypted and audits it', async () => {
     const { connect, accounts, credentials } = setup();
 
@@ -149,8 +162,25 @@ describe('portal accounts (Postgres)', () => {
       portal: 'mercadolibre',
       isEnabled: false,
       connection: undefined,
+      formerExternalAccountId: '123456789',
     });
     expect(await credentials.read('mercadolibre')).toBeUndefined();
+  });
+
+  it('keeps that the portal rejected the credentials until it reconnects', async () => {
+    const { connect, accounts } = setup();
+    unwrap(await connect.execute(CALLBACK, ADMIN));
+    const account = await accounts.get('mercadolibre');
+    account.rejectCredentials(new Date('2026-10-06T08:00:00Z'));
+    await accounts.save(account, ADMIN.id);
+
+    expect((await accounts.get('mercadolibre')).toSnapshot().connection).toMatchObject({
+      externalAccountId: '123456789',
+      credentialsRejectedAt: new Date('2026-10-06T08:00:00Z'),
+    });
+
+    unwrap(await connect.execute(CALLBACK, ADMIN));
+    expect((await accounts.get('mercadolibre')).needsReconnect).toBe(false);
   });
 
   it('refuses to store credentials for an account that was never saved', async () => {

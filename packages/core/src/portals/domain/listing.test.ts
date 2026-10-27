@@ -330,12 +330,35 @@ describe('Listing.reconcile', () => {
     expect(listing.toSnapshot().lastError).toBeUndefined();
   });
 
+  it('keeps the reason Norde paused it with', () => {
+    const listing = published();
+    listing.recordPaused(undefined, NOW, 'La propiedad ya no ofrece esta operación.');
+    expect(listing.reconcile(MODERATED, LATER)).toBe(false);
+    expect(listing.toSnapshot().lastError).toBe('La propiedad ya no ofrece esta operación.');
+  });
+
   it('marks as published again a listing the portal reactivated', () => {
     const listing = published();
     listing.reconcile(MODERATED, NOW);
     expect(listing.reconcile(ACTIVE, LATER)).toBe(true);
     expect(listing.toSnapshot()).toMatchObject({ status: 'published', lastError: undefined });
-    expect(listing.pullEvents()).toEqual([]);
+    // Una sincronización la vuelve a pausar si la propiedad sigue reservada o sin precio.
+    expect(listing.pullEvents().map((e) => e.type)).toEqual(['portals.listing_sync_requested']);
+  });
+
+  it('keeps the reason of a listing Norde paused when the portal reports it offline', () => {
+    const listing = published();
+    listing.recordPaused(undefined, NOW, 'Sin precio.');
+    expect(listing.reconcile(MODERATED, LATER)).toBe(false);
+    expect(listing.toSnapshot().lastError).toBe('Sin precio.');
+  });
+
+  it('keeps the permalink the portal reports when it reads the listing', () => {
+    const listing = published();
+    const permalink = 'https://www.zonaprop.com.ar/propiedades/clasificado/-50044229.html';
+    expect(listing.reconcile({ ...ACTIVE, permalink }, LATER)).toBe(true);
+    expect(listing.toSnapshot().permalink).toBe(permalink);
+    expect(listing.reconcile({ ...ACTIVE, permalink }, LATER)).toBe(false);
   });
 
   it('asks to pause again a listing reactivated in the portal that the team had paused', () => {

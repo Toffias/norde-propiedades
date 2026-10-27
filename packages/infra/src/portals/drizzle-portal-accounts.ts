@@ -20,15 +20,37 @@ import { portalAccounts } from '../db/schema';
 const ConnectionSettingsSchema = z.object({
   externalAccountId: z.string().min(1),
   accountName: z.string(),
+  /** Cuándo el portal rechazó las credenciales (ISO): la cuenta pide reconectar. */
+  credentialsRejectedAt: z.iso.datetime().optional(),
 });
+
+/** De una cuenta desconectada queda la del portal que estaba: sus avisos siguen vivos. */
+const FormerSettingsSchema = z.object({ formerExternalAccountId: z.string().min(1) });
 
 function toAccount(row: typeof portalAccounts.$inferSelect & { readonly portal: PortalId }) {
   const settings = ConnectionSettingsSchema.safeParse(row.settings);
   const connection =
     settings.success && row.connectedAt !== null && row.connectedBy !== null
-      ? { ...settings.data, connectedAt: row.connectedAt, connectedBy: row.connectedBy }
+      ? {
+          externalAccountId: settings.data.externalAccountId,
+          accountName: settings.data.accountName,
+          connectedAt: row.connectedAt,
+          connectedBy: row.connectedBy,
+          ...(settings.data.credentialsRejectedAt === undefined
+            ? {}
+            : { credentialsRejectedAt: new Date(settings.data.credentialsRejectedAt) }),
+        }
       : undefined;
-  return PortalAccount.restore({ portal: row.portal, isEnabled: row.isEnabled, connection });
+  const former = FormerSettingsSchema.safeParse(row.settings);
+  return PortalAccount.restore({
+    portal: row.portal,
+    isEnabled: row.isEnabled,
+    connection,
+    leadsPulledAt: row.leadsPulledAt ?? undefined,
+    ...(connection === undefined && former.success
+      ? { formerExternalAccountId: former.data.formerExternalAccountId }
+      : {}),
+  });
 }
 
 /** Cuentas de portales (`portal_accounts`). Una cuenta sin fila es una que nunca se conectó. */
@@ -63,16 +85,26 @@ export class DrizzlePortalAccountRepository implements PortalAccountRepository {
   }
 
   async save(account: PortalAccount, actorId: string): Promise<void> {
-    const { portal, isEnabled, connection } = account.toSnapshot();
+    const { portal, isEnabled, connection, formerExternalAccountId, leadsPulledAt } =
+      account.toSnapshot();
     const now = this.clock.now();
     const values = {
       isEnabled,
       isPaid: PORTAL_CATALOG[portal].paid,
       settings: connection
-        ? { externalAccountId: connection.externalAccountId, accountName: connection.accountName }
-        : {},
+        ? {
+            externalAccountId: connection.externalAccountId,
+            accountName: connection.accountName,
+            ...(connection.credentialsRejectedAt === undefined
+              ? {}
+              : { credentialsRejectedAt: connection.credentialsRejectedAt.toISOString() }),
+          }
+        : formerExternalAccountId === undefined
+          ? {}
+          : { formerExternalAccountId },
       connectedAt: connection?.connectedAt ?? null,
       connectedBy: connection?.connectedBy ?? null,
+      leadsPulledAt: leadsPulledAt ?? null,
       updatedAt: now,
       updatedBy: actorId,
     };

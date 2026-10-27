@@ -744,6 +744,14 @@ export class InMemoryInquiryRepository implements InquiryRepository {
     return Promise.resolve(row && Inquiry.restore(row));
   }
 
+  findReceived(channel: string, externalIds: readonly string[]) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((r) => r.channel === channel && externalIds.includes(r.externalId))
+        .map((r) => r.externalId),
+    );
+  }
+
   /** Simula otra entrega que entró entre la búsqueda y el insert (la carrera que cubre la base). */
   racedBy: InquirySnapshot | undefined;
 

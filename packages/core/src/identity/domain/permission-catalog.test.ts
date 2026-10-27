@@ -41,6 +41,12 @@ describe('PERMISSION_CATALOG', () => {
       'users:suspend',
       'users:reset-password',
       'roles:read',
+      'cash:read',
+      'cash:create',
+      'cash:update',
+      'cash:void',
+      'cash:manage-closed',
+      'cash:delete',
     ]) {
       expect(isKnownPermission(permission)).toBe(true);
     }

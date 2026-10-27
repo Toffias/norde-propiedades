@@ -55,6 +55,7 @@ export class UpdateBranch {
       if (!entry) return ok(undefined);
 
       await tx.branches.save(branch, actor.id);
+      await tx.events.publish(branch.pullEvents());
       await tx.audit.record(entry);
       return ok(undefined);
     });

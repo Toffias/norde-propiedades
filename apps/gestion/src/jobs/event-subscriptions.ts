@@ -33,6 +33,7 @@ import {
   type PullPortalLeads,
   type ReconcileListing,
   type ReconcileListings,
+  type RequestAllListingsSync,
   type RequestListingSync,
   type SyncListing,
 } from '@norde/core/portals';
@@ -50,7 +51,7 @@ import {
   type RunPropertyImport,
   type RunTokkoApiPropertyImport,
 } from '@norde/core/properties';
-import type { Actor } from '@norde/core/shared';
+import type { Actor, Result } from '@norde/core/shared';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
@@ -72,6 +73,8 @@ export interface EventSubscription {
   handle(event: DeliveredEvent): Promise<void>;
   /** Cuánto puede tardar antes de que la cola lo dé por vencido (15 minutos si no se dice). */
   readonly expireInSeconds?: number;
+  /** Como mucho un job cada tantos segundos por aggregate: los del medio se juntan en uno. */
+  readonly throttleSeconds?: number;
 }
 
 const OpportunityPayloadSchema = z.object({ opportunityId: z.string(), clientId: z.string() });
@@ -440,7 +443,21 @@ function publicSiteSubscriptions(
  */
 export interface PortalJobs {
   readonly requestSync: Pick<RequestListingSync, 'execute'>;
+  /** Pide sincronizar todo lo publicado: cambió algo que entra en todos los avisos. */
+  readonly requestAll: Pick<RequestAllListingsSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
+  /**
+   * El emprendimiento de una unidad, para reenviar su aviso cuando cambian sus fotos
+   * (`GetPropertySummaries`).
+   */
+  readonly propertySummaries: {
+    execute(
+      input: { readonly ids: string[] },
+      actor: Actor,
+    ): Promise<
+      Result<readonly { readonly developmentId: string | undefined }[], { readonly type: string }>
+    >;
+  };
   readonly pullLeads: Pick<PullPortalLeads, 'execute'>;
   readonly reconcile: Pick<ReconcileListings, 'execute'>;
   /** La conciliación de un aviso que el portal avisó que cambió. */
@@ -460,6 +477,12 @@ const UnitPayloadSchema = z.object({
 });
 const DevelopmentPayloadSchema = z.object({ developmentId: z.uuid() });
 const LeadsPayloadSchema = z.object({ portal: z.enum(PORTALS) });
+const SettingsSectionPayloadSchema = z.object({ section: z.string() });
+/**
+ * Las secciones de Mi empresa que entran en los avisos: la URL de la ficha en la web (general) y el
+ * pie de la descripción (portales).
+ */
+const LISTED_SETTINGS_SECTIONS: readonly string[] = ['general', 'portals'];
 
 /** Los portales que traen consultas a la bandeja (hoy, Zonaprop). */
 const LEAD_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].leadChannel !== undefined);
@@ -477,8 +500,13 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
       if (result.error.type === 'PortalUnavailable') allAnswered = false;
       continue;
     }
-    if (result.value.received > 0 || result.value.rejected > 0) {
-      logger.info({ portal, ...result.value }, 'Portal leads pulled');
+    const { rejections, ...counts } = result.value;
+    if (counts.received > 0 || counts.rejected > 0) {
+      logger.info({ portal, ...counts }, 'Portal leads pulled');
+    }
+    // Un contacto que no entró: el ID del portal y el motivo, para buscarlo allá (sin sus datos).
+    for (const rejection of rejections) {
+      logger.warn({ portal, ...rejection }, 'Portal lead rejected by the inbox');
     }
   }
   return allAnswered;
@@ -511,6 +539,12 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
       logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
     }
   };
+  const requestAll = async (event: DeliveredEvent) => {
+    const result = await jobs.requestAll.execute({}, jobs.actor);
+    if (result.isErr()) {
+      logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
+    }
+  };
   const media = (
     eventType: 'properties.media_changed' | 'properties.media_deleted',
   ): EventSubscription => ({
@@ -518,12 +552,19 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     name: 'sync-portal-listings',
     handle: async (event) => {
       const owner = MediaOwnerPayloadSchema.parse(event.payload);
-      await requestSync(
-        event,
-        owner.ownerKind === 'property'
-          ? { propertyId: owner.ownerId }
-          : { developmentId: owner.ownerId },
-      );
+      if (owner.ownerKind === 'development') {
+        await requestSync(event, { developmentId: owner.ownerId });
+        return;
+      }
+      await requestSync(event, { propertyId: owner.ownerId });
+      // Las fotos de una unidad van en el aviso de su emprendimiento (el evento no lo trae).
+      const summary = await jobs.propertySummaries.execute({ ids: [owner.ownerId] }, jobs.actor);
+      if (summary.isErr()) {
+        logger.error({ eventId: event.id, error: summary.error }, 'Unit development lookup failed');
+        return;
+      }
+      const developmentId = summary.value[0]?.developmentId;
+      if (developmentId !== undefined) await requestSync(event, { developmentId });
     },
   });
   return [
@@ -547,6 +588,22 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     },
     media('properties.media_changed'),
     media('properties.media_deleted'),
+    {
+      // El contacto de la sucursal va en los avisos.
+      eventType: 'identity.branch_updated',
+      name: 'sync-portal-listings',
+      handle: async (event) => {
+        await requestAll(event);
+      },
+    },
+    {
+      eventType: 'settings.company_settings_changed',
+      name: 'sync-portal-listings',
+      handle: async (event) => {
+        const { section } = SettingsSectionPayloadSchema.parse(event.payload);
+        if (LISTED_SETTINGS_SECTIONS.includes(section)) await requestAll(event);
+      },
+    },
     {
       eventType: 'portals.listing_sync_requested',
       name: 'sync-listing',
@@ -582,6 +639,8 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
       // El portal avisó que llegó un contacto: se leen sus contactos (no lo que trajo el aviso).
       eventType: 'portals.leads_arrived',
       name: 'pull-portal-leads',
+      // El aviso del portal no viene firmado: una ráfaga se junta en una lectura por minuto.
+      throttleSeconds: 60,
       handle: async (event) => {
         const { portal } = LeadsPayloadSchema.parse(event.payload);
         const result = await jobs.pullLeads.execute({ portal }, jobs.actor);

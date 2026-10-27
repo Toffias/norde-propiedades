@@ -22,6 +22,9 @@ export {
   DrizzleAppraisalRepository,
 } from './appraisals/drizzle-appraisal-repository';
 
+export { createCashUnitOfWork } from './cash/cash-unit-of-work';
+export { DrizzleCashQuery } from './cash/drizzle-cash-query';
+
 export {
   BetterAuthSessionReader,
   createAuth,
@@ -151,6 +154,9 @@ export {
 export { PortalConnectorsByProvider } from './adapters/portals/portal-connectors';
 export { PortalLeadSourcesByProvider } from './adapters/portals/portal-lead-sources';
 export { PortalListingCatalogsByProvider } from './adapters/portals/portal-listing-catalogs';
+export { PortalListingStatesByProvider } from './adapters/portals/portal-listing-states';
+export { CachedPortalCredits } from './adapters/portals/cached-portal-credits';
+export { ZonapropListingStates } from './adapters/portals/zonaprop/zonaprop-listing-states';
 export {
   MercadoLibreListingCatalog,
   type MercadoLibreListingCatalogOptions,

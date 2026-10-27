@@ -69,7 +69,8 @@ export interface PortalDefinition {
   readonly paid: boolean;
   /**
    * Si una vez por día se lee del portal cómo están los avisos, para reflejar los que el portal
-   * venció, cerró o pausó por moderación (MercadoLibre). Zonaprop no vence ni modera avisos.
+   * venció, cerró o pausó por moderación (MercadoLibre), o puso offline (Zonaprop: plan vencido,
+   * calidad, un emprendimiento rechazado después de quedar en espera).
    */
   readonly reconciles: boolean;
   /**
@@ -117,7 +118,7 @@ export const PORTAL_CATALOG: Readonly<Record<PortalId, PortalDefinition>> = {
     unitsAsListings: false,
     leadChannel: 'zonaprop',
     paid: true,
-    reconciles: false,
+    reconciles: true,
     stats: false,
   },
 };

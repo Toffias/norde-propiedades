@@ -1,12 +1,24 @@
-import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
+import {
+  auditAction,
+  err,
+  ok,
+  type Actor,
+  type Clock,
+  type ForbiddenError,
+  type Result,
+} from '../../../shared';
 import { ListingIdInputSchema, type ListingIdInput } from '../../contracts';
 import type { Listing, OwnerAvailability } from '../../domain/listing';
+import type { PortalAccount } from '../../domain/portal-account';
 import type { ListingOwnerKind, PortalId } from '../../domain/portal';
 import { pricedOperations } from '../listing-plan';
+import { portalAccountTarget } from '../portal-account-audit';
 import {
   auditStatusChange,
   contentFingerprint,
   listingIdOf,
+  SYNC_RECONNECT,
+  SYNC_UNAVAILABLE,
   type ListingNotFoundError,
 } from '../listing-support';
 import type { DevelopmentListingSourceReader } from '../ports/development-listing-source';
@@ -17,7 +29,7 @@ import type {
   PortalListingUpdate,
   PortalSyncError,
 } from '../ports/portal-connector';
-import type { PortalsUnitOfWork } from '../ports/portals-transaction';
+import type { PortalsTransaction, PortalsUnitOfWork } from '../ports/portals-transaction';
 import { parseInput, type ValidationFailedError } from '../portals-input';
 
 export type SyncListingError = ForbiddenError | ValidationFailedError | ListingNotFoundError;
@@ -31,8 +43,6 @@ export type SyncListingOutcome = 'synced' | 'unchanged' | 'failed' | 'retry';
 
 const NOT_ENABLED =
   'La cuenta del portal no está conectada o está desactivada (Mi empresa → Portales).';
-const RECONNECT = 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).';
-const UNAVAILABLE = 'El portal no respondió. Se vuelve a intentar en unos minutos.';
 const GONE: Readonly<Record<ListingOwnerKind, string>> = {
   property: 'La propiedad ya no existe.',
   development: 'El emprendimiento ya no existe.',
@@ -45,9 +55,9 @@ function reasonOf(error: PortalSyncError): string {
     case 'PortalRejected':
       return error.reason;
     case 'PortalCredentialsMissing':
-      return RECONNECT;
+      return SYNC_RECONNECT;
     case 'PortalUnavailable':
-      return UNAVAILABLE;
+      return SYNC_UNAVAILABLE;
   }
 }
 
@@ -90,6 +100,10 @@ export class SyncListing {
       await tx.listings.save(listing, actor.id);
       await tx.events.publish(listing.pullEvents());
       await auditStatusChange(tx, actor, listing, before);
+      const { status, lastError } = listing.toSnapshot();
+      if (status === 'error' && lastError === SYNC_RECONNECT) {
+        await this.#credentialsRejected(tx, account, actor);
+      }
       return ok(outcome);
     });
   }
@@ -156,7 +170,10 @@ export class SyncListing {
     const sendsContent = step.kind === 'create' || step.contentChanged;
     if (sendsContent) {
       const problem = this.#contentProblem(portal, content, step.kind !== 'pause');
-      if (problem !== undefined) return this.#fail(listing, problem);
+      if (problem !== undefined) {
+        if (step.kind === 'create') return this.#fail(listing, problem);
+        return this.#pauseStale(listing, remoteId, content, problem);
+      }
     }
 
     if (step.kind === 'create') {
@@ -203,12 +220,47 @@ export class SyncListing {
     return problems.length > 0 ? problems.join(' ') : undefined;
   }
 
+  /**
+   * El aviso ya está en el portal pero el contenido nuevo no se puede mandar (se sacó la operación,
+   * el precio pasó a "a consultar", falta un dato): se pausa sin mandarlo, para que el portal no
+   * siga mostrando el precio o la operación de antes, y queda el motivo. Cuando se corrige, la
+   * próxima sincronización manda el contenido y lo reactiva.
+   */
+  async #pauseStale(
+    listing: Listing,
+    remoteId: string,
+    content: PortalListingContent,
+    problem: string,
+  ): Promise<SyncListingOutcome> {
+    const paused = await this.deps.connector.update(listing.portal, remoteId, {
+      content,
+      contentChanged: false,
+      state: 'paused',
+    });
+    if (paused.isErr()) return this.#fail(listing, problem, paused.error);
+    this.#recordState(listing, { ...paused.value, reason: problem }, undefined);
+    return 'failed';
+  }
+
   #recordState(listing: Listing, update: PortalListingUpdate, hash: string | undefined): void {
     const now = this.deps.clock.now();
-    const { state, permalink } = update;
+    const { state, permalink, reason } = update;
     if (state === 'closed') listing.recordClosed(now);
-    else if (state === 'paused') listing.recordPaused(hash, now);
+    else if (state === 'paused') listing.recordPaused(hash, now, reason);
     else listing.recordActive(hash ?? listing.toSnapshot().contentHash ?? '', now, permalink);
+  }
+
+  /** El portal rechazó las credenciales: la cuenta queda pidiendo reconectar (Mi empresa lo muestra). */
+  async #credentialsRejected(
+    tx: PortalsTransaction,
+    account: PortalAccount,
+    actor: Actor,
+  ): Promise<void> {
+    if (!account.rejectCredentials(this.deps.clock.now())) return;
+    await tx.accounts.save(account, actor.id);
+    await tx.audit.record(
+      auditAction(actor, portalAccountTarget('portal_account.credentials_rejected', account)),
+    );
   }
 
   #fail(listing: Listing, reason: string, error?: PortalSyncError): SyncListingOutcome {

@@ -690,19 +690,24 @@ Diseño propuesto:
      - Que la cuenta esté conectada y activa.
      - Que la propiedad esté disponible y la operación tenga precio (sin precio o con "a consultar", no se publica).
      - Que tenga al menos una foto lista y marcada "Mostrar en la web".
-     - Que la propiedad tenga sucursal y que esa sucursal tenga WhatsApp. La propiedad toma la sucursal de su captador al crearse o al cambiar el captador; si no tiene, se pide volver a elegir el captador.
+     - Que la propiedad tenga sucursal y que esa sucursal tenga WhatsApp de Argentina (+54: ML no toma otros). La propiedad toma la sucursal de su captador al crearse o al cambiar el captador; si no tiene, se pide volver a elegir el captador.
      - Que tenga los datos que ML exige por tipo: superficie total y cubierta, ambientes, dormitorios y baños. Las cocheras vacías van como 0.
      - Si falta algo, se dice qué.
    - **Fuera de esta etapa:**
      - Las unidades de un emprendimiento se publican con su emprendimiento (etapa 4).
      - El alquiler temporario todavía no se publica: ML pide huéspedes, horarios y estadía mínima, que no cargamos.
-   - **Sincronización.** El aviso lo crea un job, y después los cambios de la ficha y de sus fotos llegan solos (si lo que se manda no cambió, no se llama a ML). Según el estado de la propiedad:
+   - **Sincronización.** El aviso lo crea un job, y después los cambios de la ficha y de sus fotos llegan solos (si lo que se manda no cambió, no se llama a ML). También los cambios del contacto de la sucursal, del pie de la descripción para portales y de la URL de la ficha en la web: se pide sincronizar todo lo publicado. Según el estado de la propiedad:
      - Reservada o pausada → aviso pausado. Vuelve a disponible → se reactiva.
      - Vendida, alquilada, retirada, borrador o en la papelera → aviso cerrado. Cerrar es definitivo en ML: volver a mostrarlo es "Volver a publicar", un aviso nuevo.
+     - Si el aviso ya está publicado y el contenido nuevo no se puede mandar (se sacó la operación, el precio pasó a "a consultar", falta un dato), el aviso **se pausa** con el motivo, para que ML no siga mostrando el precio viejo. Cuando se corrige, se manda y se reactiva.
+     - Si ML está revisando el aviso, lo inactivó, espera un pago o lo pausó por moderación, no se intenta activarlo: queda pausado con el motivo hasta que se resuelva en ML.
+     - El tipo se compara como simple o destacado: un aviso vinculado de Tokko en Oro u Oro Especial ya es destacado y no se pasa a Oro Premium.
+     - Cada aviso nuevo lleva el ID de la publicación en el campo del vendedor. Si el alta se corta después de que ML creó el ítem, el reintento lo encuentra por ese campo y no publica otro.
    - **Errores.**
      - Si ML rechaza el aviso, el motivo queda en la fila, con el status de ML. Si ML no lo explica, se dice qué significa el status (402: la cuenta no tiene paquete de inmuebles con cupo; 403: no tiene permiso para publicar inmuebles).
-     - Si ML no responde, se reintenta solo.
-     - Si ML revocó la cuenta, la fila pide reconectarla.
+     - Si ML no responde, se reintenta solo durante unos 15 minutos. Lo que siga en error por eso se vuelve a pedir en la conciliación diaria.
+     - Si ML rechaza las credenciales de la cuenta, la fila pide reconectarla y la tarjeta de Mi empresa → Portales muestra "Pide reconectar". Al reconectar, se vuelve a pedir lo que falló por credenciales.
+     - Con avisos publicados, solo se puede volver a conectar **el mismo usuario de ML** (también después de desconectar): con otro, los avisos quedarían apuntando a otro vendedor.
    - **Qué se publica:**
      - El título para portales y la descripción con el pie de Mi empresa → Portales.
      - La dirección para publicar (nunca piso ni unidad), con coordenadas y la ubicación del catálogo (resuelta contra las de ML).
@@ -717,7 +722,7 @@ Diseño propuesto:
      - **Reactivado en ML**: vuelve a "Publicada". Si el equipo lo había pausado, se vuelve a pausar.
      - Se audita contra la propiedad por `system:portal-sync` (`property.portal_unpublished` o `property.portal_paused`, con el motivo).
      - **Al instante** (ADR 0035): MercadoLibre avisa cada cambio de un aviso (tópico `items` de la app). El sistema lee cómo quedó ese aviso y lo refleja enseguida, con la misma regla. La corrida diaria sigue como respaldo.
-   - **Estadísticas de cada aviso** (ADR 0036): en Difusión, cada aviso de MercadoLibre muestra las visitas, preguntas, vistas del teléfono y WhatsApp de los últimos 30 días, y las visitas desde que se publicó. Se leen de MercadoLibre al abrir la pestaña. Si ML no responde, la fila lo dice.
+   - **Estadísticas de cada aviso** (ADR 0036): en Difusión, cada aviso de MercadoLibre muestra las visitas, preguntas, vistas del teléfono y WhatsApp de los últimos 30 días, y las visitas desde que se publicó. Se leen de MercadoLibre al abrir la pestaña y se guardan 5 minutos. Si ML no responde, la fila lo dice.
    - **Cupo de los paquetes (2b).** Las tarjetas de MercadoLibre de Mi empresa → Portales muestran los paquetes activos de la cuenta: nombre, para qué sirven (publicaciones, destaques, emprendimientos), vencimiento y el cupo libre de cada tipo de aviso (Plata, Oro, Oro Premium). Se lee de MercadoLibre en el momento. Sin paquetes, la tarjeta avisa que no se puede publicar.
 3. **Vincular los avisos que hoy publica Tokko** (hecha, ADR 0033), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
    - **Mi empresa → Portales → Avisos en MercadoLibre** lista los avisos activos de la cuenta de propiedades, con su operación, y propone la propiedad que tiene el código que Tokko cargó en el aviso. Se vincula con un clic.
@@ -741,23 +746,29 @@ Diseño propuesto:
 
 **Consultas de MercadoLibre** (hecha, ADR 0032): los contactos de los avisos de las dos cuentas entran a la **bandeja de consultas** con canal MercadoLibre.
 
-- Entran solos **cada 10 minutos**, leídos de MercadoLibre (los de los últimos 2 días; los que ya estaban no se repiten).
-- **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y los tópicos `vis_leads` e `items` (este, para los cambios de los avisos). MercadoLibre avisa y el sistema vuelve a leer de la API.
+- Entran solos **cada 10 minutos**, leídos de MercadoLibre (los de los últimos 2 días; los que ya estaban no se repiten, y de esos no se vuelve a pedir el texto de la pregunta).
+- **Al instante**, con las notificaciones de la app de MercadoLibre: se configura en la app la URL `/api/webhooks/portals/mercadolibre` y los tópicos `vis_leads` e `items` (este, para los cambios de los avisos). MercadoLibre avisa y el sistema vuelve a leer de la API. Una ráfaga de avisos se junta en una lectura por minuto.
+- Un contacto con el teléfono o el email mal cargado entra igual con el dato válido; el inválido queda escrito al final del mensaje. Solo se descarta si no trae ningún dato válido.
 - Entran preguntas (con su texto), WhatsApp, llamadas, pedidos de contacto, visitas y cotizaciones de usuarios con sesión (la de un emprendimiento publicado por el sistema, con su unidad). Los anónimos no traen datos y no entran.
 - Si el aviso es del sistema, la consulta queda con su propiedad. Los avisos de Tokko, hasta vincularlos, entran sin propiedad.
 
-**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 a 0029.
+**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 a 0030 y 0047 (auditoría #162).
 
 1. **Conexión** (hecha):
    - Mi empresa → Portales suma la tarjeta **Zonaprop**. Se conecta con el **código de inmobiliaria**; el sistema lo busca entre las inmobiliarias que Zonaprop asoció a Norde.
    - Un código que no está asociado, o una inmobiliaria bloqueada por Zonaprop, no se conecta y se explica por qué.
-   - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta.
+   - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta. En la ficha, los créditos se recuerdan 2 minutos.
    - Se activa para publicar como las cuentas de ML.
 2. **Publicar propiedades** (hecha):
    - Se publica **a pedido**, desde la pestaña Difusión de la ficha. Después, los cambios de precio, datos, fotos y estado se sincronizan solos, como en ML.
    - **Un solo aviso por propiedad**, con todas las operaciones que tienen precio (consume un crédito). Las operaciones "a consultar" no se publican; sin ninguna con precio, no se publica.
+   - Si una propiedad publicada **se queda sin precio** (todas "a consultar"), el aviso pasa a offline con el motivo a la vista, y vuelve online solo cuando tiene precio. Vale también para MercadoLibre.
    - Se elige el **plan** entre los de la cuenta para propiedades (hoy Simple y Home), con los créditos que le quedan a cada uno. No viene uno elegido de antemano. Un plan sin créditos no se puede elegir. Desarrollos home queda para los emprendimientos.
-   - Se puede **cambiar el plan** de un aviso publicado: consume un crédito del plan nuevo.
+   - Se puede **cambiar el plan** de un aviso publicado: consume un crédito del plan nuevo. **Reactivar** un aviso pausado también consume uno: antes se revisa que queden.
+   - Pausar nunca falla por el contenido: si falta algo que Zonaprop exige, se pausa igual y se manda al reactivar.
+   - Cambiar el **pie para portales**, el link de la web o el contacto de una **sucursal** actualiza todos los avisos. Las fotos de una unidad actualizan el aviso de su emprendimiento.
+   - Las publicaciones que quedan **con error** porque Zonaprop no respondió se vuelven a intentar solas una vez por día. Las que fallaron por falta de créditos, cuando cambia la propiedad o con "Sincronizar".
+   - **Conciliación diaria**: a la mañana se lee de Zonaprop si cada aviso está online. Uno que Zonaprop puso offline por su cuenta (plan vencido, calidad, fotos) queda pausado con el motivo, para resolverlo y sincronizar. De paso se guarda el link de los avisos que no lo tenían.
    - **Reservada o pausada**, el aviso pasa a offline en Zonaprop, y vuelve online cuando la propiedad está disponible otra vez. El crédito se usa mientras el aviso está online: offline lo libera. Vendida, alquilada o dada de baja, sale de Zonaprop.
    - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección.
    - Galpón se publica como Bodega-Galpón y Depósito como Depósito.
@@ -770,10 +781,11 @@ Diseño propuesto:
    - Antes de vincular en producción hay que apagar la publicación de Tokko en Zonaprop.
    - **Pendiente:** Zonaprop tiene que habilitar "asociar avisos" para el integrador de Norde. En el sandbox responde que no hay permiso.
 4. **Consultas**: los contactos de los avisos entran a la **bandeja de consultas** con canal Zonaprop.
-   - Entran solos **cada 10 minutos**, leídos de Zonaprop (los de los últimos 2 días; los que ya estaban no se repiten).
+   - Entran solos **cada 10 minutos**, leídos de Zonaprop (los de los últimos 2 días, o desde la última lectura completa si el sistema estuvo caído, hasta 14 días; los que ya estaban no se repiten).
    - **Al instante**, si se activan los avisos desde Mi empresa → Portales ("Recibir las consultas al instante"). Zonaprop avisa por cada contacto y el sistema los vuelve a leer de la API.
    - Entran los que traen teléfono o email: mensajes, "que me llamen", visitas, tasaciones y "ver teléfono" o "ver WhatsApp" de usuarios con sesión. Los anónimos sin datos no entran.
-   - Sin texto, la consulta dice qué pidió la persona ("Pidió que lo llamen"). Si el aviso es del sistema, la consulta queda con su propiedad.
+   - Sin texto, la consulta dice qué pidió la persona ("Pidió que lo llamen"). Si el aviso es del sistema, la consulta queda con su propiedad. Si es de Tokko y todavía no se vinculó, queda con la propiedad cuyo código es la clave interna del aviso.
+   - Un teléfono mal escrito ("4444-5555") no frena la consulta si trae un email válido (ni al revés): entra con el dato válido y el otro queda escrito en el mensaje. Vale para todos los canales.
 5. **Emprendimientos** (en curso, ADR 0030): el emprendimiento con todas sus unidades en un aviso de desarrollo.
    - Se publica a pedido desde la pestaña **Difusión** del emprendimiento, con un plan de emprendimientos (hoy Desarrollos home) con créditos.
    - Lleva las unidades **disponibles con precio**. Las reservadas, vendidas, pausadas o "a consultar" no van.
@@ -1307,3 +1319,52 @@ Módulo `settings`. Es un único registro de configuración (mono-tenant). Todo 
 
 - Fuera de alcance: facturación y plan, API key, redes y asociaciones, tipos de evento. La configuración de oportunidades, propiedades, reservas, respuestas rápidas y seguimientos vive en la sub-issue de cada módulo.
 - Las credenciales del proveedor de email no se cargan en el panel: van por variables de entorno.
+
+---
+
+## 15. Caja chica (#164)
+
+Reemplaza a `norde-caja`, la app aparte con la que la oficina lleva el efectivo. Módulo `cash`. La etapa 1 deja el dominio, la base y los permisos; la pantalla (`/caja`) llega en la etapa 2.
+
+### 15.1 Cajas y movimientos
+
+- Dos cajas fijas e independientes: **Caja de oficina** y **Caja Osvaldo**. Cada una tiene sus movimientos, saldos y cierres. Agregar una es un cambio de código.
+- Un movimiento es un **ingreso** o un **egreso** en pesos, con fecha (día de Buenos Aires, no futura), concepto (obligatorio, hasta 255 caracteres) y observaciones (hasta 500). El monto se escribe como en la planilla: `125000`, `125.000` o `125.000,50`.
+- La caja se ve por **mes calendario**. El saldo inicial de un mes es el acumulado de todos los meses anteriores; la planilla muestra el saldo después de cada movimiento, en orden de fecha y de carga.
+
+### 15.2 Qué se puede hacer en cada mes
+
+| Acción                                  | Mes vigente   | Mes cerrado                          |
+| --------------------------------------- | ------------- | ------------------------------------ |
+| Cargar                                  | `cash:create` | `cash:create` + `cash:manage-closed` |
+| Editar (también cambiarlo de mes)       | `cash:update` | `cash:update` + `cash:manage-closed` |
+| Anular el **último** movimiento cargado | `cash:void`   | `cash:void` + `cash:manage-closed`   |
+| Borrar cualquier movimiento             | `cash:delete` | `cash:delete`                        |
+
+- Al editar se controlan el mes de antes y el de después: quien no tiene `cash:manage-closed` no puede llevar un movimiento a un mes cerrado.
+- Si alguien cargó otro movimiento mientras tanto, anular falla: no se anula algo distinto de lo que se confirmó.
+- Anular y borrar no eliminan la fila: el movimiento queda inactivo, deja de sumar y figura en su historial.
+
+### 15.3 Cierre mensual
+
+- Un mes anterior al vigente está **cerrado**. La primera vez que alguien abre la caja en el mes nuevo, se guarda el cierre de los meses que falten, en orden: saldo inicial, ingresos, egresos y saldo final. Cada mes se cierra una sola vez aunque entren dos personas a la vez.
+- Si se carga, edita, anula o borra algo de un mes cerrado, se recalculan ese cierre y los siguientes de la misma caja.
+- Los cierres quedan seguidos, del primer mes con movimientos al anterior al vigente.
+
+### 15.4 Rol Control de caja y permisos
+
+- Rol de sistema **Control de caja** (`cash-control`): `cash:read`, `cash:create`, `cash:update`, `cash:void` y `cash:export`. El Administrador tiene `cash:*`. Se ajusta desde el ABM de roles.
+- `cash:audit` (ver el log de la caja) y `cash:export` (Excel) se usan en la etapa 3.
+- Quien solo tiene permisos de caja entra directo a la caja, sin el menú del panel; quien tiene caja y otros permisos ve "Caja" en el menú (etapa 2).
+
+### 15.5 Historial
+
+- Cada movimiento registra su alta, sus ediciones (solo los campos que cambiaron) y su anulación o borrado en `audit_log` (`cash_movement.recorded`, `.updated`, `.voided`, `.deleted`). Cada cierre registra su alta y sus recálculos (`cash_closing.closed`, `.recalculated`). No aparecen en Noticias.
+- La caja no emite eventos de dominio: ningún otro módulo reacciona a sus cambios.
+
+### 15.6 Diferencias con `norde-caja`
+
+- Montos en centavos, sin decimales de punto flotante.
+- Los usuarios son los del panel: el rol ADMIN / USUARIO de `norde-caja` pasa a ser permisos `cash:*`.
+- El log propio se reemplaza por `audit_log`.
+- Arranca vacío. Cuando salga a producción se importa una copia de la base MySQL de `norde-caja` (issue aparte).

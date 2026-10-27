@@ -65,6 +65,8 @@ export interface RemoteListingState {
   readonly state: 'active' | 'paused' | 'closed';
   /** Por qué lo pausó o lo cerró el portal ("MercadoLibre venció el aviso."), para mostrarlo. */
   readonly reason: string | undefined;
+  /** El link del aviso, si el portal lo informa al leerlo (Zonaprop no lo da al publicar). */
+  readonly permalink?: string | undefined;
 }
 
 export type ListingId = Id<'Listing'>;
@@ -398,11 +400,16 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     };
   }
 
-  /** El aviso quedó pausado (o nunca se creó y queda en pausa). */
-  recordPaused(contentHash: string | undefined, now: Date): void {
+  /**
+   * El aviso quedó pausado (o nunca se creó y queda en pausa). Con `reason`, queda el motivo a la
+   * vista: Norde lo pausó por algo que el equipo tiene que resolver (la propiedad quedó sin precio)
+   * o el portal lo dejó pausado aunque se pidió activarlo (lo está moderando).
+   */
+  recordPaused(contentHash: string | undefined, now: Date, reason?: string): void {
     this.#state = {
       ...this.#succeeded(now),
       status: 'paused',
+      lastError: reason,
       contentHash: contentHash ?? this.#state.contentHash,
     };
   }
@@ -419,14 +426,24 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
    *   es "Volver a publicar", como cualquier aviso cerrado.
    * - Pausado allá (moderación, o alguien lo pausó en el portal): queda pausada, con el motivo si el
    *   equipo lo quería activo. No se reactiva sola: hay que resolverlo en el portal y sincronizar.
+   *   Si Norde ya la había pausado (el equipo, una reserva, sin precio), queda como está.
    * - Activo allá: si estaba pausada por el portal, vuelve a publicada; si el equipo la había
    *   pausado, se pide sincronizar para pausarlo otra vez. Un error de la última sincronización
    *   queda a la vista: es sobre el contenido, no sobre el estado.
-   * Las que nunca llegaron al portal o ya están dadas de baja no se tocan.
+   * Las que nunca llegaron al portal o ya están dadas de baja no se tocan. Si el portal informa el
+   * link del aviso y la publicación no lo tenía (o cambió), se guarda.
    */
   reconcile(remote: RemoteListingState, now: Date): boolean {
-    const { externalId, status, intent, lastError } = this.#state;
+    const { externalId, status } = this.#state;
     if (externalId === undefined || status === 'pending' || status === 'unpublished') return false;
+    const permalink = remote.permalink ?? this.#state.permalink;
+    const linked = permalink !== this.#state.permalink;
+    if (linked) this.#state = { ...this.#state, permalink };
+    return this.#reconcileState(remote, now) || linked;
+  }
+
+  #reconcileState(remote: RemoteListingState, now: Date): boolean {
+    const { status, intent } = this.#state;
 
     if (remote.state === 'closed') {
       this.#state = {
@@ -439,8 +456,9 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
       return true;
     }
     if (remote.state === 'paused') {
+      // Ya en pausa por Norde (el equipo, la propiedad reservada o sin precio): queda su motivo.
+      if (status === 'paused') return false;
       const reason = intent === 'paused' ? undefined : remote.reason;
-      if (status === 'paused' && lastError === reason) return false;
       this.#state = { ...this.#state, status: 'paused', lastError: reason, lastSyncedAt: now };
       return true;
     }
@@ -457,6 +475,8 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     }
     if (status !== 'paused') return false;
     this.#state = { ...this.#state, status: 'published', lastError: undefined, lastSyncedAt: now };
+    // Si la propiedad sigue reservada o sin precio, la sincronización lo vuelve a pausar.
+    this.requestSync(now);
     return true;
   }
 

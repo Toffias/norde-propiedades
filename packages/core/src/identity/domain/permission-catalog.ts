@@ -261,6 +261,28 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
     ],
   },
   {
+    label: 'Caja',
+    resources: [
+      {
+        resource: 'cash',
+        label: 'Caja chica',
+        permissions: [
+          { permission: 'cash:read', label: 'Ver las cajas' },
+          { permission: 'cash:create', label: 'Cargar movimientos del mes vigente' },
+          { permission: 'cash:update', label: 'Editar movimientos del mes vigente' },
+          { permission: 'cash:void', label: 'Anular el último movimiento del mes' },
+          {
+            permission: 'cash:manage-closed',
+            label: 'Cargar, editar y anular movimientos de meses cerrados',
+          },
+          { permission: 'cash:delete', label: 'Borrar cualquier movimiento' },
+          { permission: 'cash:audit', label: 'Ver el log de la caja' },
+          { permission: 'cash:export', label: 'Exportar la caja a Excel' },
+        ],
+      },
+    ],
+  },
+  {
     label: 'Empresa',
     resources: [
       {

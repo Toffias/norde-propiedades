@@ -74,6 +74,9 @@ export const START_CONNECTION_ERROR_MESSAGES = {
   PortalNotConfigured: NOT_CONFIGURED,
 } satisfies ErrorMessages<StartPortalConnectionError>;
 
+const ACCOUNT_CHANGED =
+  'Esa es otra cuenta del portal que la de los avisos publicados: quedarían sin poder actualizarse. Volvé a conectar la misma cuenta, o dá de baja los avisos antes de cambiarla.';
+
 export const CODE_CONNECTION_ERROR_MESSAGES = {
   Forbidden: FORBIDDEN,
   ValidationFailed: (error) => error.issues[0] ?? 'Revisá el código de inmobiliaria.',
@@ -85,6 +88,7 @@ export const CODE_CONNECTION_ERROR_MESSAGES = {
     'Zonaprop tiene bloqueada esa inmobiliaria. Hay que regularizarla con el ejecutivo de cuentas de Zonaprop.',
   PortalUnavailable: ZONAPROP_UNAVAILABLE,
   PortalAccountInUse: 'Esa cuenta ya está conectada en otra tarjeta.',
+  PortalAccountChanged: ACCOUNT_CHANGED,
 } satisfies ErrorMessages<ConnectPortalAccountWithCodeError>;
 
 export const CREDITS_ERROR_MESSAGES = {
@@ -156,6 +160,7 @@ export const CONNECTION_OUTCOME_MESSAGES: Readonly<Record<ConnectionOutcome, str
   PortalUnavailable: 'MercadoLibre no respondió. Probá de nuevo en unos minutos.',
   PortalAccountInUse:
     'Esa cuenta de MercadoLibre ya está conectada en la otra tarjeta. Propiedades y emprendimientos necesitan cuentas distintas.',
+  PortalAccountChanged: ACCOUNT_CHANGED,
 };
 
 export function connectionOutcomeMessage(value: string | undefined) {
@@ -234,6 +239,8 @@ export const LISTING_ERROR_MESSAGES = {
   ListingClosed: LISTING_CLOSED,
   ListingTypeFixed:
     'El aviso de un emprendimiento no se pasa a simple o destacado: lo define el paquete o el plan del portal.',
+  // Reactivar un aviso de Zonaprop consume un crédito de su plan.
+  ...PLAN_MESSAGES,
 } satisfies ErrorMessages<
   | PauseListingError
   | ResumeListingError

@@ -50,6 +50,7 @@ function setup() {
         connectedBy: 'u',
       },
       [],
+      false,
     ),
   );
   unwrap(account.enable());

@@ -575,20 +575,30 @@ Pendiente de #104: compartir desde la ficha de la propiedad y la vista rápida d
 
 - Nombre (opcional), operación, tipos, ubicaciones del catálogo, moneda con precio desde y hasta, ambientes mínimos y envío automático. Se puede atar a la oportunidad abierta del contacto.
 - Borrar las manda a la papelera ("Vigentes / Papelera"); se restauran desde ahí.
-- Como mucho 20 vigentes por contacto. Si el contacto se dio de baja de los envíos, el asesor no le vuelve a activar el envío automático.
+- Como mucho 20 vigentes por contacto. Si el contacto se dio de baja de los envíos, el asesor no le vuelve a activar el envío automático. Prender el envío automático pide el permiso de seguimientos automáticos (§3.4).
 - Desde el **buscador**, "Guardar para un contacto" arranca con sus filtros (operación, tipo, moneda y precios). La ubicación del buscador es texto libre: no se copia y se pide elegirla del catálogo.
 - Auditoría contra el contacto: `client.saved_search_created`, `.saved_search_updated` (solo lo que cambió), `.saved_search_deleted` y `.saved_search_restored`. Destacar suma la oportunidad a `client.listings_featured`; el switch registra `client.featured_auto_send_changed`.
 
 **Diferencias con Tokko**: la coincidencia es una foto del momento de destacar, con una regla explícita. Las búsquedas tienen papelera y tope por contacto.
 
-### 3.4 Cruce de búsquedas con stock
+### 3.4 Cruce de búsquedas con stock (seguimientos automáticos, #106)
 
-Da soporte a las "Oportunidades por mail" del módulo 2.
+Da soporte a las "Oportunidades por mail" del módulo 2. Se construye en dos etapas: (1) el cruce y el permiso, (2) el resumen diario por email y la baja del cliente.
 
-- Cada oportunidad (o suscripción de la web) tiene una **búsqueda guardada**.
-- Una tarea programada detecta **propiedades nuevas o bajas de precio** que coinciden.
-- **Con suscripción por mail**: se le envía la alerta al cliente.
-- **Sin suscripción**: se genera un aviso para el agente asignado ("hay una propiedad nueva para tu cliente X").
+**Cruce** (etapa 1). Un job escucha los cambios de las propiedades y anota lo que hay que mandarle a cada contacto:
+
+- Solo cuenta una propiedad que el sitio muestra (**disponible y publicada en la web**): el envío lleva un link que el cliente tiene que poder abrir.
+- **Propiedad nueva**: coincide (§3.3, `matchesSavedSearch`) con una búsqueda con envío automático **guardada antes** de que la propiedad empezara a ofrecerse (pasó a disponible). Lo que ya estaba en el stock no es novedad. Si se publica en la web después de pasar a disponible, cuenta desde que pasó a disponible.
+- **Baja de precio**: el precio nuevo de una operación es menor que el anterior, en la misma moneda (un cambio de moneda, una suba o pasar a "a consultar" no se avisan). Coincide con las búsquedas con envío automático de esa operación y con las **destacadas con auto-envío de novedades** de esa propiedad.
+- Solo búsquedas vigentes y sin baja del cliente, y destacadas vigentes, de contactos que no están en la papelera.
+- **Idempotente**: una propiedad entra una sola vez como nueva por contacto (aunque coincida con dos búsquedas) y cada baja una vez por precio; si vuelve a bajar, es otra baja.
+- Cada coincidencia queda en el historial del contacto como cambio del sistema (`client.follow_up_matched`, con la propiedad, el motivo, la búsqueda o destacada y el precio). Unificar contactos las pasa al principal sin repetir; la supresión las borra.
+
+**Permiso "Activar seguimientos automáticos"** (`followups:automatic`, Gerencia → Seguimientos; Administración y Gerencia lo tienen): prender el envío automático de una búsqueda o el auto-envío de novedades de una destacada lo pide. Sin él, el switch se ve apagado y bloqueado; uno que ya está prendido se puede apagar y la búsqueda se puede editar.
+
+**Envío** (etapa 2): un resumen diario, un email por contacto con sus coincidencias del día (un envío con link `/e/<token>`, §3.3.10), con plantilla y variables, y un link de baja en cada email.
+
+**Diferencias con §3.4 original**: a las búsquedas sin envío automático no se le avisa al asesor (Norde no lo pidió, 2026-10-27).
 
 ### 3.5 Exportar a Excel
 

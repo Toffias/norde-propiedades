@@ -4,6 +4,8 @@ export interface OutgoingEmail {
   readonly to: string;
   readonly subject: string;
   readonly text: string;
+  /** Versión con formato (la plantilla con la marca); `text` queda para los que no leen HTML. */
+  readonly html?: string | undefined;
   /** Nombre del remitente; la dirección la fija el entorno (dominio verificado). */
   readonly fromName?: string | undefined;
   readonly replyTo?: string | undefined;

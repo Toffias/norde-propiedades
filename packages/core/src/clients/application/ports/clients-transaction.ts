@@ -14,6 +14,7 @@ import type {
   OpportunitySettingsRepository,
   OpportunityStageRepository,
   SavedSearchRepository,
+  SharedListingRepository,
 } from '../../domain/client.repository';
 
 import type { ClientErasure } from './client-erasure';
@@ -34,6 +35,7 @@ export interface ClientsTransaction {
   readonly activities: ClientActivityRepository;
   readonly featured: FeaturedListingRepository;
   readonly savedSearches: SavedSearchRepository;
+  readonly sharedListings: SharedListingRepository;
   readonly erasure: ClientErasure;
   readonly imports: ClientImportRepository;
   readonly externalIds: ClientExternalIds;

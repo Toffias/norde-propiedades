@@ -195,10 +195,11 @@ export type ClientActivityBody =
   | { readonly kind: 'message'; readonly conversationId: string; readonly channel: string }
   | { readonly kind: 'merge'; readonly mergedClientId: string };
 
-/** Quién la generó: un usuario, el agente de IA o el sistema. */
+/** Quién la generó: un usuario, el agente de IA, el propio contacto (en un envío) o el sistema. */
 export type ClientActivityActor =
   | { readonly kind: 'user'; readonly id: string; readonly name: string | undefined }
   | { readonly kind: 'agent' }
+  | { readonly kind: 'contact' }
   | { readonly kind: 'system' };
 
 export type ClientActivityRow = {

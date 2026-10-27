@@ -46,6 +46,9 @@ export class UpdateOpportunitySettings {
       onAssign: pick(parsed.data.onAssign),
       onReactivate: pick(parsed.data.onReactivate),
       forOwners: pick(parsed.data.forOwners),
+      afterMessage: pick(parsed.data.afterMessage),
+      afterLike: pick(parsed.data.afterLike),
+      afterDislike: pick(parsed.data.afterDislike),
     };
     const now = this.deps.clock.now();
 

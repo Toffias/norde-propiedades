@@ -15,6 +15,7 @@ import type { OpportunityCloseReason, OpportunityCloseReasonId } from './opportu
 import type { OpportunityRules } from './opportunity-settings';
 import type { OpportunityStage, OpportunityStageId } from './opportunity-stage';
 import type { SavedSearch, SavedSearchId } from './saved-search';
+import type { SharedListing, SharedListingId } from './shared-listing';
 
 /** Tope de coincidencias que devuelve una búsqueda de duplicados. */
 export const MAX_DUPLICATE_CANDIDATES = 10;
@@ -161,6 +162,15 @@ export interface ClientActivityRepository {
    * usan el ID del evento, así una reentrega no la duplica.
    */
   record(activity: ClientActivity): Promise<boolean>;
+}
+
+/** Los envíos de propiedades por link (#104). */
+export interface SharedListingRepository {
+  findById(id: SharedListingId): Promise<SharedListing | undefined>;
+  /** Por el hash del token del link público. */
+  findByTokenHash(tokenHash: string): Promise<SharedListing | undefined>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(listing: SharedListing, actorId: string): Promise<void>;
 }
 
 export interface FeaturedListingRepository {

@@ -653,3 +653,62 @@ export {
   ReassignOpportunity,
   type ReassignOpportunityError,
 } from './application/commands/reassign-opportunity';
+
+// ---------- Envíos de propiedades y su página pública (#104) ----------
+
+export {
+  LISTING_REACTIONS,
+  MAX_SHARED_PROPERTIES,
+  SHARED_LISTING_CHANNELS,
+  SHARED_LISTING_LIFETIME_DAYS,
+  SharedListing,
+  type ListingNotInSendError,
+  type ListingReaction,
+  type SharedListingChannel,
+  type SharedListingId,
+  type SharedListingItem,
+  type SharedListingSnapshot,
+  type SharedListingUnavailableError,
+} from './domain/shared-listing';
+export type { SharedListingRepository } from './domain/client.repository';
+export type {
+  ListingReacted,
+  ListingsSent,
+  SharedListingEvent,
+} from './domain/shared-listing.events';
+export type {
+  ClientSendItem,
+  ClientSendsQuery,
+  ComposedEmail,
+  IssuedSharedListingToken,
+  PublicListings,
+  SharedListingEmailContent,
+  SharedListingEmails,
+  SharedListingTokens,
+} from './application/ports/shared-listing-ports';
+export {
+  SendListings,
+  type ListingNotPublicError,
+  type NoRecipientError,
+  type SendingNotConfiguredError,
+  type SendListingsError,
+} from './application/commands/send-listings';
+export {
+  RevokeSharedListing,
+  type RevokeSharedListingError,
+  type SharedListingNotFoundError,
+} from './application/commands/revoke-shared-listing';
+export {
+  OpenSharedListing,
+  ReactToSharedListing,
+  type OpenSharedListingError,
+  type ReactToSharedListingError,
+} from './application/commands/respond-to-shared-listing';
+export {
+  GetSharedListing,
+  type GetSharedListingError,
+} from './application/queries/get-shared-listing';
+export {
+  ListClientSends,
+  type ListClientSendsError,
+} from './application/queries/list-client-sends';

@@ -85,6 +85,7 @@ export { DrizzleInquiryRuleRepository } from './clients/drizzle-inquiry-rule-rep
 export { DrizzleClientTagQuery } from './clients/drizzle-client-tag-query';
 export { DrizzleClientRelationQuery } from './clients/drizzle-client-relation-query';
 export { DrizzleClientRecordQuery } from './clients/drizzle-client-record-query';
+export { DrizzleClientSendsQuery } from './clients/drizzle-client-sends-query';
 export {
   DrizzleClientActivityRepository,
   DrizzleFeaturedListingRepository,
@@ -166,6 +167,7 @@ export {
   type MercadoLibreLeadsOptions,
 } from './adapters/portals/mercadolibre/mercadolibre-leads';
 export { AesGcmSecretCipher, type SecretCipher } from './adapters/crypto/aes-gcm-secret-cipher';
+export { RandomSharedListingTokens } from './adapters/crypto/random-shared-listing-tokens';
 export { createConversationsUnitOfWork } from './conversations/conversations-unit-of-work';
 export { DrizzleClientConversationErasure } from './conversations/drizzle-client-conversation-erasure';
 export {
@@ -207,6 +209,7 @@ export { WebChatMessenger } from './adapters/web-chat/web-chat-messenger';
 export { S3FileStorage, type S3FileStorageOptions } from './adapters/storage/s3-file-storage';
 export { LocalFileStorage } from './adapters/storage/local-file-storage';
 export { ResendMailer, type ResendMailerOptions } from './adapters/mail/resend-mailer';
+export { HtmlSharedListingEmails } from './adapters/mail/html-shared-listing-emails';
 export { SharpImageWatermarker } from './adapters/images/sharp-image-watermarker';
 export { SharpImageVariantGenerator } from './adapters/images/sharp-image-variant-generator';
 

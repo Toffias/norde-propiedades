@@ -1,0 +1,2 @@
+ALTER TABLE "core"."shared_listings" ADD COLUMN "opportunity_id" uuid;--> statement-breakpoint
+ALTER TABLE "core"."shared_listings" ADD CONSTRAINT "shared_listings_opportunity_id_opportunities_id_fk" FOREIGN KEY ("opportunity_id") REFERENCES "core"."opportunities"("id") ON DELETE set null ON UPDATE no action;

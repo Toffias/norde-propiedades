@@ -234,6 +234,8 @@ export const LISTING_ERROR_MESSAGES = {
   ListingClosed: LISTING_CLOSED,
   ListingTypeFixed:
     'El aviso de un emprendimiento no se pasa a simple o destacado: lo define el paquete o el plan del portal.',
+  // Reactivar un aviso de Zonaprop consume un crédito de su plan.
+  ...PLAN_MESSAGES,
 } satisfies ErrorMessages<
   | PauseListingError
   | ResumeListingError

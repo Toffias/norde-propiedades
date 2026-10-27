@@ -159,6 +159,8 @@ Cuando el usuario pida una funcionalidad o un cambio, **en la primera respuesta,
 
 No se asume un modo por defecto ni se arrastra el de una tarea anterior: se pregunta en cada tarea nueva. Las preguntas de seguimiento dentro de la misma tarea siguen en el modo elegido.
 
+**`.env` en el worktree** (modo 2): siempre hay permiso para copiar los `.env` del checkout principal (`apps/agent`, `apps/gestion`, `apps/web`) al worktree, sin preguntar. Se copian sin leerlos ni mostrarlos.
+
 **Limpieza del worktree** (modo 2): cuando el PR se abre, se borra sin esperar a que el usuario lo pida:
 
 1. Se verifica que no quede nada sin commitear ni sin pushear (`git status`, `git log origin/<rama>..HEAD`). Si queda algo, se frena y se pregunta.

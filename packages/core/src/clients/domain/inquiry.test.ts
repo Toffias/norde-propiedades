@@ -5,7 +5,7 @@ import { Email } from '../../shared/domain/value-objects/email';
 import { Phone } from '../../shared/domain/value-objects/phone';
 import { unwrap, unwrapErr } from '../../shared/testing';
 
-import { Inquiry, suggestedOpportunityType } from './inquiry';
+import { Inquiry, inquiryContact, suggestedOpportunityType } from './inquiry';
 import { inquiryAutoTags } from './inquiry-tags';
 
 const NOW = new Date('2026-03-01T10:00:00Z');
@@ -231,5 +231,27 @@ describe('inquiryAutoTags', () => {
         neighborhood: '',
       }),
     ).toEqual(['channel:argenprop', 'type:house']);
+  });
+});
+
+describe('inquiryContact', () => {
+  it('keeps the valid data and writes the invalid one at the end of the message', () => {
+    const contact = unwrap(
+      inquiryContact({ phone: 'abc', email: 'Ana@Example.com', message: 'Hola' }),
+    );
+    expect(contact.phone).toBeUndefined();
+    expect(contact.email?.value).toBe('ana@example.com');
+    expect(contact.message).toBe('Hola\n\nTeléfono que dejó (no es válido): abc');
+  });
+
+  it('takes everything when both are valid, and fails when none is', () => {
+    const contact = unwrap(
+      inquiryContact({ phone: '+54 9 11 6689-9124', email: undefined, message: undefined }),
+    );
+    expect(contact).toMatchObject({ email: undefined, message: undefined });
+    expect(contact.phone?.e164).toBe('+5491166899124');
+    expect(unwrapErr(inquiryContact({ phone: 'abc', email: 'x@', message: 'Hola' }))).toEqual({
+      type: 'InvalidPhone',
+    });
   });
 });

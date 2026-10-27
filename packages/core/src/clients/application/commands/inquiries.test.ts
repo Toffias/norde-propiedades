@@ -141,18 +141,41 @@ describe('ReceiveInquiry', () => {
     });
   });
 
+  it('keeps the inquiry with the valid contact data and notes the invalid one', async () => {
+    const { uow, receive } = setup();
+
+    const { inquiryId } = unwrap(await receive.execute({ ...INPUT, phone: '123' }, WEB));
+
+    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
+      sender: { email: 'ana@example.com', phoneE164: undefined },
+      message: 'Hola, ¿sigue disponible?\n\nTeléfono que dejó (no es válido): 123',
+    });
+    expect(uow.audit.entries.at(-1)?.action).toBe('inquiry.received');
+
+    const other = { ...INPUT, externalId: 'ml-2', email: 'ana@', message: undefined };
+    const second = unwrap(await receive.execute(other, WEB));
+    expect(uow.inquiries.rows.get(second.inquiryId)).toMatchObject({
+      sender: { email: undefined, phoneE164: '+5491166899124' },
+      message: 'Email que dejó (no es válido): ana@',
+    });
+  });
+
   it('reports invalid input, phone, email and a sender without contact data', async () => {
     const { uow, receive } = setup();
 
     expect(unwrapErr(await receive.execute({ ...INPUT, externalId: '' }, WEB)).type).toBe(
       'InvalidInput',
     );
-    expect(unwrapErr(await receive.execute({ ...INPUT, phone: '123' }, WEB))).toEqual({
-      type: 'InvalidPhone',
-    });
-    expect(unwrapErr(await receive.execute({ ...INPUT, email: 'ana@' }, WEB))).toEqual({
-      type: 'InvalidEmail',
-    });
+    // Sin ningún dato de contacto válido no hay consulta.
+    expect(
+      unwrapErr(await receive.execute({ ...INPUT, phone: '123', email: undefined }, WEB)),
+    ).toEqual({ type: 'InvalidPhone' });
+    expect(
+      unwrapErr(await receive.execute({ ...INPUT, phone: undefined, email: 'ana@' }, WEB)),
+    ).toEqual({ type: 'InvalidEmail' });
+    expect(
+      unwrapErr(await receive.execute({ ...INPUT, phone: '123', email: 'ana@' }, WEB)),
+    ).toEqual({ type: 'InvalidPhone' });
     const anonymous = { channel: INPUT.channel, externalId: INPUT.externalId, name: INPUT.name };
     expect(unwrapErr(await receive.execute(anonymous, WEB))).toEqual({
       type: 'MissingContactInfo',

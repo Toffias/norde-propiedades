@@ -1,8 +1,8 @@
 import { AggregateRoot } from '../../shared/domain/aggregate-root';
 import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
-import type { Email } from '../../shared/domain/value-objects/email';
-import type { Phone } from '../../shared/domain/value-objects/phone';
+import { Email, type InvalidEmailError } from '../../shared/domain/value-objects/email';
+import { Phone, type InvalidPhoneError } from '../../shared/domain/value-objects/phone';
 
 import type { MissingContactInfoError } from './client';
 import type { ContactChannel } from './contact-channel';
@@ -10,6 +10,44 @@ import type { InquiryEvent } from './inquiry.events';
 import type { OpportunityType } from './opportunity';
 
 export type InquiryId = Id<'Inquiry'>;
+
+/** Los datos de contacto de una consulta entrante, ya validados. */
+export interface InquiryContact {
+  readonly phone: Phone | undefined;
+  readonly email: Email | undefined;
+  /** El mensaje, con el dato que no se pudo tomar al final para que no se pierda. */
+  readonly message: string | undefined;
+}
+
+/**
+ * Valida el teléfono y el email de una consulta entrante. Si uno no es válido pero el otro sí, la
+ * consulta se toma igual: el dato inválido se descarta y queda escrito en el mensaje (un lead de un
+ * portal no se pierde por un teléfono mal cargado). Sin ningún dato válido, el error del primero.
+ */
+export function inquiryContact(raw: {
+  readonly phone: string | undefined;
+  readonly email: string | undefined;
+  readonly message: string | undefined;
+}): Result<InquiryContact, InvalidPhoneError | InvalidEmailError> {
+  const phone = raw.phone === undefined ? undefined : Phone.create(raw.phone);
+  const email = raw.email === undefined ? undefined : Email.create(raw.email);
+  const validPhone = phone?.isOk() === true ? phone.value : undefined;
+  const validEmail = email?.isOk() === true ? email.value : undefined;
+  if (validPhone === undefined && validEmail === undefined) {
+    if (phone?.isErr() === true) return err(phone.error);
+    if (email?.isErr() === true) return err(email.error);
+  }
+  const notes = [
+    phone?.isErr() === true ? `Teléfono que dejó (no es válido): ${raw.phone ?? ''}` : undefined,
+    email?.isErr() === true ? `Email que dejó (no es válido): ${raw.email ?? ''}` : undefined,
+  ].filter((note): note is string => note !== undefined);
+  const message = [raw.message, ...notes].filter((part) => part !== undefined).join('\n\n');
+  return ok({
+    phone: validPhone,
+    email: validEmail,
+    message: message === '' ? undefined : message,
+  });
+}
 
 /** `pending`: sin asignar; `assigned`: ya es de un cliente; `deleted`: en "Borradas". */
 export const INQUIRY_STATUSES = ['pending', 'assigned', 'deleted'] as const;

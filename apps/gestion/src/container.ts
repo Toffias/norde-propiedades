@@ -157,6 +157,7 @@ import {
   UpdateInquiryRule,
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
+  FindReceivedInquiries,
   ReceiveInquiry,
   RecordClientActivity,
   RouteInquiry,
@@ -749,7 +750,10 @@ function createPortalServices(
     mercadolibre: new MercadoLibreListingCatalog({ tokens, logger }),
   });
   const leads = new ZonapropLeads({ api: zonaprop, logger });
-  const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR));
+  const findReceived = new FindReceivedInquiries({ uow: createClientsUnitOfWork(db, deps) });
+  const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR), {
+    find: (input) => findReceived.execute(input, PORTAL_LEADS_ACTOR),
+  });
   const codes = propertyCodeLookup({
     findByCode: modules.properties.findPropertiesByCode,
     actor: PORTAL_SYNC_ACTOR,

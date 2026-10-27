@@ -69,7 +69,12 @@ import {
   type ListingOwner,
   type ListingSnapshot,
 } from '../domain/listing';
-import { PORTALS, type ListingOwnerKind, type PortalId } from '../domain/portal';
+import {
+  PORTALS,
+  type ListingOwnerKind,
+  type PortalId,
+  type PortalLeadChannel,
+} from '../domain/portal';
 import { PortalAccount, type PortalAccountSnapshot } from '../domain/portal-account';
 import type { ListingRepository, PortalAccountRepository } from '../domain/portals.repository';
 
@@ -705,7 +710,7 @@ export class FakePortalLeadSource implements PortalLeadSource {
    */
   groups: PortalLead[][] | undefined;
   failWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
-  readonly calls: { since: Date; offset: number; limit: number }[] = [];
+  readonly calls: { since: Date; offset: number; limit: number; asksReceived: boolean }[] = [];
 
   recent(input: {
     readonly portal: PortalId;
@@ -713,8 +718,14 @@ export class FakePortalLeadSource implements PortalLeadSource {
     readonly since: Date;
     readonly offset: number;
     readonly limit: number;
+    readonly alreadyReceived?: (externalIds: readonly string[]) => Promise<ReadonlySet<string>>;
   }) {
-    this.calls.push({ since: input.since, offset: input.offset, limit: input.limit });
+    this.calls.push({
+      since: input.since,
+      offset: input.offset,
+      limit: input.limit,
+      asksReceived: input.alreadyReceived !== undefined,
+    });
     if (this.failWith) return Promise.resolve(err(this.failWith));
     if (this.groups) {
       const page = this.groups.slice(input.offset, input.offset + input.limit);
@@ -740,6 +751,11 @@ export class FakePortalLeadSource implements PortalLeadSource {
 export class FakePortalLeadSink implements PortalLeadSink {
   readonly received: Parameters<PortalLeadSink['receive']>[0][] = [];
   rejectWith: PortalLeadRejected | undefined;
+
+  known(_channel: PortalLeadChannel, externalIds: readonly string[]) {
+    const known = new Set(this.received.map((r) => r.externalId));
+    return Promise.resolve(new Set(externalIds.filter((id) => known.has(id))));
+  }
 
   receive(input: Parameters<PortalLeadSink['receive']>[0]) {
     if (this.rejectWith) return Promise.resolve(err(this.rejectWith));

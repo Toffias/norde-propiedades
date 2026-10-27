@@ -1,8 +1,10 @@
 import type {
+  FindReceivedInquiriesError,
   ReceiveInquiryError,
   ReceiveInquiryInput,
   ReceiveInquiryOutput,
 } from '@norde/core/clients';
+import type { FindReceivedInquiriesInput } from '@norde/core/clients/contracts';
 import type { PortalLeadSink } from '@norde/core/portals';
 import { err, ok, type Result } from '@norde/core/shared';
 
@@ -13,8 +15,21 @@ interface Intake {
   receive(input: ReceiveInquiryInput): Promise<Result<ReceiveInquiryOutput, ReceiveInquiryError>>;
 }
 
-export function portalLeadSink(intake: Intake): PortalLeadSink {
+interface Received {
+  find(
+    input: FindReceivedInquiriesInput,
+  ): Promise<Result<readonly string[], FindReceivedInquiriesError>>;
+}
+
+export function portalLeadSink(intake: Intake, received: Received): PortalLeadSink {
   return {
+    async known(channel, externalIds) {
+      const result = await received.find({ channel, externalIds: [...externalIds] });
+      // Un actor sin permiso o una página de más de 100 IDs: un error de programación.
+      if (result.isErr())
+        throw new Error(`Cannot look up received inquiries: ${result.error.type}`);
+      return new Set(result.value);
+    },
     async receive(input) {
       const result = await intake.receive({
         channel: input.channel,

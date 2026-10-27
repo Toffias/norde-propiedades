@@ -10,6 +10,8 @@ import {
 } from '../../testing';
 
 import { DeleteInquiry } from './delete-inquiry';
+import { FindReceivedInquiries } from '../queries/find-received-inquiries';
+
 import { ReceiveInquiry } from './receive-inquiry';
 import { RestoreInquiry } from './restore-inquiry';
 
@@ -181,6 +183,24 @@ describe('ReceiveInquiry', () => {
       type: 'MissingContactInfo',
     });
     expect(uow.inquiries.rows.size).toBe(0);
+  });
+
+  it('tells which external IDs of a channel already came in', async () => {
+    const { uow, receive } = setup();
+    unwrap(await receive.execute(INPUT, WEB));
+    const find = new FindReceivedInquiries({ uow });
+
+    expect(
+      unwrap(
+        await find.execute({ channel: 'web_form', externalIds: [INPUT.externalId, 'other'] }, WEB),
+      ),
+    ).toEqual([INPUT.externalId]);
+    expect(
+      unwrap(await find.execute({ channel: 'zonaprop', externalIds: [INPUT.externalId] }, WEB)),
+    ).toEqual([]);
+    expect(
+      unwrapErr(await find.execute({ channel: 'web_form', externalIds: [] }, MANAGER)),
+    ).toEqual({ type: 'Forbidden' });
   });
 
   it('only runs for system actors with inquiries:receive', async () => {

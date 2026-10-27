@@ -111,6 +111,36 @@ describe('MercadoLibreLeads.recent', () => {
     expect(logs.join()).not.toContain('john@example.com');
   });
 
+  it('does not read the question of a lead the inbox already has', async () => {
+    const { leads, requests } = setup([
+      () =>
+        Response.json({
+          results: [buyer(2678328, [QUESTION_LEAD, WHATSAPP_LEAD])],
+          paging: { total: 1 },
+        }),
+    ]);
+    const asked: string[][] = [];
+
+    const page = unwrap(
+      await leads.recent({
+        ...ACCOUNT,
+        offset: 0,
+        limit: 100,
+        alreadyReceived: (ids) => {
+          asked.push([...ids]);
+          return Promise.resolve(new Set([QUESTION_LEAD.id]));
+        },
+      }),
+    );
+
+    expect(asked).toEqual([[QUESTION_LEAD.id, WHATSAPP_LEAD.id]]);
+    expect(page.items.map((l) => [l.externalId, l.message])).toEqual([
+      [QUESTION_LEAD.id, undefined],
+      [WHATSAPP_LEAD.id, undefined],
+    ]);
+    expect(requests.map((r) => r.path)).toEqual(['/vis/users/3773207548/leads/buyers']);
+  });
+
   it('maps the contact types and leaves a banned or deleted question without text', async () => {
     const { leads } = setup([
       () =>

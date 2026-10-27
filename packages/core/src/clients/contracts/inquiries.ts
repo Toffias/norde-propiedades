@@ -27,6 +27,15 @@ export const ReceiveInquiryInputSchema = z.object({
 });
 export type ReceiveInquiryInput = z.input<typeof ReceiveInquiryInputSchema>;
 
+/** Tope de IDs por consulta: una página de contactos de un portal. */
+export const MAX_RECEIVED_LOOKUP = 100;
+
+export const FindReceivedInquiriesInputSchema = z.object({
+  channel: z.enum(CONTACT_CHANNEL_VALUES),
+  externalIds: z.array(z.string().trim().min(1).max(200)).max(MAX_RECEIVED_LOOKUP),
+});
+export type FindReceivedInquiriesInput = z.input<typeof FindReceivedInquiriesInputSchema>;
+
 export interface ReceiveInquiryOutput {
   readonly inquiryId: string;
   /** Ya había entrado (mismo canal e ID externo): no se creó otra. */

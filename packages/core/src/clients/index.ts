@@ -567,6 +567,10 @@ export type {
 } from './application/ports/inquiry-match-query';
 export type { InquiryNotFoundError } from './application/inquiry-support';
 export { ReceiveInquiry, type ReceiveInquiryError } from './application/commands/receive-inquiry';
+export {
+  FindReceivedInquiries,
+  type FindReceivedInquiriesError,
+} from './application/queries/find-received-inquiries';
 export { DeleteInquiry, type DeleteInquiryError } from './application/commands/delete-inquiry';
 export { RestoreInquiry, type RestoreInquiryError } from './application/commands/restore-inquiry';
 export { ListInquiries, type ListInquiriesError } from './application/queries/list-inquiries';

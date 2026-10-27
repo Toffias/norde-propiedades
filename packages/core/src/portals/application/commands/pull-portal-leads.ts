@@ -72,6 +72,7 @@ export class PullPortalLeads {
         since,
         offset,
         limit: PAGE_SIZE,
+        alreadyReceived: (externalIds) => this.deps.sink.known(channel, externalIds),
       });
       if (slice.isErr()) return err(slice.error);
       const leads = slice.value.items;

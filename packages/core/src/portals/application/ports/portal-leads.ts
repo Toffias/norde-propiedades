@@ -16,13 +16,18 @@ export interface PortalLeadPage extends PageSlice<PortalLead> {
 
 /** Los contactos que llegaron por los avisos de la cuenta en el portal. */
 export interface PortalLeadSource {
-  /** Una página de los contactos desde `since`, del más viejo al más nuevo. */
+  /**
+   * Una página de los contactos desde `since`, del más viejo al más nuevo. De los que
+   * `alreadyReceived` dice que ya están en la bandeja no se pide el detalle (el texto de una
+   * pregunta): vienen igual, sin él, y la bandeja los cuenta como repetidos.
+   */
   recent(input: {
     readonly portal: PortalId;
     readonly externalAccountId: string;
     readonly since: Date;
     readonly offset: number;
     readonly limit: number;
+    readonly alreadyReceived?: (externalIds: readonly string[]) => Promise<ReadonlySet<string>>;
   }): Promise<Result<PortalLeadPage, PortalNotConfiguredError | PortalUnavailableError>>;
 }
 
@@ -48,6 +53,8 @@ export interface PortalLeadSink {
     readonly propertyId: string | undefined;
     readonly developmentId: string | undefined;
   }): Promise<Result<{ readonly duplicate: boolean }, PortalLeadRejected>>;
+  /** De esos IDs externos del canal, los que ya entraron a la bandeja. */
+  known(channel: PortalLeadChannel, externalIds: readonly string[]): Promise<ReadonlySet<string>>;
 }
 
 /**

@@ -98,6 +98,7 @@ export class MercadoLibreLeads implements PortalLeadSource {
     readonly since: Date;
     readonly offset: number;
     readonly limit: number;
+    readonly alreadyReceived?: (externalIds: readonly string[]) => Promise<ReadonlySet<string>>;
   }): Promise<Result<PortalLeadPage, LeadsError>> {
     const { portal, externalAccountId, since } = input;
     const path = `/vis/users/${encodeURIComponent(externalAccountId)}/leads/buyers`;
@@ -119,18 +120,25 @@ export class MercadoLibreLeads implements PortalLeadSource {
         return err({ type: 'PortalUnavailable' });
       }
       total = parsed.data.paging.total;
+      // Los que ya están en la bandeja no necesitan el texto de la pregunta ni la cotización.
+      const ids = parsed.data.results.flatMap((buyer) => (buyer.leads ?? []).map((l) => l.id));
+      const received =
+        input.alreadyReceived === undefined || ids.length === 0
+          ? new Set<string>()
+          : await input.alreadyReceived(ids);
 
       for (const buyer of parsed.data.results) {
         if ((buyer.leads ?? []).length === 0) skipped += 1;
         for (const lead of buyer.leads ?? []) {
           const kind = KINDS[lead.contact_type ?? lead.channel ?? ''] ?? 'other';
+          const details = !received.has(lead.id);
           const message =
-            kind === 'message' && lead.external_id
+            details && kind === 'message' && lead.external_id
               ? await this.#question(portal, lead.external_id)
               : ok(undefined);
           if (message.isErr()) return err(portError(message.error));
           const unit =
-            kind === 'quote' && lead.external_id
+            details && kind === 'quote' && lead.external_id
               ? await this.#quotedUnit(portal, lead.external_id)
               : ok(undefined);
           if (unit.isErr()) return err(portError(unit.error));

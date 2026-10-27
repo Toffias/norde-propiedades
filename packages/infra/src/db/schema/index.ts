@@ -1,5 +1,6 @@
 export { coreSchema } from './core-schema';
 export * from './appraisals';
+export * from './cash';
 export * from './clients';
 export * from './conversations';
 export * from './identity';

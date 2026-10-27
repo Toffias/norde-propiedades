@@ -22,6 +22,9 @@ export {
   DrizzleAppraisalRepository,
 } from './appraisals/drizzle-appraisal-repository';
 
+export { createCashUnitOfWork } from './cash/cash-unit-of-work';
+export { DrizzleCashQuery } from './cash/drizzle-cash-query';
+
 export {
   BetterAuthSessionReader,
   createAuth,

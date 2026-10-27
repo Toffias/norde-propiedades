@@ -12,6 +12,8 @@ export const MAX_SHARED_PROPERTY_COUNT = 20;
 export const SHARED_LISTING_LIFETIME_DAY_COUNT = 90;
 /** Largo máximo del mensaje del asesor. */
 export const MAX_SEND_MESSAGE_LENGTH = 1000;
+/** Largo máximo del asunto del email: el de una respuesta rápida. */
+export const MAX_SEND_SUBJECT_LENGTH = 150;
 
 export const SHARED_LISTING_CHANNEL_LABELS: Readonly<
   Record<(typeof PROPERTY_SEND_CHANNEL_VALUES)[number], string>
@@ -32,12 +34,22 @@ export const SendListingsInputSchema = z.object({
   channel: z.enum(PROPERTY_SEND_CHANNEL_VALUES),
   /** Uno de los emails o teléfonos del contacto. Sin elegir, el primero. */
   recipient: z.string().trim().min(1).max(254).optional(),
+  /** Puede tener variables de las respuestas rápidas (`[[nombre_contacto]]`). */
   message: z
     .string()
     .trim()
     .max(
       MAX_SEND_MESSAGE_LENGTH,
       `El mensaje puede tener hasta ${MAX_SEND_MESSAGE_LENGTH} caracteres.`,
+    )
+    .optional(),
+  /** El asunto del email, también con variables. Sin asunto, uno por defecto; por WhatsApp no va. */
+  subject: z
+    .string()
+    .trim()
+    .max(
+      MAX_SEND_SUBJECT_LENGTH,
+      `El asunto puede tener hasta ${MAX_SEND_SUBJECT_LENGTH} caracteres.`,
     )
     .optional(),
 });

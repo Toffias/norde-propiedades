@@ -14,6 +14,7 @@ import type {
 import type { OpportunityCloseReason, OpportunityCloseReasonId } from './opportunity-close-reason';
 import type { OpportunityRules } from './opportunity-settings';
 import type { OpportunityStage, OpportunityStageId } from './opportunity-stage';
+import type { QuickReply, QuickReplyId } from './quick-reply';
 import type { SavedSearch, SavedSearchId } from './saved-search';
 import type { SharedListing, SharedListingId } from './shared-listing';
 
@@ -81,6 +82,14 @@ export interface InquiryRuleRepository {
   findAll(): Promise<InquiryAssignmentRule[]>;
   save(rule: InquiryAssignmentRule, actorId: string): Promise<void>;
   delete(id: InquiryRuleId): Promise<void>;
+}
+
+/** Las respuestas rápidas (`quick_replies`). */
+export interface QuickReplyRepository {
+  findById(id: QuickReplyId): Promise<QuickReply | undefined>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(reply: QuickReply, actorId: string): Promise<void>;
+  delete(id: QuickReplyId): Promise<void>;
 }
 
 /** Las acciones masivas encoladas (`opportunity_bulk_operations`). */

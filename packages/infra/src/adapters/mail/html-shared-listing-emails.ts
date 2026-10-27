@@ -66,9 +66,10 @@ export class HtmlSharedListingEmails implements SharedListingEmails {
     const message = content.message ?? DEFAULT_MESSAGE;
     const count = content.listings.length;
     const subject =
-      count === 1
+      content.subject ??
+      (count === 1
         ? `${content.companyName}: una propiedad para vos`
-        : `${content.companyName}: ${count.toLocaleString('es-AR')} propiedades para vos`;
+        : `${content.companyName}: ${count.toLocaleString('es-AR')} propiedades para vos`);
     const signature = content.advisorName ?? content.companyName;
     const expires = `El link está disponible hasta el ${formatDate(content.expiresAt)}.`;
 

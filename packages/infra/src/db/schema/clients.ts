@@ -767,7 +767,15 @@ export const quickReplies = coreSchema.table(
     ...timestamps(),
     ...authorship(),
   },
-  (t) => [index('quick_replies_active_position_idx').on(t.isActive, t.position)],
+  (t) => [
+    index('quick_replies_active_position_idx').on(t.isActive, t.position),
+    // Listado por nombre de las activas o las inactivas, y búsqueda por nombre (#105).
+    index('quick_replies_active_name_idx').on(t.isActive, t.name, t.id),
+    index('quick_replies_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
+    ),
+  ],
 );
 
 /** Seguimiento automático: coincidencias nuevas y cambios en destacadas (fila única). */

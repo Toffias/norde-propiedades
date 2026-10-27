@@ -25,10 +25,12 @@ export interface CompanyGroup {
 export const COMPANY_GROUPS: readonly CompanyGroup[] = [
   {
     label: 'General',
-    description: 'Datos de la empresa, remitente de los emails y códigos de referencia',
+    description:
+      'Datos de la empresa, remitente de los emails, respuestas rápidas y códigos de referencia',
     sections: [
       { label: 'Datos', href: '/mi-empresa/general' },
       { label: 'Email', href: '/mi-empresa/email' },
+      { label: 'Respuestas rápidas', href: '/mi-empresa/respuestas-rapidas' },
       { label: 'Marca de agua', href: '/mi-empresa/marca-de-agua', feature: 'watermark' },
       { label: 'Códigos', href: '/mi-empresa/codigos', feature: 'referenceCodes' },
     ],

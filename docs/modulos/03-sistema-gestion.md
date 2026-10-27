@@ -559,6 +559,18 @@ Por fila: ver la ficha de la propiedad, reservarla (si está disponible y hay `r
 
 Pendiente de #104: compartir desde la ficha de la propiedad y la vista rápida del emprendimiento (etapa 2) y el email masivo desde Oportunidades (etapa 3).
 
+**Respuestas rápidas** (#105). Plantillas para el mensaje de los envíos, en **Mi empresa → General → Respuestas rápidas**:
+
+- Cada una tiene nombre, asunto (opcional, solo para el email) y mensaje (hasta 1.000 caracteres, lo mismo que el mensaje de un envío).
+- **Variables**: `[[nombre_contacto]]`, `[[primer_nombre_contacto]]`, `[[nombre_asesor]]` (quien envía) y `[[nombre_empresa]]`. Se completan al enviar, por email y por WhatsApp. Una variable que no existe no se puede guardar en la plantilla; si el asesor la escribe a mano en el envío, queda como está.
+- Grilla paginada en el servidor, por nombre, con búsqueda y pestañas Activas / Inactivas. Alta y edición en un panel lateral.
+- Las **inactivas** no se ofrecen al enviar. **Borrar** es físico: queda en la auditoría con todos sus valores, y los envíos que la usaron no cambian (el mensaje se copió al enviarlo).
+- Al **enviar**, el asesor elige una (selector paginado con búsqueda, solo las activas): el asunto y el mensaje se completan y los puede ajustar antes de mandar.
+- Permisos: administrarlas pide `quick-replies:manage` (Gerencia en Tokko); elegirlas al enviar, poder editar algún contacto (lo mismo que enviar).
+- Auditoría con `entity_type = 'quick_reply'`: `quick_reply.created`, `.updated` (solo lo que cambió), `.activated`, `.deactivated` y `.deleted`.
+
+**Diferencias con Tokko**: las reglas de automatización de las respuestas rápidas (por ejemplo, mandar una antes de asignar el agente) no se construyeron: falta confirmar si Norde las usa. La columna `automation` queda en `null`.
+
 **Búsquedas guardadas** (pestaña Búsquedas, en un panel lateral sobre la grilla):
 
 - Nombre (opcional), operación, tipos, ubicaciones del catálogo, moneda con precio desde y hasta, ambientes mínimos y envío automático. Se puede atar a la oportunidad abierta del contacto.

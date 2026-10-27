@@ -21,6 +21,7 @@ import {
 import type { Client, ClientInTrashError } from '../../domain/client';
 import { listingSentActivity } from '../../domain/client-activity';
 import { latestOpenOpportunity } from '../../domain/opportunity';
+import { fillVariables, firstNameOf, type QuickReplyValues } from '../../domain/quick-reply';
 import {
   SharedListing,
   sharedListingUrl,
@@ -113,7 +114,7 @@ export class SendListings {
     if (!parsed.success) return err(invalidInput(parsed.error));
     const { siteUrl } = this.deps;
     if (siteUrl === undefined) return err({ type: 'SendingNotConfigured' });
-    const { channel, message } = parsed.data;
+    const { channel } = parsed.data;
     const requested = [...new Set(parsed.data.propertyIds.map((id) => id.toLowerCase()))];
 
     // Las propiedades son de otro módulo: se leen por su API pública, fuera de la transacción.
@@ -176,6 +177,17 @@ export class SendListings {
         }),
       );
 
+      // Las variables de las respuestas rápidas se completan con el contacto y quien envía.
+      const company = (await this.deps.settings.get()).toSnapshot();
+      const advisorName = (await this.deps.agents.names([actor.id])).get(actor.id);
+      const values: QuickReplyValues = {
+        nombre_contacto: client.name,
+        primer_nombre_contacto: firstNameOf(client.name),
+        nombre_asesor: advisorName,
+        nombre_empresa: company.name,
+      };
+      const message = filled(parsed.data.message, values);
+
       if (recipient.kind === 'whatsapp') {
         const text = `${message ?? DEFAULT_WHATSAPP_MESSAGE}\n\n${url}`;
         return ok({
@@ -186,12 +198,11 @@ export class SendListings {
       }
 
       // Dentro de la transacción: si el email no sale, el envío no queda registrado.
-      const company = (await this.deps.settings.get()).toSnapshot();
-      const advisorName = (await this.deps.agents.names([actor.id])).get(actor.id);
       const email = this.deps.emails.compose({
         companyName: company.name,
         advisorName,
         message,
+        subject: filled(parsed.data.subject, values),
         url,
         expiresAt: listing.toSnapshot().expiresAt,
         listings: requested.flatMap((id) => listings.get(id) ?? []),
@@ -206,6 +217,13 @@ export class SendListings {
       return ok({ sharedListingId: listing.id, url, whatsappUrl: undefined });
     });
   }
+}
+
+/** El texto con las variables completas; si queda vacío, como si no hubiera texto. */
+function filled(text: string | undefined, values: QuickReplyValues): string | undefined {
+  if (text === undefined) return undefined;
+  const result = fillVariables(text, values).trim();
+  return result === '' ? undefined : result;
 }
 
 type Recipient =

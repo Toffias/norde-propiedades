@@ -52,8 +52,10 @@ export interface ClientSendsQuery {
 export interface SharedListingEmailContent {
   readonly companyName: string;
   readonly advisorName: string | undefined;
-  /** El mensaje del asesor; sin mensaje, uno por defecto. */
+  /** El mensaje del asesor, con las variables ya completas; sin mensaje, uno por defecto. */
   readonly message: string | undefined;
+  /** El asunto elegido, con las variables ya completas; sin asunto, uno por defecto. */
+  readonly subject: string | undefined;
   readonly url: string;
   readonly expiresAt: Date;
   readonly listings: readonly ClientListingSummary[];

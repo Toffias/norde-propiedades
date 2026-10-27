@@ -34,6 +34,7 @@ import {
   type ReconcileListing,
   type ReconcileListings,
   type RequestListingSync,
+  type RequestPortalListingsSync,
   type SyncListing,
 } from '@norde/core/portals';
 import {
@@ -50,7 +51,7 @@ import {
   type RunPropertyImport,
   type RunTokkoApiPropertyImport,
 } from '@norde/core/properties';
-import type { Actor } from '@norde/core/shared';
+import type { Actor, Result } from '@norde/core/shared';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
@@ -440,7 +441,21 @@ function publicSiteSubscriptions(
  */
 export interface PortalJobs {
   readonly requestSync: Pick<RequestListingSync, 'execute'>;
+  /** Todas las publicaciones de un portal: las vivas o las que quedaron con error. */
+  readonly requestPortalSync: Pick<RequestPortalListingsSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
+  /**
+   * El emprendimiento de una unidad, para reenviar su aviso cuando cambian sus fotos
+   * (`GetPropertySummaries`).
+   */
+  readonly propertySummaries: {
+    execute(
+      input: { readonly ids: string[] },
+      actor: Actor,
+    ): Promise<
+      Result<readonly { readonly developmentId: string | undefined }[], { readonly type: string }>
+    >;
+  };
   readonly pullLeads: Pick<PullPortalLeads, 'execute'>;
   readonly reconcile: Pick<ReconcileListings, 'execute'>;
   /** La conciliación de un aviso que el portal avisó que cambió. */
@@ -460,6 +475,9 @@ const UnitPayloadSchema = z.object({
 });
 const DevelopmentPayloadSchema = z.object({ developmentId: z.uuid() });
 const LeadsPayloadSchema = z.object({ portal: z.enum(PORTALS) });
+const SettingsPayloadSchema = z.object({ section: z.string() });
+/** Las secciones de Mi empresa que van en los avisos (el pie para portales, el link de la web). */
+const LISTING_SETTINGS_SECTIONS = new Set(['general', 'portals']);
 
 /** Los portales que traen consultas a la bandeja (hoy, Zonaprop). */
 const LEAD_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].leadChannel !== undefined);
@@ -487,6 +505,27 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
     }
   }
   return allAnswered;
+}
+
+/**
+ * Pide sincronizar todas las publicaciones de cada portal: las vivas (cambió algo que va en todos los
+ * avisos) o las que quedaron con error (el reintento diario).
+ */
+export async function requestPortalListingsSync(
+  jobs: PortalJobs,
+  scope: 'live' | 'failed',
+  logger: Logger,
+): Promise<void> {
+  for (const portal of PORTALS) {
+    const result = await jobs.requestPortalSync.execute({ portal, scope }, jobs.actor);
+    if (result.isErr()) {
+      logger.error({ portal, scope, error: result.error }, 'Portal listings sync request failed');
+      continue;
+    }
+    if (result.value.requested > 0) {
+      logger.info({ portal, scope, ...result.value }, 'Portal listings sync requested');
+    }
+  }
 }
 
 const RECONCILED_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].reconciles);
@@ -523,12 +562,19 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     name: 'sync-portal-listings',
     handle: async (event) => {
       const owner = MediaOwnerPayloadSchema.parse(event.payload);
-      await requestSync(
-        event,
-        owner.ownerKind === 'property'
-          ? { propertyId: owner.ownerId }
-          : { developmentId: owner.ownerId },
-      );
+      if (owner.ownerKind === 'development') {
+        await requestSync(event, { developmentId: owner.ownerId });
+        return;
+      }
+      await requestSync(event, { propertyId: owner.ownerId });
+      // Las fotos de una unidad van en el aviso de su emprendimiento (el evento no lo trae).
+      const summary = await jobs.propertySummaries.execute({ ids: [owner.ownerId] }, jobs.actor);
+      if (summary.isErr()) {
+        logger.error({ eventId: event.id, error: summary.error }, 'Unit development lookup failed');
+        return;
+      }
+      const developmentId = summary.value[0]?.developmentId;
+      if (developmentId !== undefined) await requestSync(event, { developmentId });
     },
   });
   return [
@@ -552,6 +598,25 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     },
     media('properties.media_changed'),
     media('properties.media_deleted'),
+    {
+      // El pie para portales o el link de la web cambian en todos los avisos.
+      eventType: 'settings.company_settings_changed',
+      name: 'sync-portal-listings',
+      handle: async (event) => {
+        const { section } = SettingsPayloadSchema.parse(event.payload);
+        if (LISTING_SETTINGS_SECTIONS.has(section)) {
+          await requestPortalListingsSync(jobs, 'live', logger);
+        }
+      },
+    },
+    {
+      // El contacto de los avisos es el de la sucursal de cada propiedad.
+      eventType: 'identity.branch_updated',
+      name: 'sync-portal-listings',
+      handle: async () => {
+        await requestPortalListingsSync(jobs, 'live', logger);
+      },
+    },
     {
       eventType: 'portals.listing_sync_requested',
       name: 'sync-listing',

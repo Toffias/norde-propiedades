@@ -383,6 +383,7 @@ import {
   PauseListing,
   RequestDevelopmentPublication,
   RequestListingSync,
+  RequestPortalListingsSync,
   RequestPublication,
   ResumeListing,
   ResyncListing,
@@ -512,6 +513,7 @@ import { propertyCodeLookup } from './features/portals/property-code-lookup';
 import {
   eventSubscriptions,
   pullPortalLeads,
+  requestPortalListingsSync,
   reconcilePortalListings,
 } from './jobs/event-subscriptions';
 
@@ -856,7 +858,7 @@ function createPortalsUseCases(
       target: zonapropCallbackTarget(env),
     }),
     pauseListing: new PauseListing({ uow, clock }),
-    resumeListing: new ResumeListing({ uow, clock }),
+    resumeListing: new ResumeListing({ uow, directory, clock }),
     unpublishListing: new UnpublishListing({ uow, clock }),
     changeListingType: new ChangeListingType({ uow, clock }),
     changeListingPlan: new ChangeListingPlan({ uow, directory, clock }),
@@ -1940,10 +1942,8 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   const storage = createStorage(env);
   const settings = createSettingsUseCases(db, env, deps);
   const referenceCodes = referenceCodesFrom(settings);
-  const portals = createPortalServices(db, env, deps, {
-    properties: createPropertiesUseCases(db, env, settings, deps),
-    settings,
-  });
+  const properties = createPropertiesUseCases(db, env, settings, deps);
+  const portals = createPortalServices(db, env, deps, { properties, settings });
 
   const bus = new PgBossEventBus({
     connectionString: env.DATABASE_URL,
@@ -1952,7 +1952,9 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   });
   const portalJobs = portals && {
     requestSync: new RequestListingSync({ uow: portals.uow, clock }),
+    requestPortalSync: new RequestPortalListingsSync({ uow: portals.uow, clock }),
     sync: new SyncListing({ ...portals, clock }),
+    propertySummaries: properties.getPropertySummaries,
     pullLeads: new PullPortalLeads({
       uow: portals.uow,
       source: portals.leadSource,
@@ -2081,6 +2083,15 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       cron: '*/10 * * * *',
       run: async () => {
         await pullPortalLeads(portalJobs, logger);
+      },
+    });
+    // Las publicaciones que quedaron con error (el portal no respondió, no había créditos)
+    // vuelven a intentar solas una vez por día.
+    bus.schedule({
+      name: 'portals.retry-failed-listings',
+      cron: '30 6 * * *',
+      run: async () => {
+        await requestPortalListingsSync(portalJobs, 'failed', logger);
       },
     });
     // Lo que el portal venció, cerró o pausó por moderación, antes de que empiece el día.

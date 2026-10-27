@@ -101,6 +101,10 @@ export const portalListings = coreSchema.table(
       .on(t.updatedAt)
       .where(sql`status = 'pending'`),
     index('portal_listings_updated_idx').on(t.updatedAt),
+    // El reintento diario de las que quedaron con error, por lotes.
+    index('portal_listings_failed_idx')
+      .on(t.portal, t.id)
+      .where(sql`status = 'error'`),
   ],
 );
 

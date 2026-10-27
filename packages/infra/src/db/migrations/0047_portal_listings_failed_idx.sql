@@ -1,0 +1,1 @@
+CREATE INDEX "portal_listings_failed_idx" ON "core"."portal_listings" USING btree ("portal","id") WHERE status = 'error';

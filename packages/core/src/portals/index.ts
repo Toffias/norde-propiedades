@@ -271,6 +271,10 @@ export {
   type RequestListingSyncError,
 } from './application/commands/request-listing-sync';
 export {
+  RequestPortalListingsSync,
+  type RequestPortalListingsSyncError,
+} from './application/commands/request-portal-listings-sync';
+export {
   ReconcileListings,
   type ReconcileListingsError,
   type ReconcileListingsOutcome,

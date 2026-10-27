@@ -709,6 +709,7 @@ describe('portal subscriptions', () => {
   function portalSetup(
     outcome: 'synced' | 'retry' = 'synced',
     reconciled: 'changed' | 'unavailable' = 'changed',
+    unitDevelopmentId?: string,
   ) {
     const calls: unknown[] = [];
     const subscriptions = eventSubscriptions({
@@ -721,6 +722,20 @@ describe('portal subscriptions', () => {
           execute: (input, by) => {
             calls.push(['request-sync', input, by.id]);
             return Promise.resolve(ok({ requested: 1 }));
+          },
+        },
+        requestPortalSync: {
+          execute: (input, by) => {
+            calls.push(['request-portal-sync', input, by.id]);
+            return Promise.resolve(ok({ requested: 0 }));
+          },
+        },
+        propertySummaries: {
+          execute: (input) => {
+            calls.push(['summaries', input]);
+            return Promise.resolve(
+              ok(unitDevelopmentId === undefined ? [] : [{ developmentId: unitDevelopmentId }]),
+            );
           },
         },
         sync: {
@@ -797,7 +812,51 @@ describe('portal subscriptions', () => {
     expect(calls).toEqual([
       ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
       ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
+      ['summaries', { ids: [PROPERTY_ID] }],
     ]);
+  });
+
+  it('resends the development listing when the photos of one of its units change', async () => {
+    const developmentId = '00000000-0000-7000-8000-0000000000d1';
+    const { find, calls } = portalSetup('synced', 'changed', developmentId);
+    await find('properties.media_deleted.sync-portal-listings').handle({
+      ...event,
+      type: 'properties.media_deleted',
+      payload: { ownerKind: 'property', ownerId: PROPERTY_ID, mediaId: MEDIA_ID, storageKeys: [] },
+    });
+    expect(calls).toEqual([
+      ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
+      ['summaries', { ids: [PROPERTY_ID] }],
+      ['request-sync', { developmentId }, 'system:portal-sync'],
+    ]);
+  });
+
+  it('resends every live listing when the portal footer or a branch contact changes', async () => {
+    const { find, calls } = portalSetup();
+    await find('settings.company_settings_changed.sync-portal-listings').handle({
+      ...event,
+      type: 'settings.company_settings_changed',
+      payload: { section: 'watermark' },
+    });
+    expect(calls).toEqual([]);
+
+    await find('settings.company_settings_changed.sync-portal-listings').handle({
+      ...event,
+      type: 'settings.company_settings_changed',
+      payload: { section: 'portals' },
+    });
+    await find('identity.branch_updated.sync-portal-listings').handle({
+      ...event,
+      type: 'identity.branch_updated',
+      payload: { branchId: '00000000-0000-7000-8000-0000000000b1' },
+    });
+    const live = (portal: string) => [
+      'request-portal-sync',
+      { portal, scope: 'live' },
+      'system:portal-sync',
+    ];
+    const everyPortal = ['mercadolibre', 'mercadolibre_developments', 'zonaprop'].map(live);
+    expect(calls).toEqual([...everyPortal, ...everyPortal]);
   });
 
   it('asks to sync the development listings when it, its photos or its units change', async () => {
@@ -878,7 +937,9 @@ describe('reconcilePortalListings', () => {
     await reconcilePortalListings(
       {
         requestSync: { execute: unused },
+        requestPortalSync: { execute: unused },
         sync: { execute: unused },
+        propertySummaries: { execute: unused },
         pullLeads: { execute: unused },
         reconcileOne: { execute: unused },
         reconcile: {

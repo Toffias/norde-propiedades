@@ -330,6 +330,13 @@
       "when": 1793061590740,
       "tag": "0046_portal_accounts_leads_pulled_at",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793062081647,
+      "tag": "0047_portal_listings_failed_idx",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,7 @@ import {
 import { ChangeListingType } from './commands/change-listing-type';
 import { PauseListing } from './commands/pause-listing';
 import { RequestListingSync } from './commands/request-listing-sync';
+import { RequestPortalListingsSync } from './commands/request-portal-listings-sync';
 import { RequestPublication } from './commands/request-publication';
 import { ResumeListing } from './commands/resume-listing';
 import { ResyncListing } from './commands/resync-listing';
@@ -63,8 +64,9 @@ function setup() {
     }),
     sync: new SyncListing(deps),
     syncProperty: new RequestListingSync({ uow, clock }),
+    syncPortal: new RequestPortalListingsSync({ uow, clock }),
     pause: new PauseListing({ uow, clock }),
-    resume: new ResumeListing({ uow, clock }),
+    resume: new ResumeListing({ uow, directory: new FakePortalAccountDirectory(), clock }),
     unpublish: new UnpublishListing({ uow, clock }),
     changeType: new ChangeListingType({ uow, clock }),
     resync: new ResyncListing({ uow, clock }),
@@ -497,15 +499,57 @@ describe('team actions on a listing', () => {
 
   it('requires portals:publish', async () => {
     const { pause, resume, unpublish, changeType, resync, listingId } = await published();
+    expect(unwrapErr(await resume.execute({ listingId }, VIEWER))).toEqual({ type: 'Forbidden' });
     for (const result of [
       await pause.execute({ listingId }, VIEWER),
-      await resume.execute({ listingId }, VIEWER),
       await unpublish.execute({ listingId }, VIEWER),
       await changeType.execute({ listingId, listingType: 'featured' }, VIEWER),
       await resync.execute({ listingId }, VIEWER),
     ]) {
       expect(unwrapErr(result)).toEqual({ type: 'Forbidden' });
     }
+  });
+});
+
+describe('RequestPortalListingsSync', () => {
+  it('requests a sync of every live listing of the portal', async () => {
+    const { syncPortal, uow, listingId } = await published();
+    const before = uow.events.published.length;
+
+    expect(
+      unwrap(await syncPortal.execute({ portal: 'mercadolibre', scope: 'live' }, PORTAL_SYNC)),
+    ).toEqual({ requested: 1 });
+    expect(
+      unwrap(await syncPortal.execute({ portal: 'zonaprop', scope: 'live' }, PORTAL_SYNC)),
+    ).toEqual({ requested: 0 });
+    expect(uow.events.published.slice(before)).toEqual([
+      expect.objectContaining({ type: 'portals.listing_sync_requested', aggregateId: listingId }),
+    ]);
+  });
+
+  it('retries only the listings left in error, even the ones never created', async () => {
+    const s = setup();
+    s.connector.failWith = { type: 'PortalUnavailable' };
+    const { listingId } = unwrap(await s.request.execute(SALE, AGENT));
+    unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
+    expect(s.uow.listings.rows.get(listingId)?.status).toBe('error');
+
+    expect(
+      unwrap(await s.syncPortal.execute({ portal: 'mercadolibre', scope: 'failed' }, PORTAL_SYNC)),
+    ).toEqual({ requested: 1 });
+
+    s.connector.failWith = undefined;
+    unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
+    expect(
+      unwrap(await s.syncPortal.execute({ portal: 'mercadolibre', scope: 'failed' }, PORTAL_SYNC)),
+    ).toEqual({ requested: 0 });
+  });
+
+  it('requires portals:sync', async () => {
+    const { syncPortal } = setup();
+    expect(
+      unwrapErr(await syncPortal.execute({ portal: 'mercadolibre', scope: 'live' }, AGENT)),
+    ).toEqual({ type: 'Forbidden' });
   });
 });
 

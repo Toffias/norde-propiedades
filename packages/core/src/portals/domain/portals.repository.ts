@@ -41,5 +41,13 @@ export interface ListingRepository {
     portal: PortalId,
     page: { readonly after: ListingId | undefined; readonly limit: number },
   ): Promise<readonly Listing[]>;
+  /**
+   * Una tanda de las publicaciones del portal que quedaron con error (tengan o no aviso), ordenadas
+   * por ID y a partir de `after`: el reintento diario las recorre por lotes.
+   */
+  findFailedOnPortal(
+    portal: PortalId,
+    page: { readonly after: ListingId | undefined; readonly limit: number },
+  ): Promise<readonly Listing[]>;
   save(listing: Listing, actorId: string): Promise<void>;
 }

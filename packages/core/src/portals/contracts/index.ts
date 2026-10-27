@@ -45,6 +45,16 @@ export type ConnectPortalAccountWithCodeInput = z.input<
 export const PortalInputSchema = z.object({ portal: PortalSchema });
 export type PortalInput = z.input<typeof PortalInputSchema>;
 
+/**
+ * Qué publicaciones de un portal volver a sincronizar: las que tienen aviso (`live`, cambió algo que
+ * va en todos) o las que quedaron con error (`failed`, el reintento diario).
+ */
+export const RequestPortalListingsSyncInputSchema = z.object({
+  portal: PortalSchema,
+  scope: z.enum(['live', 'failed']),
+});
+export type RequestPortalListingsSyncInput = z.input<typeof RequestPortalListingsSyncInputSchema>;
+
 export const PORTAL_PROVIDER_VALUES = ['mercadolibre', 'zonaprop'] as const;
 
 /**

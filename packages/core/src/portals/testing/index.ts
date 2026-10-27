@@ -300,6 +300,23 @@ export class InMemoryListingRepository implements ListingRepository {
     );
   }
 
+  findFailedOnPortal(
+    portal: PortalId,
+    page: { readonly after: ListingId | undefined; readonly limit: number },
+  ) {
+    const { after, limit } = page;
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(
+          (r) =>
+            r.portal === portal && r.status === 'error' && (after === undefined || r.id > after),
+        )
+        .sort((a, b) => (a.id < b.id ? -1 : 1))
+        .slice(0, limit)
+        .map((r) => Listing.restore(r)),
+    );
+  }
+
   save(listing: Listing) {
     this.rows.set(listing.id, listing.toSnapshot());
     return Promise.resolve();

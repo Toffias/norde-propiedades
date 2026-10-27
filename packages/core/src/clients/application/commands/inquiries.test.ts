@@ -28,6 +28,10 @@ const INPUT = {
   propertyId: PROPERTY_ID,
 } as const;
 
+const { phone: _phone, ...withoutPhone } = INPUT;
+const { email: _email, ...withoutEmail } = INPUT;
+const { message: _message, ...withoutMessage } = INPUT;
+
 function setup() {
   const uow = new InMemoryClientsUnitOfWork();
   const clock = new FixedClock('2026-03-01T10:00:00Z');
@@ -147,17 +151,45 @@ describe('ReceiveInquiry', () => {
     expect(unwrapErr(await receive.execute({ ...INPUT, externalId: '' }, WEB)).type).toBe(
       'InvalidInput',
     );
-    expect(unwrapErr(await receive.execute({ ...INPUT, phone: '123' }, WEB))).toEqual({
-      type: 'InvalidPhone',
-    });
-    expect(unwrapErr(await receive.execute({ ...INPUT, email: 'ana@' }, WEB))).toEqual({
+    expect(
+      unwrapErr(await receive.execute({ ...INPUT, phone: '123', email: 'ana@' }, WEB)),
+    ).toEqual({ type: 'InvalidPhone' });
+    expect(unwrapErr(await receive.execute({ ...withoutPhone, email: 'ana@' }, WEB))).toEqual({
       type: 'InvalidEmail',
+    });
+    expect(unwrapErr(await receive.execute({ ...withoutEmail, phone: '4444' }, WEB))).toEqual({
+      type: 'InvalidPhone',
     });
     const anonymous = { channel: INPUT.channel, externalId: INPUT.externalId, name: INPUT.name };
     expect(unwrapErr(await receive.execute(anonymous, WEB))).toEqual({
       type: 'MissingContactInfo',
     });
     expect(uow.inquiries.rows.size).toBe(0);
+  });
+
+  it('enters with the valid email and keeps a phone it could not validate in the message', async () => {
+    const { uow, receive } = setup();
+
+    const { inquiryId } = unwrap(
+      await receive.execute({ ...INPUT, phone: '4444-5555 int 2' }, WEB),
+    );
+
+    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
+      sender: { name: 'Ana Pérez', email: 'ana@example.com', phoneE164: undefined },
+      message:
+        'Hola, ¿sigue disponible?\n\nTeléfono que dejó (no se pudo validar): 4444-5555 int 2',
+    });
+  });
+
+  it('enters with the valid phone and keeps an email it could not validate in the message', async () => {
+    const { uow, receive } = setup();
+
+    const { inquiryId } = unwrap(await receive.execute({ ...withoutMessage, email: 'ana@' }, WEB));
+
+    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
+      sender: { email: undefined, phoneE164: '+5491166899124' },
+      message: 'Email que dejó (no se pudo validar): ana@',
+    });
   });
 
   it('only runs for system actors with inquiries:receive', async () => {

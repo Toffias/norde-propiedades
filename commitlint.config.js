@@ -30,6 +30,7 @@ export default {
         'notifications',
         'audit',
         'reporting',
+        'cash',
         // transversales
         'deps',
         'ci',

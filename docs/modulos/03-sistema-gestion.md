@@ -596,7 +596,16 @@ Da soporte a las "Oportunidades por mail" del módulo 2. Se construye en dos eta
 
 **Permiso "Activar seguimientos automáticos"** (`followups:automatic`, Gerencia → Seguimientos; Administración y Gerencia lo tienen): prender el envío automático de una búsqueda o el auto-envío de novedades de una destacada lo pide. Sin él, el switch se ve apagado y bloqueado; uno que ya está prendido se puede apagar y la búsqueda se puede editar.
 
-**Envío** (etapa 2): un resumen diario, un email por contacto con sus coincidencias del día (un envío con link `/e/<token>`, §3.3.10), con plantilla y variables, y un link de baja en cada email.
+**Resumen diario** (etapa 2). Todos los días a las 10 (hora de Buenos Aires) sale un email por contacto con lo que el cruce encontró desde el último:
+
+- Es un envío como los del asesor (§3.3.10): link `/e/<token>` que vence, con aperturas y "me gusta". Queda en la actividad y en los envíos del contacto como "Seguimiento automático", y en su historial (`client.follow_ups_sent`). No se ata a una oportunidad: no mueve el embudo, porque no es el asesor el que contacta.
+- Va al email principal del contacto, firmado por su agente (o por Norde si no tiene). Una propiedad que es nueva y además bajó de precio va una sola vez.
+- Entran hasta 20 propiedades (lo que entra en un envío), las más viejas primero; las demás salen al día siguiente.
+- El asunto y el mensaje son fijos según haya propiedades nuevas, bajas de precio o las dos: no hay plantilla para editar (no hay pantalla de configuración, 2026-10-27).
+- Antes de mandar se descarta lo que ya no corresponde (`client.follow_ups_discarded`): la búsqueda se borró, se apagó su envío automático o el cliente se dio de baja; la destacada se quitó o se le apagó el auto-envío; la propiedad dejó de verse en el sitio; el contacto está en la papelera o no tiene email.
+- Si el email no sale, no queda nada y se reintenta al día siguiente.
+
+**Baja del cliente** (etapa 2). Cada email automático tiene al pie un link a `/e/<token>/baja`. La página pide confirmar con un botón (los lectores de correo abren los links para revisarlos). Al confirmar, todas las búsquedas del contacto quedan dadas de baja (el asesor no puede volver a prender su envío automático) y se apaga el auto-envío de sus destacadas. Queda en su historial (`client.follow_ups_unsubscribed`). Sirve aunque el link del envío haya vencido.
 
 **Diferencias con §3.4 original**: a las búsquedas sin envío automático no se le avisa al asesor (Norde no lo pidió, 2026-10-27).
 

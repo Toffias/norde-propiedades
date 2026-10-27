@@ -5,7 +5,12 @@ import 'server-only';
 // el sitio.
 // El contenido editorial NO pasa por acá: se lee con la Local API de Payload.
 
-import { GetSharedListing, OpenSharedListing, ReactToSharedListing } from '@norde/core/clients';
+import {
+  GetSharedListing,
+  OpenSharedListing,
+  ReactToSharedListing,
+  UnsubscribeFromFollowUps,
+} from '@norde/core/clients';
 import {
   GetPropertyDetail,
   GetPublicPhoto,
@@ -85,6 +90,10 @@ export interface SharedListingsUseCases {
   react(
     input: Parameters<ReactToSharedListing['execute']>[0],
   ): ReturnType<ReactToSharedListing['execute']>;
+  /** La baja de los seguimientos automáticos, desde el link del email. */
+  unsubscribe(
+    input: Parameters<UnsubscribeFromFollowUps['execute']>[0],
+  ): ReturnType<UnsubscribeFromFollowUps['execute']>;
 }
 
 /** Las consultas del formulario, que se mandan a apps/gestion. `undefined` si no está configurado. */
@@ -172,10 +181,12 @@ function createSharedListings(database: DatabaseConnection): SharedListingsUseCa
   const get = new GetSharedListing({ uow, tokens, agents, clock });
   const open = new OpenSharedListing({ uow, tokens, ids, clock });
   const react = new ReactToSharedListing({ uow, tokens, ids, clock });
+  const unsubscribe = new UnsubscribeFromFollowUps({ uow, tokens, clock });
   return {
     get: (input) => get.execute(input, SHARED_LISTING_ACTOR),
     open: (input) => open.execute(input, SHARED_LISTING_ACTOR),
     react: (input) => react.execute(input, SHARED_LISTING_ACTOR),
+    unsubscribe: (input) => unsubscribe.execute(input, SHARED_LISTING_ACTOR),
   };
 }
 

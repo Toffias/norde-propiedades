@@ -181,6 +181,7 @@ export {
 } from './domain/portal-lead';
 export type {
   PortalLeadNotifications,
+  PortalLeadPage,
   PortalLeadRejected,
   PortalLeadSink,
   PortalLeadSource,

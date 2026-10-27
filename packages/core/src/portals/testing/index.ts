@@ -699,6 +699,11 @@ export function portalLead(overrides: Partial<PortalLead> = {}): PortalLead {
 /** Los contactos que devuelve el portal, de a páginas. */
 export class FakePortalLeadSource implements PortalLeadSource {
   leads: PortalLead[] = [portalLead()];
+  /**
+   * Con grupos, el portal pagina por grupo (como los interesados de MercadoLibre, con varios
+   * contactos cada uno) en vez de por contacto.
+   */
+  groups: PortalLead[][] | undefined;
   failWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
   readonly calls: { since: Date; offset: number; limit: number }[] = [];
 
@@ -711,6 +716,17 @@ export class FakePortalLeadSource implements PortalLeadSource {
   }) {
     this.calls.push({ since: input.since, offset: input.offset, limit: input.limit });
     if (this.failWith) return Promise.resolve(err(this.failWith));
+    if (this.groups) {
+      const page = this.groups.slice(input.offset, input.offset + input.limit);
+      return Promise.resolve(
+        ok({
+          items: page.flat(),
+          total: this.groups.length,
+          read: page.length,
+          skipped: page.filter((g) => g.length === 0).length,
+        }),
+      );
+    }
     return Promise.resolve(
       ok({
         items: this.leads.slice(input.offset, input.offset + input.limit),

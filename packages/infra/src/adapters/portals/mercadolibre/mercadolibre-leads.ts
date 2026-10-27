@@ -2,11 +2,12 @@ import type {
   PortalId,
   PortalLead,
   PortalLeadKind,
+  PortalLeadPage,
   PortalLeadSource,
   PortalNotConfiguredError,
   PortalUnavailableError,
 } from '@norde/core/portals';
-import { err, ok, type PageSlice, type Result } from '@norde/core/shared';
+import { err, ok, type Result } from '@norde/core/shared';
 import { z } from 'zod';
 
 import {
@@ -87,8 +88,9 @@ export class MercadoLibreLeads implements PortalLeadSource {
   }
 
   /**
-   * Los contactos de los interesados `offset` a `offset + limit` (ML pagina por interesado). Si ML
-   * devuelve menos de los pedidos por página, se sigue pidiendo hasta completar o llegar al total.
+   * Los contactos de los interesados `offset` a `offset + limit` (ML pagina por interesado: `read` y
+   * `total` cuentan interesados, no contactos). Si ML devuelve menos de los pedidos por página, se
+   * sigue pidiendo hasta completar o llegar al total. Un interesado sin contactos va a `skipped`.
    */
   async recent(input: {
     readonly portal: PortalId;
@@ -96,12 +98,13 @@ export class MercadoLibreLeads implements PortalLeadSource {
     readonly since: Date;
     readonly offset: number;
     readonly limit: number;
-  }): Promise<Result<PageSlice<PortalLead>, LeadsError>> {
+  }): Promise<Result<PortalLeadPage, LeadsError>> {
     const { portal, externalAccountId, since } = input;
     const path = `/vis/users/${encodeURIComponent(externalAccountId)}/leads/buyers`;
     const leads: PortalLead[] = [];
     let offset = input.offset;
     let total = 0;
+    let skipped = 0;
     while (offset < input.offset + input.limit) {
       const query = new URLSearchParams({
         offset: String(offset),
@@ -118,6 +121,7 @@ export class MercadoLibreLeads implements PortalLeadSource {
       total = parsed.data.paging.total;
 
       for (const buyer of parsed.data.results) {
+        if ((buyer.leads ?? []).length === 0) skipped += 1;
         for (const lead of buyer.leads ?? []) {
           const kind = KINDS[lead.contact_type ?? lead.channel ?? ''] ?? 'other';
           const message =
@@ -148,7 +152,7 @@ export class MercadoLibreLeads implements PortalLeadSource {
       offset += returned;
       if (returned === 0 || offset >= total) break;
     }
-    return ok({ items: leads, total });
+    return ok({ items: leads, total, read: offset - input.offset, skipped });
   }
 
   /**

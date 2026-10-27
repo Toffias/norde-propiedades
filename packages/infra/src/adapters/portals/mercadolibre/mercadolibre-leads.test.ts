@@ -199,6 +199,29 @@ describe('MercadoLibreLeads.recent', () => {
     expect(requests.map((r) => r.query.get('offset'))).toEqual(['0', '1']);
   });
 
+  it('counts buyers, not contacts, and the buyers that came without contacts', async () => {
+    const { leads } = setup([
+      () =>
+        Response.json({
+          results: [
+            buyer(1, [
+              WHATSAPP_LEAD,
+              { ...WHATSAPP_LEAD, id: 'w1b' },
+              { ...WHATSAPP_LEAD, id: 'w1c' },
+            ]),
+            buyer(2, []),
+            buyer(3, [], { leads: undefined }),
+          ],
+          paging: { total: 3 },
+        }),
+    ]);
+
+    const page = unwrap(await leads.recent({ ...ACCOUNT, offset: 0, limit: 100 }));
+
+    expect(page).toMatchObject({ total: 3, read: 3, skipped: 2 });
+    expect(page.items).toHaveLength(3);
+  });
+
   it('reports MercadoLibre down on 5xx or a bad answer, and not configured without credentials', async () => {
     const page = { ...ACCOUNT, offset: 0, limit: 100 };
     expect(

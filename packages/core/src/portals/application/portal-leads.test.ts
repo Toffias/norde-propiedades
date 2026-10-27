@@ -208,6 +208,33 @@ describe('PullPortalLeads', () => {
     expect(sink.received).toHaveLength(150);
   });
 
+  it('pages by what the portal pages, not by the contacts it returned', async () => {
+    const { pull, source, sink } = setup();
+    // 150 interesados con dos contactos cada uno: más contactos que interesados.
+    source.groups = Array.from({ length: 150 }, (_, i) => [
+      portalLead({ externalId: `${String(i)}-a` }),
+      portalLead({ externalId: `${String(i)}-b` }),
+    ]);
+
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+
+    expect(source.calls.map((c) => c.offset)).toEqual([0, 100]);
+    expect(sink.received).toHaveLength(300);
+  });
+
+  it('keeps reading past interested people without contacts, and counts them', async () => {
+    const { pull, source, sink } = setup();
+    source.groups = Array.from({ length: 120 }, (_, i) =>
+      i % 2 === 0 ? [] : [portalLead({ externalId: String(i) })],
+    );
+
+    const outcome = unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+
+    expect(source.calls.map((c) => c.offset)).toEqual([0, 100]);
+    expect(sink.received).toHaveLength(60);
+    expect(outcome).toMatchObject({ received: 60, skipped: 60 });
+  });
+
   it('does nothing without a connected account or on a portal without leads', async () => {
     const { pull, source, uow } = setup();
     expect(unwrap(await pull.execute({ portal: 'mercadolibre' }, PORTAL_SYNC))).toMatchObject({

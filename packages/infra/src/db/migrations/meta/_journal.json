@@ -337,6 +337,13 @@
       "when": 1793068044642,
       "tag": "0047_portal_accounts_leads_pulled_at",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793072776760,
+      "tag": "0048_shared_listings_opportunity",
+      "breakpoints": true
     }
   ]
 }

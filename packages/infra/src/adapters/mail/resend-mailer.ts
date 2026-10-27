@@ -51,6 +51,7 @@ export class ResendMailer implements Mailer {
           to: [email.to],
           subject: email.subject,
           text: email.text,
+          ...(email.html === undefined ? {} : { html: email.html }),
           ...(email.replyTo === undefined ? {} : { reply_to: email.replyTo }),
           ...(email.attachments === undefined || email.attachments.length === 0
             ? {}

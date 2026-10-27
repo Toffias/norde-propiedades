@@ -19,6 +19,7 @@ import { DrizzleInquiryRepository } from './drizzle-inquiry-repository';
 import { DrizzleInquiryRuleRepository } from './drizzle-inquiry-rule-repository';
 import { DrizzleOpportunityBulkOperationRepository } from './drizzle-opportunity-bulk-operations';
 import { DrizzleSavedSearchRepository } from './drizzle-saved-search-repository';
+import { DrizzleSharedListingRepository } from './drizzle-shared-listing-repository';
 import {
   DrizzleClientRepository,
   DrizzleOpportunityRepository,
@@ -49,6 +50,7 @@ export function createClientsUnitOfWork(
     activities: new DrizzleClientActivityRepository(tx),
     featured: new DrizzleFeaturedListingRepository(tx),
     savedSearches: new DrizzleSavedSearchRepository(tx),
+    sharedListings: new DrizzleSharedListingRepository(tx),
     erasure: new DrizzleClientErasure(tx),
     imports: new DrizzleClientImportRepository(tx, deps.ids),
     externalIds: new DrizzleClientExternalIds(tx, deps.ids),

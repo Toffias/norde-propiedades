@@ -89,6 +89,18 @@ describe('ResendMailer', () => {
     });
   });
 
+  it('sends the HTML version next to the plain text', async () => {
+    const { mailer, requests } = setup(() => Response.json(SENT));
+
+    const result = await mailer.send({ ...email, html: '<p>Hola</p>' });
+
+    expect(result.isOk()).toBe(true);
+    const body: unknown = JSON.parse(
+      typeof requests[0]?.init.body === 'string' ? requests[0].init.body : '{}',
+    );
+    expect(body).toMatchObject({ text: 'Hola', html: '<p>Hola</p>' });
+  });
+
   it('reports a rejection with the provider message, without retrying', async () => {
     const { mailer, requests } = setup(() => Response.json(INVALID_FROM, { status: 403 }));
 

@@ -1,5 +1,6 @@
 import {
   ApplyOpportunityRules,
+  NO_RULES,
   BulkUpdateOpportunities,
   RunOpportunityBulkOperation,
   UpdateOpportunityReferral,
@@ -171,7 +172,7 @@ describe('opportunity bulk actions', () => {
 
   it('applies an automatic rule once per event, keeping the event id', async () => {
     await seed();
-    const settings = { onCreate: undefined, onAssign: undefined, forOwners: undefined };
+    const settings = NO_RULES;
     const contacted = parseId<'OpportunityStage'>(SEEDED_STAGES.contacted);
     if (contacted.isErr()) throw new Error('invalid fixture');
     await uow.run((tx) =>

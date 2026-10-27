@@ -109,6 +109,17 @@ import {
   type ImportRowProblem,
 } from '../domain/client-import';
 import { FeaturedListing } from '../domain/featured-listing';
+import {
+  SharedListing,
+  type SharedListingId,
+  type SharedListingSnapshot,
+} from '../domain/shared-listing';
+import type {
+  PublicListings,
+  SharedListingEmailContent,
+  SharedListingEmails,
+  SharedListingTokens,
+} from '../application/ports/shared-listing-ports';
 import { Inquiry, type InquiryId, type InquirySnapshot } from '../domain/inquiry';
 import type { InquiryPropertyFacts } from '../domain/inquiry-tags';
 import {
@@ -119,6 +130,7 @@ import {
   type ClientTagGroupRepository,
   type ClientTagRepository,
   type FeaturedListingRepository,
+  type SharedListingRepository,
   type InquiryRepository,
   type InquiryRuleRepository,
   type MovedTagAssignment,
@@ -545,6 +557,63 @@ export class InMemoryFeaturedListingRepository implements FeaturedListingReposit
   }
 }
 
+export class InMemorySharedListingRepository implements SharedListingRepository {
+  readonly rows = new Map<string, SharedListingSnapshot>();
+
+  findById(id: SharedListingId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row === undefined ? undefined : SharedListing.restore(row));
+  }
+
+  findByTokenHash(tokenHash: string) {
+    const row = [...this.rows.values()].find((r) => r.tokenHash === tokenHash);
+    return Promise.resolve(row === undefined ? undefined : SharedListing.restore(row));
+  }
+
+  save(listing: SharedListing) {
+    this.rows.set(listing.id, listing.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+/** Tokens predecibles: `token-<n>` rellenado a 43 caracteres, con hash `hash:<token>`. */
+export class FakeSharedListingTokens implements SharedListingTokens {
+  #issued = 0;
+
+  issue() {
+    this.#issued += 1;
+    const token = `tok${this.#issued.toString()}`.padEnd(43, 'x');
+    return { token, hash: this.hashOf(token) };
+  }
+
+  hashOf(token: string) {
+    return `hash:${token}`;
+  }
+}
+
+/** Ninguna sin publicar, salvo las que se cargan. */
+export class InMemoryPublicListings implements PublicListings {
+  hidden: readonly string[] = [];
+
+  unlisted(propertyIds: readonly string[]) {
+    return Promise.resolve(propertyIds.filter((id) => this.hidden.includes(id)));
+  }
+}
+
+/** Arma un email simple con lo que recibe, para ver qué se mandó. */
+export class FakeSharedListingEmails implements SharedListingEmails {
+  readonly composed: SharedListingEmailContent[] = [];
+
+  compose(content: SharedListingEmailContent) {
+    this.composed.push(content);
+    return {
+      subject: `Propiedades de ${content.companyName}`,
+      text: `${content.message ?? ''} ${content.url}`,
+      html: `<a href="${content.url}">Ver</a>`,
+    };
+  }
+}
+
 export class InMemorySavedSearchRepository implements SavedSearchRepository {
   readonly rows = new Map<string, SavedSearchSnapshot>();
 
@@ -887,6 +956,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly records = new InMemoryClientLinkedRecords();
   readonly activities = new InMemoryClientActivityRepository();
   readonly featured = new InMemoryFeaturedListingRepository();
+  readonly sharedListings = new InMemorySharedListingRepository();
   readonly savedSearches = new InMemorySavedSearchRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
@@ -911,6 +981,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       records: new Map(this.records.counts),
       activities: new Map(this.activities.rows),
       featured: new Map(this.featured.rows),
+      sharedListings: new Map(this.sharedListings.rows),
       savedSearches: new Map(this.savedSearches.rows),
       imports: new Map(this.imports.rows),
       externalIds: new Map(this.externalIds.rows),
@@ -938,6 +1009,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.records.counts, backup.records);
       restore(this.activities.rows, backup.activities);
       restore(this.featured.rows, backup.featured);
+      restore(this.sharedListings.rows, backup.sharedListings);
       restore(this.savedSearches.rows, backup.savedSearches);
       restore(this.imports.rows, backup.imports);
       restore(this.externalIds.rows, backup.externalIds);

@@ -2,6 +2,7 @@
 
 import {
   CONTACT_CHANNEL_LABELS,
+  MAX_SHARED_PROPERTY_COUNT,
   OPPORTUNITY_INTENT_LABELS,
   OPPORTUNITY_TYPE_LABELS,
   type ClientFeaturedRow,
@@ -28,7 +29,10 @@ import {
   ArchiveRestoreIcon,
   BookmarkCheckIcon,
   ExternalLinkIcon,
+  MailIcon,
+  MessageCircleIcon,
   PencilIcon,
+  SendIcon,
   PlusIcon,
   StarOffIcon,
   Trash2Icon,
@@ -62,6 +66,7 @@ import {
   type ReservationSubject,
 } from '../../properties/components/reservations/reservation-dialog';
 import { SavedSearchSheet } from './saved-search-sheet';
+import { SendListingsDialog, type SendChannel, type SendRecipients } from './send-listings-dialog';
 import { userName } from '../client-format';
 
 // Las pestañas de la ficha del contacto con listados: oportunidades, destacadas, búsquedas
@@ -184,12 +189,20 @@ function AutoSendSwitch({
   );
 }
 
+/** Lo que se va a enviar: las propiedades y por dónde. */
+interface PendingSend {
+  readonly propertyIds: readonly string[];
+  readonly subject: string;
+  readonly channel: SendChannel;
+}
+
 export function ClientFeaturedGrid({
   clientId,
   clientDisplayName,
   page,
   canEdit,
   canReserve,
+  recipients,
 }: {
   readonly clientId: string;
   readonly clientDisplayName: string;
@@ -197,10 +210,20 @@ export function ClientFeaturedGrid({
   readonly canEdit: boolean;
   /** Reservarle una propiedad disponible (#13). */
   readonly canReserve: boolean;
+  /** Emails y teléfonos del contacto, para enviarle propiedades (#104). */
+  readonly recipients: SendRecipients;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState<PendingAction | undefined>();
   const [reserving, setReserving] = useState<ReservationSubject | undefined>();
+  const [sending, setSending] = useState<PendingSend | undefined>();
+  const sendOne = (row: ClientFeaturedRow, channel: SendChannel) => {
+    setSending({
+      propertyIds: [row.propertyId],
+      subject: row.property?.code ?? 'la propiedad',
+      channel,
+    });
+  };
   const columns: readonly DataTableColumn<ClientFeaturedRow>[] = [
     {
       id: 'property',
@@ -293,6 +316,24 @@ export function ClientFeaturedGrid({
       className: 'w-12',
       cell: (row) => (
         <RowActions>
+          {canEdit && row.property !== undefined && (
+            <>
+              <RowAction
+                icon={MailIcon}
+                label="Enviar por email"
+                onClick={() => {
+                  sendOne(row, 'email');
+                }}
+              />
+              <RowAction
+                icon={MessageCircleIcon}
+                label="Enviar por WhatsApp"
+                onClick={() => {
+                  sendOne(row, 'whatsapp');
+                }}
+              />
+            </>
+          )}
           {row.property !== undefined && (
             <RowAction
               icon={ExternalLinkIcon}
@@ -352,7 +393,59 @@ export function ClientFeaturedGrid({
         page={page.page}
         pageSize={page.pageSize}
         empty="No tiene propiedades destacadas. Destacale desde la pestaña Ofrecer."
+        selectable={canEdit}
+        bulkActions={(selection, _count, clearSelection) => {
+          // La selección es de esta página: las que siguen en la cartera.
+          const chosen = page.items.filter(
+            (row) =>
+              row.property !== undefined &&
+              (selection.kind === 'filter' || selection.ids.includes(row.id)),
+          );
+          const tooMany = chosen.length > MAX_SHARED_PROPERTY_COUNT;
+          return (
+            <Button
+              size="sm"
+              disabled={chosen.length === 0 || tooMany}
+              title={
+                tooMany
+                  ? `Se pueden enviar hasta ${MAX_SHARED_PROPERTY_COUNT} propiedades por vez.`
+                  : undefined
+              }
+              onClick={() => {
+                setSending({
+                  propertyIds: chosen.map((row) => row.propertyId),
+                  subject:
+                    chosen.length === 1
+                      ? (chosen[0]?.property?.code ?? 'la propiedad')
+                      : `${chosen.length.toLocaleString('es-AR')} propiedades`,
+                  channel: 'email',
+                });
+                clearSelection();
+              }}
+            >
+              <SendIcon />
+              Enviar
+            </Button>
+          );
+        }}
       />
+      {sending !== undefined && (
+        <SendListingsDialog
+          key={`${sending.channel}-${sending.propertyIds.join()}`}
+          clientId={clientId}
+          propertyIds={sending.propertyIds}
+          subject={sending.subject}
+          channel={sending.channel}
+          recipients={recipients}
+          open
+          onOpenChange={(open) => {
+            if (!open) setSending(undefined);
+          }}
+          onSent={() => {
+            router.refresh();
+          }}
+        />
+      )}
       <ConfirmActionDialog
         copy={pending?.copy}
         run={pending?.run ?? (() => Promise.resolve({ ok: true }))}

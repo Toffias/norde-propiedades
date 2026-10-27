@@ -17,8 +17,8 @@ import { findOpportunity, moveOpportunity } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 
 /**
- * El evento que llegó, ya leído: reasignada, volvió a consultar, le destacaron propiedades o
- * recién creada.
+ * El evento que llegó, ya leído: reasignada, volvió a consultar, le destacaron propiedades,
+ * recién creada, le mandaron propiedades o reaccionó a una.
  */
 export interface OpportunityRuleEvent {
   /** El ID del evento: un cambio por evento, aunque la cola lo entregue dos veces. */
@@ -28,7 +28,9 @@ export interface OpportunityRuleEvent {
     | { readonly kind: 'assigned'; readonly toAgentId: string | undefined }
     | { readonly kind: 'request_added' }
     | { readonly kind: 'listings_featured' }
-    | { readonly kind: 'created' };
+    | { readonly kind: 'created' }
+    | { readonly kind: 'listings_sent' }
+    | { readonly kind: 'listing_reacted'; readonly reaction: 'liked' | 'disliked' };
 }
 
 /** Qué hizo la regla. No aplicar una no es un error: la mayoría de los eventos no disparan ninguna. */
@@ -41,9 +43,9 @@ export type OpportunityRuleOutcome =
 
 /**
  * Las reglas automáticas de estado de Mi empresa: "al asignar" (pasa a un agente), "al reactivar"
- * (una derivada a socia vuelve a consultar o le destacan una propiedad) y "para propietarios" (nace la de un contacto
- * propietario). Mueven la oportunidad al estado configurado si el dominio lo permite; si no, no
- * hacen nada. Son idempotentes por evento, y quedan en el historial, la actividad y la auditoría
+ * (una derivada a socia vuelve a consultar o le destacan una propiedad), "para propietarios" (nace
+ * la de un contacto propietario) y las de envíos ("tras enviar", "me gusta", "no me gusta").
+ * Mueven la oportunidad al estado configurado si el dominio lo permite; si no, no hacen nada. Son idempotentes por evento, y quedan en el historial, la actividad y la auditoría
  * como cambios del sistema.
  */
 export class ApplyOpportunityRules {

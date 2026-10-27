@@ -25,6 +25,9 @@ export const OPPORTUNITY_RULE_VALUES = [
   'onAssign',
   'onReactivate',
   'forOwners',
+  'afterMessage',
+  'afterLike',
+  'afterDislike',
 ] as const;
 export type OpportunityRuleValue = (typeof OPPORTUNITY_RULE_VALUES)[number];
 
@@ -46,6 +49,18 @@ export const OPPORTUNITY_RULE_LABELS: Readonly<
   forOwners: {
     label: 'Para propietarios',
     hint: 'Oportunidades nuevas de contactos que son propietarios.',
+  },
+  afterMessage: {
+    label: 'Tras enviar email o WhatsApp',
+    hint: 'Cuando le mandás propiedades al contacto desde sus destacadas.',
+  },
+  afterLike: {
+    label: 'Tras "me gusta"',
+    hint: 'Cuando el contacto marca que le gusta una propiedad que le enviaste.',
+  },
+  afterDislike: {
+    label: 'Tras "no me gusta"',
+    hint: 'Cuando el contacto marca que no le gusta una propiedad que le enviaste.',
   },
 };
 
@@ -104,6 +119,9 @@ export const UpdateOpportunitySettingsInputSchema = z.object({
   onAssign: z.uuid().nullable(),
   onReactivate: z.uuid().nullable(),
   forOwners: z.uuid().nullable(),
+  afterMessage: z.uuid().nullable(),
+  afterLike: z.uuid().nullable(),
+  afterDislike: z.uuid().nullable(),
 });
 export type UpdateOpportunitySettingsInput = z.input<typeof UpdateOpportunitySettingsInputSchema>;
 

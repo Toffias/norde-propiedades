@@ -106,6 +106,11 @@ const RulePayloadSchema = z.object({
   // Solo en las reasignaciones; sin agente, la dejó sin nadie a cargo.
   toAgentId: z.string().nullish(),
 });
+/** Un envío de propiedades o una reacción (#104): sin oportunidad abierta, no hay regla. */
+const SendPayloadSchema = z.object({
+  opportunityId: z.string().nullish(),
+  reaction: z.enum(['liked', 'disliked']).optional(),
+});
 const BulkPayloadSchema = z.object({ operationId: z.uuid() });
 const InquiryPayloadSchema = z.object({ inquiryId: z.uuid() });
 const AppraisalPhotoDeletedPayloadSchema = z.object({
@@ -193,11 +198,33 @@ function opportunitySubscriptions(
       if (result.isErr()) skipped(event, result.error);
     },
   });
+  const sendRule = (
+    eventType: 'clients.listings_sent' | 'clients.listing_reacted',
+  ): EventSubscription => ({
+    eventType,
+    name: 'apply-rules',
+    handle: async (event) => {
+      const { opportunityId, reaction } = SendPayloadSchema.parse(event.payload);
+      if (opportunityId === undefined || opportunityId === null) return;
+      if (eventType === 'clients.listing_reacted' && reaction === undefined) {
+        throw new Error(`Reaction missing in event ${event.id}`);
+      }
+      const trigger: OpportunityRuleEvent['trigger'] =
+        reaction === undefined ? { kind: 'listings_sent' } : { kind: 'listing_reacted', reaction };
+      const result = await jobs.applyRules.execute(
+        { eventId: event.id, opportunityId, trigger },
+        actor,
+      );
+      if (result.isErr()) skipped(event, result.error);
+    },
+  });
   return [
     rule('clients.opportunity_reassigned'),
     rule('clients.opportunity_request_added'),
     rule('clients.opportunity_listings_featured'),
     rule('clients.opportunity_created'),
+    sendRule('clients.listings_sent'),
+    sendRule('clients.listing_reacted'),
     {
       eventType: 'clients.opportunity_bulk_requested',
       name: 'run-bulk',

@@ -8,10 +8,18 @@ import {
 import { isOpenStatus, type OpportunityStatus } from './opportunity-status';
 
 /**
- * Reglas automáticas de estado que se configuran en Mi empresa. Las de envíos y reacciones
- * ("tras enviar email o WhatsApp", "me gusta / no me gusta") llegan con #11.
+ * Reglas automáticas de estado que se configuran en Mi empresa, incluidas las de envíos y
+ * reacciones ("tras enviar email o WhatsApp", "me gusta / no me gusta", #104).
  */
-export const OPPORTUNITY_RULES = ['onCreate', 'onAssign', 'onReactivate', 'forOwners'] as const;
+export const OPPORTUNITY_RULES = [
+  'onCreate',
+  'onAssign',
+  'onReactivate',
+  'forOwners',
+  'afterMessage',
+  'afterLike',
+  'afterDislike',
+] as const;
 export type OpportunityRule = (typeof OPPORTUNITY_RULES)[number];
 
 /** El estado que aplica cada regla. Sin estado, la regla no hace nada. */
@@ -22,6 +30,9 @@ export const NO_RULES: OpportunityRules = {
   onAssign: undefined,
   onReactivate: undefined,
   forOwners: undefined,
+  afterMessage: undefined,
+  afterLike: undefined,
+  afterDislike: undefined,
 };
 
 export interface InvalidRuleStageError {
@@ -76,12 +87,15 @@ export type OpportunityRuleTrigger =
   | { readonly kind: 'assigned'; readonly toAgentId: string | undefined }
   | { readonly kind: 'request_added' }
   | { readonly kind: 'listings_featured' }
-  | { readonly kind: 'created'; readonly ownerClient: boolean };
+  | { readonly kind: 'created'; readonly ownerClient: boolean }
+  | { readonly kind: 'listings_sent' }
+  | { readonly kind: 'listing_reacted'; readonly reaction: 'liked' | 'disliked' };
 
 /**
  * Qué regla aplica: "al asignar" cuando pasa a un agente (no al quedar sin agente), "al reactivar"
- * cuando una derivada a socia vuelve a consultar o se le destaca una propiedad, y "para propietarios" cuando nace la de un
- * contacto propietario. Una cerrada no cambia.
+ * cuando una derivada a socia vuelve a consultar o se le destaca una propiedad, "para
+ * propietarios" cuando nace la de un contacto propietario, y las de envíos cuando se le mandan
+ * propiedades o reacciona a una. Una cerrada no cambia.
  */
 export function automaticRuleFor(
   trigger: OpportunityRuleTrigger,
@@ -96,5 +110,9 @@ export function automaticRuleFor(
       return status === 'referred_to_partner' ? 'onReactivate' : undefined;
     case 'created':
       return trigger.ownerClient ? 'forOwners' : undefined;
+    case 'listings_sent':
+      return 'afterMessage';
+    case 'listing_reacted':
+      return trigger.reaction === 'liked' ? 'afterLike' : 'afterDislike';
   }
 }

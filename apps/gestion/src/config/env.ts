@@ -69,6 +69,11 @@ const EnvSchema = z.object({
    * refresca sola cada hora.
    */
   WEB_REVALIDATE_URL: z.url({ protocol: /^https?$/ }).optional(),
+  /**
+   * URL del sitio público, sin barra final (`https://norde.com.ar`): los links de los envíos de
+   * propiedades (#104) apuntan a `<sitio>/e/<token>`. Sin ella, no se puede enviar.
+   */
+  PUBLIC_SITE_URL: z.url({ protocol: /^https?$/ }).optional(),
   WEB_REVALIDATE_SECRET: z.string().min(32).optional(),
   /** Reglas de asignación de consultas (#48): en pausa hasta que Norde las use. */
   INQUIRY_RULES_ENABLED: z.stringbool().default(false),

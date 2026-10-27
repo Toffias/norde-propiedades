@@ -712,6 +712,10 @@ export const sharedListings = coreSchema.table(
     clientId: uuid('client_id')
       .notNull()
       .references(() => clients.id, { onDelete: 'cascade' }),
+    /** La oportunidad abierta del cliente al enviarlo: la que mueven las reglas (#104). */
+    opportunityId: uuid('opportunity_id').references(() => opportunities.id, {
+      onDelete: 'set null',
+    }),
     /** `email` / `whatsapp`. */
     channel: text('channel').notNull(),
     sentBy: text('sent_by').notNull(),

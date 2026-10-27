@@ -107,6 +107,10 @@ import {
   ListClientOpportunities,
   ListClientSavedSearches,
   UnfeatureProperty,
+  ListClientSends,
+  RevokeSharedListing,
+  SendListings,
+  type PublicListings,
   MergeClientTags,
   PreviewClientMerge,
   ListPropertyInterestedClients,
@@ -196,6 +200,7 @@ import {
   CompareProperties,
   FindDevelopmentsByCode,
   FindPropertiesByCode,
+  GetPropertyDetail,
   GetPropertySummaries,
   ListOwnedProperties,
   CreateCustomAttribute,
@@ -412,6 +417,10 @@ import {
   DrizzleInquiryRuleQuery,
   DrizzleClientRelationQuery,
   DrizzleClientRecordQuery,
+  DrizzleClientSendsQuery,
+  DrizzlePropertySearchQuery,
+  HtmlSharedListingEmails,
+  RandomSharedListingTokens,
   DrizzleClientTagQuery,
   DrizzleCompanyFileRepository,
   DrizzleCompanyFilesQuery,
@@ -1398,8 +1407,29 @@ function createAppraisalsUseCases(
   };
 }
 
+/**
+ * Lo que el sitio público muestra (#104): un envío solo lleva propiedades que el cliente puede
+ * abrir. Se pregunta como la web, con su actor.
+ */
+function publicListings(db: Database): PublicListings {
+  const detail = new GetPropertyDetail({ properties: new DrizzlePropertySearchQuery(db) });
+  const web = Actor.system('web', ['properties:read']);
+  return {
+    async unlisted(propertyIds) {
+      const results = await Promise.all(
+        propertyIds.map(async (propertyId) => ({
+          propertyId,
+          listed: (await detail.execute({ propertyId }, web)).isOk(),
+        })),
+      );
+      return results.filter((r) => !r.listed).map((r) => r.propertyId);
+    },
+  };
+}
+
 function createClientsUseCases(
   db: Database,
+  env: Env,
   properties: PropertiesUseCases,
   deps: { readonly ids: IdGenerator; readonly clock: Clock; readonly storage: FileStorage },
 ) {
@@ -1471,6 +1501,32 @@ function createClientsUseCases(
     }),
     unfeatureProperty: new UnfeatureProperty({ uow, clock }),
     setFeaturedAutoSend: new SetFeaturedAutoSend({ uow, clock }),
+    // Envíos por email o WhatsApp y su página pública (#104)
+    sendListings: new SendListings({
+      uow,
+      listings,
+      publicListings: publicListings(db),
+      tokens: new RandomSharedListingTokens(),
+      emails: new HtmlSharedListingEmails(),
+      mailer: new ResendMailer({
+        apiKey: env.RESEND_API_KEY,
+        fromAddress: env.MAIL_FROM_ADDRESS,
+        logger: getLogger(),
+      }),
+      settings: new DrizzleCompanySettingsRepository(db, clock),
+      agents,
+      siteUrl: env.PUBLIC_SITE_URL,
+      ids,
+      clock,
+    }),
+    revokeSharedListing: new RevokeSharedListing({ uow, clock }),
+    listClientSends: new ListClientSends({
+      uow,
+      sends: new DrizzleClientSendsQuery(db),
+      listings,
+      agents,
+      clock,
+    }),
     // Búsquedas guardadas (#11)
     getSavedSearch: new GetSavedSearch({ uow, locations: savedSearchLocations(properties) }),
     createSavedSearch: new CreateSavedSearch({ uow, ids, clock }),
@@ -1593,7 +1649,11 @@ function createContainer(): Container {
   const properties = createPropertiesUseCases(database.db, env, settings, { ids, clock });
   const withAgenda = withClients(
     createDetailReadModels(database.db, properties, { clock }),
-    createClientsUseCases(database.db, properties, { ids, clock, storage: createStorage(env) }),
+    createClientsUseCases(database.db, env, properties, {
+      ids,
+      clock,
+      storage: createStorage(env),
+    }),
   );
   const listUsers = new ListUsers({ users: new DrizzleUserListQuery(database.db) });
 

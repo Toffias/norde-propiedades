@@ -33,6 +33,7 @@ import {
   type PullPortalLeads,
   type ReconcileListing,
   type ReconcileListings,
+  type RequestAllListingsSync,
   type RequestListingSync,
   type SyncListing,
 } from '@norde/core/portals';
@@ -442,6 +443,8 @@ function publicSiteSubscriptions(
  */
 export interface PortalJobs {
   readonly requestSync: Pick<RequestListingSync, 'execute'>;
+  /** Pide sincronizar todo lo publicado: cambió algo que entra en todos los avisos. */
+  readonly requestAll: Pick<RequestAllListingsSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
   readonly pullLeads: Pick<PullPortalLeads, 'execute'>;
   readonly reconcile: Pick<ReconcileListings, 'execute'>;
@@ -462,6 +465,12 @@ const UnitPayloadSchema = z.object({
 });
 const DevelopmentPayloadSchema = z.object({ developmentId: z.uuid() });
 const LeadsPayloadSchema = z.object({ portal: z.enum(PORTALS) });
+const SettingsSectionPayloadSchema = z.object({ section: z.string() });
+/**
+ * Las secciones de Mi empresa que entran en los avisos: la URL de la ficha en la web (general) y el
+ * pie de la descripción (portales).
+ */
+const LISTED_SETTINGS_SECTIONS: readonly string[] = ['general', 'portals'];
 
 /** Los portales que traen consultas a la bandeja (hoy, Zonaprop). */
 const LEAD_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].leadChannel !== undefined);
@@ -513,6 +522,12 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
       logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
     }
   };
+  const requestAll = async (event: DeliveredEvent) => {
+    const result = await jobs.requestAll.execute({}, jobs.actor);
+    if (result.isErr()) {
+      logger.error({ eventId: event.id, error: result.error }, 'Portal sync request skipped');
+    }
+  };
   const media = (
     eventType: 'properties.media_changed' | 'properties.media_deleted',
   ): EventSubscription => ({
@@ -549,6 +564,22 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     },
     media('properties.media_changed'),
     media('properties.media_deleted'),
+    {
+      // El contacto de la sucursal va en los avisos.
+      eventType: 'identity.branch_updated',
+      name: 'sync-portal-listings',
+      handle: async (event) => {
+        await requestAll(event);
+      },
+    },
+    {
+      eventType: 'settings.company_settings_changed',
+      name: 'sync-portal-listings',
+      handle: async (event) => {
+        const { section } = SettingsSectionPayloadSchema.parse(event.payload);
+        if (LISTED_SETTINGS_SECTIONS.includes(section)) await requestAll(event);
+      },
+    },
     {
       eventType: 'portals.listing_sync_requested',
       name: 'sync-listing',

@@ -382,6 +382,7 @@ import {
   ListRemoteListings,
   PauseListing,
   RequestDevelopmentPublication,
+  RequestAllListingsSync,
   RequestListingSync,
   RequestPublication,
   ResumeListing,
@@ -1951,6 +1952,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   });
   const portalJobs = portals && {
     requestSync: new RequestListingSync({ uow: portals.uow, clock }),
+    requestAll: new RequestAllListingsSync({ uow: portals.uow, clock }),
     sync: new SyncListing({ ...portals, clock }),
     pullLeads: new PullPortalLeads({
       uow: portals.uow,

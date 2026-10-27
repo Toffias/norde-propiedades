@@ -723,6 +723,12 @@ describe('portal subscriptions', () => {
             return Promise.resolve(ok({ requested: 1 }));
           },
         },
+        requestAll: {
+          execute: (input, by) => {
+            calls.push(['request-all', input, by.id]);
+            return Promise.resolve(ok({ requested: 3 }));
+          },
+        },
         sync: {
           execute: (input, by) => {
             calls.push(['sync', input, by.id]);
@@ -868,6 +874,28 @@ describe('portal subscriptions', () => {
     expect(calls).toEqual([['pull-leads', { portal: 'zonaprop' }, 'system:portal-sync']]);
   });
 
+  it('syncs every listing when the branch contact or the listed settings change', async () => {
+    const { find, calls } = portalSetup();
+    await find('identity.branch_updated.sync-portal-listings').handle({
+      ...event,
+      type: 'identity.branch_updated',
+      payload: { branchId: LISTING_ID },
+    });
+    const settings = find('settings.company_settings_changed.sync-portal-listings');
+    for (const section of ['portals', 'general', 'pdf']) {
+      await settings.handle({
+        ...event,
+        type: 'settings.company_settings_changed',
+        payload: { section },
+      });
+    }
+    expect(calls).toEqual([
+      ['request-all', {}, 'system:portal-sync'],
+      ['request-all', {}, 'system:portal-sync'],
+      ['request-all', {}, 'system:portal-sync'],
+    ]);
+  });
+
   it('gathers a burst of portal notices into one read per minute', () => {
     const { find } = portalSetup();
     expect(find('portals.leads_arrived.pull-portal-leads').throttleSeconds).toBe(60);
@@ -881,6 +909,7 @@ describe('reconcilePortalListings', () => {
     await reconcilePortalListings(
       {
         requestSync: { execute: unused },
+        requestAll: { execute: unused },
         sync: { execute: unused },
         pullLeads: { execute: unused },
         reconcileOne: { execute: unused },

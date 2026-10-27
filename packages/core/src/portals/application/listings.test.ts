@@ -14,6 +14,7 @@ import {
 } from '../testing';
 import { ChangeListingType } from './commands/change-listing-type';
 import { PauseListing } from './commands/pause-listing';
+import { RequestAllListingsSync } from './commands/request-all-listings-sync';
 import { RequestListingSync } from './commands/request-listing-sync';
 import { RequestPublication } from './commands/request-publication';
 import { ResumeListing } from './commands/resume-listing';
@@ -64,6 +65,7 @@ function setup() {
     }),
     sync: new SyncListing(deps),
     syncProperty: new RequestListingSync({ uow, clock }),
+    syncAll: new RequestAllListingsSync({ uow, clock }),
     pause: new PauseListing({ uow, clock }),
     resume: new ResumeListing({ uow, clock }),
     unpublish: new UnpublishListing({ uow, clock }),
@@ -575,6 +577,32 @@ describe('team actions on a listing', () => {
     ]) {
       expect(unwrapErr(result)).toEqual({ type: 'Forbidden' });
     }
+  });
+});
+
+describe('RequestAllListingsSync', () => {
+  it('skips the listings already closed in the portal', async () => {
+    const { syncAll, sync, unpublish, uow, listingId } = await published();
+    unwrap(await unpublish.execute({ listingId }, AGENT));
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+    const before = uow.events.published.length;
+
+    expect(unwrap(await syncAll.execute({}, PORTAL_SYNC))).toEqual({ requested: 0 });
+    expect(uow.events.published).toHaveLength(before);
+  });
+
+  it('requests a sync for a published listing', async () => {
+    const { syncAll, uow, listingId } = await published();
+    const before = uow.events.published.length;
+    expect(unwrap(await syncAll.execute({}, PORTAL_SYNC))).toEqual({ requested: 1 });
+    expect(uow.events.published.slice(before).map((e) => [e.type, e.aggregateId])).toEqual([
+      ['portals.listing_sync_requested', listingId],
+    ]);
+  });
+
+  it('requires portals:sync', async () => {
+    const { syncAll } = setup();
+    expect(unwrapErr(await syncAll.execute({}, AGENT))).toEqual({ type: 'Forbidden' });
   });
 });
 

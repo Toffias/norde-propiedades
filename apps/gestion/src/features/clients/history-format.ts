@@ -36,6 +36,10 @@ export const CLIENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'client.merged': 'unificó otro contacto en este',
   'client.merged_into': 'unificó este contacto en otro',
   'client.follow_up_matched': 'encontró una propiedad para sus seguimientos automáticos',
+  'client.follow_ups_sent': 'le mandó el resumen de sus seguimientos automáticos',
+  'client.follow_ups_discarded': 'descartó coincidencias que ya no correspondía mandarle',
+  'client.follow_ups_unsubscribed':
+    'registró que se dio de baja de los seguimientos automáticos desde el email',
 };
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
@@ -80,6 +84,10 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   reason: 'Motivo',
   featuredListingId: 'Destacada',
   price: 'Precio',
+  sharedListingId: 'Envío',
+  followUpMatchIds: 'Coincidencias',
+  savedSearchIds: 'Búsquedas',
+  featuredListingIds: 'Destacadas',
   'moved.opportunities': 'Oportunidades que pasaron',
   'moved.activities': 'Actividades que pasaron',
   'moved.savedSearches': 'Búsquedas que pasaron',
@@ -212,6 +220,14 @@ export function formatClientHistoryValue(field: string, value: HistoryValue): st
       return isList(value) ? count(value.length, 'ubicación', 'ubicaciones') : EMPTY_VALUE;
     case 'followUpMatchId':
       return 'una coincidencia';
+    case 'followUpMatchIds':
+      return isList(value) ? count(value.length, 'coincidencia', 'coincidencias') : EMPTY_VALUE;
+    case 'sharedListingId':
+      return 'un envío';
+    case 'savedSearchIds':
+      return isList(value) ? count(value.length, 'búsqueda', 'búsquedas') : EMPTY_VALUE;
+    case 'featuredListingIds':
+      return isList(value) ? count(value.length, 'destacada', 'destacadas') : EMPTY_VALUE;
     case 'featuredListingId':
       return 'una destacada';
     case 'reason':

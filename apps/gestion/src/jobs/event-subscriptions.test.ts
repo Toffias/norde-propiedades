@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 import {
   eventSubscriptions,
   reconcilePortalListings,
+  sendFollowUpDigests,
   type AppraisalJobs,
   type ErasureJobs,
   type MergeJobs,
@@ -1054,6 +1055,44 @@ describe('reconcilePortalListings', () => {
       ['mercadolibre', 'system:portal-sync'],
       ['mercadolibre_developments', 'system:portal-sync'],
       ['zonaprop', 'system:portal-sync'],
+    ]);
+  });
+});
+
+describe('sendFollowUpDigests', () => {
+  it('runs the digest as the scheduler and goes on after logging the failures', async () => {
+    const calls: unknown[] = [];
+    const logged: unknown[] = [];
+    const logger = pino(
+      { level: 'info' },
+      {
+        write: (line: string) => {
+          const entry: unknown = JSON.parse(line);
+          logged.push(entry);
+        },
+      },
+    );
+    await sendFollowUpDigests(
+      {
+        execute: (by) => {
+          calls.push(by.id);
+          return Promise.resolve(
+            ok({
+              sent: 2,
+              discarded: 1,
+              failures: [{ clientId: 'client-1', error: { type: 'MailUnavailable' as const } }],
+            }),
+          );
+        },
+      },
+      actor,
+      logger,
+    );
+
+    expect(calls).toEqual(['system:scheduler']);
+    expect(logged).toMatchObject([
+      { msg: 'Follow-up digests sent', sent: 2, discarded: 1, failed: 1 },
+      { msg: 'Follow-up digest failed', clientId: 'client-1', error: { type: 'MailUnavailable' } },
     ]);
   });
 });

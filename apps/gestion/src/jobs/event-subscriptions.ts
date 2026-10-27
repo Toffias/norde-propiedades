@@ -12,6 +12,7 @@ import type {
   RouteInquiry,
   RunClientImport,
   RunOpportunityBulkOperation,
+  SendFollowUpDigests,
 } from '@norde/core/clients';
 import type {
   EraseClientConversations,
@@ -594,6 +595,27 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
     }
   }
   return allAnswered;
+}
+
+/**
+ * El resumen diario de los seguimientos automáticos (#106). Un contacto al que no le salió el email
+ * se loguea con su ID (sin sus datos) y se reintenta al día siguiente.
+ */
+export async function sendFollowUpDigests(
+  digests: Pick<SendFollowUpDigests, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): Promise<void> {
+  const result = await digests.execute(actor);
+  if (result.isErr()) {
+    logger.error({ error: result.error }, 'Follow-up digests not sent');
+    return;
+  }
+  const { failures, ...counts } = result.value;
+  logger.info({ ...counts, failed: failures.length }, 'Follow-up digests sent');
+  for (const failure of failures) {
+    logger.error(failure, 'Follow-up digest failed');
+  }
 }
 
 const RECONCILED_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].reconciles);

@@ -168,6 +168,7 @@ import {
   UpdateInquiryRule,
   ApplyOpportunityRules,
   MatchFollowUps,
+  SendFollowUpDigests,
   NotifyTeamOfOpportunity,
   FindReceivedInquiries,
   ReceiveInquiry,
@@ -447,6 +448,7 @@ import {
   DrizzleReservationListQuery,
   DrizzlePropertyInterestQuery,
   DrizzleFollowUpCandidatesQuery,
+  DrizzlePendingFollowUpsQuery,
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
   DrizzleHomeDashboardQuery,
@@ -538,6 +540,7 @@ import {
   eventSubscriptions,
   pullPortalLeads,
   reconcilePortalListings,
+  sendFollowUpDigests,
 } from './jobs/event-subscriptions';
 
 export interface Container {
@@ -661,6 +664,7 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'opportunities:apply-rules',
   'opportunities:run-bulk',
   'clients:match-follow-ups',
+  'clients:send-follow-ups',
   'inquiries:route',
 ]);
 /**
@@ -2196,6 +2200,32 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   })) {
     bus.subscribe(subscription);
   }
+  // El resumen diario de los seguimientos automáticos (#106), a media mañana.
+  const followUpDigests = new SendFollowUpDigests({
+    uow: createClientsUnitOfWork(db, deps),
+    pending: new DrizzlePendingFollowUpsQuery(db),
+    listings: clientListings(properties),
+    publicListings: publicListings(db),
+    tokens: new RandomSharedListingTokens(),
+    emails: new HtmlSharedListingEmails(),
+    mailer: new ResendMailer({
+      apiKey: env.RESEND_API_KEY,
+      fromAddress: env.MAIL_FROM_ADDRESS,
+      logger,
+    }),
+    settings: new DrizzleCompanySettingsRepository(db, clock),
+    agents: { names: (userIds) => new DrizzleDirectory(db).names('user', userIds) },
+    siteUrl: env.PUBLIC_SITE_URL,
+    ids,
+    clock,
+  });
+  bus.schedule({
+    name: 'clients.send-follow-up-digests',
+    cron: '0 10 * * *',
+    run: async () => {
+      await sendFollowUpDigests(followUpDigests, SCHEDULER_ACTOR, logger);
+    },
+  });
   if (portalJobs) {
     // Los contactos de los avisos de los portales, aunque el portal no avise (o el aviso se pierda).
     bus.schedule({

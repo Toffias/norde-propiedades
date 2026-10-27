@@ -27,6 +27,12 @@ const STATUS_TONES: Readonly<Record<SharedListingStatusValue, 'green' | 'gray' |
 };
 
 /** Las propiedades del envío, con lo que le pareció cada una. */
+/** Quién lo mandó: el resumen diario de los seguimientos lo manda el sistema. */
+function senderName(sentBy: ClientSendRow['sentBy']): string {
+  if (sentBy.id.startsWith('system:')) return 'Seguimiento automático';
+  return sentBy.name ?? 'Usuario inactivo';
+}
+
 function SentProperties({ row }: { readonly row: ClientSendRow }) {
   return (
     <ul className="flex flex-wrap gap-x-3 gap-y-1">
@@ -78,7 +84,7 @@ export function ClientSendsGrid({
         <div className="flex flex-col">
           <span className="tabular-nums">{formatDateTime(row.sentAt)}</span>
           <span className="text-xs text-muted-foreground">
-            {SHARED_LISTING_CHANNEL_LABELS[row.channel]} · {row.sentBy.name ?? 'Usuario inactivo'}
+            {SHARED_LISTING_CHANNEL_LABELS[row.channel]} · {senderName(row.sentBy)}
           </span>
         </div>
       ),

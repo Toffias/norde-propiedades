@@ -13,10 +13,19 @@ export type PropertyStatusChanged = DomainEvent<
   'properties.property_status_changed',
   PropertyPayload & { readonly from: string; readonly to: string }
 >;
-/** Lo va a escuchar el cruce con las búsquedas guardadas de los clientes (#11). */
+/**
+ * Lo escucha el cruce con los seguimientos automáticos de los clientes (#106) para avisar las
+ * bajas. Los precios van en centavos como texto (el payload es JSON); sin precio anterior (cambió la
+ * moneda) o sin precio nuevo, no vienen. Los eventos anteriores a #106 no los traen.
+ */
 export type PropertyPriceChanged = DomainEvent<
   'properties.property_price_changed',
-  PropertyPayload & { readonly operation: string; readonly currency: string }
+  PropertyPayload & {
+    readonly operation: string;
+    readonly currency: string;
+    readonly oldPriceCents?: string;
+    readonly newPriceCents?: string;
+  }
 >;
 
 /**

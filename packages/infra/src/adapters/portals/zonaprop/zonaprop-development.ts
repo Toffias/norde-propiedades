@@ -45,7 +45,7 @@ export const DEVELOPMENT_STAGES: Readonly<Record<ListingConstructionStage, strin
 const DEVELOPMENT_TITLE_MIN = 10;
 const DEVELOPMENT_TITLE_MAX = 100;
 
-const UNIT_CODE = /^U([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12})$/;
+const UNIT_CODE = /^U([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12})$/i;
 
 /**
  * El código de una unidad en Zonaprop: único en todo el sistema y distinto del de los avisos (que
@@ -55,10 +55,13 @@ export function unitCode(propertyId: string): string {
   return `U${propertyId.replaceAll('-', '')}`;
 }
 
-/** La propiedad de un código de unidad de Norde, o `undefined` si no es uno. */
+/**
+ * La propiedad de un código de unidad de Norde, o `undefined` si no es uno. Sin distinguir
+ * mayúsculas: el portal puede devolver el código normalizado.
+ */
 export function unitPropertyId(code: string): string | undefined {
   const parts = UNIT_CODE.exec(code);
-  return parts ? parts.slice(1).join('-') : undefined;
+  return parts ? parts.slice(1).join('-').toLowerCase() : undefined;
 }
 
 /** `fechaEntrega`: `MM-AAAA`. */

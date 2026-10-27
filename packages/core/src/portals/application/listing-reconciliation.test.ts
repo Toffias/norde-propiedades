@@ -153,20 +153,16 @@ describe('ReconcileListings', () => {
     expect(reader.reads).toEqual([]);
   });
 
-  it('does nothing without a connected account or on a portal that is not reconciled', async () => {
+  it('does nothing without a connected account', async () => {
     const { uow, reader, reconcile } = setup();
     uow.accounts.rows.clear();
     seedPublished(uow, 1);
-    connect(uow, 'zonaprop');
-    seedPublished(uow, 2, 'zonaprop');
 
-    for (const portal of ['mercadolibre', 'zonaprop'] as const) {
-      expect(unwrap(await reconcile.execute({ portal }, PORTAL_SYNC))).toEqual({
-        checked: 0,
-        changed: 0,
-        retried: 0,
-      });
-    }
+    expect(unwrap(await reconcile.execute({ portal: 'mercadolibre' }, PORTAL_SYNC))).toEqual({
+      checked: 0,
+      changed: 0,
+      retried: 0,
+    });
     expect(reader.reads).toEqual([]);
   });
 
@@ -193,6 +189,29 @@ describe('ReconcileListings', () => {
       ['portals.listing_sync_requested', unavailable],
     ]);
     expect(reader.reads).toEqual([['MLA1', 'MLA2']]);
+  });
+
+  it('pauses a Zonaprop listing the portal put offline and keeps its permalink', async () => {
+    const { uow, reader, reconcile } = setup();
+    connect(uow, 'zonaprop');
+    const id = seedPublished(uow, 2, 'zonaprop');
+    const permalink = 'https://www.zonaprop.com.ar/propiedades/clasificado/-50044229.html';
+    reader.remote.set('MLA2', {
+      state: 'paused',
+      reason: 'Zonaprop tiene el aviso offline.',
+      permalink,
+    });
+
+    expect(unwrap(await reconcile.execute({ portal: 'zonaprop' }, PORTAL_SYNC))).toEqual({
+      checked: 1,
+      changed: 1,
+      retried: 0,
+    });
+    expect(uow.listings.rows.get(id)).toMatchObject({
+      status: 'paused',
+      lastError: 'Zonaprop tiene el aviso offline.',
+      permalink,
+    });
   });
 
   it('fails when the portal does not answer, without touching the listings', async () => {

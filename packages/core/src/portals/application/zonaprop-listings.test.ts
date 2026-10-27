@@ -60,7 +60,7 @@ function setup() {
     request: new RequestPublication({ ...deps, directory, ids: new SequentialIdGenerator() }),
     sync: new SyncListing(deps),
     pause: new PauseListing({ uow, clock }),
-    resume: new ResumeListing({ uow, clock }),
+    resume: new ResumeListing({ uow, directory, clock }),
     changePlan: new ChangeListingPlan({ uow, directory, clock }),
     list: new GetPropertyListings({ uow }),
   };
@@ -242,8 +242,36 @@ describe('SyncListing on Zonaprop', () => {
     ]);
   });
 
-  it('fails when no operation has a price anymore', async () => {
-    const { sync, reader, uow, listingId } = await published();
+  it('checks the credits before putting a paused listing online again', async () => {
+    const { pause, resume, sync, directory, uow, listingId } = await published();
+    unwrap(await pause.execute({ listingId }, AGENT));
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+    directory.availableCredits = [
+      { plan: 'SIMPLE', available: 0, contracted: 50, publishes: 'property' },
+    ];
+
+    expect(unwrapErr(await resume.execute({ listingId }, AGENT))).toEqual({
+      type: 'NoCreditsLeft',
+      plan: 'SIMPLE',
+    });
+    expect(uow.listings.rows.get(listingId)?.intent).toBe('paused');
+
+    directory.availableCredits = [
+      { plan: 'SIMPLE', available: 1, contracted: 50, publishes: 'property' },
+    ];
+    unwrap(await resume.execute({ listingId }, AGENT));
+    expect(uow.listings.rows.get(listingId)?.intent).toBe('active');
+  });
+
+  it('does not read the credits to resume a listing that is not paused', async () => {
+    const { resume, directory, listingId } = await published();
+    directory.creditReads.length = 0;
+    unwrap(await resume.execute({ listingId }, AGENT));
+    expect(directory.creditReads).toEqual([]);
+  });
+
+  it('takes the listing offline when no operation has a price, and back when it has one', async () => {
+    const { sync, reader, uow, connector, listingId } = await published();
     reader.sources.set(
       LISTED_PROPERTY_ID,
       listingSource({
@@ -254,8 +282,44 @@ describe('SyncListing on Zonaprop', () => {
       }),
     );
 
+    // Pausado sin mandar el contenido, con el motivo a la vista.
     expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
-    expect(uow.listings.rows.get(listingId)?.lastError).toContain('ninguna operación tiene precio');
+    expect(uow.listings.rows.get(listingId)?.status).toBe('paused');
+    expect(uow.listings.rows.get(listingId)?.lastError).toContain('precio');
+
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource({ title: 'Otro título' }));
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+
+    expect(connector.calls.map((c) => [c.state, c.content !== undefined])).toEqual([
+      ['paused', false],
+      ['active', true],
+    ]);
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'published',
+      lastError: undefined,
+    });
+  });
+
+  it('pauses a reserved property even if its content lost what the portal requires', async () => {
+    const { sync, reader, uow, connector, listingId } = await published();
+    connector.problemsFound = ['La descripción tiene que tener al menos 50 caracteres.'];
+    reader.sources.set(
+      LISTED_PROPERTY_ID,
+      listingSource({
+        availability: 'paused',
+        description: 'Corta',
+        operations: [
+          { operation: 'sale', currency: 'USD', priceCents: undefined, priceOnRequest: true },
+        ],
+      }),
+    );
+
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+
+    expect(connector.calls.map((c) => [c.method, c.state, c.content !== undefined])).toEqual([
+      ['update', 'paused', false],
+    ]);
+    expect(uow.listings.rows.get(listingId)?.status).toBe('paused');
   });
 });
 

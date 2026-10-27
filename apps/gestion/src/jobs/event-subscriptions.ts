@@ -51,7 +51,7 @@ import {
   type RunPropertyImport,
   type RunTokkoApiPropertyImport,
 } from '@norde/core/properties';
-import type { Actor } from '@norde/core/shared';
+import type { Actor, Result } from '@norde/core/shared';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
@@ -446,6 +446,18 @@ export interface PortalJobs {
   /** Pide sincronizar todo lo publicado: cambió algo que entra en todos los avisos. */
   readonly requestAll: Pick<RequestAllListingsSync, 'execute'>;
   readonly sync: Pick<SyncListing, 'execute'>;
+  /**
+   * El emprendimiento de una unidad, para reenviar su aviso cuando cambian sus fotos
+   * (`GetPropertySummaries`).
+   */
+  readonly propertySummaries: {
+    execute(
+      input: { readonly ids: string[] },
+      actor: Actor,
+    ): Promise<
+      Result<readonly { readonly developmentId: string | undefined }[], { readonly type: string }>
+    >;
+  };
   readonly pullLeads: Pick<PullPortalLeads, 'execute'>;
   readonly reconcile: Pick<ReconcileListings, 'execute'>;
   /** La conciliación de un aviso que el portal avisó que cambió. */
@@ -488,8 +500,13 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
       if (result.error.type === 'PortalUnavailable') allAnswered = false;
       continue;
     }
-    if (result.value.received > 0 || result.value.rejected > 0) {
-      logger.info({ portal, ...result.value }, 'Portal leads pulled');
+    const { rejections, ...counts } = result.value;
+    if (counts.received > 0 || counts.rejected > 0) {
+      logger.info({ portal, ...counts }, 'Portal leads pulled');
+    }
+    // Un contacto que no entró: el ID del portal y el motivo, para buscarlo allá (sin sus datos).
+    for (const rejection of rejections) {
+      logger.warn({ portal, ...rejection }, 'Portal lead rejected by the inbox');
     }
   }
   return allAnswered;
@@ -535,12 +552,19 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
     name: 'sync-portal-listings',
     handle: async (event) => {
       const owner = MediaOwnerPayloadSchema.parse(event.payload);
-      await requestSync(
-        event,
-        owner.ownerKind === 'property'
-          ? { propertyId: owner.ownerId }
-          : { developmentId: owner.ownerId },
-      );
+      if (owner.ownerKind === 'development') {
+        await requestSync(event, { developmentId: owner.ownerId });
+        return;
+      }
+      await requestSync(event, { propertyId: owner.ownerId });
+      // Las fotos de una unidad van en el aviso de su emprendimiento (el evento no lo trae).
+      const summary = await jobs.propertySummaries.execute({ ids: [owner.ownerId] }, jobs.actor);
+      if (summary.isErr()) {
+        logger.error({ eventId: event.id, error: summary.error }, 'Unit development lookup failed');
+        return;
+      }
+      const developmentId = summary.value[0]?.developmentId;
+      if (developmentId !== undefined) await requestSync(event, { developmentId });
     },
   });
   return [

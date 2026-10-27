@@ -153,6 +153,7 @@ export class MercadoLibreLeads implements PortalLeadSource {
             message: message.value,
             listingCode: lead.item_id ?? buyer.item_id ?? undefined,
             unitPropertyId: unit.value,
+            listingReference: undefined,
           });
         }
       }

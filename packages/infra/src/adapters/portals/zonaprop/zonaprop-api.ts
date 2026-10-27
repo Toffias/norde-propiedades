@@ -63,6 +63,11 @@ async function jsonOrUndefined(response: Response): Promise<unknown> {
 }
 
 const TIMEOUT_MS = 15_000;
+/**
+ * Un emprendimiento va entero en un `PUT` (todas sus unidades con sus fotos): con cien unidades,
+ * Zonaprop tarda más que un aviso. Cortarlo lo marca como caído y lo vuelve a mandar entero.
+ */
+export const LARGE_PUT_TIMEOUT_MS = 120_000;
 const REASON_MAX_LENGTH = 200;
 
 /**
@@ -100,27 +105,28 @@ export class ZonapropApi {
 
   /** `GET` a la API. `undefined` si Zonaprop respondió sin contenido (204). */
   get<T>(path: string, schema: z.ZodType<T>): Promise<Result<T | undefined, ZonapropApiError>> {
-    return this.#request('GET', path, undefined, schema);
+    return this.#request('GET', path, undefined, schema, TIMEOUT_MS);
   }
 
-  /** `PUT` con un cuerpo JSON (crear o modificar un aviso). */
+  /** `PUT` con un cuerpo JSON (crear o modificar un aviso). `timeoutMs` para los cuerpos grandes. */
   put<T>(
     path: string,
     body: unknown,
     schema: z.ZodType<T>,
+    options: { readonly timeoutMs?: number } = {},
   ): Promise<Result<T | undefined, ZonapropApiError>> {
-    return this.#request('PUT', path, body, schema);
+    return this.#request('PUT', path, body, schema, options.timeoutMs ?? TIMEOUT_MS);
   }
 
   /** `PUT` de configuración: alcanza con que Zonaprop lo acepte, sin leer la respuesta. */
   async send(path: string, body: unknown): Promise<Result<void, ZonapropApiError>> {
-    const result = await this.#request('PUT', path, body, null);
+    const result = await this.#request('PUT', path, body, null, TIMEOUT_MS);
     return result.isErr() ? err(result.error) : ok(undefined);
   }
 
   /** `DELETE` (poner offline un aviso). */
   delete<T>(path: string, schema: z.ZodType<T>): Promise<Result<T | undefined, ZonapropApiError>> {
-    return this.#request('DELETE', path, undefined, schema);
+    return this.#request('DELETE', path, undefined, schema, TIMEOUT_MS);
   }
 
   async #request<T>(
@@ -128,11 +134,14 @@ export class ZonapropApi {
     path: string,
     body: unknown,
     schema: z.ZodType<T> | null,
+    timeoutMs: number,
   ): Promise<Result<T | undefined, ZonapropApiError>> {
-    const first = await this.#authorizedRequest(method, path, body, schema, false);
+    const first = await this.#authorizedRequest(method, path, body, schema, timeoutMs, false);
     if (first.isErr() && first.error.type === 'unauthorized') {
       this.#token = undefined;
-      return this.#unwrapRetry(await this.#authorizedRequest(method, path, body, schema, true));
+      return this.#unwrapRetry(
+        await this.#authorizedRequest(method, path, body, schema, timeoutMs, true),
+      );
     }
     return this.#unwrapRetry(first);
   }
@@ -150,6 +159,7 @@ export class ZonapropApi {
     body: unknown,
     /** `null`: no se lee el cuerpo de la respuesta. */
     schema: z.ZodType<T> | null,
+    timeoutMs: number,
     retried: boolean,
   ): Promise<Result<T | undefined, ZonapropApiError | { readonly type: 'unauthorized' }>> {
     const { config, logger } = this.options;
@@ -166,6 +176,7 @@ export class ZonapropApi {
           ? { Accept: 'application/json' }
           : { Accept: 'application/json', 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      timeoutMs,
     });
     if (response.isErr()) return err(response.error);
     const { status } = response.value;
@@ -249,13 +260,15 @@ export class ZonapropApi {
       readonly method?: string;
       readonly headers: Readonly<Record<string, string>>;
       readonly body?: string;
+      readonly timeoutMs?: number;
     },
   ): Promise<Result<Response, ZonapropApiError>> {
+    const { timeoutMs = TIMEOUT_MS, ...request } = init;
     try {
       const response = await this.#fetch(url, {
-        ...init,
-        headers: { ...init.headers, 'User-Agent': this.options.userAgent },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        ...request,
+        headers: { ...request.headers, 'User-Agent': this.options.userAgent },
+        signal: AbortSignal.timeout(timeoutMs),
       });
       return ok(response);
     } catch (error) {

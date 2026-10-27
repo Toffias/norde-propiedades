@@ -468,7 +468,13 @@ function ListingRow({
         )}
       </div>
 
-      {listing?.lastError && <FormAlert message={`Último error: ${listing.lastError}`} />}
+      {listing?.lastError && (
+        <FormAlert
+          message={
+            listing.status === 'error' ? `Último error: ${listing.lastError}` : listing.lastError
+          }
+        />
+      )}
       {listing?.lastSyncedAt && (
         <p className="text-xs text-muted-foreground">
           Última sincronización: {formatDateTime(listing.lastSyncedAt)}

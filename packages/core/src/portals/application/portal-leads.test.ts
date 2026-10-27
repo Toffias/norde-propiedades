@@ -9,6 +9,7 @@ import {
   FakePortalLeadNotifications,
   FakePortalLeadSink,
   FakePortalLeadSource,
+  FakePropertyCodeLookup,
   InMemoryPortalsUnitOfWork,
   LISTED_PROPERTY_ID,
   portalLead,
@@ -47,6 +48,8 @@ function zonapropAccount() {
   return account.toSnapshot();
 }
 
+const DAY = 24 * 60 * 60 * 1000;
+
 function setup() {
   const uow = new InMemoryPortalsUnitOfWork();
   uow.accounts.rows.set('zonaprop', zonapropAccount());
@@ -54,12 +57,15 @@ function setup() {
   const sink = new FakePortalLeadSink();
   const notifications = new FakePortalLeadNotifications();
   const clock = new FixedClock(NOW);
+  const properties = new FakePropertyCodeLookup();
   return {
     uow,
     source,
     sink,
+    clock,
+    properties,
     notifications,
-    pull: new PullPortalLeads({ uow, source, sink, clock }),
+    pull: new PullPortalLeads({ uow, source, sink, properties, clock }),
     notify: new NotifyPortalLeads({ uow, clock }),
     enable: new EnablePortalLeadNotifications({ uow, notifications, target: TARGET }),
   };
@@ -108,6 +114,7 @@ describe('PullPortalLeads', () => {
       duplicates: 0,
       skipped: 0,
       rejected: 0,
+      rejections: [],
     });
     expect(source.calls).toEqual([
       { since: new Date('2026-10-14T12:00:00.000Z'), offset: 0, limit: 100, asksReceived: true },
@@ -153,6 +160,24 @@ describe('PullPortalLeads', () => {
     expect(sink.received.map((r) => r.propertyId)).toEqual([LISTED_PROPERTY_ID, undefined]);
   });
 
+  it('links the inquiry of a listing Norde does not manage yet by its internal key', async () => {
+    const { pull, source, sink, properties } = setup();
+    source.leads = [
+      portalLead({ listingCode: 'TOKKO-1', listingReference: 'NHO1142594' }),
+      portalLead({ externalId: '2', listingCode: 'TOKKO-2', listingReference: 'NCO1 NHO1142594' }),
+      portalLead({ externalId: '3', listingCode: 'TOKKO-3', listingReference: 'OTRO' }),
+    ];
+
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+
+    expect(sink.received.map((r) => r.propertyId)).toEqual([
+      LISTED_PROPERTY_ID,
+      LISTED_PROPERTY_ID,
+      undefined,
+    ]);
+    expect(properties.calls).toEqual([['NHO1142594', 'NCO1 NHO1142594', 'OTRO']]);
+  });
+
   it('links the inquiry to the development of its listing, or to the unit it came from', async () => {
     const { pull, source, sink, uow } = setup();
     const id = parseId<'Listing'>('01920000-0000-7000-8000-00000000a002');
@@ -196,7 +221,32 @@ describe('PullPortalLeads', () => {
     sink.rejectWith = { type: 'PortalLeadRejected', reason: 'InvalidPhone' };
     expect(unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC))).toMatchObject({
       rejected: 1,
+      rejections: [{ externalId: '236161673', reason: 'InvalidPhone' }],
     });
+  });
+
+  it('reads from the last complete pull after an outage, up to two weeks back', async () => {
+    const { pull, source, uow, clock } = setup();
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+    expect(uow.accounts.rows.get('zonaprop')?.leadsPulledAt).toEqual(new Date(NOW));
+
+    clock.advance(5 * DAY);
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+    clock.advance(40 * DAY);
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+
+    expect(source.calls.map((c) => c.since)).toEqual([
+      new Date('2026-10-14T12:00:00.000Z'),
+      new Date(NOW),
+      new Date('2026-11-16T12:00:00.000Z'),
+    ]);
+  });
+
+  it('keeps the cursor when the portal fails', async () => {
+    const { pull, source, uow } = setup();
+    source.failWith = { type: 'PortalUnavailable' };
+    unwrapErr(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+    expect(uow.accounts.rows.get('zonaprop')?.leadsPulledAt).toBeUndefined();
   });
 
   it('reads every page', async () => {

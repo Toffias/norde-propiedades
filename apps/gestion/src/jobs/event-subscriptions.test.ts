@@ -709,6 +709,7 @@ describe('portal subscriptions', () => {
   function portalSetup(
     outcome: 'synced' | 'retry' = 'synced',
     reconciled: 'changed' | 'unavailable' = 'changed',
+    unitDevelopmentId?: string,
   ) {
     const calls: unknown[] = [];
     const subscriptions = eventSubscriptions({
@@ -729,6 +730,14 @@ describe('portal subscriptions', () => {
             return Promise.resolve(ok({ requested: 3 }));
           },
         },
+        propertySummaries: {
+          execute: (input) => {
+            calls.push(['summaries', input]);
+            return Promise.resolve(
+              ok(unitDevelopmentId === undefined ? [] : [{ developmentId: unitDevelopmentId }]),
+            );
+          },
+        },
         sync: {
           execute: (input, by) => {
             calls.push(['sync', input, by.id]);
@@ -738,7 +747,9 @@ describe('portal subscriptions', () => {
         pullLeads: {
           execute: (input, by) => {
             calls.push(['pull-leads', input, by.id]);
-            return Promise.resolve(ok({ received: 1, duplicates: 0, skipped: 0, rejected: 0 }));
+            return Promise.resolve(
+              ok({ received: 1, duplicates: 0, skipped: 0, rejected: 0, rejections: [] }),
+            );
           },
         },
         reconcile: {
@@ -801,6 +812,22 @@ describe('portal subscriptions', () => {
     expect(calls).toEqual([
       ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
       ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
+      ['summaries', { ids: [PROPERTY_ID] }],
+    ]);
+  });
+
+  it('resends the development listing when the photos of one of its units change', async () => {
+    const developmentId = '00000000-0000-7000-8000-0000000000d1';
+    const { find, calls } = portalSetup('synced', 'changed', developmentId);
+    await find('properties.media_deleted.sync-portal-listings').handle({
+      ...event,
+      type: 'properties.media_deleted',
+      payload: { ownerKind: 'property', ownerId: PROPERTY_ID, mediaId: MEDIA_ID, storageKeys: [] },
+    });
+    expect(calls).toEqual([
+      ['request-sync', { propertyId: PROPERTY_ID }, 'system:portal-sync'],
+      ['summaries', { ids: [PROPERTY_ID] }],
+      ['request-sync', { developmentId }, 'system:portal-sync'],
     ]);
   });
 
@@ -903,7 +930,7 @@ describe('portal subscriptions', () => {
 });
 
 describe('reconcilePortalListings', () => {
-  it('reconciles each MercadoLibre account as system:portal-sync, and goes on when one fails', async () => {
+  it('reconciles each portal account as system:portal-sync, and goes on when one fails', async () => {
     const calls: unknown[] = [];
     const unused = () => Promise.reject(new Error('not used'));
     await reconcilePortalListings(
@@ -911,6 +938,7 @@ describe('reconcilePortalListings', () => {
         requestSync: { execute: unused },
         requestAll: { execute: unused },
         sync: { execute: unused },
+        propertySummaries: { execute: unused },
         pullLeads: { execute: unused },
         reconcileOne: { execute: unused },
         reconcile: {
@@ -930,6 +958,7 @@ describe('reconcilePortalListings', () => {
     expect(calls).toEqual([
       ['mercadolibre', 'system:portal-sync'],
       ['mercadolibre_developments', 'system:portal-sync'],
+      ['zonaprop', 'system:portal-sync'],
     ]);
   });
 });

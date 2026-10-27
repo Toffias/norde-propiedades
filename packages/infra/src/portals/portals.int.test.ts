@@ -90,6 +90,19 @@ describe('portal accounts (Postgres)', () => {
     expect(entry?.entityId).toBe('zonaprop');
   });
 
+  it('keeps where the leads pull left off', async () => {
+    const { connectWithCode, accounts } = setup();
+    unwrap(await connectWithCode.execute({ portal: 'zonaprop', accountCode: '17310373' }, ADMIN));
+
+    const account = await accounts.get('zonaprop');
+    account.recordLeadsPulled(new Date('2026-10-16T12:00:00Z'));
+    await accounts.save(account, 'system:portal-sync');
+
+    expect((await accounts.get('zonaprop')).toSnapshot().leadsPulledAt).toEqual(
+      new Date('2026-10-16T12:00:00Z'),
+    );
+  });
+
   it('connects an account with its credentials encrypted and audits it', async () => {
     const { connect, accounts, credentials } = setup();
 

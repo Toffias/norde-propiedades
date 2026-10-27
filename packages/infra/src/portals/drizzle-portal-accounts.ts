@@ -46,6 +46,7 @@ function toAccount(row: typeof portalAccounts.$inferSelect & { readonly portal: 
     portal: row.portal,
     isEnabled: row.isEnabled,
     connection,
+    leadsPulledAt: row.leadsPulledAt ?? undefined,
     ...(connection === undefined && former.success
       ? { formerExternalAccountId: former.data.formerExternalAccountId }
       : {}),
@@ -84,7 +85,8 @@ export class DrizzlePortalAccountRepository implements PortalAccountRepository {
   }
 
   async save(account: PortalAccount, actorId: string): Promise<void> {
-    const { portal, isEnabled, connection, formerExternalAccountId } = account.toSnapshot();
+    const { portal, isEnabled, connection, formerExternalAccountId, leadsPulledAt } =
+      account.toSnapshot();
     const now = this.clock.now();
     const values = {
       isEnabled,
@@ -102,6 +104,7 @@ export class DrizzlePortalAccountRepository implements PortalAccountRepository {
           : { formerExternalAccountId },
       connectedAt: connection?.connectedAt ?? null,
       connectedBy: connection?.connectedBy ?? null,
+      leadsPulledAt: leadsPulledAt ?? null,
       updatedAt: now,
       updatedBy: actorId,
     };

@@ -67,7 +67,7 @@ function setup() {
     syncProperty: new RequestListingSync({ uow, clock }),
     syncAll: new RequestAllListingsSync({ uow, clock }),
     pause: new PauseListing({ uow, clock }),
-    resume: new ResumeListing({ uow, clock }),
+    resume: new ResumeListing({ uow, directory: new FakePortalAccountDirectory(), clock }),
     unpublish: new UnpublishListing({ uow, clock }),
     changeType: new ChangeListingType({ uow, clock }),
     resync: new ResyncListing({ uow, clock }),
@@ -568,9 +568,9 @@ describe('team actions on a listing', () => {
 
   it('requires portals:publish', async () => {
     const { pause, resume, unpublish, changeType, resync, listingId } = await published();
+    expect(unwrapErr(await resume.execute({ listingId }, VIEWER))).toEqual({ type: 'Forbidden' });
     for (const result of [
       await pause.execute({ listingId }, VIEWER),
-      await resume.execute({ listingId }, VIEWER),
       await unpublish.execute({ listingId }, VIEWER),
       await changeType.execute({ listingId, listingType: 'featured' }, VIEWER),
       await resync.execute({ listingId }, VIEWER),

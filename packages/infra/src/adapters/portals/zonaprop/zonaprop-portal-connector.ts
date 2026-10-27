@@ -10,7 +10,7 @@ import { err, ok, type Result } from '@norde/core/shared';
 
 import type { InfraLogger } from '../../../shared/logger';
 
-import type { ZonapropApi, ZonapropApiError } from './zonaprop-api';
+import { LARGE_PUT_TIMEOUT_MS, type ZonapropApi, type ZonapropApiError } from './zonaprop-api';
 import { developmentBody, developmentProblems } from './zonaprop-development';
 import {
   ProcessedResponseSchema,
@@ -148,6 +148,7 @@ export class ZonapropPortalConnector implements PortalConnector {
         ? developmentBody(content, context)
         : listingBody(content, context),
       ProcessedResponseSchema,
+      content.kind === 'development' ? { timeoutMs: LARGE_PUT_TIMEOUT_MS } : {},
     );
     if (result.isErr()) return err(syncError(result.error));
     // El de un emprendimiento viene junto con uno por unidad: cualquier error lo rechaza.

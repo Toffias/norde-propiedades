@@ -488,9 +488,12 @@ import {
   PortalConnectorsByProvider,
   PortalLeadSourcesByProvider,
   PortalListingCatalogsByProvider,
+  PortalListingStatesByProvider,
+  CachedPortalCredits,
   ZonapropAccountDirectory,
   ZonapropApi,
   ZonapropLeads,
+  ZonapropListingStates,
   ZonapropListingCatalog,
   ZonapropLocations,
   ZonapropPortalConnector,
@@ -712,6 +715,9 @@ function createPortalServices(
   const directory = new ZonapropAccountDirectory({ api: zonaprop, logger });
   const accounts = new DrizzlePortalAccountRepository(db, clock);
   const tokens = new MercadoLibreTokens({ db, cipher, authorizer, clock, logger });
+  // El código de inmobiliaria de la cuenta conectada en Mi empresa → Portales.
+  const zonapropAgencyCode = async () =>
+    (await accounts.get('zonaprop')).toSnapshot().connection?.externalAccountId;
   const connector = new PortalConnectorsByProvider({
     mercadolibre: new MercadoLibrePortalConnector({
       tokens,
@@ -721,11 +727,14 @@ function createPortalServices(
     zonaprop: new ZonapropPortalConnector({
       api: zonaprop,
       locations: new ZonapropLocations({ api: zonaprop }),
-      // El código de inmobiliaria de la cuenta conectada en Mi empresa → Portales.
-      agencyCode: async () =>
-        (await accounts.get('zonaprop')).toSnapshot().connection?.externalAccountId,
+      agencyCode: zonapropAgencyCode,
       logger,
     }),
+  });
+  const mercadoLibre = new MercadoLibreAccountReader({ tokens, logger });
+  const states = new PortalListingStatesByProvider({
+    mercadolibre: mercadoLibre,
+    zonaprop: new ZonapropListingStates({ api: zonaprop, agencyCode: zonapropAgencyCode, logger }),
   });
   const branch = new GetBranch({ organization: new DrizzleOrganizationQuery(db) });
   const reader = listingSourceReader({
@@ -745,11 +754,12 @@ function createPortalServices(
     actor: PORTAL_SYNC_ACTOR,
     logger,
   });
+  const zonapropCatalog = new ZonapropListingCatalog({ api: zonaprop, logger });
   const catalog = new PortalListingCatalogsByProvider({
-    zonaprop: new ZonapropListingCatalog({ api: zonaprop, logger }),
+    zonaprop: zonapropCatalog,
     mercadolibre: new MercadoLibreListingCatalog({ tokens, logger }),
   });
-  const leads = new ZonapropLeads({ api: zonaprop, logger });
+  const leads = new ZonapropLeads({ api: zonaprop, catalog: zonapropCatalog, logger });
   const findReceived = new FindReceivedInquiries({ uow: createClientsUnitOfWork(db, deps) });
   const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR), {
     find: (input) => findReceived.execute(input, PORTAL_LEADS_ACTOR),
@@ -767,7 +777,8 @@ function createPortalServices(
     authorizer,
     connector,
     directory,
-    mercadoLibre: new MercadoLibreAccountReader({ tokens, logger }),
+    mercadoLibre,
+    states,
     reader,
     developments,
     catalog,
@@ -812,7 +823,11 @@ function createPortalsUseCases(
       accounts,
       counter: new DrizzlePortalListingCountsQuery(db),
     }),
-    getCredits: new GetPortalCredits({ accounts, directory }),
+    // Solo para mostrar: recordados unos minutos (lo que consume créditos lee en vivo).
+    getCredits: new GetPortalCredits({
+      accounts,
+      directory: new CachedPortalCredits(directory, () => clock.now().getTime()),
+    }),
     getPackages: new GetPortalPackages({ accounts, reader: mercadoLibre }),
     getListingStats: new GetListingStats({ uow, reader: mercadoLibre, clock }),
     startConnection: new StartPortalConnection({ authorizer }),
@@ -860,7 +875,7 @@ function createPortalsUseCases(
       target: zonapropCallbackTarget(env),
     }),
     pauseListing: new PauseListing({ uow, clock }),
-    resumeListing: new ResumeListing({ uow, clock }),
+    resumeListing: new ResumeListing({ uow, directory, clock }),
     unpublishListing: new UnpublishListing({ uow, clock }),
     changeListingType: new ChangeListingType({ uow, clock }),
     changeListingPlan: new ChangeListingPlan({ uow, directory, clock }),
@@ -1944,10 +1959,8 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   const storage = createStorage(env);
   const settings = createSettingsUseCases(db, env, deps);
   const referenceCodes = referenceCodesFrom(settings);
-  const portals = createPortalServices(db, env, deps, {
-    properties: createPropertiesUseCases(db, env, settings, deps),
-    settings,
-  });
+  const properties = createPropertiesUseCases(db, env, settings, deps);
+  const portals = createPortalServices(db, env, deps, { properties, settings });
 
   const bus = new PgBossEventBus({
     connectionString: env.DATABASE_URL,
@@ -1958,14 +1971,16 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     requestSync: new RequestListingSync({ uow: portals.uow, clock }),
     requestAll: new RequestAllListingsSync({ uow: portals.uow, clock }),
     sync: new SyncListing({ ...portals, clock }),
+    propertySummaries: properties.getPropertySummaries,
     pullLeads: new PullPortalLeads({
       uow: portals.uow,
       source: portals.leadSource,
       sink: portals.sink,
+      properties: portals.codes,
       clock,
     }),
-    reconcile: new ReconcileListings({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
-    reconcileOne: new ReconcileListing({ uow: portals.uow, reader: portals.mercadoLibre, clock }),
+    reconcile: new ReconcileListings({ uow: portals.uow, reader: portals.states, clock }),
+    reconcileOne: new ReconcileListing({ uow: portals.uow, reader: portals.states, clock }),
     actor: PORTAL_SYNC_ACTOR,
   };
   // La migración desde Tokko (#17): sin API key, sus jobs fallan con un error claro.

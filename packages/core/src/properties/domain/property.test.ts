@@ -318,18 +318,31 @@ describe('Property quick edits', () => {
         changedAt: LATER,
       },
     ]);
-    expect(property.pullEvents().map((e) => e.type)).toEqual([
+    const events = property.pullEvents();
+    expect(events.map((e) => e.type)).toEqual([
       'properties.property_price_changed',
       'properties.property_changed',
     ]);
+    expect(events[0]?.payload).toEqual({
+      propertyId: property.id,
+      code: property.toSnapshot().code,
+      operation: 'sale',
+      currency: 'USD',
+      oldPriceCents: '12000000',
+      newPriceCents: '11500000',
+    });
   });
 
   it('does not compare prices across currencies and rejects a missing operation', () => {
     const property = created();
+    property.pullEvents();
     unwrap(
       property.changePrice({ operation: 'sale', currency: 'ARS', priceCents: undefined }, LATER),
     );
     expect(property.priceChanges[0]).toMatchObject({ oldPriceCents: undefined, currency: 'ARS' });
+    const [priceChanged] = property.pullEvents();
+    expect(priceChanged?.payload).not.toHaveProperty('oldPriceCents');
+    expect(priceChanged?.payload).not.toHaveProperty('newPriceCents');
     expect(
       unwrapErr(
         property.changePrice({ operation: 'rent', currency: 'ARS', priceCents: 1n }, LATER),

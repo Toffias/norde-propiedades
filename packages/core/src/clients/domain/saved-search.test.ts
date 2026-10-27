@@ -38,6 +38,27 @@ function create(overrides: Partial<SavedSearchFields> = {}) {
 }
 
 describe('SavedSearch', () => {
+  it('stops the automatic sends when the client unsubscribes', () => {
+    const search = unwrap(create({ autoSend: true }));
+    expect(search.sendsAutomatically).toBe(true);
+
+    expect(search.unsubscribe(LATER)).toBe(true);
+
+    expect(search.sendsAutomatically).toBe(false);
+    expect(search.toSnapshot()).toMatchObject({ autoSend: false, unsubscribedAt: LATER });
+    expect(search.unsubscribe(LATER)).toBe(false);
+    expect(unwrapErr(search.edit({ ...fields, autoSend: true }, LATER))).toEqual({
+      type: 'SavedSearchUnsubscribed',
+    });
+  });
+
+  it('does not send automatically from the trash or with the sends off', () => {
+    expect(unwrap(create()).sendsAutomatically).toBe(false);
+    const deleted = unwrap(create({ autoSend: true }));
+    deleted.delete('someone', LATER);
+    expect(deleted.sendsAutomatically).toBe(false);
+  });
+
   it('normalizes the name, the types and the locations', () => {
     const search = unwrap(create());
     expect(search.fields).toEqual({

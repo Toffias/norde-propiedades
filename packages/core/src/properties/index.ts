@@ -516,6 +516,10 @@ export {
   type GetPropertyInterestProfilesError,
 } from './application/queries/get-property-interest-profiles';
 export {
+  GetPropertyFollowUpProfile,
+  type GetPropertyFollowUpProfileError,
+} from './application/queries/get-property-follow-up-profile';
+export {
   RequestPropertyDocument,
   type RequestPropertyDocumentError,
 } from './application/commands/request-property-document';

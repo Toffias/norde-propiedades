@@ -126,6 +126,7 @@ export default async function PropertiesPage({
               publish: actor.can('properties:publish'),
               export: actor.can('properties:export') || actor.can('properties:export-bulk'),
               featureToClient: accessScope(actor, OWNERSHIP_RULES.clientsUpdate) !== undefined,
+              turnOnAutoSend: actor.can('followups:automatic'),
             }}
           />
         )}

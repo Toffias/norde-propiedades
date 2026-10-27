@@ -23,6 +23,7 @@ import {
 import type { OpportunityNotFoundError } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 import {
+  canTurnOnAutoSend,
   checkSearchOpportunity,
   findClientSearch,
   findEditableClient,
@@ -66,6 +67,9 @@ export class UpdateSavedSearch {
       if (!search || search.isDeleted) return err({ type: 'SavedSearchNotFound' });
 
       const fields = toSavedSearchFields(parsed.data);
+      if (fields.autoSend && !search.fields.autoSend && !canTurnOnAutoSend(actor)) {
+        return err({ type: 'Forbidden' });
+      }
       // Una búsqueda que ya estaba atada a una oportunidad que se cerró puede seguir así.
       if (fields.opportunityId !== search.fields.opportunityId) {
         const opportunity = await checkSearchOpportunity(tx, client.value, fields.opportunityId);

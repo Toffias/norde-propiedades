@@ -3,7 +3,8 @@ import type { ClientActivity } from './client-activity';
 import type { ClientImport, ClientImportId, ImportRowProblem } from './client-import';
 import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from './client-tag';
 import type { ContactKeys } from './duplicate-check';
-import type { FeaturedListing } from './featured-listing';
+import type { FeaturedListing, FeaturedListingId } from './featured-listing';
+import type { FollowUpMatch, FollowUpMatchId } from './follow-up-match';
 import type { Inquiry, InquiryId } from './inquiry';
 import type { InquiryAssignmentRule, InquiryRuleId } from './inquiry-assignment-rule';
 import type { Opportunity, OpportunityId } from './opportunity';
@@ -185,7 +186,31 @@ export interface SharedListingRepository {
 export interface FeaturedListingRepository {
   /** Las destacadas vigentes del cliente entre estas propiedades. */
   findActive(clientId: ClientId, propertyIds: readonly string[]): Promise<FeaturedListing[]>;
+  /** Estas destacadas, vigentes o quitadas. */
+  findByIds(ids: readonly FeaturedListingId[]): Promise<FeaturedListing[]>;
+  /** Las vigentes del cliente con auto-envío de novedades, como mucho `limit`. */
+  findAutoSending(clientId: ClientId, limit: number): Promise<FeaturedListing[]>;
   save(listing: FeaturedListing, actorId: string): Promise<void>;
+}
+
+/** Lo que el cruce con el stock encontró para mandarles a los clientes (#106). */
+export interface FollowUpMatchRepository {
+  /**
+   * Guarda la coincidencia si es nueva. Devuelve `false` si el cliente ya la tenía: la misma
+   * propiedad como nueva, o la misma baja (operación y precio).
+   */
+  add(match: FollowUpMatch, actorId: string): Promise<boolean>;
+  /** Las que el cliente todavía no recibió, las más viejas primero, como mucho `limit`. */
+  findPending(clientId: ClientId, limit: number): Promise<FollowUpMatch[]>;
+  /** Salieron en este envío. */
+  markSent(
+    ids: readonly FollowUpMatchId[],
+    sharedListingId: SharedListingId,
+    now: Date,
+    actorId: string,
+  ): Promise<void>;
+  /** Ya no corresponde mandarlas (el cliente se dio de baja, la propiedad dejó de verse, ...). */
+  discard(ids: readonly FollowUpMatchId[], now: Date, actorId: string): Promise<void>;
 }
 
 /** Las búsquedas guardadas de los clientes, con su papelera. */

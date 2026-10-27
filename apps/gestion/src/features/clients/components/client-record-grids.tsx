@@ -161,17 +161,20 @@ function AutoSendSwitch({
   clientId,
   row,
   disabled,
+  canTurnOn,
 }: {
   readonly clientId: string;
   readonly row: ClientFeaturedRow;
   readonly disabled: boolean;
+  /** `followups:automatic` (#106): sin el permiso se puede apagar, no prender. */
+  readonly canTurnOn: boolean;
 }) {
   const [checked, setChecked] = useState(row.autoSendUpdates);
   const [pending, startTransition] = useTransition();
   return (
     <Switch
       checked={checked}
-      disabled={disabled || pending}
+      disabled={disabled || pending || (!checked && !canTurnOn)}
       aria-label={`Auto-envío de novedades de ${row.property?.code ?? 'la propiedad'}`}
       onCheckedChange={(next) => {
         setChecked(next);
@@ -201,6 +204,7 @@ export function ClientFeaturedGrid({
   clientDisplayName,
   page,
   canEdit,
+  canTurnOnAutoSend,
   canReserve,
   recipients,
 }: {
@@ -208,6 +212,8 @@ export function ClientFeaturedGrid({
   readonly clientDisplayName: string;
   readonly page: Page<ClientFeaturedRow>;
   readonly canEdit: boolean;
+  /** `followups:automatic`: prender el auto-envío de novedades (#106). */
+  readonly canTurnOnAutoSend: boolean;
   /** Reservarle una propiedad disponible (#13). */
   readonly canReserve: boolean;
   /** Emails y teléfonos del contacto, para enviarle propiedades (#104). */
@@ -304,8 +310,19 @@ export function ClientFeaturedGrid({
       header: 'Novedades',
       showFrom: 'md',
       cell: (row) => (
-        <span title="Le manda por email los cambios de la propiedad. Los envíos se activan próximamente.">
-          <AutoSendSwitch clientId={clientId} row={row} disabled={!canEdit} />
+        <span
+          title={
+            canTurnOnAutoSend || row.autoSendUpdates
+              ? 'Le manda por email las bajas de precio de la propiedad. Los envíos se activan próximamente.'
+              : 'Prenderlo pide el permiso "Activar seguimientos automáticos".'
+          }
+        >
+          <AutoSendSwitch
+            clientId={clientId}
+            row={row}
+            disabled={!canEdit}
+            canTurnOn={canTurnOnAutoSend}
+          />
         </span>
       ),
     },
@@ -520,6 +537,7 @@ export function ClientSavedSearchesGrid({
   sort,
   view,
   canEdit,
+  canTurnOnAutoSend,
   detail,
   activeOpportunityId,
 }: {
@@ -528,6 +546,8 @@ export function ClientSavedSearchesGrid({
   readonly sort: DataTableSort;
   readonly view: 'active' | 'trash';
   readonly canEdit: boolean;
+  /** `followups:automatic`: prender el envío automático (#106). */
+  readonly canTurnOnAutoSend: boolean;
   /** La búsqueda del panel de edición, si está abierto. */
   readonly detail: PanelData<SavedSearchDetail> | undefined;
   readonly activeOpportunityId: string | undefined;
@@ -677,6 +697,7 @@ export function ClientSavedSearchesGrid({
         detail={detail}
         activeOpportunityId={activeOpportunityId}
         canEdit={canEdit}
+        canTurnOnAutoSend={canTurnOnAutoSend}
       />
       <ConfirmActionDialog
         copy={pending?.copy}

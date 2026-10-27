@@ -40,6 +40,12 @@ const clock = new FixedClock('2026-03-10T12:00:00Z');
 const MISSING = '00000000-0000-7000-8000-0000000000ff';
 const EVENT_ID = '00000000-0000-7000-8000-0000000000ee';
 const SELLER = Actor.user(AGENT_ID, ['clients:read', 'clients:update']);
+/** Además puede prender los seguimientos automáticos (#106). */
+const FOLLOW_UPS_SELLER = Actor.user(AGENT_ID, [
+  'clients:read',
+  'clients:update',
+  'followups:automatic',
+]);
 const AGENT_WITH_LISTINGS = Actor.user(AGENT_ID, [
   'clients:read',
   'clients:update',
@@ -338,8 +344,8 @@ describe('SetFeaturedAutoSend', () => {
     );
     const input = { clientId: client.id, propertyId: PROPERTY_ID, enabled: true };
 
-    unwrap(await autoSend.execute(input, SELLER));
-    unwrap(await autoSend.execute(input, SELLER));
+    unwrap(await autoSend.execute(input, FOLLOW_UPS_SELLER));
+    unwrap(await autoSend.execute(input, FOLLOW_UPS_SELLER));
 
     expect([...uow.featured.rows.values()][0]?.autoSendUpdates).toBe(true);
     expect(uow.audit.entries.map((e) => [e.action, e.changes]).slice(1)).toEqual([
@@ -359,10 +365,26 @@ describe('SetFeaturedAutoSend', () => {
       unwrapErr(
         await autoSend.execute(
           { clientId: client.id, propertyId: PROPERTY_ID, enabled: true },
-          SELLER,
+          FOLLOW_UPS_SELLER,
         ),
       ),
     ).toEqual({ type: 'FeaturedListingNotFound' });
+  });
+
+  it('needs the automatic follow-ups permission to turn it on, not to turn it off', async () => {
+    const { uow, client, feature, autoSend } = await setup();
+    unwrap(
+      await feature.execute(
+        { clientId: client.id, propertyIds: [PROPERTY_ID] },
+        AGENT_WITH_LISTINGS,
+      ),
+    );
+    const input = { clientId: client.id, propertyId: PROPERTY_ID, enabled: true };
+
+    expect(unwrapErr(await autoSend.execute(input, SELLER))).toEqual({ type: 'Forbidden' });
+    unwrap(await autoSend.execute(input, FOLLOW_UPS_SELLER));
+    unwrap(await autoSend.execute({ ...input, enabled: false }, SELLER));
+    expect([...uow.featured.rows.values()][0]?.autoSendUpdates).toBe(false);
   });
 
   it('needs to be able to edit the client', async () => {
@@ -372,9 +394,9 @@ describe('SetFeaturedAutoSend', () => {
       type: 'Forbidden',
     });
     expect(unwrapErr(await autoSend.execute(input, TEST_OUTSIDER))).toEqual({ type: 'Forbidden' });
-    expect(unwrapErr(await autoSend.execute({ ...input, clientId: MISSING }, SELLER))).toEqual({
-      type: 'ClientNotFound',
-    });
+    expect(
+      unwrapErr(await autoSend.execute({ ...input, clientId: MISSING }, FOLLOW_UPS_SELLER)),
+    ).toEqual({ type: 'ClientNotFound' });
   });
 });
 

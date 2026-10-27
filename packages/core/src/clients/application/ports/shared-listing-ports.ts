@@ -59,6 +59,8 @@ export interface SharedListingEmailContent {
   readonly url: string;
   readonly expiresAt: Date;
   readonly listings: readonly ClientListingSummary[];
+  /** Solo en los envíos automáticos: el link para darse de baja. */
+  readonly unsubscribeUrl?: string;
 }
 
 export interface ComposedEmail {

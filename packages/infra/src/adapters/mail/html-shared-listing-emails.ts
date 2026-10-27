@@ -26,6 +26,9 @@ const CURRENCY_SYMBOLS: Readonly<Record<string, string>> = { USD: 'US$', ARS: '$
 
 const DEFAULT_MESSAGE = 'Hola, te comparto unas propiedades que pueden interesarte.';
 
+const UNSUBSCRIBE_TEXT =
+  'Te llega porque guardamos tus búsquedas. Si no querés recibir más estos emails';
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -86,7 +89,19 @@ export class HtmlSharedListingEmails implements SharedListingEmails {
       '',
       signature,
       ...(content.advisorName === undefined ? [] : [content.companyName]),
+      ...(content.unsubscribeUrl === undefined
+        ? []
+        : ['', `${UNSUBSCRIBE_TEXT}: ${content.unsubscribeUrl}`]),
     ].join('\n');
+
+    // Solo los envíos automáticos llevan el link para darse de baja.
+    const unsubscribe =
+      content.unsubscribeUrl === undefined
+        ? ''
+        : `
+        <tr><td align="center" style="padding:24px 0 0;font-size:12px;color:${BRAND.muted}">
+          ${escapeHtml(UNSUBSCRIBE_TEXT)}: <a href="${escapeHtml(content.unsubscribeUrl)}" style="color:${BRAND.muted}">darme de baja</a>.
+        </td></tr>`;
 
     const cards = content.listings
       .map(
@@ -129,7 +144,7 @@ export class HtmlSharedListingEmails implements SharedListingEmails {
         <tr><td align="center" style="padding:4px 0 24px;font-size:13px;color:${BRAND.muted}">Contanos cuáles te gustan desde el link. ${escapeHtml(expires)}</td></tr>
         <tr><td style="padding:16px 0 0;border-top:1px solid ${BRAND.border};font-size:14px;color:${BRAND.ink}">
           ${escapeHtml(signature)}${content.advisorName === undefined ? '' : `<br><span style="color:${BRAND.muted}">${escapeHtml(content.companyName)}</span>`}
-        </td></tr>
+        </td></tr>${unsubscribe}
       </table>
     </td></tr>
   </table>

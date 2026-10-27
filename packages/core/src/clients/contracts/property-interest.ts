@@ -21,6 +21,17 @@ export interface PropertyInterestProfile {
   readonly rooms: number | undefined;
 }
 
+/**
+ * Lo que el cruce de los seguimientos automáticos (#106) necesita de una propiedad: el perfil de
+ * cruce y si el sitio la muestra, porque un envío lleva un link que el cliente tiene que poder abrir.
+ */
+export interface FollowUpListingProfile extends PropertyInterestProfile {
+  /** Disponible y publicada en la web. */
+  readonly listed: boolean;
+  /** Desde cuándo está disponible; `undefined` si no lo está. */
+  readonly listedSince: Date | undefined;
+}
+
 export const PropertyInterestQuerySchema = pageQuerySchema({
   sortable: ['updatedAt'],
   defaultSort: { field: 'updatedAt', direction: 'desc' },

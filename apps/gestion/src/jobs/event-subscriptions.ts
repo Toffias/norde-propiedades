@@ -5,12 +5,14 @@ import type {
 } from '@norde/core/appraisals';
 import type {
   ApplyOpportunityRules,
+  MatchFollowUps,
   NotifyTeamOfOpportunity,
   OpportunityRuleEvent,
   RecordClientActivity,
   RouteInquiry,
   RunClientImport,
   RunOpportunityBulkOperation,
+  SendFollowUpDigests,
 } from '@norde/core/clients';
 import type {
   EraseClientConversations,
@@ -112,6 +114,17 @@ const SendPayloadSchema = z.object({
   reaction: z.enum(['liked', 'disliked']).optional(),
 });
 const BulkPayloadSchema = z.object({ operationId: z.uuid() });
+/** Precio en centavos como texto (el payload es JSON). Los eventos anteriores a #106 no lo traen. */
+const CentsSchema = z
+  .string()
+  .regex(/^\d{1,18}$/)
+  .transform((cents) => BigInt(cents));
+const PriceChangedPayloadSchema = z.object({
+  propertyId: z.uuid(),
+  operation: z.string().min(1).max(40),
+  oldPriceCents: CentsSchema.optional(),
+  newPriceCents: CentsSchema.optional(),
+});
 const InquiryPayloadSchema = z.object({ inquiryId: z.uuid() });
 const AppraisalPhotoDeletedPayloadSchema = z.object({
   storageKeys: z.array(z.string()).max(30),
@@ -232,6 +245,51 @@ function opportunitySubscriptions(
         const { operationId } = BulkPayloadSchema.parse(event.payload);
         const result = await jobs.runBulk.execute({ operationId }, actor);
         if (result.isErr()) skipped(event, result.error);
+      },
+    },
+  ];
+}
+
+/**
+ * El cruce del stock con los seguimientos automáticos (#106): cada guardado de una propiedad puede
+ * ser una nueva para alguna búsqueda (se juntan los de un minuto), y cada cambio de precio puede
+ * ser una baja.
+ */
+function followUpSubscriptions(
+  match: Pick<MatchFollowUps, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription[] {
+  const run = async (event: DeliveredEvent, input: Parameters<MatchFollowUps['execute']>[0]) => {
+    const result = await match.execute(input, actor);
+    if (result.isErr()) {
+      logger.error({ eventId: event.id, error: result.error }, 'Follow-up matching skipped');
+    }
+  };
+  return [
+    {
+      eventType: 'properties.property_changed',
+      name: 'match-follow-ups',
+      throttleSeconds: 60,
+      handle: async (event) => {
+        const { propertyId } = PropertyPayloadSchema.parse(event.payload);
+        await run(event, { propertyId, trigger: { kind: 'listing_changed' } });
+      },
+    },
+    {
+      eventType: 'properties.property_price_changed',
+      name: 'match-follow-up-price-drops',
+      handle: async (event) => {
+        const payload = PriceChangedPayloadSchema.parse(event.payload);
+        await run(event, {
+          propertyId: payload.propertyId,
+          trigger: {
+            kind: 'price_changed',
+            operation: payload.operation,
+            oldPriceCents: payload.oldPriceCents,
+            newPriceCents: payload.newPriceCents,
+          },
+        });
       },
     },
   ];
@@ -539,6 +597,27 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
   return allAnswered;
 }
 
+/**
+ * El resumen diario de los seguimientos automáticos (#106). Un contacto al que no le salió el email
+ * se loguea con su ID (sin sus datos) y se reintenta al día siguiente.
+ */
+export async function sendFollowUpDigests(
+  digests: Pick<SendFollowUpDigests, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): Promise<void> {
+  const result = await digests.execute(actor);
+  if (result.isErr()) {
+    logger.error({ error: result.error }, 'Follow-up digests not sent');
+    return;
+  }
+  const { failures, ...counts } = result.value;
+  logger.info({ ...counts, failed: failures.length }, 'Follow-up digests sent');
+  for (const failure of failures) {
+    logger.error(failure, 'Follow-up digest failed');
+  }
+}
+
 const RECONCILED_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].reconciles);
 
 /**
@@ -824,6 +903,8 @@ export function eventSubscriptions(deps: {
   /** Copiar los usuarios de Tokko (#17): recorre todos sus contactos para hallar a los que ya no están. */
   readonly runTokkoUsersImport: Pick<RunTokkoUsersImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
+  /** El cruce del stock con las búsquedas y destacadas con envío automático (#106). */
+  readonly matchFollowUps: Pick<MatchFollowUps, 'execute'>;
   /** Avisarle a la web que una propiedad o un emprendimiento cambió (ADR 0023). */
   readonly revalidateSite: SiteRevalidation;
   /**
@@ -867,6 +948,7 @@ export function eventSubscriptions(deps: {
     ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),
     ...mergeSubscriptions(deps.merge, deps.actor, deps.logger),
     ...opportunitySubscriptions(deps.opportunities, deps.actor, deps.logger),
+    ...followUpSubscriptions(deps.matchFollowUps, deps.actor, deps.logger),
     ...notificationSubscriptions(deps.notifyAssignment, deps.actor, deps.logger),
     {
       eventType: 'clients.import_requested',

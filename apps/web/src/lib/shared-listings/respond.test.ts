@@ -16,12 +16,17 @@ function setup(options: { readonly allow?: boolean; readonly ok?: boolean } = {}
       calls.push(['react', input]);
       return Promise.resolve({ isOk: () => options.ok ?? true });
     },
+    unsubscribe: (input) => {
+      calls.push(['unsubscribe', input]);
+      return Promise.resolve({ isOk: () => options.ok ?? true });
+    },
   };
   const allow = () => options.allow ?? true;
   const responses = createSharedListingResponses({
     responder: () => responder,
     allowOpen: allow,
     allowReact: allow,
+    allowUnsubscribe: allow,
   });
   return { responses, calls };
 }
@@ -71,5 +76,23 @@ describe('shared listing responses', () => {
       ok: false,
       reason: 'unavailable',
     });
+  });
+
+  it('unsubscribes with a valid token, and stops a bad one or an IP over the limit', async () => {
+    const { responses, calls } = setup();
+
+    expect(await responses.unsubscribe({ token: TOKEN }, '1.1.1.1')).toEqual({ ok: true });
+    expect(await responses.unsubscribe({ token: 'corto' }, '1.1.1.1')).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+    expect(calls).toEqual([['unsubscribe', { token: TOKEN }]]);
+
+    const limited = setup({ allow: false });
+    expect(await limited.responses.unsubscribe({ token: TOKEN }, '1.1.1.1')).toEqual({
+      ok: false,
+      reason: 'rate_limited',
+    });
+    expect(limited.calls).toHaveLength(0);
   });
 });

@@ -14,6 +14,7 @@ export type RespondOutcome =
 export interface SharedListingResponder {
   open(input: SharedListingTokenInput): Promise<{ isOk(): boolean }>;
   react(input: ReactToSharedListingInput): Promise<{ isOk(): boolean }>;
+  unsubscribe(input: SharedListingTokenInput): Promise<{ isOk(): boolean }>;
 }
 
 /**
@@ -24,6 +25,7 @@ export function createSharedListingResponses(deps: {
   readonly responder: () => SharedListingResponder;
   readonly allowOpen: (ip: string) => boolean;
   readonly allowReact: (ip: string) => boolean;
+  readonly allowUnsubscribe: (ip: string) => boolean;
 }) {
   return {
     async open(raw: unknown, ip: string): Promise<RespondOutcome> {
@@ -38,6 +40,13 @@ export function createSharedListingResponses(deps: {
       if (!parsed.success) return { ok: false, reason: 'invalid' };
       if (!deps.allowReact(ip)) return { ok: false, reason: 'rate_limited' };
       const result = await deps.responder().react(parsed.data);
+      return result.isOk() ? { ok: true } : { ok: false, reason: 'unavailable' };
+    },
+    async unsubscribe(raw: unknown, ip: string): Promise<RespondOutcome> {
+      const parsed = SharedListingTokenInputSchema.safeParse(raw);
+      if (!parsed.success) return { ok: false, reason: 'invalid' };
+      if (!deps.allowUnsubscribe(ip)) return { ok: false, reason: 'rate_limited' };
+      const result = await deps.responder().unsubscribe(parsed.data);
       return result.isOk() ? { ok: true } : { ok: false, reason: 'unavailable' };
     },
   };

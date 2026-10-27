@@ -111,6 +111,7 @@ import {
   RevokeSharedListing,
   SendListings,
   type PublicListings,
+  type FollowUpListings,
   MergeClientTags,
   PreviewClientMerge,
   ListPropertyInterestedClients,
@@ -166,6 +167,8 @@ import {
   UpdateQuickReply,
   UpdateInquiryRule,
   ApplyOpportunityRules,
+  MatchFollowUps,
+  SendFollowUpDigests,
   NotifyTeamOfOpportunity,
   FindReceivedInquiries,
   ReceiveInquiry,
@@ -217,6 +220,7 @@ import {
   GetPropertyDocumentDownload,
   GetPropertyInterestProfile,
   GetPropertyInterestProfiles,
+  GetPropertyFollowUpProfile,
   GetMediaFile,
   ListShareablePhotos,
   ListCustomAttributes,
@@ -443,6 +447,8 @@ import {
   DrizzlePropertyReservationsQuery,
   DrizzleReservationListQuery,
   DrizzlePropertyInterestQuery,
+  DrizzleFollowUpCandidatesQuery,
+  DrizzlePendingFollowUpsQuery,
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
   DrizzleHomeDashboardQuery,
@@ -534,6 +540,7 @@ import {
   eventSubscriptions,
   pullPortalLeads,
   reconcilePortalListings,
+  sendFollowUpDigests,
 } from './jobs/event-subscriptions';
 
 export interface Container {
@@ -656,6 +663,8 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'notifications:create',
   'opportunities:apply-rules',
   'opportunities:run-bulk',
+  'clients:match-follow-ups',
+  'clients:send-follow-ups',
   'inquiries:route',
 ]);
 /**
@@ -1114,6 +1123,7 @@ function createPropertiesUseCases(
     }),
     getPropertyInterestProfile: new GetPropertyInterestProfile({ uow }),
     getPropertyInterestProfiles: new GetPropertyInterestProfiles({ uow }),
+    getPropertyFollowUpProfile: new GetPropertyFollowUpProfile({ uow }),
     // Reservas (#13)
     reserveProperty: new ReserveProperty({ uow, producers, clock, ids }),
     updateReservation: new UpdateReservation({ uow, producers, clock }),
@@ -1286,6 +1296,22 @@ function propertyProfiles(properties: PropertiesUseCases): PropertyProfiles {
       );
       if (profiles.isErr()) return new Map();
       return new Map(profiles.value.map((profile) => [profile.propertyId, profile]));
+    },
+  };
+}
+
+/**
+ * El perfil de una propiedad para los seguimientos automáticos (#106), por la API de properties.
+ * Lo lee el job del cruce, como el sistema.
+ */
+function followUpListings(properties: PropertiesUseCases): FollowUpListings {
+  return {
+    async find(propertyId) {
+      const profile = await properties.getPropertyFollowUpProfile.execute(
+        { propertyId },
+        SCHEDULER_ACTOR,
+      );
+      return profile.isOk() ? profile.value : undefined;
     },
   };
 }
@@ -2152,6 +2178,13 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       clock,
     }),
     opportunities: createOpportunityJobs(db, deps),
+    matchFollowUps: new MatchFollowUps({
+      uow: createClientsUnitOfWork(db, deps),
+      listings: followUpListings(properties),
+      candidates: new DrizzleFollowUpCandidatesQuery(db),
+      ids,
+      clock,
+    }),
     revalidateSite: siteRevalidation(env, logger),
     routeInquiry: new RouteInquiry({
       uow: createClientsUnitOfWork(db, deps),
@@ -2167,6 +2200,32 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   })) {
     bus.subscribe(subscription);
   }
+  // El resumen diario de los seguimientos automáticos (#106), a media mañana.
+  const followUpDigests = new SendFollowUpDigests({
+    uow: createClientsUnitOfWork(db, deps),
+    pending: new DrizzlePendingFollowUpsQuery(db),
+    listings: clientListings(properties),
+    publicListings: publicListings(db),
+    tokens: new RandomSharedListingTokens(),
+    emails: new HtmlSharedListingEmails(),
+    mailer: new ResendMailer({
+      apiKey: env.RESEND_API_KEY,
+      fromAddress: env.MAIL_FROM_ADDRESS,
+      logger,
+    }),
+    settings: new DrizzleCompanySettingsRepository(db, clock),
+    agents: { names: (userIds) => new DrizzleDirectory(db).names('user', userIds) },
+    siteUrl: env.PUBLIC_SITE_URL,
+    ids,
+    clock,
+  });
+  bus.schedule({
+    name: 'clients.send-follow-up-digests',
+    cron: '0 10 * * *',
+    run: async () => {
+      await sendFollowUpDigests(followUpDigests, SCHEDULER_ACTOR, logger);
+    },
+  });
   if (portalJobs) {
     // Los contactos de los avisos de los portales, aunque el portal no avise (o el aviso se pierda).
     bus.schedule({

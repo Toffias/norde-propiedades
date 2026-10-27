@@ -88,6 +88,7 @@ export function SavedSearchForm({
   prefill = {},
   activeOpportunityId,
   readOnly,
+  canTurnOnAutoSend,
   before,
   notice,
   onDone,
@@ -98,6 +99,11 @@ export function SavedSearchForm({
   /** La oportunidad abierta del contacto, para atarle la búsqueda. */
   readonly activeOpportunityId: string | undefined;
   readonly readOnly: boolean;
+  /**
+   * `followups:automatic` (#106): sin el permiso, el envío automático no se prende; una que ya lo
+   * tiene se puede apagar.
+   */
+  readonly canTurnOnAutoSend: boolean;
   /** Lo que va arriba de los campos (el selector de contacto). */
   readonly before?: ReactNode;
   /** Un aviso arriba de los campos (lo que no se pudo precargar). */
@@ -125,6 +131,7 @@ export function SavedSearchForm({
   }, [clientId, form]);
   // Atada a una oportunidad que ya se cerró: se mantiene mientras no se destilde.
   const opportunityId = search?.opportunityId ?? activeOpportunityId;
+  const autoSendLocked = !canTurnOnAutoSend && search?.autoSend !== true;
 
   async function submit(values: SavedSearchValues) {
     setError(undefined);
@@ -245,10 +252,13 @@ export function SavedSearchForm({
               control={form.control}
               name="autoSend"
               label="Envío automático"
+              disabled={autoSendLocked}
               description={
                 search?.unsubscribed === true
                   ? 'El contacto se dio de baja de los envíos automáticos.'
-                  : 'Le manda por email las propiedades nuevas que coinciden. Los envíos se activan próximamente.'
+                  : autoSendLocked
+                    ? 'Prenderlo pide el permiso "Activar seguimientos automáticos".'
+                    : 'Le manda por email las propiedades nuevas que coinciden y las bajas de precio. Los envíos se activan próximamente.'
               }
             />
             {opportunityId !== undefined && (

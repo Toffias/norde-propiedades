@@ -23,6 +23,7 @@ export function PropertyActionsBar({
   filters,
   canCreate,
   canSaveForClient,
+  canTurnOnAutoSend,
   canImport,
   favoriteSearches,
   onCreate,
@@ -32,6 +33,8 @@ export function PropertyActionsBar({
   readonly canCreate: boolean;
   /** Editar contactos: guardarles búsquedas (#11). */
   readonly canSaveForClient: boolean;
+  /** `followups:automatic`: guardarla con envío automático (#106). */
+  readonly canTurnOnAutoSend: boolean;
   /** Importar la exportación de propiedades de Tokko (`properties:import`). */
   readonly canImport: boolean;
   readonly favoriteSearches: readonly FavoriteSearchRow[];
@@ -75,7 +78,12 @@ export function PropertyActionsBar({
         </div>
       </div>
       {saving && (
-        <SaveSearchForClientSheet filters={filters} open={saving} onOpenChange={setSaving} />
+        <SaveSearchForClientSheet
+          filters={filters}
+          open={saving}
+          onOpenChange={setSaving}
+          canTurnOnAutoSend={canTurnOnAutoSend}
+        />
       )}
     </ListNavigationProvider>
   );

@@ -58,4 +58,17 @@ describe('HtmlSharedListingEmails', () => {
 
     expect(email.subject).toBe('Lo que hablamos');
   });
+
+  it('adds the unsubscribe link only to the automatic sends', () => {
+    const manual = new HtmlSharedListingEmails().compose(content);
+    const automatic = new HtmlSharedListingEmails().compose({
+      ...content,
+      unsubscribeUrl: 'https://norde.com.ar/e/abc/baja',
+    });
+
+    expect(manual.html).not.toContain('darme de baja');
+    expect(manual.text).not.toContain('/baja');
+    expect(automatic.html).toContain('href="https://norde.com.ar/e/abc/baja"');
+    expect(automatic.text).toContain('emails: https://norde.com.ar/e/abc/baja');
+  });
 });

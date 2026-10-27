@@ -781,11 +781,13 @@ export const followUpMatches = coreSchema.table(
     currency: text('currency').notNull(),
     priceCents: bigint('price_cents', { mode: 'bigint' }),
     detectedAt: timestamp('detected_at', { withTimezone: true }).notNull(),
-    /** Cuándo se le mandó, y en qué envío (#106, etapa 2). */
+    /** Cuándo se le mandó en el resumen diario, y en qué envío. */
     sentAt: timestamp('sent_at', { withTimezone: true }),
     sharedListingId: uuid('shared_listing_id').references(() => sharedListings.id, {
       onDelete: 'set null',
     }),
+    /** Cuándo dejó de corresponder mandarla (baja, envío apagado, propiedad que ya no se ve). */
+    discardedAt: timestamp('discarded_at', { withTimezone: true }),
     ...timestamps(),
     ...authorship(),
   },
@@ -799,7 +801,7 @@ export const followUpMatches = coreSchema.table(
     // Las pendientes de mandar, por cliente.
     index('follow_up_matches_pending_idx')
       .on(t.clientId, t.detectedAt)
-      .where(sql`sent_at is null`),
+      .where(sql`sent_at is null and discarded_at is null`),
   ],
 );
 

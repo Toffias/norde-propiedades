@@ -11,6 +11,7 @@ CREATE TABLE "core"."follow_up_matches" (
 	"detected_at" timestamp with time zone NOT NULL,
 	"sent_at" timestamp with time zone,
 	"shared_listing_id" uuid,
+	"discarded_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	"created_by" text NOT NULL,
@@ -23,4 +24,4 @@ ALTER TABLE "core"."follow_up_matches" ADD CONSTRAINT "follow_up_matches_feature
 ALTER TABLE "core"."follow_up_matches" ADD CONSTRAINT "follow_up_matches_shared_listing_id_shared_listings_id_fk" FOREIGN KEY ("shared_listing_id") REFERENCES "core"."shared_listings"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "follow_up_matches_new_listing_uq" ON "core"."follow_up_matches" USING btree ("client_id","property_id") WHERE reason = 'new_listing';--> statement-breakpoint
 CREATE UNIQUE INDEX "follow_up_matches_price_drop_uq" ON "core"."follow_up_matches" USING btree ("client_id","property_id","operation","price_cents") WHERE reason = 'price_drop';--> statement-breakpoint
-CREATE INDEX "follow_up_matches_pending_idx" ON "core"."follow_up_matches" USING btree ("client_id","detected_at") WHERE sent_at is null;
+CREATE INDEX "follow_up_matches_pending_idx" ON "core"."follow_up_matches" USING btree ("client_id","detected_at") WHERE sent_at is null and discarded_at is null;

@@ -1,5 +1,5 @@
 {
-  "id": "11fb1692-aaa3-49f0-89e2-beb79d20fd92",
+  "id": "47201704-a6e6-4ca5-8478-0f259ea4c247",
   "prevId": "126ad7ac-1515-459e-8740-3e4ae39e5c95",
   "version": "7",
   "dialect": "postgresql",
@@ -2524,6 +2524,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "discarded_at": {
+          "name": "discarded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2623,7 +2629,7 @@
             }
           ],
           "isUnique": false,
-          "where": "sent_at is null",
+          "where": "sent_at is null and discarded_at is null",
           "concurrently": false,
           "method": "btree",
           "with": {}

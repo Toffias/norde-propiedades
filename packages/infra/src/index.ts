@@ -65,6 +65,7 @@ export { DrizzlePropertyInterestQuery } from './clients/drizzle-property-interes
 export {
   DrizzleFollowUpCandidatesQuery,
   DrizzleFollowUpMatchRepository,
+  DrizzlePendingFollowUpsQuery,
 } from './clients/drizzle-follow-up-repositories';
 export { DrizzleHomeDashboardQuery } from './reporting/drizzle-home-dashboard-query';
 export { DrizzlePublicationOverviewQuery } from './reporting/drizzle-publication-overview-query';

@@ -41,6 +41,7 @@ function zonapropAccount() {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   return account.toSnapshot();
@@ -109,7 +110,7 @@ describe('PullPortalLeads', () => {
       rejected: 0,
     });
     expect(source.calls).toEqual([
-      { since: new Date('2026-10-14T12:00:00.000Z'), offset: 0, limit: 100 },
+      { since: new Date('2026-10-14T12:00:00.000Z'), offset: 0, limit: 100, asksReceived: true },
     ]);
     expect(sink.received).toEqual([
       expect.objectContaining({
@@ -206,6 +207,41 @@ describe('PullPortalLeads', () => {
 
     expect(source.calls.map((c) => c.offset)).toEqual([0, 100]);
     expect(sink.received).toHaveLength(150);
+  });
+
+  it('lets the portal skip the details of the contacts the inbox already has', async () => {
+    const { pull, source, sink } = setup();
+    source.leads = [portalLead({ externalId: 'a' })];
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+    expect(source.calls.every((c) => c.asksReceived)).toBe(true);
+    expect([...(await sink.known('zonaprop', ['a', 'b']))]).toEqual(['a']);
+  });
+
+  it('pages by what the portal pages, not by the contacts it returned', async () => {
+    const { pull, source, sink } = setup();
+    // 150 interesados con dos contactos cada uno: más contactos que interesados.
+    source.groups = Array.from({ length: 150 }, (_, i) => [
+      portalLead({ externalId: `${String(i)}-a` }),
+      portalLead({ externalId: `${String(i)}-b` }),
+    ]);
+
+    unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+
+    expect(source.calls.map((c) => c.offset)).toEqual([0, 100]);
+    expect(sink.received).toHaveLength(300);
+  });
+
+  it('keeps reading past interested people without contacts, and counts them', async () => {
+    const { pull, source, sink } = setup();
+    source.groups = Array.from({ length: 120 }, (_, i) =>
+      i % 2 === 0 ? [] : [portalLead({ externalId: String(i) })],
+    );
+
+    const outcome = unwrap(await pull.execute({ portal: 'zonaprop' }, PORTAL_SYNC));
+
+    expect(source.calls.map((c) => c.offset)).toEqual([0, 100]);
+    expect(sink.received).toHaveLength(60);
+    expect(outcome).toMatchObject({ received: 60, skipped: 60 });
   });
 
   it('does nothing without a connected account or on a portal without leads', async () => {

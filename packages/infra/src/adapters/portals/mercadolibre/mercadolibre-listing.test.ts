@@ -76,6 +76,15 @@ describe('listingProblems', () => {
     ]);
   });
 
+  it('says when the branch WhatsApp is not an Argentine number', () => {
+    const source = listingSource({
+      contact: { ...listingSource().contact, whatsapp: '+59899123456' },
+    });
+    expect(listingProblems({ ...SALE, source })).toEqual([
+      'El WhatsApp de la sucursal Casa central no es de Argentina (+54): MercadoLibre solo toma números argentinos. Cambialo en Mi empresa → Sucursales.',
+    ]);
+  });
+
   it('tells a property without a branch to pick its producer again', () => {
     const source = listingSource({
       contact: {

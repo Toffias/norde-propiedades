@@ -2,11 +2,12 @@ import type {
   PortalId,
   PortalLead,
   PortalLeadKind,
+  PortalLeadPage,
   PortalLeadSource,
   PortalNotConfiguredError,
   PortalUnavailableError,
 } from '@norde/core/portals';
-import { err, ok, type PageSlice, type Result } from '@norde/core/shared';
+import { err, ok, type Result } from '@norde/core/shared';
 import { z } from 'zod';
 
 import {
@@ -87,8 +88,9 @@ export class MercadoLibreLeads implements PortalLeadSource {
   }
 
   /**
-   * Los contactos de los interesados `offset` a `offset + limit` (ML pagina por interesado). Si ML
-   * devuelve menos de los pedidos por página, se sigue pidiendo hasta completar o llegar al total.
+   * Los contactos de los interesados `offset` a `offset + limit` (ML pagina por interesado: `read` y
+   * `total` cuentan interesados, no contactos). Si ML devuelve menos de los pedidos por página, se
+   * sigue pidiendo hasta completar o llegar al total. Un interesado sin contactos va a `skipped`.
    */
   async recent(input: {
     readonly portal: PortalId;
@@ -96,12 +98,14 @@ export class MercadoLibreLeads implements PortalLeadSource {
     readonly since: Date;
     readonly offset: number;
     readonly limit: number;
-  }): Promise<Result<PageSlice<PortalLead>, LeadsError>> {
+    readonly alreadyReceived?: (externalIds: readonly string[]) => Promise<ReadonlySet<string>>;
+  }): Promise<Result<PortalLeadPage, LeadsError>> {
     const { portal, externalAccountId, since } = input;
     const path = `/vis/users/${encodeURIComponent(externalAccountId)}/leads/buyers`;
     const leads: PortalLead[] = [];
     let offset = input.offset;
     let total = 0;
+    let skipped = 0;
     while (offset < input.offset + input.limit) {
       const query = new URLSearchParams({
         offset: String(offset),
@@ -116,17 +120,25 @@ export class MercadoLibreLeads implements PortalLeadSource {
         return err({ type: 'PortalUnavailable' });
       }
       total = parsed.data.paging.total;
+      // Los que ya están en la bandeja no necesitan el texto de la pregunta ni la cotización.
+      const ids = parsed.data.results.flatMap((buyer) => (buyer.leads ?? []).map((l) => l.id));
+      const received =
+        input.alreadyReceived === undefined || ids.length === 0
+          ? new Set<string>()
+          : await input.alreadyReceived(ids);
 
       for (const buyer of parsed.data.results) {
+        if ((buyer.leads ?? []).length === 0) skipped += 1;
         for (const lead of buyer.leads ?? []) {
           const kind = KINDS[lead.contact_type ?? lead.channel ?? ''] ?? 'other';
+          const details = !received.has(lead.id);
           const message =
-            kind === 'message' && lead.external_id
+            details && kind === 'message' && lead.external_id
               ? await this.#question(portal, lead.external_id)
               : ok(undefined);
           if (message.isErr()) return err(portError(message.error));
           const unit =
-            kind === 'quote' && lead.external_id
+            details && kind === 'quote' && lead.external_id
               ? await this.#quotedUnit(portal, lead.external_id)
               : ok(undefined);
           if (unit.isErr()) return err(portError(unit.error));
@@ -148,7 +160,7 @@ export class MercadoLibreLeads implements PortalLeadSource {
       offset += returned;
       if (returned === 0 || offset >= total) break;
     }
-    return ok({ items: leads, total });
+    return ok({ items: leads, total, read: offset - input.offset, skipped });
   }
 
   /**

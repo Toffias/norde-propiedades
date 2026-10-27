@@ -5,7 +5,7 @@ import type {
   ListingSource,
 } from '@norde/core/portals';
 
-import type { MlAttribute } from './mercadolibre-listing';
+import { whatsappProblems, type MlAttribute } from './mercadolibre-listing';
 
 // Traducción pura de un emprendimiento al aviso de MercadoLibre: un ítem en la categoría
 // "Emprendimientos" con las unidades en venta como variaciones. Los IDs salen de la API pública de
@@ -158,10 +158,8 @@ export function developmentProblems(content: DevelopmentListingContent): string[
     problems.push(
       'El emprendimiento no tiene sucursal, y MercadoLibre exige el WhatsApp de la sucursal en cada aviso.',
     );
-  } else if (source.contact.whatsapp === undefined) {
-    problems.push(
-      `La sucursal ${source.contact.name} no tiene WhatsApp: cargalo en Mi empresa → Sucursales. MercadoLibre lo exige en cada aviso.`,
-    );
+  } else {
+    problems.push(...whatsappProblems(source.contact));
   }
   if (source.location.city === undefined && source.location.neighborhood === undefined) {
     problems.push('Falta la ubicación (localidad o barrio).');

@@ -157,6 +157,7 @@ import {
   UpdateInquiryRule,
   ApplyOpportunityRules,
   NotifyTeamOfOpportunity,
+  FindReceivedInquiries,
   ReceiveInquiry,
   RecordClientActivity,
   RouteInquiry,
@@ -382,6 +383,7 @@ import {
   ListRemoteListings,
   PauseListing,
   RequestDevelopmentPublication,
+  RequestAllListingsSync,
   RequestListingSync,
   RequestPublication,
   ResumeListing,
@@ -748,7 +750,10 @@ function createPortalServices(
     mercadolibre: new MercadoLibreListingCatalog({ tokens, logger }),
   });
   const leads = new ZonapropLeads({ api: zonaprop, logger });
-  const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR));
+  const findReceived = new FindReceivedInquiries({ uow: createClientsUnitOfWork(db, deps) });
+  const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR), {
+    find: (input) => findReceived.execute(input, PORTAL_LEADS_ACTOR),
+  });
   const codes = propertyCodeLookup({
     findByCode: modules.properties.findPropertiesByCode,
     actor: PORTAL_SYNC_ACTOR,
@@ -1951,6 +1956,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   });
   const portalJobs = portals && {
     requestSync: new RequestListingSync({ uow: portals.uow, clock }),
+    requestAll: new RequestAllListingsSync({ uow: portals.uow, clock }),
     sync: new SyncListing({ ...portals, clock }),
     pullLeads: new PullPortalLeads({
       uow: portals.uow,

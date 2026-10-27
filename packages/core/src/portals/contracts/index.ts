@@ -83,6 +83,8 @@ export interface PortalAccountView {
   readonly linksExisting: boolean;
   readonly isEnabled: boolean;
   readonly isConnected: boolean;
+  /** El portal rechazó las credenciales: no sincroniza nada hasta volver a conectarla. */
+  readonly needsReconnect: boolean;
   readonly accountName: string | undefined;
   readonly connectedAt: Date | undefined;
   /** Las publicaciones vinculadas a la cuenta (con aviso vivo), por tipo de aviso y estado. */

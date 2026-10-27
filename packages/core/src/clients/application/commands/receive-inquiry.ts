@@ -1,10 +1,8 @@
 import {
   auditCreated,
-  Email,
   err,
   nextId,
   ok,
-  Phone,
   type Actor,
   type Clock,
   type ForbiddenError,
@@ -19,7 +17,7 @@ import {
   type ReceiveInquiryOutput,
 } from '../../contracts';
 import type { MissingContactInfoError } from '../../domain/client';
-import { Inquiry } from '../../domain/inquiry';
+import { Inquiry, inquiryContact } from '../../domain/inquiry';
 import { inquiryAutoTags } from '../../domain/inquiry-tags';
 import { invalidInput, type InvalidInputError } from '../client-support';
 import { inquiryAuditState, inquiryTarget } from '../inquiry-support';
@@ -63,18 +61,9 @@ export class ReceiveInquiry {
     if (!parsed.success) return err(invalidInput(parsed.error));
     const data = parsed.data;
 
-    let phone: Phone | undefined;
-    if (data.phone !== undefined) {
-      const created = Phone.create(data.phone);
-      if (created.isErr()) return err(created.error);
-      phone = created.value;
-    }
-    let email: Email | undefined;
-    if (data.email !== undefined) {
-      const created = Email.create(data.email);
-      if (created.isErr()) return err(created.error);
-      email = created.value;
-    }
+    const contact = inquiryContact({ phone: data.phone, email: data.email, message: data.message });
+    if (contact.isErr()) return err(contact.error);
+    const { phone, email, message } = contact.value;
 
     const property =
       data.propertyId === undefined ? undefined : await this.deps.properties.facts(data.propertyId);
@@ -93,7 +82,7 @@ export class ReceiveInquiry {
           name: data.name,
           phone,
           email,
-          message: data.message,
+          message,
           propertyId: data.propertyId,
           // Una consulta por una unidad es también una consulta por su emprendimiento.
           developmentId: data.developmentId ?? property?.developmentId,

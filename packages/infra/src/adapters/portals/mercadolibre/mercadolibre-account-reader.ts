@@ -109,6 +109,9 @@ const MODERATED = {
   inactive: 'MercadoLibre inactivó el aviso',
 } as const;
 const PAYMENT_REQUIRED = 'MercadoLibre espera un pago para mostrar el aviso.';
+/** Cuánto vale una lectura de estadísticas, y cuántas se guardan. */
+const STATS_CACHE_MS = 5 * 60 * 1000;
+const STATS_CACHE_SIZE = 500;
 /** Mientras MercadoLibre descarga las fotos, el aviso no está activo todavía: no es un cambio. */
 const PROCESSING_PICTURES = 'picture_download_pending';
 
@@ -121,6 +124,11 @@ export class MercadoLibreAccountReader
   implements PortalListingStateReader, PortalPackageReader, PortalListingStatsReader
 {
   readonly #api: MercadoLibreReads;
+  /** Las estadísticas leídas hace poco, por portal, aviso y días: cada una son cinco llamadas a ML. */
+  readonly #recentStats = new Map<
+    string,
+    { readonly at: number; readonly stats: PortalListingStats }
+  >();
 
   constructor(private readonly options: MercadoLibreAccountReaderOptions) {
     this.#api = new MercadoLibreReads(options);
@@ -221,7 +229,34 @@ export class MercadoLibreAccountReader
    * visitas de toda su vida, y las visitas, preguntas, vistas del teléfono y WhatsApp de los `days`
    * días que terminan en `endingAt`. Un aviso sin datos cuenta 0.
    */
+  /**
+   * Las visitas y contactos del aviso. Se guardan unos minutos: la pestaña Difusión las pide en cada
+   * render, y ML las actualiza de a horas.
+   */
   async stats(input: {
+    readonly portal: PortalId;
+    readonly externalId: string;
+    readonly endingAt: Date;
+    readonly days: number;
+  }): Promise<Result<PortalListingStats, ReadError>> {
+    const key = `${input.portal}:${input.externalId}:${String(input.days)}`;
+    const now = input.endingAt.getTime();
+    const cached = this.#recentStats.get(key);
+    if (cached !== undefined && now - cached.at < STATS_CACHE_MS) return ok(cached.stats);
+    const read = await this.#readStats(input);
+    if (read.isOk()) {
+      this.#recentStats.delete(key);
+      this.#recentStats.set(key, { at: now, stats: read.value });
+      // Map guarda el orden de inserción: la primera es la más vieja.
+      const oldest = this.#recentStats.keys().next();
+      if (this.#recentStats.size > STATS_CACHE_SIZE && oldest.done !== true) {
+        this.#recentStats.delete(oldest.value);
+      }
+    }
+    return read;
+  }
+
+  async #readStats(input: {
     readonly portal: PortalId;
     readonly externalId: string;
     readonly endingAt: Date;

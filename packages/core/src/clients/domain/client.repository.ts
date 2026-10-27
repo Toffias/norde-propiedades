@@ -60,6 +60,8 @@ export interface InquiryRepository {
   findForUpdate(id: InquiryId): Promise<Inquiry | undefined>;
   /** La consulta con ese ID externo en ese canal, si ya entró (incluye las borradas). */
   findByExternal(channel: string, externalId: string): Promise<Inquiry | undefined>;
+  /** De esos IDs externos del canal, los que ya entraron (incluye las borradas). */
+  findReceived(channel: string, externalIds: readonly string[]): Promise<readonly string[]>;
   /**
    * Inserta una consulta nueva. Devuelve `false` si ya había una con el mismo canal e ID externo
    * (otra entrega del mismo envío que llegó antes): no escribe nada.

@@ -64,16 +64,19 @@ export class PullPortalLeads {
 
     const since = new Date(this.deps.clock.now().getTime() - LEADS_LOOKBACK_DAYS * DAY_MS);
     const totals = { received: 0, duplicates: 0, skipped: 0, rejected: 0 };
+    let offset = 0;
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const slice = await this.deps.source.recent({
         portal,
         externalAccountId: connection.externalAccountId,
         since,
-        offset: page * PAGE_SIZE,
+        offset,
         limit: PAGE_SIZE,
+        alreadyReceived: (externalIds) => this.deps.sink.known(channel, externalIds),
       });
       if (slice.isErr()) return err(slice.error);
       const leads = slice.value.items;
+      totals.skipped += slice.value.skipped ?? 0;
       const owners = await this.#ownersOf(portal, leads);
 
       for (const lead of leads) {
@@ -92,8 +95,10 @@ export class PullPortalLeads {
         else totals.received += 1;
       }
 
-      const seen = page * PAGE_SIZE + leads.length;
-      if (leads.length < PAGE_SIZE || seen >= slice.value.total) break;
+      // Se pagina por lo que pagina el portal, no por los contactos que trajo la página.
+      const read = slice.value.read ?? leads.length;
+      offset += read;
+      if (read < PAGE_SIZE || offset >= slice.value.total) break;
     }
     return ok(totals);
   }

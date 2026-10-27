@@ -149,8 +149,25 @@ describe('portal accounts (Postgres)', () => {
       portal: 'mercadolibre',
       isEnabled: false,
       connection: undefined,
+      formerExternalAccountId: '123456789',
     });
     expect(await credentials.read('mercadolibre')).toBeUndefined();
+  });
+
+  it('keeps that the portal rejected the credentials until it reconnects', async () => {
+    const { connect, accounts } = setup();
+    unwrap(await connect.execute(CALLBACK, ADMIN));
+    const account = await accounts.get('mercadolibre');
+    account.rejectCredentials(new Date('2026-10-06T08:00:00Z'));
+    await accounts.save(account, ADMIN.id);
+
+    expect((await accounts.get('mercadolibre')).toSnapshot().connection).toMatchObject({
+      externalAccountId: '123456789',
+      credentialsRejectedAt: new Date('2026-10-06T08:00:00Z'),
+    });
+
+    unwrap(await connect.execute(CALLBACK, ADMIN));
+    expect((await accounts.get('mercadolibre')).needsReconnect).toBe(false);
   });
 
   it('refuses to store credentials for an account that was never saved', async () => {

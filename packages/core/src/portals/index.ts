@@ -20,6 +20,7 @@ export {
 } from './domain/portal';
 export {
   PortalAccount,
+  type PortalAccountChangedError,
   type PortalAccountInUseError,
   type PortalAccountSnapshot,
   type PortalConnection,
@@ -181,6 +182,7 @@ export {
 } from './domain/portal-lead';
 export type {
   PortalLeadNotifications,
+  PortalLeadPage,
   PortalLeadRejected,
   PortalLeadSink,
   PortalLeadSource,
@@ -269,6 +271,10 @@ export {
   RequestListingSync,
   type RequestListingSyncError,
 } from './application/commands/request-listing-sync';
+export {
+  RequestAllListingsSync,
+  type RequestAllListingsSyncError,
+} from './application/commands/request-all-listings-sync';
 export {
   ReconcileListings,
   type ReconcileListingsError,

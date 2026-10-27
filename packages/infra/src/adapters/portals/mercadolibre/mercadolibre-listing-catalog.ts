@@ -1,6 +1,5 @@
 import type {
   ListingOperation,
-  ListingType,
   PortalId,
   PortalListingCatalog,
   PortalNotConfiguredError,
@@ -12,7 +11,7 @@ import type {
 import { err, ok, type PageSlice, type Result } from '@norde/core/shared';
 import { z } from 'zod';
 
-import { operationOfCategory } from './mercadolibre-listing';
+import { listingTypeOf, operationOfCategory } from './mercadolibre-listing';
 import {
   MercadoLibreReads,
   type MercadoLibreReadError,
@@ -62,12 +61,6 @@ type Item = z.infer<typeof ItemSchema>;
 const MultigetSchema = z.array(z.object({ code: z.number(), body: z.unknown() }));
 
 /** El tipo de aviso de MercadoLibre en Norde: plata es simple, oro de cualquier tipo es destacado. */
-function listingTypeOf(listingTypeId: string | null | undefined): ListingType | undefined {
-  if (listingTypeId === 'silver') return 'simple';
-  if (listingTypeId?.startsWith('gold') === true) return 'featured';
-  return undefined;
-}
-
 /** La operación por el atributo `OPERATION` ("Venta", "Alquiler", "Alquiler temporario"). */
 function operationOf(item: Item): ListingOperation | undefined {
   const value = item.attributes?.find((a) => a.id === 'OPERATION')?.value_name?.toLowerCase();

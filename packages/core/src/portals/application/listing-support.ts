@@ -25,6 +25,65 @@ import type { PortalListingContent } from './ports/portal-connector';
 import type { PortalsTransaction, PortalsUnitOfWork } from './ports/portals-transaction';
 import type { ValidationFailedError } from './portals-input';
 
+/** El motivo de una sincronización que falló porque el portal no respondió. */
+export const SYNC_UNAVAILABLE = 'El portal no respondió. Se vuelve a intentar en unos minutos.';
+/** El motivo de una sincronización que falló porque el portal pidió volver a conectar la cuenta. */
+export const SYNC_RECONNECT = 'El portal pide volver a conectar la cuenta (Mi empresa → Portales).';
+
+/**
+ * Pide sincronizar las publicaciones bloqueadas que quedaron en error por uno de esos motivos (el
+ * portal no respondió, pidió reconectar): no hay nada que corregir en Norde, así que se reintentan
+ * solas. Devuelve cuántas pidió.
+ */
+export async function retryFailedListings(
+  deps: { readonly uow: PortalsUnitOfWork; readonly clock: Clock },
+  ids: readonly ListingId[],
+  reasons: readonly string[],
+): Promise<number> {
+  let requested = 0;
+  for (const id of ids) {
+    const retried = await deps.uow.run(async (tx) => {
+      const listing = await tx.listings.lockById(id);
+      const { status, lastError } = listing?.toSnapshot() ?? {};
+      if (!listing || status !== 'error' || !reasons.includes(lastError ?? '')) return false;
+      listing.requestSync(deps.clock.now());
+      await tx.events.publish(listing.pullEvents());
+      return true;
+    });
+    if (retried) requested += 1;
+  }
+  return requested;
+}
+
+/** Publicaciones por tanda al recorrer las de un portal. */
+const RETRY_BATCH_SIZE = 50;
+/** Tope de tandas: diez mil avisos vivos en un portal no son de una inmobiliaria. */
+const RETRY_MAX_BATCHES = 200;
+
+/**
+ * Recorre las publicaciones vivas del portal y pide sincronizar las que quedaron en error por uno de
+ * esos motivos (al reconectar la cuenta, las que fallaron por credenciales). Devuelve cuántas pidió.
+ */
+export async function retryPortalListings(
+  deps: { readonly uow: PortalsUnitOfWork; readonly clock: Clock },
+  portal: PortalId,
+  reasons: readonly string[],
+): Promise<number> {
+  let after: ListingId | undefined;
+  let requested = 0;
+  for (let batch = 0; batch < RETRY_MAX_BATCHES; batch += 1) {
+    const listings = await deps.uow.run((tx) =>
+      tx.listings.findLiveOnPortal(portal, { after, limit: RETRY_BATCH_SIZE }),
+    );
+    const failed = listings.filter((l) => l.toSnapshot().status === 'error').map((l) => l.id);
+    requested += await retryFailedListings(deps, failed, reasons);
+    const last = listings.at(-1);
+    if (last === undefined || listings.length < RETRY_BATCH_SIZE) break;
+    after = last.id;
+  }
+  return requested;
+}
+
 /**
  * Refleja en la publicación, bloqueada, cómo está su aviso en el portal (vencido, cerrado, pausado
  * por moderación): la conciliación diaria y la de un aviso que el portal avisó que cambió. Se
@@ -39,13 +98,24 @@ export async function applyRemoteState(
   return deps.uow.run(async (tx) => {
     const listing = await tx.listings.lockById(id);
     if (!listing) return false;
-    const before = listing.toSnapshot();
-    if (!listing.reconcile(state, deps.clock.now())) return false;
-    await tx.listings.save(listing, actor.id);
-    await tx.events.publish(listing.pullEvents());
-    await auditStatusChange(tx, actor, listing, before.status, { lastError: before.lastError });
-    return true;
+    return reflectRemoteState(tx, listing, state, actor, deps.clock.now());
   });
+}
+
+/** Como `applyRemoteState`, con la publicación ya bloqueada en la transacción. */
+export async function reflectRemoteState(
+  tx: PortalsTransaction,
+  listing: Listing,
+  state: RemoteListingState,
+  actor: Actor,
+  now: Date,
+): Promise<boolean> {
+  const before = listing.toSnapshot();
+  if (!listing.reconcile(state, now)) return false;
+  await tx.listings.save(listing, actor.id);
+  await tx.events.publish(listing.pullEvents());
+  await auditStatusChange(tx, actor, listing, before.status, { lastError: before.lastError });
+  return true;
 }
 
 /**

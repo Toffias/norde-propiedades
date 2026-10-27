@@ -56,6 +56,7 @@ function zonapropAccount() {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   unwrap(account.enable());
@@ -73,6 +74,7 @@ function mercadoLibreDevelopmentsAccount() {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   unwrap(account.enable());

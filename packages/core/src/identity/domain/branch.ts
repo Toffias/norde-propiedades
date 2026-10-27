@@ -57,6 +57,18 @@ function clean(contact: BranchContact): BranchContact {
   };
 }
 
+/** Los datos de contacto como texto, para saber si cambiaron. */
+function contactKey(contact: BranchContact): string {
+  return JSON.stringify([
+    contact.name,
+    contact.logoUrl,
+    contact.address,
+    contact.email?.value,
+    contact.phone?.e164,
+    contact.whatsapp.e164,
+  ]);
+}
+
 /** Sucursal de Norde. Hoy hay una sola, pero se modela para poder abrir otras. */
 export class Branch extends AggregateRoot<BranchId, BranchEvent> {
   #state: Omit<BranchSnapshot, 'id'>;
@@ -104,8 +116,17 @@ export class Branch extends AggregateRoot<BranchId, BranchEvent> {
     return this.#state.deletedAt !== undefined;
   }
 
+  /** Cambia los datos de contacto. Si cambió algo, lo avisa (`identity.branch_updated`). */
   update(contact: BranchContact, now: Date): void {
-    this.#state = { ...this.#state, ...clean(contact), updatedAt: now };
+    const next = clean(contact);
+    if (contactKey(next) === contactKey(this.#state)) return;
+    this.#state = { ...this.#state, ...next, updatedAt: now };
+    this.record({
+      type: 'identity.branch_updated',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: { branchId: this.id },
+    });
   }
 
   /** Pasa a ser la casa central. El caso de uso le saca la marca a la anterior. */

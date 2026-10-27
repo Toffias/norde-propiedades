@@ -19,6 +19,12 @@ export interface EventSubscription {
    * si no se dice). Para los handlers largos, como una importación entera.
    */
   readonly expireInSeconds?: number;
+  /**
+   * Agrupa los eventos del mismo aggregate: como mucho un job cada tantos segundos, y los que llegan
+   * en el medio se juntan en uno al final del intervalo (no se pierden). Para los handlers que
+   * releen todo y pueden recibir ráfagas, como la lectura de contactos de un portal.
+   */
+  readonly throttleSeconds?: number;
 }
 
 /** Un trabajo que corre solo, cada tanto (cron de pg-boss). */
@@ -92,6 +98,8 @@ export class PgBossEventBus {
       await this.#ensureQueue(queue, {
         retryLimit: this.options.retryLimit ?? 5,
         retryBackoff: true,
+        retryDelay: RETRY_DELAY_SECONDS,
+        retryDelayMax: RETRY_DELAY_MAX_SECONDS,
         expireInSeconds: subscription.expireInSeconds ?? DEFAULT_EXPIRE_SECONDS,
       });
       await this.#boss.work<unknown>(queue, async (jobs) => {
@@ -107,7 +115,17 @@ export class PgBossEventBus {
   /** Encola el evento para cada suscriptor. Reenviar el mismo evento no duplica jobs. */
   async publish(event: PublishedEvent): Promise<void> {
     for (const subscription of this.#subscriptions.get(event.type) ?? []) {
-      await this.#boss.send(queueName(subscription), toJobData(event), { id: event.id });
+      const { throttleSeconds } = subscription;
+      await this.#boss.send(queueName(subscription), toJobData(event), {
+        id: event.id,
+        ...(throttleSeconds === undefined
+          ? {}
+          : {
+              singletonKey: event.aggregateId,
+              singletonSeconds: throttleSeconds,
+              singletonNextSlot: true,
+            }),
+      });
     }
   }
 
@@ -134,8 +152,18 @@ export class PgBossEventBus {
 interface QueueSettings {
   readonly retryLimit: number;
   readonly retryBackoff?: boolean;
+  readonly retryDelay?: number;
+  readonly retryDelayMax?: number;
   readonly expireInSeconds?: number;
 }
+
+/**
+ * Base del backoff de los reintentos: con la de pg-boss (1 segundo) los cinco intentos entran en un
+ * minuto, y una caída de un portal o un 429 que dure más agota los reintentos. Con 30 segundos
+ * duplicando hasta 10 minutos, los cinco cubren unos 15 minutos.
+ */
+const RETRY_DELAY_SECONDS = 30;
+const RETRY_DELAY_MAX_SECONDS = 10 * 60;
 
 /** El vencimiento de pg-boss si el handler no dice otro: 15 minutos. */
 const DEFAULT_EXPIRE_SECONDS = 15 * 60;

@@ -36,6 +36,7 @@ function connect(uow: InMemoryPortalsUnitOfWork, portal: PortalId = 'mercadolibr
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   uow.accounts.rows.set(portal, account.toSnapshot());
@@ -88,7 +89,7 @@ describe('ReconcileListings', () => {
 
     const outcome = unwrap(await reconcile.execute({ portal: 'mercadolibre' }, PORTAL_SYNC));
 
-    expect(outcome).toEqual({ checked: 2, changed: 1 });
+    expect(outcome).toEqual({ checked: 2, changed: 1, retried: 0 });
     expect(uow.listings.rows.get(expired)).toMatchObject({
       status: 'unpublished',
       intent: 'closed',
@@ -132,7 +133,7 @@ describe('ReconcileListings', () => {
     const outcome = unwrap(await reconcile.execute({ portal: 'mercadolibre' }, PORTAL_SYNC));
 
     expect(reader.reads.map((ids) => ids.length)).toEqual([50, 1]);
-    expect(outcome).toEqual({ checked: 1, changed: 1 });
+    expect(outcome).toEqual({ checked: 1, changed: 1, retried: 0 });
   });
 
   it('does not ask the portal for listings that are closed', async () => {
@@ -147,6 +148,7 @@ describe('ReconcileListings', () => {
     expect(unwrap(await reconcile.execute({ portal: 'mercadolibre' }, PORTAL_SYNC))).toEqual({
       checked: 0,
       changed: 0,
+      retried: 0,
     });
     expect(reader.reads).toEqual([]);
   });
@@ -162,9 +164,35 @@ describe('ReconcileListings', () => {
       expect(unwrap(await reconcile.execute({ portal }, PORTAL_SYNC))).toEqual({
         checked: 0,
         changed: 0,
+        retried: 0,
       });
     }
     expect(reader.reads).toEqual([]);
+  });
+
+  it('asks again for the listings the portal did not answer, and only those', async () => {
+    const { uow, reader, reconcile } = setup();
+    const unavailable = seedPublished(uow, 1);
+    const rejected = seedPublished(uow, 2);
+    for (const [id, reason] of [
+      [unavailable, 'El portal no respondió. Se vuelve a intentar en unos minutos.'],
+      [rejected, 'El título tiene datos de contacto.'],
+    ] as const) {
+      const snapshot = uow.listings.rows.get(id);
+      if (!snapshot) throw new Error('seeded listing missing');
+      const listing = Listing.restore(snapshot);
+      listing.recordFailure(reason, new Date(NOW));
+      listing.pullEvents();
+      uow.listings.rows.set(id, listing.toSnapshot());
+    }
+
+    const outcome = unwrap(await reconcile.execute({ portal: 'mercadolibre' }, PORTAL_SYNC));
+
+    expect(outcome.retried).toBe(1);
+    expect(uow.events.published.map((e) => [e.type, e.aggregateId])).toEqual([
+      ['portals.listing_sync_requested', unavailable],
+    ]);
+    expect(reader.reads).toEqual([['MLA1', 'MLA2']]);
   });
 
   it('fails when the portal does not answer, without touching the listings', async () => {
@@ -267,6 +295,20 @@ describe('ReconcileListing', () => {
     expect(reader.reads).toEqual([['MLA3']]);
     expect(uow.listings.rows.get(id)).toMatchObject({ status: 'unpublished', intent: 'closed' });
     expect(uow.audit.entries[0]?.action).toBe('property.portal_unpublished');
+  });
+
+  it('reads the portal after a sync in progress, not before', async () => {
+    const { uow, reader, reconcile } = oneSetup();
+    const id = seedPublished(uow, 3);
+    reader.remote.set('MLA3', { state: 'paused', reason: 'Se pausó desde MercadoLibre.' });
+    // Una sincronización que tiene la publicación bloqueada reactiva el aviso.
+    uow.listings.holdingLock = () => {
+      reader.remote.set('MLA3', { state: 'active', reason: undefined });
+      return Promise.resolve();
+    };
+
+    expect(unwrap(await reconcile.execute({ listingId: id }, PORTAL_SYNC))).toBe(false);
+    expect(uow.listings.rows.get(id)).toMatchObject({ status: 'published', lastError: undefined });
   });
 
   it('does nothing when the portal reports the same state, or nothing', async () => {

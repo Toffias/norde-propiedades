@@ -7,7 +7,7 @@ import {
   type InquirySnapshot,
 } from '@norde/core/clients';
 import { parseId } from '@norde/core/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -99,6 +99,17 @@ export class DrizzleInquiryRepository implements InquiryRepository {
       .where(and(eq(inquiries.channel, channel), eq(inquiries.externalId, externalId)))
       .limit(1);
     return row && Inquiry.restore(toSnapshot(row));
+  }
+
+  async findReceived(channel: string, externalIds: readonly string[]): Promise<readonly string[]> {
+    if (externalIds.length === 0) return [];
+    // Por el índice único `(channel, external_id)`; como mucho una fila por ID pedido.
+    const rows = await this.db
+      .select({ externalId: inquiries.externalId })
+      .from(inquiries)
+      .where(and(eq(inquiries.channel, channel), inArray(inquiries.externalId, [...externalIds])))
+      .limit(externalIds.length);
+    return rows.flatMap((row) => (row.externalId === null ? [] : [row.externalId]));
   }
 
   /**

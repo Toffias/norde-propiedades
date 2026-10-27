@@ -11,7 +11,10 @@ import {
   ConnectPortalAccountWithCodeInputSchema,
   type ConnectPortalAccountWithCodeInput,
 } from '../../contracts';
-import type { PortalAccountInUseError } from '../../domain/portal-account';
+import type {
+  PortalAccountChangedError,
+  PortalAccountInUseError,
+} from '../../domain/portal-account';
 import { requireConnectionMethod, type WrongConnectionMethodError } from '../connection-method';
 import { connectionAuditValue, portalAccountTarget } from '../portal-account-audit';
 import type {
@@ -26,7 +29,8 @@ export type ConnectPortalAccountWithCodeError =
   | ValidationFailedError
   | WrongConnectionMethodError
   | PortalAccountLookupError
-  | PortalAccountInUseError;
+  | PortalAccountInUseError
+  | PortalAccountChangedError;
 
 /**
  * Vincula la cuenta de un portal donde Norde ya es integrador, por el código de la cuenta (en
@@ -71,6 +75,7 @@ export class ConnectPortalAccountWithCode {
             connectedBy: actor.id,
           },
           await tx.accounts.all(),
+          (await tx.listings.findLiveOnPortal(portal, { after: undefined, limit: 1 })).length > 0,
         );
         if (connected.isErr()) return err(connected.error);
 

@@ -10,6 +10,7 @@ import {
   clientActivities,
   clientRelations,
   featuredListings,
+  followUpMatches,
   importMappings,
   inquiries,
   opportunities,
@@ -137,6 +138,27 @@ export class DrizzleClientLinkedRecords implements ClientLinkedRecords {
         .where(eq(sharedListings.clientId, fromId))
         .returning({ id: sharedListings.id }),
     );
+    // Las coincidencias de los seguimientos automáticos (#106): las que el principal ya tiene (la
+    // misma propiedad nueva o la misma baja) se descartan, así no se le manda dos veces.
+    await this.db.delete(followUpMatches).where(
+      and(
+        eq(followUpMatches.clientId, fromId),
+        sql`exists (
+          select 1 from ${followUpMatches} same
+          where same.client_id = ${toId}
+            and same.property_id = ${followUpMatches.propertyId}
+            and same.reason = ${followUpMatches.reason}
+            and (same.reason = 'new_listing' or (
+              same.operation = ${followUpMatches.operation}
+              and same.price_cents is not distinct from ${followUpMatches.priceCents}
+            ))
+        )`,
+      ),
+    );
+    await this.db
+      .update(followUpMatches)
+      .set({ clientId: toId })
+      .where(eq(followUpMatches.clientId, fromId));
     const inquiriesMoved = await moved(
       this.db
         .update(inquiries)

@@ -2,6 +2,7 @@
 
 import {
   MAX_SEND_MESSAGE_LENGTH,
+  MAX_SEND_SUBJECT_LENGTH,
   SHARED_LISTING_CHANNEL_LABELS,
   SHARED_LISTING_LIFETIME_DAY_COUNT,
 } from '@norde/core/clients/contracts';
@@ -14,7 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@norde/ui/components/dialog';
+import { Input } from '@norde/ui/components/input';
 import { Label } from '@norde/ui/components/label';
+import { PagedCombobox, type ComboboxOption } from '@norde/ui/components/paged-combobox';
 import {
   Select,
   SelectContent,
@@ -29,7 +32,9 @@ import { Loader2Icon, MailIcon } from 'lucide-react';
 import { useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
+import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { FormAlert } from '../../shared/components/form-alert';
+import { loadQuickReplyAction, loadQuickReplyOptions } from '../../quick-replies/actions';
 import { sendListingsAction } from '../shared-listing-actions';
 
 export type SendChannel = 'email' | 'whatsapp';
@@ -73,8 +78,31 @@ export function SendListingsDialog({
   const options = channel === 'email' ? recipients.emails : recipients.phones;
   const [recipient, setRecipient] = useState<string | undefined>(options[0]);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [quickReply, setQuickReply] = useState<ComboboxOption | null>(null);
+  const [loadingReply, startLoadingReply] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
+
+  /** Vuelca la respuesta rápida elegida en el asunto y el mensaje; se pueden ajustar después. */
+  function chooseQuickReply(option: ComboboxOption | null) {
+    setQuickReply(option);
+    if (option === null) return;
+    startLoadingReply(async () => {
+      setError(undefined);
+      try {
+        const loaded = await loadQuickReplyAction({ quickReplyId: option.value });
+        if (!loaded.ok) {
+          setError(loaded.message);
+          return;
+        }
+        setMessage(loaded.value.body);
+        setEmailSubject(loaded.value.subject ?? '');
+      } catch {
+        setError(UNEXPECTED_ERROR_MESSAGE);
+      }
+    });
+  }
 
   function changeChannel(next: SendChannel) {
     setChannel(next);
@@ -100,6 +128,7 @@ export function SendListingsDialog({
           channel,
           ...(recipients.masked || recipient === undefined ? {} : { recipient }),
           ...(message.trim() === '' ? {} : { message }),
+          ...(channel === 'email' && emailSubject.trim() !== '' ? { subject: emailSubject } : {}),
         });
         whatsappUrl = result.whatsappUrl;
         return result;
@@ -190,6 +219,33 @@ export function SendListingsDialog({
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${id}-quick-reply`}>Respuesta rápida (opcional)</Label>
+            <PagedCombobox
+              id={`${id}-quick-reply`}
+              value={quickReply}
+              onChange={chooseQuickReply}
+              loadPage={loadQuickReplyOptions}
+              placeholder="Elegí una plantilla"
+              searchPlaceholder="Buscar por nombre"
+              emptyText="No hay respuestas rápidas activas."
+              disabled={loadingReply}
+            />
+          </div>
+          {channel === 'email' && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-subject`}>Asunto (opcional)</Label>
+              <Input
+                id={`${id}-subject`}
+                value={emailSubject}
+                maxLength={MAX_SEND_SUBJECT_LENGTH}
+                placeholder="Sin asunto, va uno con el nombre de la empresa"
+                onChange={(event) => {
+                  setEmailSubject(event.target.value);
+                }}
+              />
+            </div>
+          )}
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${id}-message`}>Mensaje</Label>
             <Textarea
               id={`${id}-message`}
@@ -203,7 +259,8 @@ export function SendListingsDialog({
             <p className="text-xs text-muted-foreground">
               {channel === 'email'
                 ? 'Va arriba de las propiedades, con tu nombre como firma.'
-                : 'El link se agrega al final del mensaje.'}
+                : 'El link se agrega al final del mensaje.'}{' '}
+              Las variables como [[primer_nombre_contacto]] se completan al enviar.
             </p>
           </div>
         </div>
@@ -211,7 +268,7 @@ export function SendListingsDialog({
           <Button variant="outline" onClick={close} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={send} disabled={pending || noRecipient}>
+          <Button onClick={send} disabled={pending || loadingReply || noRecipient}>
             {pending ? (
               <Loader2Icon className="animate-spin" />
             ) : channel === 'email' ? (

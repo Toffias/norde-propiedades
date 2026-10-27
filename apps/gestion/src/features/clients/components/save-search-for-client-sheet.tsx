@@ -41,10 +41,12 @@ export function SaveSearchForClientSheet({
   filters,
   open,
   onOpenChange,
+  canTurnOnAutoSend,
 }: {
   readonly filters: SearchFilters;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  readonly canTurnOnAutoSend: boolean;
 }) {
   const id = useId();
   const [clientId, setClientId] = useState<string | undefined>();
@@ -65,6 +67,7 @@ export function SaveSearchForClientSheet({
         prefill={prefillFrom(filters)}
         activeOpportunityId={undefined}
         readOnly={false}
+        canTurnOnAutoSend={canTurnOnAutoSend}
         notice={
           location === ''
             ? undefined

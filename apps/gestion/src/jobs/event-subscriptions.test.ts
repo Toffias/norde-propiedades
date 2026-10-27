@@ -1,4 +1,9 @@
-import type { RecordClientActivity, RouteInquiry, RunClientImport } from '@norde/core/clients';
+import type {
+  MatchFollowUps,
+  RecordClientActivity,
+  RouteInquiry,
+  RunClientImport,
+} from '@norde/core/clients';
 import type { RunTokkoUsersImport } from '@norde/core/identity';
 import type { NotifyAssignment } from '@norde/core/notifications';
 import type {
@@ -105,6 +110,7 @@ function clientJobs(calls: unknown[] = []): {
   readonly runTokkoApiPropertyImport: Pick<RunTokkoApiPropertyImport, 'execute'>;
   readonly runTokkoUsersImport: Pick<RunTokkoUsersImport, 'execute'>;
   readonly opportunities: OpportunityJobs;
+  readonly matchFollowUps: Pick<MatchFollowUps, 'execute'>;
   readonly routeInquiry: Pick<RouteInquiry, 'execute'>;
   readonly revalidateSite: SiteRevalidation;
   readonly importActor: Actor;
@@ -190,6 +196,12 @@ function clientJobs(calls: unknown[] = []): {
         },
       },
     },
+    matchFollowUps: {
+      execute: (input, by) => {
+        calls.push(['follow-ups', input, by.id]);
+        return Promise.resolve(ok({ matched: 0 }));
+      },
+    },
     routeInquiry: {
       execute: (input, by) => {
         calls.push(['route', input, by.id]);
@@ -265,6 +277,8 @@ describe('eventSubscriptions', () => {
       'clients.listings_sent.apply-rules',
       'clients.listing_reacted.apply-rules',
       'clients.opportunity_bulk_requested.run-bulk',
+      'properties.property_changed.match-follow-ups',
+      'properties.property_price_changed.match-follow-up-price-drops',
       'clients.client_reassigned.notify-assignee',
       'clients.opportunity_reassigned.notify-assignee',
       'clients.inquiry_assigned.notify-assignee',
@@ -370,6 +384,55 @@ describe('eventSubscriptions', () => {
       revalidatedDevelopment,
     ]);
     await expect(site[0]?.handle({ ...event, payload: { propertyId: 'x' } })).rejects.toThrow();
+  });
+
+  it('matches every saved property and every price change with the follow-ups', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(),
+      ...clientJobs(calls),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const changed = subscriptions.find((s) => s.name === 'match-follow-ups');
+    const priced = subscriptions.find((s) => s.name === 'match-follow-up-price-drops');
+    expect(changed).toMatchObject({
+      eventType: 'properties.property_changed',
+      throttleSeconds: 60,
+    });
+    expect(priced?.eventType).toBe('properties.property_price_changed');
+
+    await changed?.handle({ ...event, payload: { propertyId: PROPERTY_ID, code: 'DEP0001' } });
+    const price = { propertyId: PROPERTY_ID, code: 'DEP0001', operation: 'sale', currency: 'USD' };
+    await priced?.handle({
+      ...event,
+      payload: { ...price, oldPriceCents: '12000000', newPriceCents: '11500000' },
+    });
+    // Un evento anterior a #106, sin los precios.
+    await priced?.handle({ ...event, payload: price });
+
+    const drop = (oldPriceCents?: bigint, newPriceCents?: bigint) => [
+      'follow-ups',
+      {
+        propertyId: PROPERTY_ID,
+        trigger: { kind: 'price_changed', operation: 'sale', oldPriceCents, newPriceCents },
+      },
+      'system:scheduler',
+    ];
+    expect(calls).toEqual([
+      [
+        'follow-ups',
+        { propertyId: PROPERTY_ID, trigger: { kind: 'listing_changed' } },
+        'system:scheduler',
+      ],
+      drop(12_000_000n, 11_500_000n),
+      drop(),
+    ]);
+    await expect(
+      priced?.handle({ ...event, payload: { ...price, newPriceCents: '-1' } }),
+    ).rejects.toThrow();
   });
 
   it('deletes removed appraisal photos and creates the property of a converted one', async () => {

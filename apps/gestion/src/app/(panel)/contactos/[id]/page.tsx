@@ -245,6 +245,7 @@ async function TabContent({
             clientDisplayName={clientName(detail.name)}
             page={page.value}
             canEdit={detail.can.edit}
+            canTurnOnAutoSend={actor.can('followups:automatic')}
             canReserve={actor.can('reservations:create')}
             recipients={{
               emails: detail.emails.map((email) => email.address),
@@ -303,6 +304,7 @@ async function TabContent({
             sort={searchesQuery.sort}
             view={searchesQuery.view}
             canEdit={detail.can.edit}
+            canTurnOnAutoSend={actor.can('followups:automatic')}
             detail={detailPanel}
             activeOpportunityId={detail.activeOpportunity?.id}
           />

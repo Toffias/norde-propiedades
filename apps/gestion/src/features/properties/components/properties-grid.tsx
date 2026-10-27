@@ -38,6 +38,8 @@ export interface PropertyPermissions extends BulkPermissions {
   readonly import: boolean;
   /** Borrar o restaurar: el caso de uso decide sobre cada propiedad (propias o de otros). */
   readonly delete: boolean;
+  /** `followups:automatic`: guardar una búsqueda con envío automático (#106). */
+  readonly turnOnAutoSend: boolean;
 }
 
 interface PendingAction {

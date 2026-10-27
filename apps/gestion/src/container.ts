@@ -111,6 +111,7 @@ import {
   RevokeSharedListing,
   SendListings,
   type PublicListings,
+  type FollowUpListings,
   MergeClientTags,
   PreviewClientMerge,
   ListPropertyInterestedClients,
@@ -166,6 +167,7 @@ import {
   UpdateQuickReply,
   UpdateInquiryRule,
   ApplyOpportunityRules,
+  MatchFollowUps,
   NotifyTeamOfOpportunity,
   FindReceivedInquiries,
   ReceiveInquiry,
@@ -217,6 +219,7 @@ import {
   GetPropertyDocumentDownload,
   GetPropertyInterestProfile,
   GetPropertyInterestProfiles,
+  GetPropertyFollowUpProfile,
   GetMediaFile,
   ListShareablePhotos,
   ListCustomAttributes,
@@ -443,6 +446,7 @@ import {
   DrizzlePropertyReservationsQuery,
   DrizzleReservationListQuery,
   DrizzlePropertyInterestQuery,
+  DrizzleFollowUpCandidatesQuery,
   DrizzleMediaQuery,
   DrizzlePropertyStatisticsQuery,
   DrizzleHomeDashboardQuery,
@@ -656,6 +660,7 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'notifications:create',
   'opportunities:apply-rules',
   'opportunities:run-bulk',
+  'clients:match-follow-ups',
   'inquiries:route',
 ]);
 /**
@@ -1114,6 +1119,7 @@ function createPropertiesUseCases(
     }),
     getPropertyInterestProfile: new GetPropertyInterestProfile({ uow }),
     getPropertyInterestProfiles: new GetPropertyInterestProfiles({ uow }),
+    getPropertyFollowUpProfile: new GetPropertyFollowUpProfile({ uow }),
     // Reservas (#13)
     reserveProperty: new ReserveProperty({ uow, producers, clock, ids }),
     updateReservation: new UpdateReservation({ uow, producers, clock }),
@@ -1286,6 +1292,22 @@ function propertyProfiles(properties: PropertiesUseCases): PropertyProfiles {
       );
       if (profiles.isErr()) return new Map();
       return new Map(profiles.value.map((profile) => [profile.propertyId, profile]));
+    },
+  };
+}
+
+/**
+ * El perfil de una propiedad para los seguimientos automáticos (#106), por la API de properties.
+ * Lo lee el job del cruce, como el sistema.
+ */
+function followUpListings(properties: PropertiesUseCases): FollowUpListings {
+  return {
+    async find(propertyId) {
+      const profile = await properties.getPropertyFollowUpProfile.execute(
+        { propertyId },
+        SCHEDULER_ACTOR,
+      );
+      return profile.isOk() ? profile.value : undefined;
     },
   };
 }
@@ -2152,6 +2174,13 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       clock,
     }),
     opportunities: createOpportunityJobs(db, deps),
+    matchFollowUps: new MatchFollowUps({
+      uow: createClientsUnitOfWork(db, deps),
+      listings: followUpListings(properties),
+      candidates: new DrizzleFollowUpCandidatesQuery(db),
+      ids,
+      clock,
+    }),
     revalidateSite: siteRevalidation(env, logger),
     routeInquiry: new RouteInquiry({
       uow: createClientsUnitOfWork(db, deps),

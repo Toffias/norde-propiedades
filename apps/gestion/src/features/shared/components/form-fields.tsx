@@ -197,7 +197,8 @@ export function SwitchField<T extends FieldValues>({
   name,
   label,
   description,
-}: FieldProps<T>) {
+  disabled = false,
+}: FieldProps<T> & { readonly disabled?: boolean }) {
   return (
     <FormField
       control={control}
@@ -211,6 +212,7 @@ export function SwitchField<T extends FieldValues>({
           <FormControl>
             <Switch
               checked={field.value === true}
+              disabled={disabled}
               onCheckedChange={(checked) => {
                 field.onChange(checked);
               }}

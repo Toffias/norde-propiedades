@@ -378,7 +378,7 @@ describe('SyncListing', () => {
     expect(s.connector.calls).toEqual([]);
   });
 
-  it('does not send a listing that lost its price', async () => {
+  it('pauses a listing that lost its price instead of leaving the old one online', async () => {
     const { sync, connector, reader, listingId, uow } = await published();
     reader.sources.set(
       LISTED_PROPERTY_ID,
@@ -389,8 +389,79 @@ describe('SyncListing', () => {
       }),
     );
     expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
-    expect(connector.calls).toEqual([]);
+    // Se pausa sin mandar el contenido nuevo.
+    expect(connector.calls).toEqual([{ method: 'update', externalId: 'MLA1', state: 'paused' }]);
+    expect(uow.listings.rows.get(listingId)).toMatchObject({ status: 'paused', intent: 'active' });
     expect(uow.listings.rows.get(listingId)?.lastError).toContain('precio');
+    expect(uow.audit.entries.at(-1)?.action).toBe('property.portal_paused');
+
+    // Con el precio de vuelta, manda el contenido y lo reactiva.
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource());
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+    expect(connector.calls.at(-1)).toMatchObject({ method: 'update', state: 'active' });
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'published',
+      lastError: undefined,
+    });
+  });
+
+  it('pauses a listing whose operation the property no longer offers', async () => {
+    const { sync, connector, reader, listingId, uow } = await published();
+    reader.sources.set(
+      LISTED_PROPERTY_ID,
+      listingSource({
+        operations: [
+          { operation: 'rent', currency: 'ARS', priceCents: 50_000_000n, priceOnRequest: false },
+        ],
+      }),
+    );
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+    expect(connector.calls.map((c) => [c.method, c.state])).toEqual([['update', 'paused']]);
+    expect(uow.listings.rows.get(listingId)?.lastError).toBe(
+      'La propiedad ya no ofrece esta operación.',
+    );
+  });
+
+  it('keeps the error when the stale listing cannot be paused', async () => {
+    const { sync, connector, reader, listingId, uow } = await published();
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource({ title: 'Otro' }));
+    connector.problemsFound = ['Falta la superficie cubierta.'];
+    connector.failWith = { type: 'PortalUnavailable' };
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('retry');
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'error',
+      lastError: 'Falta la superficie cubierta.',
+    });
+  });
+
+  it('does not create a listing that has no price', async () => {
+    const s = setup();
+    const { listingId } = unwrap(await s.request.execute(SALE, AGENT));
+    s.reader.sources.set(
+      LISTED_PROPERTY_ID,
+      listingSource({
+        operations: [
+          { operation: 'sale', currency: 'USD', priceCents: undefined, priceOnRequest: true },
+        ],
+      }),
+    );
+    expect(unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
+    expect(s.connector.calls).toEqual([]);
+    expect(s.uow.listings.rows.get(listingId)?.status).toBe('error');
+  });
+
+  it('keeps the listing paused with the reason when the portal cannot activate it', async () => {
+    const { sync, connector, reader, listingId, uow } = await published();
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource({ title: 'Otro' }));
+    connector.remoteState = 'paused';
+    connector.remoteReason = 'MercadoLibre está revisando el aviso.';
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'paused',
+      intent: 'active',
+      lastError: 'MercadoLibre está revisando el aviso.',
+      retryCount: 0,
+    });
   });
 
   it('requires portals:sync', async () => {

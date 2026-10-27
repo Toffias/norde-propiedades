@@ -450,6 +450,8 @@ export class FakePortalConnector implements PortalConnector {
   remoteState: PortalListingState | undefined;
   /** El link que devuelve `update`, si el portal lo informa. */
   remotePermalink: string | undefined;
+  /** Por qué el portal dejó el aviso pausado (lo está moderando). */
+  remoteReason: string | undefined;
   #next = 0;
 
   problems() {
@@ -483,7 +485,11 @@ export class FakePortalConnector implements PortalConnector {
     });
     if (this.failWith) return Promise.resolve(err(this.failWith));
     return Promise.resolve(
-      ok({ state: this.remoteState ?? change.state, permalink: this.remotePermalink }),
+      ok({
+        state: this.remoteState ?? change.state,
+        permalink: this.remotePermalink,
+        ...(this.remoteReason === undefined ? {} : { reason: this.remoteReason }),
+      }),
     );
   }
 

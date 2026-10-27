@@ -29,6 +29,7 @@ import {
   listingPrice,
   listingProblems,
   listingTitle,
+  listingTypeOf,
   sellerContact,
 } from './mercadolibre-listing';
 import type { MercadoLibreLocations } from './mercadolibre-locations';
@@ -56,11 +57,26 @@ export interface MercadoLibrePortalConnectorOptions {
   readonly fetch?: typeof fetch;
 }
 
+/**
+ * Los estados en que MercadoLibre no deja activar el aviso: pedirlo da 400. El aviso queda pausado
+ * con el motivo hasta que se resuelva en la cuenta de ML (la conciliación lo ve cuando pasa).
+ */
+const NOT_ACTIVATABLE: Readonly<Record<string, string>> = {
+  under_review:
+    'MercadoLibre está revisando el aviso: no se puede activar hasta que termine. Revisalo en la cuenta de MercadoLibre.',
+  inactive:
+    'MercadoLibre inactivó el aviso: no se puede activar desde Norde. Revisalo en la cuenta de MercadoLibre.',
+  payment_required: 'MercadoLibre espera un pago para mostrar el aviso.',
+};
+const MODERATION_PENALTY =
+  'MercadoLibre pausó el aviso por moderación: no se puede activar desde Norde. Revisalo en la cuenta de MercadoLibre.';
+
 const CreatedSchema = z.object({ id: z.string(), permalink: z.string().optional() });
 const ItemSchema = z.object({
   id: z.string(),
   status: z.string(),
   listing_type_id: z.string(),
+  tags: z.array(z.string()).nullish(),
   variations: z
     .array(z.object({ id: z.number(), seller_custom_field: z.string().nullish() }).loose())
     .nullish(),
@@ -187,16 +203,21 @@ export class MercadoLibrePortalConnector implements PortalConnector {
         plain_text: content.source.description,
       });
       if (description.isErr()) return err(description.error);
-      const listingType = ML_LISTING_TYPES[content.listingType];
-      if (item.data.listing_type_id !== listingType) {
+      // Se compara simple contra destacado: un aviso vinculado de Tokko en `gold` o `gold_special`
+      // ya es destacado y no se pasa a `gold_premium` (otro costo y otro cupo).
+      if (listingTypeOf(item.data.listing_type_id) !== content.listingType) {
         const upgraded = await this.#call(portal, 'POST', `${path}/listing_type`, {
-          id: listingType,
+          id: ML_LISTING_TYPES[content.listingType],
         });
         if (upgraded.isErr()) return err(upgraded.error);
       }
     }
 
-    if (item.data.status !== change.state) {
+    const blocked = blockedReason(item.data);
+    if (change.state === 'active' && blocked !== undefined) {
+      return ok({ state: 'paused', permalink: undefined, reason: blocked });
+    }
+    if (item.data.status !== change.state && blocked === undefined) {
       const moved = await this.#call(portal, 'PUT', path, { status: change.state });
       if (moved.isErr()) return err(moved.error);
     }
@@ -404,6 +425,14 @@ export class MercadoLibrePortalConnector implements PortalConnector {
     this.options.logger.error({ portal, path }, 'Unexpected MercadoLibre response');
     return err({ type: 'PortalUnavailable' });
   }
+}
+
+/** Por qué MercadoLibre no deja activar el aviso ahora; `undefined` si se puede. */
+function blockedReason(item: z.infer<typeof ItemSchema>): string | undefined {
+  if (item.status === 'paused') {
+    return item.tags?.includes('moderation_penalty') === true ? MODERATION_PENALTY : undefined;
+  }
+  return NOT_ACTIVATABLE[item.status];
 }
 
 /**

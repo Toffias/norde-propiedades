@@ -224,6 +224,65 @@ describe('MercadoLibrePortalConnector.update', () => {
     expect(requests[4]?.body).toEqual({ status: 'paused' });
   });
 
+  it.each(['gold', 'gold_special', 'gold_premium'])(
+    'keeps a featured item in %s as it is',
+    async (listingType) => {
+      const { connector, requests } = setup([
+        () => Response.json({ ...ACTIVE_ITEM, listing_type_id: listingType }),
+        () => Response.json(ACTIVE_ITEM),
+        () => Response.json({ text: '', plain_text: 'Luminoso' }),
+      ]);
+      unwrap(
+        await connector.update('mercadolibre', 'MLA3879350706', {
+          content: { ...CONTENT, listingType: 'featured' },
+          contentChanged: true,
+          state: 'active',
+        }),
+      );
+      expect(requests.map((r) => r.path)).not.toContain('/items/MLA3879350706/listing_type');
+    },
+  );
+
+  it('moves a featured item to simple when the team asks for it', async () => {
+    const { connector, requests } = setup([
+      () => Response.json({ ...ACTIVE_ITEM, listing_type_id: 'gold' }),
+      () => Response.json(ACTIVE_ITEM),
+      () => Response.json({ text: '', plain_text: 'Luminoso' }),
+      () => Response.json(ACTIVE_ITEM),
+    ]);
+    unwrap(
+      await connector.update('mercadolibre', 'MLA3879350706', {
+        content: CONTENT,
+        contentChanged: true,
+        state: 'active',
+      }),
+    );
+    expect(requests[3]).toMatchObject({
+      method: 'POST',
+      path: '/items/MLA3879350706/listing_type',
+      body: { id: 'silver' },
+    });
+  });
+
+  it.each([
+    [{ status: 'under_review' }, 'está revisando'],
+    [{ status: 'inactive' }, 'inactivó'],
+    [{ status: 'payment_required' }, 'espera un pago'],
+    [{ status: 'paused', tags: ['moderation_penalty'] }, 'por moderación'],
+  ])('does not try to activate an item MercadoLibre holds (%o)', async (remote, reason) => {
+    const { connector, requests } = setup([() => Response.json({ ...ACTIVE_ITEM, ...remote })]);
+    const update = unwrap(
+      await connector.update('mercadolibre', 'MLA3879350706', {
+        content: CONTENT,
+        contentChanged: false,
+        state: 'active',
+      }),
+    );
+    expect(update).toMatchObject({ state: 'paused' });
+    expect(update.reason).toContain(reason);
+    expect(requests).toHaveLength(1);
+  });
+
   it('only changes the status when there is no new content', async () => {
     const { connector, requests } = setup([
       () => Response.json({ ...ACTIVE_ITEM, status: 'paused' }),

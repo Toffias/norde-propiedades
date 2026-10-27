@@ -156,7 +156,10 @@ export class SyncListing {
     const sendsContent = step.kind === 'create' || step.contentChanged;
     if (sendsContent) {
       const problem = this.#contentProblem(portal, content, step.kind !== 'pause');
-      if (problem !== undefined) return this.#fail(listing, problem);
+      if (problem !== undefined) {
+        if (step.kind === 'create') return this.#fail(listing, problem);
+        return this.#pauseStale(listing, remoteId, content, problem);
+      }
     }
 
     if (step.kind === 'create') {
@@ -203,11 +206,33 @@ export class SyncListing {
     return problems.length > 0 ? problems.join(' ') : undefined;
   }
 
+  /**
+   * El aviso ya está en el portal pero el contenido nuevo no se puede mandar (se sacó la operación,
+   * el precio pasó a "a consultar", falta un dato): se pausa sin mandarlo, para que el portal no
+   * siga mostrando el precio o la operación de antes, y queda el motivo. Cuando se corrige, la
+   * próxima sincronización manda el contenido y lo reactiva.
+   */
+  async #pauseStale(
+    listing: Listing,
+    remoteId: string,
+    content: PortalListingContent,
+    problem: string,
+  ): Promise<SyncListingOutcome> {
+    const paused = await this.deps.connector.update(listing.portal, remoteId, {
+      content,
+      contentChanged: false,
+      state: 'paused',
+    });
+    if (paused.isErr()) return this.#fail(listing, problem, paused.error);
+    this.#recordState(listing, { ...paused.value, reason: problem }, undefined);
+    return 'failed';
+  }
+
   #recordState(listing: Listing, update: PortalListingUpdate, hash: string | undefined): void {
     const now = this.deps.clock.now();
-    const { state, permalink } = update;
+    const { state, permalink, reason } = update;
     if (state === 'closed') listing.recordClosed(now);
-    else if (state === 'paused') listing.recordPaused(hash, now);
+    else if (state === 'paused') listing.recordPaused(hash, now, reason);
     else listing.recordActive(hash ?? listing.toSnapshot().contentHash ?? '', now, permalink);
   }
 

@@ -398,11 +398,15 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     };
   }
 
-  /** El aviso quedó pausado (o nunca se creó y queda en pausa). */
-  recordPaused(contentHash: string | undefined, now: Date): void {
+  /**
+   * El aviso quedó pausado (o nunca se creó y queda en pausa). Con `reason`, el portal lo dejó
+   * pausado aunque se pidió activarlo (lo está moderando): queda el motivo a la vista.
+   */
+  recordPaused(contentHash: string | undefined, now: Date, reason?: string): void {
     this.#state = {
       ...this.#succeeded(now),
       status: 'paused',
+      lastError: reason,
       contentHash: contentHash ?? this.#state.contentHash,
     };
   }
@@ -419,6 +423,7 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
    *   es "Volver a publicar", como cualquier aviso cerrado.
    * - Pausado allá (moderación, o alguien lo pausó en el portal): queda pausada, con el motivo si el
    *   equipo lo quería activo. No se reactiva sola: hay que resolverlo en el portal y sincronizar.
+   *   Si Norde ya la había pausado con un motivo, queda ese.
    * - Activo allá: si estaba pausada por el portal, vuelve a publicada; si el equipo la había
    *   pausado, se pide sincronizar para pausarlo otra vez. Un error de la última sincronización
    *   queda a la vista: es sobre el contenido, no sobre el estado.
@@ -440,7 +445,9 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     }
     if (remote.state === 'paused') {
       const reason = intent === 'paused' ? undefined : remote.reason;
-      if (status === 'paused' && lastError === reason) return false;
+      // Pausado por Norde con su motivo (el contenido no se puede mandar, el portal lo modera):
+      // se mantiene el de Norde, que dice qué corregir.
+      if (status === 'paused' && (lastError !== undefined || reason === undefined)) return false;
       this.#state = { ...this.#state, status: 'paused', lastError: reason, lastSyncedAt: now };
       return true;
     }

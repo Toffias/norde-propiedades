@@ -32,6 +32,16 @@ export const ML_LISTING_TYPES: Readonly<Record<ListingType, string>> = {
   featured: 'gold_premium',
 };
 
+/**
+ * Simple o destacado según el tipo de aviso de ML: `silver` es simple y cualquier `gold*` (los que
+ * usaba Tokko: `gold`, `gold_special`) es destacado. Otro tipo no se reconoce.
+ */
+export function listingTypeOf(listingTypeId: string | null | undefined): ListingType | undefined {
+  if (listingTypeId === 'silver') return 'simple';
+  if (listingTypeId?.startsWith('gold') === true) return 'featured';
+  return undefined;
+}
+
 /** Fotos por aviso de inmuebles. */
 export const ML_MAX_PICTURES = 30;
 const ML_MAX_TITLE = 200;

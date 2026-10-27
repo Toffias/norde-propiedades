@@ -78,3 +78,14 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 | Contrato  | `RentalContract` (a definir) | Asiprop (externo) | Contrato de alquiler con partes, montos y vigencia                            |
 | IPC / ICL | —                            | —                 | Índices oficiales para actualizar alquileres                                  |
 | Garante   | —                            | —                 | Quien garantiza el contrato: propietaria, seguro de caución, recibo de sueldo |
+
+## Caja chica
+
+| Término         | En el código       | En Tokko | Significado                                                                                                                        |
+| --------------- | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Caja            | `CashBox`          | —        | Una de las cajas de efectivo de la oficina: **Caja de oficina** (`office`) y **Caja Osvaldo** (`osvaldo`). Cada una tiene su saldo |
+| Movimiento      | `CashMovement`     | —        | Ingreso o egreso de una caja, en pesos, con fecha, concepto y observaciones                                                        |
+| Mes de la caja  | `CashPeriod`       | —        | Mes calendario de Buenos Aires (`AAAA-MM`). El saldo inicial es el acumulado de los meses anteriores                               |
+| Cierre          | `CashClosing`      | —        | Foto de un mes al terminar: saldo inicial, ingresos, egresos y saldo final. Se hace solo al empezar el mes siguiente               |
+| Anular          | `voided`           | —        | Dar de baja el último movimiento cargado en el mes. Queda en el historial y deja de sumar                                          |
+| Control de caja | rol `cash-control` | —        | Rol de quien opera las cajas: carga, edita y anula en el mes vigente y exporta. Al ingresar ve solo la caja                        |

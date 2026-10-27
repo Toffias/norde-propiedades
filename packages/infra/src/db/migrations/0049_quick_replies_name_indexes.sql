@@ -1,0 +1,2 @@
+CREATE INDEX "quick_replies_active_name_idx" ON "core"."quick_replies" USING btree ("is_active","name","id");--> statement-breakpoint
+CREATE INDEX "quick_replies_name_trgm_idx" ON "core"."quick_replies" USING gin (core.search_normalize("name") gin_trgm_ops);

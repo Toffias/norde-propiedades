@@ -20,6 +20,7 @@ const content = {
   companyName: 'Norde Propiedades',
   advisorName: 'Camila',
   message: 'Hola Ana,\nmirá estas',
+  subject: undefined,
   url: 'https://norde.com.ar/e/abc',
   expiresAt: new Date('2026-05-30T12:00:00Z'),
   listings: [listing],
@@ -50,5 +51,11 @@ describe('HtmlSharedListingEmails', () => {
 
     expect(email.subject).toBe('Norde Propiedades: 2 propiedades para vos');
     expect(email.text).toContain('te comparto unas propiedades');
+  });
+
+  it('uses the chosen subject', () => {
+    const email = new HtmlSharedListingEmails().compose({ ...content, subject: 'Lo que hablamos' });
+
+    expect(email.subject).toBe('Lo que hablamos');
   });
 });

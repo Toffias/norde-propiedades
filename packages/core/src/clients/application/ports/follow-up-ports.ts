@@ -44,3 +44,12 @@ export interface FollowUpCandidatesQuery {
     readonly limit: number;
   }): Promise<readonly FollowUpFeaturedCandidate[]>;
 }
+
+/** Los contactos con coincidencias sin mandar, para el resumen diario (#106). */
+export interface PendingFollowUpsQuery {
+  /** Sus IDs ordenados, de a `limit`, después de `after` (sin `after`, desde el principio). */
+  clients(criteria: {
+    readonly after: string | undefined;
+    readonly limit: number;
+  }): Promise<readonly string[]>;
+}

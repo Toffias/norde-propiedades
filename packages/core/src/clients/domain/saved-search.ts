@@ -202,6 +202,12 @@ export class SavedSearch {
   }
 
   /** Lo que se compara con una propiedad. */
+  /** Si el cliente recibe sus coincidencias por email: vigente, con envío y sin darse de baja. */
+  get sendsAutomatically(): boolean {
+    const s = this.#state;
+    return s.autoSend && s.unsubscribedAt === undefined && !this.isDeleted;
+  }
+
   get criteria(): MatchableSearch {
     const s = this.#state;
     return {
@@ -241,6 +247,16 @@ export class SavedSearch {
   restore(now: Date): boolean {
     if (!this.isDeleted) return false;
     this.#state = { ...this.#state, deletedAt: undefined, deletedBy: undefined, updatedAt: now };
+    return true;
+  }
+
+  /**
+   * El cliente se dio de baja de los envíos automáticos (desde el link del email): se apaga el
+   * envío y no se puede volver a prender. Devuelve `false` si ya estaba dado de baja.
+   */
+  unsubscribe(now: Date): boolean {
+    if (this.#state.unsubscribedAt !== undefined) return false;
+    this.#state = { ...this.#state, autoSend: false, unsubscribedAt: now, updatedAt: now };
     return true;
   }
 

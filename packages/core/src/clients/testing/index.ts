@@ -18,11 +18,12 @@ import type {
 } from '../contracts';
 import type {
   FollowUpCandidatesQuery,
+  PendingFollowUpsQuery,
   FollowUpFeaturedCandidate,
   FollowUpListings,
   FollowUpSearchCandidate,
 } from '../application/ports/follow-up-ports';
-import type { FollowUpMatch } from '../domain/follow-up-match';
+import type { FollowUpMatch, FollowUpMatchId } from '../domain/follow-up-match';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
 import type {
@@ -118,7 +119,7 @@ import {
   type ClientImportSnapshot,
   type ImportRowProblem,
 } from '../domain/client-import';
-import { FeaturedListing } from '../domain/featured-listing';
+import { FeaturedListing, type FeaturedListingId } from '../domain/featured-listing';
 import {
   SharedListing,
   type SharedListingId,
@@ -557,6 +558,24 @@ export class InMemoryFeaturedListingRepository implements FeaturedListingReposit
     );
   }
 
+  findByIds(ids: readonly FeaturedListingId[]) {
+    return Promise.resolve(
+      ids.flatMap((id) => {
+        const row = this.rows.get(id);
+        return row === undefined ? [] : [FeaturedListing.restore(row)];
+      }),
+    );
+  }
+
+  findAutoSending(clientId: ClientId, limit: number) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((r) => r.clientId === clientId && r.removedAt === undefined && r.autoSendUpdates)
+        .slice(0, limit)
+        .map((r) => FeaturedListing.restore(r)),
+    );
+  }
+
   save(listing: FeaturedListing) {
     this.rows.set(listing.id, listing.toSnapshot());
     return Promise.resolve();
@@ -629,6 +648,11 @@ export class FakeSharedListingEmails implements SharedListingEmails {
 /** Descarta la repetida como la base: la misma nueva por cliente, la misma baja por precio. */
 export class InMemoryFollowUpMatchRepository implements FollowUpMatchRepository {
   readonly rows: FollowUpMatch[] = [];
+  /** Las que ya salieron (y en qué envío) o se descartaron. */
+  readonly resolved = new Map<
+    string,
+    { readonly kind: 'sent'; readonly sharedListingId: string } | { readonly kind: 'discarded' }
+  >();
 
   add(match: FollowUpMatch) {
     const repeated = this.rows.some(
@@ -643,6 +667,47 @@ export class InMemoryFollowUpMatchRepository implements FollowUpMatchRepository 
     if (repeated) return Promise.resolve(false);
     this.rows.push(match);
     return Promise.resolve(true);
+  }
+
+  findPending(clientId: ClientId, limit: number) {
+    return Promise.resolve(
+      this.rows
+        .filter((row) => row.clientId === clientId && !this.resolved.has(row.id))
+        .sort((a, b) => a.detectedAt.getTime() - b.detectedAt.getTime())
+        .slice(0, limit),
+    );
+  }
+
+  markSent(ids: readonly FollowUpMatchId[], sharedListingId: SharedListingId) {
+    for (const id of ids) this.resolved.set(id, { kind: 'sent', sharedListingId });
+    return Promise.resolve();
+  }
+
+  discard(ids: readonly FollowUpMatchId[]) {
+    for (const id of ids) this.resolved.set(id, { kind: 'discarded' });
+    return Promise.resolve();
+  }
+
+  /** Los IDs de los contactos con pendientes, ordenados (el fake de `PendingFollowUpsQuery`). */
+  pendingClients(): string[] {
+    return [
+      ...new Set(this.rows.filter((row) => !this.resolved.has(row.id)).map((r) => r.clientId)),
+    ].sort();
+  }
+}
+
+/** Los contactos con pendientes, sobre el repositorio en memoria. */
+export class InMemoryPendingFollowUps implements PendingFollowUpsQuery {
+  constructor(private readonly matches: InMemoryFollowUpMatchRepository) {}
+
+  clients(criteria: { readonly after: string | undefined; readonly limit: number }) {
+    const { after } = criteria;
+    return Promise.resolve(
+      this.matches
+        .pendingClients()
+        .filter((id) => after === undefined || id > after)
+        .slice(0, criteria.limit),
+    );
   }
 }
 
@@ -1131,6 +1196,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       activities: new Map(this.activities.rows),
       featured: new Map(this.featured.rows),
       followUpMatches: this.followUpMatches.rows.length,
+      followUpResolved: new Map(this.followUpMatches.resolved),
       sharedListings: new Map(this.sharedListings.rows),
       savedSearches: new Map(this.savedSearches.rows),
       imports: new Map(this.imports.rows),
@@ -1161,6 +1227,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.activities.rows, backup.activities);
       restore(this.featured.rows, backup.featured);
       this.followUpMatches.rows.splice(backup.followUpMatches);
+      restore(this.followUpMatches.resolved, backup.followUpResolved);
       restore(this.sharedListings.rows, backup.sharedListings);
       restore(this.savedSearches.rows, backup.savedSearches);
       restore(this.imports.rows, backup.imports);

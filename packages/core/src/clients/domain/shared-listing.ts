@@ -246,6 +246,14 @@ export function sharedListingUrl(siteUrl: string, token: string): string {
 }
 
 /**
+ * El link para darse de baja de los envíos automáticos: `<sitio>/e/<token>/baja`. Sirve el token
+ * del mismo envío, aunque el link ya haya vencido.
+ */
+export function followUpUnsubscribeUrl(siteUrl: string, token: string): string {
+  return `${sharedListingUrl(siteUrl, token)}/baja`;
+}
+
+/**
  * El número para `wa.me`: solo dígitos. A un celular argentino escrito sin el 9 de móvil
  * (`+54 11 …`, como queda cargado desde un formulario) se le agrega: WhatsApp lo necesita.
  */

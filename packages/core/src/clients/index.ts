@@ -705,6 +705,7 @@ export {
   type SharedListingItem,
   type SharedListingSnapshot,
   type SharedListingUnavailableError,
+  followUpUnsubscribeUrl,
 } from './domain/shared-listing';
 export type { SharedListingRepository } from './domain/client.repository';
 export type {
@@ -750,8 +751,12 @@ export {
 } from './application/queries/list-client-sends';
 export {
   FOLLOW_UP_REASONS,
+  followUpDigestText,
   followUpPrice,
   isPriceDrop,
+  pickFollowUpDigest,
+  type FollowUpDigest,
+  type FollowUpDigestText,
   type FollowUpMatch,
   type FollowUpMatchId,
   type FollowUpPrice,
@@ -764,6 +769,7 @@ export type {
   FollowUpFeaturedCandidate,
   FollowUpListings,
   FollowUpSearchCandidate,
+  PendingFollowUpsQuery,
 } from './application/ports/follow-up-ports';
 export {
   MatchFollowUps,
@@ -771,3 +777,13 @@ export {
   type MatchFollowUpsInput,
   type MatchFollowUpsOutcome,
 } from './application/handlers/match-follow-ups';
+export {
+  SendFollowUpDigests,
+  type FollowUpDigestError,
+  type FollowUpDigestFailure,
+  type SendFollowUpDigestsOutcome,
+} from './application/handlers/send-follow-up-digests';
+export {
+  UnsubscribeFromFollowUps,
+  type UnsubscribeFromFollowUpsError,
+} from './application/commands/unsubscribe-from-follow-ups';

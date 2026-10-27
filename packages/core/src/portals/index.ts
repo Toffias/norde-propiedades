@@ -25,6 +25,7 @@ export {
   type PortalConnection,
   type PortalNotConnectedError,
 } from './domain/portal-account';
+export { LEADS_LOOKBACK_DAYS, LEADS_MAX_LOOKBACK_DAYS } from './domain/portal-account';
 export type { PortalAccountRepository } from './domain/portals.repository';
 
 export type { ValidationFailedError } from './application/portals-input';
@@ -186,8 +187,8 @@ export type {
   PortalLeadSource,
 } from './application/ports/portal-leads';
 export {
-  LEADS_LOOKBACK_DAYS,
   PullPortalLeads,
+  type RejectedPortalLead,
   type PullPortalLeadsError,
   type PullPortalLeadsOutcome,
 } from './application/commands/pull-portal-leads';

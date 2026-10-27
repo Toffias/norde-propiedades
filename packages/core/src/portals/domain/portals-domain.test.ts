@@ -127,3 +127,36 @@ describe('PortalAccount', () => {
     });
   });
 });
+
+describe('PortalAccount leads cursor', () => {
+  const NOW = new Date('2026-10-16T12:00:00.000Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const days = (n: number) => new Date(NOW.getTime() - n * DAY);
+
+  it('reads the last two days, or from the last complete pull up to two weeks back', () => {
+    const account = PortalAccount.notConnected('zonaprop');
+    expect(account.leadsSince(NOW)).toEqual(days(2));
+    account.recordLeadsPulled(new Date(NOW.getTime() - 60_000));
+    expect(account.leadsSince(NOW)).toEqual(days(2));
+    account.recordLeadsPulled(days(5));
+    expect(account.leadsSince(NOW)).toEqual(days(5));
+    account.recordLeadsPulled(days(30));
+    expect(account.leadsSince(NOW)).toEqual(days(14));
+  });
+
+  it('starts over when another portal account is connected', () => {
+    const account = PortalAccount.notConnected('zonaprop');
+    const connection = {
+      externalAccountId: '1',
+      accountName: 'Norde',
+      connectedAt: NOW,
+      connectedBy: 'admin-1',
+    };
+    unwrap(account.connect(connection, []));
+    account.recordLeadsPulled(days(5));
+    unwrap(account.connect(connection, []));
+    expect(account.toSnapshot().leadsPulledAt).toEqual(days(5));
+    unwrap(account.connect({ ...connection, externalAccountId: '2' }, []));
+    expect(account.toSnapshot().leadsPulledAt).toBeUndefined();
+  });
+});

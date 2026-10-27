@@ -39,6 +39,11 @@ export interface PortalLead {
    * conector traduce el código con que la manda al portal.
    */
   readonly unitPropertyId: string | undefined;
+  /**
+   * La clave interna del aviso (en Tokko, el código de la propiedad), para un aviso que Norde todavía
+   * no maneja: con ella se encuentra la propiedad.
+   */
+  readonly listingReference: string | undefined;
 }
 
 /** El texto de la consulta cuando la persona no escribió nada: qué pidió. */

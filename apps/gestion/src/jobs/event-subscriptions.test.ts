@@ -732,7 +732,9 @@ describe('portal subscriptions', () => {
         pullLeads: {
           execute: (input, by) => {
             calls.push(['pull-leads', input, by.id]);
-            return Promise.resolve(ok({ received: 1, duplicates: 0, skipped: 0, rejected: 0 }));
+            return Promise.resolve(
+              ok({ received: 1, duplicates: 0, skipped: 0, rejected: 0, rejections: [] }),
+            );
           },
         },
         reconcile: {

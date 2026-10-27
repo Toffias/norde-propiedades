@@ -477,8 +477,13 @@ export async function pullPortalLeads(jobs: PortalJobs, logger: Logger): Promise
       if (result.error.type === 'PortalUnavailable') allAnswered = false;
       continue;
     }
-    if (result.value.received > 0 || result.value.rejected > 0) {
-      logger.info({ portal, ...result.value }, 'Portal leads pulled');
+    const { rejections, ...counts } = result.value;
+    if (counts.received > 0 || counts.rejected > 0) {
+      logger.info({ portal, ...counts }, 'Portal leads pulled');
+    }
+    // Un contacto que no entró: el ID del portal y el motivo, para buscarlo allá (sin sus datos).
+    for (const rejection of rejections) {
+      logger.warn({ portal, ...rejection }, 'Portal lead rejected by the inbox');
     }
   }
   return allAnswered;

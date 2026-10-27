@@ -28,7 +28,12 @@ function toAccount(row: typeof portalAccounts.$inferSelect & { readonly portal: 
     settings.success && row.connectedAt !== null && row.connectedBy !== null
       ? { ...settings.data, connectedAt: row.connectedAt, connectedBy: row.connectedBy }
       : undefined;
-  return PortalAccount.restore({ portal: row.portal, isEnabled: row.isEnabled, connection });
+  return PortalAccount.restore({
+    portal: row.portal,
+    isEnabled: row.isEnabled,
+    connection,
+    leadsPulledAt: row.leadsPulledAt ?? undefined,
+  });
 }
 
 /** Cuentas de portales (`portal_accounts`). Una cuenta sin fila es una que nunca se conectó. */
@@ -63,7 +68,7 @@ export class DrizzlePortalAccountRepository implements PortalAccountRepository {
   }
 
   async save(account: PortalAccount, actorId: string): Promise<void> {
-    const { portal, isEnabled, connection } = account.toSnapshot();
+    const { portal, isEnabled, connection, leadsPulledAt } = account.toSnapshot();
     const now = this.clock.now();
     const values = {
       isEnabled,
@@ -73,6 +78,7 @@ export class DrizzlePortalAccountRepository implements PortalAccountRepository {
         : {},
       connectedAt: connection?.connectedAt ?? null,
       connectedBy: connection?.connectedBy ?? null,
+      leadsPulledAt: leadsPulledAt ?? null,
       updatedAt: now,
       updatedBy: actorId,
     };

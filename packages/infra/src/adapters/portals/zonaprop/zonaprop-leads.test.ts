@@ -1,3 +1,5 @@
+import type { PortalListingCatalog, RemoteListing } from '@norde/core/portals';
+import { ok } from '@norde/core/shared';
 import { unwrap, unwrapErr } from '@norde/core/shared/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -43,12 +45,52 @@ const MESSAGES = {
       id: 4,
       idMensaje: 236161699,
       idContactoAccion: 2,
-      codigoAviso: 'U019200000000700080000000000000c1',
+      codigoAviso: 'U019200000000700080000000000000C1',
       nombre: 'Ana',
       email: 'ana@example.test',
     },
+    {
+      id: 5,
+      idMensaje: 236161700,
+      idContactoAccion: 1,
+      codigoAviso: 'NHO1142594',
+      idAvisoNavplat: 50044230,
+      nombre: 'Pedro',
+      email: 'pedro@example.test',
+      fecha: '2026-10-16T12:30:00',
+    },
   ],
 };
+
+/** El resumen de avisos online de prueba: la clave interna de cada aviso ajeno, por su ID. */
+class FakeCatalog implements Pick<PortalListingCatalog, 'online'> {
+  readonly calls: (string | undefined)[] = [];
+  readonly references = new Map([['50044230', 'NHO1142594']]);
+
+  online(input: { readonly remoteId?: string }) {
+    this.calls.push(input.remoteId);
+    const reference =
+      input.remoteId === undefined ? undefined : this.references.get(input.remoteId);
+    const items: RemoteListing[] =
+      reference === undefined
+        ? []
+        : [
+            {
+              remoteId: input.remoteId ?? '',
+              code: 'NHO1142594',
+              reference,
+              title: 'Casa',
+              operation: undefined,
+              listingType: undefined,
+              plan: 'SIMPLE',
+              location: undefined,
+              permalink: undefined,
+              isDevelopment: false,
+            },
+          ];
+    return Promise.resolve(ok({ items, total: items.length }));
+  }
+}
 
 function setup(responses: (() => Response | Promise<Response>)[]) {
   const requests: { method: string; url: URL; body: unknown }[] = [];
@@ -75,7 +117,8 @@ function setup(responses: (() => Response | Promise<Response>)[]) {
     userAgent: 'NordeGestion/test',
     fetch: fakeFetch,
   });
-  return { leads: new ZonapropLeads({ api, logger }), requests, logs };
+  const catalog = new FakeCatalog();
+  return { leads: new ZonapropLeads({ api, catalog, logger }), catalog, requests, logs };
 }
 
 const json =
@@ -114,6 +157,7 @@ describe('ZonapropLeads.recent', () => {
         message: 'Hola, me interesa esta propiedad.',
         listingCode: '0192000000007000800000000000a001',
         unitPropertyId: undefined,
+        listingReference: undefined,
       },
       {
         externalId: '2',
@@ -125,6 +169,7 @@ describe('ZonapropLeads.recent', () => {
         message: undefined,
         listingCode: undefined,
         unitPropertyId: undefined,
+        listingReference: undefined,
       },
       {
         externalId: '236161699',
@@ -136,8 +181,29 @@ describe('ZonapropLeads.recent', () => {
         message: undefined,
         listingCode: 'U019200000000700080000000000000c1',
         unitPropertyId: '01920000-0000-7000-8000-0000000000c1',
+        listingReference: undefined,
+      },
+      {
+        externalId: '236161700',
+        kind: 'message',
+        // Sin offset: hora de Buenos Aires.
+        receivedAt: new Date('2026-10-16T15:30:00.000Z'),
+        name: 'Pedro',
+        email: 'pedro@example.test',
+        phone: undefined,
+        message: undefined,
+        listingCode: 'NHO1142594',
+        unitPropertyId: undefined,
+        listingReference: 'NHO1142594',
       },
     ]);
+  });
+
+  it('reads the internal key of a listing it does not manage only once', async () => {
+    const { leads, catalog } = setup([json(TOKEN), json(MESSAGES), json(MESSAGES)]);
+    unwrap(await leads.recent(RECENT));
+    unwrap(await leads.recent(RECENT));
+    expect(catalog.calls).toEqual(['50044230']);
   });
 
   it('never logs the contact data', async () => {

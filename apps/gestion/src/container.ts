@@ -743,11 +743,12 @@ function createPortalServices(
     actor: PORTAL_SYNC_ACTOR,
     logger,
   });
+  const zonapropCatalog = new ZonapropListingCatalog({ api: zonaprop, logger });
   const catalog = new PortalListingCatalogsByProvider({
-    zonaprop: new ZonapropListingCatalog({ api: zonaprop, logger }),
+    zonaprop: zonapropCatalog,
     mercadolibre: new MercadoLibreListingCatalog({ tokens, logger }),
   });
-  const leads = new ZonapropLeads({ api: zonaprop, logger });
+  const leads = new ZonapropLeads({ api: zonaprop, catalog: zonapropCatalog, logger });
   const sink = portalLeadSink(createInquiryIntake(db, deps, PORTAL_LEADS_ACTOR));
   const codes = propertyCodeLookup({
     findByCode: modules.properties.findPropertiesByCode,
@@ -1956,6 +1957,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       uow: portals.uow,
       source: portals.leadSource,
       sink: portals.sink,
+      properties: portals.codes,
       clock,
     }),
     reconcile: new ReconcileListings({ uow: portals.uow, reader: portals.mercadoLibre, clock }),

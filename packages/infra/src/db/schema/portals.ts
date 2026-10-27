@@ -29,6 +29,8 @@ export const portalAccounts = coreSchema.table('portal_accounts', {
     .default(sql`'{}'::jsonb`),
   connectedAt: timestamp('connected_at', { withTimezone: true }),
   connectedBy: text('connected_by'),
+  /** Hasta cuándo se leyeron sin cortes los contactos de los avisos: la próxima lectura sigue de ahí. */
+  leadsPulledAt: timestamp('leads_pulled_at', { withTimezone: true }),
   ...timestamps(),
   ...authorship(),
 });

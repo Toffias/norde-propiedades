@@ -686,6 +686,7 @@ export function portalLead(overrides: Partial<PortalLead> = {}): PortalLead {
     message: 'Hola, me interesa esta propiedad.',
     listingCode: undefined,
     unitPropertyId: undefined,
+    listingReference: undefined,
     ...overrides,
   };
 }

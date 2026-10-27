@@ -1,5 +1,8 @@
 import type {
   AddClientNoteError,
+  ListClientSendsError,
+  RevokeSharedListingError,
+  SendListingsError,
   ChangeClientTagsError,
   CheckClientDuplicatesError,
   CreateClientError,
@@ -306,6 +309,37 @@ export const FEATURE_PROPERTIES_ERROR_MESSAGES = {
   ClientInTrash: IN_TRASH,
   ListingNotFound: 'Alguna de las propiedades ya no está en la cartera.',
 } satisfies ErrorMessages<FeaturePropertiesError>;
+
+export const CLIENT_SENDS_ERROR_MESSAGES = TAB_ERRORS satisfies ErrorMessages<ListClientSendsError>;
+
+export const SEND_LISTINGS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para enviarle propiedades a este contacto.',
+  InvalidInput: 'Elegí entre 1 y 20 propiedades y revisá el mensaje (hasta 1.000 caracteres).',
+  ClientNotFound: NOT_FOUND,
+  ClientInTrash: IN_TRASH,
+  ListingNotFound: 'Alguna de las propiedades ya no está en la cartera.',
+  ListingNotPublic: (error) =>
+    `No se ven en el sitio: ${error.codes.join(', ')}. Publicalas en la web o sacalas del envío.`,
+  NoListingsToSend: 'Elegí al menos una propiedad.',
+  TooManyListings: (error) => `Se pueden enviar hasta ${error.max} propiedades por vez.`,
+  NoRecipient: (error) =>
+    error.channel === 'email'
+      ? 'El contacto no tiene ese email. Cargale uno en sus detalles.'
+      : 'El contacto no tiene ese teléfono. Cargale uno en sus detalles.',
+  SendingNotConfigured:
+    'Los envíos todavía no están configurados en el servidor (falta la URL del sitio público).',
+  MailNotConfigured:
+    'El envío de emails todavía no está configurado en el servidor (falta la API key o el remitente).',
+  MailRejected: (error) => `El proveedor de email rechazó el envío: ${error.reason}`,
+  MailUnavailable: 'El proveedor de email no respondió. Probá de nuevo en unos minutos.',
+} satisfies ErrorMessages<SendListingsError>;
+
+export const REVOKE_SHARED_LISTING_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para revocar envíos de este contacto.',
+  InvalidInput: INVALID,
+  ClientNotFound: NOT_FOUND,
+  SharedListingNotFound: 'No encontramos el envío. Recargá la página.',
+} satisfies ErrorMessages<RevokeSharedListingError>;
 
 export const UNFEATURE_PROPERTY_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para quitarle destacadas a este contacto.',

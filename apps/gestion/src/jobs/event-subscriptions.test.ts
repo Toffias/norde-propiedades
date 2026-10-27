@@ -262,6 +262,8 @@ describe('eventSubscriptions', () => {
       'clients.opportunity_request_added.apply-rules',
       'clients.opportunity_listings_featured.apply-rules',
       'clients.opportunity_created.apply-rules',
+      'clients.listings_sent.apply-rules',
+      'clients.listing_reacted.apply-rules',
       'clients.opportunity_bulk_requested.run-bulk',
       'clients.client_reassigned.notify-assignee',
       'clients.opportunity_reassigned.notify-assignee',
@@ -672,6 +674,22 @@ describe('eventSubscriptions', () => {
       payload: { opportunityId: 'opp-1', clientId: 'client-1', propertyIds: ['p-1'] },
     });
     await named('clients.opportunity_created', 'apply-rules')?.handle(event);
+    await named('clients.listings_sent', 'apply-rules')?.handle({
+      ...event,
+      type: 'clients.listings_sent',
+      payload: { opportunityId: 'opp-1', clientId: 'client-1', channel: 'email' },
+    });
+    // Un envío sin oportunidad abierta no dispara nada.
+    await named('clients.listings_sent', 'apply-rules')?.handle({
+      ...event,
+      type: 'clients.listings_sent',
+      payload: { clientId: 'client-1', channel: 'email' },
+    });
+    await named('clients.listing_reacted', 'apply-rules')?.handle({
+      ...event,
+      type: 'clients.listing_reacted',
+      payload: { opportunityId: 'opp-1', propertyId: 'p-1', reaction: 'disliked' },
+    });
     await named('clients.opportunity_bulk_requested', 'run-bulk')?.handle({
       ...event,
       payload: { operationId: OPERATION_ID },
@@ -695,6 +713,20 @@ describe('eventSubscriptions', () => {
       [
         'rules',
         { eventId: event.id, opportunityId: 'opp-1', trigger: { kind: 'created' } },
+        'system:scheduler',
+      ],
+      [
+        'rules',
+        { eventId: event.id, opportunityId: 'opp-1', trigger: { kind: 'listings_sent' } },
+        'system:scheduler',
+      ],
+      [
+        'rules',
+        {
+          eventId: event.id,
+          opportunityId: 'opp-1',
+          trigger: { kind: 'listing_reacted', reaction: 'disliked' },
+        },
         'system:scheduler',
       ],
       ['bulk', { operationId: OPERATION_ID }, 'system:scheduler'],

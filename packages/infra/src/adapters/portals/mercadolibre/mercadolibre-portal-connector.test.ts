@@ -15,6 +15,12 @@ const CREATED = {
   status: 'active',
   listing_type_id: 'silver',
 };
+const ME = { id: 534776711 };
+/** `/users/me` y la búsqueda por `seller_custom_field`: el aviso todavía no se creó. */
+const NOT_CREATED = [
+  () => Response.json(ME),
+  () => Response.json({ results: [], paging: { total: 0 } }),
+];
 const ACTIVE_ITEM = { id: 'MLA3879350706', status: 'active', listing_type_id: 'silver' };
 const CLOSED_ITEM = { ...ACTIVE_ITEM, status: 'closed' };
 const PICTURE_REQUIRED = {
@@ -40,7 +46,13 @@ function setup(
   responses: (() => Response | Promise<Response>)[],
   options: { tokenMissing?: boolean; locationMissing?: boolean } = {},
 ) {
-  const requests: { method: string; path: string; body: unknown; auth: string | undefined }[] = [];
+  const requests: {
+    method: string;
+    path: string;
+    query: string;
+    body: unknown;
+    auth: string | undefined;
+  }[] = [];
   const logs: string[] = [];
   const logger: InfraLogger = {
     info: (details) => logs.push(JSON.stringify(details)),
@@ -53,6 +65,7 @@ function setup(
     requests.push({
       method: init?.method ?? 'GET',
       path: url.pathname,
+      query: url.searchParams.toString(),
       body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
       auth: headers.Authorization,
     });
@@ -84,14 +97,23 @@ function setup(
 
 describe('MercadoLibrePortalConnector.create', () => {
   it('posts a classified with category, price, pictures, location and contact', async () => {
-    const { connector, requests, logs } = setup([() => Response.json(CREATED, { status: 201 })]);
+    const { connector, requests, logs } = setup([
+      ...NOT_CREATED,
+      () => Response.json(CREATED, { status: 201 }),
+    ]);
 
     const created = unwrap(await connector.create('mercadolibre', CONTENT));
 
     expect(created).toEqual({ externalId: CREATED.id, permalink: CREATED.permalink });
-    expect(requests).toHaveLength(1);
-    expect(requests[0]).toMatchObject({ method: 'POST', path: '/items', auth: `Bearer ${TOKEN}` });
-    expect(requests[0]?.body).toMatchObject({
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /users/me',
+      'GET /users/534776711/items/search',
+      'POST /items',
+    ]);
+    expect(requests[1]?.query).toBe(`seller_sku=${CONTENT.listingId}`);
+    expect(requests[2]).toMatchObject({ method: 'POST', path: '/items', auth: `Bearer ${TOKEN}` });
+    expect(requests[2]?.body).toMatchObject({
+      seller_custom_field: CONTENT.listingId,
       title: 'Departamento en venta en Palermo',
       category_id: 'MLA401686',
       price: 120_000,
@@ -116,13 +138,31 @@ describe('MercadoLibrePortalConnector.create', () => {
   });
 
   it('publishes a featured listing as gold_premium', async () => {
-    const { connector, requests } = setup([() => Response.json(CREATED, { status: 201 })]);
+    const { connector, requests } = setup([
+      ...NOT_CREATED,
+      () => Response.json(CREATED, { status: 201 }),
+    ]);
     unwrap(await connector.create('mercadolibre', { ...CONTENT, listingType: 'featured' }));
-    expect(requests[0]?.body).toMatchObject({ listing_type_id: 'gold_premium' });
+    expect(requests[2]?.body).toMatchObject({ listing_type_id: 'gold_premium' });
+  });
+
+  it('takes the item a previous attempt created instead of posting another', async () => {
+    const { connector, requests } = setup([
+      () => Response.json(ME),
+      () => Response.json({ results: ['MLA3879350706'], paging: { total: 1 } }),
+    ]);
+    expect(unwrap(await connector.create('mercadolibre', CONTENT))).toEqual({
+      externalId: 'MLA3879350706',
+      permalink: undefined,
+    });
+    expect(requests.map((r) => r.method)).toEqual(['GET', 'GET']);
   });
 
   it('returns the reasons MercadoLibre gives for a rejection', async () => {
-    const { connector } = setup([() => Response.json(PICTURE_REQUIRED, { status: 400 })]);
+    const { connector } = setup([
+      ...NOT_CREATED,
+      () => Response.json(PICTURE_REQUIRED, { status: 400 }),
+    ]);
     expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
       type: 'PortalRejected',
       reason: 'MercadoLibre rechazó el aviso: Pictures are required for this listing type.',
@@ -130,7 +170,7 @@ describe('MercadoLibrePortalConnector.create', () => {
   });
 
   it('explains a rejection MercadoLibre sends without a body, by its status', async () => {
-    const { connector } = setup([() => new Response(null, { status: 402 })]);
+    const { connector } = setup([...NOT_CREATED, () => new Response(null, { status: 402 })]);
     expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
       type: 'PortalRejected',
       reason:
@@ -140,7 +180,9 @@ describe('MercadoLibrePortalConnector.create', () => {
 
   it('falls back to the error code, and then to the status alone', async () => {
     const { connector } = setup([
+      ...NOT_CREATED,
       () => Response.json({ error: 'seller.unable_to_list', cause: [] }, { status: 400 }),
+      ...NOT_CREATED,
       () => new Response(null, { status: 409 }),
     ]);
     expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
@@ -163,7 +205,7 @@ describe('MercadoLibrePortalConnector.create', () => {
   });
 
   it.each([429, 500, 503])('reports %i as unavailable', async (status) => {
-    const { connector } = setup([() => Response.json({}, { status })]);
+    const { connector } = setup([...NOT_CREATED, () => Response.json({}, { status })]);
     expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
       type: 'PortalUnavailable',
     });
@@ -187,7 +229,10 @@ describe('MercadoLibrePortalConnector.create', () => {
   });
 
   it('reports a network error as unavailable', async () => {
-    const { connector } = setup([() => Promise.reject(new TypeError('fetch failed'))]);
+    const { connector } = setup([
+      ...NOT_CREATED,
+      () => Promise.reject(new TypeError('fetch failed')),
+    ]);
     expect(unwrapErr(await connector.create('mercadolibre', CONTENT))).toEqual({
       type: 'PortalUnavailable',
     });
@@ -373,7 +418,7 @@ describe('MercadoLibrePortalConnector with developments', () => {
 
   it('publishes the development with the listing type of its package', async () => {
     const { connector, requests } = setup([
-      () => Response.json({ id: 534776711 }),
+      ...NOT_CREATED,
       () => Response.json(DEVELOPMENT_PACKS),
       () => Response.json({ ...DEVELOPMENT_ITEM, permalink: 'https://x' }, { status: 201 }),
     ]);
@@ -383,10 +428,12 @@ describe('MercadoLibrePortalConnector with developments', () => {
     expect(created).toEqual({ externalId: 'MLA843263657', permalink: 'https://x' });
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'GET /users/me',
+      'GET /users/534776711/items/search',
       'GET /users/534776711/classifieds_promotion_packs',
       'POST /items',
     ]);
-    expect(requests[2]?.body).toMatchObject({
+    expect(requests[3]?.body).toMatchObject({
+      seller_custom_field: DEVELOPMENT.listingId,
       category_id: 'MLA401806',
       listing_type_id: 'gold_premium',
       condition: 'new',
@@ -400,13 +447,10 @@ describe('MercadoLibrePortalConnector with developments', () => {
   });
 
   it('does not post without a developments package with quota', async () => {
-    const { connector, requests } = setup([
-      () => Response.json({ id: 534776711 }),
-      () => Response.json([]),
-    ]);
+    const { connector, requests } = setup([...NOT_CREATED, () => Response.json([])]);
     const error = unwrapErr(await connector.create('mercadolibre_developments', DEVELOPMENT));
     expect(error).toMatchObject({ type: 'PortalRejected' });
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(3);
   });
 
   it('sends the variations with their IDs and the description, without a listing type change', async () => {

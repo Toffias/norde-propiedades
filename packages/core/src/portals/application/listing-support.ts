@@ -98,13 +98,24 @@ export async function applyRemoteState(
   return deps.uow.run(async (tx) => {
     const listing = await tx.listings.lockById(id);
     if (!listing) return false;
-    const before = listing.toSnapshot();
-    if (!listing.reconcile(state, deps.clock.now())) return false;
-    await tx.listings.save(listing, actor.id);
-    await tx.events.publish(listing.pullEvents());
-    await auditStatusChange(tx, actor, listing, before.status, { lastError: before.lastError });
-    return true;
+    return reflectRemoteState(tx, listing, state, actor, deps.clock.now());
   });
+}
+
+/** Como `applyRemoteState`, con la publicación ya bloqueada en la transacción. */
+export async function reflectRemoteState(
+  tx: PortalsTransaction,
+  listing: Listing,
+  state: RemoteListingState,
+  actor: Actor,
+  now: Date,
+): Promise<boolean> {
+  const before = listing.toSnapshot();
+  if (!listing.reconcile(state, now)) return false;
+  await tx.listings.save(listing, actor.id);
+  await tx.events.publish(listing.pullEvents());
+  await auditStatusChange(tx, actor, listing, before.status, { lastError: before.lastError });
+  return true;
 }
 
 /**

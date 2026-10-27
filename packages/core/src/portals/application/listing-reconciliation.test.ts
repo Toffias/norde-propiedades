@@ -297,6 +297,20 @@ describe('ReconcileListing', () => {
     expect(uow.audit.entries[0]?.action).toBe('property.portal_unpublished');
   });
 
+  it('reads the portal after a sync in progress, not before', async () => {
+    const { uow, reader, reconcile } = oneSetup();
+    const id = seedPublished(uow, 3);
+    reader.remote.set('MLA3', { state: 'paused', reason: 'Se pausó desde MercadoLibre.' });
+    // Una sincronización que tiene la publicación bloqueada reactiva el aviso.
+    uow.listings.holdingLock = () => {
+      reader.remote.set('MLA3', { state: 'active', reason: undefined });
+      return Promise.resolve();
+    };
+
+    expect(unwrap(await reconcile.execute({ listingId: id }, PORTAL_SYNC))).toBe(false);
+    expect(uow.listings.rows.get(id)).toMatchObject({ status: 'published', lastError: undefined });
+  });
+
   it('does nothing when the portal reports the same state, or nothing', async () => {
     const { uow, reader, reconcile } = oneSetup();
     const id = seedPublished(uow, 3);

@@ -241,8 +241,8 @@ describe('SyncListing on Zonaprop', () => {
     ]);
   });
 
-  it('fails when no operation has a price anymore', async () => {
-    const { sync, reader, uow, listingId } = await published();
+  it('takes the listing offline when no operation has a price, and back when it has one', async () => {
+    const { sync, reader, uow, connector, listingId } = await published();
     reader.sources.set(
       LISTED_PROPERTY_ID,
       listingSource({
@@ -253,8 +253,48 @@ describe('SyncListing on Zonaprop', () => {
       }),
     );
 
-    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
-    expect(uow.listings.rows.get(listingId)?.lastError).toContain('ninguna operación tiene precio');
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+    expect(uow.listings.rows.get(listingId)?.status).toBe('paused');
+    expect(uow.listings.rows.get(listingId)?.lastError).toContain('sin precio');
+    expect(uow.audit.entries.at(-1)?.action).toBe('property.portal_paused');
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('unchanged');
+
+    reader.sources.set(LISTED_PROPERTY_ID, listingSource({ title: 'Otro título' }));
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+
+    expect(connector.calls.map((c) => [c.state, c.content !== undefined])).toEqual([
+      ['paused', false],
+      ['active', true],
+    ]);
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'published',
+      lastError: undefined,
+    });
+  });
+
+  it('pauses a reserved property even if its content lost what the portal requires', async () => {
+    const { sync, reader, uow, connector, listingId } = await published();
+    connector.problemsFound = ['La descripción tiene que tener al menos 50 caracteres.'];
+    reader.sources.set(
+      LISTED_PROPERTY_ID,
+      listingSource({
+        availability: 'paused',
+        description: 'Corta',
+        operations: [
+          { operation: 'sale', currency: 'USD', priceCents: undefined, priceOnRequest: true },
+        ],
+      }),
+    );
+
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+
+    expect(connector.calls.map((c) => [c.method, c.state, c.content !== undefined])).toEqual([
+      ['update', 'paused', false],
+    ]);
+    expect(uow.listings.rows.get(listingId)).toMatchObject({
+      status: 'paused',
+      lastError: undefined,
+    });
   });
 });
 

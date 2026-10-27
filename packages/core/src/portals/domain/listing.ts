@@ -398,11 +398,15 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
     };
   }
 
-  /** El aviso quedó pausado (o nunca se creó y queda en pausa). */
-  recordPaused(contentHash: string | undefined, now: Date): void {
+  /**
+   * El aviso quedó pausado (o nunca se creó y queda en pausa). Con `reason`, lo pausó Norde por algo
+   * que el equipo tiene que resolver ("la propiedad quedó sin precio"): queda a la vista.
+   */
+  recordPaused(contentHash: string | undefined, now: Date, reason?: string): void {
     this.#state = {
       ...this.#succeeded(now),
       status: 'paused',
+      lastError: reason,
       contentHash: contentHash ?? this.#state.contentHash,
     };
   }

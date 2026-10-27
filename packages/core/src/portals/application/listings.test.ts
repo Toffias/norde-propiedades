@@ -378,7 +378,7 @@ describe('SyncListing', () => {
     expect(s.connector.calls).toEqual([]);
   });
 
-  it('does not send a listing that lost its price', async () => {
+  it('pauses a listing that lost its price instead of sending it', async () => {
     const { sync, connector, reader, listingId, uow } = await published();
     reader.sources.set(
       LISTED_PROPERTY_ID,
@@ -388,9 +388,27 @@ describe('SyncListing', () => {
         ],
       }),
     );
+    expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('synced');
+    expect(connector.calls.map((c) => [c.method, c.state, c.content !== undefined])).toEqual([
+      ['update', 'paused', false],
+    ]);
+    expect(uow.listings.rows.get(listingId)?.status).toBe('paused');
+    expect(uow.listings.rows.get(listingId)?.lastError).toContain('sin precio');
+  });
+
+  it('fails when the property no longer offers the operation of the listing', async () => {
+    const { sync, connector, reader, listingId, uow } = await published();
+    reader.sources.set(
+      LISTED_PROPERTY_ID,
+      listingSource({
+        operations: [
+          { operation: 'rent', currency: 'ARS', priceCents: 100_000_00n, priceOnRequest: false },
+        ],
+      }),
+    );
     expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('failed');
     expect(connector.calls).toEqual([]);
-    expect(uow.listings.rows.get(listingId)?.lastError).toContain('precio');
+    expect(uow.listings.rows.get(listingId)?.lastError).toContain('ya no ofrece');
   });
 
   it('requires portals:sync', async () => {

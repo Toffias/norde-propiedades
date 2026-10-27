@@ -2,7 +2,7 @@ import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } fro
 import { ListingIdInputSchema, type ListingIdInput } from '../../contracts';
 import type { Listing, OwnerAvailability } from '../../domain/listing';
 import type { ListingOwnerKind, PortalId } from '../../domain/portal';
-import { pricedOperations } from '../listing-plan';
+import { listingAvailability, pricedOperations } from '../listing-plan';
 import {
   auditStatusChange,
   contentFingerprint,
@@ -98,6 +98,7 @@ export class SyncListing {
   async #content(listing: Listing): Promise<{
     readonly content: PortalListingContent | undefined;
     readonly availability: OwnerAvailability;
+    readonly pausedReason?: string | undefined;
   }> {
     const { owner, operation, listingType, plan } = listing.toSnapshot();
     if (owner.kind === 'development') {
@@ -120,21 +121,21 @@ export class SyncListing {
             listingType,
             plan,
           },
-          availability: source.availability,
+          ...listingAvailability(source, operation),
         }
       : { content: undefined, availability: 'closed' };
   }
 
   async #sync(listing: Listing, accountReady: boolean): Promise<SyncListingOutcome> {
-    const { portal, externalId, owner } = listing.toSnapshot();
+    const { portal, externalId, owner, status, lastError } = listing.toSnapshot();
     const now = () => this.deps.clock.now();
-    const { content, availability } = await this.#content(listing);
+    const { content, availability, pausedReason } = await this.#content(listing);
     const hash = content ? contentFingerprint(content) : '';
     const step = listing.plan(availability, hash);
 
     if (step.kind === 'none') return 'unchanged';
     if (step.kind === 'mark') {
-      if (step.status === 'paused') listing.recordPaused(undefined, now());
+      if (step.status === 'paused') listing.recordPaused(undefined, now(), pausedReason);
       else listing.recordClosed(now());
       return 'synced';
     }
@@ -152,10 +153,30 @@ export class SyncListing {
     // Sin dueño no hay contenido, y el plan ya habría cerrado el aviso.
     if (!content) return this.#fail(listing, GONE[owner.kind]);
 
+    if (step.kind === 'pause') {
+      // Pausar no puede fallar por el contenido: con contenido inválido (sin precio, sin
+      // coordenadas), se pausa sin mandarlo y se manda al reactivar.
+      const sendsContent =
+        step.contentChanged && this.#contentProblem(portal, content, false) === undefined;
+      if (!sendsContent && status === 'paused') {
+        if (lastError === pausedReason) return 'unchanged';
+        listing.recordPaused(undefined, now(), pausedReason);
+        return 'synced';
+      }
+      const paused = await this.deps.connector.update(portal, remoteId, {
+        content,
+        contentChanged: sendsContent,
+        state: 'paused',
+      });
+      if (paused.isErr()) return this.#fail(listing, reasonOf(paused.error), paused.error);
+      this.#recordState(listing, paused.value, sendsContent ? hash : undefined, pausedReason);
+      return 'synced';
+    }
+
     // Crear o mandar contenido: lo que el portal exige se revisa antes de llamarlo.
     const sendsContent = step.kind === 'create' || step.contentChanged;
     if (sendsContent) {
-      const problem = this.#contentProblem(portal, content, step.kind !== 'pause');
+      const problem = this.#contentProblem(portal, content, true);
       if (problem !== undefined) return this.#fail(listing, problem);
     }
 
@@ -166,11 +187,10 @@ export class SyncListing {
       return 'synced';
     }
 
-    const state = step.kind === 'pause' ? 'paused' : 'active';
     const updated = await this.deps.connector.update(portal, remoteId, {
       content,
       contentChanged: sendsContent,
-      state,
+      state: 'active',
     });
     if (updated.isErr()) return this.#fail(listing, reasonOf(updated.error), updated.error);
     this.#recordState(listing, updated.value, sendsContent ? hash : undefined);
@@ -179,7 +199,7 @@ export class SyncListing {
 
   /**
    * Lo que impide mandar el contenido: precio, operación, unidades o lo que exige el portal. Un
-   * emprendimiento que se pausa por quedarse sin unidades se puede pausar igual (`online` falso).
+   * emprendimiento que se pausa por quedarse sin unidades no exige unidades (`online` falso).
    */
   #contentProblem(
     portal: PortalId,
@@ -203,11 +223,16 @@ export class SyncListing {
     return problems.length > 0 ? problems.join(' ') : undefined;
   }
 
-  #recordState(listing: Listing, update: PortalListingUpdate, hash: string | undefined): void {
+  #recordState(
+    listing: Listing,
+    update: PortalListingUpdate,
+    hash: string | undefined,
+    pausedReason?: string,
+  ): void {
     const now = this.deps.clock.now();
     const { state, permalink } = update;
     if (state === 'closed') listing.recordClosed(now);
-    else if (state === 'paused') listing.recordPaused(hash, now);
+    else if (state === 'paused') listing.recordPaused(hash, now, pausedReason);
     else listing.recordActive(hash ?? listing.toSnapshot().contentHash ?? '', now, permalink);
   }
 

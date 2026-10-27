@@ -1,5 +1,5 @@
 import { err, ok, type Result } from '../../shared';
-import type { ListingOperation } from '../domain/listing';
+import type { ListingOperation, OwnerAvailability } from '../domain/listing';
 import { PORTAL_CATALOG, type ListingOwnerKind, type PortalId } from '../domain/portal';
 import type { PortalAccountDirectory } from './ports/portal-account-directory';
 import type { ListingSource } from './ports/listing-source';
@@ -60,6 +60,32 @@ export function pricedOperations(source: ListingSource, operation: ListingOperat
       !o.priceOnRequest &&
       o.priceCents !== undefined,
   );
+}
+
+export const WITHOUT_PRICE_PAUSE =
+  'El aviso se bajó porque la propiedad quedó sin precio (o "a consultar"): vuelve solo cuando tenga precio.';
+
+/**
+ * Qué permite la propiedad en el portal: los portales exigen precio, así que una propiedad
+ * disponible que se quedó sin precio baja el aviso (pausa) en vez de dejarlo online con el precio
+ * viejo. Vuelve sola cuando tenga precio. Si la propiedad dejó de ofrecer la operación del aviso, no
+ * se pausa: es un error a resolver.
+ */
+export function listingAvailability(
+  source: ListingSource,
+  operation: ListingOperation | undefined,
+): { readonly availability: OwnerAvailability; readonly pausedReason: string | undefined } {
+  const offered = source.operations.some(
+    (o) => operation === undefined || o.operation === operation,
+  );
+  if (
+    source.availability === 'active' &&
+    offered &&
+    pricedOperations(source, operation).length === 0
+  ) {
+    return { availability: 'paused', pausedReason: WITHOUT_PRICE_PAUSE };
+  }
+  return { availability: source.availability, pausedReason: undefined };
 }
 
 /**

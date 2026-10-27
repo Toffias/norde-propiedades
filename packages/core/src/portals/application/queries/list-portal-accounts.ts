@@ -40,6 +40,7 @@ export class ListPortalAccounts {
           linksExisting: definition.linksExisting,
           isEnabled,
           isConnected: connection !== undefined,
+          needsReconnect: account.needsReconnect,
           accountName: connection?.accountName,
           connectedAt: connection?.connectedAt,
           linked: {

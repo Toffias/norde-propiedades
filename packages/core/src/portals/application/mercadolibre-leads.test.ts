@@ -27,6 +27,7 @@ function connect(uow: InMemoryPortalsUnitOfWork, portal: PortalId, externalAccou
     account.connect(
       { externalAccountId, accountName: 'NORDE', connectedAt: new Date(NOW), connectedBy: 'u' },
       [],
+      false,
     ),
   );
   uow.accounts.rows.set(portal, account.toSnapshot());

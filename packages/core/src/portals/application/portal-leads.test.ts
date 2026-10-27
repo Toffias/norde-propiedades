@@ -41,6 +41,7 @@ function zonapropAccount() {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   return account.toSnapshot();

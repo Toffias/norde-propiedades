@@ -39,6 +39,7 @@ function connectedAccount(enabled = true) {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   if (enabled) unwrap(account.enable());
@@ -368,6 +369,21 @@ describe('SyncListing', () => {
     s.connector.failWith = { type: 'PortalCredentialsMissing' };
     unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
     expect(s.uow.listings.rows.get(listingId)?.lastError).toContain('volver a conectar');
+
+    // La cuenta queda pidiendo reconectar, una sola vez.
+    expect(s.uow.accounts.rows.get('mercadolibre')?.connection?.credentialsRejectedAt).toEqual(
+      new Date(NOW),
+    );
+    unwrap(await s.sync.execute({ listingId }, PORTAL_SYNC));
+    expect(
+      s.uow.audit.entries.filter((e) => e.action === 'portal_account.credentials_rejected'),
+    ).toEqual([
+      expect.objectContaining({
+        entityType: 'portal_account',
+        entityId: 'mercadolibre',
+        actorId: 'system:portal-sync',
+      }),
+    ]);
   });
 
   it('does not call the portal when the account was disabled', async () => {

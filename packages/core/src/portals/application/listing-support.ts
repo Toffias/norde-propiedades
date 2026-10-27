@@ -55,6 +55,35 @@ export async function retryFailedListings(
   return requested;
 }
 
+/** Publicaciones por tanda al recorrer las de un portal. */
+const RETRY_BATCH_SIZE = 50;
+/** Tope de tandas: diez mil avisos vivos en un portal no son de una inmobiliaria. */
+const RETRY_MAX_BATCHES = 200;
+
+/**
+ * Recorre las publicaciones vivas del portal y pide sincronizar las que quedaron en error por uno de
+ * esos motivos (al reconectar la cuenta, las que fallaron por credenciales). Devuelve cuántas pidió.
+ */
+export async function retryPortalListings(
+  deps: { readonly uow: PortalsUnitOfWork; readonly clock: Clock },
+  portal: PortalId,
+  reasons: readonly string[],
+): Promise<number> {
+  let after: ListingId | undefined;
+  let requested = 0;
+  for (let batch = 0; batch < RETRY_MAX_BATCHES; batch += 1) {
+    const listings = await deps.uow.run((tx) =>
+      tx.listings.findLiveOnPortal(portal, { after, limit: RETRY_BATCH_SIZE }),
+    );
+    const failed = listings.filter((l) => l.toSnapshot().status === 'error').map((l) => l.id);
+    requested += await retryFailedListings(deps, failed, reasons);
+    const last = listings.at(-1);
+    if (last === undefined || listings.length < RETRY_BATCH_SIZE) break;
+    after = last.id;
+  }
+  return requested;
+}
+
 /**
  * Refleja en la publicación, bloqueada, cómo está su aviso en el portal (vencido, cerrado, pausado
  * por moderación): la conciliación diaria y la de un aviso que el portal avisó que cambió. Se

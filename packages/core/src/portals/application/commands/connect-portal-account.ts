@@ -8,8 +8,12 @@ import {
   type Result,
 } from '../../../shared';
 import { ConnectPortalAccountInputSchema, type ConnectPortalAccountInput } from '../../contracts';
-import type { PortalAccountInUseError } from '../../domain/portal-account';
+import type {
+  PortalAccountChangedError,
+  PortalAccountInUseError,
+} from '../../domain/portal-account';
 import { requireConnectionMethod, type WrongConnectionMethodError } from '../connection-method';
+import { retryPortalListings, SYNC_RECONNECT } from '../listing-support';
 import { connectionAuditValue, portalAccountTarget } from '../portal-account-audit';
 import type { PortalAuthorizationError, PortalAuthorizer } from '../ports/portal-authorizer';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
@@ -26,7 +30,8 @@ export type ConnectPortalAccountError =
   | WrongConnectionMethodError
   | InvalidAuthorizationStateError
   | PortalAuthorizationError
-  | PortalAccountInUseError;
+  | PortalAccountInUseError
+  | PortalAccountChangedError;
 
 /**
  * Vuelta del portal después de autorizar: canjea el código por los tokens, vincula la cuenta y
@@ -57,7 +62,7 @@ export class ConnectPortalAccount {
     if (grant.isErr()) return err(grant.error);
     const { credentials, externalAccountId, accountName } = grant.value;
 
-    return this.deps.uow.run(
+    const connected = await this.deps.uow.run(
       async (tx): Promise<Result<{ readonly accountName: string }, ConnectPortalAccountError>> => {
         const account = await tx.accounts.get(portal);
         const before = connectionAuditValue(account);
@@ -69,6 +74,7 @@ export class ConnectPortalAccount {
             connectedBy: actor.id,
           },
           await tx.accounts.all(),
+          (await tx.listings.findLiveOnPortal(portal, { after: undefined, limit: 1 })).length > 0,
         );
         if (connected.isErr()) return err(connected.error);
 
@@ -83,5 +89,8 @@ export class ConnectPortalAccount {
         return ok({ accountName });
       },
     );
+    // Lo que falló por credenciales se vuelve a mandar con las nuevas.
+    if (connected.isOk()) await retryPortalListings(this.deps, portal, [SYNC_RECONNECT]);
+    return connected;
   }
 }

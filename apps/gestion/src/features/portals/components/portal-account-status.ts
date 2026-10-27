@@ -10,6 +10,7 @@ export function connectHref(portal: PortalValue): string {
 
 export function accountStatus(account: PortalAccountView): { tone: StatusTone; label: string } {
   if (!account.isConnected) return { tone: 'gray', label: 'Sin conectar' };
+  if (account.needsReconnect) return { tone: 'red', label: 'Pide reconectar' };
   // Una cuenta que todavía no publica nada no se activa.
   if (account.publishes.length === 0) return { tone: 'green', label: 'Conectada' };
   return account.isEnabled

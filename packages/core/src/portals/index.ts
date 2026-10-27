@@ -20,6 +20,7 @@ export {
 } from './domain/portal';
 export {
   PortalAccount,
+  type PortalAccountChangedError,
   type PortalAccountInUseError,
   type PortalAccountSnapshot,
   type PortalConnection,

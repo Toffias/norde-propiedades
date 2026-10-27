@@ -1,8 +1,18 @@
-import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
+import {
+  auditAction,
+  err,
+  ok,
+  type Actor,
+  type Clock,
+  type ForbiddenError,
+  type Result,
+} from '../../../shared';
 import { ListingIdInputSchema, type ListingIdInput } from '../../contracts';
 import type { Listing, OwnerAvailability } from '../../domain/listing';
+import type { PortalAccount } from '../../domain/portal-account';
 import type { ListingOwnerKind, PortalId } from '../../domain/portal';
 import { pricedOperations } from '../listing-plan';
+import { portalAccountTarget } from '../portal-account-audit';
 import {
   auditStatusChange,
   contentFingerprint,
@@ -19,7 +29,7 @@ import type {
   PortalListingUpdate,
   PortalSyncError,
 } from '../ports/portal-connector';
-import type { PortalsUnitOfWork } from '../ports/portals-transaction';
+import type { PortalsTransaction, PortalsUnitOfWork } from '../ports/portals-transaction';
 import { parseInput, type ValidationFailedError } from '../portals-input';
 
 export type SyncListingError = ForbiddenError | ValidationFailedError | ListingNotFoundError;
@@ -90,6 +100,10 @@ export class SyncListing {
       await tx.listings.save(listing, actor.id);
       await tx.events.publish(listing.pullEvents());
       await auditStatusChange(tx, actor, listing, before);
+      const { status, lastError } = listing.toSnapshot();
+      if (status === 'error' && lastError === SYNC_RECONNECT) {
+        await this.#credentialsRejected(tx, account, actor);
+      }
       return ok(outcome);
     });
   }
@@ -234,6 +248,19 @@ export class SyncListing {
     if (state === 'closed') listing.recordClosed(now);
     else if (state === 'paused') listing.recordPaused(hash, now, reason);
     else listing.recordActive(hash ?? listing.toSnapshot().contentHash ?? '', now, permalink);
+  }
+
+  /** El portal rechazó las credenciales: la cuenta queda pidiendo reconectar (Mi empresa lo muestra). */
+  async #credentialsRejected(
+    tx: PortalsTransaction,
+    account: PortalAccount,
+    actor: Actor,
+  ): Promise<void> {
+    if (!account.rejectCredentials(this.deps.clock.now())) return;
+    await tx.accounts.save(account, actor.id);
+    await tx.audit.record(
+      auditAction(actor, portalAccountTarget('portal_account.credentials_rejected', account)),
+    );
   }
 
   #fail(listing: Listing, reason: string, error?: PortalSyncError): SyncListingOutcome {

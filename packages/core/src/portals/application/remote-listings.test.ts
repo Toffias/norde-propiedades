@@ -40,6 +40,7 @@ function zonapropAccount(enabled = true) {
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   if (enabled) unwrap(account.enable());

@@ -36,6 +36,7 @@ function connect(uow: InMemoryPortalsUnitOfWork, portal: PortalId = 'mercadolibr
         connectedBy: 'admin-1',
       },
       [],
+      false,
     ),
   );
   uow.accounts.rows.set(portal, account.toSnapshot());

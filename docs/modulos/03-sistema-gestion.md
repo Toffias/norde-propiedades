@@ -746,18 +746,23 @@ Diseño propuesto:
 - Entran preguntas (con su texto), WhatsApp, llamadas, pedidos de contacto, visitas y cotizaciones de usuarios con sesión (la de un emprendimiento publicado por el sistema, con su unidad). Los anónimos no traen datos y no entran.
 - Si el aviso es del sistema, la consulta queda con su propiedad. Los avisos de Tokko, hasta vincularlos, entran sin propiedad.
 
-**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 a 0029.
+**Zonaprop (#14)**: por la API de Open Navent, con las credenciales de integrador de Norde (sin OAuth). Cinco etapas, detrás de `PORTALS_ENABLED`. Decisiones técnicas en los ADR 0026 a 0030 y 0047 (auditoría #162).
 
 1. **Conexión** (hecha):
    - Mi empresa → Portales suma la tarjeta **Zonaprop**. Se conecta con el **código de inmobiliaria**; el sistema lo busca entre las inmobiliarias que Zonaprop asoció a Norde.
    - Un código que no está asociado, o una inmobiliaria bloqueada por Zonaprop, no se conecta y se explica por qué.
-   - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta.
+   - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta. En la ficha, los créditos se recuerdan 2 minutos.
    - Se activa para publicar como las cuentas de ML.
 2. **Publicar propiedades** (hecha):
    - Se publica **a pedido**, desde la pestaña Difusión de la ficha. Después, los cambios de precio, datos, fotos y estado se sincronizan solos, como en ML.
    - **Un solo aviso por propiedad**, con todas las operaciones que tienen precio (consume un crédito). Las operaciones "a consultar" no se publican; sin ninguna con precio, no se publica.
+   - Si una propiedad publicada **se queda sin precio** (todas "a consultar"), el aviso pasa a offline con el motivo a la vista, y vuelve online solo cuando tiene precio. Vale también para MercadoLibre.
    - Se elige el **plan** entre los de la cuenta para propiedades (hoy Simple y Home), con los créditos que le quedan a cada uno. No viene uno elegido de antemano. Un plan sin créditos no se puede elegir. Desarrollos home queda para los emprendimientos.
-   - Se puede **cambiar el plan** de un aviso publicado: consume un crédito del plan nuevo.
+   - Se puede **cambiar el plan** de un aviso publicado: consume un crédito del plan nuevo. **Reactivar** un aviso pausado también consume uno: antes se revisa que queden.
+   - Pausar nunca falla por el contenido: si falta algo que Zonaprop exige, se pausa igual y se manda al reactivar.
+   - Cambiar el **pie para portales**, el link de la web o el contacto de una **sucursal** actualiza todos los avisos. Las fotos de una unidad actualizan el aviso de su emprendimiento.
+   - Las publicaciones que quedan **con error** (Zonaprop no respondió, no había créditos) se vuelven a intentar solas una vez por día.
+   - **Conciliación diaria**: a la mañana se lee de Zonaprop si cada aviso está online. Uno que Zonaprop puso offline por su cuenta (plan vencido, calidad, fotos) queda pausado con el motivo, para resolverlo y sincronizar. De paso se guarda el link de los avisos que no lo tenían.
    - **Reservada o pausada**, el aviso pasa a offline en Zonaprop, y vuelve online cuando la propiedad está disponible otra vez. El crédito se usa mientras el aviso está online: offline lo libera. Vendida, alquilada o dada de baja, sale de Zonaprop.
    - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección.
    - Galpón se publica como Bodega-Galpón y Depósito como Depósito.
@@ -770,10 +775,11 @@ Diseño propuesto:
    - Antes de vincular en producción hay que apagar la publicación de Tokko en Zonaprop.
    - **Pendiente:** Zonaprop tiene que habilitar "asociar avisos" para el integrador de Norde. En el sandbox responde que no hay permiso.
 4. **Consultas**: los contactos de los avisos entran a la **bandeja de consultas** con canal Zonaprop.
-   - Entran solos **cada 10 minutos**, leídos de Zonaprop (los de los últimos 2 días; los que ya estaban no se repiten).
+   - Entran solos **cada 10 minutos**, leídos de Zonaprop (los de los últimos 2 días, o desde la última lectura completa si el sistema estuvo caído, hasta 14 días; los que ya estaban no se repiten).
    - **Al instante**, si se activan los avisos desde Mi empresa → Portales ("Recibir las consultas al instante"). Zonaprop avisa por cada contacto y el sistema los vuelve a leer de la API.
    - Entran los que traen teléfono o email: mensajes, "que me llamen", visitas, tasaciones y "ver teléfono" o "ver WhatsApp" de usuarios con sesión. Los anónimos sin datos no entran.
-   - Sin texto, la consulta dice qué pidió la persona ("Pidió que lo llamen"). Si el aviso es del sistema, la consulta queda con su propiedad.
+   - Sin texto, la consulta dice qué pidió la persona ("Pidió que lo llamen"). Si el aviso es del sistema, la consulta queda con su propiedad. Si es de Tokko y todavía no se vinculó, queda con la propiedad cuyo código es la clave interna del aviso.
+   - Un teléfono mal escrito ("4444-5555") no frena la consulta si trae un email válido (ni al revés): entra con el dato válido y el otro queda escrito en el mensaje. Vale para todos los canales.
 5. **Emprendimientos** (en curso, ADR 0030): el emprendimiento con todas sus unidades en un aviso de desarrollo.
    - Se publica a pedido desde la pestaña **Difusión** del emprendimiento, con un plan de emprendimientos (hoy Desarrollos home) con créditos.
    - Lleva las unidades **disponibles con precio**. Las reservadas, vendidas, pausadas o "a consultar" no van.

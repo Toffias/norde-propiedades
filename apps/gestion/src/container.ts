@@ -488,6 +488,7 @@ import {
   PortalLeadSourcesByProvider,
   PortalListingCatalogsByProvider,
   PortalListingStatesByProvider,
+  CachedPortalCredits,
   ZonapropAccountDirectory,
   ZonapropApi,
   ZonapropLeads,
@@ -819,7 +820,11 @@ function createPortalsUseCases(
       accounts,
       counter: new DrizzlePortalListingCountsQuery(db),
     }),
-    getCredits: new GetPortalCredits({ accounts, directory }),
+    // Solo para mostrar: recordados unos minutos (lo que consume créditos lee en vivo).
+    getCredits: new GetPortalCredits({
+      accounts,
+      directory: new CachedPortalCredits(directory, () => clock.now().getTime()),
+    }),
     getPackages: new GetPortalPackages({ accounts, reader: mercadoLibre }),
     getListingStats: new GetListingStats({ uow, reader: mercadoLibre, clock }),
     startConnection: new StartPortalConnection({ authorizer }),

@@ -13,8 +13,16 @@ import type {
   ClientTagRow,
   InquiryTabCounts,
   OpportunityStageCount,
+  FollowUpListingProfile,
   PropertyInterestProfile,
 } from '../contracts';
+import type {
+  FollowUpCandidatesQuery,
+  FollowUpFeaturedCandidate,
+  FollowUpListings,
+  FollowUpSearchCandidate,
+} from '../application/ports/follow-up-ports';
+import type { FollowUpMatch } from '../domain/follow-up-match';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
 import type {
@@ -132,6 +140,7 @@ import {
   type ClientTagGroupRepository,
   type ClientTagRepository,
   type FeaturedListingRepository,
+  type FollowUpMatchRepository,
   type SharedListingRepository,
   type InquiryRepository,
   type InquiryRuleRepository,
@@ -617,6 +626,71 @@ export class FakeSharedListingEmails implements SharedListingEmails {
   }
 }
 
+/** Descarta la repetida como la base: la misma nueva por cliente, la misma baja por precio. */
+export class InMemoryFollowUpMatchRepository implements FollowUpMatchRepository {
+  readonly rows: FollowUpMatch[] = [];
+
+  add(match: FollowUpMatch) {
+    const repeated = this.rows.some(
+      (row) =>
+        row.clientId === match.clientId &&
+        row.propertyId === match.propertyId &&
+        row.reason === match.reason &&
+        (match.reason === 'new_listing' ||
+          (row.price.operation === match.price.operation &&
+            row.price.priceCents === match.price.priceCents)),
+    );
+    if (repeated) return Promise.resolve(false);
+    this.rows.push(match);
+    return Promise.resolve(true);
+  }
+}
+
+/** El perfil que se cargue, por propiedad. */
+export class InMemoryFollowUpListings implements FollowUpListings {
+  readonly profiles = new Map<string, FollowUpListingProfile>();
+
+  find(propertyId: string) {
+    return Promise.resolve(this.profiles.get(propertyId));
+  }
+}
+
+/**
+ * Candidatos cargados a mano: lo que la consulta real resuelve en SQL (la coincidencia, el envío
+ * automático, la baja) se prueba en su test de integración. Acá filtra solo por operación y fecha.
+ */
+export class InMemoryFollowUpCandidates implements FollowUpCandidatesQuery {
+  searchRows: (FollowUpSearchCandidate & { readonly createdAt: Date })[] = [];
+  featuredRows: (FollowUpFeaturedCandidate & { readonly propertyId: string })[] = [];
+
+  searches(criteria: Parameters<FollowUpCandidatesQuery['searches']>[0]) {
+    const { operation, savedUntil } = criteria;
+    return Promise.resolve(
+      this.searchRows
+        .filter(
+          (row) =>
+            (operation === undefined || row.operation === operation) &&
+            (savedUntil === undefined || row.createdAt.getTime() <= savedUntil.getTime()),
+        )
+        .slice(criteria.offset, criteria.offset + criteria.limit)
+        .map(({ savedSearchId, clientId, operation: op }) => ({
+          savedSearchId,
+          clientId,
+          operation: op,
+        })),
+    );
+  }
+
+  featured(criteria: Parameters<FollowUpCandidatesQuery['featured']>[0]) {
+    return Promise.resolve(
+      this.featuredRows
+        .filter((row) => row.propertyId === criteria.propertyId)
+        .slice(criteria.offset, criteria.offset + criteria.limit)
+        .map(({ featuredListingId, clientId }) => ({ featuredListingId, clientId })),
+    );
+  }
+}
+
 export class InMemorySavedSearchRepository implements SavedSearchRepository {
   readonly rows = new Map<string, SavedSearchSnapshot>();
 
@@ -1029,6 +1103,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly records = new InMemoryClientLinkedRecords();
   readonly activities = new InMemoryClientActivityRepository();
   readonly featured = new InMemoryFeaturedListingRepository();
+  readonly followUpMatches = new InMemoryFollowUpMatchRepository();
   readonly sharedListings = new InMemorySharedListingRepository();
   readonly savedSearches = new InMemorySavedSearchRepository();
   readonly events = new InMemoryEventPublisher();
@@ -1055,6 +1130,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       records: new Map(this.records.counts),
       activities: new Map(this.activities.rows),
       featured: new Map(this.featured.rows),
+      followUpMatches: this.followUpMatches.rows.length,
       sharedListings: new Map(this.sharedListings.rows),
       savedSearches: new Map(this.savedSearches.rows),
       imports: new Map(this.imports.rows),
@@ -1084,6 +1160,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.records.counts, backup.records);
       restore(this.activities.rows, backup.activities);
       restore(this.featured.rows, backup.featured);
+      this.followUpMatches.rows.splice(backup.followUpMatches);
       restore(this.sharedListings.rows, backup.sharedListings);
       restore(this.savedSearches.rows, backup.savedSearches);
       restore(this.imports.rows, backup.imports);

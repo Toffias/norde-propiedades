@@ -6,6 +6,7 @@ import type {
   ClientTagGroupRepository,
   ClientTagRepository,
   FeaturedListingRepository,
+  FollowUpMatchRepository,
   InquiryRepository,
   InquiryRuleRepository,
   OpportunityBulkOperationRepository,
@@ -35,6 +36,7 @@ export interface ClientsTransaction {
   readonly records: ClientLinkedRecords;
   readonly activities: ClientActivityRepository;
   readonly featured: FeaturedListingRepository;
+  readonly followUpMatches: FollowUpMatchRepository;
   readonly savedSearches: SavedSearchRepository;
   readonly sharedListings: SharedListingRepository;
   readonly erasure: ClientErasure;

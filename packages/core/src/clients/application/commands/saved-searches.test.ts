@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { Actor } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
 import type { CreateSavedSearchInput } from '../../contracts';
 import { MAX_SAVED_SEARCHES_PER_CLIENT } from '../../domain/saved-search';
@@ -22,6 +23,12 @@ import { RestoreSavedSearch } from './restore-saved-search';
 import { UpdateSavedSearch } from './update-saved-search';
 
 const clock = new FixedClock('2026-03-10T12:00:00Z');
+/** Un agente que además puede prender los seguimientos automáticos (#106). */
+const FOLLOW_UPS_AGENT = Actor.user(TEST_AGENT.id, [
+  'clients:read',
+  'clients:update',
+  'followups:automatic',
+]);
 const MISSING = '00000000-0000-7000-8000-0000000000ff';
 const PALERMO = '00000000-0000-7000-8000-0000000000a1';
 const BELGRANO = '00000000-0000-7000-8000-0000000000a2';
@@ -90,6 +97,15 @@ describe('CreateSavedSearch', () => {
         },
       }),
     ]);
+  });
+
+  it('saves it with auto-send only with the automatic follow-ups permission', async () => {
+    const { uow, client, create } = await setup();
+    const input = { clientId: client.id, ...fields, autoSend: true };
+
+    expect(unwrapErr(await create.execute(input, TEST_AGENT))).toEqual({ type: 'Forbidden' });
+    const { savedSearchId } = unwrap(await create.execute(input, FOLLOW_UPS_AGENT));
+    expect(uow.savedSearches.rows.get(savedSearchId)?.autoSend).toBe(true);
   });
 
   it('ties it to an open opportunity of the same client only', async () => {
@@ -250,10 +266,31 @@ describe('UpdateSavedSearch', () => {
       unwrapErr(
         await update.execute(
           { clientId: client.id, savedSearchId: search.id, operation: 'sale', autoSend: true },
-          TEST_AGENT,
+          FOLLOW_UPS_AGENT,
         ),
       ),
     ).toEqual({ type: 'SavedSearchUnsubscribed' });
+  });
+
+  it('needs the automatic follow-ups permission to turn auto-send on', async () => {
+    const { uow, client, update } = await setup();
+    const search = seedSavedSearch(uow, {
+      id: '00000000-0000-7000-8000-0000000005b2',
+      clientId: client.id,
+    });
+    const input = {
+      clientId: client.id,
+      savedSearchId: search.id,
+      operation: 'sale' as const,
+      autoSend: true,
+    };
+
+    expect(unwrapErr(await update.execute(input, TEST_AGENT))).toEqual({ type: 'Forbidden' });
+    unwrap(await update.execute(input, FOLLOW_UPS_AGENT));
+    // Ya prendido, quien no tiene el permiso lo puede editar y apagar.
+    unwrap(await update.execute({ ...input, name: 'Otra' }, TEST_AGENT));
+    unwrap(await update.execute({ ...input, autoSend: false }, TEST_AGENT));
+    expect(uow.savedSearches.rows.get(search.id)?.autoSend).toBe(false);
   });
 
   it('needs to be able to edit the client', async () => {

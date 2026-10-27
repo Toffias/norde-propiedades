@@ -4,6 +4,7 @@ import type { ClientImport, ClientImportId, ImportRowProblem } from './client-im
 import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from './client-tag';
 import type { ContactKeys } from './duplicate-check';
 import type { FeaturedListing } from './featured-listing';
+import type { FollowUpMatch } from './follow-up-match';
 import type { Inquiry, InquiryId } from './inquiry';
 import type { InquiryAssignmentRule, InquiryRuleId } from './inquiry-assignment-rule';
 import type { Opportunity, OpportunityId } from './opportunity';
@@ -186,6 +187,15 @@ export interface FeaturedListingRepository {
   /** Las destacadas vigentes del cliente entre estas propiedades. */
   findActive(clientId: ClientId, propertyIds: readonly string[]): Promise<FeaturedListing[]>;
   save(listing: FeaturedListing, actorId: string): Promise<void>;
+}
+
+/** Lo que el cruce con el stock encontró para mandarles a los clientes (#106). */
+export interface FollowUpMatchRepository {
+  /**
+   * Guarda la coincidencia si es nueva. Devuelve `false` si el cliente ya la tenía: la misma
+   * propiedad como nueva, o la misma baja (operación y precio).
+   */
+  add(match: FollowUpMatch, actorId: string): Promise<boolean>;
 }
 
 /** Las búsquedas guardadas de los clientes, con su papelera. */

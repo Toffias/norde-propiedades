@@ -748,3 +748,26 @@ export {
   ListClientSends,
   type ListClientSendsError,
 } from './application/queries/list-client-sends';
+export {
+  FOLLOW_UP_REASONS,
+  followUpPrice,
+  isPriceDrop,
+  type FollowUpMatch,
+  type FollowUpMatchId,
+  type FollowUpPrice,
+  type FollowUpReason,
+  type FollowUpSource,
+} from './domain/follow-up-match';
+export type { FollowUpMatchRepository } from './domain/client.repository';
+export type {
+  FollowUpCandidatesQuery,
+  FollowUpFeaturedCandidate,
+  FollowUpListings,
+  FollowUpSearchCandidate,
+} from './application/ports/follow-up-ports';
+export {
+  MatchFollowUps,
+  type FollowUpTrigger,
+  type MatchFollowUpsInput,
+  type MatchFollowUpsOutcome,
+} from './application/handlers/match-follow-ups';

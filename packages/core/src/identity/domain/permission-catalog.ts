@@ -139,7 +139,10 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
       {
         resource: 'followups',
         label: 'Seguimientos',
-        permissions: [{ permission: 'followups:read-others', label: 'Ver seguimientos de otros' }],
+        permissions: [
+          { permission: 'followups:read-others', label: 'Ver seguimientos de otros' },
+          { permission: 'followups:automatic', label: 'Activar seguimientos automáticos' },
+        ],
       },
       {
         resource: 'audit',

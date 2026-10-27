@@ -20,6 +20,14 @@ import { idOf } from './tag-support';
 // Lo que comparten los casos de uso de las búsquedas guardadas.
 
 /** No existe, es de otro cliente o (al editarla) está en la papelera. */
+/**
+ * Prender el envío automático de una búsqueda o de una destacada pide el permiso "seguimientos
+ * automáticos" (#106). Apagarlo, o editar una que ya lo tiene, no.
+ */
+export function canTurnOnAutoSend(actor: Actor): boolean {
+  return actor.can('followups:automatic');
+}
+
 export interface SavedSearchNotFoundError {
   readonly type: 'SavedSearchNotFound';
 }

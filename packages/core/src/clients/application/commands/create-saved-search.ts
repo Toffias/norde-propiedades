@@ -31,6 +31,7 @@ import {
 import type { OpportunityNotFoundError } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 import {
+  canTurnOnAutoSend,
   checkSearchOpportunity,
   findEditableClient,
   savedSearchAuditState,
@@ -48,7 +49,8 @@ export type CreateSavedSearchError =
 
 /**
  * Guarda una búsqueda para un contacto (opcionalmente atada a una de sus oportunidades abiertas).
- * Lo hace quien puede editar el contacto y queda en su historial.
+ * Lo hace quien puede editar el contacto y queda en su historial. Guardarla con envío automático
+ * pide además el permiso de seguimientos automáticos.
  */
 export class CreateSavedSearch {
   constructor(
@@ -68,6 +70,7 @@ export class CreateSavedSearch {
     }
     const parsed = CreateSavedSearchInputSchema.safeParse(input);
     if (!parsed.success) return err(invalidInput(parsed.error));
+    if (parsed.data.autoSend && !canTurnOnAutoSend(actor)) return err({ type: 'Forbidden' });
     const now = this.deps.clock.now();
 
     return this.deps.uow.run(

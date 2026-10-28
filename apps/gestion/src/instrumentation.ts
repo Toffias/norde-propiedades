@@ -10,6 +10,11 @@ import { isNodeRuntime } from './config/env';
 export async function register(): Promise<void> {
   // eslint-disable-next-line no-restricted-syntax -- Next solo descarta el bundle Edge con este chequeo literal: es una constante del build, no configuración (ADR 0021).
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // Sentry antes que los jobs, para que sus errores también lleguen (ADR 0049).
+    const Sentry = await import('@sentry/nextjs');
+    const { sentryOptions } = await import('./config/sentry');
+    Sentry.init(sentryOptions());
+
     const { startJobsInProcess } = await import('./jobs/start-in-process');
     await startJobsInProcess();
   }
@@ -17,11 +22,15 @@ export async function register(): Promise<void> {
 
 /**
  * Borde de los errores inesperados del servidor (renders, Server Actions, route handlers): se
- * loguean acá y la UI muestra un mensaje genérico (`error.tsx`, `global-error.tsx`). La ruta va
- * sin query string: los filtros pueden tener datos personales (un teléfono buscado).
+ * loguean, van a Sentry (ADR 0049) y la UI muestra un mensaje genérico (`error.tsx`,
+ * `global-error.tsx`). La ruta va sin query string: los filtros pueden tener datos personales (un
+ * teléfono buscado).
  */
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
   if (!isNodeRuntime()) return;
+  const Sentry = await import('@sentry/nextjs');
+  Sentry.captureRequestError(error, request, context);
+
   const { getLogger } = await import('./config/logger');
   getLogger().error(
     {

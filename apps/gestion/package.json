@@ -21,6 +21,7 @@
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",
     "@norde/ui": "workspace:*",
+    "@sentry/nextjs": "catalog:",
     "better-auth": "catalog:",
     "leaflet": "catalog:",
     "leaflet.markercluster": "catalog:",

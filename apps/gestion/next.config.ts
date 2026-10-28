@@ -1,3 +1,4 @@
+import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
@@ -13,4 +14,12 @@ const config: NextConfig = {
   },
 };
 
-export default config;
+// Errores a Sentry (ADR 0049). Con `SENTRY_AUTH_TOKEN` en el build, sube los source maps para leer
+// los stack traces; sin él, el build sigue igual.
+export default withSentryConfig(config, {
+  org: 'apz-software',
+  project: 'norde-propiedades',
+  silent: true,
+  telemetry: false,
+  widenClientFileUpload: true,
+});

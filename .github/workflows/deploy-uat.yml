@@ -61,6 +61,11 @@ jobs:
           DATABASE_URL: postgres://build:build@localhost:5432/build
           PAYLOAD_SECRET: build-only-secret-not-used-anywhere-else-000
           NEXT_PUBLIC_SERVER_URL: ${{ env.WEB_URL }}
+          # Errores de gestion a Sentry (ADR 0049): el DSN se incrusta en el build y el token sube los
+          # source maps. Sin ellos, el panel no reporta y los stack traces quedan minificados.
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.SENTRY_DSN_GESTION }}
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: uat
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Configurar SSH
         env:

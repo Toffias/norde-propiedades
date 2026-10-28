@@ -17,7 +17,7 @@ src/
 ├── app/api/webhooks/         # Endpoints públicos firmados (consultas del formulario web)
 ├── jobs/                     # Suscripciones a eventos del outbox (un caso de uso cada una)
 ├── lib/                      # Utilidades de presentación (formatters, auth de sesión)
-├── config/env.ts             # Único lugar que lee process.env
+├── config/env.ts             # Único lugar que lee process.env (más public-env.ts: NEXT_PUBLIC_*, ADR 0049)
 └── container.ts              # Composition root: arma casos de uso con infra. Único que importa @norde/infra
 ```
 

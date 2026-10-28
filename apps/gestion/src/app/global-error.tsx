@@ -4,9 +4,12 @@ import './globals.css';
 
 import { Button } from '@norde/ui/components/button';
 import { ErrorState } from '@norde/ui/components/error-state';
+import * as Sentry from '@sentry/nextjs';
+import { useEffect } from 'react';
 
-// Falla el layout raíz: no hay providers ni fuentes, así que la página se arma sola. El error ya
-// se logueó en el servidor (`instrumentation.ts`); acá solo se informa, con el código para soporte.
+// Falla el layout raíz: no hay providers ni fuentes, así que la página se arma sola. Un error del
+// servidor (con `digest`) ya se logueó y se reportó en `instrumentation.ts`; uno del navegador se
+// reporta acá (ADR 0049). La página informa, con el código para soporte.
 export default function GlobalError({
   error,
   reset,
@@ -14,6 +17,10 @@ export default function GlobalError({
   readonly error: Error & { readonly digest?: string };
   readonly reset: () => void;
 }) {
+  useEffect(() => {
+    if (error.digest === undefined) Sentry.captureException(error);
+  }, [error]);
+
   return (
     <html lang="es-AR">
       <body className="bg-background text-foreground antialiased">

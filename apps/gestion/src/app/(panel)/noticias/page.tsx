@@ -21,7 +21,7 @@ export default async function NewsPage() {
   const result = await getContainer().news.listNews.execute({ kinds }, actor);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <PageHeader
         icon={NewspaperIcon}
         title="Noticias"

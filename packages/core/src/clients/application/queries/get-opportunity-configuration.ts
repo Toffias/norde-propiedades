@@ -35,6 +35,9 @@ export class GetOpportunityConfiguration {
           onAssign: rules.onAssign ?? null,
           onReactivate: rules.onReactivate ?? null,
           forOwners: rules.forOwners ?? null,
+          afterMessage: rules.afterMessage ?? null,
+          afterLike: rules.afterLike ?? null,
+          afterDislike: rules.afterDislike ?? null,
         },
       });
     });

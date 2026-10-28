@@ -3,7 +3,8 @@ import type { ClientActivity } from './client-activity';
 import type { ClientImport, ClientImportId, ImportRowProblem } from './client-import';
 import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from './client-tag';
 import type { ContactKeys } from './duplicate-check';
-import type { FeaturedListing } from './featured-listing';
+import type { FeaturedListing, FeaturedListingId } from './featured-listing';
+import type { FollowUpMatch, FollowUpMatchId } from './follow-up-match';
 import type { Inquiry, InquiryId } from './inquiry';
 import type { InquiryAssignmentRule, InquiryRuleId } from './inquiry-assignment-rule';
 import type { Opportunity, OpportunityId } from './opportunity';
@@ -14,7 +15,9 @@ import type {
 import type { OpportunityCloseReason, OpportunityCloseReasonId } from './opportunity-close-reason';
 import type { OpportunityRules } from './opportunity-settings';
 import type { OpportunityStage, OpportunityStageId } from './opportunity-stage';
+import type { QuickReply, QuickReplyId } from './quick-reply';
 import type { SavedSearch, SavedSearchId } from './saved-search';
+import type { SharedListing, SharedListingId } from './shared-listing';
 
 /** Tope de coincidencias que devuelve una búsqueda de duplicados. */
 export const MAX_DUPLICATE_CANDIDATES = 10;
@@ -80,6 +83,14 @@ export interface InquiryRuleRepository {
   findAll(): Promise<InquiryAssignmentRule[]>;
   save(rule: InquiryAssignmentRule, actorId: string): Promise<void>;
   delete(id: InquiryRuleId): Promise<void>;
+}
+
+/** Las respuestas rápidas (`quick_replies`). */
+export interface QuickReplyRepository {
+  findById(id: QuickReplyId): Promise<QuickReply | undefined>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(reply: QuickReply, actorId: string): Promise<void>;
+  delete(id: QuickReplyId): Promise<void>;
 }
 
 /** Las acciones masivas encoladas (`opportunity_bulk_operations`). */
@@ -163,10 +174,43 @@ export interface ClientActivityRepository {
   record(activity: ClientActivity): Promise<boolean>;
 }
 
+/** Los envíos de propiedades por link (#104). */
+export interface SharedListingRepository {
+  findById(id: SharedListingId): Promise<SharedListing | undefined>;
+  /** Por el hash del token del link público. */
+  findByTokenHash(tokenHash: string): Promise<SharedListing | undefined>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(listing: SharedListing, actorId: string): Promise<void>;
+}
+
 export interface FeaturedListingRepository {
   /** Las destacadas vigentes del cliente entre estas propiedades. */
   findActive(clientId: ClientId, propertyIds: readonly string[]): Promise<FeaturedListing[]>;
+  /** Estas destacadas, vigentes o quitadas. */
+  findByIds(ids: readonly FeaturedListingId[]): Promise<FeaturedListing[]>;
+  /** Las vigentes del cliente con auto-envío de novedades, como mucho `limit`. */
+  findAutoSending(clientId: ClientId, limit: number): Promise<FeaturedListing[]>;
   save(listing: FeaturedListing, actorId: string): Promise<void>;
+}
+
+/** Lo que el cruce con el stock encontró para mandarles a los clientes (#106). */
+export interface FollowUpMatchRepository {
+  /**
+   * Guarda la coincidencia si es nueva. Devuelve `false` si el cliente ya la tenía: la misma
+   * propiedad como nueva, o la misma baja (operación y precio).
+   */
+  add(match: FollowUpMatch, actorId: string): Promise<boolean>;
+  /** Las que el cliente todavía no recibió, las más viejas primero, como mucho `limit`. */
+  findPending(clientId: ClientId, limit: number): Promise<FollowUpMatch[]>;
+  /** Salieron en este envío. */
+  markSent(
+    ids: readonly FollowUpMatchId[],
+    sharedListingId: SharedListingId,
+    now: Date,
+    actorId: string,
+  ): Promise<void>;
+  /** Ya no corresponde mandarlas (el cliente se dio de baja, la propiedad dejó de verse, ...). */
+  discard(ids: readonly FollowUpMatchId[], now: Date, actorId: string): Promise<void>;
 }
 
 /** Las búsquedas guardadas de los clientes, con su papelera. */

@@ -35,6 +35,11 @@ export const CLIENT_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = {
   'client.saved_search_restored': 'restauró una búsqueda',
   'client.merged': 'unificó otro contacto en este',
   'client.merged_into': 'unificó este contacto en otro',
+  'client.follow_up_matched': 'encontró una propiedad para sus seguimientos automáticos',
+  'client.follow_ups_sent': 'le mandó el resumen de sus seguimientos automáticos',
+  'client.follow_ups_discarded': 'descartó coincidencias que ya no correspondía mandarle',
+  'client.follow_ups_unsubscribed':
+    'registró que se dio de baja de los seguimientos automáticos desde el email',
 };
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
@@ -75,6 +80,14 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   locationIds: 'Ubicaciones',
   minRooms: 'Ambientes mínimos',
   autoSend: 'Envío automático',
+  followUpMatchId: 'Coincidencia',
+  reason: 'Motivo',
+  featuredListingId: 'Destacada',
+  price: 'Precio',
+  sharedListingId: 'Envío',
+  followUpMatchIds: 'Coincidencias',
+  savedSearchIds: 'Búsquedas',
+  featuredListingIds: 'Destacadas',
   'moved.opportunities': 'Oportunidades que pasaron',
   'moved.activities': 'Actividades que pasaron',
   'moved.savedSearches': 'Búsquedas que pasaron',
@@ -82,6 +95,12 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   'moved.sharedListings': 'Envíos que pasaron',
   'moved.inquiries': 'Consultas que pasaron',
   'moved.incomingRelations': 'Relaciones que pasaron',
+};
+
+/** Por qué el cruce con el stock le encontró una propiedad (#106). */
+const FOLLOW_UP_REASON_LABELS: Readonly<Record<string, string>> = {
+  new_listing: 'Propiedad nueva',
+  price_drop: 'Baja de precio',
 };
 
 const RELATION_KIND_LABELS: Readonly<Record<string, string>> = {
@@ -199,6 +218,33 @@ export function formatClientHistoryValue(field: string, value: HistoryValue): st
         : EMPTY_VALUE;
     case 'locationIds':
       return isList(value) ? count(value.length, 'ubicación', 'ubicaciones') : EMPTY_VALUE;
+    case 'followUpMatchId':
+      return 'una coincidencia';
+    case 'followUpMatchIds':
+      return isList(value) ? count(value.length, 'coincidencia', 'coincidencias') : EMPTY_VALUE;
+    case 'sharedListingId':
+      return 'un envío';
+    case 'savedSearchIds':
+      return isList(value) ? count(value.length, 'búsqueda', 'búsquedas') : EMPTY_VALUE;
+    case 'featuredListingIds':
+      return isList(value) ? count(value.length, 'destacada', 'destacadas') : EMPTY_VALUE;
+    case 'featuredListingId':
+      return 'una destacada';
+    case 'reason':
+      return label(FOLLOW_UP_REASON_LABELS, value);
+    // El precio de la operación que coincidió, en centavos.
+    case 'price':
+      return entry(value, (price) => {
+        const cents = price.priceCents;
+        const amount = typeof cents === 'bigint' ? (cents / 100n).toLocaleString('es-AR') : '';
+        return [
+          label(OPERATION_LABELS, price.operation),
+          label(CURRENCY_LABELS, price.currency),
+          amount,
+        ]
+          .filter((part) => part !== '')
+          .join(' ');
+      });
     default:
       return typeof value === 'string' || typeof value === 'number' ? String(value) : EMPTY_VALUE;
   }

@@ -193,10 +193,19 @@ Agregá la **pública** (`~/.ssh/norde_uat_deploy.pub`) en una línea nueva de `
 
 En `Toffias/norde-propiedades` → Settings → Environments, creá el entorno **`uat`** con estos secrets:
 
-| Secret        | Valor                                                     |
-| ------------- | --------------------------------------------------------- |
-| `VPS_HOST`    | `82.29.59.19`                                             |
-| `VPS_SSH_KEY` | la clave **privada** `~/.ssh/norde_uat_deploy` (completa) |
+| Secret              | Valor                                                              |
+| ------------------- | ------------------------------------------------------------------ |
+| `VPS_HOST`          | `82.29.59.19`                                                      |
+| `VPS_SSH_KEY`       | la clave **privada** `~/.ssh/norde_uat_deploy` (completa)          |
+| `SENTRY_AUTH_TOKEN` | token de Sentry para subir los source maps de `gestion` (ADR 0049) |
+
+Y esta variable (no es secreta), que el build incrusta en el panel:
+
+| Variable             | Valor                                                                      |
+| -------------------- | -------------------------------------------------------------------------- |
+| `SENTRY_DSN_GESTION` | el DSN del proyecto `norde-propiedades` en Sentry (Settings → Client Keys) |
+
+Sin ellos el deploy anda igual, pero el panel no reporta errores a Sentry.
 
 Opcional: en el entorno, limitá los _deployment branches_ a `uat`.
 

@@ -712,6 +712,10 @@ export const sharedListings = coreSchema.table(
     clientId: uuid('client_id')
       .notNull()
       .references(() => clients.id, { onDelete: 'cascade' }),
+    /** La oportunidad abierta del cliente al enviarlo: la que mueven las reglas (#104). */
+    opportunityId: uuid('opportunity_id').references(() => opportunities.id, {
+      onDelete: 'set null',
+    }),
     /** `email` / `whatsapp`. */
     channel: text('channel').notNull(),
     sentBy: text('sent_by').notNull(),
@@ -749,6 +753,58 @@ export const sharedListingItems = coreSchema.table(
   ],
 );
 
+/**
+ * Lo que el cruce con el stock encontró para mandarle a un cliente (#106): una propiedad nueva
+ * para una búsqueda con envío automático o una baja de precio. Los índices únicos hacen el cruce
+ * idempotente: la misma propiedad entra una sola vez como nueva y cada baja una vez por precio.
+ */
+export const followUpMatches = coreSchema.table(
+  'follow_up_matches',
+  {
+    id: uuid('id').primaryKey(),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    /** Propiedad del módulo properties: solo el ID, sin foreign key entre módulos. */
+    propertyId: uuid('property_id').notNull(),
+    /** `new_listing` / `price_drop`. */
+    reason: text('reason').notNull(),
+    /** La búsqueda que coincidió, o la destacada a la que le bajó el precio. */
+    savedSearchId: uuid('saved_search_id').references(() => savedSearches.id, {
+      onDelete: 'set null',
+    }),
+    featuredListingId: uuid('featured_listing_id').references(() => featuredListings.id, {
+      onDelete: 'set null',
+    }),
+    /** El precio de la operación que coincidió, al detectarla. */
+    operation: text('operation').notNull(),
+    currency: text('currency').notNull(),
+    priceCents: bigint('price_cents', { mode: 'bigint' }),
+    detectedAt: timestamp('detected_at', { withTimezone: true }).notNull(),
+    /** Cuándo se le mandó en el resumen diario, y en qué envío. */
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    sharedListingId: uuid('shared_listing_id').references(() => sharedListings.id, {
+      onDelete: 'set null',
+    }),
+    /** Cuándo dejó de corresponder mandarla (baja, envío apagado, propiedad que ya no se ve). */
+    discardedAt: timestamp('discarded_at', { withTimezone: true }),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    uniqueIndex('follow_up_matches_new_listing_uq')
+      .on(t.clientId, t.propertyId)
+      .where(sql`reason = 'new_listing'`),
+    uniqueIndex('follow_up_matches_price_drop_uq')
+      .on(t.clientId, t.propertyId, t.operation, t.priceCents)
+      .where(sql`reason = 'price_drop'`),
+    // Las pendientes de mandar, por cliente.
+    index('follow_up_matches_pending_idx')
+      .on(t.clientId, t.detectedAt)
+      .where(sql`sent_at is null and discarded_at is null`),
+  ],
+);
+
 /** Respuestas rápidas (plantillas de mensaje). */
 export const quickReplies = coreSchema.table(
   'quick_replies',
@@ -763,7 +819,15 @@ export const quickReplies = coreSchema.table(
     ...timestamps(),
     ...authorship(),
   },
-  (t) => [index('quick_replies_active_position_idx').on(t.isActive, t.position)],
+  (t) => [
+    index('quick_replies_active_position_idx').on(t.isActive, t.position),
+    // Listado por nombre de las activas o las inactivas, y búsqueda por nombre (#105).
+    index('quick_replies_active_name_idx').on(t.isActive, t.name, t.id),
+    index('quick_replies_name_trgm_idx').using(
+      'gin',
+      sql`core.search_normalize(${t.name}) gin_trgm_ops`,
+    ),
+  ],
 );
 
 /** Seguimiento automático: coincidencias nuevas y cambios en destacadas (fila única). */

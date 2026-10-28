@@ -740,11 +740,12 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
     next: Pick<PropertyOperation, 'operation' | 'currency' | 'priceCents'>,
     now: Date,
   ): void {
+    // Si cambió la moneda, el precio anterior no se compara: queda sin valor previo.
+    const oldPriceCents = previous?.currency === next.currency ? previous.priceCents : undefined;
     this.#priceChanges.push({
       operation: next.operation,
       currency: next.currency,
-      // Si cambió la moneda, el precio anterior no se compara: queda sin valor previo.
-      oldPriceCents: previous?.currency === next.currency ? previous.priceCents : undefined,
+      oldPriceCents,
       newPriceCents: next.priceCents,
       changedAt: now,
     });
@@ -757,6 +758,8 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
         code: this.#state.code,
         operation: next.operation,
         currency: next.currency,
+        ...(oldPriceCents === undefined ? {} : { oldPriceCents: oldPriceCents.toString() }),
+        ...(next.priceCents === undefined ? {} : { newPriceCents: next.priceCents.toString() }),
       },
     });
   }

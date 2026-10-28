@@ -19,6 +19,7 @@ export function SavedSearchSheet({
   detail,
   activeOpportunityId,
   canEdit,
+  canTurnOnAutoSend,
 }: {
   readonly navigation: PanelNavigation;
   readonly clientId: string;
@@ -26,6 +27,8 @@ export function SavedSearchSheet({
   readonly detail: PanelData<SavedSearchDetail> | undefined;
   readonly activeOpportunityId: string | undefined;
   readonly canEdit: boolean;
+  /** `followups:automatic`: prender el envío automático (#106). */
+  readonly canTurnOnAutoSend: boolean;
 }) {
   const { panel, close } = navigation;
   const shown = useLastDefined(panel);
@@ -48,6 +51,7 @@ export function SavedSearchSheet({
           search={undefined}
           activeOpportunityId={activeOpportunityId}
           readOnly={false}
+          canTurnOnAutoSend={canTurnOnAutoSend}
           onDone={close}
         />
       ) : ready === undefined ? (
@@ -61,6 +65,7 @@ export function SavedSearchSheet({
           search={ready.value}
           activeOpportunityId={activeOpportunityId}
           readOnly={readOnly}
+          canTurnOnAutoSend={canTurnOnAutoSend}
           onDone={close}
         />
       )}

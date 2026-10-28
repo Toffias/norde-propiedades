@@ -111,7 +111,7 @@ Aplica a **toda** grilla, listado, tablero kanban (por columna), bandeja, papele
 - **Plata**: `Money` (centavos en `bigint` + moneda). PROHIBIDO `number` con decimales para montos. Cálculos de índices (IPC) con `decimal.js`.
 - **Teléfonos**: `Phone` normalizado a E.164. **Fechas**: UTC en la base; `America/Argentina/Buenos_Aires` para mostrar; el tiempo sale de `Clock`.
 - **IDs**: UUID v7 desde `IdGenerator`.
-- **Entorno**: cada app valida `process.env` con Zod en **un solo** archivo (`src/config/env.ts`). Ningún otro archivo lee `process.env`.
+- **Entorno**: cada app valida `process.env` con Zod en **un solo** archivo (`src/config/env.ts`). Ningún otro archivo lee `process.env`, salvo `src/config/public-env.ts` para las `NEXT_PUBLIC_*` que lee el navegador (ADR 0049).
 - **Inputs externos** (formularios, webhooks, argumentos de tools del LLM, respuestas de APIs): se validan con Zod en el borde, siempre.
 - Sin código comentado, sin `console.log` (usar el logger), sin TODOs sin issue asociado.
 
@@ -158,6 +158,8 @@ Cuando el usuario pida una funcionalidad o un cambio, **en la primera respuesta,
 2. **Worktree + PR**: se crea un worktree con una rama `feat/...`, `fix/...` o `chore/...` desde la rama actual, se hace el cambio con sus commits y se termina con un PR **hacia la rama de origen** (no a `main`, salvo que esa sea la de origen).
 
 No se asume un modo por defecto ni se arrastra el de una tarea anterior: se pregunta en cada tarea nueva. Las preguntas de seguimiento dentro de la misma tarea siguen en el modo elegido.
+
+**`.env` en el worktree** (modo 2): siempre hay permiso para copiar los `.env` del checkout principal (`apps/agent`, `apps/gestion`, `apps/web`) al worktree, sin preguntar. Se copian sin leerlos ni mostrarlos.
 
 **Limpieza del worktree** (modo 2): cuando el PR se abre, se borra sin esperar a que el usuario lo pida:
 

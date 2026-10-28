@@ -62,6 +62,7 @@ export function PropertiesView(props: PropertiesViewProps) {
         filters={filters}
         canCreate={permissions.create}
         canSaveForClient={permissions.featureToClient}
+        canTurnOnAutoSend={permissions.turnOnAutoSend}
         canImport={permissions.import}
         favoriteSearches={props.favoriteSearches}
         onCreate={navigation.openNew}

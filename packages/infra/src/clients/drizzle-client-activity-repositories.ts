@@ -5,10 +5,11 @@ import {
   type ClientActivityBody,
   type ClientActivityRepository,
   type ClientId,
+  type FeaturedListingId,
   type FeaturedListingRepository,
 } from '@norde/core/clients';
 import { parseId } from '@norde/core/shared';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -128,6 +129,21 @@ function storedId<TBrand extends string>(value: string) {
   return id.value;
 }
 
+function toFeaturedListing(row: typeof featuredListings.$inferSelect): FeaturedListing {
+  return FeaturedListing.restore({
+    id: storedId<'FeaturedListing'>(row.id),
+    clientId: storedId<'Client'>(row.clientId),
+    propertyId: row.propertyId,
+    opportunityId: row.opportunityId ?? undefined,
+    matchScore: row.matchScore ?? undefined,
+    autoSendUpdates: row.autoSendUpdates,
+    featuredBy: row.featuredBy,
+    featuredAt: row.featuredAt,
+    removedAt: row.removedAt ?? undefined,
+    updatedAt: row.updatedAt,
+  });
+}
+
 export class DrizzleFeaturedListingRepository implements FeaturedListingRepository {
   constructor(private readonly db: DbExecutor) {}
 
@@ -143,20 +159,32 @@ export class DrizzleFeaturedListingRepository implements FeaturedListingReposito
           isNull(featuredListings.removedAt),
         ),
       );
-    return rows.map((row) =>
-      FeaturedListing.restore({
-        id: storedId<'FeaturedListing'>(row.id),
-        clientId: storedId<'Client'>(row.clientId),
-        propertyId: row.propertyId,
-        opportunityId: row.opportunityId ?? undefined,
-        matchScore: row.matchScore ?? undefined,
-        autoSendUpdates: row.autoSendUpdates,
-        featuredBy: row.featuredBy,
-        featuredAt: row.featuredAt,
-        removedAt: row.removedAt ?? undefined,
-        updatedAt: row.updatedAt,
-      }),
-    );
+    return rows.map(toFeaturedListing);
+  }
+
+  async findByIds(ids: readonly FeaturedListingId[]) {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(featuredListings)
+      .where(inArray(featuredListings.id, [...ids]));
+    return rows.map(toFeaturedListing);
+  }
+
+  async findAutoSending(clientId: ClientId, limit: number) {
+    const rows = await this.db
+      .select()
+      .from(featuredListings)
+      .where(
+        and(
+          eq(featuredListings.clientId, clientId),
+          eq(featuredListings.autoSendUpdates, true),
+          isNull(featuredListings.removedAt),
+        ),
+      )
+      .orderBy(asc(featuredListings.id))
+      .limit(limit);
+    return rows.map(toFeaturedListing);
   }
 
   async save(listing: FeaturedListing, actorId: string): Promise<void> {

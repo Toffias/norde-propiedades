@@ -28,6 +28,7 @@ catalog:
   '@payloadcms/translations': 3.90.1
   '@payloadcms/ui': 3.90.1
   '@playwright/test': 1.63.0
+  '@sentry/nextjs': 11.9.0
   '@tailwindcss/postcss': 4.3.3
   '@tanstack/react-table': 9.2.4
   '@types/leaflet': 1.9.22

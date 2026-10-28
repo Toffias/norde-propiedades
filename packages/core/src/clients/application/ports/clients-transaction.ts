@@ -6,6 +6,7 @@ import type {
   ClientTagGroupRepository,
   ClientTagRepository,
   FeaturedListingRepository,
+  FollowUpMatchRepository,
   InquiryRepository,
   InquiryRuleRepository,
   OpportunityBulkOperationRepository,
@@ -13,7 +14,9 @@ import type {
   OpportunityRepository,
   OpportunitySettingsRepository,
   OpportunityStageRepository,
+  QuickReplyRepository,
   SavedSearchRepository,
+  SharedListingRepository,
 } from '../../domain/client.repository';
 
 import type { ClientErasure } from './client-erasure';
@@ -33,13 +36,16 @@ export interface ClientsTransaction {
   readonly records: ClientLinkedRecords;
   readonly activities: ClientActivityRepository;
   readonly featured: FeaturedListingRepository;
+  readonly followUpMatches: FollowUpMatchRepository;
   readonly savedSearches: SavedSearchRepository;
+  readonly sharedListings: SharedListingRepository;
   readonly erasure: ClientErasure;
   readonly imports: ClientImportRepository;
   readonly externalIds: ClientExternalIds;
   readonly bulkOperations: OpportunityBulkOperationRepository;
   readonly inquiries: InquiryRepository;
   readonly inquiryRules: InquiryRuleRepository;
+  readonly quickReplies: QuickReplyRepository;
   readonly developmentChances: DevelopmentChances;
   readonly events: EventPublisher;
   readonly audit: AuditLog;

@@ -28,6 +28,7 @@ import { RequestPropertyDocument } from '../commands/request-property-document';
 import { SendOwnerReport } from '../commands/send-owner-report';
 import { GetPanelPropertyDetail } from './get-panel-property-detail';
 import { GetPropertyDocumentDownload } from './get-property-document-download';
+import { GetPropertyFollowUpProfile } from './get-property-follow-up-profile';
 import { GetPropertyInterestProfile } from './get-property-interest-profile';
 import { GetPropertyInterestProfiles } from './get-property-interest-profiles';
 import { ListPropertyDocuments } from './list-property-documents';
@@ -219,6 +220,68 @@ describe('GetPropertyInterestProfile', () => {
       operations: [{ operation: 'sale', currency: 'USD', priceCents: undefined }],
       locationIds: [],
       rooms: undefined,
+    });
+  });
+});
+
+describe('GetPropertyFollowUpProfile', () => {
+  const AVAILABLE_SINCE = new Date('2026-10-01T12:00:00Z');
+
+  it('says whether the site shows it and since when it is available', async () => {
+    const { uow } = setup();
+    const base = propertySnapshot();
+    uow.properties.rows.set(
+      PROPERTY_ID,
+      propertySnapshot({
+        status: 'available',
+        statusChangedAt: AVAILABLE_SINCE,
+        publication: { ...base.publication, publishedOnWeb: true },
+      }),
+    );
+    const query = new GetPropertyFollowUpProfile({ uow });
+    const profile = unwrap(await query.execute({ propertyId: PROPERTY_ID }, READER));
+    expect(profile).toMatchObject({
+      propertyId: PROPERTY_ID,
+      propertyType: 'apartment',
+      listed: true,
+      listedSince: AVAILABLE_SINCE,
+    });
+  });
+
+  it('is not listed while unpublished or not available', async () => {
+    const { uow } = setup();
+    const base = propertySnapshot();
+    const query = new GetPropertyFollowUpProfile({ uow });
+    uow.properties.rows.set(
+      PROPERTY_ID,
+      propertySnapshot({ status: 'available', statusChangedAt: AVAILABLE_SINCE }),
+    );
+    expect(unwrap(await query.execute({ propertyId: PROPERTY_ID }, READER))).toMatchObject({
+      listed: false,
+      listedSince: AVAILABLE_SINCE,
+    });
+    uow.properties.rows.set(
+      PROPERTY_ID,
+      propertySnapshot({
+        status: 'reserved',
+        publication: { ...base.publication, publishedOnWeb: true },
+      }),
+    );
+    expect(unwrap(await query.execute({ propertyId: PROPERTY_ID }, READER))).toMatchObject({
+      listed: false,
+      listedSince: undefined,
+    });
+  });
+
+  it('does not find a deleted property and needs to read properties', async () => {
+    const { uow } = setup();
+    uow.properties.rows.set(PROPERTY_ID, propertySnapshot({ deletedAt: TEST_NOW }));
+    const query = new GetPropertyFollowUpProfile({ uow });
+    expect(unwrapErr(await query.execute({ propertyId: PROPERTY_ID }, READER))).toEqual({
+      type: 'PropertyNotFound',
+    });
+    expect(unwrapErr(await query.execute({ propertyId: PROPERTY_ID }, TEST_OUTSIDER))).toEqual({
+      type: 'Forbidden',
     });
   });
 });

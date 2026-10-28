@@ -636,6 +636,42 @@ export {
   type ListInquiryRulesError,
 } from './application/queries/list-inquiry-rules';
 export { GetInquiryRule, type GetInquiryRuleError } from './application/queries/get-inquiry-rule';
+export {
+  fillVariables,
+  firstNameOf,
+  QUICK_REPLY_VARIABLES,
+  QuickReply,
+  unknownVariables,
+  type InvalidQuickReplyError,
+  type QuickReplyId,
+  type QuickReplySnapshot,
+  type QuickReplyValues,
+  type QuickReplyVariable,
+} from './domain/quick-reply';
+export type { QuickReplyRepository } from './domain/client.repository';
+export type { QuickReplyCriteria, QuickReplyQuery } from './application/ports/quick-reply-query';
+export type { QuickReplyNotFoundError } from './application/quick-reply-support';
+export {
+  CreateQuickReply,
+  type CreateQuickReplyError,
+} from './application/commands/create-quick-reply';
+export {
+  UpdateQuickReply,
+  type UpdateQuickReplyError,
+} from './application/commands/update-quick-reply';
+export {
+  SetQuickReplyActive,
+  type SetQuickReplyActiveError,
+} from './application/commands/set-quick-reply-active';
+export {
+  DeleteQuickReply,
+  type DeleteQuickReplyError,
+} from './application/commands/delete-quick-reply';
+export {
+  ListQuickReplies,
+  type ListQuickRepliesError,
+} from './application/queries/list-quick-replies';
+export { GetQuickReply, type GetQuickReplyError } from './application/queries/get-quick-reply';
 export { RouteInquiry, type InquiryRouteOutcome } from './application/handlers/route-inquiry';
 export {
   ChangeOpportunityStage,
@@ -653,3 +689,101 @@ export {
   ReassignOpportunity,
   type ReassignOpportunityError,
 } from './application/commands/reassign-opportunity';
+
+// ---------- Envíos de propiedades y su página pública (#104) ----------
+
+export {
+  LISTING_REACTIONS,
+  MAX_SHARED_PROPERTIES,
+  SHARED_LISTING_CHANNELS,
+  SHARED_LISTING_LIFETIME_DAYS,
+  SharedListing,
+  type ListingNotInSendError,
+  type ListingReaction,
+  type SharedListingChannel,
+  type SharedListingId,
+  type SharedListingItem,
+  type SharedListingSnapshot,
+  type SharedListingUnavailableError,
+  followUpUnsubscribeUrl,
+} from './domain/shared-listing';
+export type { SharedListingRepository } from './domain/client.repository';
+export type {
+  ListingReacted,
+  ListingsSent,
+  SharedListingEvent,
+} from './domain/shared-listing.events';
+export type {
+  ClientSendItem,
+  ClientSendsQuery,
+  ComposedEmail,
+  IssuedSharedListingToken,
+  PublicListings,
+  SharedListingEmailContent,
+  SharedListingEmails,
+  SharedListingTokens,
+} from './application/ports/shared-listing-ports';
+export {
+  SendListings,
+  type ListingNotPublicError,
+  type NoRecipientError,
+  type SendingNotConfiguredError,
+  type SendListingsError,
+} from './application/commands/send-listings';
+export {
+  RevokeSharedListing,
+  type RevokeSharedListingError,
+  type SharedListingNotFoundError,
+} from './application/commands/revoke-shared-listing';
+export {
+  OpenSharedListing,
+  ReactToSharedListing,
+  type OpenSharedListingError,
+  type ReactToSharedListingError,
+} from './application/commands/respond-to-shared-listing';
+export {
+  GetSharedListing,
+  type GetSharedListingError,
+} from './application/queries/get-shared-listing';
+export {
+  ListClientSends,
+  type ListClientSendsError,
+} from './application/queries/list-client-sends';
+export {
+  FOLLOW_UP_REASONS,
+  followUpDigestText,
+  followUpPrice,
+  isPriceDrop,
+  pickFollowUpDigest,
+  type FollowUpDigest,
+  type FollowUpDigestText,
+  type FollowUpMatch,
+  type FollowUpMatchId,
+  type FollowUpPrice,
+  type FollowUpReason,
+  type FollowUpSource,
+} from './domain/follow-up-match';
+export type { FollowUpMatchRepository } from './domain/client.repository';
+export type {
+  FollowUpCandidatesQuery,
+  FollowUpFeaturedCandidate,
+  FollowUpListings,
+  FollowUpSearchCandidate,
+  PendingFollowUpsQuery,
+} from './application/ports/follow-up-ports';
+export {
+  MatchFollowUps,
+  type FollowUpTrigger,
+  type MatchFollowUpsInput,
+  type MatchFollowUpsOutcome,
+} from './application/handlers/match-follow-ups';
+export {
+  SendFollowUpDigests,
+  type FollowUpDigestError,
+  type FollowUpDigestFailure,
+  type SendFollowUpDigestsOutcome,
+} from './application/handlers/send-follow-up-digests';
+export {
+  UnsubscribeFromFollowUps,
+  type UnsubscribeFromFollowUpsError,
+} from './application/commands/unsubscribe-from-follow-ups';

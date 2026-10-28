@@ -132,6 +132,9 @@ describe('opportunity stages persistence', () => {
           onAssign: SEEDED_STAGES.contacted,
           onReactivate: null,
           forOwners: null,
+          afterMessage: null,
+          afterLike: SEEDED_STAGES.visiting,
+          afterDislike: null,
         },
         admin,
       ),
@@ -148,6 +151,7 @@ describe('opportunity stages persistence', () => {
         stageOnCreateId: SEEDED_STAGES.new,
         stageOnAssignId: SEEDED_STAGES.contacted,
         stageOnReactivateId: null,
+        stageAfterLikeId: SEEDED_STAGES.visiting,
         updatedBy: admin.id,
       },
     ]);
@@ -160,6 +164,9 @@ describe('opportunity stages persistence', () => {
       onAssign: SEEDED_STAGES.contacted,
       onReactivate: null,
       forOwners: null,
+      afterMessage: null,
+      afterLike: SEEDED_STAGES.visiting,
+      afterDislike: null,
     });
   });
 

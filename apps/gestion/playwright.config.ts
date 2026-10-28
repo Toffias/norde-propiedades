@@ -81,6 +81,8 @@ export default defineConfig({
       TEAM_WEBHOOK_TOKEN: '',
       WEB_REVALIDATE_URL: '',
       WEB_REVALIDATE_SECRET: '',
+      // Los links de los envíos (#104) apuntan al sitio local; nadie los abre en los tests.
+      PUBLIC_SITE_URL: 'http://localhost:3000',
       PORTALS_SECRET_KEY: '',
       MERCADOLIBRE_CLIENT_ID: '',
       MERCADOLIBRE_CLIENT_SECRET: '',

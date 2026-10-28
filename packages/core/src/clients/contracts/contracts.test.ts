@@ -18,6 +18,12 @@ import { OPPORTUNITY_INTENTS, OPPORTUNITY_TYPES } from '../domain/opportunity';
 import { CLOSE_REASON_RATINGS, MAX_CLOSE_REASONS } from '../domain/opportunity-close-reason';
 import { OPPORTUNITY_RULES } from '../domain/opportunity-settings';
 import { MAX_OPPORTUNITY_STAGES } from '../domain/opportunity-stage';
+import {
+  LISTING_REACTIONS,
+  MAX_SHARED_PROPERTIES,
+  SHARED_LISTING_CHANNELS,
+  SHARED_LISTING_LIFETIME_DAYS,
+} from '../domain/shared-listing';
 import { OPPORTUNITY_STATUSES } from '../domain/opportunity-status';
 import {
   MAX_SAVED_SEARCH_LOCATIONS,
@@ -59,6 +65,11 @@ import {
   MAX_SAVED_SEARCH_LOCATION_COUNT,
   MAX_SAVED_SEARCH_MIN_ROOMS,
   MAX_SAVED_SEARCH_NAME,
+  MAX_SHARED_PROPERTY_COUNT,
+  PROPERTY_REACTION_VALUES,
+  PROPERTY_SEND_CHANNEL_VALUES,
+  SHARED_LISTING_LIFETIME_DAY_COUNT,
+  SharedListingTokenSchema,
 } from './index';
 
 // Los contracts no pueden importar el dominio (van al cliente de React): replican sus enums.
@@ -85,6 +96,19 @@ describe('clients contracts', () => {
     expect(MAX_CLOSE_REASON_COUNT).toBe(MAX_CLOSE_REASONS);
     // El contacto suprimido más sus duplicados unificados.
     expect(MAX_ERASED_CLIENT_IDS).toBe(MAX_ERASED_MERGED_CLIENTS + 1);
+  });
+
+  it('mirror the shared listings rules', () => {
+    expect(PROPERTY_SEND_CHANNEL_VALUES).toEqual(SHARED_LISTING_CHANNELS);
+    expect(PROPERTY_REACTION_VALUES).toEqual(LISTING_REACTIONS);
+    expect(MAX_SHARED_PROPERTY_COUNT).toBe(MAX_SHARED_PROPERTIES);
+    expect(SHARED_LISTING_LIFETIME_DAY_COUNT).toBe(SHARED_LISTING_LIFETIME_DAYS);
+  });
+
+  it('accepts only well-formed link tokens', () => {
+    expect(SharedListingTokenSchema.safeParse('a'.repeat(43)).success).toBe(true);
+    expect(SharedListingTokenSchema.safeParse('a'.repeat(42)).success).toBe(false);
+    expect(SharedListingTokenSchema.safeParse(`${'a'.repeat(42)}/`).success).toBe(false);
   });
 
   it('reads the activity filters from the URL', () => {

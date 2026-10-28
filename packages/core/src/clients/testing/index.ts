@@ -13,8 +13,17 @@ import type {
   ClientTagRow,
   InquiryTabCounts,
   OpportunityStageCount,
+  FollowUpListingProfile,
   PropertyInterestProfile,
 } from '../contracts';
+import type {
+  FollowUpCandidatesQuery,
+  PendingFollowUpsQuery,
+  FollowUpFeaturedCandidate,
+  FollowUpListings,
+  FollowUpSearchCandidate,
+} from '../application/ports/follow-up-ports';
+import type { FollowUpMatch, FollowUpMatchId } from '../domain/follow-up-match';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
 import type {
@@ -80,6 +89,8 @@ import type {
   InquiryRuleItem,
   InquiryRuleQuery,
 } from '../application/ports/inquiry-rule-query';
+import type { QuickReplyCriteria, QuickReplyQuery } from '../application/ports/quick-reply-query';
+import { QuickReply, type QuickReplyId, type QuickReplySnapshot } from '../domain/quick-reply';
 import {
   ANY_INQUIRY,
   InquiryAssignmentRule,
@@ -108,7 +119,18 @@ import {
   type ClientImportSnapshot,
   type ImportRowProblem,
 } from '../domain/client-import';
-import { FeaturedListing } from '../domain/featured-listing';
+import { FeaturedListing, type FeaturedListingId } from '../domain/featured-listing';
+import {
+  SharedListing,
+  type SharedListingId,
+  type SharedListingSnapshot,
+} from '../domain/shared-listing';
+import type {
+  PublicListings,
+  SharedListingEmailContent,
+  SharedListingEmails,
+  SharedListingTokens,
+} from '../application/ports/shared-listing-ports';
 import { Inquiry, type InquiryId, type InquirySnapshot } from '../domain/inquiry';
 import type { InquiryPropertyFacts } from '../domain/inquiry-tags';
 import {
@@ -119,8 +141,11 @@ import {
   type ClientTagGroupRepository,
   type ClientTagRepository,
   type FeaturedListingRepository,
+  type FollowUpMatchRepository,
+  type SharedListingRepository,
   type InquiryRepository,
   type InquiryRuleRepository,
+  type QuickReplyRepository,
   type MovedTagAssignment,
   type OpportunityCloseReasonRepository,
   type OpportunityBulkOperationRepository,
@@ -533,6 +558,24 @@ export class InMemoryFeaturedListingRepository implements FeaturedListingReposit
     );
   }
 
+  findByIds(ids: readonly FeaturedListingId[]) {
+    return Promise.resolve(
+      ids.flatMap((id) => {
+        const row = this.rows.get(id);
+        return row === undefined ? [] : [FeaturedListing.restore(row)];
+      }),
+    );
+  }
+
+  findAutoSending(clientId: ClientId, limit: number) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((r) => r.clientId === clientId && r.removedAt === undefined && r.autoSendUpdates)
+        .slice(0, limit)
+        .map((r) => FeaturedListing.restore(r)),
+    );
+  }
+
   save(listing: FeaturedListing) {
     this.rows.set(listing.id, listing.toSnapshot());
     return Promise.resolve();
@@ -542,6 +585,174 @@ export class InMemoryFeaturedListingRepository implements FeaturedListingReposit
     return [...this.rows.values()]
       .filter((r) => r.clientId === clientId && r.removedAt === undefined)
       .map((r) => r.propertyId);
+  }
+}
+
+export class InMemorySharedListingRepository implements SharedListingRepository {
+  readonly rows = new Map<string, SharedListingSnapshot>();
+
+  findById(id: SharedListingId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row === undefined ? undefined : SharedListing.restore(row));
+  }
+
+  findByTokenHash(tokenHash: string) {
+    const row = [...this.rows.values()].find((r) => r.tokenHash === tokenHash);
+    return Promise.resolve(row === undefined ? undefined : SharedListing.restore(row));
+  }
+
+  save(listing: SharedListing) {
+    this.rows.set(listing.id, listing.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+/** Tokens predecibles: `token-<n>` rellenado a 43 caracteres, con hash `hash:<token>`. */
+export class FakeSharedListingTokens implements SharedListingTokens {
+  #issued = 0;
+
+  issue() {
+    this.#issued += 1;
+    const token = `tok${this.#issued.toString()}`.padEnd(43, 'x');
+    return { token, hash: this.hashOf(token) };
+  }
+
+  hashOf(token: string) {
+    return `hash:${token}`;
+  }
+}
+
+/** Ninguna sin publicar, salvo las que se cargan. */
+export class InMemoryPublicListings implements PublicListings {
+  hidden: readonly string[] = [];
+
+  unlisted(propertyIds: readonly string[]) {
+    return Promise.resolve(propertyIds.filter((id) => this.hidden.includes(id)));
+  }
+}
+
+/** Arma un email simple con lo que recibe, para ver qué se mandó. */
+export class FakeSharedListingEmails implements SharedListingEmails {
+  readonly composed: SharedListingEmailContent[] = [];
+
+  compose(content: SharedListingEmailContent) {
+    this.composed.push(content);
+    return {
+      subject: `Propiedades de ${content.companyName}`,
+      text: `${content.message ?? ''} ${content.url}`,
+      html: `<a href="${content.url}">Ver</a>`,
+    };
+  }
+}
+
+/** Descarta la repetida como la base: la misma nueva por cliente, la misma baja por precio. */
+export class InMemoryFollowUpMatchRepository implements FollowUpMatchRepository {
+  readonly rows: FollowUpMatch[] = [];
+  /** Las que ya salieron (y en qué envío) o se descartaron. */
+  readonly resolved = new Map<
+    string,
+    { readonly kind: 'sent'; readonly sharedListingId: string } | { readonly kind: 'discarded' }
+  >();
+
+  add(match: FollowUpMatch) {
+    const repeated = this.rows.some(
+      (row) =>
+        row.clientId === match.clientId &&
+        row.propertyId === match.propertyId &&
+        row.reason === match.reason &&
+        (match.reason === 'new_listing' ||
+          (row.price.operation === match.price.operation &&
+            row.price.priceCents === match.price.priceCents)),
+    );
+    if (repeated) return Promise.resolve(false);
+    this.rows.push(match);
+    return Promise.resolve(true);
+  }
+
+  findPending(clientId: ClientId, limit: number) {
+    return Promise.resolve(
+      this.rows
+        .filter((row) => row.clientId === clientId && !this.resolved.has(row.id))
+        .sort((a, b) => a.detectedAt.getTime() - b.detectedAt.getTime())
+        .slice(0, limit),
+    );
+  }
+
+  markSent(ids: readonly FollowUpMatchId[], sharedListingId: SharedListingId) {
+    for (const id of ids) this.resolved.set(id, { kind: 'sent', sharedListingId });
+    return Promise.resolve();
+  }
+
+  discard(ids: readonly FollowUpMatchId[]) {
+    for (const id of ids) this.resolved.set(id, { kind: 'discarded' });
+    return Promise.resolve();
+  }
+
+  /** Los IDs de los contactos con pendientes, ordenados (el fake de `PendingFollowUpsQuery`). */
+  pendingClients(): string[] {
+    return [
+      ...new Set(this.rows.filter((row) => !this.resolved.has(row.id)).map((r) => r.clientId)),
+    ].sort();
+  }
+}
+
+/** Los contactos con pendientes, sobre el repositorio en memoria. */
+export class InMemoryPendingFollowUps implements PendingFollowUpsQuery {
+  constructor(private readonly matches: InMemoryFollowUpMatchRepository) {}
+
+  clients(criteria: { readonly after: string | undefined; readonly limit: number }) {
+    const { after } = criteria;
+    return Promise.resolve(
+      this.matches
+        .pendingClients()
+        .filter((id) => after === undefined || id > after)
+        .slice(0, criteria.limit),
+    );
+  }
+}
+
+/** El perfil que se cargue, por propiedad. */
+export class InMemoryFollowUpListings implements FollowUpListings {
+  readonly profiles = new Map<string, FollowUpListingProfile>();
+
+  find(propertyId: string) {
+    return Promise.resolve(this.profiles.get(propertyId));
+  }
+}
+
+/**
+ * Candidatos cargados a mano: lo que la consulta real resuelve en SQL (la coincidencia, el envío
+ * automático, la baja) se prueba en su test de integración. Acá filtra solo por operación y fecha.
+ */
+export class InMemoryFollowUpCandidates implements FollowUpCandidatesQuery {
+  searchRows: (FollowUpSearchCandidate & { readonly createdAt: Date })[] = [];
+  featuredRows: (FollowUpFeaturedCandidate & { readonly propertyId: string })[] = [];
+
+  searches(criteria: Parameters<FollowUpCandidatesQuery['searches']>[0]) {
+    const { operation, savedUntil } = criteria;
+    return Promise.resolve(
+      this.searchRows
+        .filter(
+          (row) =>
+            (operation === undefined || row.operation === operation) &&
+            (savedUntil === undefined || row.createdAt.getTime() <= savedUntil.getTime()),
+        )
+        .slice(criteria.offset, criteria.offset + criteria.limit)
+        .map(({ savedSearchId, clientId, operation: op }) => ({
+          savedSearchId,
+          clientId,
+          operation: op,
+        })),
+    );
+  }
+
+  featured(criteria: Parameters<FollowUpCandidatesQuery['featured']>[0]) {
+    return Promise.resolve(
+      this.featuredRows
+        .filter((row) => row.propertyId === criteria.propertyId)
+        .slice(criteria.offset, criteria.offset + criteria.limit)
+        .map(({ featuredListingId, clientId }) => ({ featuredListingId, clientId })),
+    );
   }
 }
 
@@ -835,6 +1046,76 @@ export class InMemoryInquiryRuleRepository implements InquiryRuleRepository {
   }
 }
 
+export class InMemoryQuickReplyRepository implements QuickReplyRepository {
+  readonly rows = new Map<string, QuickReplySnapshot>();
+
+  findById(id: QuickReplyId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row && QuickReply.restore(row));
+  }
+
+  save(reply: QuickReply) {
+    this.rows.set(reply.id, reply.toSnapshot());
+    return Promise.resolve();
+  }
+
+  delete(id: QuickReplyId) {
+    this.rows.delete(id);
+    return Promise.resolve();
+  }
+}
+
+/** Como el SQL: por nombre, y "contiene" sin mayúsculas ni acentos. */
+export class InMemoryQuickReplyQuery implements QuickReplyQuery {
+  readonly searches: QuickReplyCriteria[] = [];
+
+  constructor(private readonly repository: InMemoryQuickReplyRepository) {}
+
+  search(criteria: QuickReplyCriteria) {
+    this.searches.push(criteria);
+    const text = criteria.text === undefined ? undefined : normalizeName(criteria.text);
+    const sign = criteria.direction === 'asc' ? 1 : -1;
+    const matching = [...this.repository.rows.values()]
+      .filter((row) => row.isActive === criteria.active)
+      .filter((row) => text === undefined || normalizeName(row.name).includes(text))
+      .sort((a, b) => sign * (a.name.localeCompare(b.name) || a.id.localeCompare(b.id)));
+    return Promise.resolve({
+      items: matching.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: matching.length,
+    });
+  }
+}
+
+/** Una respuesta rápida cargada directo en el fake (activa, salvo que se diga otra cosa). */
+export async function seedQuickReply(
+  uow: InMemoryClientsUnitOfWork,
+  overrides: {
+    readonly id?: string;
+    readonly name?: string;
+    readonly subject?: string;
+    readonly body?: string;
+    readonly isActive?: boolean;
+  } = {},
+): Promise<QuickReply> {
+  const id = parseId<'QuickReply'>(
+    overrides.id ??
+      `00000000-0000-7000-8000-7${String(uow.quickReplies.rows.size + 1).padStart(11, '0')}`,
+  );
+  if (id.isErr()) throw new Error('Invalid test fixture');
+  const created = QuickReply.create({
+    id: id.value,
+    name: overrides.name ?? 'Primer contacto',
+    subject: overrides.subject,
+    body: overrides.body ?? 'Hola [[primer_nombre_contacto]], soy [[nombre_asesor]].',
+    now: new Date('2026-02-01T10:00:00Z'),
+  });
+  if (created.isErr()) throw new Error(`Invalid seed quick reply: ${created.error.reason}`);
+  const reply = created.value;
+  if (overrides.isActive === false) reply.setActive(false, new Date('2026-02-01T10:00:00Z'));
+  await uow.quickReplies.save(reply);
+  return reply;
+}
+
 /** Los IDs de Tokko de los contactos, por `origen:id`. */
 export class InMemoryClientExternalIds implements ClientExternalIds {
   readonly rows = new Map<string, ClientExternalId>();
@@ -887,6 +1168,8 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly records = new InMemoryClientLinkedRecords();
   readonly activities = new InMemoryClientActivityRepository();
   readonly featured = new InMemoryFeaturedListingRepository();
+  readonly followUpMatches = new InMemoryFollowUpMatchRepository();
+  readonly sharedListings = new InMemorySharedListingRepository();
   readonly savedSearches = new InMemorySavedSearchRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
@@ -896,6 +1179,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly bulkOperations = new InMemoryOpportunityBulkOperationRepository();
   readonly inquiries = new InMemoryInquiryRepository();
   readonly inquiryRules = new InMemoryInquiryRuleRepository();
+  readonly quickReplies = new InMemoryQuickReplyRepository();
   readonly developmentChances = new InMemoryDevelopmentChances();
 
   async run<T>(work: (tx: ClientsTransaction) => Promise<T>): Promise<T> {
@@ -911,12 +1195,16 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       records: new Map(this.records.counts),
       activities: new Map(this.activities.rows),
       featured: new Map(this.featured.rows),
+      followUpMatches: this.followUpMatches.rows.length,
+      followUpResolved: new Map(this.followUpMatches.resolved),
+      sharedListings: new Map(this.sharedListings.rows),
       savedSearches: new Map(this.savedSearches.rows),
       imports: new Map(this.imports.rows),
       externalIds: new Map(this.externalIds.rows),
       bulkOperations: new Map(this.bulkOperations.rows),
       inquiries: new Map(this.inquiries.rows),
       inquiryRules: new Map(this.inquiryRules.rows),
+      quickReplies: new Map(this.quickReplies.rows),
       developmentChances: new Map(this.developmentChances.rows),
       problems: this.imports.problems.length,
       events: this.events.published.length,
@@ -938,12 +1226,16 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.records.counts, backup.records);
       restore(this.activities.rows, backup.activities);
       restore(this.featured.rows, backup.featured);
+      this.followUpMatches.rows.splice(backup.followUpMatches);
+      restore(this.followUpMatches.resolved, backup.followUpResolved);
+      restore(this.sharedListings.rows, backup.sharedListings);
       restore(this.savedSearches.rows, backup.savedSearches);
       restore(this.imports.rows, backup.imports);
       restore(this.externalIds.rows, backup.externalIds);
       restore(this.bulkOperations.rows, backup.bulkOperations);
       restore(this.inquiries.rows, backup.inquiries);
       restore(this.inquiryRules.rows, backup.inquiryRules);
+      restore(this.quickReplies.rows, backup.quickReplies);
       restore(this.developmentChances.rows, backup.developmentChances);
       this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);

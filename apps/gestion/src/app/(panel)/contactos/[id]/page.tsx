@@ -5,6 +5,7 @@ import {
   ListClientOpportunitiesQuerySchema,
   ListClientRelationsQuerySchema,
   ListClientSavedSearchesQuerySchema,
+  ListClientSendsQuerySchema,
   type ClientDetail,
   type SavedSearchDetail,
 } from '@norde/core/clients/contracts';
@@ -31,6 +32,7 @@ import {
 } from '../../../../features/clients/components/client-detail-tabs';
 import { ClientHistoryGrid } from '../../../../features/clients/components/client-history-grid';
 import { ClientNoteComposer } from '../../../../features/clients/components/client-note-composer';
+import { ClientSendsGrid } from '../../../../features/clients/components/client-sends-grid';
 import { ClientOfferProperties } from '../../../../features/clients/components/client-offer-properties';
 import {
   ClientFeaturedGrid,
@@ -46,6 +48,7 @@ import {
   CLIENT_HISTORY_ERROR_MESSAGES,
   CLIENT_OPPORTUNITIES_ERROR_MESSAGES,
   CLIENT_SAVED_SEARCHES_ERROR_MESSAGES,
+  CLIENT_SENDS_ERROR_MESSAGES,
   GET_SAVED_SEARCH_ERROR_MESSAGES,
 } from '../../../../features/clients/messages';
 import { messageForError } from '../../../../lib/errors';
@@ -119,6 +122,7 @@ export default async function ContactDetailPage({
     { id: 'actividad', count: counts.activity },
     { id: 'oportunidades', count: counts.opportunities },
     { id: 'destacadas', count: counts.featured },
+    { id: 'envios' },
     { id: 'busquedas', count: counts.savedSearches },
     ...(seesProperties
       ? [
@@ -241,8 +245,28 @@ async function TabContent({
             clientDisplayName={clientName(detail.name)}
             page={page.value}
             canEdit={detail.can.edit}
+            canTurnOnAutoSend={actor.can('followups:automatic')}
             canReserve={actor.can('reservations:create')}
+            recipients={{
+              emails: detail.emails.map((email) => email.address),
+              phones: detail.phones.map((phone) => phone.number),
+              masked: detail.contactMasked,
+            }}
           />
+        ),
+      );
+    }
+    case 'envios': {
+      const { value: sendsQuery } = parseListParams(ListClientSendsQuerySchema, {
+        ...pick(query, PAGING),
+        clientId,
+      });
+      const page = await clients.listClientSends.execute(sendsQuery, actor);
+      return card(
+        page.isErr() ? (
+          <DataTableError message={messageForError(page.error, CLIENT_SENDS_ERROR_MESSAGES)} />
+        ) : (
+          <ClientSendsGrid clientId={clientId} page={page.value} sort={sendsQuery.sort} />
         ),
       );
     }
@@ -280,6 +304,7 @@ async function TabContent({
             sort={searchesQuery.sort}
             view={searchesQuery.view}
             canEdit={detail.can.edit}
+            canTurnOnAutoSend={actor.can('followups:automatic')}
             detail={detailPanel}
             activeOpportunityId={detail.activeOpportunity?.id}
           />

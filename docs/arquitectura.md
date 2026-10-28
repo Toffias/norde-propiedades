@@ -331,8 +331,8 @@ export class RegisterContact {
 | Exports  | Named exports. Barrel (`index.ts`) **solo** como API pública de un módulo o paquete                                                                                                    |
 | IDs      | UUID v7, generados por el `IdGenerator` (no por la base)                                                                                                                               |
 | Fechas   | Se guardan en UTC (`timestamptz`). Se muestran en `America/Argentina/Buenos_Aires`. El tiempo se obtiene de `Clock`, nunca `new Date()` en el core                                     |
-| Config   | Cada app valida su entorno con Zod al arrancar. Se lee `process.env` solo en ese archivo                                                                                               |
-| Logs     | pino estructurado, con `requestId` o `jobId`. **Sin datos personales en claro** (teléfonos y emails enmascarados)                                                                      |
+| Config   | Cada app valida su entorno con Zod al arrancar. Se lee `process.env` solo en ese archivo (y las `NEXT_PUBLIC_*` que lee el navegador, en `config/public-env.ts`: ADR 0049)             |
+| Logs     | pino estructurado, con `requestId` o `jobId`. **Sin datos personales en claro** (teléfonos y emails enmascarados). Errores inesperados de `gestion` a Sentry, filtrados (ADR 0049)     |
 
 ---
 

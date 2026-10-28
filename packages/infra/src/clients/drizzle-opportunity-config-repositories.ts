@@ -155,6 +155,9 @@ export class DrizzleOpportunitySettingsRepository implements OpportunitySettings
       onAssign: stageIdOrUndefined(row.stageOnAssignId),
       onReactivate: stageIdOrUndefined(row.stageOnReactivateId),
       forOwners: stageIdOrUndefined(row.stageForOwnersId),
+      afterMessage: stageIdOrUndefined(row.stageAfterMessageId),
+      afterLike: stageIdOrUndefined(row.stageAfterLikeId),
+      afterDislike: stageIdOrUndefined(row.stageAfterDislikeId),
     };
   }
 
@@ -164,6 +167,9 @@ export class DrizzleOpportunitySettingsRepository implements OpportunitySettings
       stageOnAssignId: rules.onAssign ?? null,
       stageOnReactivateId: rules.onReactivate ?? null,
       stageForOwnersId: rules.forOwners ?? null,
+      stageAfterMessageId: rules.afterMessage ?? null,
+      stageAfterLikeId: rules.afterLike ?? null,
+      stageAfterDislikeId: rules.afterDislike ?? null,
       updatedAt: now,
       updatedBy: actorId,
     };

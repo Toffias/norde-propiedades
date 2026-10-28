@@ -17,7 +17,7 @@ import {
   type InvalidInputError,
 } from '../client-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
-import { findEditableClient } from '../saved-search-support';
+import { canTurnOnAutoSend, findEditableClient } from '../saved-search-support';
 
 /** La propiedad no está destacada para el contacto. */
 export interface FeaturedListingNotFoundError {
@@ -32,8 +32,9 @@ export type SetFeaturedAutoSendError =
   | FeaturedListingNotFoundError;
 
 /**
- * Prende o apaga el auto-envío de novedades de una destacada: si el contacto recibe por email los
- * cambios de esa propiedad (los envíos llegan con #11, etapa 4). Si ya estaba así, no hace nada.
+ * Prende o apaga el auto-envío de novedades de una destacada: si el contacto recibe por email las
+ * bajas de precio de esa propiedad (#106). Prenderlo pide el permiso de seguimientos automáticos.
+ * Si ya estaba así, no hace nada.
  */
 export class SetFeaturedAutoSend {
   constructor(private readonly deps: { readonly uow: ClientsUnitOfWork; readonly clock: Clock }) {}
@@ -47,6 +48,7 @@ export class SetFeaturedAutoSend {
     }
     const parsed = SetFeaturedAutoSendInputSchema.safeParse(input);
     if (!parsed.success) return err(invalidInput(parsed.error));
+    if (parsed.data.enabled && !canTurnOnAutoSend(actor)) return err({ type: 'Forbidden' });
     const propertyId = parsed.data.propertyId.toLowerCase();
     const now = this.deps.clock.now();
 

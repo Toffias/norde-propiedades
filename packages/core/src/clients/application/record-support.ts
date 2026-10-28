@@ -35,6 +35,8 @@ export function canWorkOn(actor: Actor, client: Client): boolean {
 }
 
 const AGENT_ACTOR_ID = 'system:agent-ia';
+/** El sitio público: lo que registra es lo que hizo el contacto con el link de un envío. */
+const WEB_ACTOR_ID = 'system:web';
 
 /** Los usuarios de una página, por ID (los actores de sistema no se buscan). */
 export async function userNames(
@@ -52,6 +54,7 @@ export function activityActor(
   names: ReadonlyMap<string, string>,
 ): ClientActivityActor {
   if (actorId === AGENT_ACTOR_ID) return { kind: 'agent' };
+  if (actorId === WEB_ACTOR_ID) return { kind: 'contact' };
   if (actorId.startsWith('system:')) return { kind: 'system' };
   return { kind: 'user', id: actorId, name: names.get(actorId) };
 }

@@ -286,7 +286,7 @@ La ficha del contacto tiene pestañas en la URL (`?tab=actividad`), cada una pag
 - **Conversaciones del agente de IA**: una entrada cuando la conversación queda vinculada al cliente (`conversations.conversation_linked_to_client`).
 - **Unificaciones**: queda en el principal, con quién la hizo. La actividad del duplicado pasa al principal.
 - **Cambios de estado**: cada cambio de estado o cierre de una oportunidad, con quién lo hizo (§3.3.6).
-- Envíos, propiedades vistas y reacciones ya se muestran; los va a registrar #11.
+- **Envíos**, **aperturas** (la primera vez que abre el link) y **reacciones** ("me gusta" / "no me gusta"): los registran los casos de uso de envíos (§3.3.10); las aperturas y reacciones figuran como hechas por el contacto.
 - Las entradas que salen de un evento usan el ID del evento (una reentrega no las duplica) y no se auditan aparte: son la proyección de algo que ya quedó registrado.
 
 **Oportunidades**: todas las del contacto (abiertas y cerradas), con su estado, origen y agente.
@@ -358,7 +358,7 @@ Configuración en **Mi empresa → Oportunidades** (`/mi-empresa/oportunidades`)
 
 - **Al crear**: el estado de una oportunidad nueva (de fábrica, "Nuevo"). Si Norde no tiene stock para ofrecerle, nace en el primer estado de "Aplica a otra inmobiliaria".
 - **Al asignar a un agente**, **al reactivar** (una derivada que vuelve a consultar) y **para propietarios**: se configuran acá y se aplican desde la etapa 4.
-- Las reglas "tras enviar email o WhatsApp" y "tras me gusta / no me gusta" llegan con los envíos de fichas (#11).
+- **Tras enviar email o WhatsApp**, **tras "me gusta"** y **tras "no me gusta"** (#104): mueven la oportunidad abierta a la que quedó atado el envío. Las aplica el mismo job que las demás, idempotente por evento (`clients.listings_sent`, `clients.listing_reacted`).
 
 **Historial y agente**: cada cambio de estado queda en `opportunity_status_changes` (estado y categoría de origen y destino, quién y cuándo). De ahí sale la **vigencia**, el tiempo en el estado actual. La oportunidad tiene agente y sucursal propios: al crearse hereda los del contacto. La migración pasó cada oportunidad al primer estado de su categoría, le copió el agente y la sucursal del contacto y le dejó su estado actual como primera entrada del historial.
 
@@ -544,26 +544,70 @@ Cada destacada guarda:
 - La **oportunidad abierta más reciente** del contacto. Si tiene una, se publica `clients.opportunity_listings_featured` y la regla "al reactivar" puede sacarla de "Aplica a otra inmobiliaria".
 - **Auto-envío de novedades** (switch por destacada): queda guardado y auditado; los envíos llegan con la etapa 4.
 
-Por fila: ver la ficha de la propiedad, reservarla (si está disponible y hay `reservations:create`, con el contacto ya elegido y la oportunidad de la destacada; ver §4.9) y quitar la destacada. Enviar llega con la etapa 2.
+Por fila: ver la ficha de la propiedad, reservarla (si está disponible y hay `reservations:create`, con el contacto ya elegido y la oportunidad de la destacada; ver §4.9) y quitar la destacada. Marcando varias, **Enviar** las manda juntas (hasta 20).
+
+**Envíos** (#104, etapa 1; ADR 0048). Quien puede editar el contacto le manda una o varias destacadas:
+
+- **Por email**: con la plantilla de Norde (Resend), el mensaje del asesor, una tarjeta por propiedad y el botón al link. Si el email no sale, el envío no queda registrado.
+- **Por WhatsApp**: el panel abre el WhatsApp del asesor (`wa.me`) con el mensaje y el link escritos; el asesor lo manda desde ahí. No pasa por el agente de IA.
+- Se elige el email o el teléfono entre los del contacto. Solo van propiedades que se ven en el sitio.
+- Cada envío es un **link público** `<sitio>/e/<token>`: el token es al azar, se guarda hasheado, no lleva IDs ni datos del cliente, **vence a los 90 días** y se puede **revocar**. La página muestra las propiedades, el nombre del asesor y los botones "me gusta" / "no me gusta"; no se indexa.
+- La **apertura** la registra el navegador (la vista previa de WhatsApp o del correo no cuenta). La primera queda en la actividad y en el historial; las siguientes suman al contador.
+- Cada **reacción** (se puede cambiar de opinión) queda en la actividad, el historial y la columna Reacción de la destacada, y dispara su regla.
+- El envío queda atado a la **oportunidad abierta más reciente** del contacto: es la que mueven las reglas "tras enviar" y "tras me gusta / no me gusta".
+- Pestaña **Envíos** de la ficha: cada envío con su canal, quién lo mandó, las propiedades (con lo que le pareció cada una), si lo abrió y si el link sigue vigente. Paginada en el servidor.
+
+Pendiente de #104: compartir desde la ficha de la propiedad y la vista rápida del emprendimiento (etapa 2) y el email masivo desde Oportunidades (etapa 3).
+
+**Respuestas rápidas** (#105). Plantillas para el mensaje de los envíos, en **Mi empresa → General → Respuestas rápidas**:
+
+- Cada una tiene nombre, asunto (opcional, solo para el email) y mensaje (hasta 1.000 caracteres, lo mismo que el mensaje de un envío).
+- **Variables**: `[[nombre_contacto]]`, `[[primer_nombre_contacto]]`, `[[nombre_asesor]]` (quien envía) y `[[nombre_empresa]]`. Se completan al enviar, por email y por WhatsApp. Una variable que no existe no se puede guardar en la plantilla; si el asesor la escribe a mano en el envío, queda como está.
+- Grilla paginada en el servidor, por nombre, con búsqueda y pestañas Activas / Inactivas. Alta y edición en un panel lateral.
+- Las **inactivas** no se ofrecen al enviar. **Borrar** es físico: queda en la auditoría con todos sus valores, y los envíos que la usaron no cambian (el mensaje se copió al enviarlo).
+- Al **enviar**, el asesor elige una (selector paginado con búsqueda, solo las activas): el asunto y el mensaje se completan y los puede ajustar antes de mandar.
+- Permisos: administrarlas pide `quick-replies:manage` (Gerencia en Tokko); elegirlas al enviar, poder editar algún contacto (lo mismo que enviar).
+- Auditoría con `entity_type = 'quick_reply'`: `quick_reply.created`, `.updated` (solo lo que cambió), `.activated`, `.deactivated` y `.deleted`.
+
+**Diferencias con Tokko**: las reglas de automatización de las respuestas rápidas (por ejemplo, mandar una antes de asignar el agente) no se construyeron: falta confirmar si Norde las usa. La columna `automation` queda en `null`.
 
 **Búsquedas guardadas** (pestaña Búsquedas, en un panel lateral sobre la grilla):
 
 - Nombre (opcional), operación, tipos, ubicaciones del catálogo, moneda con precio desde y hasta, ambientes mínimos y envío automático. Se puede atar a la oportunidad abierta del contacto.
 - Borrar las manda a la papelera ("Vigentes / Papelera"); se restauran desde ahí.
-- Como mucho 20 vigentes por contacto. Si el contacto se dio de baja de los envíos, el asesor no le vuelve a activar el envío automático.
+- Como mucho 20 vigentes por contacto. Si el contacto se dio de baja de los envíos, el asesor no le vuelve a activar el envío automático. Prender el envío automático pide el permiso de seguimientos automáticos (§3.4).
 - Desde el **buscador**, "Guardar para un contacto" arranca con sus filtros (operación, tipo, moneda y precios). La ubicación del buscador es texto libre: no se copia y se pide elegirla del catálogo.
 - Auditoría contra el contacto: `client.saved_search_created`, `.saved_search_updated` (solo lo que cambió), `.saved_search_deleted` y `.saved_search_restored`. Destacar suma la oportunidad a `client.listings_featured`; el switch registra `client.featured_auto_send_changed`.
 
 **Diferencias con Tokko**: la coincidencia es una foto del momento de destacar, con una regla explícita. Las búsquedas tienen papelera y tope por contacto.
 
-### 3.4 Cruce de búsquedas con stock
+### 3.4 Cruce de búsquedas con stock (seguimientos automáticos, #106)
 
-Da soporte a las "Oportunidades por mail" del módulo 2.
+Da soporte a las "Oportunidades por mail" del módulo 2. Se construye en dos etapas: (1) el cruce y el permiso, (2) el resumen diario por email y la baja del cliente.
 
-- Cada oportunidad (o suscripción de la web) tiene una **búsqueda guardada**.
-- Una tarea programada detecta **propiedades nuevas o bajas de precio** que coinciden.
-- **Con suscripción por mail**: se le envía la alerta al cliente.
-- **Sin suscripción**: se genera un aviso para el agente asignado ("hay una propiedad nueva para tu cliente X").
+**Cruce** (etapa 1). Un job escucha los cambios de las propiedades y anota lo que hay que mandarle a cada contacto:
+
+- Solo cuenta una propiedad que el sitio muestra (**disponible y publicada en la web**): el envío lleva un link que el cliente tiene que poder abrir.
+- **Propiedad nueva**: coincide (§3.3, `matchesSavedSearch`) con una búsqueda con envío automático **guardada antes** de que la propiedad empezara a ofrecerse (pasó a disponible). Lo que ya estaba en el stock no es novedad. Si se publica en la web después de pasar a disponible, cuenta desde que pasó a disponible.
+- **Baja de precio**: el precio nuevo de una operación es menor que el anterior, en la misma moneda (un cambio de moneda, una suba o pasar a "a consultar" no se avisan). Coincide con las búsquedas con envío automático de esa operación y con las **destacadas con auto-envío de novedades** de esa propiedad.
+- Solo búsquedas vigentes y sin baja del cliente, y destacadas vigentes, de contactos que no están en la papelera.
+- **Idempotente**: una propiedad entra una sola vez como nueva por contacto (aunque coincida con dos búsquedas) y cada baja una vez por precio; si vuelve a bajar, es otra baja.
+- Cada coincidencia queda en el historial del contacto como cambio del sistema (`client.follow_up_matched`, con la propiedad, el motivo, la búsqueda o destacada y el precio). Unificar contactos las pasa al principal sin repetir; la supresión las borra.
+
+**Permiso "Activar seguimientos automáticos"** (`followups:automatic`, Gerencia → Seguimientos; Administración y Gerencia lo tienen): prender el envío automático de una búsqueda o el auto-envío de novedades de una destacada lo pide. Sin él, el switch se ve apagado y bloqueado; uno que ya está prendido se puede apagar y la búsqueda se puede editar.
+
+**Resumen diario** (etapa 2). Todos los días a las 10 (hora de Buenos Aires) sale un email por contacto con lo que el cruce encontró desde el último:
+
+- Es un envío como los del asesor (§3.3.10): link `/e/<token>` que vence, con aperturas y "me gusta". Queda en la actividad y en los envíos del contacto como "Seguimiento automático", y en su historial (`client.follow_ups_sent`). No se ata a una oportunidad: no mueve el embudo, porque no es el asesor el que contacta.
+- Va al email principal del contacto, firmado por su agente (o por Norde si no tiene). Una propiedad que es nueva y además bajó de precio va una sola vez.
+- Entran hasta 20 propiedades (lo que entra en un envío), las más viejas primero; las demás salen al día siguiente.
+- El asunto y el mensaje son fijos según haya propiedades nuevas, bajas de precio o las dos: no hay plantilla para editar (no hay pantalla de configuración, 2026-10-27).
+- Antes de mandar se descarta lo que ya no corresponde (`client.follow_ups_discarded`): la búsqueda se borró, se apagó su envío automático o el cliente se dio de baja; la destacada se quitó o se le apagó el auto-envío; la propiedad dejó de verse en el sitio; el contacto está en la papelera o no tiene email.
+- Si el email no sale, no queda nada y se reintenta al día siguiente.
+
+**Baja del cliente** (etapa 2). Cada email automático tiene al pie un link a `/e/<token>/baja`. La página pide confirmar con un botón (los lectores de correo abren los links para revisarlos). Al confirmar, todas las búsquedas del contacto quedan dadas de baja (el asesor no puede volver a prender su envío automático) y se apaga el auto-envío de sus destacadas. Queda en su historial (`client.follow_ups_unsubscribed`). Sirve aunque el link del envío haya vencido.
+
+**Diferencias con §3.4 original**: a las búsquedas sin envío automático no se le avisa al asesor (Norde no lo pidió, 2026-10-27).
 
 ### 3.5 Exportar a Excel
 

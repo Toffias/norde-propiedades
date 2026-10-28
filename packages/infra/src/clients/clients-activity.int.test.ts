@@ -48,7 +48,11 @@ const OTHER_PROPERTY = '00000000-0000-7000-8000-0000000000e2';
 const NOW = new Date('2026-03-10T12:00:00Z');
 const authored = { createdBy: 'system:import', updatedBy: 'system:import' };
 
-const manager = Actor.user(AGENT, ['clients:*', 'properties:read']).withBranch(BRANCH);
+const manager = Actor.user(AGENT, [
+  'clients:*',
+  'properties:read',
+  'followups:automatic',
+]).withBranch(BRANCH);
 const jobs = Actor.system('scheduler', ['clients:record-activity']);
 
 function listing(id: string): ClientListingSummary {

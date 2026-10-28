@@ -23,6 +23,8 @@ export function activityActorName(actor: ClientActivityActor): string {
   switch (actor.kind) {
     case 'agent':
       return 'El agente de IA';
+    case 'contact':
+      return 'El contacto';
     case 'system':
       return 'El sistema';
     case 'user':
@@ -56,7 +58,9 @@ export function activityTitle(entry: ClientActivityRow): string {
         : `Se le enviaron ${what} por ${channel}`;
     }
     case 'listing_viewed':
-      return 'Vio una propiedad';
+      return entry.propertyId === undefined
+        ? 'Abrió las propiedades enviadas'
+        : 'Vio una propiedad';
     case 'listing_reaction':
       return reactionLabel(entry.reaction);
     case 'inquiry': {

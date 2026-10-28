@@ -292,7 +292,15 @@ describe('close reasons', () => {
 });
 
 describe('UpdateOpportunitySettings', () => {
-  const noRules = { onCreate: null, onAssign: null, onReactivate: null, forOwners: null };
+  const noRules = {
+    onCreate: null,
+    onAssign: null,
+    onReactivate: null,
+    forOwners: null,
+    afterMessage: null,
+    afterLike: null,
+    afterDislike: null,
+  };
 
   it('saves the rules and audits the diff', async () => {
     const { uow, clock } = setup();
@@ -322,6 +330,10 @@ describe('UpdateOpportunitySettings', () => {
       type: 'InvalidRuleStage',
       rule: 'onCreate',
     });
+    expect(unwrapErr(await useCase.execute({ ...noRules, afterLike: WON }, ADMIN))).toEqual({
+      type: 'InvalidRuleStage',
+      rule: 'afterLike',
+    });
     expect(unwrapErr(await useCase.execute(noRules, TEST_AGENT))).toEqual({ type: 'Forbidden' });
   });
 });
@@ -340,6 +352,9 @@ describe('GetOpportunityConfiguration', () => {
       onAssign: null,
       onReactivate: null,
       forOwners: null,
+      afterMessage: null,
+      afterLike: null,
+      afterDislike: null,
     });
   });
 

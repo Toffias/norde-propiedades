@@ -63,3 +63,5 @@ export * from './contact-channels';
 export * from './inquiries';
 export * from './inquiry-rules';
 export * from './saved-searches';
+export * from './shared-listings';
+export * from './quick-replies';

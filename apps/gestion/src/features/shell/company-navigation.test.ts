@@ -42,6 +42,7 @@ describe('company navigation', () => {
     expect(general && visibleSections(general, ALL_OFF).map((s) => s.label)).toEqual([
       'Datos',
       'Email',
+      'Respuestas rápidas',
     ]);
   });
 });

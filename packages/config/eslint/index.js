@@ -315,7 +315,8 @@ export function library({ tsconfigRootDir }) {
 
 /**
  * Apps (capa de presentación): solo llaman casos de uso. La infraestructura se arma
- * únicamente en src/container.ts y el entorno se lee únicamente en src/config/env.ts.
+ * únicamente en src/container.ts y el entorno se lee únicamente en src/config/env.ts (y las
+ * variables públicas del navegador en src/config/public-env.ts, ADR 0049).
  * @param {{ tsconfigRootDir: string }} options
  */
 export function app({ tsconfigRootDir }) {
@@ -357,7 +358,8 @@ export function app({ tsconfigRootDir }) {
       rules: { 'no-restricted-imports': 'off' },
     },
     {
-      files: ['src/config/env.ts'],
+      // `public-env.ts`: las variables NEXT_PUBLIC_* que también lee el navegador (ADR 0049).
+      files: ['src/config/env.ts', 'src/config/public-env.ts'],
       rules: { 'no-restricted-syntax': ['error', SYNTAX.noDefaultExport] },
     },
     {

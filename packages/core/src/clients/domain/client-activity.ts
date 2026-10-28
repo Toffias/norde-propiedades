@@ -208,3 +208,61 @@ export function conversationActivity(input: {
     occurredAt: input.occurredAt,
   };
 }
+
+/** Se le mandaron propiedades por email o WhatsApp: lo registra quien las mandó. */
+export function listingSentActivity(input: {
+  readonly id: string;
+  readonly clientId: ClientId;
+  readonly opportunityId: string | undefined;
+  readonly channel: string;
+  readonly propertyIds: readonly string[];
+  readonly actorId: string;
+  readonly now: Date;
+}): ClientActivity {
+  return {
+    id: input.id,
+    clientId: input.clientId,
+    opportunityId: input.opportunityId,
+    actorId: input.actorId,
+    body: { kind: 'listing_sent', channel: input.channel, propertyIds: [...input.propertyIds] },
+    occurredAt: input.now,
+  };
+}
+
+/** Abrió por primera vez el link de un envío (sin una propiedad en particular). */
+export function listingViewedActivity(input: {
+  readonly id: string;
+  readonly clientId: ClientId;
+  readonly opportunityId: string | undefined;
+  readonly actorId: string;
+  readonly now: Date;
+}): ClientActivity {
+  return {
+    id: input.id,
+    clientId: input.clientId,
+    opportunityId: input.opportunityId,
+    actorId: input.actorId,
+    body: { kind: 'listing_viewed', propertyId: undefined },
+    occurredAt: input.now,
+  };
+}
+
+/** Marcó "me gusta" o "no me gusta" una propiedad de un envío. */
+export function listingReactionActivity(input: {
+  readonly id: string;
+  readonly clientId: ClientId;
+  readonly opportunityId: string | undefined;
+  readonly propertyId: string;
+  readonly reaction: 'liked' | 'disliked';
+  readonly actorId: string;
+  readonly now: Date;
+}): ClientActivity {
+  return {
+    id: input.id,
+    clientId: input.clientId,
+    opportunityId: input.opportunityId,
+    actorId: input.actorId,
+    body: { kind: 'listing_reaction', propertyId: input.propertyId, reaction: input.reaction },
+    occurredAt: input.now,
+  };
+}

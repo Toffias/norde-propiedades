@@ -62,16 +62,16 @@ const DEFAULT_CHOICE: Choice = {
   descriptionSize: SHOWCASE_OPTION_DEFAULTS.descriptionSize,
 };
 
-/** La última elección de este navegador; si no hay o no es válida, la de la marca. */
-function rememberedChoice(): Choice {
+/** La última elección de este navegador; `undefined` si no hay o no es válida. */
+function rememberedChoice(): Choice | undefined {
   try {
     const stored = window.localStorage.getItem(LAST_OPTIONS_KEY);
-    if (stored === null) return DEFAULT_CHOICE;
+    if (stored === null) return undefined;
     const parsed = RememberedSchema.safeParse(JSON.parse(stored));
-    return parsed.success ? parsed.data : DEFAULT_CHOICE;
+    return parsed.success ? parsed.data : undefined;
   } catch {
     // Sin acceso al almacenamiento o con algo ilegible: las opciones de la marca.
-    return DEFAULT_CHOICE;
+    return undefined;
   }
 }
 
@@ -195,6 +195,8 @@ export function ShowcaseDocumentDialog({
 }) {
   const id = useId();
   const [choice, setChoice] = useState<Choice>(DEFAULT_CHOICE);
+  // El color de marca de Mi empresa: el principal que se propone y el de "Los de la marca".
+  const [brandColor, setBrandColor] = useState(DEFAULT_CHOICE.primaryColor);
   const [photoIds, setPhotoIds] = useState<readonly string[]>([]);
   const [photos, setPhotos] = useState<readonly ShowcasePhotoOption[] | undefined>();
   const [askAgent, setAskAgent] = useState(false);
@@ -208,7 +210,7 @@ export function ShowcaseDocumentDialog({
     // Al abrir: la última elección, las fotos de esta propiedad y si hay que preguntar el agente.
     const restore = setTimeout(() => {
       if (!active) return;
-      setChoice(rememberedChoice());
+      setChoice(rememberedChoice() ?? DEFAULT_CHOICE);
       setPhotoIds([]);
       setError(undefined);
     }, 0);
@@ -216,6 +218,11 @@ export function ShowcaseDocumentDialog({
       ([options, loaded]) => {
         if (!active) return;
         setAskAgent(options.askAgent);
+        setBrandColor(options.brandColor);
+        // Sin una elección recordada, la vidriera arranca con el color de Mi empresa.
+        if (rememberedChoice() === undefined) {
+          setChoice((current) => ({ ...current, primaryColor: options.brandColor }));
+        }
         if (loaded.ok) setPhotos(loaded.value);
         else setError(loaded.message);
       },
@@ -397,7 +404,7 @@ export function ShowcaseDocumentDialog({
               disabled={pending}
               onClick={() => {
                 change({
-                  primaryColor: DEFAULT_CHOICE.primaryColor,
+                  primaryColor: brandColor,
                   secondaryColor: DEFAULT_CHOICE.secondaryColor,
                 });
               }}

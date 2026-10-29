@@ -50,6 +50,7 @@ const MAIN_BRANCH = {
   phone: undefined,
   whatsapp: '+5491166899124',
   email: 'hola@norde.com.ar',
+  text: undefined,
 };
 const APPRAISER_CONTACT = {
   name: 'Juan Gómez',
@@ -57,6 +58,7 @@ const APPRAISER_CONTACT = {
   phone: '+5491155550000',
   whatsapp: undefined,
   email: 'juan@norde.com.ar',
+  text: undefined,
 };
 
 async function setup(overrides: Parameters<typeof appraisalSnapshot>[0] = {}) {
@@ -133,7 +135,11 @@ describe('DownloadAppraisalReport', () => {
       currency: 'USD',
     });
     expect(content?.photos).toEqual([new Uint8Array([1])]);
-    expect(content?.company).toEqual({ name: 'Norde Propiedades', logo: new Uint8Array([9]) });
+    expect(content?.company).toEqual({
+      name: 'Norde Propiedades',
+      logo: new Uint8Array([9]),
+      brandColor: '#c9302b',
+    });
     expect(content?.generatedAt).toEqual(TEST_NOW);
     expect(content?.appraiser).toEqual(APPRAISER_CONTACT);
     expect(content?.branch).toEqual(MAIN_BRANCH);

@@ -18,10 +18,12 @@ import type { Team } from '../domain/team';
 // conversión de los datos de contacto a value objects.
 
 export function branchAuditState(branch: Branch): AuditState {
-  const { name, logoUrl, address, email, phone, whatsapp, isMain } = branch.toSnapshot();
+  const { name, logoUrl, address, email, phone, whatsapp, pdfContactText, isMain } =
+    branch.toSnapshot();
   return {
     name,
     logoUrl,
+    pdfContactText,
     address,
     email: email?.value,
     phone: phone?.e164,
@@ -65,6 +67,7 @@ function optional<T, E>(
 export function branchContact(data: {
   readonly name: string;
   readonly logoUrl?: string | undefined;
+  readonly pdfContactText?: string | undefined;
   readonly address?: string | undefined;
   readonly email?: string | undefined;
   readonly phone?: string | undefined;
@@ -80,6 +83,7 @@ export function branchContact(data: {
   return ok({
     name: data.name,
     logoUrl: data.logoUrl,
+    pdfContactText: data.pdfContactText,
     address: data.address,
     email: email.value,
     phone: phone.value,

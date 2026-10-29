@@ -63,6 +63,7 @@ async function sheet(description: string, orientation: 'portrait' | 'landscape')
         <PdfTextSection title="Descripción" text={description} />
       </PdfPage>
     </PdfDocument>,
+    { brandColor: '#c9302b' },
   );
 }
 

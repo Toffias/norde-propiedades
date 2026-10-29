@@ -24,13 +24,14 @@ async function content(overrides: Partial<OwnerReportContent> = {}): Promise<Own
     address: 'Gurruchaga 1834 · Palermo, CABA',
     prices: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
     photo: await photo(),
-    company: { name: 'Norde Propiedades', logo: undefined },
+    company: { name: 'Norde Propiedades', logo: undefined, brandColor: '#c9302b' },
     contact: {
       name: 'Casa central',
       address: 'Gurruchaga 1834',
       phone: '+541148000000',
       whatsapp: '+5491166899124',
       email: 'info@norde.com.ar',
+      text: undefined,
     },
     producer: {
       name: 'Camila Ruiz',
@@ -38,6 +39,7 @@ async function content(overrides: Partial<OwnerReportContent> = {}): Promise<Own
       phone: '+5491155550000',
       whatsapp: undefined,
       email: 'camila@norde.com.ar',
+      text: undefined,
     },
     webUrl: 'https://norde.com.ar/propiedades/luminoso-3-ambientes',
     report: {

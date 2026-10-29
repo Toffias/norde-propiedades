@@ -78,13 +78,14 @@ function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalRepo
       comparablesAverages: [{ currency: 'USD', pricePerM2Cents: 181_538n, count: 1 }],
     },
     photos: stream([]),
-    company: { name: 'Norde Propiedades', logo: undefined },
+    company: { name: 'Norde Propiedades', logo: undefined, brandColor: '#c9302b' },
     appraiser: {
       name: 'Juan Gómez',
       address: undefined,
       phone: '+5491155550000',
       whatsapp: undefined,
       email: 'juan@norde.com.ar',
+      text: undefined,
     },
     branch: {
       name: 'Casa central',
@@ -92,6 +93,7 @@ function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalRepo
       phone: undefined,
       whatsapp: '+5491166899124',
       email: 'hola@norde.com.ar',
+      text: undefined,
     },
     generatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
@@ -126,7 +128,7 @@ describe('ReactPdfAppraisalReportRenderer', { timeout: 30_000 }, () => {
     const bytes = await renderer.render(
       content({
         photos: stream([webp, new Uint8Array([1, 2, 3])]),
-        company: { name: 'Norde Propiedades', logo },
+        company: { name: 'Norde Propiedades', logo, brandColor: '#c9302b' },
       }),
     );
     const doc = await PDFDocument.load(bytes);

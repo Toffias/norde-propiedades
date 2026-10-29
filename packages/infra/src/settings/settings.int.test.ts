@@ -144,6 +144,8 @@ describe('DrizzleCompanySettingsRepository', () => {
         addressOnSend: 'hidden',
         addressOnDownload: 'approximate',
         developmentPhotosInUnits: false,
+        contactText: 'Lunes a viernes de 9 a 18',
+        brandColor: '#1f4e79',
       },
       clock.now(),
     );
@@ -162,7 +164,12 @@ describe('DrizzleCompanySettingsRepository', () => {
       logoKey: 'settings/logo/1',
       timezone: 'America/Argentina/Cordoba',
       newsScope: 'branch',
-      pdfOptions: { showCompanyContact: false, addressOnSend: 'hidden' },
+      pdfOptions: {
+        showCompanyContact: false,
+        addressOnSend: 'hidden',
+        contactText: 'Lunes a viernes de 9 a 18',
+        brandColor: '#1f4e79',
+      },
       emailSender: { fromName: 'Norde' },
     });
     expect(read.webPropertyUrlTemplate?.value).toBe('https://norde.com.ar/p/{slug}');

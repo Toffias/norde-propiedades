@@ -20,8 +20,9 @@ import {
   type PdfBranding,
   type PdfField,
 } from './kit';
-import { contactLine, kindLabel } from './property-text';
+import { contactLine, contactTextLines, kindLabel } from './property-text';
 import { renderPdf } from './render';
+import { brandColor } from './brand';
 import { PDF_COLORS, PDF_TYPE } from './theme';
 
 // El informe de la tasación (#175, etapa 4) con react-pdf: lo que se le entrega al propietario con
@@ -206,6 +207,7 @@ function facts(content: AppraisalReportContent): PdfField[] {
 // ---------- Piezas ----------
 
 function Intro({ content }: { readonly content: AppraisalReportContent }): ReactElement {
+  const brand = brandColor();
   const { appraisal } = content;
   const address = appraisal.address?.trim() ?? '';
   const subtitle = [
@@ -217,7 +219,7 @@ function Intro({ content }: { readonly content: AppraisalReportContent }): React
   ].filter((part) => part !== undefined);
   return (
     <View>
-      <Text style={styles.eyebrow}>INFORME DE TASACIÓN · {appraisal.code}</Text>
+      <Text style={[styles.eyebrow, { color: brand }]}>INFORME DE TASACIÓN · {appraisal.code}</Text>
       <Text style={styles.title}>
         {address === '' ? kindLabel(appraisal.propertyType) : address}
       </Text>
@@ -228,6 +230,7 @@ function Intro({ content }: { readonly content: AppraisalReportContent }): React
 
 /** Una tarjeta oscura por operación: el rango sugerido y su valor por m². */
 function Values({ content }: { readonly content: AppraisalReportContent }): ReactElement | null {
+  const brand = brandColor();
   const { sale, rent } = content.appraisal.result;
   const { figures } = content;
   const cards = [
@@ -242,7 +245,7 @@ function Values({ content }: { readonly content: AppraisalReportContent }): Reac
   return (
     <View style={styles.values} wrap={false}>
       {cards.map((card) => (
-        <View key={card.label} style={styles.value}>
+        <View key={card.label} style={[styles.value, { borderLeftColor: brand }]}>
           <Text style={styles.valueLabel}>{card.label}</Text>
           <Text style={styles.valueAmount}>{range(card.value)}</Text>
           {card.perM2 === undefined || figures.surfaceM2 === undefined ? null : (
@@ -326,6 +329,18 @@ function Observations({ text }: { readonly text: string | undefined }): ReactEle
 }
 
 function ContactLines({ contact }: { readonly contact: ReportContact }): ReactElement {
+  const text = contactTextLines(contact);
+  if (text !== undefined) {
+    return (
+      <>
+        {text.map((line, index) => (
+          <Text key={index} style={styles.contactText}>
+            {line}
+          </Text>
+        ))}
+      </>
+    );
+  }
   const lines = [
     contact.address === undefined
       ? undefined
@@ -447,6 +462,7 @@ export class ReactPdfAppraisalReportRenderer implements AppraisalReportRenderer 
           </View>
         </PdfPage>
       </PdfDocument>,
+      { brandColor: content.company.brandColor },
     );
   }
 }

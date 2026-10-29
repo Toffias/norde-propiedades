@@ -4,7 +4,7 @@ import type { PdfExportOptions } from '../../contracts';
 
 /**
  * Lo que el diálogo de exportar a PDF necesita de "Ficha y PDF": si pregunta por los datos del
- * agente. Lo puede leer quien exporta, aunque no administre la configuración.
+ * agente y el color de marca. Lo puede leer quien exporta, aunque no administre la configuración.
  */
 export class GetPdfExportOptions {
   constructor(private readonly deps: { readonly settings: CompanySettingsReader }) {}
@@ -17,6 +17,6 @@ export class GetPdfExportOptions {
       return err({ type: 'Forbidden' });
     }
     const { pdfOptions } = (await this.deps.settings.get()).toSnapshot();
-    return ok({ askAgent: pdfOptions.agentInfo === 'ask' });
+    return ok({ askAgent: pdfOptions.agentInfo === 'ask', brandColor: pdfOptions.brandColor });
   }
 }

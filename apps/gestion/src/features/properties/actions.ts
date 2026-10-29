@@ -6,6 +6,7 @@ import {
   CreatePropertyInputSchema,
   FavoriteSearchIdInputSchema,
   PropertyIdInputSchema,
+  SHOWCASE_OPTION_DEFAULTS,
   PropertyMapQuerySchema,
   RequestPropertyListDocumentInputSchema,
   SaveFavoriteSearchInputSchema,
@@ -208,7 +209,9 @@ export async function requestPropertyListDocumentAction(
 export async function loadPdfExportOptionsAction(): Promise<PdfExportOptions> {
   const { actor } = await requireSession();
   const result = await getContainer().properties.getPdfExportOptions.execute({}, actor);
-  return result.isOk() ? result.value : { askAgent: false };
+  return result.isOk()
+    ? result.value
+    : { askAgent: false, brandColor: SHOWCASE_OPTION_DEFAULTS.primaryColor };
 }
 
 /** Marca o desmarca propiedades como favoritas de quien lo pide. */

@@ -11,7 +11,14 @@ import { formatMoney, formatPhone, paragraphs } from './format';
 import { PdfIcon, type PdfIconName } from './icons';
 import { logoPng, photoJpeg } from './images';
 import { PdfDocument, PdfPhoto } from './kit';
-import { amount, keyFacts, kindLabel, LEGAL_NOTE, operationLabel } from './property-text';
+import {
+  amount,
+  contactTextLines,
+  keyFacts,
+  kindLabel,
+  LEGAL_NOTE,
+  operationLabel,
+} from './property-text';
 import { PdfQr } from './qr';
 import { renderPdf } from './render';
 import { PDF_COLORS, PDF_FONT } from './theme';
@@ -176,9 +183,10 @@ async function fitted(
   description: readonly string[],
   maxSize: number,
   build: (fit: DescriptionFit) => ReactElement<DocumentProps>,
+  brandColor: string,
 ): Promise<Uint8Array> {
   const attempt = async (fit: DescriptionFit) => {
-    const pdf = await renderPdf(build(fit));
+    const pdf = await renderPdf(build(fit), { brandColor });
     return { pdf, fits: pageCount(pdf) <= 1 };
   };
   const full = await attempt({ size: maxSize, paragraphs: description });
@@ -534,7 +542,9 @@ function Contact({ prepared }: { readonly prepared: Prepared }): ReactElement {
   const { content, colors } = prepared;
   const { contact, agent } = content;
   const color = colors.onSecondary;
-  const big = mainPhone(contact, agent);
+  // El texto libre reemplaza a los datos de la sucursal: el número grande, si hay, es el del agente.
+  const text = contactTextLines(contact);
+  const big = mainPhone(text === undefined ? contact : undefined, agent);
   const details = [
     contact?.phone !== undefined && contact.whatsapp !== undefined
       ? { icon: 'phone' as const, text: `Tel. ${formatPhone(contact.phone)}` }
@@ -557,11 +567,19 @@ function Contact({ prepared }: { readonly prepared: Prepared }): ReactElement {
             <Text style={[styles.contactBig, { color }]}>{big.text}</Text>
           </View>
         )}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 2 }}>
-          {details.map((line) => (
-            <ContactLine key={line.icon} icon={line.icon} text={line.text} color={color} />
-          ))}
-        </View>
+        {text === undefined ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 2 }}>
+            {details.map((line) => (
+              <ContactLine key={line.icon} icon={line.icon} text={line.text} color={color} />
+            ))}
+          </View>
+        ) : (
+          text.map((line, index) => (
+            <Text key={index} style={[styles.contactSmall, { color }]}>
+              {line}
+            </Text>
+          ))
+        )}
       </View>
       {agent === undefined ? null : (
         <View style={styles.agent}>
@@ -637,6 +655,8 @@ export class ReactPdfShowcaseRenderer implements ShowcaseRenderer {
       paragraphs(content.property.description),
       content.options.descriptionSize * POINTS_PER_TOKKO_SIZE,
       (fit) => sheet(prepared, fit),
+      // La vidriera usa su color principal (el de Mi empresa, si no se eligió otro).
+      content.options.primaryColor,
     );
   }
 }

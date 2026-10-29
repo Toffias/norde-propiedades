@@ -30,11 +30,13 @@ import {
   PdfPhoto,
   PdfPriceTag,
   PdfSection,
+  PdfSectionTitle,
   PdfTextSection,
   type PdfBranding,
   type PdfField,
 } from './kit';
 import { renderPdf } from './render';
+import { brandColor } from './brand';
 import { PDF_COLORS, PDF_TYPE } from './theme';
 
 // La ficha en PDF en los formatos de Tokko, mejorados (#175):
@@ -350,10 +352,11 @@ function Prices({ prices }: { readonly prices: readonly PdfPrice[] }): ReactElem
 }
 
 function Agent({ agent }: { readonly agent: DocumentContact | undefined }): ReactElement | null {
+  const brand = brandColor();
   if (agent === undefined) return null;
   return (
     <View style={styles.agent} wrap={false}>
-      <Text style={styles.agentBadge}>AGENTE A CARGO</Text>
+      <Text style={[styles.agentBadge, { backgroundColor: brand }]}>AGENTE A CARGO</Text>
       <View style={styles.agentLine}>
         <PdfIcon name="agent" size={9} />
         <Text style={styles.agentName}>{agent.name}</Text>
@@ -375,11 +378,12 @@ function Agent({ agent }: { readonly agent: DocumentContact | undefined }): Reac
 }
 
 function WebLink({ url }: { readonly url: string | undefined }): ReactElement | null {
+  const brand = brandColor();
   if (url === undefined) return null;
   return (
     <Text style={styles.web}>
       Más fotos y datos en{' '}
-      <Link src={url} style={styles.webLink}>
+      <Link src={url} style={[styles.webLink, { color: brand }]}>
         {url}
       </Link>
     </Text>
@@ -500,16 +504,32 @@ function PortraitSheet({
         </PdfSection>
       )}
       {gallery.length === 0 ? null : (
-        <PdfSection title="Fotos">
-          <View style={styles.gallery}>
-            {gallery.map((bytes, index) => (
-              <View key={index.toString()} wrap={false}>
-                <PdfPhoto bytes={bytes} {...PORTRAIT.photo} />
-              </View>
-            ))}
+        <View>
+          {/* El título va con la primera fila de fotos: nunca queda solo al pie de la hoja. */}
+          <View wrap={false}>
+            <PdfSectionTitle title="Fotos" />
+            <PortraitGallery photos={gallery.slice(0, 2)} />
           </View>
-        </PdfSection>
+          {gallery.length > 2 ? (
+            <View style={{ marginTop: 8 }}>
+              <PortraitGallery photos={gallery.slice(2)} />
+            </View>
+          ) : null}
+        </View>
       )}
+    </View>
+  );
+}
+
+/** Las fotos de la ficha vertical, de a dos por fila. */
+function PortraitGallery({ photos }: { readonly photos: readonly Uint8Array[] }): ReactElement {
+  return (
+    <View style={styles.gallery}>
+      {photos.map((bytes, index) => (
+        <View key={index.toString()} wrap={false}>
+          <PdfPhoto bytes={bytes} {...PORTRAIT.photo} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -638,7 +658,7 @@ export class ReactPdfPropertySheetRenderer implements PropertySheetRenderer {
             {byKind(prepared).map(([kind, rows]) => (
               <View key={kind}>
                 <View style={styles.groupRow} minPresenceAhead={60}>
-                  <Text style={styles.groupTitle}>
+                  <Text style={[styles.groupTitle, { color: content.company.brandColor }]}>
                     {kindLabel(kind).toUpperCase()} · {rows.length.toString()}
                   </Text>
                 </View>
@@ -650,6 +670,7 @@ export class ReactPdfPropertySheetRenderer implements PropertySheetRenderer {
             <Agent agent={content.agent} />
           </PdfPage>
         </PdfDocument>,
+        { brandColor: content.company.brandColor },
       );
     }
 
@@ -672,6 +693,7 @@ export class ReactPdfPropertySheetRenderer implements PropertySheetRenderer {
           </PdfPage>
         ))}
       </PdfDocument>,
+      { brandColor: content.company.brandColor },
     );
   }
 }

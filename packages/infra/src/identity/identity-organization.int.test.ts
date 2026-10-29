@@ -18,6 +18,7 @@ import { branches, roles, teamMembers } from '../db/schema';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { BetterAuthPasswordHasher } from './better-auth-password-hasher';
+import { DrizzleDocumentContacts } from './drizzle-document-contacts';
 import { DrizzleOrganizationQuery } from './drizzle-organization-query';
 import { DrizzleUserListQuery } from './drizzle-user-list-query';
 import { createIdentityUnitOfWork } from './identity-unit-of-work';
@@ -107,6 +108,26 @@ describe('branches against Postgres', () => {
       ['Casa central', false, 0],
     ]);
     expect((await query.findBranch(central))?.isMain).toBe(false);
+  });
+
+  it('saves the free-text PDF contact and gives it to the PDF contacts', async () => {
+    const result = await new CreateBranch({ uow, ids, clock }).execute(
+      {
+        name: 'Casa central',
+        whatsapp: '+5491140001000',
+        pdfContactText: 'Lunes a viernes de 9 a 18',
+      },
+      ADMIN,
+    );
+    if (result.isErr()) throw new Error(`could not create the branch: ${result.error.type}`);
+    const { branchId } = result.value;
+
+    expect((await query.findBranch(branchId))?.pdfContactText).toBe('Lunes a viernes de 9 a 18');
+    expect(await new DrizzleDocumentContacts(db).branch(branchId)).toMatchObject({
+      name: 'Casa central',
+      whatsapp: '+5491140001000',
+      text: 'Lunes a viernes de 9 a 18',
+    });
   });
 
   it('rejects a repeated name ignoring case and accents, and trashes an empty branch', async () => {

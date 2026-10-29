@@ -130,7 +130,11 @@ export class DownloadPropertyAppraisalSheet {
         room: features('room', 1),
         amenity: features('amenity', 2),
       },
-      company: { name: settings.name, logo: logo?.bytes },
+      company: {
+        name: settings.name,
+        logo: logo?.bytes,
+        brandColor: settings.pdfOptions.brandColor,
+      },
       generatedAt: this.deps.clock.now(),
     });
 

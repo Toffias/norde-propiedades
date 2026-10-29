@@ -3,6 +3,7 @@ import type { CompanySettings, CompanySettingsReader, FileStorage } from '../../
 import { DocumentIdInputSchema, type DocumentIdInput } from '../../contracts';
 import type { PropertyListDocument } from '../../domain/property-list-document';
 import { idOf } from '../catalog-support';
+import { companyContact } from '../company-contact';
 import type { DocumentContacts } from '../ports/document-contacts';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { PropertyDetailLookups } from '../ports/property-detail-lookups';
@@ -82,10 +83,18 @@ export class RenderPropertyListDocument {
     const company = settings.toSnapshot();
     const [logo, contact, agent] = await Promise.all([
       company.logoKey === undefined ? undefined : this.deps.storage.get(company.logoKey),
-      company.pdfOptions.showCompanyContact ? this.deps.contacts.branch(undefined) : undefined,
+      companyContact(this.deps.contacts, undefined, company.pdfOptions),
       document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
     ]);
-    return { company: { name: company.name, logo: logo?.bytes, contact }, agent };
+    return {
+      company: {
+        name: company.name,
+        logo: logo?.bytes,
+        brandColor: company.pdfOptions.brandColor,
+        contact,
+      },
+      agent,
+    };
   }
 
   private async *sheets(

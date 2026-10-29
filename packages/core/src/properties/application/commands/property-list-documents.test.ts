@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CompanySettings } from '../../../settings';
+import { CompanySettings, type PdfOptions } from '../../../settings';
 import { InMemoryFileStorage } from '../../../settings/testing';
 import { Actor } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
@@ -38,15 +38,16 @@ const MAIN_BRANCH = {
   phone: '+541146871674',
   whatsapp: '+5491161798942',
   email: 'hola@norde.com.ar',
+  text: undefined,
 };
 
-function settingsWith(pdf: { agentInfo?: 'show' | 'hide' | 'ask' } = {}) {
+function settingsWith(pdf: Partial<PdfOptions> = {}) {
   const settings = CompanySettings.defaults();
   settings.updatePdfOptions({ ...settings.toSnapshot().pdfOptions, ...pdf }, TEST_NOW);
   return { get: () => Promise.resolve(settings) };
 }
 
-function setup(total = 3, pdf: { agentInfo?: 'show' | 'hide' | 'ask' } = {}) {
+function setup(total = 3, pdf: Partial<PdfOptions> = {}) {
   const uow = new InMemoryPropertiesUnitOfWork();
   // El buscador devuelve las propiedades ordenadas por código.
   const items = [A, B, C].map((id, i) => aPanelItem({ id, code: `DEP000${(i + 1).toString()}` }));
@@ -70,6 +71,7 @@ function setup(total = 3, pdf: { agentInfo?: 'show' | 'hide' | 'ask' } = {}) {
           phone: '+5491155550000',
           whatsapp: undefined,
           email: 'camila@norde.com.ar',
+          text: undefined,
         },
       ],
     ]),
@@ -235,6 +237,26 @@ describe('RenderPropertyListDocument', () => {
     expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('gone');
   });
 
+  it('prints the free-text contact of Mi empresa, or no contact when it is turned off', async () => {
+    const contactText = 'Lunes a viernes de 9 a 18';
+    const withText = setup(3, { contactText });
+    const { documentId } = unwrap(
+      await withText.request.execute({ selection: ALL, layout: 'landscape' }, EXPORTER),
+    );
+    unwrap(await withText.render.execute({ documentId }, JOBS));
+    expect(withText.renderer.rendered[0]?.company.contact).toEqual({
+      ...MAIN_BRANCH,
+      text: contactText,
+    });
+
+    const hidden = setup(3, { showCompanyContact: false, contactText });
+    const second = unwrap(
+      await hidden.request.execute({ selection: ALL, layout: 'landscape' }, EXPORTER),
+    );
+    unwrap(await hidden.render.execute({ documentId: second.documentId }, JOBS));
+    expect(hidden.renderer.rendered[0]?.company.contact).toBeUndefined();
+  });
+
   it('skips the properties deleted after the request, and fails when none is left', async () => {
     const some = setup();
     const first = unwrap(
@@ -305,11 +327,16 @@ describe('GetPropertyListDocumentDownload', () => {
 });
 
 describe('GetPdfExportOptions', () => {
-  it('tells the dialog whether to ask for the agent details', async () => {
-    expect(unwrap(await setup(3, { agentInfo: 'ask' }).options.execute({}, EXPORTER))).toEqual({
-      askAgent: true,
+  it('tells the dialog whether to ask for the agent details, and the brand color', async () => {
+    expect(
+      unwrap(
+        await setup(3, { agentInfo: 'ask', brandColor: '#1f4e79' }).options.execute({}, EXPORTER),
+      ),
+    ).toEqual({ askAgent: true, brandColor: '#1f4e79' });
+    expect(unwrap(await setup().options.execute({}, EXPORTER))).toEqual({
+      askAgent: false,
+      brandColor: '#c9302b',
     });
-    expect(unwrap(await setup().options.execute({}, EXPORTER))).toEqual({ askAgent: false });
     expect(
       unwrapErr(await setup().options.execute({}, Actor.user(PRODUCER_ID, ['properties:read']))),
     ).toEqual({ type: 'Forbidden' });

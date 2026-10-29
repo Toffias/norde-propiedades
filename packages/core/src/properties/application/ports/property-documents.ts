@@ -12,7 +12,12 @@ export interface OwnerReportContent {
   readonly prices: readonly PdfPrice[];
   /** La foto de la tarjeta de la propiedad: la primera marcada para el PDF. */
   readonly photo: Uint8Array | undefined;
-  readonly company: { readonly name: string; readonly logo: Uint8Array | undefined };
+  readonly company: {
+    readonly name: string;
+    readonly logo: Uint8Array | undefined;
+    /** El color de marca de Mi empresa (`#rrggbb`): títulos, badges e íconos. */
+    readonly brandColor: string;
+  };
   /** La sucursal de la propiedad, si "Ficha y PDF" muestra el contacto de la empresa. */
   readonly contact: DocumentContact | undefined;
   /** "Tu productor": el productor de la propiedad (o quien lo pidió), si van los datos del agente. */

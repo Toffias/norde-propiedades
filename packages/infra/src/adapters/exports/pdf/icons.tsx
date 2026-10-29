@@ -24,7 +24,7 @@ import {
 } from 'lucide';
 import type { ReactElement } from 'react';
 
-import { PDF_COLORS } from './theme';
+import { brandColor } from './brand';
 
 // Íconos de línea de lucide (los mismos del panel), dibujados como SVG del PDF.
 
@@ -102,15 +102,18 @@ function shape(tag: string, attrs: Readonly<Record<string, unknown>>, key: numbe
 export function PdfIcon({
   name,
   size = 10,
-  color = PDF_COLORS.brand,
+  color,
 }: {
   readonly name: PdfIconName;
   readonly size?: number;
+  /** Sin color, el de marca del documento. */
   readonly color?: string;
 }): ReactElement {
+  const brand = brandColor();
+  const fill = color ?? brand;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      {ICONS[name].map(([tag, attrs], index) => shape(tag, attrs, index, color))}
+      {ICONS[name].map(([tag, attrs], index) => shape(tag, attrs, index, fill))}
     </Svg>
   );
 }

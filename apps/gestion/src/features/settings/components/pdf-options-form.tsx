@@ -25,7 +25,8 @@ import {
 } from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
 import { Switch } from '@norde/ui/components/switch';
-import { Loader2Icon } from 'lucide-react';
+import { Textarea } from '@norde/ui/components/textarea';
+import { Loader2Icon, RotateCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm, type FieldPath } from 'react-hook-form';
@@ -34,6 +35,11 @@ import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
 import { FormAlert } from '../../shared/components/form-alert';
 import { updatePdfOptionsAction } from '../actions';
+
+/** El rojo de Norde: el color de marca de fábrica. */
+const DEFAULT_BRAND_COLOR = '#c9302b';
+
+const CONTACT_PLACEHOLDER = ['Av. Cabildo 1234, CABA', 'Lunes a viernes de 9 a 18'].join('\n');
 
 const ADDRESS_LABELS: readonly (readonly [AddressDisplayValue, string])[] = [
   ['full', 'La dirección exacta'],
@@ -56,7 +62,7 @@ const TOGGLES: readonly (readonly [Toggle, string, string])[] = [
   [
     'showCompanyContact',
     'Datos de contacto de la empresa',
-    'Teléfono, email y dirección de la sucursal.',
+    'Teléfono, email y dirección de la sucursal, o el texto libre de abajo.',
   ],
   ['showPrice', 'Precio', 'Si se apaga, la ficha dice "Consultar precio".'],
   [
@@ -191,6 +197,74 @@ export function PdfOptionsForm({
               )}
             />
           ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="contactText"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contacto en texto libre (opcional)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    rows={4}
+                    disabled={disabled || pending}
+                    placeholder={CONTACT_PLACEHOLDER}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Hasta 6 renglones. Reemplaza a la dirección, los teléfonos y el email de la
+                  sucursal en todos los PDF. Una sucursal con su propio texto usa el suyo.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="brandColor"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Color de marca</FormLabel>
+                <div className="flex items-center gap-3">
+                  <FormControl>
+                    <input
+                      type="color"
+                      value={field.value}
+                      disabled={disabled || pending}
+                      onChange={(event) => {
+                        field.onChange(event.target.value);
+                      }}
+                      onBlur={field.onBlur}
+                      className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-border bg-background p-0.5 disabled:cursor-not-allowed"
+                    />
+                  </FormControl>
+                  <span className="font-mono text-sm uppercase">{field.value}</span>
+                  {!disabled && field.value.toLowerCase() !== DEFAULT_BRAND_COLOR && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => {
+                        field.onChange(DEFAULT_BRAND_COLOR);
+                      }}
+                    >
+                      <RotateCcwIcon className="size-3.5" aria-hidden />
+                      El de Norde
+                    </Button>
+                  )}
+                </div>
+                <FormDescription>
+                  Títulos, badges e íconos de todos los PDF. Tiene que leerse sobre blanco: los
+                  colores muy claros no se aceptan.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
         {!disabled && (
           <Button type="submit" className="self-start" disabled={pending}>

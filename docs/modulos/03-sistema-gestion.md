@@ -919,10 +919,10 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 
 Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). La grilla y las tarjetas del buscador enlazan a la ficha.
 
-**Cabecera**: foto de portada, estado (con "Cambiar estado", con las transiciones de §4.7), tipo, código, ubicación, dirección para publicar y la real, favorita, "Publicación" (publicar en web, con o sin precio, dirección exacta y destacada, con `properties:publish`) y las acciones: ver en el mapa, vista previa de la web, estadísticas, PDF de la ficha, PDF de vidriera y reporte al propietario.
+**Cabecera**: foto de portada, estado (con "Cambiar estado", con las transiciones de §4.7), tipo, código, ubicación, dirección para publicar y la real, favorita, "Publicación" (publicar en web, con o sin precio, dirección exacta y destacada, con `properties:publish`) y las acciones: ver en el mapa, estadísticas, PDF de la ficha, PDF de vidriera y reporte al propietario.
 
 - "Publicar en web" se marca en cualquier estado: la web la muestra solo mientras está disponible.
-- La vista previa muestra la propiedad como la vería un visitante (fotos para la web, dirección y precio según la publicación) aunque no esté publicada.
+- La vista previa (`/propiedades/<id>/vista-previa`) muestra la propiedad como la vería un visitante (fotos para la web, dirección y precio según la publicación) aunque no esté publicada. No está en el menú de la ficha.
 
 **Detalles**: cada bloque se edita en el lugar y guarda con su propio caso de uso, con el diff en el historial.
 

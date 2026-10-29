@@ -31,7 +31,6 @@ import {
   BookmarkCheckIcon,
   BuildingIcon,
   ChevronDownIcon,
-  EyeIcon,
   FileDownIcon,
   FileTextIcon,
   FilesIcon,
@@ -77,7 +76,7 @@ function isStatus(value: string): value is PropertyStatusValue {
 
 /**
  * Cabecera de la ficha: portada, estado (con su cambio), tipo, código y ubicación, favorito,
- * publicación en la web y las acciones (mapa, PDF, reporte al propietario, vista previa).
+ * publicación en la web y las acciones (mapa, PDF, reporte al propietario).
  */
 export function PropertyDetailHeader({
   detail,
@@ -335,12 +334,6 @@ export function PropertyDetailHeader({
                 >
                   <MapPinIcon className="h-4 w-4" />
                   {detail.coordinates === undefined ? 'Sin ubicación en el mapa' : 'Ver en el mapa'}
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={`/propiedades/${detail.id}/vista-previa` as Route} target="_blank">
-                    <EyeIcon className="h-4 w-4" />
-                    Vista previa en la web
-                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={`/propiedades/${detail.id}?tab=estadisticas` as Route}>

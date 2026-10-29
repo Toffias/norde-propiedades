@@ -3,6 +3,7 @@
 import { Button } from '@norde/ui/components/button';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { toast } from '@norde/ui/components/sonner';
+import { cn } from '@norde/ui/lib/utils';
 import { Loader2Icon, PencilIcon, type LucideIcon } from 'lucide-react';
 import { useState, useTransition, type ReactNode } from 'react';
 
@@ -127,17 +128,21 @@ export function InlineFormActions({ controls }: { readonly controls: InlineFormC
 export function Facts({
   items,
   columns = 2,
+  className,
 }: {
   readonly items: readonly { readonly label: string; readonly value: ReactNode }[];
   readonly columns?: 2 | 3;
+  /** Por ejemplo, para repartir las filas en el alto de la tarjeta. */
+  readonly className?: string;
 }) {
   return (
     <dl
-      className={
+      className={cn(
         columns === 3
           ? 'grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3'
-          : 'grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2'
-      }
+          : 'grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2',
+        className,
+      )}
     >
       {items.map((item) => (
         <div key={item.label} className="flex min-w-0 flex-col gap-0.5">

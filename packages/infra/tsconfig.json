@@ -1,4 +1,8 @@
 {
   "extends": "@norde/config/tsconfig/node.json",
-  "include": ["src", "test", "*.config.ts"]
+  "compilerOptions": {
+    // Los PDF se arman con componentes de @react-pdf/renderer (ADR 0051).
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "test", "scripts", "*.config.ts"]
 }

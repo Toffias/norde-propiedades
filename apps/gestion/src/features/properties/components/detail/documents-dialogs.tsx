@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from '@norde/ui/components/dialog';
 import { Input } from '@norde/ui/components/input';
-import { DateRangePicker } from '@norde/ui/components/date-range-picker';
 import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
@@ -59,15 +58,6 @@ const DOCUMENT_KINDS: Readonly<
 
 /** Cada cuánto se vuelve a preguntar mientras algún PDF se está armando. */
 const POLL_MS = 3000;
-
-/** `AAAA-MM-DD` de hoy y de hace un mes, en Buenos Aires, para el período por defecto. */
-function defaultPeriod(): { readonly from: string; readonly to: string } {
-  const day = (date: Date) =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(date);
-  const today = new Date();
-  const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-  return { from: day(monthAgo), to: day(today) };
-}
 
 /** Elige el formato de la ficha en PDF (#175) y la pide; avisa que se está armando. */
 export function SheetDocumentDialog({
@@ -288,80 +278,6 @@ export function DocumentsDialog({
         />
       )}
     </>
-  );
-}
-
-/** Pide el reporte al propietario de un período. */
-export function OwnerReportDialog({
-  propertyId,
-  open,
-  onOpenChange,
-  onRequested,
-}: {
-  readonly propertyId: string;
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly onRequested: () => void;
-}) {
-  const id = useId();
-  const [period, setPeriod] = useState(defaultPeriod);
-  const [error, setError] = useState<string | undefined>();
-  const [pending, startTransition] = useTransition();
-
-  function submit() {
-    setError(undefined);
-    startTransition(async () => {
-      const failure = await runAction(() =>
-        requestPropertyDocumentAction({ propertyId, kind: 'owner_report', ...period }),
-      );
-      if (failure !== undefined) {
-        setError(failure);
-        return;
-      }
-      toast.success('Estamos armando el reporte al propietario.');
-      onOpenChange(false);
-      onRequested();
-    });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle icon={ScrollTextIcon}>Reporte al propietario</DialogTitle>
-          <DialogDescription>
-            Publicaciones activas, visitas por portal, envíos y consultas del período. Se arma en
-            PDF y lo podés descargar o mandar por email.
-          </DialogDescription>
-        </DialogHeader>
-        <FormAlert message={error} />
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${id}-period`}>Período</Label>
-          <DateRangePicker
-            id={`${id}-period`}
-            label="Período del reporte"
-            value={period}
-            onChange={setPeriod}
-            className="w-full"
-          />
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              onOpenChange(false);
-            }}
-            disabled={pending}
-          >
-            Cancelar
-          </Button>
-          <Button onClick={submit} disabled={pending}>
-            {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
-            Armar el reporte
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 

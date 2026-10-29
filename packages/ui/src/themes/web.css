@@ -17,7 +17,7 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 :root {
-  --radius: 1rem;
+  --radius: 0.625rem;
   --background: #faf7f2;
   --foreground: #2a2522;
   --card: #ffffff;

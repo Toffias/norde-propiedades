@@ -5,12 +5,11 @@ import { AboutStats } from '../../../components/about/about-stats';
 import { ContactSection } from '../../../components/about/contact-section';
 import { HistoryTimeline } from '../../../components/about/history-timeline';
 import { TeamSection } from '../../../components/about/team-section';
-import { Breadcrumbs } from '../../../components/seo/breadcrumbs';
 import { JsonLdScript } from '../../../components/seo/json-ld-script';
 import { getContainer } from '../../../container';
 import { findAboutContent, listTeamMembers } from '../../../lib/about/queries';
 import { mediaAbsoluteUrl } from '../../../lib/blog/media';
-import { teamSchema } from '../../../lib/seo/json-ld';
+import { breadcrumbSchema, teamSchema } from '../../../lib/seo/json-ld';
 import { buildMetadata, withBrand } from '../../../lib/seo/metadata';
 import { routes } from '../../../lib/seo/routes';
 import { getSiteUrl } from '../../../lib/site-url';
@@ -37,17 +36,14 @@ export default async function ContactPage() {
 
   return (
     <div className="space-y-16 pb-4 sm:space-y-20">
-      <div className="space-y-4">
-        <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 sm:pt-8">
-          <Breadcrumbs
-            items={[
-              { name: 'Inicio', path: routes.home() },
-              { name: 'Nosotros y contacto', path: routes.contact() },
-            ]}
-          />
-        </div>
-        <AboutHero intro={about.intro} />
-      </div>
+      {/* Sin migas visibles: la portada ocupa la pantalla. Quedan para los buscadores. */}
+      <JsonLdScript
+        data={breadcrumbSchema(siteUrl, [
+          { name: 'Inicio', path: routes.home() },
+          { name: 'Nosotros y contacto', path: routes.contact() },
+        ])}
+      />
+      <AboutHero intro={about.intro} />
 
       <HistoryTimeline milestones={about.milestones} />
       <AboutStats stats={about.stats} />

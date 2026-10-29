@@ -18,10 +18,7 @@ export function ContactChannels({ whatsappText }: { readonly whatsappText: strin
   if (!whatsapp && !telephone && !email && !address) return null;
 
   return (
-    <aside
-      aria-labelledby="contact-channels-title"
-      className="bg-card space-y-5 rounded-3xl border p-5 sm:p-6"
-    >
+    <aside aria-labelledby="contact-channels-title" className="space-y-5 border-t pt-6">
       <h2 id="contact-channels-title" className="text-lg font-extrabold">
         Otras formas de contactarnos
       </h2>

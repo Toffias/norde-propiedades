@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { parseId } from '../../shared';
 import { unwrap, unwrapErr } from '../../shared/testing';
-import { UNIT_IMPORT_FIELD_LABELS, UNIT_IMPORT_FIELD_VALUES } from '../contracts';
+import {
+  UNIT_EXPORT_READ_ONLY_HEADERS,
+  UNIT_IMPORT_FIELD_LABELS,
+  UNIT_IMPORT_FIELD_VALUES,
+} from '../contracts';
 
 import {
   DevelopmentUnitImport,
@@ -40,7 +44,9 @@ describe('unit import mapping', () => {
   it('recognizes the headers of the units export, so an exported file imports as is', () => {
     const headers = UNIT_IMPORT_FIELDS.map((field) => UNIT_IMPORT_FIELD_LABELS[field]);
 
-    expect(suggestUnitImportMapping(['Código', ...headers])).toEqual(
+    const readOnly = Object.values(UNIT_EXPORT_READ_ONLY_HEADERS);
+
+    expect(suggestUnitImportMapping(['Código', ...headers, ...readOnly])).toEqual(
       Object.fromEntries(UNIT_IMPORT_FIELDS.map((field, index) => [field, index + 1])),
     );
   });

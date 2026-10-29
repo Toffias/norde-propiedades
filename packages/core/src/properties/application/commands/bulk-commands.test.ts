@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { Actor, parseId } from '../../../shared';
 import { FixedClock, unwrap, unwrapErr } from '../../../shared/testing';
-import { MAX_BULK_EDIT, type BulkEditPropertiesInput } from '../../contracts';
+import {
+  MAX_BULK_EDIT,
+  type BulkEditPropertiesInput,
+  type PropertyExportDetails,
+} from '../../contracts';
 import {
   aPanelItem,
   BRANCH_ID,
@@ -16,6 +20,7 @@ import {
   StubPanelPropertyListQuery,
   TEST_NOW,
   TEST_OUTSIDER,
+  InMemoryPropertyExportDetails,
 } from '../../testing';
 import { BulkEditProperties } from './bulk-edit-properties';
 import { ExportProperties } from './export-properties';
@@ -26,6 +31,20 @@ const C = '00000000-0000-7000-8000-0000000000c3';
 const NEW_PRODUCER = '00000000-0000-7000-8000-0000000000a9';
 const OTHER_BRANCH = '00000000-0000-7000-8000-0000000000b9';
 const TAG = '00000000-0000-7000-8000-0000000000f1';
+
+const EXPORT_DETAILS: PropertyExportDetails = {
+  address: 'Gurruchaga 1850 3 B',
+  toilets: 1,
+  surfaceSemiCoveredM2: 6,
+  surfaceLandM2: undefined,
+  frontM: undefined,
+  depthM: undefined,
+  expensesCents: 8_500_000n,
+  maintenanceUser: 'Juan Gómez',
+  branch: 'Centro',
+  development: undefined,
+  owner: { name: 'Ana Pérez', email: 'ana@example.com', mobile: '+5491155550000' },
+};
 
 /** Edita en masa lo suyo. */
 const AGENT = Actor.user(PRODUCER_ID, [
@@ -395,14 +414,54 @@ describe('ExportProperties', () => {
     const list = new StubPanelPropertyListQuery({ items, total });
     const writer = new FakeExportWriter();
     const users = new InMemoryUserNames(new Map([[PRODUCER_ID, 'Camila Ruiz']]));
+    const details = new InMemoryPropertyExportDetails(new Map([[A, EXPORT_DETAILS]]));
     const clock = new FixedClock(TEST_NOW);
     return {
       uow,
       list,
       writer,
-      exportProperties: new ExportProperties({ uow, list, users, writer, clock }),
+      details,
+      exportProperties: new ExportProperties({ uow, list, users, details, writer, clock }),
     };
   }
+
+  it('adds the details and the owner with clients:read-owners', async () => {
+    const { writer, details, exportProperties } = exporter();
+    const actor = Actor.user(PRODUCER_ID, ['properties:export', 'clients:read-owners']);
+
+    const file = unwrap(
+      await exportProperties.execute(
+        { format: 'csv', selection: { kind: 'ids', ids: [A, B, C] } },
+        actor,
+      ),
+    );
+    for await (const _chunk of file.body) {
+      // La planilla se arma a medida que se lee.
+    }
+
+    expect(details.requests).toEqual([{ ids: [A, B, C], includeOwners: true }]);
+    expect(writer.rows[0]?.details).toEqual(EXPORT_DETAILS);
+    // Una propiedad sin detalles leídos sale con las celdas vacías.
+    expect(writer.rows[1]?.details.address).toBeUndefined();
+  });
+
+  it('leaves the owner out without clients:read-owners and audits it', async () => {
+    const { uow, writer, exportProperties } = exporter();
+    const actor = Actor.user(PRODUCER_ID, ['properties:export']);
+
+    const file = unwrap(
+      await exportProperties.execute(
+        { format: 'xlsx', selection: { kind: 'ids', ids: [A] } },
+        actor,
+      ),
+    );
+    for await (const _chunk of file.body) {
+      // La planilla se arma a medida que se lee.
+    }
+
+    expect(writer.rows[0]?.details).toEqual({ ...EXPORT_DETAILS, owner: undefined });
+    expect(uow.audit.entries[0]?.changes).toMatchObject({ owners: { before: null, after: false } });
+  });
 
   it('writes the rows in batches and audits the export with its filter', async () => {
     const { uow, writer, exportProperties } = exporter();

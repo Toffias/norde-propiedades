@@ -11,8 +11,9 @@ import type {
   DevelopmentRef,
   FeatureRow,
   PanelPropertyCustomAttribute,
-  PanelPropertyRow,
+  PropertyExportDetails,
   PropertyExportFormat,
+  PropertyExportRow,
   ReservationListRow,
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
@@ -64,6 +65,7 @@ import type {
   MovedClientLinks,
   PropertyClientMerge,
 } from '../application/ports/property-client-merge';
+import type { PropertyExportDetailsQuery } from '../application/ports/property-export-details-query';
 import type { ExportFile, PropertyExportWriter } from '../application/ports/property-export-writer';
 import type {
   PropertiesTransaction,
@@ -1099,12 +1101,12 @@ export class FakeGeocoder implements Geocoder {
 
 /** Junta las filas que recibiría la planilla, sin armar ningún archivo. */
 export class FakeExportWriter implements PropertyExportWriter {
-  readonly rows: PanelPropertyRow[] = [];
+  readonly rows: PropertyExportRow[] = [];
   format: PropertyExportFormat | undefined;
 
   write(
     format: PropertyExportFormat,
-    batches: AsyncIterable<readonly PanelPropertyRow[]>,
+    batches: AsyncIterable<readonly PropertyExportRow[]>,
   ): ExportFile {
     this.format = format;
     const rows = this.rows;
@@ -1115,6 +1117,25 @@ export class FakeExportWriter implements PropertyExportWriter {
       }
     }
     return { filename: `propiedades.${format}`, contentType: 'text/plain', body: body() };
+  }
+}
+
+/** Los detalles de la planilla por propiedad; el propietario sale solo si se pide. */
+export class InMemoryPropertyExportDetails implements PropertyExportDetailsQuery {
+  readonly requests: { readonly ids: readonly string[]; readonly includeOwners: boolean }[] = [];
+
+  constructor(private readonly rows: ReadonlyMap<string, PropertyExportDetails> = new Map()) {}
+
+  details(propertyIds: readonly string[], options: { readonly includeOwners: boolean }) {
+    this.requests.push({ ids: propertyIds, includeOwners: options.includeOwners });
+    const found = new Map<string, PropertyExportDetails>();
+    for (const id of propertyIds) {
+      const row = this.rows.get(id);
+      if (row !== undefined) {
+        found.set(id, options.includeOwners ? row : { ...row, owner: undefined });
+      }
+    }
+    return Promise.resolve(found);
   }
 }
 
@@ -1919,11 +1940,11 @@ export class FakePropertyImportDirectory implements PropertyImportDirectory {
 
 /** Junta las filas que recibiría el Excel de unidades, sin armar ningún archivo. */
 export class FakeDevelopmentUnitsExportWriter implements DevelopmentUnitsExportWriter {
-  readonly rows: PanelPropertyRow[] = [];
+  readonly rows: PropertyExportRow[] = [];
   developmentCode: string | undefined;
 
   write(
-    batches: AsyncIterable<readonly PanelPropertyRow[]>,
+    batches: AsyncIterable<readonly PropertyExportRow[]>,
     meta: { readonly developmentCode: string },
   ): ExportFile {
     this.developmentCode = meta.developmentCode;

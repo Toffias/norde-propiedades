@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  UNIT_EXPORT_READ_ONLY_HEADERS,
   UNIT_IMPORT_FIELD_LABELS,
   UNIT_IMPORT_FIELD_VALUES,
-  type PanelPropertyRow,
+  type PropertyExportRow,
 } from '@norde/core/properties';
 
 import { XlsxSpreadsheetReader } from '../imports/xlsx-spreadsheet-reader';
 
 import { XlsxDevelopmentUnitsExportWriter } from './development-units-export-writer';
 
-function row(overrides: Partial<PanelPropertyRow> = {}): PanelPropertyRow {
+function row(overrides: Partial<PropertyExportRow> = {}): PropertyExportRow {
   return {
     id: '00000000-0000-7000-8000-0000000000c1',
     code: 'DEP0001',
@@ -41,11 +42,38 @@ function row(overrides: Partial<PanelPropertyRow> = {}): PanelPropertyRow {
     updatedAt: new Date('2026-09-30T12:00:00Z'),
     deletedAt: undefined,
     deletedBy: undefined,
+    details: {
+      address: 'Gurruchaga 1850 4 A',
+      toilets: 1,
+      surfaceSemiCoveredM2: 6.5,
+      surfaceLandM2: undefined,
+      frontM: undefined,
+      depthM: undefined,
+      expensesCents: 8_500_000n,
+      maintenanceUser: undefined,
+      branch: undefined,
+      development: 'Torre Norde',
+      owner: undefined,
+    },
     ...overrides,
   };
 }
 
-async function* batches(...lists: PanelPropertyRow[][]) {
+/** Las columnas que la importación no lee, iguales en las dos filas. */
+const EXTRA_CELLS = [
+  '2',
+  '1',
+  '1',
+  undefined,
+  '6.5',
+  undefined,
+  undefined,
+  undefined,
+  '85000',
+  'Gurruchaga al 1800',
+];
+
+async function* batches(...lists: PropertyExportRow[][]) {
   for (const list of lists) {
     await Promise.resolve();
     yield list;
@@ -90,10 +118,12 @@ describe('XlsxDevelopmentUnitsExportWriter', () => {
 
     const sheet = await new XlsxSpreadsheetReader().open(await bytesOf(file.body));
     if (sheet.isErr()) throw new Error('The export is not a readable Excel');
-    expect(sheet.value.headers).toEqual([
+    const headers = [
       'Código',
       ...UNIT_IMPORT_FIELD_VALUES.map((field) => UNIT_IMPORT_FIELD_LABELS[field]),
-    ]);
+    ];
+    const extra = Object.values(UNIT_EXPORT_READ_ONLY_HEADERS);
+    expect(sheet.value.headers).toEqual([...headers, ...extra]);
 
     const rows = [];
     for await (const read of sheet.value.rows()) rows.push(read.cells);
@@ -113,6 +143,7 @@ describe('XlsxDevelopmentUnitsExportWriter', () => {
         undefined,
         undefined,
         'Disponible',
+        ...EXTRA_CELLS,
       ],
       [
         'DEP0002',
@@ -129,6 +160,7 @@ describe('XlsxDevelopmentUnitsExportWriter', () => {
         undefined,
         undefined,
         'Vendida',
+        ...EXTRA_CELLS,
       ],
     ]);
   });

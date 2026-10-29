@@ -250,6 +250,38 @@ export interface PanelPropertyRow {
   readonly deletedBy: UserRef | undefined;
 }
 
+// ---------- Exportación (CSV, Excel) ----------
+
+/** El propietario en la planilla: solo con "Ver datos de propietarios" (`clients:read-owners`). */
+export interface PropertyExportOwner {
+  readonly name: string;
+  readonly email: string | undefined;
+  /** El primer celular cargado o, si no tiene, el teléfono principal (E.164). */
+  readonly mobile: string | undefined;
+}
+
+/** Lo que la planilla agrega a la fila del buscador: las columnas de Tokko. */
+export interface PropertyExportDetails {
+  /** Calle, número, piso y unidad: privados, para uso interno. */
+  readonly address: string | undefined;
+  readonly toilets: number | undefined;
+  readonly surfaceSemiCoveredM2: number | undefined;
+  readonly surfaceLandM2: number | undefined;
+  readonly frontM: number | undefined;
+  readonly depthM: number | undefined;
+  /** Centavos de pesos. */
+  readonly expensesCents: bigint | undefined;
+  readonly maintenanceUser: string | undefined;
+  readonly branch: string | undefined;
+  readonly development: string | undefined;
+  /** El primero cargado. `undefined` sin propietario o sin permiso para verlo. */
+  readonly owner: PropertyExportOwner | undefined;
+}
+
+export interface PropertyExportRow extends PanelPropertyRow {
+  readonly details: PropertyExportDetails;
+}
+
 // ---------- Mapa ----------
 
 /** Pines por pedido: más que esto no se distingue en pantalla; se pide acercar el mapa. */

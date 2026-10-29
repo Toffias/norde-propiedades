@@ -17,6 +17,7 @@ import {
   RecordAppraisalResult,
   UploadAppraisalPhoto,
   DeleteAppraisal,
+  ExportAppraisals,
   GetAppraisal,
   GetSourceAppraisal,
   ListAppraisalHistory,
@@ -445,6 +446,7 @@ import {
   DrizzleDirectory,
   DrizzleDocumentContacts,
   DrizzleOwnerContacts,
+  DrizzlePropertyExportDetails,
   DrizzleNewsFeedQuery,
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
@@ -472,6 +474,7 @@ import {
   DrizzleDevelopmentUnitImportQuery,
   DrizzlePropertyImportQuery,
   XlsxDevelopmentUnitsExportWriter,
+  XlsxAppraisalExportWriter,
   XlsxReservationExportWriter,
   LocalFileStorage,
   NominatimGeocoder,
@@ -1088,6 +1091,7 @@ function createPropertiesUseCases(
       uow,
       list,
       users,
+      details: new DrizzlePropertyExportDetails(db),
       writer: new FilePropertyExportWriter(),
       clock,
     }),
@@ -1243,6 +1247,7 @@ function createPropertiesUseCases(
       uow,
       list,
       users,
+      details: new DrizzlePropertyExportDetails(db),
       writer: new XlsxDevelopmentUnitsExportWriter(),
       clock,
     }),
@@ -1452,6 +1457,13 @@ function createAppraisalsUseCases(
   };
   return {
     listAppraisals: new ListAppraisals({ appraisals, directory }),
+    exportAppraisals: new ExportAppraisals({
+      uow,
+      appraisals,
+      directory,
+      writer: new XlsxAppraisalExportWriter(),
+      clock,
+    }),
     getAppraisal: new GetAppraisal({ appraisals, directory }),
     getSourceAppraisal: new GetSourceAppraisal({ appraisals, directory }),
     listAppraisalHistory: new ListAppraisalHistory({

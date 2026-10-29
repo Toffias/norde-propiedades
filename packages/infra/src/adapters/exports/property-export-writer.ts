@@ -1,18 +1,18 @@
-import { PassThrough } from 'node:stream';
-
 import {
   OPERATIONS,
   PROPERTY_KIND_LABELS,
   type ExportFile,
-  type PanelPropertyRow,
   type PropertyExportFormat,
+  type PropertyExportRow,
   type PropertyExportWriter,
   type PropertyStatusValue,
 } from '@norde/core/properties';
-import ExcelJS from 'exceljs';
 
-// Planilla (CSV o Excel) de una exportación de propiedades. Arma el archivo a medida que llegan los
-// lotes; nunca tiene la exportación entera en memoria. El PDF de la selección es otro pedido (#175).
+import { amount, csvStream, day, isoDay, xlsxStream, type Column } from './spreadsheet';
+
+// Planilla (CSV o Excel) de una exportación de propiedades, con las columnas de la de Tokko. Arma
+// el archivo a medida que llegan los lotes; nunca tiene la exportación entera en memoria. El PDF de
+// la selección es otro pedido (#175).
 
 const STATUS_LABELS: Readonly<Record<PropertyStatusValue, string>> = {
   draft: 'Borrador',
@@ -26,40 +26,11 @@ const STATUS_LABELS: Readonly<Record<PropertyStatusValue, string>> = {
 
 const OPERATION_LABELS = { sale: 'Venta', rent: 'Alquiler', temporary_rent: 'Temporario' } as const;
 
-const TIME_ZONE = 'America/Argentina/Buenos_Aires';
-const dateFormat = new Intl.DateTimeFormat('es-AR', {
-  timeZone: TIME_ZONE,
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-});
+type PropertyColumn = Column<PropertyExportRow>;
 
-/** Centavos → unidades con dos decimales, exacto ("150000.50"). */
-function units(cents: bigint): string {
-  const sign = cents < 0n ? '-' : '';
-  const abs = cents < 0n ? -cents : cents;
-  return `${sign}${(abs / 100n).toString()}.${(abs % 100n).toString().padStart(2, '0')}`;
-}
-
-type Cell = string | number | undefined;
-
-interface Column {
-  readonly header: string;
-  readonly width: number;
-  readonly value: (row: PanelPropertyRow) => Cell;
-}
-
-const COLUMNS: readonly Column[] = [
-  { header: 'Código', width: 12, value: (r) => r.code },
-  { header: 'Tipo', width: 14, value: (r) => PROPERTY_KIND_LABELS[r.propertyType] },
-  { header: 'Estado', width: 14, value: (r) => STATUS_LABELS[r.status] },
-  { header: 'Título', width: 40, value: (r) => r.portalTitle },
-  { header: 'Dirección para publicar', width: 30, value: (r) => r.publishAddress },
-  { header: 'Barrio', width: 18, value: (r) => r.neighborhood },
-  { header: 'Localidad', width: 18, value: (r) => r.city },
-  { header: 'Provincia', width: 18, value: (r) => r.province },
-  ...OPERATIONS.flatMap((operation): Column[] => {
-    const find = (r: PanelPropertyRow) => r.operations.find((o) => o.operation === operation);
+const OPERATION_COLUMNS: readonly PropertyColumn[] = OPERATIONS.flatMap(
+  (operation): PropertyColumn[] => {
+    const find = (r: PropertyExportRow) => r.operations.find((o) => o.operation === operation);
     return [
       {
         header: `${OPERATION_LABELS[operation]}: moneda`,
@@ -72,70 +43,51 @@ const COLUMNS: readonly Column[] = [
         value: (r) => {
           const found = find(r);
           if (found === undefined) return undefined;
-          return found.priceCents === null ? 'Consultar' : units(found.priceCents);
+          return found.priceCents === null ? 'Consultar' : amount(found.priceCents);
         },
       },
     ];
-  }),
+  },
+);
+
+const COLUMNS: readonly PropertyColumn[] = [
+  { header: 'Código', width: 12, value: (r) => r.code },
+  { header: 'Tipo', width: 14, value: (r) => PROPERTY_KIND_LABELS[r.propertyType] },
+  { header: 'Estado', width: 14, value: (r) => STATUS_LABELS[r.status] },
+  { header: 'Título', width: 40, value: (r) => r.portalTitle },
+  { header: 'Dirección', width: 30, value: (r) => r.details.address },
+  { header: 'Dirección para publicar', width: 30, value: (r) => r.publishAddress },
+  { header: 'Barrio', width: 18, value: (r) => r.neighborhood },
+  { header: 'Localidad', width: 18, value: (r) => r.city },
+  { header: 'Provincia', width: 18, value: (r) => r.province },
+  { header: 'Emprendimiento', width: 22, value: (r) => r.details.development },
+  ...OPERATION_COLUMNS,
+  { header: 'Expensas (ARS)', width: 12, value: (r) => amount(r.details.expensesCents) },
   { header: 'Ambientes', width: 10, value: (r) => r.attributes.rooms },
   { header: 'Dormitorios', width: 11, value: (r) => r.attributes.bedrooms },
   { header: 'Baños', width: 8, value: (r) => r.attributes.bathrooms },
+  { header: 'Toilettes', width: 9, value: (r) => r.details.toilets },
   { header: 'Cocheras', width: 9, value: (r) => r.attributes.parkingSpaces },
   { header: 'Antigüedad (años)', width: 12, value: (r) => r.attributes.ageYears },
   { header: 'Sup. total (m²)', width: 12, value: (r) => r.attributes.surfaceTotalM2 },
   { header: 'Sup. cubierta (m²)', width: 12, value: (r) => r.attributes.surfaceCoveredM2 },
+  { header: 'Sup. semicubierta (m²)', width: 12, value: (r) => r.details.surfaceSemiCoveredM2 },
+  { header: 'Terreno (m²)', width: 12, value: (r) => r.details.surfaceLandM2 },
+  { header: 'Frente (m)', width: 10, value: (r) => r.details.frontM },
+  { header: 'Fondo (m)', width: 10, value: (r) => r.details.depthM },
   { header: 'Captador', width: 22, value: (r) => r.producer?.name },
-  { header: 'Alta', width: 12, value: (r) => dateFormat.format(r.createdAt) },
-  { header: 'Última actualización', width: 12, value: (r) => dateFormat.format(r.updatedAt) },
+  { header: 'Usuario de mantenimiento', width: 22, value: (r) => r.details.maintenanceUser },
+  { header: 'Sucursal', width: 16, value: (r) => r.details.branch },
+  { header: 'Alta', width: 12, value: (r) => day(r.createdAt) },
+  { header: 'Última actualización', width: 12, value: (r) => day(r.updatedAt) },
 ];
 
-const encoder = new TextEncoder();
-
-/** CSV con `;` y BOM: así lo abre bien Excel con configuración regional de Argentina. */
-function csvCell(value: Cell): string {
-  if (value === undefined) return '';
-  const text = String(value);
-  return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-async function* csv(
-  batches: AsyncIterable<readonly PanelPropertyRow[]>,
-): AsyncIterable<Uint8Array> {
-  yield encoder.encode(`\uFEFF${COLUMNS.map((c) => csvCell(c.header)).join(';')}\r\n`);
-  for await (const batch of batches) {
-    const lines = batch.map((row) => COLUMNS.map((c) => csvCell(c.value(row))).join(';'));
-    yield encoder.encode(`${lines.join('\r\n')}\r\n`);
-  }
-}
-
-function xlsx(batches: AsyncIterable<readonly PanelPropertyRow[]>): AsyncIterable<Uint8Array> {
-  const stream = new PassThrough();
-  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream, useStyles: true });
-  const sheet = workbook.addWorksheet('Propiedades', { views: [{ state: 'frozen', ySplit: 1 }] });
-  sheet.columns = COLUMNS.map((c, index) => ({
-    header: c.header,
-    key: String(index),
-    width: c.width,
-  }));
-  sheet.getRow(1).font = { bold: true };
-  sheet.getRow(1).commit();
-
-  void (async () => {
-    try {
-      for await (const batch of batches) {
-        for (const row of batch) {
-          sheet.addRow(COLUMNS.map((c) => c.value(row) ?? null)).commit();
-        }
-      }
-      sheet.commit();
-      await workbook.commit();
-    } catch (error) {
-      // El error llega a quien lee el archivo: la descarga se corta en vez de quedar incompleta.
-      stream.destroy(error instanceof Error ? error : new Error(String(error)));
-    }
-  })();
-  return stream;
-}
+/** Los datos del propietario: solo si quien exporta puede verlos. */
+const OWNER_COLUMNS: readonly PropertyColumn[] = [
+  { header: 'Propietario', width: 26, value: (r) => r.details.owner?.name },
+  { header: 'Email', width: 28, value: (r) => r.details.owner?.email },
+  { header: 'Celular', width: 16, value: (r) => r.details.owner?.mobile },
+];
 
 const CONTENT_TYPES: Readonly<Record<PropertyExportFormat, string>> = {
   csv: 'text/csv; charset=utf-8',
@@ -146,11 +98,16 @@ const CONTENT_TYPES: Readonly<Record<PropertyExportFormat, string>> = {
 export class FilePropertyExportWriter implements PropertyExportWriter {
   write(
     format: PropertyExportFormat,
-    batches: AsyncIterable<readonly PanelPropertyRow[]>,
-    meta: { readonly generatedAt: Date },
+    batches: AsyncIterable<readonly PropertyExportRow[]>,
+    meta: { readonly generatedAt: Date; readonly includeOwners: boolean },
   ): ExportFile {
-    const day = meta.generatedAt.toISOString().slice(0, 10);
-    const body = format === 'csv' ? csv(batches) : xlsx(batches);
-    return { filename: `propiedades-${day}.${format}`, contentType: CONTENT_TYPES[format], body };
+    const columns = meta.includeOwners ? [...COLUMNS, ...OWNER_COLUMNS] : COLUMNS;
+    const body =
+      format === 'csv' ? csvStream(columns, batches) : xlsxStream('Propiedades', columns, batches);
+    return {
+      filename: `propiedades-${isoDay.format(meta.generatedAt)}.${format}`,
+      contentType: CONTENT_TYPES[format],
+      body,
+    };
   }
 }

@@ -1,4 +1,3 @@
-import { OWNERSHIP_RULES, visibilityFilter } from '../../../identity';
 import {
   err,
   ok,
@@ -14,28 +13,13 @@ import {
   type AppraisalListRow,
   type ListAppraisalsQuery,
 } from '../../contracts';
-import { statusesOfGroup } from '../../domain/appraisal-status';
+import { appraisalCriteria } from '../appraisal-filter';
 import { withNames } from '../appraisal-rows';
 import { invalidInput, type InvalidInputError } from '../appraisal-support';
 import type { AppraisalQuery } from '../ports/appraisal-query';
 import type { PanelDirectory } from '../ports/panel-directory';
 
 export type ListAppraisalsError = ForbiddenError | InvalidInputError;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** `AAAA-MM-DD` de Buenos Aires (UTC−3, sin horario de verano) → instante UTC del comienzo del día. */
-function startOfDay(date: string): Date {
-  return new Date(`${date}T03:00:00.000Z`);
-}
-
-/** `[desde, hasta)` en instantes UTC, con "hasta" inclusive. */
-function dayRange(from: string | undefined, to: string | undefined) {
-  return {
-    from: from === undefined ? undefined : startOfDay(from),
-    to: to === undefined ? undefined : new Date(startOfDay(to).getTime() + DAY_MS),
-  };
-}
 
 /**
  * Las tasaciones (`/tasaciones`), con filtros, paginadas en la base. Sin "Ver tasaciones de
@@ -62,15 +46,7 @@ export class ListAppraisals {
     }
 
     const slice = await this.deps.appraisals.search({
-      visibility: visibilityFilter(actor, OWNERSHIP_RULES.appraisalsRead),
-      deleted: filter.view === 'trash',
-      statuses: filter.status === undefined ? undefined : statusesOfGroup(filter.status),
-      propertyType: filter.propertyType,
-      producerUserId: filter.producerId,
-      appraiserUserId: filter.appraiserId,
-      branchId: filter.branchId,
-      created: dayRange(filter.createdFrom, filter.createdTo),
-      visit: dayRange(filter.visitFrom, filter.visitTo),
+      ...appraisalCriteria(filter, actor),
       sort,
       ...toOffsetLimit({ page, pageSize }),
     });

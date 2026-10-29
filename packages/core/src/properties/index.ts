@@ -180,6 +180,7 @@ export type {
   GeocodingRequest,
 } from './application/ports/geocoder';
 export type { ExportFile, PropertyExportWriter } from './application/ports/property-export-writer';
+export type { PropertyExportDetailsQuery } from './application/ports/property-export-details-query';
 export type * from './application/catalog-support';
 export type { NoBranchAssignedError } from './application/panel-filter';
 export type {

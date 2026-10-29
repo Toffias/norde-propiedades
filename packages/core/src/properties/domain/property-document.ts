@@ -6,6 +6,12 @@ import { err, ok, type Result } from '../../shared/domain/result';
 import type { PriceCurrency, PropertyOperationKind } from './property-catalog';
 import type { PropertySheetLayout } from './property-sheet';
 import type { PropertyId } from './property';
+import {
+  DEFAULT_SHOWCASE_OPTIONS,
+  showcaseOptions,
+  type InvalidShowcaseOptionsError,
+  type ShowcaseOptions,
+} from './showcase-options';
 
 export type PropertyDocumentId = Id<'PropertyDocument'>;
 
@@ -30,6 +36,8 @@ export interface PropertyDocumentSnapshot {
   readonly period: ReportPeriod | undefined;
   /** El formato de la ficha (#175); los demás PDF no tienen. */
   readonly layout: PropertySheetLayout | undefined;
+  /** Las opciones de la vidriera (#175); los demás PDF no tienen. */
+  readonly showcase: ShowcaseOptions | undefined;
   /** Si lleva los datos del agente que lo pidió, resuelto al pedirlo. */
   readonly includeAgent: boolean;
   readonly storageKey: string | undefined;
@@ -136,12 +144,20 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
     readonly period: ReportPeriod | undefined;
     /** Solo la ficha; sin formato, la vertical de varias hojas. */
     readonly layout?: PropertySheetLayout | undefined;
+    /** Solo la vidriera; sin opciones, las de la marca. */
+    readonly showcase?: ShowcaseOptions | undefined;
     readonly includeAgent: boolean;
     readonly requestedBy: string;
     readonly now: Date;
-  }): Result<PropertyDocument, ReportPeriodRequiredError> {
+  }): Result<PropertyDocument, ReportPeriodRequiredError | InvalidShowcaseOptionsError> {
     if (input.kind === 'owner_report' && input.period === undefined) {
       return err({ type: 'ReportPeriodRequired' });
+    }
+    let showcase: ShowcaseOptions | undefined;
+    if (input.kind === 'showcase') {
+      const options = showcaseOptions(input.showcase ?? DEFAULT_SHOWCASE_OPTIONS);
+      if (options.isErr()) return err(options.error);
+      showcase = options.value;
     }
     const document = new PropertyDocument(input.id, {
       propertyId: input.propertyId,
@@ -149,6 +165,7 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
       status: 'pending',
       period: input.kind === 'owner_report' ? input.period : undefined,
       layout: input.kind === 'sheet' ? (input.layout ?? 'portrait') : undefined,
+      showcase,
       includeAgent: input.includeAgent,
       storageKey: undefined,
       error: undefined,
@@ -193,6 +210,11 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
   /** El formato de la ficha; las de antes de #175 eran la vertical. */
   get layout(): PropertySheetLayout {
     return this.#state.layout ?? 'portrait';
+  }
+
+  /** Las opciones de la vidriera; las de antes de #175 salen con las de la marca. */
+  get showcase(): ShowcaseOptions {
+    return this.#state.showcase ?? DEFAULT_SHOWCASE_OPTIONS;
   }
 
   get includeAgent(): boolean {

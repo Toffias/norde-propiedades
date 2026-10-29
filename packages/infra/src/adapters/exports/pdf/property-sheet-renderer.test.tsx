@@ -58,7 +58,9 @@ function orientation(pdf: PDFDocument): string {
   return width > height ? 'landscape' : 'portrait';
 }
 
-describe('ReactPdfPropertySheetRenderer', () => {
+// Armar PDF de verdad (fuentes, fotos con sharp, varias pasadas de react-pdf) con el CI cargado
+// pasa los 5 s por defecto, sobre todo el primero, que además carga react-pdf.
+describe('ReactPdfPropertySheetRenderer', { timeout: 30_000 }, () => {
   it('prints one landscape page per property', async () => {
     const pdf = await render('landscape', [await sheet('DEP0001'), await sheet('DEP0002')]);
     expect(pdf.getPageCount()).toBe(2);

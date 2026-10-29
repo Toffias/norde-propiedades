@@ -699,6 +699,8 @@ export const propertyDocuments = coreSchema.table(
     layout: text('layout'),
     /** Si lleva los datos del agente, resuelto al pedirlo (antes de #175 salían siempre). */
     includeAgent: boolean('include_agent').notNull().default(true),
+    /** Opciones de la vidriera (#175): orientación, colores, QR, banda, fotos y letra. */
+    showcaseOptions: jsonb('showcase_options'),
     storageKey: text('storage_key'),
     error: text('error'),
     requestedBy: text('requested_by').notNull(),

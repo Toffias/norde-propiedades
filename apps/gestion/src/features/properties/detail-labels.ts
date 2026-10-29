@@ -7,6 +7,7 @@ import type {
   PropertyDocumentStatusValue,
   PropertyHistoryCategory,
   PropertySheetLayoutValue,
+  ShowcaseOrientationValue,
 } from '@norde/core/properties/contracts';
 import type { StatusTone } from '@norde/ui/components/status-pill';
 
@@ -84,6 +85,11 @@ export const SHEET_LAYOUT_LABELS: Readonly<Record<PropertySheetLayoutValue, stri
   portrait: 'Vertical',
   portrait_map: 'Vertical con mapa',
   grid: 'Grilla comparativa',
+};
+
+export const SHOWCASE_ORIENTATION_LABELS: Readonly<Record<ShowcaseOrientationValue, string>> = {
+  portrait: 'Vertical',
+  landscape: 'Horizontal',
 };
 
 export const DOCUMENT_STATUS_DISPLAY: Readonly<

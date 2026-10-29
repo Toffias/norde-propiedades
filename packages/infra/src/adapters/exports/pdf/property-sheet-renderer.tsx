@@ -1,13 +1,10 @@
-import {
-  OPERATION_LABELS,
-  PROPERTY_KIND_LABELS,
-  PROPERTY_KINDS,
-  type DocumentContact,
-  type PdfPrice,
-  type PropertySheet,
-  type PropertySheetLayout,
-  type PropertySheetRenderer,
-  type PropertySheetsContent,
+import type {
+  DocumentContact,
+  PdfPrice,
+  PropertySheet,
+  PropertySheetLayout,
+  PropertySheetRenderer,
+  PropertySheetsContent,
 } from '@norde/core/properties';
 import { Link, StyleSheet, Text, View } from '@react-pdf/renderer';
 import sharp from 'sharp';
@@ -15,15 +12,17 @@ import type { ReactElement } from 'react';
 
 import { photoJpeg } from '../pdf-kit';
 
-import {
-  formatAge,
-  formatCount,
-  formatMeters,
-  formatMoney,
-  formatPhone,
-  formatSquareMeters,
-} from './format';
+import { formatAge, formatMeters, formatMoney, formatPhone, formatSquareMeters } from './format';
 import { PdfIcon } from './icons';
+import { logoPng } from './images';
+import {
+  amount,
+  contactLine,
+  keyFacts,
+  kindLabel,
+  LEGAL_NOTE,
+  operationLabel,
+} from './property-text';
 import {
   PdfDocument,
   PdfFields,
@@ -36,7 +35,6 @@ import {
   PdfTextSection,
   type PdfBranding,
   type PdfField,
-  type PdfKeyFact,
 } from './kit';
 import { renderPdf } from './render';
 import { PDF_COLORS, PDF_TYPE } from './theme';
@@ -49,9 +47,6 @@ import { PDF_COLORS, PDF_TYPE } from './theme';
 // - Grilla: una tabla para comparar, agrupada por tipo de propiedad, con foto, precio y los datos
 //   que se comparan (no casillas de "sí / no" como la de Tokko).
 // Nada se corta: lo que no entra pasa a la hoja siguiente, con la cabecera y el pie repetidos.
-
-const LEGAL_NOTE =
-  'La información, las medidas y los gastos son aproximados y deben ratificarse con la documentación de la propiedad. Las fotos no son vinculantes.';
 
 const ORIENTATION_LABELS: Readonly<Record<string, string>> = {
   north: 'Norte',
@@ -176,62 +171,7 @@ const styles = StyleSheet.create({
 
 // ---------- Lo que se imprime ----------
 
-function kindLabel(kind: string): string {
-  const known = PROPERTY_KINDS.find((candidate) => candidate === kind);
-  return known === undefined ? kind : PROPERTY_KIND_LABELS[known];
-}
-
-/** "Venta", "Alquiler", "Alquiler temporario". */
-function operationLabel(price: PdfPrice): string {
-  const operation = OPERATION_LABELS[price.operation].replace(/^en /, '');
-  return `${operation.charAt(0).toUpperCase()}${operation.slice(1)}`;
-}
-
-function amount(price: PdfPrice): string {
-  return price.priceCents === undefined
-    ? 'Consultar precio'
-    : formatMoney(price.currency, price.priceCents);
-}
-
-function contactLine(contact: DocumentContact | undefined): string | undefined {
-  if (contact === undefined) return undefined;
-  const parts = [
-    contact.address,
-    contact.phone === undefined ? undefined : `Tel. ${formatPhone(contact.phone)}`,
-    contact.whatsapp === undefined ? undefined : `WhatsApp ${formatPhone(contact.whatsapp)}`,
-    contact.email,
-  ].filter((part): part is string => part !== undefined && part !== '');
-  return parts.length === 0 ? undefined : parts.join(' · ');
-}
-
 type Detail = PropertySheet['property'];
-
-/** Los datos que más se miran, con su ícono. Sin dato, no aparece. */
-function keyFacts(property: Detail): PdfKeyFact[] {
-  const c = property.characteristics;
-  const surface = c.surfaceCoveredM2 ?? c.surfaceTotalM2;
-  const facts: (PdfKeyFact | undefined)[] = [
-    c.rooms === undefined
-      ? undefined
-      : { icon: 'rooms', text: formatCount(c.rooms, 'amb.', 'amb.') },
-    c.bedrooms === undefined
-      ? undefined
-      : { icon: 'bedrooms', text: formatCount(c.bedrooms, 'dorm.', 'dorm.') },
-    c.bathrooms === undefined
-      ? undefined
-      : { icon: 'bathrooms', text: formatCount(c.bathrooms, 'baño', 'baños') },
-    surface === undefined
-      ? undefined
-      : {
-          icon: 'surface',
-          text: `${formatSquareMeters(surface)}${c.surfaceCoveredM2 === undefined ? '' : ' cub.'}`,
-        },
-    c.parkingSpaces === undefined || c.parkingSpaces === 0
-      ? undefined
-      : { icon: 'parking', text: formatCount(c.parkingSpaces, 'cochera', 'cocheras') },
-  ];
-  return facts.filter((fact): fact is PdfKeyFact => fact !== undefined);
-}
 
 function field(label: string, value: string | undefined): PdfField | undefined {
   return value === undefined ? undefined : { label, value };
@@ -340,28 +280,6 @@ async function mapJpeg(
     return new Uint8Array(jpeg);
   } catch {
     // Un mapa que no se puede leer: la ficha sale con una foto en su lugar.
-    return undefined;
-  }
-}
-
-/**
- * El logo de Mi empresa listo para la cabecera: en PNG (react-pdf no lee WebP), sin el margen
- * vacío que suele traer (un logo cuadrado con fondo blanco se vería chico) y del tamaño de la
- * cabecera.
- * `undefined` si no es una imagen: la cabecera lleva el nombre de la empresa.
- */
-async function logoPng(bytes: Uint8Array | undefined): Promise<Uint8Array | undefined> {
-  if (bytes === undefined) return undefined;
-  try {
-    const png = await sharp(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength))
-      .trim({ threshold: 12 })
-      // La cabecera lo muestra de 30 × 160 puntos: a 2,4 px por punto alcanza.
-      .resize({ width: 400, height: 100, fit: 'inside', withoutEnlargement: true })
-      .png({ palette: true })
-      .toBuffer();
-    return new Uint8Array(png);
-  } catch {
-    // Un logo que no es una imagen: la cabecera lleva el nombre de la empresa.
     return undefined;
   }
 }

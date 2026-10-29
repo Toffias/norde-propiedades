@@ -3,6 +3,7 @@
 import 'leaflet/dist/leaflet.css';
 
 import L from 'leaflet';
+import { cn } from '@norde/ui/lib/utils';
 import { useEffect, useRef } from 'react';
 
 /** Mapa de OpenStreetMap con un solo pin: la ubicación de la propiedad (ADR 0019). */
@@ -45,5 +46,7 @@ export function LocationMapCanvas({
     };
   }, [latitude, longitude]);
 
-  return <div ref={container} className={className} />;
+  // `relative z-0` encierra los z-index de Leaflet (los controles usan 1000): sin eso, el zoom
+  // queda encima de los diálogos que se abren sobre la ficha y les tapa los botones.
+  return <div ref={container} className={cn('relative z-0', className)} />;
 }

@@ -372,6 +372,13 @@
       "when": 1793281522666,
       "tag": "0052_property_list_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793285115097,
+      "tag": "0053_showcase_options",
+      "breakpoints": true
     }
   ]
 }

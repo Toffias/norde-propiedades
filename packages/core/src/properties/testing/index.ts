@@ -189,6 +189,7 @@ import type {
   PropertySheetsContent,
   StaticMaps,
 } from '../application/ports/property-sheets';
+import type { ShowcaseContent, ShowcaseRenderer } from '../application/ports/property-showcase';
 import type { OwnerReport } from '../../reporting';
 import {
   DEFAULT_PUBLICATION,
@@ -1321,6 +1322,7 @@ export class InMemoryPropertyDocumentQuery implements PropertyDocumentQuery {
         status: row.status,
         period: row.period,
         layout: row.layout,
+        orientation: row.showcase?.orientation,
         error: row.error,
         requestedBy: row.requestedBy,
         createdAt: row.createdAt,
@@ -1357,6 +1359,18 @@ export class FakeSheetRenderer implements PropertySheetRenderer {
     if (this.fail) throw new Error('react-pdf exploded');
     this.rendered.push({ ...content, sheets });
     return new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+  }
+}
+
+/** Guarda lo que se le pidió imprimir; con `fail`, explota como react-pdf. */
+export class FakeShowcaseRenderer implements ShowcaseRenderer {
+  readonly rendered: ShowcaseContent[] = [];
+  fail = false;
+
+  render(content: ShowcaseContent) {
+    if (this.fail) return Promise.reject(new Error('react-pdf exploded'));
+    this.rendered.push(content);
+    return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
   }
 }
 

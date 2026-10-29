@@ -584,6 +584,19 @@ export {
   type ShowcasePhotoCount,
 } from './domain/showcase-options';
 export type { ShowcaseContent, ShowcaseRenderer } from './application/ports/property-showcase';
+export type {
+  AppraisalSheetContent,
+  AppraisalSheetFeature,
+  AppraisalSheetRenderer,
+  OwnerContact,
+  OwnerContacts,
+} from './application/ports/appraisal-sheet';
+export {
+  APPRAISAL_SHEET_FEATURES_PER_KIND,
+  DownloadPropertyAppraisalSheet,
+  type AppraisalSheetFile,
+  type DownloadPropertyAppraisalSheetError,
+} from './application/commands/download-property-appraisal-sheet';
 export {
   RequestPropertyListDocument,
   type RequestPropertyListDocumentError,

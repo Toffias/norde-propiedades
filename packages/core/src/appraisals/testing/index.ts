@@ -6,7 +6,16 @@ import {
   InMemoryEventPublisher,
   InMemoryIdempotencyKeys,
 } from '../../shared/testing';
-import type { AppraisalDetailItem, AppraisalQuery } from '../application/ports/appraisal-query';
+import type {
+  AppraisalExportFile,
+  AppraisalExportWriter,
+} from '../application/ports/appraisal-export-writer';
+import type {
+  AppraisalDetailItem,
+  AppraisalExportItem,
+  AppraisalQuery,
+} from '../application/ports/appraisal-query';
+import type { AppraisalExportRow } from '../contracts';
 import type {
   AppraisalCodeSequence,
   AppraisalsTransaction,
@@ -338,6 +347,7 @@ export function appraisalDetailItem(
 /** Lecturas: devuelve las filas cargadas (sin filtrar) y registra lo pedido. */
 export class StubAppraisalQuery implements AppraisalQuery {
   readonly requests: Parameters<AppraisalQuery['search']>[0][] = [];
+  readonly exportRequests: Parameters<AppraisalQuery['exportRows']>[0][] = [];
 
   constructor(private readonly rows: readonly AppraisalDetailItem[] = []) {}
 
@@ -349,12 +359,62 @@ export class StubAppraisalQuery implements AppraisalQuery {
     });
   }
 
+  exportRows(query: Parameters<AppraisalQuery['exportRows']>[0]) {
+    this.exportRequests.push(query);
+    return Promise.resolve(
+      this.rows.slice(query.offset, query.offset + query.limit).map((row): AppraisalExportItem => ({
+        id: row.id,
+        code: row.code,
+        status: row.status,
+        propertyType: row.propertyType,
+        address: row.address,
+        requesterClientId: row.requesterClientId,
+        requesterName: row.requesterName,
+        producerUserId: row.producerUserId,
+        appraiserUserId: row.appraiserUserId,
+        branchId: row.branchId,
+        visitAt: row.visitAt,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        deletedAt: row.deletedAt,
+        rooms: row.rooms,
+        surfaceTotalM2: row.surfaceTotalM2,
+        surfaceCoveredM2: row.surfaceCoveredM2,
+        sale: row.result.sale,
+        rent: row.result.rent,
+      })),
+    );
+  }
+
   findDetail(appraisalId: string) {
     return Promise.resolve(this.rows.find((row) => row.id === appraisalId));
   }
 
   findIdByConvertedProperty(propertyId: string) {
     return Promise.resolve(this.rows.find((row) => row.convertedProperty?.id === propertyId)?.id);
+  }
+}
+
+/** Lee los lotes de la exportación y guarda las filas. */
+export class RecordingAppraisalExportWriter implements AppraisalExportWriter {
+  readonly rows: AppraisalExportRow[] = [];
+
+  write(
+    batches: AsyncIterable<readonly AppraisalExportRow[]>,
+    meta: { readonly generatedAt: Date },
+  ): AppraisalExportFile {
+    const rows = this.rows;
+    async function* body(): AsyncIterable<Uint8Array> {
+      for await (const batch of batches) {
+        rows.push(...batch);
+        yield new Uint8Array([batch.length]);
+      }
+    }
+    return {
+      filename: `tasaciones-${meta.generatedAt.toISOString().slice(0, 10)}.xlsx`,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      body: body(),
+    };
   }
 }
 

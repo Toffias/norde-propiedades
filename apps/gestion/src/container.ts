@@ -17,6 +17,7 @@ import {
   RecordAppraisalResult,
   UploadAppraisalPhoto,
   DeleteAppraisal,
+  ExportAppraisals,
   GetAppraisal,
   GetSourceAppraisal,
   ListAppraisalHistory,
@@ -472,6 +473,7 @@ import {
   DrizzleDevelopmentUnitImportQuery,
   DrizzlePropertyImportQuery,
   XlsxDevelopmentUnitsExportWriter,
+  XlsxAppraisalExportWriter,
   XlsxReservationExportWriter,
   LocalFileStorage,
   NominatimGeocoder,
@@ -1452,6 +1454,13 @@ function createAppraisalsUseCases(
   };
   return {
     listAppraisals: new ListAppraisals({ appraisals, directory }),
+    exportAppraisals: new ExportAppraisals({
+      uow,
+      appraisals,
+      directory,
+      writer: new XlsxAppraisalExportWriter(),
+      clock,
+    }),
     getAppraisal: new GetAppraisal({ appraisals, directory }),
     getSourceAppraisal: new GetSourceAppraisal({ appraisals, directory }),
     listAppraisalHistory: new ListAppraisalHistory({

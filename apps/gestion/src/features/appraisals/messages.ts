@@ -4,6 +4,7 @@ import type {
   CreateAppraisalError,
   DeleteAppraisalError,
   DeleteAppraisalPhotoError,
+  ExportAppraisalsError,
   GetAppraisalError,
   ListAppraisalHistoryError,
   ListAppraisalsError,
@@ -62,3 +63,11 @@ export const APPRAISAL_READ_ERROR_MESSAGES = {
   InvalidInput: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
   AppraisalNotFound: 'No encontramos esa tasación.',
 } satisfies ErrorMessages<ListAppraisalsError | GetAppraisalError | ListAppraisalHistoryError>;
+
+export const EXPORT_APPRAISALS_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para exportar tasaciones.',
+  InvalidInput: 'Los filtros no son válidos. Revisalos y probá de nuevo.',
+  NothingToExport: 'No hay tasaciones para exportar con estos filtros.',
+  TooManyToExport: (error) =>
+    `Son ${error.total.toLocaleString('es-AR')} tasaciones y el máximo es ${error.max.toLocaleString('es-AR')}. Filtrá un poco más.`,
+} satisfies ErrorMessages<ExportAppraisalsError>;

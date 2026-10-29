@@ -3,6 +3,7 @@
 import {
   APPRAISAL_STATUS_GROUP_VALUES,
   PROPERTY_TYPES,
+  type AppraisalFilter,
   type AppraisalListRow,
   type AppraisalViewValue,
 } from '@norde/core/appraisals/contracts';
@@ -39,6 +40,7 @@ import {
 import { deleteAppraisalAction, restoreAppraisalAction } from '../actions';
 import { APPRAISAL_STATUS_DISPLAY, APPRAISAL_STATUS_GROUP_LABELS } from '../labels';
 import { appraisalPhotoHref } from '../paths';
+import { ExportAppraisalsButton } from './export-appraisals-button';
 
 /** Filtros del listado tal como están en la URL (texto, sin parsear). */
 export interface AppraisalFilterValues {
@@ -56,6 +58,8 @@ export interface AppraisalFilterValues {
 
 export interface AppraisalListPermissions {
   readonly create: boolean;
+  /** Exportar a Excel (`appraisals:export`). */
+  readonly export: boolean;
   /** Borrar, restaurar y ver la papelera (`appraisals:delete`). */
   readonly delete: boolean;
   /** Filtrar por productor o tasador (`users:read`). */
@@ -224,7 +228,12 @@ function Toolbar({
   );
 }
 
-/** La barra de acciones, arriba de los filtros: papelera y alta a la derecha. */
+/** Los filtros aplicados, para exportar: los vacíos no viajan. */
+function toAppraisalFilter(filters: AppraisalFilterValues): AppraisalFilter {
+  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''));
+}
+
+/** La barra de acciones, arriba de los filtros: exportar, papelera y alta a la derecha. */
 function ActionsBar({
   filters,
   permissions,
@@ -242,6 +251,9 @@ function ActionsBar({
         {total === 1 ? '1 tasación' : `${total.toLocaleString('es-AR')} tasaciones`}
       </p>
       <div className="ml-auto flex flex-wrap justify-end gap-2">
+        {permissions.export && (
+          <ExportAppraisalsButton filter={toAppraisalFilter(filters)} disabled={total === 0} />
+        )}
         {permissions.delete && (
           <Button
             variant={inTrash ? 'secondary' : 'ghost'}

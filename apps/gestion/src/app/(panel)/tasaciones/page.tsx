@@ -79,6 +79,7 @@ export default async function AppraisalsPage({
             labels={labels}
             permissions={{
               create: actor.can('appraisals:create'),
+              export: actor.can('appraisals:export'),
               delete: actor.can('appraisals:delete'),
               pickUsers: actor.can('users:read'),
               pickBranches: actor.can('branches:read'),

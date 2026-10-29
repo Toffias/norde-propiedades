@@ -60,6 +60,7 @@ export type {
 } from './application/ports/appraisals-transaction';
 export type {
   AppraisalDetailItem,
+  AppraisalExportItem,
   AppraisalFilterCriteria,
   AppraisalQuery,
   AppraisalSearchItem,
@@ -124,6 +125,14 @@ export {
   GetAppraisalPhotoFile,
   type GetAppraisalPhotoFileError,
 } from './application/queries/get-appraisal-photo-file';
+export {
+  ExportAppraisals,
+  type ExportAppraisalsError,
+} from './application/commands/export-appraisals';
+export type {
+  AppraisalExportFile,
+  AppraisalExportWriter,
+} from './application/ports/appraisal-export-writer';
 export { ListAppraisals, type ListAppraisalsError } from './application/queries/list-appraisals';
 export { GetAppraisal, type GetAppraisalError } from './application/queries/get-appraisal';
 export {

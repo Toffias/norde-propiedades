@@ -2,6 +2,7 @@ import type { VisibilityFilter } from '../../../identity';
 import type { PageSlice } from '../../../shared';
 import type {
   AppraisalDetail,
+  AppraisalExportRow,
   AppraisalListRow,
   AppraisalResultDto,
   AppraisalSortField,
@@ -20,6 +21,9 @@ type WithIds<T> = Omit<T, 'requester' | 'producer' | 'appraiser' | 'branch'> & {
 
 /** Una tasación del listado como la lee la base: el contacto va resuelto; usuarios, por ID. */
 export type AppraisalSearchItem = WithIds<AppraisalListRow>;
+
+/** Una fila de la exportación como la lee la base. */
+export type AppraisalExportItem = WithIds<AppraisalExportRow>;
 
 /** La ficha de una tasación como la lee la base; lo que decide el dominio lo agrega el caso de uso. */
 export type AppraisalDetailItem = WithIds<
@@ -50,6 +54,14 @@ export interface AppraisalQuery {
       readonly limit: number;
     },
   ): Promise<PageSlice<AppraisalSearchItem>>;
+  /** Un lote de la exportación, en el mismo orden y con los mismos filtros que `search`. */
+  exportRows(
+    query: AppraisalFilterCriteria & {
+      readonly sort: { readonly field: AppraisalSortField; readonly direction: 'asc' | 'desc' };
+      readonly offset: number;
+      readonly limit: number;
+    },
+  ): Promise<readonly AppraisalExportItem[]>;
   /** También las de la papelera. */
   findDetail(appraisalId: string): Promise<AppraisalDetailItem | undefined>;
   /** La tasación que se convirtió en la propiedad (también en la papelera), por su ID. */

@@ -163,6 +163,7 @@ export const PERMISSION_CATALOG: readonly PermissionGroup[] = [
         permissions: [
           ...crud('appraisals', 'tasaciones'),
           { permission: 'appraisals:read-others', label: 'Ver tasaciones de otros' },
+          { permission: 'appraisals:export', label: 'Exportar tasaciones' },
         ],
       },
       {

@@ -532,7 +532,7 @@ function MergeTagDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Unificar etiqueta</DialogTitle>
+          <DialogTitle icon={CombineIcon}>Unificar etiqueta</DialogTitle>
           <DialogDescription>
             Los contactos con «{tag?.name}» pasan a la etiqueta que elijas y «{tag?.name}» se borra.
           </DialogDescription>

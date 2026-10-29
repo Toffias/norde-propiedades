@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, PencilIcon } from 'lucide-react';
 import { useId, useState, useTransition } from 'react';
 
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
@@ -214,7 +214,7 @@ export function QuickEditDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edición rápida</DialogTitle>
+          <DialogTitle icon={PencilIcon}>Edición rápida</DialogTitle>
           <DialogDescription>
             {count === 1 ? 'Se cambia 1 propiedad.' : `Se cambian ${count} propiedades.`} Cada
             cambio queda en el historial de su propiedad.

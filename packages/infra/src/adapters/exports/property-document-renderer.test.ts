@@ -111,7 +111,21 @@ function content(overrides: Partial<PropertyDocumentContent> = {}): PropertyDocu
     prices: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
     photos: [],
     company: { name: 'Norde Propiedades', logo: undefined },
-    agentName: 'Camila Ruiz',
+    agent: {
+      name: 'Camila Ruiz',
+      address: undefined,
+      phone: '+5491155550000',
+      whatsapp: undefined,
+      email: 'camila@norde.com.ar',
+    },
+    branch: {
+      name: 'Casa central',
+      address: 'Av. Santa Fe 1234, CABA',
+      phone: '+541148001234',
+      whatsapp: '+5491166899124',
+      email: 'hola@norde.com.ar',
+    },
+    webUrl: 'https://norde.com.ar/propiedades/departamento-dep0001',
     ownerReport: undefined,
     generatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
@@ -138,6 +152,34 @@ describe('PdfLibPropertyDocumentRenderer', () => {
     expect(doc.getPageCount()).toBe(1);
   });
 
+  it('keeps the showcase in one page with WebP photos, a long title and no contact', async () => {
+    const webp = new Uint8Array(
+      await sharp({ create: { width: 1200, height: 800, channels: 3, background: '#cc3366' } })
+        .webp()
+        .toBuffer(),
+    );
+    const bytes = await renderer.render(
+      content({
+        kind: 'showcase',
+        photos: [webp, await photo(), await photo()],
+        property: {
+          ...property,
+          portalTitle:
+            'Departamento de tres ambientes con balcón corrido, cochera, baulera y amenities en el corazón de Palermo Soho',
+        },
+        prices: [
+          { operation: 'sale', currency: 'USD', priceCents: 12_000_000n },
+          { operation: 'rent', currency: 'ARS', priceCents: undefined },
+        ],
+        agent: undefined,
+        branch: undefined,
+        webUrl: undefined,
+      }),
+    );
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(1);
+  });
+
   it('renders the owner report with the publications of the period', async () => {
     const bytes = await renderer.render(
       content({
@@ -159,6 +201,12 @@ describe('PdfLibPropertyDocumentRenderer', () => {
           whatsappSends: 3,
           inquiries: 4,
           interested: 1,
+          portalViews: 120,
+          portalContacts: 4,
+          monthly: [
+            { month: '2026-08', emailSends: 0, whatsappSends: 0, inquiries: 0 },
+            { month: '2026-09', emailSends: 2, whatsappSends: 3, inquiries: 4 },
+          ],
         },
       }),
     );

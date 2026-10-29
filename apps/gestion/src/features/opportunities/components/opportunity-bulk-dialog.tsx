@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon } from 'lucide-react';
+import { ListChecksIcon, Loader2Icon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, useTransition } from 'react';
 
@@ -239,7 +239,7 @@ export function OpportunityBulkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cambio masivo</DialogTitle>
+          <DialogTitle icon={ListChecksIcon}>Cambio masivo</DialogTitle>
           <DialogDescription>
             {countLabel(count)}. Cada una se cambia si podés y si el estado en que está lo permite;
             las demás se informan.

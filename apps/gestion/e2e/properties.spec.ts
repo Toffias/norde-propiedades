@@ -237,9 +237,10 @@ test.describe('ficha', () => {
     await page.goto(`${page.url().split('?')[0] ?? ''}?tab=multimedia`);
     await expect(page.getByText('Todavía no hay fotos.')).toBeVisible();
 
+    await page.getByRole('button', { name: 'Agregar fotos' }).click();
     await page
+      .getByRole('dialog')
       .locator('input[type="file"]')
-      .first()
       .setInputFiles({ name: 'frente.png', mimeType: 'image/png', buffer: PNG_1X1 });
 
     // La foto aparece enseguida como una tarjeta de la galería, y queda cuando llega la del servidor.

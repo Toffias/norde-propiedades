@@ -11,6 +11,7 @@ import {
 import type { CompanySettingsReader, FileStorage } from '../../../settings';
 import { AppraisalIdInputSchema, type AppraisalIdInput } from '../../contracts';
 import {
+  appraisalReportFigures,
   appraisalReportFileName,
   checkAppraisalReportable,
   type AppraisalNotReportableError,
@@ -24,6 +25,7 @@ import type { AppraisalQuery } from '../ports/appraisal-query';
 import type { AppraisalReportRenderer } from '../ports/appraisal-report-renderer';
 import type { AppraisalsUnitOfWork } from '../ports/appraisals-transaction';
 import type { PanelDirectory } from '../ports/panel-directory';
+import type { ReportContacts } from '../ports/report-contacts';
 import { readAppraisalDetail } from '../queries/get-appraisal';
 
 export type DownloadAppraisalReportError =
@@ -37,7 +39,8 @@ export interface AppraisalReportFile {
 
 /**
  * El informe de la tasación en PDF, con la marca de la empresa, para entregárselo al propietario:
- * valores sugeridos, comparables con su valor por m², observaciones y fotos. Lo descarga quien
+ * valores sugeridos (también por m²), comparables con su valor por m² y su promedio,
+ * observaciones, fotos y el contacto del tasador y de la sucursal. Lo descarga quien
  * puede ver la tasación, si está tasada y tiene un valor. La descarga queda en su historial.
  */
 export class DownloadAppraisalReport {
@@ -49,6 +52,7 @@ export class DownloadAppraisalReport {
       readonly storage: FileStorage;
       readonly settings: CompanySettingsReader;
       readonly renderer: AppraisalReportRenderer;
+      readonly contacts: ReportContacts;
       readonly clock: Clock;
     },
   ) {}
@@ -72,10 +76,28 @@ export class DownloadAppraisalReport {
     const settings = (await this.deps.settings.get()).toSnapshot();
     const logo =
       settings.logoKey === undefined ? undefined : await this.deps.storage.get(settings.logoKey);
+    const [appraiser, branch] = await Promise.all([
+      appraisal.appraiser === undefined
+        ? undefined
+        : this.deps.contacts.user(appraisal.appraiser.id),
+      this.deps.contacts.branch(appraisal.branch?.id),
+    ]);
     const bytes = await this.deps.renderer.render({
       appraisal,
+      figures: appraisalReportFigures({
+        surfaceTotalM2: appraisal.surfaceTotalM2,
+        surfaceCoveredM2: appraisal.surfaceCoveredM2,
+        sale: appraisal.result.sale,
+        rent: appraisal.result.rent,
+        comparables: appraisal.result.comparables.map((comparable) => ({
+          currency: comparable.price.currency,
+          pricePerM2Cents: comparable.pricePerM2?.amountCents,
+        })),
+      }),
       photos: this.photoBytes(photos.map((photo) => photo.storageKey)),
       company: { name: settings.name, logo: logo?.bytes },
+      appraiser,
+      branch,
       generatedAt: this.deps.clock.now(),
     });
 

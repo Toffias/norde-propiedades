@@ -16,7 +16,16 @@ import { StatusPill } from '@norde/ui/components/status-pill';
 import { CATEGORICAL_COLORS } from '@norde/ui/lib/chart-colors';
 import { baseChartOptions } from '@norde/ui/lib/chart-options';
 import { useIsDark } from '@norde/ui/lib/use-is-dark';
-import { ChartColumnIcon, GlobeIcon, UsersIcon } from 'lucide-react';
+import {
+  ChartColumnIcon,
+  GlobeIcon,
+  InboxIcon,
+  MailIcon,
+  MessageCircleIcon,
+  PieChartIcon,
+  SendIcon,
+  UsersIcon,
+} from 'lucide-react';
 import { useMemo } from 'react';
 
 import { formatDate } from '../../../../lib/format';
@@ -24,6 +33,7 @@ import {
   ListNavigationProvider,
   useListNavigation,
 } from '../../../shared/components/server-data-table';
+import { BarList, DonutChart } from '../../../home/components/portfolio-charts';
 import { PORTAL_STATUS_DISPLAY } from '../../detail-labels';
 
 const MONTH_OPTIONS = [3, 6, 12, 24] as const;
@@ -95,79 +105,138 @@ export function StatisticsView({
     { name: 'Consultas', data: monthly.map((row) => row.inquiries) },
   ];
 
+  const sends = totals.emailSends + totals.whatsappSends;
+
   return (
     <ListNavigationProvider>
       <div className="flex flex-col gap-4">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            Cómo se movió la propiedad en los últimos {months} meses.
+          </p>
           <MonthsSelect months={months} />
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <KpiCard label="Envíos por email" value={totals.emailSends} />
-          <KpiCard label="Envíos por WhatsApp" value={totals.whatsappSends} />
-          <KpiCard label="Interesados" value={totals.interested} foot="Búsquedas que coinciden" />
-          <KpiCard label="Consultas" value={totals.inquiries} />
-          <KpiCard label="Publicaciones activas" value={totals.activePublications} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <KpiCard
+            icon={MailIcon}
+            label="Email"
+            value={totals.emailSends}
+            foot="Envíos a contactos"
+          />
+          <KpiCard
+            icon={MessageCircleIcon}
+            label="WhatsApp"
+            value={totals.whatsappSends}
+            foot="Envíos a contactos"
+          />
+          <KpiCard
+            icon={UsersIcon}
+            label="Interesados"
+            value={totals.interested}
+            foot="Búsquedas que coinciden"
+          />
+          <KpiCard
+            icon={InboxIcon}
+            label="Consultas"
+            value={totals.inquiries}
+            foot="En el período"
+          />
+          <KpiCard
+            icon={GlobeIcon}
+            label="Portales"
+            value={totals.activePublications}
+            foot="Publicaciones activas"
+          />
         </div>
 
-        <ChartCard
-          title="Actividad por mes"
-          icon={ChartColumnIcon}
-          subtitle={`Últimos ${String(months)} meses`}
-          height={280}
-        >
-          {hasActivity ? (
-            <Chart type="bar" height={280} options={options} series={series} />
-          ) : (
-            <ChartEmpty height={280}>Sin envíos ni consultas en el período.</ChartEmpty>
-          )}
-        </ChartCard>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <ChartCard
+            title="Actividad por mes"
+            icon={ChartColumnIcon}
+            subtitle={`Últimos ${String(months)} meses`}
+            height={280}
+            className="lg:col-span-2"
+          >
+            {hasActivity ? (
+              <Chart type="bar" height={280} options={options} series={series} />
+            ) : (
+              <ChartEmpty height={280}>Sin envíos ni consultas en el período.</ChartEmpty>
+            )}
+          </ChartCard>
+          <SectionCard title="Envíos por canal" icon={PieChartIcon}>
+            <DonutChart
+              totalLabel="Envíos"
+              empty="Todavía no se envió a contactos."
+              slices={[
+                { key: 'email', label: 'Email', count: totals.emailSends },
+                { key: 'whatsapp', label: 'WhatsApp', count: totals.whatsappSends },
+              ]}
+            />
+            {sends > 0 && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <SendIcon className="size-3.5" aria-hidden />
+                {sends.toLocaleString('es-AR')} envíos en total
+              </p>
+            )}
+          </SectionCard>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <SectionCard title="Perfil de los interesados" icon={UsersIcon}>
-            {statistics.interestedProfile.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Sin interesados con etiquetas todavía.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {statistics.interestedProfile.map((tag) => {
-                  const max = statistics.interestedProfile[0]?.clients ?? 1;
-                  return (
-                    <li key={tag.tagId} className="flex items-center gap-3 text-sm">
-                      <span className="w-40 shrink-0 truncate">{tag.name}</span>
-                      <span className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                        <span
-                          className="block h-full rounded-full bg-primary"
-                          style={{ width: `${String(Math.round((tag.clients / max) * 100))}%` }}
-                        />
-                      </span>
-                      <span className="w-8 text-right tabular-nums">{tag.clients}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+          <SectionCard
+            title="Perfil de los interesados"
+            icon={UsersIcon}
+            bodyClassName="flex flex-1 flex-col"
+          >
+            <BarList
+              empty="Sin interesados con etiquetas todavía."
+              bars={statistics.interestedProfile.map((tag) => ({
+                key: tag.tagId,
+                label: tag.name,
+                count: tag.clients,
+              }))}
+            />
           </SectionCard>
           <SectionCard title="Publicaciones en portales" icon={GlobeIcon}>
             {statistics.publications.length === 0 ? (
               <p className="text-sm text-muted-foreground">No está publicada en portales.</p>
             ) : (
-              <ul className="flex flex-col divide-y divide-border">
+              <ul className="flex flex-col gap-3">
                 {statistics.publications.map((publication) => {
                   const status = PORTAL_STATUS_DISPLAY[publication.status];
                   return (
-                    <li key={publication.portal} className="flex flex-wrap items-center gap-3 py-2">
-                      <span className="w-28 font-medium capitalize">{publication.portal}</span>
-                      {status !== undefined && (
-                        <StatusPill tone={status.tone}>{status.label}</StatusPill>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {publication.views} visitas · {publication.contacts} contactos ·{' '}
-                        {publication.favorites} favoritos
-                        {publication.publishedAt === undefined
-                          ? ''
-                          : ` · desde ${formatDate(publication.publishedAt)}`}
-                      </span>
+                    <li
+                      key={publication.portal}
+                      className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold capitalize">{publication.portal}</span>
+                        <span className="flex items-center gap-2">
+                          {publication.publishedAt !== undefined && (
+                            <span className="text-xs text-muted-foreground">
+                              Desde {formatDate(publication.publishedAt)}
+                            </span>
+                          )}
+                          {status !== undefined && (
+                            <StatusPill tone={status.tone}>{status.label}</StatusPill>
+                          )}
+                        </span>
+                      </div>
+                      <dl className="grid grid-cols-3 gap-3 border-t border-border pt-2">
+                        {(
+                          [
+                            ['Visitas', publication.views],
+                            ['Contactos', publication.contacts],
+                            ['Favoritos', publication.favorites],
+                          ] as const
+                        ).map(([label, value]) => (
+                          <div key={label} className="flex flex-col gap-0.5">
+                            <dt className="text-xs text-muted-foreground">{label}</dt>
+                            <dd className="font-display text-lg leading-tight font-semibold tabular-nums">
+                              {value.toLocaleString('es-AR')}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
                     </li>
                   );
                 })}

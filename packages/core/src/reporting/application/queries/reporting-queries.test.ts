@@ -125,11 +125,56 @@ describe('GetOwnerReport', () => {
       whatsappSends: 2,
       inquiries: 3,
       interested: 2,
+      portalViews: 0,
+      portalContacts: 0,
+      monthly: [{ month: '2026-09', emailSends: 1, whatsappSends: 2, inquiries: 3 }],
     });
     expect(statistics.ranges[0]).toEqual({
       from: new Date('2026-09-01T03:00:00Z'),
       to: new Date('2026-10-01T03:00:00Z'),
     });
+  });
+
+  it('fills every month of the period and sums the portal activity', async () => {
+    const statistics = new StubPropertyStatisticsQuery();
+    statistics.monthlyRows = [{ month: '2026-09', emailSends: 1, whatsappSends: 0, inquiries: 2 }];
+    statistics.portals = [
+      {
+        portal: 'zonaprop',
+        status: 'published',
+        publishedAt: undefined,
+        views: 120,
+        contacts: 4,
+        favorites: 9,
+      },
+      {
+        portal: 'mercadolibre',
+        status: 'paused',
+        publishedAt: undefined,
+        views: 30,
+        contacts: 1,
+        favorites: 0,
+      },
+    ];
+    const report = unwrap(
+      await new GetOwnerReport({
+        profiles: new InMemoryReportingProfiles([PROFILE]),
+        statistics,
+      }).execute({ propertyId: PROPERTY, from: '2026-07-15', to: '2026-10-02' }, READER),
+    );
+    expect(report.monthly.map((row) => row.month)).toEqual([
+      '2026-07',
+      '2026-08',
+      '2026-09',
+      '2026-10',
+    ]);
+    expect(report.monthly[2]).toEqual({
+      month: '2026-09',
+      emailSends: 1,
+      whatsappSends: 0,
+      inquiries: 2,
+    });
+    expect(report).toMatchObject({ portalViews: 150, portalContacts: 5, inquiries: 2 });
   });
 
   it('covers at most a year', async () => {

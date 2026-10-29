@@ -9,6 +9,7 @@ import type {
   AppraisalsUnitOfWork,
 } from '../application/ports/appraisals-transaction';
 import type { ActiveUsers, PanelDirectory } from '../application/ports/panel-directory';
+import type { ReportContact, ReportContacts } from '../application/ports/report-contacts';
 import type {
   AppraisalReportContent,
   AppraisalReportRenderer,
@@ -235,6 +236,22 @@ export class InMemoryActiveUsers implements ActiveUsers {
   ) {}
 
   find(userId: string) {
+    return Promise.resolve(this.users.get(userId));
+  }
+}
+
+/** Contactos de sucursales y usuarios para el informe; sin sucursal, la casa central (`main`). */
+export class InMemoryReportContacts implements ReportContacts {
+  constructor(
+    readonly branches: ReadonlyMap<string, ReportContact> = new Map(),
+    readonly users: ReadonlyMap<string, ReportContact> = new Map(),
+  ) {}
+
+  branch(branchId: string | undefined) {
+    return Promise.resolve(this.branches.get(branchId ?? 'main') ?? this.branches.get('main'));
+  }
+
+  user(userId: string) {
     return Promise.resolve(this.users.get(userId));
   }
 }

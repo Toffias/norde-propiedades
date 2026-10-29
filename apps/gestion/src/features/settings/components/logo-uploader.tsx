@@ -11,7 +11,7 @@ import {
 } from '@norde/ui/components/dialog';
 import { FileDropzone } from '@norde/ui/components/file-dropzone';
 import { toast } from '@norde/ui/components/sonner';
-import { ImageOffIcon, Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
+import { ImageOffIcon, ImageUpIcon, Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
@@ -137,7 +137,7 @@ export function LogoUploader({
       <Dialog open={open} onOpenChange={toggle}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{uploadTitle}</DialogTitle>
+            <DialogTitle icon={ImageUpIcon}>{uploadTitle}</DialogTitle>
             <DialogDescription>
               Mejor con fondo transparente, para que se vea bien sobre cualquier color.
             </DialogDescription>

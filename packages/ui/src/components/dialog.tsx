@@ -1,6 +1,6 @@
 'use client';
 
-import { XIcon } from 'lucide-react';
+import { XIcon, type LucideIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type { ComponentProps } from 'react';
 
@@ -86,13 +86,26 @@ export function DialogFooter({ className, ...props }: ComponentProps<'div'>) {
   );
 }
 
-export function DialogTitle({ className, ...props }: ComponentProps<typeof DialogPrimitive.Title>) {
+/** El título del modal; con `icon`, lo muestra a su izquierda para reconocer el modal de un vistazo. */
+export function DialogTitle({
+  className,
+  icon: Icon,
+  children,
+  ...props
+}: ComponentProps<typeof DialogPrimitive.Title> & { readonly icon?: LucideIcon }) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn('text-lg leading-tight font-semibold', className)}
+      className={cn(
+        'text-lg leading-tight font-semibold',
+        Icon !== undefined && 'flex items-center justify-center gap-2 sm:justify-start',
+        className,
+      )}
       {...props}
-    />
+    >
+      {Icon !== undefined && <Icon className="size-5 shrink-0 text-foreground" aria-hidden />}
+      {children}
+    </DialogPrimitive.Title>
   );
 }
 

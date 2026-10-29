@@ -16,12 +16,10 @@ import {
   type UpdatePropertyFeaturesInput,
 } from '@norde/core/properties/contracts';
 import { Badge } from '@norde/ui/components/badge';
-import { Button } from '@norde/ui/components/button';
 import { Checkbox } from '@norde/ui/components/checkbox';
 import { Form } from '@norde/ui/components/form';
 import { Input } from '@norde/ui/components/input';
 import { Label } from '@norde/ui/components/label';
-import { PagedMultiSelect, type ComboboxOption } from '@norde/ui/components/paged-combobox';
 import {
   Select,
   SelectContent,
@@ -29,21 +27,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@norde/ui/components/select';
-import {
-  HandshakeIcon,
-  ListChecksIcon,
-  RulerIcon,
-  SlidersHorizontalIcon,
-  TagsIcon,
-} from 'lucide-react';
+import { HandshakeIcon, ListChecksIcon, RulerIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { useId, useState, type SyntheticEvent } from 'react';
 import { useForm, type FieldPath } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatMoney } from '../../../../lib/format';
 import { contractResolver } from '../../../../lib/form';
-import { loadTagOptions } from '../../actions';
 import {
-  changePropertyTagsAction,
   updatePropertyCharacteristicsAction,
   updatePropertyCustomAttributesAction,
   updatePropertyDealAction,
@@ -589,87 +579,6 @@ function CustomAttributesForm({
         })}
       </div>
       <InlineFormActions controls={controls} />
-    </form>
-  );
-}
-
-// ---------- Etiquetas ----------
-
-export function TagsSection({
-  detail,
-  canEdit,
-}: {
-  readonly detail: PanelPropertyDetail;
-  readonly canEdit: boolean;
-}) {
-  return (
-    <InlineSection
-      title="Etiquetas"
-      icon={TagsIcon}
-      canEdit={canEdit}
-      view={
-        detail.tags.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin etiquetas.</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {detail.tags.map((tag) => (
-              <Badge key={tag.id} variant="secondary">
-                {tag.groupName === undefined ? tag.name : `${tag.groupName}: ${tag.name}`}
-              </Badge>
-            ))}
-          </div>
-        )
-      }
-      form={(controls) => <TagsForm detail={detail} controls={controls} />}
-    />
-  );
-}
-
-function TagsForm({
-  detail,
-  controls,
-}: {
-  readonly detail: PanelPropertyDetail;
-  readonly controls: InlineFormControls;
-}) {
-  const [tags, setTags] = useState<readonly ComboboxOption[]>(
-    detail.tags.map((tag) => ({
-      value: tag.id,
-      label: tag.name,
-      ...(tag.groupName === undefined ? {} : { hint: tag.groupName }),
-    })),
-  );
-  return (
-    <form
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        controls.save(
-          () =>
-            changePropertyTagsAction({ propertyId: detail.id, tagIds: tags.map((t) => t.value) }),
-          'Etiquetas guardadas.',
-        );
-      }}
-    >
-      <PagedMultiSelect
-        value={tags}
-        onChange={setTags}
-        loadPage={loadTagOptions}
-        placeholder="Elegí las etiquetas"
-        searchPlaceholder="Buscar etiqueta"
-      />
-      <div className="flex justify-between gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            setTags([]);
-          }}
-        >
-          Quitar todas
-        </Button>
-        <InlineFormActions controls={controls} />
-      </div>
     </form>
   );
 }

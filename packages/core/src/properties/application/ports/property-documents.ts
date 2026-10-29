@@ -1,6 +1,7 @@
 import type { OwnerReport } from '../../../reporting';
 import type { Actor, PageSlice } from '../../../shared';
 import type { PanelPropertyDetail, PropertyDocumentRow } from '../../contracts';
+import type { DocumentContact } from './document-contacts';
 import type {
   PdfAddressDisplay,
   PdfPrice,
@@ -17,8 +18,12 @@ export interface PropertyDocumentContent {
   /** Fotos para el PDF (versión web, con marca de agua si está activa), en orden. */
   readonly photos: readonly Uint8Array[];
   readonly company: { readonly name: string; readonly logo: Uint8Array | undefined };
-  /** El agente que lo pidió, si la configuración lo muestra. */
-  readonly agentName: string | undefined;
+  /** El agente que lo pidió, con su teléfono y email, si la configuración lo muestra. */
+  readonly agent: DocumentContact | undefined;
+  /** La sucursal de la propiedad (o la casa central): el contacto del pie. */
+  readonly branch: DocumentContact | undefined;
+  /** La ficha en la web, si está publicada y Mi empresa tiene la plantilla de la URL. */
+  readonly webUrl: string | undefined;
   readonly ownerReport: OwnerReport | undefined;
   readonly generatedAt: Date;
   readonly addressDisplay: PdfAddressDisplay;

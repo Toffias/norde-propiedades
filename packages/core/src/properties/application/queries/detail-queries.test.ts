@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { InMemoryAuditHistoryQuery } from '../../../audit/testing';
-import { CompanySettings } from '../../../settings';
+import { CompanySettings, WebUrlTemplate } from '../../../settings';
 import { InMemoryFileStorage, RecordingMailer } from '../../../settings/testing';
 import { Actor, err, parseId } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
@@ -11,6 +11,7 @@ import {
   FakeDocumentRenderer,
   InMemoryPropertiesUnitOfWork,
   InMemoryPropertyDocumentQuery,
+  InMemoryDocumentContacts,
   InMemoryUserNames,
   OTHER_USER_ID,
   PRODUCER_ID,
@@ -51,8 +52,31 @@ function settingsReader(developmentPhotosInUnits = true) {
     { ...settings.toSnapshot().pdfOptions, developmentPhotosInUnits },
     TEST_NOW,
   );
+  const general = settings.toSnapshot();
+  unwrap(
+    settings.updateGeneral(
+      {
+        name: general.name,
+        timezone: general.timezone,
+        webPropertyUrlTemplate: unwrap(
+          WebUrlTemplate.create('https://norde.com.ar/propiedades/{slug}'),
+        ),
+        webDevelopmentUrlTemplate: undefined,
+        newsScope: general.newsScope,
+      },
+      TEST_NOW,
+    ),
+  );
   return { get: () => Promise.resolve(settings) };
 }
+
+const BRANCH_CONTACT = {
+  name: 'Casa central',
+  address: 'Av. Santa Fe 1234',
+  phone: '+541148001234',
+  whatsapp: '+5491166899124',
+  email: 'hola@norde.com.ar',
+};
 
 function setup() {
   const uow = new InMemoryPropertiesUnitOfWork();
@@ -325,6 +349,21 @@ describe('property documents', () => {
     const storage = new InMemoryFileStorage();
     const renderer = new FakeDocumentRenderer();
     const ownerReports = new StubOwnerReports();
+    const contacts = new InMemoryDocumentContacts(
+      new Map([[BRANCH_ID, BRANCH_CONTACT]]),
+      new Map([
+        [
+          PRODUCER_ID,
+          {
+            name: 'Camila Ruiz',
+            address: undefined,
+            phone: '+5491155550000',
+            whatsapp: undefined,
+            email: 'camila@norde.com.ar',
+          },
+        ],
+      ]),
+    );
     const mailer = new RecordingMailer();
     const settings = settingsReader(developmentPhotosInUnits);
     return {
@@ -346,6 +385,7 @@ describe('property documents', () => {
         settings,
         renderer,
         ownerReports,
+        contacts,
         clock: ctx.clock,
       }),
       send: new SendOwnerReport({ uow: ctx.uow, storage, mailer, settings }),
@@ -431,9 +471,12 @@ describe('property documents', () => {
       // "Ficha y PDF" de partida: al descargar, la dirección completa.
       address: 'Gurruchaga 1834 · Piso 3 Unidad B · Palermo, CABA',
       prices: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
-      agentName: 'Camila Ruiz',
+      agent: { name: 'Camila Ruiz', phone: '+5491155550000', email: 'camila@norde.com.ar' },
+      branch: BRANCH_CONTACT,
       company: { name: CompanySettings.defaults().name },
     });
+    // Un borrador no está en la web: sin link.
+    expect(content?.webUrl).toBeUndefined();
     expect(content?.photos).toEqual([new Uint8Array([7])]);
     expect(uow.documents.rows.get(documentId)?.status).toBe('ready');
     expect(unwrap(await download.execute({ documentId }, READER))).toMatchObject({
@@ -490,6 +533,25 @@ describe('property documents', () => {
       expect(renderer.rendered[0]?.photos).toEqual(expected);
     },
   );
+
+  it('links the sheet to the web when the property is publicly listed', async () => {
+    const { request, render, renderer, uow } = documents();
+    const row = uow.properties.rows.get(PROPERTY_ID);
+    if (row) {
+      uow.properties.rows.set(PROPERTY_ID, {
+        ...row,
+        status: 'available',
+        publication: { ...row.publication, publishedOnWeb: true },
+      });
+    }
+    const { documentId } = unwrap(
+      await request.execute({ propertyId: PROPERTY_ID, kind: 'showcase' }, READER),
+    );
+    expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('ready');
+    expect(renderer.rendered[0]?.webUrl).toBe(
+      `https://norde.com.ar/propiedades/${row?.slug ?? ''}`,
+    );
+  });
 
   it('marks the document failed when the PDF breaks, and lets the error reach the job', async () => {
     const { request, render, renderer, uow, download } = documents();

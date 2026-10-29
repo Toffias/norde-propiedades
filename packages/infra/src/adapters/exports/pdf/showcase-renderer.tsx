@@ -7,11 +7,9 @@ import type {
 import { Image, Page, StyleSheet, Text, View, type DocumentProps } from '@react-pdf/renderer';
 import type { ReactElement } from 'react';
 
-import { photoJpeg } from '../pdf-kit';
-
 import { formatMoney, formatPhone, paragraphs } from './format';
 import { PdfIcon, type PdfIconName } from './icons';
-import { logoPng } from './images';
+import { logoPng, photoJpeg } from './images';
 import { PdfDocument, PdfPhoto } from './kit';
 import { amount, keyFacts, kindLabel, LEGAL_NOTE, operationLabel } from './property-text';
 import { PdfQr } from './qr';

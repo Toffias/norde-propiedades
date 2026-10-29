@@ -4,3 +4,5 @@
 export { ReactPdfPropertySheetRenderer } from './adapters/exports/pdf/property-sheet-renderer';
 export { ReactPdfShowcaseRenderer } from './adapters/exports/pdf/showcase-renderer';
 export { ReactPdfOwnerReportRenderer } from './adapters/exports/pdf/owner-report-renderer';
+export { ReactPdfAppraisalReportRenderer } from './adapters/exports/pdf/appraisal-report-renderer';
+export { ReactPdfAppraisalSheetRenderer } from './adapters/exports/pdf/appraisal-sheet-renderer';

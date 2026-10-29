@@ -77,6 +77,7 @@ export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { OsmStaticMaps } from './adapters/maps/osm-static-maps';
 export { XlsxAppraisalExportWriter } from './adapters/exports/appraisal-export-writer';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
+export { DrizzlePropertyExportDetails } from './properties/drizzle-property-export-details';
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
 export { XlsxDevelopmentUnitsExportWriter } from './adapters/exports/development-units-export-writer';
 export { XlsxReservationExportWriter } from './adapters/exports/reservation-export-writer';

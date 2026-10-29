@@ -13,16 +13,18 @@ import {
   ExportPropertiesInputSchema,
   MAX_EXPORT_ROWS,
   type ExportPropertiesInput,
-  type PanelPropertyRow,
+  type PropertyExportRow,
 } from '../../contracts';
-import { resolveSelection, toPanelRows, type NoBranchAssignedError } from '../panel-filter';
+import { resolveSelection, type NoBranchAssignedError } from '../panel-filter';
 import type {
   PanelPropertyFilterCriteria,
   PanelPropertyListQuery,
 } from '../ports/panel-property-list-query';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
+import type { PropertyExportDetailsQuery } from '../ports/property-export-details-query';
 import type { ExportFile, PropertyExportWriter } from '../ports/property-export-writer';
 import type { UserNames } from '../ports/user-names';
+import { toExportRows } from '../property-export-rows';
 import type { InvalidInputError } from '../property-support';
 
 export type ExportPropertiesError =
@@ -38,8 +40,9 @@ const BATCH_SIZE = 200;
 /**
  * Exporta las propiedades seleccionadas (las marcadas o todas las que cumplen el filtro) a CSV
  * o Excel (el PDF es `RequestPropertyListDocument`). Hasta 10 alcanza con `properties:export`; más, hace falta `properties:export-bulk`.
- * La exportación queda en la auditoría con el filtro y la cantidad. No incluye la dirección
- * privada (calle y altura): sale la dirección para publicar.
+ * Lleva las columnas de la planilla de Tokko, con la dirección interna. El propietario (nombre,
+ * email y celular) sale solo con `clients:read-owners`. La exportación queda en la auditoría con el
+ * filtro, la cantidad y si incluyó propietarios.
  */
 export class ExportProperties {
   constructor(
@@ -47,6 +50,7 @@ export class ExportProperties {
       readonly uow: PropertiesUnitOfWork;
       readonly list: PanelPropertyListQuery;
       readonly users: UserNames;
+      readonly details: PropertyExportDetailsQuery;
       readonly writer: PropertyExportWriter;
       readonly clock: Clock;
     },
@@ -77,6 +81,7 @@ export class ExportProperties {
       return err({ type: 'TooManyToExport', max: MAX_EXPORT_ROWS, total });
     }
 
+    const includeOwners = actor.can('clients:read-owners');
     const now = this.deps.clock.now();
     await this.deps.uow.run((tx) =>
       tx.audit.record(
@@ -92,20 +97,25 @@ export class ExportProperties {
             format: { before: null, after: format },
             count: { before: null, after: total },
             selection: { before: null, after: toAuditValue(selection) },
+            owners: { before: null, after: includeOwners },
           },
         ),
       ),
     );
 
     return ok(
-      this.deps.writer.write(format, this.batches(criteria.value, total), { generatedAt: now }),
+      this.deps.writer.write(format, this.batches(criteria.value, total, includeOwners), {
+        generatedAt: now,
+        includeOwners,
+      }),
     );
   }
 
   private async *batches(
     criteria: PanelPropertyFilterCriteria,
     total: number,
-  ): AsyncIterable<readonly PanelPropertyRow[]> {
+    includeOwners: boolean,
+  ): AsyncIterable<readonly PropertyExportRow[]> {
     for (let offset = 0; offset < total; offset += BATCH_SIZE) {
       const slice = await this.deps.list.search({
         ...criteria,
@@ -114,7 +124,7 @@ export class ExportProperties {
         limit: Math.min(BATCH_SIZE, total - offset),
       });
       if (slice.items.length === 0) return;
-      yield await toPanelRows(slice.items, this.deps.users);
+      yield await toExportRows(slice.items, this.deps, { includeOwners });
     }
   }
 }

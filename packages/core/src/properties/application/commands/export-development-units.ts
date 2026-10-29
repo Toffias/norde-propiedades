@@ -12,22 +12,24 @@ import {
   ExportDevelopmentUnitsInputSchema,
   MAX_EXPORT_ROWS,
   type ExportDevelopmentUnitsInput,
-  type PanelPropertyRow,
+  type PropertyExportRow,
 } from '../../contracts';
 import {
   developmentTarget,
   findDevelopment,
   type DevelopmentNotFoundError,
 } from '../development-support';
-import { idsCriteria, toPanelRows } from '../panel-filter';
+import { idsCriteria } from '../panel-filter';
 import type { DevelopmentUnitsExportWriter } from '../ports/development-units-export-writer';
 import type {
   PanelPropertyFilterCriteria,
   PanelPropertyListQuery,
 } from '../ports/panel-property-list-query';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
+import type { PropertyExportDetailsQuery } from '../ports/property-export-details-query';
 import type { ExportFile } from '../ports/property-export-writer';
 import type { UserNames } from '../ports/user-names';
+import { toExportRows } from '../property-export-rows';
 import { invalidInput, type InvalidInputError } from '../property-support';
 
 export type ExportDevelopmentUnitsError =
@@ -52,6 +54,7 @@ export class ExportDevelopmentUnits {
       readonly uow: PropertiesUnitOfWork;
       readonly list: PanelPropertyListQuery;
       readonly users: UserNames;
+      readonly details: PropertyExportDetailsQuery;
       readonly writer: DevelopmentUnitsExportWriter;
       readonly clock: Clock;
     },
@@ -104,7 +107,7 @@ export class ExportDevelopmentUnits {
   private async *batches(
     criteria: PanelPropertyFilterCriteria,
     total: number,
-  ): AsyncIterable<readonly PanelPropertyRow[]> {
+  ): AsyncIterable<readonly PropertyExportRow[]> {
     for (let offset = 0; offset < total; offset += BATCH_SIZE) {
       const slice = await this.deps.list.search({
         ...criteria,
@@ -113,7 +116,8 @@ export class ExportDevelopmentUnits {
         limit: Math.min(BATCH_SIZE, total - offset),
       });
       if (slice.items.length === 0) return;
-      yield await toPanelRows(slice.items, this.deps.users);
+      // La planilla de unidades no lleva propietarios: es para editar precios y estados.
+      yield await toExportRows(slice.items, this.deps, { includeOwners: false });
     }
   }
 }

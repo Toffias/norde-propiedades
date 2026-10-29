@@ -661,7 +661,8 @@ export function contactCard(
   const branch = card.branch;
   blocks.push({
     label: branch ? 'Sucursal' : 'Inmobiliaria',
-    name: branch ? `${card.companyName} · ${branch.name}` : card.companyName,
+    // La marca ya está en el logo de la cabecera: la sucursal va con su nombre solo.
+    name: branch ? branch.name : card.companyName,
     lines: branch
       ? [branch.address, ...contactParts(branch)].filter(
           (line): line is string => line !== undefined,
@@ -876,7 +877,12 @@ export async function drawChrome(doc: PDFDocument, fonts: Fonts, chrome: Chrome)
       color: RULE,
     });
     const contact = chrome.contact;
-    const name = contact ? `${chrome.companyName} · ${contact.name}` : chrome.companyName;
+    // Con logo, la marca ya está arriba: el pie lleva solo la sucursal.
+    const name = logo
+      ? (contact?.name ?? '')
+      : contact
+        ? `${chrome.companyName} · ${contact.name}`
+        : chrome.companyName;
     const lineWidth = CONTENT_WIDTH - 90;
     drawText(page, fonts, name, FOOTER_HEIGHT - 8, {
       size: 8,

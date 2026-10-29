@@ -10,21 +10,15 @@ import { PDFDocument } from 'pdf-lib';
 
 import {
   BRAND,
-  chips,
-  CONDITION_LABELS,
   contactCard,
   contactParts,
-  CONTENT_BOTTOM,
-  CONTENT_TOP,
   CONTENT_WIDTH,
   Cursor,
   dateFormat,
-  displayPhone,
   drawChrome,
   drawText,
   embedFonts,
   embedPhoto,
-  fitSize,
   INK,
   isoDay,
   MUTED,
@@ -34,16 +28,14 @@ import {
   roundedRect,
   roundMoney,
   RULE,
-  squareMeters,
   table,
   textHeight,
   type Fact,
   type Fonts,
 } from './pdf-kit';
 
-// Los PDF de la ficha con pdf-lib, en español: la hoja de vidriera (un afiche de una hoja que se lee
-// de lejos) y el reporte al propietario (publicaciones, movimiento del período mes a mes y
-// contacto). La ficha pasó a react-pdf (`pdf/property-sheet-renderer.tsx`, #175).
+// El reporte al propietario con pdf-lib, en español: publicaciones, movimiento del período mes a mes
+// y contacto. La ficha y la vidriera pasaron a react-pdf (`pdf/`, #175).
 
 const STATUS_LABELS: Readonly<Record<string, string>> = {
   draft: 'Borrador',
@@ -53,22 +45,6 @@ const STATUS_LABELS: Readonly<Record<string, string>> = {
   rented: 'Alquilada',
   paused: 'Suspendida',
   withdrawn: 'Dada de baja',
-};
-const ORIENTATION_LABELS: Readonly<Record<string, string>> = {
-  north: 'Norte',
-  south: 'Sur',
-  east: 'Este',
-  west: 'Oeste',
-  northeast: 'Noreste',
-  northwest: 'Noroeste',
-  southeast: 'Sudeste',
-  southwest: 'Sudoeste',
-};
-const DISPOSITION_LABELS: Readonly<Record<string, string>> = {
-  front: 'Frente',
-  back: 'Contrafrente',
-  internal: 'Interno',
-  lateral: 'Lateral',
 };
 const PORTAL_STATUS_LABELS: Readonly<Record<string, string>> = {
   pending: 'Pendiente',
@@ -127,116 +103,6 @@ function amount(price: PdfPrice): string {
     : roundMoney(price.currency, price.priceCents);
 }
 
-/** "Departamento en venta y alquiler". */
-function headline(content: Content): string {
-  const operations = content.prices.map((price) => operationLabel(price).toLowerCase());
-  const joined =
-    operations.length <= 1
-      ? operations.join('')
-      : `${operations.slice(0, -1).join(', ')} y ${operations.at(-1) ?? ''}`;
-  return [kindLabel(content.property.propertyType), joined === '' ? '' : `en ${joined}`]
-    .filter((part) => part !== '')
-    .join(' ');
-}
-
-function plural(value: number, one: string, many: string): string {
-  return value === 1 ? one : many;
-}
-
-/** Los datos principales, en el orden en que se leen. Sin dato, no aparece. */
-function keyFacts(content: Content): Fact[] {
-  const c = content.property.characteristics;
-  const facts: (Fact | undefined)[] = [
-    c.rooms === undefined ? undefined : { label: 'Ambientes', value: c.rooms.toString() },
-    c.bedrooms === undefined ? undefined : { label: 'Dormitorios', value: c.bedrooms.toString() },
-    c.bathrooms === undefined ? undefined : { label: 'Baños', value: c.bathrooms.toString() },
-    c.toilets === undefined ? undefined : { label: 'Toilettes', value: c.toilets.toString() },
-    c.parkingSpaces === undefined
-      ? undefined
-      : { label: 'Cocheras', value: c.parkingSpaces.toString() },
-    c.surfaceTotalM2 === undefined
-      ? undefined
-      : { label: 'Sup. total', value: squareMeters(c.surfaceTotalM2) },
-    c.surfaceCoveredM2 === undefined
-      ? undefined
-      : { label: 'Sup. cubierta', value: squareMeters(c.surfaceCoveredM2) },
-    c.surfaceSemiCoveredM2 === undefined
-      ? undefined
-      : { label: 'Sup. semicubierta', value: squareMeters(c.surfaceSemiCoveredM2) },
-    c.surfaceLandM2 === undefined
-      ? undefined
-      : { label: 'Terreno', value: squareMeters(c.surfaceLandM2) },
-    c.frontM === undefined || c.depthM === undefined
-      ? undefined
-      : {
-          label: 'Lote',
-          value: `${numberFormat.format(c.frontM)} x ${numberFormat.format(c.depthM)} m`,
-        },
-    c.ageYears === undefined
-      ? undefined
-      : {
-          label: 'Antigüedad',
-          value:
-            c.ageYears === 0
-              ? 'A estrenar'
-              : `${c.ageYears.toString()} ${plural(c.ageYears, 'año', 'años')}`,
-        },
-    content.property.deal.expensesCents === undefined
-      ? undefined
-      : { label: 'Expensas', value: roundMoney('ARS', content.property.deal.expensesCents) },
-    c.orientation === undefined
-      ? undefined
-      : { label: 'Orientación', value: ORIENTATION_LABELS[c.orientation] ?? c.orientation },
-    c.disposition === undefined
-      ? undefined
-      : { label: 'Disposición', value: DISPOSITION_LABELS[c.disposition] ?? c.disposition },
-    c.condition === undefined
-      ? undefined
-      : { label: 'Estado', value: CONDITION_LABELS[c.condition] ?? c.condition },
-  ];
-  return facts.filter((fact): fact is Fact => fact !== undefined);
-}
-
-/** Los cinco datos que más se miran en una vidriera, en este orden. */
-const POSTER_FACTS = [
-  'Sup. total',
-  'Ambientes',
-  'Dormitorios',
-  'Baños',
-  'Cocheras',
-  'Terreno',
-  'Sup. cubierta',
-  'Antigüedad',
-];
-
-function posterFacts(content: Content): Fact[] {
-  const facts = keyFacts(content);
-  return POSTER_FACTS.flatMap((label) => facts.filter((fact) => fact.label === label)).slice(0, 5);
-}
-
-/** Lo que suma a la operación: crédito, permuta, financiación. */
-function highlights(content: Content): string[] {
-  const { characteristics: c, deal } = content.property;
-  return [
-    deal.creditEligible ? 'Apto crédito' : undefined,
-    deal.acceptsSwap ? 'Acepta permuta' : undefined,
-    deal.hasFinancing ? 'Con financiación' : undefined,
-    deal.immediateDeed ? 'Escritura inmediata' : undefined,
-    c.isFurnished ? 'Amoblado' : undefined,
-    c.professionalUse ? 'Apto profesional' : undefined,
-  ].filter((part): part is string => part !== undefined);
-}
-
-/** El precio por m² de una operación, solo si el precio se muestra. */
-function pricePerM2(content: Content, price: PdfPrice): string | undefined {
-  if (price.priceCents === undefined) return undefined;
-  const operation = content.property.operations.find(
-    (candidate) => candidate.operation === price.operation && candidate.currency === price.currency,
-  );
-  const perM2 = operation?.pricePerM2Cents;
-  return perM2 === undefined ? undefined : `${roundMoney(price.currency, perM2)} / m²`;
-}
-
 async function photos(doc: PDFDocument, content: Content, box: { width: number; height: number }) {
   const [first] = content.photos;
   return first === undefined ? undefined : embedPhoto(doc, first, box);
@@ -252,228 +118,6 @@ function titleBlock(cursor: Cursor, eyebrow: string, title: string, subtitle: st
     cursor.text(subtitle, { size: 10.5, color: MUTED });
   }
   cursor.gap(12);
-}
-
-// ---------- Vidriera ----------
-
-/** Un afiche de una sola hoja: todo se acomoda al espacio que hay, nada salta de hoja. */
-async function showcase(doc: PDFDocument, cursor: Cursor, content: Content) {
-  const { property } = content;
-  const { page, fonts } = cursor;
-  const x = PAGE.margin;
-  let y = CONTENT_TOP + 4;
-
-  // Lo de abajo hacia arriba: contacto, datos y precio; la foto toma lo que queda.
-  const contactHeight = 84;
-  const contactTop = CONTENT_BOTTOM + contactHeight;
-  const facts = posterFacts(content);
-  const extras = highlights(content).slice(0, 5);
-  const factsHeight = facts.length > 0 ? 66 : 0;
-  const chipsHeight = extras.length > 0 ? 30 : 0;
-  const priceHeight = content.prices.length > 0 ? 78 : 0;
-
-  // Título.
-  y -= drawText(page, fonts, headline(content).toUpperCase(), y, {
-    size: 11,
-    font: fonts.bold,
-    color: BRAND.accent,
-  });
-  y -= 4;
-  y -= drawText(page, fonts, property.portalTitle, y, {
-    size: 26,
-    font: fonts.bold,
-    leading: 1.12,
-    maxLines: 2,
-  });
-  y -= 2;
-  if (content.address !== '') {
-    y -= drawText(page, fonts, content.address, y, { size: 12.5, color: MUTED, maxLines: 1 });
-  }
-  y -= 12;
-
-  // Fotos.
-  const below = priceHeight + factsHeight + chipsHeight + 12;
-  const photoSpace = y - contactTop - 14 - below;
-  const thumbs = content.photos.slice(1, 3);
-  const thumbHeight = thumbs.length === 2 ? Math.min(118, photoSpace * 0.3) : 0;
-  const heroHeight = photoSpace - (thumbHeight > 0 ? thumbHeight + 8 : 0);
-  const hero = await photos(doc, content, { width: CONTENT_WIDTH, height: heroHeight });
-  if (hero) {
-    page.drawImage(hero, { x, y: y - heroHeight, width: CONTENT_WIDTH, height: heroHeight });
-    if (thumbHeight > 0) {
-      const width = (CONTENT_WIDTH - 8) / 2;
-      const images = await Promise.all(
-        thumbs.map((bytes) => embedPhoto(doc, bytes, { width, height: thumbHeight })),
-      );
-      images.forEach((image, column) => {
-        if (image === undefined) return;
-        page.drawImage(image, {
-          x: x + column * (width + 8),
-          y: y - heroHeight - 8 - thumbHeight,
-          width,
-          height: thumbHeight,
-        });
-      });
-    }
-    y -= photoSpace + 12;
-  } else {
-    // Sin foto: un recuadro con la marca, para que el afiche no quede vacío.
-    roundedRect(
-      page,
-      { x, y: y - photoSpace, width: CONTENT_WIDTH, height: photoSpace },
-      { color: BRAND.sand, radius: 8 },
-    );
-    drawText(page, fonts, content.company.name, y - photoSpace / 2 + 12, {
-      size: 24,
-      font: fonts.bold,
-      color: BRAND.sandDark,
-      align: 'center',
-    });
-    y -= photoSpace + 12;
-  }
-
-  // Precio.
-  if (priceHeight > 0) {
-    const height = priceHeight - 12;
-    roundedRect(
-      page,
-      { x, y: y - height, width: CONTENT_WIDTH, height },
-      { color: BRAND.dark, radius: 8 },
-    );
-    const slots = content.prices.slice(0, 2);
-    const width = CONTENT_WIDTH / slots.length;
-    slots.forEach((price, index) => {
-      const left = x + index * width + 20;
-      drawText(page, fonts, operationLabel(price).toUpperCase(), y - 12, {
-        size: 9,
-        font: fonts.bold,
-        color: BRAND.cream,
-        x: left,
-        width: width - 40,
-      });
-      drawText(page, fonts, amount(price), y - 25, {
-        size: fitSize(fonts.bold, amount(price), slots.length === 1 ? 30 : 24, width - 40, 14),
-        font: fonts.bold,
-        color: BRAND.white,
-        x: left,
-        width: width - 40,
-        maxLines: 1,
-      });
-    });
-    if (slots.length === 1 && slots[0] !== undefined) {
-      const perM2 = pricePerM2(content, slots[0]);
-      if (perM2 !== undefined) {
-        drawText(page, fonts, perM2, y - 30, {
-          size: 11,
-          color: BRAND.cream,
-          x,
-          width: CONTENT_WIDTH - 20,
-          align: 'right',
-        });
-      }
-    }
-    y -= priceHeight;
-  }
-
-  // Datos grandes.
-  if (factsHeight > 0) {
-    const gap = 8;
-    const width = (CONTENT_WIDTH - gap * (facts.length - 1)) / facts.length;
-    const height = factsHeight - 10;
-    facts.forEach((fact, index) => {
-      const left = x + index * (width + gap);
-      roundedRect(page, { x: left, y: y - height, width, height }, { color: BRAND.sand });
-      drawText(page, fonts, fact.value, y - 10, {
-        size: fact.value.length > 7 ? 15 : 22,
-        font: fonts.bold,
-        x: left + 6,
-        width: width - 12,
-        align: 'center',
-        maxLines: 1,
-      });
-      drawText(page, fonts, fact.label.toUpperCase(), y - height + 16, {
-        size: 7.5,
-        font: fonts.bold,
-        color: MUTED,
-        x: left + 6,
-        width: width - 12,
-        align: 'center',
-        maxLines: 1,
-      });
-    });
-    y -= factsHeight;
-  }
-
-  if (chipsHeight > 0) {
-    cursor.y = y;
-    chips(cursor, extras, { size: 10 });
-  }
-
-  // Contacto, en la franja de acento.
-  const top = contactTop;
-  roundedRect(
-    page,
-    { x, y: top - contactHeight, width: CONTENT_WIDTH, height: contactHeight },
-    { color: BRAND.accent, radius: 8 },
-  );
-  const contact = content.branch;
-  const whatsapp = contact?.whatsapp ?? content.agent?.phone;
-  drawText(page, fonts, 'CONSULTÁ POR ESTA PROPIEDAD', top - 14, {
-    size: 8.5,
-    font: fonts.bold,
-    color: BRAND.white,
-    x: x + 20,
-    width: 300,
-  });
-  drawText(
-    page,
-    fonts,
-    whatsapp === undefined
-      ? content.company.name
-      : `${contact?.whatsapp === undefined ? 'Tel.' : 'WhatsApp'} ${displayPhone(whatsapp)}`,
-    top - 28,
-    { size: 20, font: fonts.bold, color: BRAND.white, x: x + 20, width: 320, maxLines: 1 },
-  );
-  const secondary = [
-    contact?.address,
-    contact?.phone === undefined ? undefined : `Tel. ${displayPhone(contact.phone)}`,
-    contact?.email,
-  ].filter((part): part is string => part !== undefined);
-  if (secondary.length > 0) {
-    drawText(page, fonts, secondary.join('  ·  '), top - 54, {
-      size: 8.5,
-      color: BRAND.white,
-      x: x + 20,
-      width: CONTENT_WIDTH - 40,
-      maxLines: 1,
-    });
-  }
-  if (content.webUrl !== undefined) {
-    drawText(page, fonts, content.webUrl, top - 67, {
-      size: 8.5,
-      font: fonts.bold,
-      color: BRAND.white,
-      x: x + 20,
-      width: CONTENT_WIDTH - 40,
-      maxLines: 1,
-    });
-  }
-  drawText(page, fonts, 'CÓDIGO', top - 16, {
-    size: 7.5,
-    font: fonts.bold,
-    color: BRAND.white,
-    x: x + CONTENT_WIDTH - 130,
-    width: 110,
-    align: 'right',
-  });
-  drawText(page, fonts, property.code, top - 27, {
-    size: 16,
-    font: fonts.bold,
-    color: BRAND.white,
-    x: x + CONTENT_WIDTH - 130,
-    width: 110,
-    align: 'right',
-  });
 }
 
 // ---------- Reporte al propietario ----------
@@ -759,10 +403,11 @@ export class PdfLibPropertyDocumentRenderer implements PropertyDocumentRenderer 
     doc.setCreationDate(content.generatedAt);
     const fonts: Fonts = await embedFonts(doc);
     const cursor = new Cursor(doc, fonts);
-    // La ficha se arma con react-pdf en su formato (ADR 0051, #175): acá no llega.
-    if (content.kind === 'sheet') throw new Error('The sheet is rendered by the sheet renderer');
-    if (content.kind === 'showcase') await showcase(doc, cursor, content);
-    else await ownerReport(doc, cursor, content);
+    // La ficha y la vidriera se arman con react-pdf (ADR 0051, #175): acá no llegan.
+    if (content.kind !== 'owner_report') {
+      throw new Error(`The ${content.kind} is rendered with react-pdf`);
+    }
+    await ownerReport(doc, cursor, content);
     await drawChrome(doc, fonts, {
       companyName: content.company.name,
       logo: content.company.logo,
@@ -770,7 +415,7 @@ export class PdfLibPropertyDocumentRenderer implements PropertyDocumentRenderer 
       code: content.property.code,
       contact: footerContact(content),
       generatedAt: content.generatedAt,
-      pageNumbers: content.kind !== 'showcase',
+      pageNumbers: true,
     });
     return doc.save();
   }

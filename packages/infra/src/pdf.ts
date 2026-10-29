@@ -2,3 +2,4 @@
 // (apps/agent) no compilen JSX ni carguen react-pdf.
 
 export { ReactPdfPropertySheetRenderer } from './adapters/exports/pdf/property-sheet-renderer';
+export { ReactPdfShowcaseRenderer } from './adapters/exports/pdf/showcase-renderer';

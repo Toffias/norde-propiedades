@@ -1,19 +1,13 @@
 import type { PropertyDocumentContent } from '@norde/core/properties';
 import { PDFDocument } from 'pdf-lib';
-import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 
 import { PANEL_PROPERTY_DETAIL as property } from './panel-property-detail.fixture';
 import { PdfLibPropertyDocumentRenderer } from './property-document-renderer';
 
-async function photo() {
-  const image = sharp({ create: { width: 800, height: 600, channels: 3, background: '#3366cc' } });
-  return new Uint8Array(await image.jpeg().toBuffer());
-}
-
 function content(overrides: Partial<PropertyDocumentContent> = {}): PropertyDocumentContent {
   return {
-    kind: 'showcase',
+    kind: 'owner_report',
     property,
     address: 'Gurruchaga 1834 · Piso 3 Unidad B · Palermo, CABA',
     addressDisplay: 'full',
@@ -44,41 +38,8 @@ function content(overrides: Partial<PropertyDocumentContent> = {}): PropertyDocu
 describe('PdfLibPropertyDocumentRenderer', () => {
   const renderer = new PdfLibPropertyDocumentRenderer();
 
-  it('renders the one-page showcase and skips photos it cannot embed', async () => {
-    const bytes = await renderer.render(
-      content({ kind: 'showcase', photos: [new Uint8Array([0x52, 0x49, 0x46, 0x46])] }),
-    );
-    const doc = await PDFDocument.load(bytes);
-    expect(doc.getTitle()).toBe('Vidriera DEP0001');
-    expect(doc.getPageCount()).toBe(1);
-  });
-
-  it('keeps the showcase in one page with WebP photos, a long title and no contact', async () => {
-    const webp = new Uint8Array(
-      await sharp({ create: { width: 1200, height: 800, channels: 3, background: '#cc3366' } })
-        .webp()
-        .toBuffer(),
-    );
-    const bytes = await renderer.render(
-      content({
-        kind: 'showcase',
-        photos: [webp, await photo(), await photo()],
-        property: {
-          ...property,
-          portalTitle:
-            'Departamento de tres ambientes con balcón corrido, cochera, baulera y amenities en el corazón de Palermo Soho',
-        },
-        prices: [
-          { operation: 'sale', currency: 'USD', priceCents: 12_000_000n },
-          { operation: 'rent', currency: 'ARS', priceCents: undefined },
-        ],
-        agent: undefined,
-        branch: undefined,
-        webUrl: undefined,
-      }),
-    );
-    const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(1);
+  it.each(['sheet', 'showcase'] as const)('leaves the %s to react-pdf', async (kind) => {
+    await expect(renderer.render(content({ kind }))).rejects.toThrow('react-pdf');
   });
 
   it('renders the owner report with the publications of the period', async () => {

@@ -23,8 +23,10 @@ export {
 } from './domain/description-footer-template';
 export {
   ADDRESS_DISPLAYS,
+  AGENT_INFO_MODES,
   DEFAULT_PDF_OPTIONS,
   type AddressDisplay,
+  type AgentInfoMode,
   type PdfOptions,
 } from './domain/pdf-options';
 export {

@@ -349,7 +349,7 @@ describe('UpdatePortalDescriptionFooter', () => {
 describe('UpdatePdfOptions', () => {
   const pdf = {
     showCompanyContact: true,
-    showAgent: false,
+    agentInfo: 'ask',
     showPrice: false,
     addressOnSend: 'hidden',
     addressOnDownload: 'full',
@@ -363,8 +363,8 @@ describe('UpdatePdfOptions', () => {
 
     expect(unwrap(await getSettings.execute({}, admin)).pdfOptions).toEqual(pdf);
     const change = uow.audit.entries[0]?.changes?.pdfOptions;
-    expect(change?.before).toMatchObject({ showAgent: true, showPrice: true });
-    expect(change?.after).toMatchObject({ showAgent: false, showPrice: false });
+    expect(change?.before).toMatchObject({ agentInfo: 'show', showPrice: true });
+    expect(change?.after).toMatchObject({ agentInfo: 'ask', showPrice: false });
   });
 
   it('is only for administrators', async () => {

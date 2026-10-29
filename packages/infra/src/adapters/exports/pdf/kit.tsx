@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     borderBottomColor: PDF_COLORS.rule,
     paddingBottom: 6,
   },
-  logo: { height: 26, maxWidth: 140, objectFit: 'contain' },
+  logo: { height: 30, maxWidth: 160, objectFit: 'contain', objectPosition: 'left' },
   companyName: { fontSize: 13, fontWeight: 800, color: PDF_COLORS.brand },
   headerContact: {
     fontSize: PDF_TYPE.small,
@@ -143,7 +143,7 @@ export function PdfDocument({
 }
 
 export interface PdfBranding {
-  /** El logo de Mi empresa (PNG o JPEG); sin logo, va el nombre. */
+  /** El logo de Mi empresa en PNG (el renderer lo convierte); sin logo, va el nombre. */
   readonly logo: Uint8Array | undefined;
   readonly companyName: string;
   /** La línea de contacto de la cabecera: dirección, teléfonos, web. */
@@ -171,7 +171,11 @@ export function PdfPage({
         {branding.logo === undefined ? (
           <Text style={styles.companyName}>{branding.companyName}</Text>
         ) : (
-          <Image src={Buffer.from(branding.logo)} style={styles.logo} />
+          // Como data URI, el PDF lo guarda una sola vez aunque se repita en cada hoja.
+          <Image
+            src={`data:image/png;base64,${Buffer.from(branding.logo).toString('base64')}`}
+            style={styles.logo}
+          />
         )}
         {branding.contactLine === undefined ? null : (
           <Text style={styles.headerContact}>{branding.contactLine}</Text>
@@ -307,11 +311,26 @@ export function PdfPhoto({
   return <Image src={Buffer.from(bytes)} style={{ width, height, objectFit: 'cover' }} />;
 }
 
-/** La descripción en párrafos, con la misma letra de punta a punta; pasa de página si no entra. */
-export function PdfParagraphs({ text }: { readonly text: string }): ReactElement {
+/**
+ * Una sección de texto largo (la descripción) en párrafos, con la misma letra de punta a punta.
+ * Pasa de página si no entra, pero el título nunca queda solo al pie: va con el primer párrafo.
+ */
+export function PdfTextSection({
+  title,
+  text,
+}: {
+  readonly title: string;
+  readonly text: string;
+}): ReactElement | null {
+  const [first, ...rest] = paragraphs(text);
+  if (first === undefined) return null;
   return (
     <View>
-      {paragraphs(text).map((paragraph, index) => (
+      <View wrap={false}>
+        <Text style={styles.sectionTitle}>{title.toUpperCase()}</Text>
+        <Text style={styles.paragraph}>{first}</Text>
+      </View>
+      {rest.map((paragraph, index) => (
         <Text key={index} style={styles.paragraph} orphans={2} widows={2}>
           {paragraph}
         </Text>

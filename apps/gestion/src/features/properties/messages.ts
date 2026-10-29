@@ -16,6 +16,7 @@ import type {
   ListPanelPropertiesError,
   RenameLocationError,
   RenameTagGroupError,
+  RequestPropertyListDocumentError,
   RestorePropertyError,
   SaveFavoriteSearchError,
   UpdateFeatureError,
@@ -79,6 +80,15 @@ export const EXPORT_ERROR_MESSAGES = {
   TooManyToExport: (error) =>
     `Son ${error.total} propiedades y este formato admite hasta ${error.max}. Filtrá un poco más.`,
 } satisfies ErrorMessages<ExportPropertiesError>;
+
+export const LIST_DOCUMENT_ERROR_MESSAGES = {
+  Forbidden: 'No tenés permiso para exportar esta cantidad de propiedades.',
+  InvalidInput: 'Elegí un formato y probá de nuevo.',
+  NoBranchAssigned: PROPERTY_LIST_ERROR_MESSAGES.NoBranchAssigned,
+  NothingToExport: 'No hay propiedades para exportar con esta selección.',
+  TooManyToExport: (error) =>
+    `Son ${error.total} propiedades y el PDF admite hasta ${error.max}. Filtrá un poco más.`,
+} satisfies ErrorMessages<RequestPropertyListDocumentError>;
 
 export const FAVORITE_ERROR_MESSAGES = {
   Forbidden: 'Solo un usuario del panel tiene favoritos.',

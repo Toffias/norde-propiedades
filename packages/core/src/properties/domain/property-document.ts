@@ -4,6 +4,7 @@ import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { PriceCurrency, PropertyOperationKind } from './property-catalog';
+import type { PropertySheetLayout } from './property-sheet';
 import type { PropertyId } from './property';
 
 export type PropertyDocumentId = Id<'PropertyDocument'>;
@@ -27,6 +28,10 @@ export interface PropertyDocumentSnapshot {
   readonly kind: PropertyDocumentKind;
   readonly status: PropertyDocumentStatus;
   readonly period: ReportPeriod | undefined;
+  /** El formato de la ficha (#175); los demás PDF no tienen. */
+  readonly layout: PropertySheetLayout | undefined;
+  /** Si lleva los datos del agente que lo pidió, resuelto al pedirlo. */
+  readonly includeAgent: boolean;
   readonly storageKey: string | undefined;
   readonly error: string | undefined;
   readonly requestedBy: string;
@@ -129,6 +134,9 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
     readonly propertyId: PropertyId;
     readonly kind: PropertyDocumentKind;
     readonly period: ReportPeriod | undefined;
+    /** Solo la ficha; sin formato, la vertical de varias hojas. */
+    readonly layout?: PropertySheetLayout | undefined;
+    readonly includeAgent: boolean;
     readonly requestedBy: string;
     readonly now: Date;
   }): Result<PropertyDocument, ReportPeriodRequiredError> {
@@ -140,6 +148,8 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
       kind: input.kind,
       status: 'pending',
       period: input.kind === 'owner_report' ? input.period : undefined,
+      layout: input.kind === 'sheet' ? (input.layout ?? 'portrait') : undefined,
+      includeAgent: input.includeAgent,
       storageKey: undefined,
       error: undefined,
       requestedBy: input.requestedBy,
@@ -178,6 +188,15 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
 
   get requestedBy(): string {
     return this.#state.requestedBy;
+  }
+
+  /** El formato de la ficha; las de antes de #175 eran la vertical. */
+  get layout(): PropertySheetLayout {
+    return this.#state.layout ?? 'portrait';
+  }
+
+  get includeAgent(): boolean {
+    return this.#state.includeAgent;
   }
 
   /** El archivo listo, para descargarlo o enviarlo. */

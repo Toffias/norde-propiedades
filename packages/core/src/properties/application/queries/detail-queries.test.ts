@@ -9,6 +9,8 @@ import {
   BRANCH_ID,
   DEVELOPMENT_ID,
   FakeDocumentRenderer,
+  FakeSheetRenderer,
+  FakeStaticMaps,
   InMemoryPropertiesUnitOfWork,
   InMemoryPropertyDocumentQuery,
   InMemoryDocumentContacts,
@@ -22,6 +24,7 @@ import {
   TEST_NOW,
   TEST_OUTSIDER,
 } from '../../testing';
+import { Coordinates } from '../../domain/coordinates';
 import { MediaItem } from '../../domain/media-item';
 import type { MediaOwner } from '../../domain/media-owner';
 import { RenderPropertyDocument } from '../commands/render-property-document';
@@ -46,10 +49,13 @@ const AUDITOR = Actor.user(OTHER_USER_ID, ['properties:read', 'audit:read', 'aud
 const OWN_AUDIT = Actor.user(OTHER_USER_ID, ['properties:read', 'audit:read']);
 const JOBS = Actor.system('scheduler', ['properties:render-documents', 'properties:read']);
 
-function settingsReader(developmentPhotosInUnits = true) {
+function settingsReader(
+  developmentPhotosInUnits = true,
+  pdf: { agentInfo?: 'show' | 'hide' | 'ask'; showCompanyContact?: boolean } = {},
+) {
   const settings = CompanySettings.defaults();
   settings.updatePdfOptions(
-    { ...settings.toSnapshot().pdfOptions, developmentPhotosInUnits },
+    { ...settings.toSnapshot().pdfOptions, developmentPhotosInUnits, ...pdf },
     TEST_NOW,
   );
   const general = settings.toSnapshot();
@@ -344,10 +350,15 @@ describe('GetPropertyInterestProfiles', () => {
 });
 
 describe('property documents', () => {
-  function documents(developmentPhotosInUnits = true) {
+  function documents(
+    developmentPhotosInUnits = true,
+    pdf: Parameters<typeof settingsReader>[1] = {},
+  ) {
     const ctx = setup();
     const storage = new InMemoryFileStorage();
     const renderer = new FakeDocumentRenderer();
+    const sheets = new FakeSheetRenderer();
+    const maps = new FakeStaticMaps();
     const ownerReports = new StubOwnerReports();
     const contacts = new InMemoryDocumentContacts(
       new Map([[BRANCH_ID, BRANCH_CONTACT]]),
@@ -365,17 +376,20 @@ describe('property documents', () => {
       ]),
     );
     const mailer = new RecordingMailer();
-    const settings = settingsReader(developmentPhotosInUnits);
+    const settings = settingsReader(developmentPhotosInUnits, pdf);
     return {
       ...ctx,
       storage,
       renderer,
+      sheets,
+      maps,
       ownerReports,
       mailer,
       request: new RequestPropertyDocument({
         uow: ctx.uow,
         ids: new SequentialIdGenerator(),
         clock: ctx.clock,
+        settings,
       }),
       render: new RenderPropertyDocument({
         uow: ctx.uow,
@@ -384,6 +398,8 @@ describe('property documents', () => {
         storage,
         settings,
         renderer,
+        sheets,
+        maps,
         ownerReports,
         contacts,
         clock: ctx.clock,
@@ -429,7 +445,7 @@ describe('property documents', () => {
   });
 
   it('renders with the PDF options: address, prices and the photos marked for the PDF', async () => {
-    const { request, render, renderer, uow, storage, download } = documents();
+    const { request, render, sheets, uow, storage, download } = documents();
     const photo = (position: number, includeInPdf: boolean) => {
       const id = unwrap(
         parseId<'MediaItem'>(
@@ -465,23 +481,29 @@ describe('property documents', () => {
       await request.execute({ propertyId: PROPERTY_ID, kind: 'sheet' }, READER),
     );
     expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('ready');
-    const content = renderer.rendered[0];
+    const content = sheets.rendered[0];
     expect(content).toMatchObject({
-      kind: 'sheet',
+      // Sin formato elegido, la vertical de varias hojas.
+      layout: 'portrait',
+      title: 'Ficha DEP0001',
+      agent: { name: 'Camila Ruiz', phone: '+5491155550000', email: 'camila@norde.com.ar' },
+      company: { name: CompanySettings.defaults().name, contact: BRANCH_CONTACT },
+    });
+    expect(content?.sheets).toHaveLength(1);
+    expect(content?.sheets[0]).toMatchObject({
       // "Ficha y PDF" de partida: al descargar, la dirección completa.
       address: 'Gurruchaga 1834 · Piso 3 Unidad B · Palermo, CABA',
       prices: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
-      agent: { name: 'Camila Ruiz', phone: '+5491155550000', email: 'camila@norde.com.ar' },
-      branch: BRANCH_CONTACT,
-      company: { name: CompanySettings.defaults().name },
+      map: undefined,
+      // Un borrador no está en la web: sin link.
+      webUrl: undefined,
     });
-    // Un borrador no está en la web: sin link.
-    expect(content?.webUrl).toBeUndefined();
-    expect(content?.photos).toEqual([new Uint8Array([7])]);
+    expect(content?.sheets[0]?.photos).toEqual([new Uint8Array([7])]);
     expect(uow.documents.rows.get(documentId)?.status).toBe('ready');
     expect(unwrap(await download.execute({ documentId }, READER))).toMatchObject({
       kind: 'content',
-      fileName: 'ficha-dep0001.pdf',
+      // Como en Tokko: el código de la propiedad.
+      fileName: 'DEP0001.pdf',
       contentType: 'application/pdf',
     });
     // Ya armado: un segundo aviso del job no lo vuelve a armar.
@@ -494,7 +516,7 @@ describe('property documents', () => {
   ])(
     'adds the development photos to a unit sheet when Mi empresa asks for it (%s)',
     async (developmentPhotosInUnits, expected) => {
-      const { request, render, renderer, uow, storage } = documents(developmentPhotosInUnits);
+      const { request, render, sheets, uow, storage } = documents(developmentPhotosInUnits);
       const unit = uow.properties.rows.get(PROPERTY_ID);
       if (unit) uow.properties.rows.set(PROPERTY_ID, { ...unit, developmentId: DEVELOPMENT_ID });
       const photo = (owner: MediaOwner, suffix: string, bytes: number): Promise<void> => {
@@ -530,9 +552,101 @@ describe('property documents', () => {
         await request.execute({ propertyId: PROPERTY_ID, kind: 'sheet' }, READER),
       );
       expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('ready');
-      expect(renderer.rendered[0]?.photos).toEqual(expected);
+      expect(sheets.rendered[0]?.sheets[0]?.photos).toEqual(expected);
     },
   );
+
+  it('prints the sheet in the chosen layout, with the map when it has one', async () => {
+    const { request, render, sheets, maps, uow } = documents();
+    const row = uow.properties.rows.get(PROPERTY_ID);
+    if (row) {
+      uow.properties.rows.set(PROPERTY_ID, {
+        ...row,
+        coordinates: unwrap(Coordinates.create(-34.58, -58.43)),
+      });
+    }
+    const { documentId } = unwrap(
+      await request.execute(
+        { propertyId: PROPERTY_ID, kind: 'sheet', layout: 'landscape_map' },
+        READER,
+      ),
+    );
+    expect(uow.audit.entries[0]?.changes).toMatchObject({
+      layout: { before: null, after: 'landscape_map' },
+    });
+    unwrap(await render.execute({ documentId }, JOBS));
+    expect(sheets.rendered[0]?.layout).toBe('landscape_map');
+    expect(maps.requested).toEqual([{ latitude: -34.58, longitude: -58.43 }]);
+    expect(sheets.rendered[0]?.sheets[0]?.map).toEqual(new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
+
+    // Sin mapa en el formato, no se pide.
+    const plain = unwrap(
+      await request.execute(
+        { propertyId: PROPERTY_ID, kind: 'sheet', layout: 'landscape' },
+        READER,
+      ),
+    );
+    unwrap(await render.execute(plain, JOBS));
+    expect(maps.requested).toHaveLength(1);
+    expect(sheets.rendered[1]?.sheets[0]?.map).toBeUndefined();
+  });
+
+  it('prints the sheet without the map when the property has no coordinates or the map is down', async () => {
+    const { request, render, sheets, maps } = documents();
+    maps.down = true;
+    const { documentId } = unwrap(
+      await request.execute(
+        { propertyId: PROPERTY_ID, kind: 'sheet', layout: 'portrait_map' },
+        READER,
+      ),
+    );
+    expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('ready');
+    expect(sheets.rendered[0]?.sheets[0]?.map).toBeUndefined();
+  });
+
+  it.each([
+    ['show', undefined, true],
+    ['hide', true, false],
+    ['ask', true, true],
+    ['ask', false, false],
+    ['ask', undefined, false],
+  ] as const)(
+    'decides the agent details with "%s" when the user asks %s',
+    async (agentInfo, includeAgent, printed) => {
+      const { request, render, sheets } = documents(true, { agentInfo });
+      const { documentId } = unwrap(
+        await request.execute(
+          {
+            propertyId: PROPERTY_ID,
+            kind: 'sheet',
+            ...(includeAgent === undefined ? {} : { includeAgent }),
+          },
+          READER,
+        ),
+      );
+      unwrap(await render.execute({ documentId }, JOBS));
+      expect(sheets.rendered[0]?.agent !== undefined).toBe(printed);
+    },
+  );
+
+  it('leaves out the company contact when "Ficha y PDF" hides it', async () => {
+    const { request, render, sheets } = documents(true, { showCompanyContact: false });
+    const { documentId } = unwrap(
+      await request.execute({ propertyId: PROPERTY_ID, kind: 'sheet' }, READER),
+    );
+    unwrap(await render.execute({ documentId }, JOBS));
+    expect(sheets.rendered[0]?.company.contact).toBeUndefined();
+  });
+
+  it('marks the sheet failed when the property is gone', async () => {
+    const { request, render, uow } = documents();
+    const { documentId } = unwrap(
+      await request.execute({ propertyId: PROPERTY_ID, kind: 'sheet' }, READER),
+    );
+    uow.properties.rows.delete(PROPERTY_ID);
+    expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('failed');
+    expect(uow.documents.rows.get(documentId)?.error).toBe('La propiedad ya no está disponible.');
+  });
 
   it('links the sheet to the web when the property is publicly listed', async () => {
     const { request, render, renderer, uow } = documents();

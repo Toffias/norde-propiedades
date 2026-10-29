@@ -695,6 +695,10 @@ export const propertyDocuments = coreSchema.table(
     /** Período del reporte al propietario (días de Buenos Aires). */
     periodFrom: date('period_from', { mode: 'string' }),
     periodTo: date('period_to', { mode: 'string' }),
+    /** Formato de la ficha (#175): `landscape`, `portrait_map`… Sin formato, la vertical. */
+    layout: text('layout'),
+    /** Si lleva los datos del agente, resuelto al pedirlo (antes de #175 salían siempre). */
+    includeAgent: boolean('include_agent').notNull().default(true),
     storageKey: text('storage_key'),
     error: text('error'),
     requestedBy: text('requested_by').notNull(),
@@ -709,6 +713,36 @@ export const propertyDocuments = coreSchema.table(
       .where(sql`status = 'pending'`),
     index('property_documents_requester_updated_idx').on(t.requestedBy, t.updatedAt),
     index('property_documents_updated_idx').on(t.updatedAt),
+  ],
+);
+
+/**
+ * El PDF de las propiedades elegidas en el buscador (#175): las propiedades se fijan al pedirlo y
+ * lo arma un job. Sin foreign key a cada propiedad: si se borra una, el PDF sale sin ella.
+ */
+export const propertyListDocuments = coreSchema.table(
+  'property_list_documents',
+  {
+    id: uuid('id').primaryKey(),
+    propertyIds: uuid('property_ids').array().notNull(),
+    /** `landscape` / `landscape_map` / `portrait` / `portrait_map` / `grid`. */
+    layout: text('layout').notNull(),
+    includeAgent: boolean('include_agent').notNull(),
+    /** `pending` / `ready` / `failed`. */
+    status: text('status').notNull().default('pending'),
+    storageKey: text('storage_key'),
+    error: text('error'),
+    requestedBy: text('requested_by').notNull(),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    // Procesos en segundo plano (ADR 0040), como los PDF de la ficha.
+    index('property_list_documents_pending_requester_idx')
+      .on(t.requestedBy)
+      .where(sql`status = 'pending'`),
+    index('property_list_documents_requester_updated_idx').on(t.requestedBy, t.updatedAt),
+    index('property_list_documents_updated_idx').on(t.updatedAt),
   ],
 );
 

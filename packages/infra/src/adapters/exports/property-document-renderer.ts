@@ -6,11 +6,10 @@ import {
   type PropertyDocumentContent,
   type PropertyDocumentRenderer,
 } from '@norde/core/properties';
-import { PDFDocument, type PDFImage } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 
 import {
   BRAND,
-  bulletColumns,
   chips,
   CONDITION_LABELS,
   contactCard,
@@ -25,14 +24,12 @@ import {
   drawText,
   embedFonts,
   embedPhoto,
-  factsGrid,
   fitSize,
   INK,
   isoDay,
   MUTED,
   numberFormat,
   PAGE,
-  photoGrid,
   printable,
   roundedRect,
   roundMoney,
@@ -44,9 +41,9 @@ import {
   type Fonts,
 } from './pdf-kit';
 
-// Los PDF de la ficha con pdf-lib, en español: la ficha (fotos, datos, descripción y contacto), la
-// hoja de vidriera (un afiche de una hoja que se lee de lejos) y el reporte al propietario
-// (publicaciones, movimiento del período mes a mes y contacto).
+// Los PDF de la ficha con pdf-lib, en español: la hoja de vidriera (un afiche de una hoja que se lee
+// de lejos) y el reporte al propietario (publicaciones, movimiento del período mes a mes y
+// contacto). La ficha pasó a react-pdf (`pdf/property-sheet-renderer.tsx`, #175).
 
 const STATUS_LABELS: Readonly<Record<string, string>> = {
   draft: 'Borrador',
@@ -72,11 +69,6 @@ const DISPOSITION_LABELS: Readonly<Record<string, string>> = {
   back: 'Contrafrente',
   internal: 'Interno',
   lateral: 'Lateral',
-};
-const FEATURE_KIND_LABELS: Readonly<Record<string, string>> = {
-  service: 'Servicios',
-  room: 'Ambientes',
-  amenity: 'Adicionales y amenities',
 };
 const PORTAL_STATUS_LABELS: Readonly<Record<string, string>> = {
   pending: 'Pendiente',
@@ -260,141 +252,6 @@ function titleBlock(cursor: Cursor, eyebrow: string, title: string, subtitle: st
     cursor.text(subtitle, { size: 10.5, color: MUTED });
   }
   cursor.gap(12);
-}
-
-/** Franja de precios: uno por operación, con el valor por m² si se muestra. */
-function priceBand(cursor: Cursor, content: Content) {
-  if (content.prices.length === 0) return;
-  const height = 58;
-  cursor.ensure(height + 10);
-  const top = cursor.y;
-  roundedRect(
-    cursor.page,
-    { x: PAGE.margin, y: top - height, width: CONTENT_WIDTH, height },
-    { color: BRAND.dark, radius: 8 },
-  );
-  const slots = content.prices.slice(0, 3);
-  const width = CONTENT_WIDTH / slots.length;
-  slots.forEach((price, index) => {
-    const x = PAGE.margin + index * width + 18;
-    if (index > 0) {
-      cursor.page.drawLine({
-        start: { x: x - 18, y: top - 12 },
-        end: { x: x - 18, y: top - height + 12 },
-        thickness: 0.5,
-        color: BRAND.dark2,
-      });
-    }
-    drawText(cursor.page, cursor.fonts, operationLabel(price).toUpperCase(), top - 12, {
-      size: 7.5,
-      font: cursor.fonts.bold,
-      color: BRAND.cream,
-      x,
-      width: width - 30,
-    });
-    drawText(cursor.page, cursor.fonts, amount(price), top - 23, {
-      size: fitSize(cursor.fonts.bold, amount(price), slots.length === 1 ? 20 : 16, width - 30, 10),
-      font: cursor.fonts.bold,
-      color: BRAND.white,
-      x,
-      width: width - 30,
-      maxLines: 1,
-    });
-    const perM2 = pricePerM2(content, price);
-    if (perM2 !== undefined && slots.length === 1) {
-      drawText(cursor.page, cursor.fonts, perM2, top - 26, {
-        size: 10,
-        color: BRAND.cream,
-        x: PAGE.margin,
-        width: CONTENT_WIDTH - 18,
-        align: 'right',
-      });
-    }
-  });
-  cursor.y = top - height - 14;
-}
-
-// ---------- Ficha ----------
-
-async function sheet(doc: PDFDocument, cursor: Cursor, content: Content) {
-  const { property } = content;
-  titleBlock(cursor, headline(content), property.portalTitle, content.address);
-
-  const heroBox = { width: CONTENT_WIDTH, height: 250 };
-  const hero = await photos(doc, content, heroBox);
-  if (hero) {
-    cursor.page.drawImage(hero, { x: PAGE.margin, y: cursor.y - heroBox.height, ...heroBox });
-    cursor.gap(heroBox.height + 8);
-  }
-  // Tres miniaturas debajo de la principal; el resto va a la galería del final.
-  const thumbs = content.photos.slice(1, 4);
-  const gallery = content.photos.slice(4);
-  if (thumbs.length > 0) {
-    const gap = 8;
-    const width = (CONTENT_WIDTH - gap * 2) / 3;
-    const height = width * 0.62;
-    const images = (
-      await Promise.all(thumbs.map((bytes) => embedPhoto(doc, bytes, { width, height })))
-    ).filter((image): image is PDFImage => image !== undefined);
-    if (images.length > 0) {
-      cursor.ensure(height);
-      images.forEach((image, column) => {
-        cursor.page.drawImage(image, {
-          x: PAGE.margin + column * (width + gap),
-          y: cursor.y - height,
-          width,
-          height,
-        });
-      });
-      cursor.gap(height + 12);
-    }
-  }
-  if (hero && thumbs.length === 0) cursor.gap(4);
-
-  priceBand(cursor, content);
-
-  const facts = keyFacts(content);
-  if (facts.length > 0) {
-    cursor.section('Características', 56);
-    factsGrid(cursor, facts, 5);
-  }
-  const extras = highlights(content);
-  if (extras.length > 0) {
-    cursor.gap(2);
-    chips(cursor, extras);
-  }
-
-  if (property.description.trim() !== '') {
-    cursor.section('Descripción');
-    cursor.text(property.description, { size: 10, leading: 1.45, color: INK });
-    cursor.gap(6);
-  }
-
-  const groups = new Map<string, string[]>();
-  for (const feature of property.features) {
-    groups.set(feature.kind, [...(groups.get(feature.kind) ?? []), feature.name]);
-  }
-  for (const kind of ['room', 'service', 'amenity', ...groups.keys()]) {
-    const names = groups.get(kind);
-    if (names === undefined) continue;
-    groups.delete(kind);
-    cursor.section(FEATURE_KIND_LABELS[kind] ?? kind, 30);
-    bulletColumns(cursor, names, 3);
-    cursor.gap(4);
-  }
-
-  if (gallery.length > 0) {
-    await photoGrid(cursor, doc, gallery, { columns: 2, ratio: 0.66, title: 'Galería' });
-  }
-
-  cursor.gap(6);
-  contactCard(cursor, {
-    title: 'Coordiná una visita',
-    agent: content.agent,
-    branch: content.branch,
-    companyName: content.company.name,
-    link: content.webUrl === undefined ? undefined : `Más fotos y datos en ${content.webUrl}`,
-  });
 }
 
 // ---------- Vidriera ----------
@@ -902,8 +759,9 @@ export class PdfLibPropertyDocumentRenderer implements PropertyDocumentRenderer 
     doc.setCreationDate(content.generatedAt);
     const fonts: Fonts = await embedFonts(doc);
     const cursor = new Cursor(doc, fonts);
-    if (content.kind === 'sheet') await sheet(doc, cursor, content);
-    else if (content.kind === 'showcase') await showcase(doc, cursor, content);
+    // La ficha se arma con react-pdf en su formato (ADR 0051, #175): acá no llega.
+    if (content.kind === 'sheet') throw new Error('The sheet is rendered by the sheet renderer');
+    if (content.kind === 'showcase') await showcase(doc, cursor, content);
     else await ownerReport(doc, cursor, content);
     await drawChrome(doc, fonts, {
       companyName: content.company.name,

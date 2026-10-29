@@ -217,7 +217,9 @@ import {
   DeleteMedia,
   GetPanelPropertyDetail,
   GetAttachmentDownload,
+  GetPdfExportOptions,
   GetPropertyDocumentDownload,
+  GetPropertyListDocumentDownload,
   GetPropertyInterestProfile,
   GetPropertyInterestProfiles,
   GetPropertyFollowUpProfile,
@@ -230,6 +232,7 @@ import {
   ListMedia,
   ReorderMedia,
   RequestPropertyDocument,
+  RequestPropertyListDocument,
   SendOwnerReport,
   SetMediaCover,
   UpdateCustomAttribute,
@@ -297,6 +300,7 @@ import {
   GenerateMediaVariants,
   MoveMergedClientLinks,
   RenderPropertyDocument,
+  RenderPropertyListDocument,
   RevalidatePublicDevelopment,
   RevalidatePublicProperty,
   RunDevelopmentUnitImport,
@@ -311,6 +315,7 @@ import {
   type PropertyImportDirectory,
   UnlinkErasedClients,
   type OwnerReports,
+  type StaticMaps,
   RenameLocation,
   RenameTagGroup,
   RestoreProperty,
@@ -468,6 +473,7 @@ import {
   XlsxReservationExportWriter,
   LocalFileStorage,
   NominatimGeocoder,
+  OsmStaticMaps,
   ResendMailer,
   S3FileStorage,
   SharpImageWatermarker,
@@ -521,6 +527,7 @@ import {
   ZonapropLocations,
   ZonapropPortalConnector,
 } from '@norde/infra';
+import { ReactPdfPropertySheetRenderer } from '@norde/infra/pdf';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
@@ -1048,6 +1055,8 @@ function createPropertiesUseCases(
     baseUrl: env.GEOCODER_URL,
     logger: getLogger(),
   });
+  // "Ficha y PDF": formato y datos del agente de los PDF (#175).
+  const companySettings = new DrizzleCompanySettingsRepository(db, clock);
 
   return {
     listPanelProperties: new ListPanelProperties({ properties: list, users, storage }),
@@ -1156,7 +1165,21 @@ function createPropertiesUseCases(
     deleteAttachment: new DeleteAttachment({ uow, clock }),
     getAttachmentDownload: new GetAttachmentDownload({ uow, storage }),
     // PDF
-    requestPropertyDocument: new RequestPropertyDocument({ uow, ids, clock }),
+    requestPropertyDocument: new RequestPropertyDocument({
+      uow,
+      ids,
+      clock,
+      settings: companySettings,
+    }),
+    requestPropertyListDocument: new RequestPropertyListDocument({
+      uow,
+      list,
+      settings: companySettings,
+      ids,
+      clock,
+    }),
+    getPropertyListDocumentDownload: new GetPropertyListDocumentDownload({ uow, storage }),
+    getPdfExportOptions: new GetPdfExportOptions({ settings: companySettings }),
     listPropertyDocuments: new ListPropertyDocuments({
       documents: new DrizzlePropertyDocumentQuery(db),
       users,
@@ -1982,16 +2005,18 @@ function createOpportunityJobs(
   };
 }
 
-/** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
+/** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6, #175). */
 function createPropertyJobs(
   db: Database,
   storage: FileStorage,
+  maps: StaticMaps,
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
 ) {
   const { clock } = deps;
   const uow = createPropertiesUnitOfWork(db, deps);
   const settings = new DrizzleCompanySettingsRepository(db, clock);
   const directory = new DrizzleDirectory(db);
+  const sheets = new ReactPdfPropertySheetRenderer();
   const interestProfile = new GetPropertyInterestProfile({ uow });
   const profiles: ReportingPropertyProfiles = {
     async find(propertyId, actor) {
@@ -2026,7 +2051,20 @@ function createPropertyJobs(
       storage,
       settings,
       renderer: new PdfLibPropertyDocumentRenderer(),
+      sheets,
+      maps,
       ownerReports,
+      contacts: new DrizzleDocumentContacts(db),
+      clock,
+    }),
+    renderListDocument: new RenderPropertyListDocument({
+      uow,
+      lookups: new DrizzlePropertyDetailLookups(db),
+      users: { names: (userIds) => directory.names('user', userIds) },
+      storage,
+      settings,
+      renderer: sheets,
+      maps,
       contacts: new DrizzleDocumentContacts(db),
       clock,
     }),
@@ -2102,7 +2140,16 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     }),
     recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, deps) }),
     notifyAssignment: new NotifyAssignment({ notifications, ids }),
-    properties: createPropertyJobs(db, storage, deps),
+    properties: createPropertyJobs(
+      db,
+      storage,
+      new OsmStaticMaps({
+        userAgent: env.GEOCODER_USER_AGENT,
+        tileUrl: env.MAP_TILES_URL,
+        logger,
+      }),
+      deps,
+    ),
     appraisals: {
       deletePhotoFiles: new DeleteAppraisalPhotoFiles({ storage }),
       createProperty: new CreatePropertyFromAppraisal({

@@ -3,6 +3,7 @@
 import {
   UpdatePdfOptionsInputSchema,
   type AddressDisplayValue,
+  type AgentInfoModeValue,
   type UpdatePdfOptionsInput,
 } from '@norde/core/settings/contracts';
 import { Button } from '@norde/ui/components/button';
@@ -40,9 +41,15 @@ const ADDRESS_LABELS: readonly (readonly [AddressDisplayValue, string])[] = [
   ['hidden', 'No mostrarla'],
 ];
 
+const AGENT_LABELS: readonly (readonly [AgentInfoModeValue, string])[] = [
+  ['show', 'Mostrarlos siempre'],
+  ['hide', 'No mostrarlos'],
+  ['ask', 'Preguntar al armar el PDF'],
+];
+
 type Toggle = Extract<
   FieldPath<UpdatePdfOptionsInput>,
-  'showCompanyContact' | 'showAgent' | 'showPrice' | 'developmentPhotosInUnits'
+  'showCompanyContact' | 'showPrice' | 'developmentPhotosInUnits'
 >;
 
 const TOGGLES: readonly (readonly [Toggle, string, string])[] = [
@@ -51,7 +58,6 @@ const TOGGLES: readonly (readonly [Toggle, string, string])[] = [
     'Datos de contacto de la empresa',
     'Teléfono, email y dirección de la sucursal.',
   ],
-  ['showAgent', 'Datos del agente', 'Nombre, teléfono y email de quien envía o descarga la ficha.'],
   ['showPrice', 'Precio', 'Si se apaga, la ficha dice "Consultar precio".'],
   [
     'developmentPhotosInUnits',
@@ -119,7 +125,36 @@ export function PdfOptionsForm({
             />
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <FormField
+            control={form.control}
+            name="agentInfo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Datos del agente</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={disabled || pending}
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {AGENT_LABELS.map(([value, text]) => (
+                      <SelectItem key={value} value={value}>
+                        {text}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>Nombre, teléfono y email de quien arma la ficha.</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           {(
             [
               ['addressOnSend', 'Dirección al enviar la ficha a un cliente'],

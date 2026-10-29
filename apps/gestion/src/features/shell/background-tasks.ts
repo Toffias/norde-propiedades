@@ -6,7 +6,7 @@ import type {
 import type { StatusTone } from '@norde/ui/components/status-pill';
 
 import { PORTAL_LABELS } from '../portals/messages';
-import { DOCUMENT_KIND_LABELS } from '../properties/detail-labels';
+import { DOCUMENT_KIND_LABELS, SHEET_LAYOUT_LABELS } from '../properties/detail-labels';
 
 // Cómo se muestran en las notificaciones de la barra (la campana) los procesos en segundo plano.
 
@@ -43,6 +43,7 @@ const KIND_LABELS: Readonly<Record<Exclude<BackgroundTaskKind, 'media_variants'>
   tokko_users_import: 'Usuarios de Tokko',
   opportunity_bulk: 'Acción masiva de oportunidades',
   property_document: 'PDF de la ficha',
+  property_list_document: 'PDF de propiedades seleccionadas',
   portal_listing: 'Publicación en portales',
 };
 
@@ -104,6 +105,8 @@ export function taskTitle(task: BackgroundTaskRow): string {
       return lookup(DOCUMENT_KIND_LABELS, task.detail) ?? KIND_LABELS.property_document;
     case 'portal_listing':
       return `Publicación en ${lookup(PORTAL_LABELS, task.detail) ?? 'portales'}`;
+    case 'property_list_document':
+      return KIND_LABELS.property_list_document;
     case 'opportunity_bulk': {
       const action = lookup(BULK_ACTION_LABELS, task.detail);
       return action === undefined ? KIND_LABELS.opportunity_bulk : `${action} de oportunidades`;
@@ -123,6 +126,8 @@ export function taskSubtitle(task: BackgroundTaskRow): string | undefined {
     return subject.title === '' ? subject.code : `${subject.code} · ${subject.title}`;
   }
   if (subject?.kind === 'development') return subject.name;
+  // La selección del buscador no tiene ficha: va su formato.
+  if (task.kind === 'property_list_document') return lookup(SHEET_LAYOUT_LABELS, task.detail);
   const imports: readonly BackgroundTaskKind[] = [
     'client_import',
     'unit_import',
@@ -147,7 +152,9 @@ export function taskFailure(task: BackgroundTaskRow): string | undefined {
       ? 'No se pudieron generar las variantes de una foto.'
       : `No se pudieron generar las variantes de ${String(task.problems)} fotos.`;
   }
-  if (task.kind === 'property_document') return 'No se pudo generar el PDF.';
+  if (task.kind === 'property_document' || task.kind === 'property_list_document') {
+    return 'No se pudo generar el PDF.';
+  }
   return lookup(FAILURE_MESSAGES, task.failure) ?? 'No se pudo terminar.';
 }
 
@@ -167,6 +174,7 @@ export function taskProblems(task: BackgroundTaskRow): string | undefined {
     case 'property_import':
     case 'unit_import':
     case 'property_document':
+    case 'property_list_document':
     case 'portal_listing':
       return task.problems === 1 ? 'Una fila con problemas' : `${count} filas con problemas`;
   }
@@ -189,6 +197,8 @@ export function taskHref(task: BackgroundTaskRow): string | undefined {
       return task.status === 'done' && task.subject?.kind === 'property'
         ? `/propiedades/${task.subject.id}/documentos/${task.sourceId}`
         : subjectHref(task, 'detalles');
+    case 'property_list_document':
+      return task.status === 'done' ? `/propiedades/exportar/pdf/${task.sourceId}` : undefined;
     case 'client_import':
       return `/contactos/importaciones?panel=${task.sourceId}`;
     case 'property_import':

@@ -11,6 +11,7 @@ import {
   portalListings,
   properties,
   propertyDocuments,
+  propertyListDocuments,
 } from '../db/schema';
 
 import { DrizzleBackgroundTaskQuery } from './drizzle-background-task-query';
@@ -290,21 +291,33 @@ describe('DrizzleBackgroundTaskQuery', () => {
       requestedBy: CAMILA,
       ...stamps(CAMILA, at('21T11:55:00')),
     });
+    await db.insert(propertyListDocuments).values({
+      id: id('f400', 1),
+      propertyIds: [PROPERTY, id('f400', 2)],
+      layout: 'grid',
+      includeAgent: true,
+      status: 'ready',
+      storageKey: `properties/exports/${id('f400', 1)}`,
+      requestedBy: CAMILA,
+      ...stamps(CAMILA, at('21T11:49:00'), at('21T11:50:00')),
+    });
 
     const mine = await query.list(MINE, PAGE);
 
-    expect(mine.total).toBe(5);
+    expect(mine.total).toBe(6);
     expect(
       mine.items.map((row) => [row.kind, row.status, row.detail, row.progress, row.problems]),
     ).toEqual([
       // En curso primero, el más reciente arriba.
       ['property_document', 'running', 'sheet', undefined, 0],
       ['client_import', 'running', 'contactos.xlsx', { done: 1200, total: 2780 }, 10],
+      // La selección del buscador, sin ficha: lleva su formato.
+      ['property_list_document', 'done', 'grid', undefined, 0],
       ['opportunity_bulk', 'done', 'change_stage', { done: 40, total: 40 }, 2],
       ['unit_import', 'failed', 'unidades.xlsx', undefined, 0],
       ['property_import', 'done', 'api', { done: 300, total: 300 }, 10],
     ]);
-    expect(mine.items[3]).toMatchObject({
+    expect(mine.items[4]).toMatchObject({
       sourceId: id('f000', 3),
       failure: 'unreadable_file',
       subject: { kind: 'development', id: DEVELOPMENT, name: 'Torre Norde' },

@@ -144,7 +144,7 @@ packages/infra/src/
 │   ├── storage/                     # S3 / R2 y disco local para desarrollo (ADR 0018)
 │   ├── images/                      # sharp: marca de agua
 │   ├── geocoding/                   # Nominatim (ADR 0019)
-│   ├── exports/                     # CSV, Excel (exceljs) y PDF (pdf-lib) de propiedades
+│   ├── exports/                     # CSV, Excel (exceljs) y PDF (react-pdf en pdf/, ADR 0051)
 │   ├── indec/                       # Serie IPC (datos.gob.ar)
 │   ├── crypto/                      # AES-256-GCM para los tokens de portales (ADR 0022)
 │   ├── public-site/                 # Avisos firmados a apps/web para revalidar (ADR 0023)
@@ -359,6 +359,7 @@ export class RegisterContact {
 | Teléfonos             | `libphonenumber-js`                                                                                                    | Normalización E.164 para deduplicar                                                                                |
 | Plata e IPC           | Montos en centavos (`bigint`) más `decimal.js` para índices                                                            | Sin errores de coma flotante                                                                                       |
 | Excel                 | `exceljs`                                                                                                              | Exportaciones                                                                                                      |
+| PDF                   | `@react-pdf/renderer` (ADR 0051)                                                                                       | Layout flex, saltos de página y fuentes propias sin un navegador en el servidor                                    |
 | Archivos              | S3 o Cloudflare R2 (`@payloadcms/storage-s3` en la web)                                                                | Servicio en la nube para imágenes                                                                                  |
 | Tests                 | **Vitest** (unit e integración contra Postgres real, ADR 0010), **Playwright** (E2E)                                   |                                                                                                                    |
 | Calidad               | ESLint (flat config) + `typescript-eslint` + **`eslint-plugin-boundaries`**, Prettier, Husky + lint-staged, commitlint | Los límites de capas y módulos se verifican automáticamente                                                        |

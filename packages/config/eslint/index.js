@@ -306,7 +306,7 @@ export function infra({ tsconfigRootDir }) {
  */
 export function library({ tsconfigRootDir }) {
   return defineConfig(base({ tsconfigRootDir }), {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': ['error', SYNTAX.noDefaultExport, SYNTAX.noProcessEnv],
     },

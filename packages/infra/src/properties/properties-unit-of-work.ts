@@ -4,6 +4,7 @@ import type { Clock, IdGenerator } from '@norde/core/shared';
 import type { Database } from '../db/client';
 import { DrizzleUnitOfWork } from '../db/unit-of-work';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
+import { DrizzleIdempotencyKeys } from '../shared/drizzle-idempotency-keys';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
 import {
@@ -25,6 +26,7 @@ import { DrizzleDevelopmentUnitImportRepository } from './drizzle-development-un
 import { DrizzlePropertyImportRepository } from './drizzle-property-imports';
 import { DrizzlePropertyClientMerge } from './drizzle-property-client-merge';
 import { DrizzlePropertyDocumentRepository } from './drizzle-property-documents';
+import { DrizzlePropertyListDocumentRepository } from './drizzle-property-list-documents';
 import { DrizzlePropertyOwnerLinks } from './drizzle-property-owner-links';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 import { DrizzleReservationRepository } from './drizzle-reservation-repository';
@@ -49,10 +51,12 @@ export function createPropertiesUnitOfWork(
     media: new DrizzleMediaItemRepository(tx),
     attachments: new DrizzleAttachmentRepository(tx),
     documents: new DrizzlePropertyDocumentRepository(tx),
+    listDocuments: new DrizzlePropertyListDocumentRepository(tx),
     reservations: new DrizzleReservationRepository(tx),
     clientMerge: new DrizzlePropertyClientMerge(tx),
     owners: new DrizzlePropertyOwnerLinks(tx, deps.clock),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
+    idempotency: new DrizzleIdempotencyKeys(tx, deps.clock),
   }));
 }

@@ -2,17 +2,18 @@ import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } fro
 import type { CompanySettingsReader, FileStorage } from '../../../settings';
 import { DocumentIdInputSchema, type DocumentIdInput } from '../../contracts';
 import type { MediaItem } from '../../domain/media-item';
-import {
-  pdfAddress,
-  pdfPrices,
-  type PropertyDocument,
-  type PropertyDocumentKind,
-} from '../../domain/property-document';
+import { pdfAddress, pdfPrices, type PropertyDocument } from '../../domain/property-document';
+import { showcasePhotos } from '../../domain/showcase-options';
 import { idOf } from '../catalog-support';
-import type { OwnerReports, PropertyDocumentRenderer } from '../ports/property-documents';
+import { companyContact } from '../company-contact';
+import type { DocumentContacts } from '../ports/document-contacts';
+import type { OwnerReportRenderer, OwnerReports } from '../ports/property-documents';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { PropertyDetailLookups } from '../ports/property-detail-lookups';
+import type { ShowcaseRenderer } from '../ports/property-showcase';
+import type { PropertySheetRenderer, StaticMaps } from '../ports/property-sheets';
 import type { UserNames } from '../ports/user-names';
+import { loadPropertySheet, printableKey, sheetsOf } from '../property-sheets';
 import { findProperty, invalidInput, type InvalidInputError } from '../property-support';
 import { buildPanelPropertyDetail } from '../queries/get-panel-property-detail';
 
@@ -21,23 +22,15 @@ export type RenderPropertyDocumentError = ForbiddenError | InvalidInputError;
 /** Qué pasó: ya no existe (o ya se armó), quedó listo o falló. */
 export type DocumentRenderOutcome = 'gone' | 'ready' | 'failed';
 
-/** Fotos que entran en cada PDF: la vidriera es una sola hoja. */
-const PHOTOS_PER_KIND: Readonly<Record<PropertyDocumentKind, number>> = {
-  sheet: 8,
-  showcase: 1,
-  owner_report: 1,
-};
-
-/** La foto para imprimir: con marca de agua si la hay, si no la versión web, si no la original. */
-function printableKey(item: MediaItem): string | undefined {
-  const { variants, storageKey } = item.toSnapshot();
-  return variants.watermarked ?? variants.web ?? storageKey;
-}
+/** La foto de la tarjeta del reporte; la ficha y la vidriera eligen las suyas. */
+const OWNER_REPORT_PHOTOS = 1;
 
 /**
  * Lo corre el job de `PropertyDocumentRequested`: arma el PDF según la configuración de "Ficha y
- * PDF" (dirección, precio, agente), con las fotos marcadas "incluir en PDF", lo guarda en el storage
- * y lo marca listo. Si falla, queda "fallido" y el error sigue hacia el job, que lo registra.
+ * PDF" (dirección, precio, contacto), con las fotos marcadas "incluir en PDF", el agente si se
+ * eligió al pedirlo y el link a la ficha en la web si está publicada. La ficha sale en el formato
+ * pedido y la vidriera con sus opciones (#175). Lo guarda en el storage y lo marca listo. Si falla, queda "fallido" y el error
+ * sigue hacia el job, que lo registra.
  */
 export class RenderPropertyDocument {
   constructor(
@@ -47,8 +40,12 @@ export class RenderPropertyDocument {
       readonly users: UserNames;
       readonly storage: FileStorage;
       readonly settings: CompanySettingsReader;
-      readonly renderer: PropertyDocumentRenderer;
+      readonly ownerReportRenderer: OwnerReportRenderer;
+      readonly sheets: PropertySheetRenderer;
+      readonly showcases: ShowcaseRenderer;
+      readonly maps: StaticMaps;
       readonly ownerReports: OwnerReports;
+      readonly contacts: DocumentContacts;
       readonly clock: Clock;
     },
   ) {}
@@ -66,6 +63,9 @@ export class RenderPropertyDocument {
     const loaded = await this.deps.uow.run(async (tx) => {
       const document = await tx.documents.findById(id);
       if (document?.status !== 'pending') return undefined;
+      if (document.kind === 'sheet') {
+        return { document, property: undefined, gallery: [], developmentGallery: [] };
+      }
       const property = await findProperty(tx.properties, document.propertyId);
       if (!property) return undefined;
       const gallery = await tx.media.listForOwner({ kind: 'property', id: property.id });
@@ -84,14 +84,22 @@ export class RenderPropertyDocument {
     const { document, property, gallery, developmentGallery } = loaded;
 
     try {
-      const bytes = await this.render(document, property, gallery, developmentGallery, actor);
+      const bytes =
+        property === undefined
+          ? await this.renderSheet(document)
+          : document.kind === 'showcase'
+            ? await this.renderShowcase(document, property, gallery, developmentGallery)
+            : await this.renderOwnerReport(document, property, gallery, developmentGallery, actor);
       if (bytes === undefined) {
         await this.finish(document.id, actor, {
-          failed: 'No se pudo armar el reporte del período.',
+          failed:
+            document.kind === 'owner_report'
+              ? 'No se pudo armar el reporte del período.'
+              : 'La propiedad ya no está disponible.',
         });
         return ok('failed');
       }
-      const key = `properties/${property.id}/documents/${document.id}`;
+      const key = `properties/${document.propertyId}/documents/${document.id}`;
       await this.deps.storage.put({ key, contentType: 'application/pdf', bytes });
       await this.finish(document.id, actor, { storageKey: key });
       return ok('ready');
@@ -101,54 +109,159 @@ export class RenderPropertyDocument {
     }
   }
 
-  private async render(
+  /** La ficha en el formato pedido. `undefined` si la propiedad ya no existe. */
+  private async renderSheet(document: PropertyDocument): Promise<Uint8Array | undefined> {
+    const settings = await this.deps.settings.get();
+    const sheet = await loadPropertySheet(document.propertyId, document.layout, settings, {
+      ...this.deps,
+    });
+    if (sheet === undefined) return undefined;
+    const company = settings.toSnapshot();
+    const [logo, contact, agent] = await Promise.all([
+      company.logoKey === undefined ? undefined : this.deps.storage.get(company.logoKey),
+      companyContact(this.deps.contacts, sheet.property.branchId, company.pdfOptions),
+      document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
+    ]);
+    return this.deps.sheets.render({
+      layout: document.layout,
+      title: `Ficha ${sheet.property.code}`,
+      company: {
+        name: company.name,
+        logo: logo?.bytes,
+        brandColor: company.pdfOptions.brandColor,
+        contact,
+      },
+      agent,
+      generatedAt: this.deps.clock.now(),
+      sheets: sheetsOf([sheet]),
+    });
+  }
+
+  /**
+   * Las fotos "incluir en PDF": primero las de la unidad y después, si Mi empresa lo pide, las del
+   * emprendimiento.
+   */
+  private printablePhotos(
+    gallery: readonly MediaItem[],
+    developmentGallery: readonly MediaItem[],
+    developmentPhotosInUnits: boolean,
+  ): MediaItem[] {
+    return (developmentPhotosInUnits ? [...gallery, ...developmentGallery] : gallery).filter(
+      (item) => item.kind === 'photo' && item.toSnapshot().includeInPdf,
+    );
+  }
+
+  private async photoBytes(items: readonly MediaItem[]): Promise<Uint8Array[]> {
+    const keys = items.flatMap((item) => {
+      const key = printableKey(item);
+      return key === undefined ? [] : [key];
+    });
+    return (await Promise.all(keys.map((key) => this.deps.storage.get(key))))
+      .filter((stored) => stored !== undefined)
+      .map((stored) => stored.bytes);
+  }
+
+  /**
+   * La vidriera con las opciones elegidas: las fotos elegidas (completadas con las de la ficha), el
+   * QR si se pidió y la propiedad está en la web, y el contacto según "Ficha y PDF".
+   */
+  private async renderShowcase(
+    document: PropertyDocument,
+    property: Parameters<typeof buildPanelPropertyDetail>[0],
+    gallery: readonly MediaItem[],
+    developmentGallery: readonly MediaItem[],
+  ): Promise<Uint8Array> {
+    const detail = await buildPanelPropertyDetail(property, this.deps);
+    const settings = (await this.deps.settings.get()).toSnapshot();
+    const pdf = settings.pdfOptions;
+    const options = document.showcase;
+    const chosen = showcasePhotos(
+      this.printablePhotos(gallery, developmentGallery, pdf.developmentPhotosInUnits),
+      options,
+    );
+    const [photos, logo, contact, agent] = await Promise.all([
+      this.photoBytes(chosen),
+      settings.logoKey === undefined ? undefined : this.deps.storage.get(settings.logoKey),
+      companyContact(this.deps.contacts, detail.branchId, pdf),
+      document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
+    ]);
+    // La ficha en la web solo si la web la muestra: si no, el QR no abre.
+    const qrUrl =
+      options.qr && detail.isPubliclyListed && settings.webPropertyUrlTemplate !== undefined
+        ? settings.webPropertyUrlTemplate.render({ id: detail.id, slug: detail.slug })
+        : undefined;
+    return this.deps.showcases.render({
+      property: detail,
+      address: pdfAddress(detail, pdf.addressOnDownload),
+      prices: pdfPrices(detail.operations, {
+        showPrice: pdf.showPrice,
+        showPriceOnWeb: detail.publication.showPriceOnWeb,
+      }),
+      photos,
+      company: { name: settings.name, logo: logo?.bytes, brandColor: pdf.brandColor },
+      contact,
+      agent,
+      qrUrl,
+      options,
+      generatedAt: this.deps.clock.now(),
+    });
+  }
+
+  /**
+   * El reporte al propietario del período, con la foto de la ficha, "Tu productor" (el productor de
+   * la propiedad o quien lo pidió) si van los datos del agente, y el contacto de la sucursal si
+   * "Ficha y PDF" lo muestra. `undefined` si no hay reporte para el período.
+   */
+  private async renderOwnerReport(
     document: PropertyDocument,
     property: Parameters<typeof buildPanelPropertyDetail>[0],
     gallery: readonly MediaItem[],
     developmentGallery: readonly MediaItem[],
     actor: Actor,
   ): Promise<Uint8Array | undefined> {
-    const detail = await buildPanelPropertyDetail(property, this.deps);
-    const settings = (await this.deps.settings.get()).toSnapshot();
-    const options = settings.pdfOptions;
-
-    // Primero las de la unidad; después, si Mi empresa lo pide, las del emprendimiento.
-    const keys = (options.developmentPhotosInUnits ? [...gallery, ...developmentGallery] : gallery)
-      .filter((item) => item.kind === 'photo' && item.toSnapshot().includeInPdf)
-      .slice(0, PHOTOS_PER_KIND[document.kind])
-      .flatMap((item) => {
-        const key = printableKey(item);
-        return key === undefined ? [] : [key];
-      });
-    const photos = (await Promise.all(keys.map((key) => this.deps.storage.get(key))))
-      .filter((stored) => stored !== undefined)
-      .map((stored) => stored.bytes);
-    const logo =
-      settings.logoKey === undefined ? undefined : await this.deps.storage.get(settings.logoKey);
-    const agentName = options.showAgent
-      ? (await this.deps.users.names([document.requestedBy])).get(document.requestedBy)
-      : undefined;
-
-    let ownerReport;
     const period = document.period;
-    if (document.kind === 'owner_report' && period !== undefined) {
-      ownerReport = await this.deps.ownerReports.build(property.id, period, actor);
-      if (ownerReport === undefined) return undefined;
-    }
-
-    return this.deps.renderer.render({
-      kind: document.kind,
+    if (period === undefined) return undefined;
+    const detail = await buildPanelPropertyDetail(property, this.deps);
+    const report = await this.deps.ownerReports.build(
+      property.id,
+      { ...period, listedAt: detail.createdAt },
+      actor,
+    );
+    if (report === undefined) return undefined;
+    const settings = (await this.deps.settings.get()).toSnapshot();
+    const pdf = settings.pdfOptions;
+    const [photos, logo, contact, producer] = await Promise.all([
+      this.photoBytes(
+        this.printablePhotos(gallery, developmentGallery, pdf.developmentPhotosInUnits).slice(
+          0,
+          OWNER_REPORT_PHOTOS,
+        ),
+      ),
+      settings.logoKey === undefined ? undefined : this.deps.storage.get(settings.logoKey),
+      companyContact(this.deps.contacts, detail.branchId, pdf),
+      document.includeAgent
+        ? this.deps.contacts.user(detail.producer?.id ?? document.requestedBy)
+        : undefined,
+    ]);
+    // La ficha en la web solo si la web la muestra: si no, el link no abre.
+    const webUrl =
+      detail.isPubliclyListed && settings.webPropertyUrlTemplate !== undefined
+        ? settings.webPropertyUrlTemplate.render({ id: detail.id, slug: detail.slug })
+        : undefined;
+    return this.deps.ownerReportRenderer.render({
       property: detail,
-      address: pdfAddress(detail, options.addressOnDownload),
-      addressDisplay: options.addressOnDownload,
+      address: pdfAddress(detail, pdf.addressOnDownload),
       prices: pdfPrices(detail.operations, {
-        showPrice: options.showPrice,
+        showPrice: pdf.showPrice,
         showPriceOnWeb: detail.publication.showPriceOnWeb,
       }),
-      photos,
-      company: { name: settings.name, logo: logo?.bytes },
-      agentName,
-      ownerReport,
+      photo: photos[0],
+      company: { name: settings.name, logo: logo?.bytes, brandColor: pdf.brandColor },
+      contact,
+      producer,
+      webUrl,
+      report,
+      options: document.ownerReportOptions,
       generatedAt: this.deps.clock.now(),
     });
   }

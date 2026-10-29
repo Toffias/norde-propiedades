@@ -7,7 +7,6 @@ import {
   type ClientDetail,
 } from '@norde/core/clients/contracts';
 import { Button } from '@norde/ui/components/button';
-import { Card } from '@norde/ui/components/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +57,9 @@ import { clientName, formatPhone, userName, whatsappHref } from '../client-forma
 import { ClientEraseDialog } from './client-erase-dialog';
 import { ClientFavoriteToggle } from './client-favorite-toggle';
 import { ClientMergeDialog } from './client-merge-dialog';
-import { ClientTagList, ClientTagsDialog } from './client-tags-dialog';
+import { TagList } from '../../shared/components/tags-dialog';
+import { ClientTagsDialog } from './client-tags-dialog';
+import { ContactInitials } from './contact-initials';
 import {
   OpportunityActionsMenu,
   type OpportunityCatalogView,
@@ -88,7 +89,7 @@ function ReassignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cambiar el agente</DialogTitle>
+          <DialogTitle icon={UserCogIcon}>Cambiar el agente</DialogTitle>
           <DialogDescription>
             {clientName(detail.name)} pasa a estar a cargo del agente que elijas, y a su sucursal.
           </DialogDescription>
@@ -180,89 +181,97 @@ export function ClientDetailHeader({
     detail.can.edit || canReassign || detail.can.merge || canTrash || detail.can.erase;
 
   return (
-    <Card className="gap-4 p-5">
+    <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:p-5">
       {inTrash && (
         <p
           role="status"
-          className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
+          className="rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-entity-header-muted"
         >
           Está en la papelera desde el {formatDateTime(detail.deletedAt)}, la mandó{' '}
           {userName(detail.deletedBy)}. Restauralo para editarlo.
         </p>
       )}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-2xl font-bold">{name}</h1>
-            <ClientFavoriteToggle clientId={detail.id} favorite={favorite} />
-            {detail.activeOpportunity !== undefined && (
-              <OpportunityStagePill
-                stage={detail.activeOpportunity.stage}
-                status={detail.activeOpportunity.status}
-              />
-            )}
-            {detail.kind !== 'person' && <SoftBadge>{CLIENT_KIND_LABELS[detail.kind]}</SoftBadge>}
-            {inTrash && <StatusPill tone="gray">En la papelera</StatusPill>}
-          </div>
-          {detail.clientTypes.length > 0 && (
-            <ul className="flex flex-wrap gap-1.5" aria-label="Tipos de cliente">
-              {detail.clientTypes.map((type) => (
-                <li key={type}>
-                  <StatusPill tone="green">{CLIENT_TYPE_LABELS[type]}</StatusPill>
-                </li>
-              ))}
-            </ul>
-          )}
-          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
-            <dt className="text-muted-foreground">Agente</dt>
-            <dd className="font-medium">
-              {detail.agent === undefined ? 'Sin agente' : userName(detail.agent)}
-            </dd>
-            {phone !== undefined && (
-              <>
-                <dt className="text-muted-foreground">Teléfono</dt>
-                <dd className="inline-flex items-center gap-1 tabular-nums">
-                  {detail.contactMasked && <LockIcon className="h-3 w-3" aria-hidden />}
-                  {detail.contactMasked ? phone.number : formatPhone(phone.number)}
-                </dd>
-              </>
-            )}
-            {email !== undefined && (
-              <>
-                <dt className="text-muted-foreground">Email</dt>
-                <dd className="truncate">{email.address}</dd>
-              </>
-            )}
-            <dt className="text-muted-foreground">Oportunidad</dt>
-            <dd>
-              {detail.activeOpportunity === undefined ? (
-                <span className="text-muted-foreground">Sin oportunidades abiertas</span>
-              ) : (
-                <span className="inline-flex flex-wrap items-center gap-2">
-                  <span className="font-medium">
-                    {OPPORTUNITY_TYPE_LABELS[detail.activeOpportunity.type] ??
-                      detail.activeOpportunity.type}
-                  </span>
-                  {detail.activeOpportunity.openCount > 1 && (
-                    <Link
-                      // Misma ficha con otra pestaña: typedRoutes no verifica un string armado.
-                      href={`/contactos/${detail.id}?tab=oportunidades` as Route}
-                      scroll={false}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      {detail.activeOpportunity.openCount.toLocaleString('es-AR')} abiertas
-                    </Link>
-                  )}
-                </span>
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
+          <ContactInitials
+            name={name}
+            className="size-16 rounded-xl bg-primary-500 text-xl text-white"
+          />
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-2xl font-bold !text-white">{name}</h1>
+              <span className="rounded-lg bg-white/10 p-0.5">
+                <ClientFavoriteToggle clientId={detail.id} favorite={favorite} />
+              </span>
+              {detail.activeOpportunity !== undefined && (
+                <OpportunityStagePill
+                  stage={detail.activeOpportunity.stage}
+                  status={detail.activeOpportunity.status}
+                />
               )}
-            </dd>
-          </dl>
-          {detail.contactMasked && (
-            <p className="text-xs text-muted-foreground">
-              Es propietario: sus datos de contacto se ven con el permiso «Ver datos de
-              propietarios».
-            </p>
-          )}
+              {detail.kind !== 'person' && <SoftBadge>{CLIENT_KIND_LABELS[detail.kind]}</SoftBadge>}
+              {inTrash && <StatusPill tone="gray">En la papelera</StatusPill>}
+            </div>
+            {detail.clientTypes.length > 0 && (
+              <ul className="flex flex-wrap gap-1.5" aria-label="Tipos de cliente">
+                {detail.clientTypes.map((type) => (
+                  <li key={type}>
+                    <StatusPill tone="green">{CLIENT_TYPE_LABELS[type]}</StatusPill>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+              <dt className="text-entity-header-muted">Agente</dt>
+              <dd className="font-medium">
+                {detail.agent === undefined ? 'Sin agente' : userName(detail.agent)}
+              </dd>
+              {phone !== undefined && (
+                <>
+                  <dt className="text-entity-header-muted">Teléfono</dt>
+                  <dd className="inline-flex items-center gap-1 tabular-nums">
+                    {detail.contactMasked && <LockIcon className="h-3 w-3" aria-hidden />}
+                    {detail.contactMasked ? phone.number : formatPhone(phone.number)}
+                  </dd>
+                </>
+              )}
+              {email !== undefined && (
+                <>
+                  <dt className="text-entity-header-muted">Email</dt>
+                  <dd className="truncate">{email.address}</dd>
+                </>
+              )}
+              <dt className="text-entity-header-muted">Oportunidad</dt>
+              <dd>
+                {detail.activeOpportunity === undefined ? (
+                  <span className="text-entity-header-muted">Sin oportunidades abiertas</span>
+                ) : (
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span className="font-medium">
+                      {OPPORTUNITY_TYPE_LABELS[detail.activeOpportunity.type] ??
+                        detail.activeOpportunity.type}
+                    </span>
+                    {detail.activeOpportunity.openCount > 1 && (
+                      <Link
+                        // Misma ficha con otra pestaña: typedRoutes no verifica un string armado.
+                        href={`/contactos/${detail.id}?tab=oportunidades` as Route}
+                        scroll={false}
+                        className="text-xs font-medium text-white underline-offset-2 hover:underline"
+                      >
+                        {detail.activeOpportunity.openCount.toLocaleString('es-AR')} abiertas
+                      </Link>
+                    )}
+                  </span>
+                )}
+              </dd>
+            </dl>
+            {detail.contactMasked && (
+              <p className="text-xs text-entity-header-muted">
+                Es propietario: sus datos de contacto se ven con el permiso «Ver datos de
+                propietarios».
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-3 lg:items-end">
@@ -281,7 +290,7 @@ export function ClientDetailHeader({
               />
             )}
             {!detail.contactMasked && mobile !== undefined && (
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="text-foreground dark:bg-card">
                 <a href={whatsappHref(mobile.number)} target="_blank" rel="noreferrer">
                   <WhatsAppIcon className="h-4 w-4" />
                   WhatsApp
@@ -289,7 +298,7 @@ export function ClientDetailHeader({
               </Button>
             )}
             {!detail.contactMasked && phone !== undefined && (
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="text-foreground dark:bg-card">
                 <a href={`tel:${phone.number}`}>
                   <PhoneIcon className="h-4 w-4" />
                   Llamar
@@ -297,7 +306,7 @@ export function ClientDetailHeader({
               </Button>
             )}
             {!detail.contactMasked && email !== undefined && (
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="text-foreground dark:bg-card">
                 <a href={`mailto:${email.address}`}>
                   <MailIcon className="h-4 w-4" />
                   Email
@@ -327,7 +336,12 @@ export function ClientDetailHeader({
             {hasMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" size="sm">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-foreground dark:bg-card"
+                  >
                     Acciones
                     <ChevronDownIcon className="h-4 w-4" />
                   </Button>
@@ -400,7 +414,7 @@ export function ClientDetailHeader({
               </DropdownMenu>
             )}
           </div>
-          <ClientTagList tags={detail.tags} />
+          <TagList tags={detail.tags} onDark className="lg:justify-end" />
         </div>
       </div>
 
@@ -421,6 +435,6 @@ export function ClientDetailHeader({
       {detail.can.erase && (
         <ClientEraseDialog detail={detail} open={erasing} onOpenChange={setErasing} />
       )}
-    </Card>
+    </div>
   );
 }

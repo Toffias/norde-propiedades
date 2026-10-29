@@ -27,6 +27,55 @@
   --tw-prose-td-borders: var(--color-border);
 }
 
+/*
+ * Transiciones del sitio, siempre que la persona no pidió reducir el movimiento:
+ * - Los anclas (#proceso, #pedir-tasacion) bajan con scroll suave, sin quedar debajo del header.
+ *   Al cambiar de página el salto es instantáneo (`data-scroll-behavior` en <html>).
+ * - Los `<details>` con `.details-smooth` se abren y se cierran animando el alto.
+ * - Entre páginas, el contenido se funde (`<ViewTransition>` en el layout).
+ */
+html {
+  scroll-padding-top: 6rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .details-smooth {
+    interpolate-size: allow-keywords;
+  }
+
+  .details-smooth::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    opacity: 0;
+    transition:
+      block-size 320ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      opacity 240ms ease,
+      content-visibility 320ms allow-discrete;
+  }
+
+  .details-smooth[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 280ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 /* Nosotros: entrada de las secciones al aparecer en pantalla. Parte de un estado visible. */
 @keyframes about-rise {
   from {
@@ -42,6 +91,39 @@
 @media (prefers-reduced-motion: no-preference) {
   .about-reveal {
     animation: about-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+/* Entrada de una portada al cargar: cada pieza con su demora (`animation-delay` en línea). */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* La flecha que invita a bajar. */
+@keyframes scroll-cue {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise-in {
+    animation: rise-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .scroll-cue {
+    animation: scroll-cue 1.6s ease-in-out infinite;
   }
 }
 
@@ -87,4 +169,14 @@
 /* Empieza a la mitad del acercamiento y queda tapando hasta que carga el listado. */
 .hero-entrance-fade {
   animation: hero-entrance-fade 450ms ease-in 450ms both;
+}
+
+/* Al final del video de entrada (o al saltearlo): el fundido arranca enseguida. */
+.hero-entrance-fade-now {
+  animation: hero-entrance-fade 450ms ease-in both;
+}
+
+/* El botón "Saltar" aparece cuando el video ya está andando, para no distraer del arranque. */
+.hero-skip-in {
+  animation: hero-entrance-fade 500ms ease 1200ms both;
 }

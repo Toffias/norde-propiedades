@@ -26,7 +26,7 @@ import {
   FormMessage,
 } from '@norde/ui/components/form';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon } from 'lucide-react';
+import { BookmarkCheckIcon, Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -41,6 +41,7 @@ import { SelectField, TextareaField, TextField } from '../../../shared/component
 import { CURRENCY_LABELS, OPERATION_LABELS } from '../../labels';
 import { reservePropertyAction, updateReservationAction } from '../../reservation-actions';
 import { centsToAmount } from '../detail/sections-listing';
+import { useIdempotencyKey } from '../../../shared/hooks/use-idempotency-key';
 
 type Values = ReservePropertyInput;
 type Valid = z.output<typeof ReservePropertyInputSchema>;
@@ -106,6 +107,7 @@ export function ReservationDialog({
 }) {
   const editing = reservation !== undefined;
   const [error, setError] = useState<string | undefined>();
+  const idempotency = useIdempotencyKey();
   const form = useForm<Values, unknown, Valid>({
     resolver: contractResolver(ReservePropertyInputSchema),
     defaultValues: defaults(subject, reservation),
@@ -136,12 +138,13 @@ export function ReservationDialog({
             estimatedSigningDate: values.estimatedSigningDate,
             notes: values.notes,
           })
-        : reservePropertyAction(values),
+        : reservePropertyAction({ ...values, idempotencyKey: idempotency.key }),
     );
     if (message !== undefined) {
       setError(message);
       return;
     }
+    if (!editing) idempotency.renew();
     toast.success(editing ? 'Reserva actualizada' : `${subject.code} quedó reservada`);
     close();
   }
@@ -155,7 +158,9 @@ export function ReservationDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Editar la reserva' : `Reservar ${subject.code}`}</DialogTitle>
+          <DialogTitle icon={BookmarkCheckIcon}>
+            {editing ? 'Editar la reserva' : `Reservar ${subject.code}`}
+          </DialogTitle>
           <DialogDescription>
             {editing
               ? 'El contacto y la operación no cambian: si cambian, la reserva se da por caída y se reserva de nuevo.'

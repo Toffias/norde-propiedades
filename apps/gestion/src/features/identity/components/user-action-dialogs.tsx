@@ -25,7 +25,14 @@ import {
 } from '@norde/ui/components/form';
 import { Input } from '@norde/ui/components/input';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon, WandSparklesIcon } from 'lucide-react';
+import {
+  KeyRoundIcon,
+  Loader2Icon,
+  ShieldOffIcon,
+  UserCheckIcon,
+  UserXIcon,
+  WandSparklesIcon,
+} from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -78,7 +85,9 @@ export function UserStatusDialog({
     <Dialog open={user !== undefined} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{suspending ? 'Suspender usuario' : 'Reactivar usuario'}</DialogTitle>
+          <DialogTitle icon={suspending ? UserXIcon : UserCheckIcon}>
+            {suspending ? 'Suspender usuario' : 'Reactivar usuario'}
+          </DialogTitle>
           <DialogDescription>
             {suspending
               ? `${name} deja de tener acceso al panel y se cierran sus sesiones abiertas. Sus datos y su historial no se tocan.`
@@ -150,7 +159,7 @@ export function ResetTwoFactorDialog({
     <Dialog open={user !== undefined} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Quitar verificación en dos pasos</DialogTitle>
+          <DialogTitle icon={ShieldOffIcon}>Quitar verificación en dos pasos</DialogTitle>
           <DialogDescription>
             {`Hacelo solo si ${name} perdió el celular y los códigos de respaldo, y confirmaste que el pedido es suyo. Va a entrar solo con la contraseña hasta que la vuelva a activar.`}
           </DialogDescription>
@@ -232,7 +241,7 @@ function ResetPasswordForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Blanquear contraseña</DialogTitle>
+        <DialogTitle icon={KeyRoundIcon}>Blanquear contraseña</DialogTitle>
         <DialogDescription>
           {user.name} va a tener que entrar con esta contraseña y elegir una nueva. Se cierran sus
           sesiones abiertas.

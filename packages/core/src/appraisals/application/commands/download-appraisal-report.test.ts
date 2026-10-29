@@ -12,6 +12,7 @@ import {
   appraisalSnapshot,
   InMemoryAppraisalsUnitOfWork,
   InMemoryPanelDirectory,
+  InMemoryReportContacts,
   PRODUCER_ID,
   RecordingAppraisalReportRenderer,
   REQUESTER_ID,
@@ -41,6 +42,23 @@ const RESULT: AppraisalResult = {
     },
   ],
   observations: 'Muy luminoso.',
+};
+
+const MAIN_BRANCH = {
+  name: 'Casa central',
+  address: 'Av. Santa Fe 1234',
+  phone: undefined,
+  whatsapp: '+5491166899124',
+  email: 'hola@norde.com.ar',
+  text: undefined,
+};
+const APPRAISER_CONTACT = {
+  name: 'Juan Gómez',
+  address: undefined,
+  phone: '+5491155550000',
+  whatsapp: undefined,
+  email: 'juan@norde.com.ar',
+  text: undefined,
 };
 
 async function setup(overrides: Parameters<typeof appraisalSnapshot>[0] = {}) {
@@ -85,6 +103,10 @@ async function setup(overrides: Parameters<typeof appraisalSnapshot>[0] = {}) {
     storage,
     settings,
     renderer,
+    contacts: new InMemoryReportContacts(
+      new Map([['main', MAIN_BRANCH]]),
+      new Map([[APPRAISER_ID, APPRAISER_CONTACT]]),
+    ),
     clock: new FixedClock(TEST_NOW),
   });
   return { uow, renderer, download };
@@ -113,8 +135,27 @@ describe('DownloadAppraisalReport', () => {
       currency: 'USD',
     });
     expect(content?.photos).toEqual([new Uint8Array([1])]);
-    expect(content?.company).toEqual({ name: 'Norde Propiedades', logo: new Uint8Array([9]) });
+    expect(content?.company).toEqual({
+      name: 'Norde Propiedades',
+      logo: new Uint8Array([9]),
+      brandColor: '#c9302b',
+    });
     expect(content?.generatedAt).toEqual(TEST_NOW);
+    expect(content?.appraiser).toEqual(APPRAISER_CONTACT);
+    expect(content?.branch).toEqual(MAIN_BRANCH);
+  });
+
+  it('adds the value per m2 and the average of the comparables', async () => {
+    const { renderer, download } = await setup({ surfaceTotalM2: 80 });
+
+    unwrap(await download.execute({ appraisalId: APPRAISAL_ID }, TEST_PRODUCER));
+
+    expect(renderer.rendered[0]?.figures).toEqual({
+      surfaceM2: 80,
+      salePerM2: { minCents: 137_500n, maxCents: 150_000n, currency: 'USD' },
+      rentPerM2: undefined,
+      comparablesAverages: [{ currency: 'USD', pricePerM2Cents: 181_538n, count: 1 }],
+    });
   });
 
   it('records the download in the history with the requester', async () => {

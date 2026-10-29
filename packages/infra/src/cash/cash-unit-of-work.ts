@@ -4,6 +4,7 @@ import type { Clock, IdGenerator } from '@norde/core/shared';
 import type { Database } from '../db/client';
 import { DrizzleUnitOfWork } from '../db/unit-of-work';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
+import { DrizzleIdempotencyKeys } from '../shared/drizzle-idempotency-keys';
 
 import {
   DrizzleCashClosingRepository,
@@ -20,5 +21,6 @@ export function createCashUnitOfWork(
     closings: new DrizzleCashClosingRepository(tx),
     ledger: new DrizzleCashLedger(tx),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
+    idempotency: new DrizzleIdempotencyKeys(tx, deps.clock),
   }));
 }

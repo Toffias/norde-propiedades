@@ -10,11 +10,14 @@ import {
   type IdGenerator,
   type Result,
 } from '../../../shared';
+import type { CompanySettingsReader } from '../../../settings';
 import {
   RequestPropertyDocumentInputSchema,
   type RequestPropertyDocumentInput,
 } from '../../contracts';
 import { PropertyDocument, type ReportPeriodRequiredError } from '../../domain/property-document';
+import { includesAgent } from '../../domain/property-sheet';
+import type { InvalidShowcaseOptionsError } from '../../domain/showcase-options';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import {
   findProperty,
@@ -25,11 +28,17 @@ import {
 } from '../property-support';
 
 export type RequestPropertyDocumentError =
-  ForbiddenError | InvalidInputError | PropertyNotFoundError | ReportPeriodRequiredError;
+  | ForbiddenError
+  | InvalidInputError
+  | InvalidShowcaseOptionsError
+  | PropertyNotFoundError
+  | ReportPeriodRequiredError;
 
 /**
- * Pide un PDF de la ficha (ficha, vidriera o reporte al propietario). Queda pendiente y lo arma un
- * job; la pantalla muestra el avance. Exportar queda en el historial de la propiedad.
+ * Pide un PDF de la ficha (ficha, vidriera o reporte al propietario). La ficha lleva su formato
+ * (#175) y la vidriera sus opciones (colores, QR, fotos, letra). Si van los datos del agente lo
+ * decide "Ficha y PDF", o quien lo pide si la configuración dice "preguntar". Queda pendiente y lo
+ * arma un job; la pantalla muestra el avance. Exportar queda en el historial de la propiedad.
  */
 export class RequestPropertyDocument {
   constructor(
@@ -37,6 +46,7 @@ export class RequestPropertyDocument {
       readonly uow: PropertiesUnitOfWork;
       readonly ids: IdGenerator;
       readonly clock: Clock;
+      readonly settings: CompanySettingsReader;
     },
   ) {}
 
@@ -51,6 +61,8 @@ export class RequestPropertyDocument {
     if (!parsed.success) return err(invalidInput(parsed.error));
     const data = parsed.data;
     const now = this.deps.clock.now();
+    const { pdfOptions } = (await this.deps.settings.get()).toSnapshot();
+    const includeAgent = includesAgent(pdfOptions.agentInfo, data.includeAgent);
 
     return this.deps.uow.run(
       async (
@@ -63,6 +75,10 @@ export class RequestPropertyDocument {
           propertyId: property.id,
           kind: data.kind,
           period: data.kind === 'owner_report' ? { from: data.from, to: data.to } : undefined,
+          layout: data.kind === 'sheet' ? data.layout : undefined,
+          showcase: data.kind === 'showcase' ? data.options : undefined,
+          ownerReport: data.kind === 'owner_report' ? data.options : undefined,
+          includeAgent,
           requestedBy: actor.id,
           now,
         });
@@ -80,6 +96,8 @@ export class RequestPropertyDocument {
               {
                 documentId: document.id,
                 kind: document.kind,
+                layout: data.kind === 'sheet' ? document.layout : undefined,
+                orientation: data.kind === 'showcase' ? document.showcase.orientation : undefined,
                 periodFrom: document.period?.from,
                 periodTo: document.period?.to,
               },

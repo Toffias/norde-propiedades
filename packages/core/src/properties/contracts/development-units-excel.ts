@@ -57,6 +57,23 @@ export const UNIT_IMPORT_FIELD_LABELS: Readonly<Record<UnitImportFieldValue, str
   status: 'Estado',
 };
 
+/**
+ * Las columnas de la exportación que la importación no lee (como en la planilla de Tokko): al volver
+ * a subir el archivo, quedan afuera del mapeo.
+ */
+export const UNIT_EXPORT_READ_ONLY_HEADERS = {
+  bedrooms: 'Dormitorios',
+  bathrooms: 'Baños',
+  toilets: 'Toilettes',
+  parkingSpaces: 'Cocheras',
+  surfaceSemiCoveredM2: 'Sup. semicubierta (m²)',
+  surfaceLandM2: 'Terreno (m²)',
+  frontM: 'Frente (m)',
+  depthM: 'Fondo (m)',
+  expenses: 'Expensas (ARS)',
+  publishAddress: 'Dirección para publicar',
+} as const;
+
 export const UNIT_IMPORT_STATUS_VALUES = ['pending', 'running', 'done', 'failed'] as const;
 export type UnitImportStatusValue = (typeof UNIT_IMPORT_STATUS_VALUES)[number];
 

@@ -81,12 +81,12 @@ test.describe('ficha', () => {
     await page.goto(`/tasaciones/${appraisal.id}?tab=fotos`);
     await expect(page.getByText('Todavía no hay fotos de la visita.')).toBeVisible();
 
+    await page.getByRole('button', { name: 'Agregar fotos' }).click();
     await page
+      .getByRole('dialog')
       .locator('input[type="file"]')
-      .first()
       .setInputFiles({ name: 'living.png', mimeType: 'image/png', buffer: PNG_1X1 });
 
-    await expect(page.getByText('Subida')).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'Fotos (1)' })).toBeVisible();
   });
 

@@ -14,9 +14,9 @@ export function FaqSection({ entries }: { readonly entries: readonly FaqEntry[] 
       <h2 id="faq-title" className="mb-4 text-2xl font-semibold tracking-tight">
         Preguntas frecuentes
       </h2>
-      <div className="divide-y rounded-xl border">
+      <div className="bg-card divide-y rounded-xl border">
         {entries.map((entry) => (
-          <details key={entry.question} className="group px-5 py-4">
+          <details key={entry.question} className="details-smooth group px-5 py-4">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium [&::-webkit-details-marker]:hidden">
               <h3>{entry.question}</h3>
               <ChevronDown

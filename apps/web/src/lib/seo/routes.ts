@@ -25,6 +25,8 @@ export const routes = {
   sharedListing: (token: string) => `/e/${encodeURIComponent(token)}`,
   followUpUnsubscribe: (token: string) => `/e/${encodeURIComponent(token)}/baja`,
   defaultOgImage: () => '/og-image.png',
+  /** El logo de Mi empresa. La versión cambia con la imagen, así se cachea para siempre. */
+  companyLogo: (version: string) => `/logo/${encodeURIComponent(version)}`,
 } as const;
 
 /**

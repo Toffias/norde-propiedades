@@ -3,7 +3,7 @@ import {
   type AppraisalDetail,
 } from '@norde/core/appraisals/contracts';
 import { canActOn, OWNERSHIP_RULES, type SessionActor } from '@norde/core/identity';
-import { Card, CardContent } from '@norde/ui/components/card';
+import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import { ArrowLeftIcon } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { getContainer } from '../../../../container';
-import { AppraisalForm } from '../../../../features/appraisals/components/appraisal-form';
+import { AppraisalDataSection } from '../../../../features/appraisals/components/appraisal-form';
 import {
   AppraisalHeader,
   type AppraisalDetailPermissions,
@@ -113,18 +113,15 @@ export default async function AppraisalDetailPage({
           appraisalId={detail.id}
           photoIds={detail.photoIds}
           canEdit={permissions.edit}
+          convertedProperty={detail.convertedProperty}
         />
       ) : (
-        <Card>
-          <CardContent>
-            {/* `key`: al guardar, el formulario vuelve a tomar los valores de la ficha. */}
-            <AppraisalForm
-              key={detail.updatedAt.toISOString()}
-              detail={detail}
-              canEdit={permissions.edit}
-            />
-          </CardContent>
-        </Card>
+        // `key`: al guardar, la vista vuelve a tomar los valores de la ficha.
+        <AppraisalDataSection
+          key={detail.updatedAt.toISOString()}
+          detail={detail}
+          canEdit={permissions.edit}
+        />
       )}
     </div>
   );

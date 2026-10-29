@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@norde/ui/components/dialog';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon } from 'lucide-react';
+import { CircleHelpIcon, Loader2Icon, TriangleAlertIcon, type LucideIcon } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -23,6 +23,8 @@ export interface ConfirmActionCopy {
   readonly confirm: string;
   readonly done: string;
   readonly destructive?: boolean;
+  /** El ícono del título; por defecto, un alerta si es destructiva y una pregunta si no. */
+  readonly icon?: LucideIcon;
 }
 
 /** Confirmación de una acción (borrar, restaurar, marcar como principal) con su error esperado. */
@@ -40,12 +42,13 @@ export function ConfirmActionDialog({
   const [error, setError] = useState<string | undefined>();
 
   function close(next: boolean) {
+    if (!next && pending) return;
     if (!next) setError(undefined);
     onOpenChange(next);
   }
 
   function confirm() {
-    if (!copy) return;
+    if (!copy || pending) return;
     startTransition(async () => {
       const message = await runAction(run);
       if (message !== undefined) {
@@ -61,7 +64,11 @@ export function ConfirmActionDialog({
     <Dialog open={copy !== undefined} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{copy?.title}</DialogTitle>
+          <DialogTitle
+            icon={copy?.icon ?? (copy?.destructive === true ? TriangleAlertIcon : CircleHelpIcon)}
+          >
+            {copy?.title}
+          </DialogTitle>
           <DialogDescription>{copy?.description}</DialogDescription>
         </DialogHeader>
         <FormAlert message={error} />
@@ -69,6 +76,7 @@ export function ConfirmActionDialog({
           <Button
             type="button"
             variant="outline"
+            disabled={pending}
             onClick={() => {
               close(false);
             }}

@@ -23,8 +23,15 @@ export {
 } from './domain/description-footer-template';
 export {
   ADDRESS_DISPLAYS,
+  AGENT_INFO_MODES,
+  brandColor,
+  contrastWithWhite,
   DEFAULT_PDF_OPTIONS,
+  MIN_BRAND_COLOR_CONTRAST,
+  withPdfContactText,
   type AddressDisplay,
+  type AgentInfoMode,
+  type BrandColorTooLightError,
   type PdfOptions,
 } from './domain/pdf-options';
 export {

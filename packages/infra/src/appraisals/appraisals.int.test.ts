@@ -299,6 +299,51 @@ describe('appraisals (Postgres)', () => {
     expect(storage.objects.size).toBe(0);
   });
 
+  it('reads the export rows with the appraised values, in the filtered order', async () => {
+    await aClient(CLIENT, 'Ana Pérez');
+    const { appraisalId } = await anAppraisal({ address: 'Mitre 1234', rooms: 4 });
+    await anAppraisal({ propertyType: 'apartment' });
+    unwrap(
+      await new RecordAppraisalResult({ uow, clock }).execute(
+        {
+          appraisalId,
+          saleMin: '110000',
+          saleMax: '120000',
+          saleCurrency: 'USD',
+          rentCurrency: 'ARS',
+          comparables: [],
+        },
+        PRODUCER_ACTOR,
+      ),
+    );
+
+    const rows = await query.exportRows({
+      visibility: { kind: 'all' },
+      deleted: false,
+      statuses: undefined,
+      propertyType: 'house',
+      producerUserId: undefined,
+      appraiserUserId: undefined,
+      branchId: undefined,
+      created: { from: undefined, to: undefined },
+      visit: { from: undefined, to: undefined },
+      sort: { field: 'code', direction: 'asc' },
+      offset: 0,
+      limit: 10,
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: appraisalId,
+        requesterName: 'Ana Pérez',
+        address: 'Mitre 1234',
+        rooms: 4,
+        sale: { minCents: 11_000_000n, maxCents: 12_000_000n, currency: 'USD' },
+        rent: undefined,
+      }),
+    ]);
+  });
+
   it('records the result, uploads photos and converts it into a draft property', async () => {
     await aClient(CLIENT, 'Ana Pérez');
     const { appraisalId } = await anAppraisal({

@@ -1,0 +1,1 @@
+ALTER TABLE "core"."property_documents" ADD COLUMN "showcase_options" jsonb;

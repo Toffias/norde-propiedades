@@ -6,6 +6,8 @@ import type {
   PropertyDocumentKindValue,
   PropertyDocumentStatusValue,
   PropertyHistoryCategory,
+  PropertySheetLayoutValue,
+  ShowcaseOrientationValue,
 } from '@norde/core/properties/contracts';
 import type { StatusTone } from '@norde/ui/components/status-pill';
 
@@ -74,6 +76,20 @@ export const DOCUMENT_KIND_LABELS: Readonly<Record<PropertyDocumentKindValue, st
   sheet: 'Ficha en PDF',
   showcase: 'PDF de vidriera',
   owner_report: 'Reporte al propietario',
+};
+
+/** Los formatos de la ficha en PDF, como los llama el "Exportar a PDF" de Tokko (#175). */
+export const SHEET_LAYOUT_LABELS: Readonly<Record<PropertySheetLayoutValue, string>> = {
+  landscape: 'Horizontal',
+  landscape_map: 'Horizontal con mapa',
+  portrait: 'Vertical',
+  portrait_map: 'Vertical con mapa',
+  grid: 'Grilla comparativa',
+};
+
+export const SHOWCASE_ORIENTATION_LABELS: Readonly<Record<ShowcaseOrientationValue, string>> = {
+  portrait: 'Vertical',
+  landscape: 'Horizontal',
 };
 
 export const DOCUMENT_STATUS_DISPLAY: Readonly<

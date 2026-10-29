@@ -24,7 +24,7 @@ import { Label } from '@norde/ui/components/label';
 import { PagedCombobox, type LoadComboboxPage } from '@norde/ui/components/paged-combobox';
 import { toast } from '@norde/ui/components/sonner';
 import { cn } from '@norde/ui/lib/utils';
-import { Loader2Icon, XIcon } from 'lucide-react';
+import { Loader2Icon, WorkflowIcon, XIcon } from 'lucide-react';
 import { useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -266,7 +266,7 @@ export function InquiryRuleWizard({
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle icon={WorkflowIcon}>
             {rule === undefined ? 'Nueva regla de asignación' : 'Editar regla'}
           </DialogTitle>
           <DialogDescription>

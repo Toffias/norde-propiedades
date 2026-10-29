@@ -1,4 +1,4 @@
-import type { PanelPropertyRow, PropertyExportFormat } from '../../contracts';
+import type { PropertyExportFormat, PropertyExportRow } from '../../contracts';
 
 /** Un archivo generado de a partes, para no cargar la exportación entera en memoria. */
 export interface ExportFile {
@@ -11,7 +11,8 @@ export interface ExportFile {
 export interface PropertyExportWriter {
   write(
     format: PropertyExportFormat,
-    batches: AsyncIterable<readonly PanelPropertyRow[]>,
-    meta: { readonly generatedAt: Date },
+    batches: AsyncIterable<readonly PropertyExportRow[]>,
+    /** `includeOwners`: si quien exporta puede ver los propietarios (agrega sus columnas). */
+    meta: { readonly generatedAt: Date; readonly includeOwners: boolean },
   ): ExportFile;
 }

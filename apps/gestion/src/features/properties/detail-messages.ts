@@ -103,6 +103,13 @@ export const DOCUMENT_ERROR_MESSAGES = {
   InvalidInput: 'Revisá las fechas y el email, y probá de nuevo.',
   PropertyNotFound: DETAIL_READ_ERROR_MESSAGES.PropertyNotFound,
   ReportPeriodRequired: 'Elegí el período del reporte.',
+  InvalidShowcaseOptions: (error) =>
+    ({
+      primaryColor: 'Elegí un color principal válido.',
+      secondaryColor: 'Elegí un color secundario válido.',
+      descriptionSize: 'El tamaño de la letra va de 30 a 50.',
+      photoIds: 'Elegí como mucho tantas fotos como lleva la vidriera.',
+    })[error.field],
   DocumentNotFound: 'No encontramos ese reporte.',
   DocumentNotReady: 'El PDF todavía no está listo. Esperá unos segundos.',
   MailNotConfigured: 'El envío de emails no está configurado. Avisale a quien administra el panel.',

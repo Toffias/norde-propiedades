@@ -61,10 +61,12 @@ export class StubPropertyStatisticsQuery implements PropertyStatisticsQuery {
   interested = 0;
   tags: { tagId: string; name: string; clients: number }[] = [];
   portals: PortalPublicationStats[] = [];
+  /** Filas distintas según el rango (los tramos del reporte); sin esto, siempre `monthlyRows`. */
+  monthlyFor: ((range: StatisticsRange) => typeof this.monthlyRows) | undefined;
 
   monthly(_propertyId: string, range: StatisticsRange) {
     this.ranges.push(range);
-    return Promise.resolve(this.monthlyRows);
+    return Promise.resolve(this.monthlyFor?.(range) ?? this.monthlyRows);
   }
 
   interestedCount() {

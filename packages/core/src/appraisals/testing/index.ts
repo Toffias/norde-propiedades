@@ -1,14 +1,28 @@
 // Fakes del módulo appraisals para tests (`@norde/core/appraisals/testing`).
 
 import { parseId, Actor } from '../../shared';
-import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
-import type { AppraisalDetailItem, AppraisalQuery } from '../application/ports/appraisal-query';
+import {
+  InMemoryAuditLog,
+  InMemoryEventPublisher,
+  InMemoryIdempotencyKeys,
+} from '../../shared/testing';
+import type {
+  AppraisalExportFile,
+  AppraisalExportWriter,
+} from '../application/ports/appraisal-export-writer';
+import type {
+  AppraisalDetailItem,
+  AppraisalExportItem,
+  AppraisalQuery,
+} from '../application/ports/appraisal-query';
+import type { AppraisalExportRow } from '../contracts';
 import type {
   AppraisalCodeSequence,
   AppraisalsTransaction,
   AppraisalsUnitOfWork,
 } from '../application/ports/appraisals-transaction';
 import type { ActiveUsers, PanelDirectory } from '../application/ports/panel-directory';
+import type { ReportContact, ReportContacts } from '../application/ports/report-contacts';
 import type {
   AppraisalReportContent,
   AppraisalReportRenderer,
@@ -198,6 +212,7 @@ export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, Appra
   readonly codes = new InMemoryAppraisalCodeSequence();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
+  readonly idempotency = new InMemoryIdempotencyKeys();
 
   async run<T>(work: (tx: AppraisalsTransaction) => Promise<T>): Promise<T> {
     const backup = {
@@ -205,6 +220,7 @@ export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, Appra
       photos: new Map(this.photos.rows),
       events: this.events.published.length,
       audit: this.audit.entries.length,
+      idempotency: new Map(this.idempotency.rows),
     };
     const rollback = () => {
       this.appraisals.rows.clear();
@@ -213,6 +229,8 @@ export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, Appra
       for (const [k, v] of backup.photos) this.photos.rows.set(k, v);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
+      this.idempotency.rows.clear();
+      for (const [k, v] of backup.idempotency) this.idempotency.rows.set(k, v);
     };
     try {
       const result = await work(this);
@@ -235,6 +253,22 @@ export class InMemoryActiveUsers implements ActiveUsers {
   ) {}
 
   find(userId: string) {
+    return Promise.resolve(this.users.get(userId));
+  }
+}
+
+/** Contactos de sucursales y usuarios para el informe; sin sucursal, la casa central (`main`). */
+export class InMemoryReportContacts implements ReportContacts {
+  constructor(
+    readonly branches: ReadonlyMap<string, ReportContact> = new Map(),
+    readonly users: ReadonlyMap<string, ReportContact> = new Map(),
+  ) {}
+
+  branch(branchId: string | undefined) {
+    return Promise.resolve(this.branches.get(branchId ?? 'main') ?? this.branches.get('main'));
+  }
+
+  user(userId: string) {
     return Promise.resolve(this.users.get(userId));
   }
 }
@@ -313,6 +347,7 @@ export function appraisalDetailItem(
 /** Lecturas: devuelve las filas cargadas (sin filtrar) y registra lo pedido. */
 export class StubAppraisalQuery implements AppraisalQuery {
   readonly requests: Parameters<AppraisalQuery['search']>[0][] = [];
+  readonly exportRequests: Parameters<AppraisalQuery['exportRows']>[0][] = [];
 
   constructor(private readonly rows: readonly AppraisalDetailItem[] = []) {}
 
@@ -324,12 +359,62 @@ export class StubAppraisalQuery implements AppraisalQuery {
     });
   }
 
+  exportRows(query: Parameters<AppraisalQuery['exportRows']>[0]) {
+    this.exportRequests.push(query);
+    return Promise.resolve(
+      this.rows.slice(query.offset, query.offset + query.limit).map((row): AppraisalExportItem => ({
+        id: row.id,
+        code: row.code,
+        status: row.status,
+        propertyType: row.propertyType,
+        address: row.address,
+        requesterClientId: row.requesterClientId,
+        requesterName: row.requesterName,
+        producerUserId: row.producerUserId,
+        appraiserUserId: row.appraiserUserId,
+        branchId: row.branchId,
+        visitAt: row.visitAt,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        deletedAt: row.deletedAt,
+        rooms: row.rooms,
+        surfaceTotalM2: row.surfaceTotalM2,
+        surfaceCoveredM2: row.surfaceCoveredM2,
+        sale: row.result.sale,
+        rent: row.result.rent,
+      })),
+    );
+  }
+
   findDetail(appraisalId: string) {
     return Promise.resolve(this.rows.find((row) => row.id === appraisalId));
   }
 
   findIdByConvertedProperty(propertyId: string) {
     return Promise.resolve(this.rows.find((row) => row.convertedProperty?.id === propertyId)?.id);
+  }
+}
+
+/** Lee los lotes de la exportación y guarda las filas. */
+export class RecordingAppraisalExportWriter implements AppraisalExportWriter {
+  readonly rows: AppraisalExportRow[] = [];
+
+  write(
+    batches: AsyncIterable<readonly AppraisalExportRow[]>,
+    meta: { readonly generatedAt: Date },
+  ): AppraisalExportFile {
+    const rows = this.rows;
+    async function* body(): AsyncIterable<Uint8Array> {
+      for await (const batch of batches) {
+        rows.push(...batch);
+        yield new Uint8Array([batch.length]);
+      }
+    }
+    return {
+      filename: `tasaciones-${meta.generatedAt.toISOString().slice(0, 10)}.xlsx`,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      body: body(),
+    };
   }
 }
 

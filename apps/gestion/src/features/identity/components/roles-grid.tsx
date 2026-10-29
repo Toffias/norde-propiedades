@@ -310,7 +310,9 @@ function RoleTrashDialog({
     <Dialog open={role !== undefined} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{restoring ? 'Restaurar rol' : 'Borrar rol'}</DialogTitle>
+          <DialogTitle icon={restoring ? ArchiveRestoreIcon : Trash2Icon}>
+            {restoring ? 'Restaurar rol' : 'Borrar rol'}
+          </DialogTitle>
           <DialogDescription>
             {restoring
               ? `${name} vuelve a estar disponible para asignar a usuarios.`

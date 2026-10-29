@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { Pagination } from '../../../components/blog/pagination';
 import { DevelopmentGrid } from '../../../components/developments/development-card';
-import { DevelopmentFilterChips } from '../../../components/developments/development-filters';
+import { DevelopmentFilterSelects } from '../../../components/developments/development-filters';
 import { SortSelect } from '../../../components/properties/sort-select';
 import { Breadcrumbs } from '../../../components/seo/breadcrumbs';
 import {
@@ -63,14 +63,6 @@ export default async function DevelopmentsPage({ searchParams }: PageProps<'/emp
       <div className="mt-4 space-y-3">
         <h1 className="text-3xl font-extrabold sm:text-4xl">{developmentsTitle(filters)}</h1>
         <div aria-hidden className="deco-steps-sm" />
-        <p className="text-muted-foreground max-w-2xl">
-          Proyectos que comercializamos, desde el pozo hasta la entrega. Mirá las unidades
-          disponibles de cada uno y consultanos por financiación.
-        </p>
-      </div>
-
-      <div className="mt-6">
-        <DevelopmentFilterChips filters={filters} />
       </div>
 
       <section aria-labelledby="results-count" className="mt-8">
@@ -78,12 +70,15 @@ export default async function DevelopmentsPage({ searchParams }: PageProps<'/emp
           <p id="results-count" className="font-semibold" aria-live="polite">
             {result.total === 1 ? '1 emprendimiento' : `${result.total} emprendimientos`}
           </p>
-          {result.total > 1 && (
-            <SortSelect
-              options={sortOptions}
-              selectedHref={developmentsHref(filters, { sort: filters.sort })}
-            />
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {result.total > 1 && (
+              <SortSelect
+                options={sortOptions}
+                selectedHref={developmentsHref(filters, { sort: filters.sort })}
+              />
+            )}
+            <DevelopmentFilterSelects filters={filters} />
+          </div>
         </div>
 
         {result.items.length > 0 ? (

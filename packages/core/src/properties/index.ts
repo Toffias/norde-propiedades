@@ -180,6 +180,7 @@ export type {
   GeocodingRequest,
 } from './application/ports/geocoder';
 export type { ExportFile, PropertyExportWriter } from './application/ports/property-export-writer';
+export type { PropertyExportDetailsQuery } from './application/ports/property-export-details-query';
 export type * from './application/catalog-support';
 export type { NoBranchAssignedError } from './application/panel-filter';
 export type {
@@ -191,6 +192,7 @@ export type {
   ReferenceCodeUnavailableError,
 } from './application/ports/reference-code-allocator';
 export type { Producers, UserNames } from './application/ports/user-names';
+export type { DocumentContact, DocumentContacts } from './application/ports/document-contacts';
 export type { InvalidInputError, PropertyNotFoundError } from './application/property-support';
 export {
   CreateProperty,
@@ -474,12 +476,14 @@ export {
 // ---------- Ficha: lectura, historial y documentos (#6) ----------
 
 export {
+  DEFAULT_OWNER_REPORT_OPTIONS,
   PROPERTY_DOCUMENT_KINDS,
   PROPERTY_DOCUMENT_STATUSES,
   PropertyDocument,
   pdfAddress,
   pdfPrices,
   type DocumentNotReadyError,
+  type OwnerReportOptions,
   type PdfAddressDisplay,
   type PdfPrice,
   type PropertyDocumentId,
@@ -494,9 +498,9 @@ export type { PropertyDocumentRepository } from './domain/property-document.repo
 export type { PropertyDetailLookups } from './application/ports/property-detail-lookups';
 export type {
   OwnerReports,
-  PropertyDocumentContent,
+  OwnerReportContent,
   PropertyDocumentQuery,
-  PropertyDocumentRenderer,
+  OwnerReportRenderer,
 } from './application/ports/property-documents';
 export {
   GetPanelPropertyDetail,
@@ -541,6 +545,72 @@ export {
   GetPropertyDocumentDownload,
   type GetPropertyDocumentDownloadError,
 } from './application/queries/get-property-document-download';
+
+// ---------- Ficha en PDF en los formatos de Tokko (#175) ----------
+
+export {
+  MAX_LIST_DOCUMENT_PROPERTIES,
+  PROPERTY_SHEET_LAYOUTS,
+  SINGLE_PROPERTY_SHEET_LAYOUTS,
+  includesAgent,
+  sheetHasMap,
+  type AgentInfoRule,
+  type PropertySheetLayout,
+} from './domain/property-sheet';
+export {
+  PropertyListDocument,
+  type NothingToPrintError,
+  type PropertyListDocumentId,
+  type PropertyListDocumentRequested,
+  type PropertyListDocumentSnapshot,
+  type TooManyToPrintError,
+} from './domain/property-list-document';
+export type { PropertyListDocumentRepository } from './domain/property-list-document.repository';
+export type {
+  PropertySheet,
+  PropertySheetRenderer,
+  PropertySheetsContent,
+  StaticMaps,
+} from './application/ports/property-sheets';
+export {
+  DEFAULT_SHOWCASE_OPTIONS,
+  SHOWCASE_DESCRIPTION_SIZE,
+  SHOWCASE_ORIENTATIONS,
+  SHOWCASE_PHOTO_COUNTS,
+  showcaseOptions,
+  showcasePhotos,
+  type InvalidShowcaseOptionsError,
+  type ShowcaseOptions,
+  type ShowcaseOrientation,
+  type ShowcasePhotoCount,
+} from './domain/showcase-options';
+export type { ShowcaseContent, ShowcaseRenderer } from './application/ports/property-showcase';
+export type {
+  AppraisalSheetContent,
+  AppraisalSheetFeature,
+  AppraisalSheetRenderer,
+  OwnerContact,
+  OwnerContacts,
+} from './application/ports/appraisal-sheet';
+export {
+  APPRAISAL_SHEET_FEATURES_PER_KIND,
+  DownloadPropertyAppraisalSheet,
+  type AppraisalSheetFile,
+  type DownloadPropertyAppraisalSheetError,
+} from './application/commands/download-property-appraisal-sheet';
+export {
+  RequestPropertyListDocument,
+  type RequestPropertyListDocumentError,
+} from './application/commands/request-property-list-document';
+export {
+  RenderPropertyListDocument,
+  type RenderPropertyListDocumentError,
+} from './application/commands/render-property-list-document';
+export {
+  GetPropertyListDocumentDownload,
+  type GetPropertyListDocumentDownloadError,
+} from './application/queries/get-property-list-document-download';
+export { GetPdfExportOptions } from './application/queries/get-pdf-export-options';
 export {
   ListCustomAttributes,
   type ListCustomAttributesError,

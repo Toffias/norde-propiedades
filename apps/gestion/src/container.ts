@@ -17,6 +17,7 @@ import {
   RecordAppraisalResult,
   UploadAppraisalPhoto,
   DeleteAppraisal,
+  ExportAppraisals,
   GetAppraisal,
   GetSourceAppraisal,
   ListAppraisalHistory,
@@ -217,7 +218,9 @@ import {
   DeleteMedia,
   GetPanelPropertyDetail,
   GetAttachmentDownload,
+  GetPdfExportOptions,
   GetPropertyDocumentDownload,
+  GetPropertyListDocumentDownload,
   GetPropertyInterestProfile,
   GetPropertyInterestProfiles,
   GetPropertyFollowUpProfile,
@@ -229,7 +232,9 @@ import {
   ListPropertyHistory,
   ListMedia,
   ReorderMedia,
+  DownloadPropertyAppraisalSheet,
   RequestPropertyDocument,
+  RequestPropertyListDocument,
   SendOwnerReport,
   SetMediaCover,
   UpdateCustomAttribute,
@@ -297,6 +302,7 @@ import {
   GenerateMediaVariants,
   MoveMergedClientLinks,
   RenderPropertyDocument,
+  RenderPropertyListDocument,
   RevalidatePublicDevelopment,
   RevalidatePublicProperty,
   RunDevelopmentUnitImport,
@@ -311,6 +317,7 @@ import {
   type PropertyImportDirectory,
   UnlinkErasedClients,
   type OwnerReports,
+  type StaticMaps,
   RenameLocation,
   RenameTagGroup,
   RestoreProperty,
@@ -437,6 +444,9 @@ import {
   DrizzleCompanyFilesQuery,
   DrizzleCompanySettingsRepository,
   DrizzleDirectory,
+  DrizzleDocumentContacts,
+  DrizzleOwnerContacts,
+  DrizzlePropertyExportDetails,
   DrizzleNewsFeedQuery,
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
@@ -464,9 +474,11 @@ import {
   DrizzleDevelopmentUnitImportQuery,
   DrizzlePropertyImportQuery,
   XlsxDevelopmentUnitsExportWriter,
+  XlsxAppraisalExportWriter,
   XlsxReservationExportWriter,
   LocalFileStorage,
   NominatimGeocoder,
+  OsmStaticMaps,
   ResendMailer,
   S3FileStorage,
   SharpImageWatermarker,
@@ -481,7 +493,6 @@ import {
   type DatabaseConnection,
   createAppraisalsUnitOfWork,
   DrizzleAppraisalQuery,
-  PdfLibAppraisalReportRenderer,
   createConversationsUnitOfWork,
   DrizzleClientConversationErasure,
   DrizzleClientFavoriteErasure,
@@ -491,7 +502,6 @@ import {
   LogPublicSite,
   LogTeamNotifier,
   OutboxRelay,
-  PdfLibPropertyDocumentRenderer,
   PgBossEventBus,
   SharpImageVariantGenerator,
   WebhookPublicSite,
@@ -520,6 +530,13 @@ import {
   ZonapropLocations,
   ZonapropPortalConnector,
 } from '@norde/infra';
+import {
+  ReactPdfAppraisalReportRenderer,
+  ReactPdfAppraisalSheetRenderer,
+  ReactPdfOwnerReportRenderer,
+  ReactPdfPropertySheetRenderer,
+  ReactPdfShowcaseRenderer,
+} from '@norde/infra/pdf';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
@@ -1047,6 +1064,8 @@ function createPropertiesUseCases(
     baseUrl: env.GEOCODER_URL,
     logger: getLogger(),
   });
+  // "Ficha y PDF": formato y datos del agente de los PDF (#175).
+  const companySettings = new DrizzleCompanySettingsRepository(db, clock);
 
   return {
     listPanelProperties: new ListPanelProperties({ properties: list, users, storage }),
@@ -1072,6 +1091,7 @@ function createPropertiesUseCases(
       uow,
       list,
       users,
+      details: new DrizzlePropertyExportDetails(db),
       writer: new FilePropertyExportWriter(),
       clock,
     }),
@@ -1155,7 +1175,32 @@ function createPropertiesUseCases(
     deleteAttachment: new DeleteAttachment({ uow, clock }),
     getAttachmentDownload: new GetAttachmentDownload({ uow, storage }),
     // PDF
-    requestPropertyDocument: new RequestPropertyDocument({ uow, ids, clock }),
+    downloadAppraisalSheet: new DownloadPropertyAppraisalSheet({
+      uow,
+      lookups,
+      users,
+      catalog,
+      owners: new DrizzleOwnerContacts(db),
+      storage,
+      settings: companySettings,
+      renderer: new ReactPdfAppraisalSheetRenderer(),
+      clock,
+    }),
+    requestPropertyDocument: new RequestPropertyDocument({
+      uow,
+      ids,
+      clock,
+      settings: companySettings,
+    }),
+    requestPropertyListDocument: new RequestPropertyListDocument({
+      uow,
+      list,
+      settings: companySettings,
+      ids,
+      clock,
+    }),
+    getPropertyListDocumentDownload: new GetPropertyListDocumentDownload({ uow, storage }),
+    getPdfExportOptions: new GetPdfExportOptions({ settings: companySettings }),
     listPropertyDocuments: new ListPropertyDocuments({
       documents: new DrizzlePropertyDocumentQuery(db),
       users,
@@ -1202,6 +1247,7 @@ function createPropertiesUseCases(
       uow,
       list,
       users,
+      details: new DrizzlePropertyExportDetails(db),
       writer: new XlsxDevelopmentUnitsExportWriter(),
       clock,
     }),
@@ -1411,6 +1457,13 @@ function createAppraisalsUseCases(
   };
   return {
     listAppraisals: new ListAppraisals({ appraisals, directory }),
+    exportAppraisals: new ExportAppraisals({
+      uow,
+      appraisals,
+      directory,
+      writer: new XlsxAppraisalExportWriter(),
+      clock,
+    }),
     getAppraisal: new GetAppraisal({ appraisals, directory }),
     getSourceAppraisal: new GetSourceAppraisal({ appraisals, directory }),
     listAppraisalHistory: new ListAppraisalHistory({
@@ -1434,7 +1487,8 @@ function createAppraisalsUseCases(
       directory,
       storage,
       settings: new DrizzleCompanySettingsRepository(db, clock),
-      renderer: new PdfLibAppraisalReportRenderer(),
+      renderer: new ReactPdfAppraisalReportRenderer(),
+      contacts: new DrizzleDocumentContacts(db),
       clock,
     }),
   };
@@ -1980,16 +2034,19 @@ function createOpportunityJobs(
   };
 }
 
-/** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6). */
+/** Los jobs de la ficha de propiedad: variantes de fotos, limpieza del storage y PDF (#6, #175). */
 function createPropertyJobs(
   db: Database,
   storage: FileStorage,
+  maps: StaticMaps,
   deps: { readonly ids: IdGenerator; readonly clock: Clock },
 ) {
   const { clock } = deps;
   const uow = createPropertiesUnitOfWork(db, deps);
   const settings = new DrizzleCompanySettingsRepository(db, clock);
   const directory = new DrizzleDirectory(db);
+  const sheets = new ReactPdfPropertySheetRenderer();
+  const showcases = new ReactPdfShowcaseRenderer();
   const interestProfile = new GetPropertyInterestProfile({ uow });
   const profiles: ReportingPropertyProfiles = {
     async find(propertyId, actor) {
@@ -2003,7 +2060,10 @@ function createPropertyJobs(
   });
   const ownerReports: OwnerReports = {
     async build(propertyId, period, actor) {
-      const report = await ownerReport.execute({ propertyId, ...period }, actor);
+      const report = await ownerReport.execute(
+        { propertyId, from: period.from, to: period.to, since: period.listedAt },
+        actor,
+      );
       return report.isOk() ? report.value : undefined;
     },
   };
@@ -2023,8 +2083,23 @@ function createPropertyJobs(
       users: { names: (userIds) => directory.names('user', userIds) },
       storage,
       settings,
-      renderer: new PdfLibPropertyDocumentRenderer(),
+      ownerReportRenderer: new ReactPdfOwnerReportRenderer(),
+      sheets,
+      showcases,
+      maps,
       ownerReports,
+      contacts: new DrizzleDocumentContacts(db),
+      clock,
+    }),
+    renderListDocument: new RenderPropertyListDocument({
+      uow,
+      lookups: new DrizzlePropertyDetailLookups(db),
+      users: { names: (userIds) => directory.names('user', userIds) },
+      storage,
+      settings,
+      renderer: sheets,
+      maps,
+      contacts: new DrizzleDocumentContacts(db),
       clock,
     }),
   };
@@ -2099,7 +2174,16 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     }),
     recordActivity: new RecordClientActivity({ uow: createClientsUnitOfWork(db, deps) }),
     notifyAssignment: new NotifyAssignment({ notifications, ids }),
-    properties: createPropertyJobs(db, storage, deps),
+    properties: createPropertyJobs(
+      db,
+      storage,
+      new OsmStaticMaps({
+        userAgent: env.GEOCODER_USER_AGENT,
+        tileUrl: env.MAP_TILES_URL,
+        logger,
+      }),
+      deps,
+    ),
     appraisals: {
       deletePhotoFiles: new DeleteAppraisalPhotoFiles({ storage }),
       createProperty: new CreatePropertyFromAppraisal({

@@ -1,13 +1,19 @@
 // Fakes del módulo properties para tests (`@norde/core/properties/testing`).
 
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
-import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
+import {
+  InMemoryAuditLog,
+  InMemoryEventPublisher,
+  InMemoryIdempotencyKeys,
+} from '../../shared/testing';
 import type {
   DevelopmentMapPin,
   DevelopmentRef,
+  FeatureRow,
   PanelPropertyCustomAttribute,
-  PanelPropertyRow,
+  PropertyExportDetails,
   PropertyExportFormat,
+  PropertyExportRow,
   ReservationListRow,
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
@@ -59,6 +65,7 @@ import type {
   MovedClientLinks,
   PropertyClientMerge,
 } from '../application/ports/property-client-merge';
+import type { PropertyExportDetailsQuery } from '../application/ports/property-export-details-query';
 import type { ExportFile, PropertyExportWriter } from '../application/ports/property-export-writer';
 import type {
   PropertiesTransaction,
@@ -80,6 +87,7 @@ import type {
   ReferenceCodeUnavailableError,
 } from '../application/ports/reference-code-allocator';
 import type { Producers, UserNames } from '../application/ports/user-names';
+import type { DocumentContact, DocumentContacts } from '../application/ports/document-contacts';
 import type {
   CustomAttributeRepository,
   FeatureRepository,
@@ -161,9 +169,9 @@ import type { ImageVariantGenerator } from '../application/ports/image-variant-g
 import type { MediaQuery } from '../application/ports/media-query';
 import type {
   OwnerReports,
-  PropertyDocumentContent,
+  OwnerReportContent,
   PropertyDocumentQuery,
-  PropertyDocumentRenderer,
+  OwnerReportRenderer,
 } from '../application/ports/property-documents';
 import type { PropertyDetailLookups } from '../application/ports/property-detail-lookups';
 import {
@@ -172,6 +180,25 @@ import {
   type PropertyDocumentSnapshot,
 } from '../domain/property-document';
 import type { PropertyDocumentRepository } from '../domain/property-document.repository';
+import {
+  PropertyListDocument,
+  type PropertyListDocumentId,
+  type PropertyListDocumentSnapshot,
+} from '../domain/property-list-document';
+import type { PropertyListDocumentRepository } from '../domain/property-list-document.repository';
+import type {
+  PropertySheet,
+  PropertySheetRenderer,
+  PropertySheetsContent,
+  StaticMaps,
+} from '../application/ports/property-sheets';
+import type { ShowcaseContent, ShowcaseRenderer } from '../application/ports/property-showcase';
+import type {
+  AppraisalSheetContent,
+  AppraisalSheetRenderer,
+  OwnerContact,
+  OwnerContacts,
+} from '../application/ports/appraisal-sheet';
 import type { OwnerReport } from '../../reporting';
 import {
   DEFAULT_PUBLICATION,
@@ -834,11 +861,13 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly media = new InMemoryMediaItemRepository();
   readonly attachments = new InMemoryAttachmentRepository();
   readonly documents = new InMemoryPropertyDocumentRepository();
+  readonly listDocuments = new InMemoryPropertyListDocumentRepository();
   readonly reservations = new InMemoryReservationRepository();
   readonly clientMerge = new FakePropertyClientMerge();
   readonly owners = new InMemoryPropertyOwnerLinks();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
+  readonly idempotency = new InMemoryIdempotencyKeys();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
   transactions = 0;
 
@@ -859,8 +888,10 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.media,
       this.attachments,
       this.documents,
+      this.listDocuments,
       this.reservations,
       this.owners,
+      this.idempotency,
     ];
   }
 
@@ -1021,6 +1052,22 @@ export class InMemoryUserNames implements UserNames {
   }
 }
 
+/** Contactos de sucursales y usuarios para los PDF; sin sucursal, la casa central (`main`). */
+export class InMemoryDocumentContacts implements DocumentContacts {
+  constructor(
+    readonly branches: ReadonlyMap<string, DocumentContact> = new Map(),
+    readonly users: ReadonlyMap<string, DocumentContact> = new Map(),
+  ) {}
+
+  branch(branchId: string | undefined) {
+    return Promise.resolve(this.branches.get(branchId ?? 'main') ?? this.branches.get('main'));
+  }
+
+  user(userId: string) {
+    return Promise.resolve(this.users.get(userId));
+  }
+}
+
 /** Usuarios activos con su sucursal. */
 export class InMemoryProducers implements Producers {
   constructor(
@@ -1054,12 +1101,12 @@ export class FakeGeocoder implements Geocoder {
 
 /** Junta las filas que recibiría la planilla, sin armar ningún archivo. */
 export class FakeExportWriter implements PropertyExportWriter {
-  readonly rows: PanelPropertyRow[] = [];
+  readonly rows: PropertyExportRow[] = [];
   format: PropertyExportFormat | undefined;
 
   write(
     format: PropertyExportFormat,
-    batches: AsyncIterable<readonly PanelPropertyRow[]>,
+    batches: AsyncIterable<readonly PropertyExportRow[]>,
   ): ExportFile {
     this.format = format;
     const rows = this.rows;
@@ -1073,11 +1120,34 @@ export class FakeExportWriter implements PropertyExportWriter {
   }
 }
 
+/** Los detalles de la planilla por propiedad; el propietario sale solo si se pide. */
+export class InMemoryPropertyExportDetails implements PropertyExportDetailsQuery {
+  readonly requests: { readonly ids: readonly string[]; readonly includeOwners: boolean }[] = [];
+
+  constructor(private readonly rows: ReadonlyMap<string, PropertyExportDetails> = new Map()) {}
+
+  details(propertyIds: readonly string[], options: { readonly includeOwners: boolean }) {
+    this.requests.push({ ids: propertyIds, includeOwners: options.includeOwners });
+    const found = new Map<string, PropertyExportDetails>();
+    for (const id of propertyIds) {
+      const row = this.rows.get(id);
+      if (row !== undefined) {
+        found.set(id, options.includeOwners ? row : { ...row, owner: undefined });
+      }
+    }
+    return Promise.resolve(found);
+  }
+}
+
 /** Devuelve páginas vacías y registra los criterios: las queries de catálogo son SQL en infra. */
 export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
   readonly calls: { readonly method: string; readonly criteria: unknown }[] = [];
   typeSettingRows: readonly PropertyTypeSetting[] = [];
   gridColumnRows: readonly GridColumn[] = [];
+  /** Lo que devuelve `listFeatures`, filtrado por tipo y paginado. */
+  featureRows: readonly FeatureRow[] = [];
+  /** Los pedidos a `listFeatures`, con su tipo. */
+  readonly featureRequests: Parameters<PropertyCatalogQuery['listFeatures']>[0][] = [];
 
   private empty<T>(method: string, criteria: unknown): Promise<PageSlice<T>> {
     this.calls.push({ method, criteria });
@@ -1089,7 +1159,13 @@ export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
   }
 
   listFeatures(criteria: Parameters<PropertyCatalogQuery['listFeatures']>[0]) {
-    return this.empty<never>('listFeatures', criteria);
+    this.calls.push({ method: 'listFeatures', criteria });
+    this.featureRequests.push(criteria);
+    const rows = this.featureRows.filter((row) => row.kind === criteria.kind);
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: rows.length,
+    });
   }
 
   listCustomAttributes(criteria: Parameters<PropertyCatalogQuery['listCustomAttributes']>[0]) {
@@ -1283,6 +1359,8 @@ export class InMemoryPropertyDocumentQuery implements PropertyDocumentQuery {
         kind: row.kind,
         status: row.status,
         period: row.period,
+        layout: row.layout,
+        orientation: row.showcase?.orientation,
         error: row.error,
         requestedBy: row.requestedBy,
         createdAt: row.createdAt,
@@ -1292,13 +1370,88 @@ export class InMemoryPropertyDocumentQuery implements PropertyDocumentQuery {
   }
 }
 
-/** Registra lo que se le pidió imprimir y devuelve un PDF de mentira. */
-export class FakeDocumentRenderer implements PropertyDocumentRenderer {
-  readonly rendered: PropertyDocumentContent[] = [];
+export class InMemoryPropertyListDocumentRepository implements PropertyListDocumentRepository {
+  readonly rows = new Map<string, PropertyListDocumentSnapshot>();
+
+  findById(id: PropertyListDocumentId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? PropertyListDocument.restore(row) : undefined);
+  }
+
+  save(document: PropertyListDocument) {
+    this.rows.set(document.id, document.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+/** Registra las fichas que se le pidió imprimir (ya recorridas) y devuelve un PDF de mentira. */
+export class FakeSheetRenderer implements PropertySheetRenderer {
+  readonly rendered: (Omit<PropertySheetsContent, 'sheets'> & {
+    readonly sheets: readonly PropertySheet[];
+  })[] = [];
   fail = false;
 
-  render(content: PropertyDocumentContent) {
-    if (this.fail) return Promise.reject(new Error('pdf-lib exploded'));
+  async render(content: PropertySheetsContent) {
+    const sheets: PropertySheet[] = [];
+    for await (const sheet of content.sheets) sheets.push(sheet);
+    if (this.fail) throw new Error('react-pdf exploded');
+    this.rendered.push({ ...content, sheets });
+    return new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+  }
+}
+
+/** Guarda lo que se le pidió imprimir; con `fail`, explota como react-pdf. */
+export class FakeShowcaseRenderer implements ShowcaseRenderer {
+  readonly rendered: ShowcaseContent[] = [];
+  fail = false;
+
+  render(content: ShowcaseContent) {
+    if (this.fail) return Promise.reject(new Error('react-pdf exploded'));
+    this.rendered.push(content);
+    return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  }
+}
+
+/** Registra lo que se le pidió imprimir y devuelve un PDF de mentira. */
+export class FakeAppraisalSheetRenderer implements AppraisalSheetRenderer {
+  readonly rendered: AppraisalSheetContent[] = [];
+
+  render(content: AppraisalSheetContent) {
+    this.rendered.push(content);
+    return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  }
+}
+
+/** Los propietarios cargados, por ID de cliente. */
+export class InMemoryOwnerContacts implements OwnerContacts {
+  readonly requested: string[] = [];
+
+  constructor(private readonly contacts: ReadonlyMap<string, OwnerContact> = new Map()) {}
+
+  find(clientId: string) {
+    this.requested.push(clientId);
+    return Promise.resolve(this.contacts.get(clientId));
+  }
+}
+
+/** Un mapa de mentira; con `down`, el servicio no responde. */
+export class FakeStaticMaps implements StaticMaps {
+  readonly requested: { readonly latitude: number; readonly longitude: number }[] = [];
+  down = false;
+
+  render(point: { readonly latitude: number; readonly longitude: number }) {
+    this.requested.push(point);
+    return Promise.resolve(this.down ? undefined : new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
+  }
+}
+
+/** Registra lo que se le pidió imprimir y devuelve un PDF de mentira. */
+export class FakeOwnerReportRenderer implements OwnerReportRenderer {
+  readonly rendered: OwnerReportContent[] = [];
+  fail = false;
+
+  render(content: OwnerReportContent) {
+    if (this.fail) return Promise.reject(new Error('react-pdf exploded'));
     this.rendered.push(content);
     return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
   }
@@ -1313,9 +1466,19 @@ export class StubOwnerReports implements OwnerReports {
     whatsappSends: 3,
     inquiries: 4,
     interested: 1,
+    portalViews: 0,
+    portalContacts: 0,
+    monthly: [{ month: '2026-09', emailSends: 2, whatsappSends: 3, inquiries: 4 }],
+    windows: {
+      last15Days: { emailSends: 1, whatsappSends: 1, inquiries: 2 },
+      last30Days: { emailSends: 2, whatsappSends: 3, inquiries: 4 },
+      sinceCreation: { emailSends: 5, whatsappSends: 6, inquiries: 9, from: '2026-03-10' },
+    },
   };
+  readonly requested: Parameters<OwnerReports['build']>[1][] = [];
 
-  build() {
+  build(_propertyId: string, period: Parameters<OwnerReports['build']>[1]) {
+    this.requested.push(period);
     return Promise.resolve(this.report);
   }
 }
@@ -1777,11 +1940,11 @@ export class FakePropertyImportDirectory implements PropertyImportDirectory {
 
 /** Junta las filas que recibiría el Excel de unidades, sin armar ningún archivo. */
 export class FakeDevelopmentUnitsExportWriter implements DevelopmentUnitsExportWriter {
-  readonly rows: PanelPropertyRow[] = [];
+  readonly rows: PropertyExportRow[] = [];
   developmentCode: string | undefined;
 
   write(
-    batches: AsyncIterable<readonly PanelPropertyRow[]>,
+    batches: AsyncIterable<readonly PropertyExportRow[]>,
     meta: { readonly developmentCode: string },
   ): ExportFile {
     this.developmentCode = meta.developmentCode;

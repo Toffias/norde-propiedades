@@ -13,7 +13,7 @@ import {
   type MoneyDto,
   type PropertyType,
 } from '../../properties/contracts';
-import { pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 // Los catálogos que la tasación comparte con la propiedad a la que se convierte.
 export {
@@ -96,7 +96,11 @@ const appraisalFields = {
   condition: z.enum(CONDITION_VALUES).optional(),
 };
 
-export const CreateAppraisalInputSchema = z.object(appraisalFields);
+export const CreateAppraisalInputSchema = z.object({
+  ...appraisalFields,
+  /** Clave de idempotencia del formulario (ADR 0050). */
+  idempotencyKey: idempotencyKeySchema.optional(),
+});
 export type CreateAppraisalInput = z.input<typeof CreateAppraisalInputSchema>;
 export type CreateAppraisalValues = z.output<typeof CreateAppraisalInputSchema>;
 
@@ -254,27 +258,45 @@ function checkDateRanges(
   }
 }
 
+const AppraisalFilterFields = {
+  view: z.enum(APPRAISAL_VIEW_VALUES).default('active'),
+  /** Estado agrupado como en Tokko: Pendiente, Tasado, Caída, Ingresada. */
+  status: z.enum(APPRAISAL_STATUS_GROUP_VALUES).optional(),
+  propertyType: z.enum(PROPERTY_TYPES).optional(),
+  producerId: z.uuid().optional(),
+  appraiserId: z.uuid().optional(),
+  branchId: z.uuid().optional(),
+  /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
+  createdFrom: z.iso.date().optional(),
+  createdTo: z.iso.date().optional(),
+  visitFrom: z.iso.date().optional(),
+  visitTo: z.iso.date().optional(),
+};
+
 /** Todas las tasaciones que el usuario puede ver, con filtros, paginadas en la base. */
 export const ListAppraisalsQuerySchema = pageQuerySchema({
   sortable: APPRAISAL_SORT_FIELDS,
   defaultSort: { field: 'createdAt', direction: 'desc' },
 })
-  .extend({
-    view: z.enum(APPRAISAL_VIEW_VALUES).default('active'),
-    /** Estado agrupado como en Tokko: Pendiente, Tasado, Caída, Ingresada. */
-    status: z.enum(APPRAISAL_STATUS_GROUP_VALUES).optional(),
-    propertyType: z.enum(PROPERTY_TYPES).optional(),
-    producerId: z.uuid().optional(),
-    appraiserId: z.uuid().optional(),
-    branchId: z.uuid().optional(),
-    /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
-    createdFrom: z.iso.date().optional(),
-    createdTo: z.iso.date().optional(),
-    visitFrom: z.iso.date().optional(),
-    visitTo: z.iso.date().optional(),
-  })
+  .extend(AppraisalFilterFields)
   .superRefine(checkDateRanges);
 export type ListAppraisalsQuery = z.input<typeof ListAppraisalsQuerySchema>;
+
+/** Los filtros del listado sin página ni orden (la exportación). */
+export const AppraisalFilterSchema = z.object(AppraisalFilterFields).superRefine(checkDateRanges);
+export type AppraisalFilter = z.input<typeof AppraisalFilterSchema>;
+export type ParsedAppraisalFilter = z.output<typeof AppraisalFilterSchema>;
+
+// ---------- Exportación a Excel ----------
+
+/** Más que esto no entra en una planilla razonable: se pide filtrar. */
+export const MAX_APPRAISAL_EXPORT_ROWS = 10_000;
+
+/** Exporta las tasaciones que cumplen los filtros aplicados: viaja el filtro, nunca la lista. */
+export const ExportAppraisalsInputSchema = z.object({
+  filter: AppraisalFilterSchema.default({ view: 'active' }),
+});
+export type ExportAppraisalsInput = z.input<typeof ExportAppraisalsInputSchema>;
 
 /** Un usuario o una sucursal: `name` es `undefined` si ya no está activo. */
 export interface AppraisalRef {
@@ -323,6 +345,16 @@ export interface AppraisalResultDto {
   readonly rent: AppraisalValueRangeDto | undefined;
   readonly comparables: readonly AppraisalComparableDto[];
   readonly observations: string | undefined;
+}
+
+/** Una fila de la exportación: la del listado más la superficie y los valores tasados. */
+export interface AppraisalExportRow extends Omit<AppraisalListRow, 'coverPhotoId'> {
+  readonly updatedAt: Date;
+  readonly rooms: number | undefined;
+  readonly surfaceTotalM2: number | undefined;
+  readonly surfaceCoveredM2: number | undefined;
+  readonly sale: AppraisalValueRangeDto | undefined;
+  readonly rent: AppraisalValueRangeDto | undefined;
 }
 
 /** Un comparable con su valor por m² (lo calcula el dominio). */

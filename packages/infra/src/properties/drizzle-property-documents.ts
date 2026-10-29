@@ -1,7 +1,10 @@
 import {
   PROPERTY_DOCUMENT_KINDS,
   PROPERTY_DOCUMENT_STATUSES,
+  PROPERTY_SHEET_LAYOUTS,
   PropertyDocument,
+  SHOWCASE_ORIENTATIONS,
+  SHOWCASE_PHOTO_COUNTS,
   type PropertyDocumentId,
   type PropertyDocumentQuery,
   type PropertyDocumentRepository,
@@ -17,7 +20,32 @@ import { propertyDocuments } from '../db/schema';
 const DocumentEnums = z.object({
   kind: z.enum(PROPERTY_DOCUMENT_KINDS),
   status: z.enum(PROPERTY_DOCUMENT_STATUSES),
+  layout: z
+    .enum(PROPERTY_SHEET_LAYOUTS)
+    .nullable()
+    .transform((layout) => layout ?? undefined),
 });
+
+/** Las opciones de la vidriera, como las guardó el dominio (ya validadas al pedirla). */
+const ShowcaseOptionsSchema = z
+  .object({
+    orientation: z.enum(SHOWCASE_ORIENTATIONS),
+    primaryColor: z.string(),
+    secondaryColor: z.string(),
+    qr: z.boolean(),
+    operationBand: z.boolean(),
+    photoCount: z.union(SHOWCASE_PHOTO_COUNTS.map((count) => z.literal(count))),
+    photoIds: z.array(z.string()),
+    descriptionSize: z.number(),
+  })
+  .nullable()
+  .transform((options) => options ?? undefined);
+
+/** Lo que lleva el reporte al propietario, como lo guardó el dominio. */
+const OwnerReportOptionsSchema = z
+  .object({ publications: z.boolean(), statistics: z.boolean() })
+  .nullable()
+  .transform((options) => options ?? undefined);
 
 function stored<T, E>(result: Result<T, E>): T {
   if (result.isErr()) throw new Error('Invalid value stored in property_documents');
@@ -47,6 +75,10 @@ export class DrizzlePropertyDocumentRepository implements PropertyDocumentReposi
       kind: enums.kind,
       status: enums.status,
       period: period(row),
+      layout: enums.layout,
+      showcase: ShowcaseOptionsSchema.parse(row.showcaseOptions),
+      ownerReport: OwnerReportOptionsSchema.parse(row.ownerReportOptions),
+      includeAgent: row.includeAgent,
       storageKey: row.storageKey ?? undefined,
       error: row.error ?? undefined,
       requestedBy: row.requestedBy,
@@ -72,6 +104,10 @@ export class DrizzlePropertyDocumentRepository implements PropertyDocumentReposi
         kind: s.kind,
         periodFrom: s.period?.from ?? null,
         periodTo: s.period?.to ?? null,
+        layout: s.layout ?? null,
+        showcaseOptions: s.showcase ?? null,
+        ownerReportOptions: s.ownerReport ?? null,
+        includeAgent: s.includeAgent,
         requestedBy: s.requestedBy,
         createdAt: s.createdAt,
         createdBy: actorId,
@@ -107,6 +143,7 @@ export class DrizzlePropertyDocumentQuery implements PropertyDocumentQuery {
       items: rows.map((row) => ({
         id: row.id,
         ...DocumentEnums.parse(row),
+        orientation: ShowcaseOptionsSchema.parse(row.showcaseOptions)?.orientation,
         period: period(row),
         error: row.error ?? undefined,
         requestedBy: row.requestedBy,

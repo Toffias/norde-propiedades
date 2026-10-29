@@ -1,7 +1,11 @@
 // Fakes del módulo clients para tests (`@norde/core/clients/testing`).
 
 import { Actor, Email, parseId, Phone, pickWeighted, type WeightedAgent } from '../../shared';
-import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
+import {
+  InMemoryAuditLog,
+  InMemoryEventPublisher,
+  InMemoryIdempotencyKeys,
+} from '../../shared/testing';
 import type {
   ClientLetterCount,
   ClientListingSummary,
@@ -1173,6 +1177,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly savedSearches = new InMemorySavedSearchRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
+  readonly idempotency = new InMemoryIdempotencyKeys();
   readonly erasure = new InMemoryClientErasure(this.clients, this.activities, this.audit);
   readonly imports = new InMemoryClientImportRepository();
   readonly externalIds = new InMemoryClientExternalIds();
@@ -1209,6 +1214,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       problems: this.imports.problems.length,
       events: this.events.published.length,
       audit: this.audit.entries.length,
+      idempotency: new Map(this.idempotency.rows),
     };
     const restore = <K, V>(target: Map<K, V>, saved: Map<K, V>) => {
       target.clear();
@@ -1240,6 +1246,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       this.imports.problems.splice(backup.problems);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
+      restore(this.idempotency.rows, backup.idempotency);
     };
 
     try {

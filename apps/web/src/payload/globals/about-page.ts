@@ -1,5 +1,6 @@
 import type { GlobalConfig } from 'payload';
 
+import { ABOUT_STAT_ICONS } from '../../lib/about/stat-icons';
 import { anyone, authenticated } from '../access';
 import { revalidateGlobal } from '../hooks/revalidate-blog';
 
@@ -71,6 +72,13 @@ export const AboutPage: GlobalConfig<'about-page'> = {
           type: 'text',
           required: true,
           admin: { description: 'Ej.: "años en el barrio".' },
+        },
+        {
+          name: 'icon',
+          label: 'Ícono',
+          type: 'select',
+          options: ABOUT_STAT_ICONS.map((icon) => ({ value: icon.value, label: icon.label })),
+          admin: { description: 'Opcional. Sin elegir, se deduce del texto de la cifra.' },
         },
       ],
     },

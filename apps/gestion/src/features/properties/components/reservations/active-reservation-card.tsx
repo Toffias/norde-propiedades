@@ -17,6 +17,7 @@ import { StatusPill } from '@norde/ui/components/status-pill';
 import { Textarea } from '@norde/ui/components/textarea';
 import {
   BookmarkCheckIcon,
+  BookmarkXIcon,
   CalendarCheckIcon,
   Loader2Icon,
   PencilIcon,
@@ -208,7 +209,7 @@ function FallReservationDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Dar por caída la reserva</DialogTitle>
+          <DialogTitle icon={BookmarkXIcon}>Dar por caída la reserva</DialogTitle>
           <DialogDescription>
             La propiedad vuelve a estar disponible y la reserva queda en su historial.
           </DialogDescription>

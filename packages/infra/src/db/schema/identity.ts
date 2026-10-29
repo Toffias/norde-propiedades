@@ -232,6 +232,8 @@ export const branches = coreSchema.table(
     email: text('email'),
     phoneE164: text('phone_e164'),
     whatsappE164: text('whatsapp_e164').notNull(),
+    /** Contacto en texto libre para los PDF: reemplaza al de Mi empresa. */
+    pdfContactText: text('pdf_contact_text'),
     isMain: boolean('is_main').notNull().default(false),
     ...timestamps(),
     ...authorship(),

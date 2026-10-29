@@ -2,7 +2,7 @@ import './globals.css';
 
 import { ThemeProvider } from '@norde/ui/components/theme-provider';
 import type { Metadata, Viewport } from 'next';
-import type { ReactNode } from 'react';
+import { ViewTransition, type ReactNode } from 'react';
 
 import { isChatEnabled, SiteChat } from '../../components/chat/site-chat';
 import { SiteFooter } from '../../components/layout/site-footer';
@@ -43,7 +43,8 @@ export default function FrontendLayout({ children }: { readonly children: ReactN
   const siteUrl = getSiteUrl();
 
   return (
-    <html lang="es-AR" suppressHydrationWarning>
+    // `data-scroll-behavior`: el scroll suave es para los anclas; al cambiar de página, Next salta.
+    <html lang="es-AR" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="flex min-h-dvh flex-col">
         <JsonLdScript data={[organizationSchema(siteUrl), websiteSchema(siteUrl)]} />
         <ThemeProvider>
@@ -56,7 +57,8 @@ export default function FrontendLayout({ children }: { readonly children: ReactN
           <SiteTopBar />
           <SiteHeader />
           <main id="contenido" className="flex-1">
-            {children}
+            {/* Al navegar, el contenido viejo se funde con el nuevo en vez de cortar de golpe. */}
+            <ViewTransition>{children}</ViewTransition>
           </main>
           <SiteFooter />
           {/* Con el chat de IA, su burbuja reemplaza al botón de WhatsApp: un solo botón flotante. */}

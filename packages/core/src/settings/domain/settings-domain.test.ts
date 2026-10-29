@@ -6,6 +6,12 @@ import { unwrap, unwrapErr } from '../../shared/testing';
 import { CompanyFile, MAX_COMPANY_FILE_BYTES, type CompanyFileId } from './company-file';
 import { CompanySettings } from './company-settings';
 import { DescriptionFooterTemplate } from './description-footer-template';
+import {
+  brandColor,
+  contrastWithWhite,
+  DEFAULT_PDF_OPTIONS,
+  withPdfContactText,
+} from './pdf-options';
 import { FileFolder, FileName, MAX_FOLDER_DEPTH, type FileFolderId } from './file-folder';
 import {
   ReferenceCode,
@@ -31,6 +37,37 @@ function prefix(raw: string): ReferenceCodePrefix {
 function name(raw: string): FileName {
   return unwrap(FileName.create(raw));
 }
+
+describe('brandColor', () => {
+  it('measures the contrast with white like WCAG', () => {
+    expect(contrastWithWhite('#ffffff')).toBeCloseTo(1, 5);
+    expect(contrastWithWhite('#000000')).toBeCloseTo(21, 5);
+  });
+
+  it('accepts colors readable on white and with white text, in lowercase', () => {
+    expect(unwrap(brandColor(DEFAULT_PDF_OPTIONS.brandColor))).toBe('#c9302b');
+    expect(unwrap(brandColor('#1F4E79'))).toBe('#1f4e79');
+  });
+
+  it('rejects colors too light for titles and badges', () => {
+    expect(unwrapErr(brandColor('#ffd400'))).toMatchObject({ type: 'BrandColorTooLight' });
+    expect(unwrapErr(brandColor('#f5d0a9')).contrast).toBeLessThan(3);
+  });
+});
+
+describe('withPdfContactText', () => {
+  const company = { contactText: 'Texto de Mi empresa' };
+
+  it("uses the branch's own text, then the company's, then none", () => {
+    expect(withPdfContactText({ text: 'Texto de la sucursal' }, company).text).toBe(
+      'Texto de la sucursal',
+    );
+    expect(withPdfContactText({ text: undefined }, company).text).toBe('Texto de Mi empresa');
+    expect(
+      withPdfContactText({ text: undefined }, { contactText: undefined }).text,
+    ).toBeUndefined();
+  });
+});
 
 describe('WebUrlTemplate', () => {
   it('accepts an https url with one placeholder and renders it', () => {

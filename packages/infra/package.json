@@ -5,7 +5,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./pdf": "./src/pdf.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings=0",
@@ -14,29 +15,39 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "test:int": "vitest run --config vitest.int.config.ts"
+    "test:int": "vitest run --config vitest.int.config.ts",
+    "pdf:fonts": "tsx scripts/generate-pdf-fonts.ts",
+    "pdf:portal-logos": "tsx scripts/generate-pdf-portal-logos.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "catalog:",
     "@aws-sdk/s3-request-presigner": "catalog:",
     "@norde/core": "workspace:*",
+    "@react-pdf/renderer": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "exceljs": "catalog:",
-    "pdf-lib": "catalog:",
+    "lucide": "catalog:",
+    "qrcode": "catalog:",
     "pg": "catalog:",
     "pg-boss": "catalog:",
+    "react": "catalog:",
     "sharp": "catalog:",
     "uuid": "catalog:",
     "xlsx": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@fontsource/plus-jakarta-sans": "catalog:",
     "@norde/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
+    "@types/qrcode": "catalog:",
+    "@types/react": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
+    "pdf-lib": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

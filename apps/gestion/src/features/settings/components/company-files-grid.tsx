@@ -91,7 +91,7 @@ function NameDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle icon={PencilIcon}>{title}</DialogTitle>
         </DialogHeader>
         <form
           className="flex flex-col gap-4"
@@ -166,6 +166,7 @@ export function CompanyFilesGrid({
   const router = useRouter();
   const [dialog, setDialog] = useState<Dialogs>();
   const [uploading, startUpload] = useTransition();
+  const [removing, startRemove] = useTransition();
   const [uploadError, setUploadError] = useState<string | undefined>();
 
   function upload(files: readonly File[]) {
@@ -197,18 +198,20 @@ export function CompanyFilesGrid({
     });
   }
 
-  async function remove(entry: FolderEntry) {
-    const message = await runAction(() =>
-      entry.kind === 'folder'
-        ? deleteFolderAction({ folderId: entry.id })
-        : moveCompanyFileToTrashAction({ fileId: entry.id }),
-    );
-    if (message !== undefined) {
-      toast.error(message);
-      return;
-    }
-    toast.success(entry.kind === 'folder' ? 'Carpeta borrada' : 'Archivo enviado a la papelera');
-    router.refresh();
+  function remove(entry: FolderEntry) {
+    startRemove(async () => {
+      const message = await runAction(() =>
+        entry.kind === 'folder'
+          ? deleteFolderAction({ folderId: entry.id })
+          : moveCompanyFileToTrashAction({ fileId: entry.id }),
+      );
+      if (message !== undefined) {
+        toast.error(message);
+        return;
+      }
+      toast.success(entry.kind === 'folder' ? 'Carpeta borrada' : 'Archivo enviado a la papelera');
+      router.refresh();
+    });
   }
 
   const columns: readonly DataTableColumn<FolderEntry>[] = [
@@ -281,8 +284,9 @@ export function CompanyFilesGrid({
             <RowAction
               icon={Trash2Icon}
               label={entry.kind === 'folder' ? 'Borrar la carpeta' : 'Enviar a la papelera'}
+              {...(removing ? { disabledReason: 'Borrando…' } : {})}
               onClick={() => {
-                void remove(entry);
+                remove(entry);
               }}
             />
           )}
@@ -388,7 +392,7 @@ export function CompanyFilesGrid({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Subir archivos</DialogTitle>
+            <DialogTitle icon={UploadIcon}>Subir archivos</DialogTitle>
             <DialogDescription>
               {breadcrumb.length === 0
                 ? 'Van a la raíz de Archivos.'

@@ -19,7 +19,7 @@ import {
 import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
 import { cn } from '@norde/ui/lib/utils';
-import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, CombineIcon, Loader2Icon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
@@ -179,7 +179,7 @@ export function ClientMergeDialog({
   }
 
   function merge() {
-    if (preview === undefined) return;
+    if (preview === undefined || merging) return;
     const [primary, duplicate] = keepCurrent
       ? [preview.primary, preview.duplicate]
       : [preview.duplicate, preview.primary];
@@ -206,12 +206,12 @@ export function ClientMergeDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) close();
+        if (!next && !merging) close();
       }}
     >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Unificar contactos</DialogTitle>
+          <DialogTitle icon={CombineIcon}>Unificar contactos</DialogTitle>
           <DialogDescription>
             Si {clientName(detail.name)} está cargado dos veces, elegí el otro registro y cuál
             queda. No se pierde nada: lo del otro pasa al principal.
@@ -264,7 +264,7 @@ export function ClientMergeDialog({
             <RelationsWarning duplicate={preview.primary} primary={preview.duplicate} />
           ))}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={close}>
+          <Button type="button" variant="outline" disabled={merging} onClick={close}>
             Cancelar
           </Button>
           <Button type="button" disabled={preview === undefined || merging} onClick={merge}>

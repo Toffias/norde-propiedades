@@ -39,6 +39,10 @@ export const DIRECTORY_SCOPE_VALUES = ['user', 'team', 'branch'] as const;
 export type NewsScopeValue = (typeof NEWS_SCOPE_VALUES)[number];
 export type WatermarkPositionValue = (typeof WATERMARK_POSITION_VALUES)[number];
 export type AddressDisplayValue = (typeof ADDRESS_DISPLAY_VALUES)[number];
+
+/** Datos del agente en el PDF: siempre, nunca o preguntar al exportar. */
+export const AGENT_INFO_MODE_VALUES = ['show', 'hide', 'ask'] as const;
+export type AgentInfoModeValue = (typeof AGENT_INFO_MODE_VALUES)[number];
 export type ReferenceCodeScopeValue = (typeof REFERENCE_CODE_SCOPE_VALUES)[number];
 export type DirectoryScope = (typeof DIRECTORY_SCOPE_VALUES)[number];
 
@@ -121,11 +125,20 @@ export type UpdatePortalDescriptionFooterInput = z.input<
 
 export const UpdatePdfOptionsInputSchema = z.object({
   showCompanyContact: z.boolean(),
-  showAgent: z.boolean(),
+  agentInfo: z.enum(AGENT_INFO_MODE_VALUES),
   showPrice: z.boolean(),
   addressOnSend: z.enum(ADDRESS_DISPLAY_VALUES),
   addressOnDownload: z.enum(ADDRESS_DISPLAY_VALUES),
   developmentPhotosInUnits: z.boolean(),
+  /** Hasta 6 renglones: más no entran en la cabecera ni en la tarjeta de contacto. */
+  contactText: z
+    .string()
+    .trim()
+    .max(400)
+    .refine((text) => text.split(/\r?\n/).length <= 6, 'Usá hasta 6 renglones.')
+    .optional()
+    .transform((text) => (text === '' ? undefined : text)),
+  brandColor: z.string().regex(/^#[0-9a-f]{6}$/i, 'Elegí un color.'),
 });
 export type UpdatePdfOptionsInput = z.input<typeof UpdatePdfOptionsInputSchema>;
 

@@ -16,8 +16,7 @@ export type GetPropertyDocumentDownloadError =
 
 const SIGNED_URL_SECONDS = 60;
 
-const FILE_PREFIX: Readonly<Record<PropertyDocumentKind, string>> = {
-  sheet: 'ficha',
+const FILE_PREFIX: Readonly<Record<Exclude<PropertyDocumentKind, 'sheet'>, string>> = {
   showcase: 'vidriera',
   owner_report: 'reporte',
 };
@@ -50,7 +49,11 @@ export class GetPropertyDocumentDownload {
     const file = loaded.document.readyFile();
     if (file.isErr()) return err(file.error);
 
-    const fileName = `${FILE_PREFIX[loaded.document.kind]}-${loaded.code.toLowerCase()}.pdf`;
+    // La ficha se llama como la propiedad, igual que en Tokko; los demás llevan su tipo adelante.
+    const fileName =
+      loaded.document.kind === 'sheet'
+        ? `${loaded.code}.pdf`
+        : `${FILE_PREFIX[loaded.document.kind]}-${loaded.code.toLowerCase()}.pdf`;
     const url = await this.deps.storage.signedUrl(file.value, {
       expiresInSeconds: SIGNED_URL_SECONDS,
       downloadName: fileName,

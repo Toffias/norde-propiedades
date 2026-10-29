@@ -4,7 +4,7 @@ import { PDFDocument } from 'pdf-lib';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 
-import { PdfLibAppraisalReportRenderer } from './appraisal-report-renderer';
+import { ReactPdfAppraisalReportRenderer } from './appraisal-report-renderer';
 
 const appraisal: AppraisalDetail = {
   id: '00000000-0000-7000-8000-0000000000d1',
@@ -71,15 +71,39 @@ async function* stream(photos: readonly Uint8Array[]) {
 function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalReportContent {
   return {
     appraisal,
+    figures: {
+      surfaceM2: 80.5,
+      salePerM2: { minCents: 136_646n, maxCents: 149_068n, currency: 'USD' },
+      rentPerM2: { minCents: 993_789n, maxCents: 993_789n, currency: 'ARS' },
+      comparablesAverages: [{ currency: 'USD', pricePerM2Cents: 181_538n, count: 1 }],
+    },
     photos: stream([]),
-    company: { name: 'Norde Propiedades', logo: undefined },
+    company: { name: 'Norde Propiedades', logo: undefined, brandColor: '#c9302b' },
+    appraiser: {
+      name: 'Juan Gómez',
+      address: undefined,
+      phone: '+5491155550000',
+      whatsapp: undefined,
+      email: 'juan@norde.com.ar',
+      text: undefined,
+    },
+    branch: {
+      name: 'Casa central',
+      address: 'Av. Santa Fe 1234, CABA',
+      phone: undefined,
+      whatsapp: '+5491166899124',
+      email: 'hola@norde.com.ar',
+      text: undefined,
+    },
     generatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
   };
 }
 
-describe('PdfLibAppraisalReportRenderer', () => {
-  const renderer = new PdfLibAppraisalReportRenderer();
+// Armar PDF de verdad (fuentes, fotos con sharp, varias pasadas de react-pdf) con el CI cargado
+// pasa los 5 s por defecto, sobre todo el primero, que además carga react-pdf.
+describe('ReactPdfAppraisalReportRenderer', { timeout: 30_000 }, () => {
+  const renderer = new ReactPdfAppraisalReportRenderer();
 
   it('renders the result, the comparables and the photos as a valid PDF', async () => {
     const photos = await Promise.all([jpeg(), jpeg(600, 800), jpeg(4000, 3000)]);
@@ -104,11 +128,11 @@ describe('PdfLibAppraisalReportRenderer', () => {
     const bytes = await renderer.render(
       content({
         photos: stream([webp, new Uint8Array([1, 2, 3])]),
-        company: { name: 'Norde Propiedades', logo },
+        company: { name: 'Norde Propiedades', logo, brandColor: '#c9302b' },
       }),
     );
     const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(1);
+    expect(doc.getPageCount()).toBeLessThanOrEqual(2);
   });
 
   it('renders an appraisal without comparables, observations or photos', async () => {

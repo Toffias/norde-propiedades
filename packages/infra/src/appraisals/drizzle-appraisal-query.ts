@@ -5,6 +5,7 @@ import {
   APPRAISAL_STATUSES,
   MAX_APPRAISAL_PHOTOS,
   type AppraisalDetailItem,
+  type AppraisalExportItem,
   type AppraisalFilterCriteria,
   type AppraisalQuery,
   type AppraisalSearchItem,
@@ -203,6 +204,42 @@ export class DrizzleAppraisalQuery implements AppraisalQuery {
       this.db.select({ total: count() }).from(appraisals).where(where),
     ]);
     return { items: rows.map(toSearchItem), total: total?.total ?? 0 };
+  }
+
+  /** Sin la miniatura: la planilla no la usa. */
+  async exportRows(
+    query: AppraisalFilterCriteria & {
+      readonly sort: { readonly field: AppraisalSortField; readonly direction: 'asc' | 'desc' };
+      readonly offset: number;
+      readonly limit: number;
+    },
+  ): Promise<readonly AppraisalExportItem[]> {
+    const order = query.sort.direction === 'asc' ? asc : desc;
+    const rows = await this.db
+      .select({ appraisal: appraisals, requesterName: COLUMNS.requesterName })
+      .from(appraisals)
+      .leftJoin(
+        clients,
+        and(eq(clients.id, appraisals.requesterClientId), isNull(clients.deletedAt)),
+      )
+      .where(conditions(query))
+      .orderBy(sql`${order(SORT_COLUMNS[query.sort.field])} nulls last`, order(appraisals.id))
+      .offset(query.offset)
+      .limit(query.limit);
+    return rows.map((row) => {
+      const a = row.appraisal;
+      const { coverPhotoId: _cover, ...item } = toSearchItem({ ...row, coverPhotoId: null });
+      const { sale, rent } = resultFromRow(a);
+      return {
+        ...item,
+        updatedAt: a.updatedAt,
+        rooms: a.rooms ?? undefined,
+        surfaceTotalM2: a.surfaceTotalM2 ?? undefined,
+        surfaceCoveredM2: a.surfaceCoveredM2 ?? undefined,
+        sale,
+        rent,
+      };
+    });
   }
 
   async findDetail(appraisalId: string): Promise<AppraisalDetailItem | undefined> {

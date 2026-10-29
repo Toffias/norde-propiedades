@@ -58,6 +58,12 @@ function propertyJobs(calls: unknown[] = []): PropertyJobs {
         return Promise.resolve(ok('ready' as const));
       },
     },
+    renderListDocument: {
+      execute: (input) => {
+        calls.push(['render-list', input]);
+        return Promise.resolve(ok('ready' as const));
+      },
+    },
   };
 }
 
@@ -252,6 +258,7 @@ describe('eventSubscriptions', () => {
       'properties.media_variants_requested.generate-variants',
       'properties.media_deleted.delete-files',
       'properties.document_requested.render-document',
+      'properties.list_document_requested.render-list-document',
       'properties.property_changed.revalidate-site',
       'properties.media_changed.revalidate-site',
       'properties.media_deleted.revalidate-site',
@@ -341,10 +348,15 @@ describe('eventSubscriptions', () => {
       ...event,
       payload: { propertyId: 'p', documentId: DOCUMENT_ID, kind: 'sheet' },
     });
+    await byType('properties.list_document_requested')?.handle({
+      ...event,
+      payload: { documentId: DOCUMENT_ID, layout: 'grid', count: 3 },
+    });
     expect(calls).toEqual([
       ['variants', { mediaId: MEDIA_ID }],
       ['delete', { storageKeys: ['a'] }],
       ['render', { documentId: DOCUMENT_ID }],
+      ['render-list', { documentId: DOCUMENT_ID }],
     ]);
     await expect(
       byType('properties.document_requested')?.handle({ ...event, payload: { documentId: 'x' } }),

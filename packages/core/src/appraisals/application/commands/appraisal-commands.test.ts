@@ -398,3 +398,18 @@ describe('DeleteAppraisal and RestoreAppraisal', () => {
     unwrap(await remove.execute(input, TEST_MANAGER));
   });
 });
+
+describe('CreateAppraisal with an idempotency key', () => {
+  it('a retry with the same key returns the same appraisal and code', async () => {
+    const { uow, users, clock } = setup();
+    const create = new CreateAppraisal({ uow, users, clock, ids: new SequentialIdGenerator() });
+    const input = { ...INPUT, idempotencyKey: '0190a5b8-0000-7000-8000-00000000aa01' };
+
+    const first = unwrap(await create.execute(input, TEST_PRODUCER));
+    const retry = unwrap(await create.execute(input, TEST_PRODUCER));
+
+    expect(retry).toEqual(first);
+    expect(uow.appraisals.rows.size).toBe(1);
+    expect(uow.audit.entries).toHaveLength(1);
+  });
+});

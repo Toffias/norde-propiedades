@@ -84,6 +84,7 @@ const BRANCH: BranchDetail = {
   id: BRANCH_ID,
   name: 'Casa central',
   logoUrl: undefined,
+  pdfContactText: undefined,
   address: undefined,
   email: 'ventas@norde.test',
   phone: '+541148000000',

@@ -42,6 +42,7 @@ import { loadClientOptions } from '../../clients/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
 import { createPropertyAction, loadLocationOptions } from '../actions';
 import { CURRENCY_LABELS, OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../labels';
+import { useIdempotencyKey } from '../../shared/hooks/use-idempotency-key';
 
 type PropertyValues = CreatePropertyInput;
 
@@ -132,6 +133,7 @@ function NewPropertyForm({
   const [error, setError] = useState<string | undefined>();
   // Por buscador (catálogo de ubicaciones) o a mano, como en Tokko.
   const [manualPlace, setManualPlace] = useState(false);
+  const idempotency = useIdempotencyKey();
   const form = useForm<PropertyValues, unknown, CreatePropertyValues>({
     resolver: contractResolver(CreatePropertyInputSchema),
     defaultValues: { ...INITIAL_VALUES, propertyType: enabledTypes[0] ?? 'apartment' },
@@ -140,11 +142,12 @@ function NewPropertyForm({
   async function submit(values: CreatePropertyValues) {
     setError(undefined);
     try {
-      const result = await createPropertyAction(values);
+      const result = await createPropertyAction({ ...values, idempotencyKey: idempotency.key });
       if (!result.ok) {
         setError(result.message);
         return;
       }
+      idempotency.renew();
       const notice =
         result.geocoding === undefined ? undefined : GEOCODING_NOTICE[result.geocoding];
       toast.success(`Propiedad ${result.code ?? ''} creada como borrador`, {

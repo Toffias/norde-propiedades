@@ -65,6 +65,7 @@ export function branchSnapshot(
     id: unwrap(parseId<'Branch'>(id ?? MAIN_BRANCH_ID)),
     name: 'Casa central',
     logoUrl: undefined,
+    pdfContactText: undefined,
     address: 'Av. Cabildo 1234, CABA',
     email: undefined,
     phone: undefined,

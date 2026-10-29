@@ -28,6 +28,7 @@ export {
 export {
   APPRAISAL_CURRENCIES,
   comparablePricePerM2Cents,
+  pricePerM2Cents,
   EMPTY_APPRAISAL_RESULT,
   type AppraisalComparable,
   type AppraisalCurrency,
@@ -59,11 +60,13 @@ export type {
 } from './application/ports/appraisals-transaction';
 export type {
   AppraisalDetailItem,
+  AppraisalExportItem,
   AppraisalFilterCriteria,
   AppraisalQuery,
   AppraisalSearchItem,
 } from './application/ports/appraisal-query';
 export type { ActiveUsers, PanelDirectory } from './application/ports/panel-directory';
+export type { ReportContact, ReportContacts } from './application/ports/report-contacts';
 
 export {
   CreateAppraisal,
@@ -111,14 +114,25 @@ export type {
   AppraisalReportRenderer,
 } from './application/ports/appraisal-report-renderer';
 export {
+  appraisalReportFigures,
   appraisalReportFileName,
   checkAppraisalReportable,
   type AppraisalNotReportableError,
+  type AppraisalReportFigures,
+  type ComparablesAverage,
 } from './domain/appraisal-report';
 export {
   GetAppraisalPhotoFile,
   type GetAppraisalPhotoFileError,
 } from './application/queries/get-appraisal-photo-file';
+export {
+  ExportAppraisals,
+  type ExportAppraisalsError,
+} from './application/commands/export-appraisals';
+export type {
+  AppraisalExportFile,
+  AppraisalExportWriter,
+} from './application/ports/appraisal-export-writer';
 export { ListAppraisals, type ListAppraisalsError } from './application/queries/list-appraisals';
 export { GetAppraisal, type GetAppraisalError } from './application/queries/get-appraisal';
 export {

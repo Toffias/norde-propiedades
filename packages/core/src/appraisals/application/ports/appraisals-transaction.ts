@@ -1,4 +1,4 @@
-import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
+import type { AuditLog, IdempotencyKeys, EventPublisher, UnitOfWork } from '../../../shared';
 import type {
   AppraisalPhotoRepository,
   AppraisalRepository,
@@ -16,6 +16,8 @@ export interface AppraisalsTransaction {
   readonly codes: AppraisalCodeSequence;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
+  /** Claves de idempotencia de las altas (ADR 0050). */
+  readonly idempotency: IdempotencyKeys;
 }
 
 export type AppraisalsUnitOfWork = UnitOfWork<AppraisalsTransaction>;

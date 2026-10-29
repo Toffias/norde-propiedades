@@ -5,6 +5,7 @@ import type { Database } from '../db/client';
 import { DrizzleUnitOfWork } from '../db/unit-of-work';
 import { DrizzleDevelopmentChances } from '../properties/drizzle-development-chances';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
+import { DrizzleIdempotencyKeys } from '../shared/drizzle-idempotency-keys';
 import { DrizzleOutboxPublisher } from '../shared/drizzle-outbox-publisher';
 
 import {
@@ -64,5 +65,6 @@ export function createClientsUnitOfWork(
     developmentChances: new DrizzleDevelopmentChances(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
+    idempotency: new DrizzleIdempotencyKeys(tx, deps.clock),
   }));
 }

@@ -49,7 +49,7 @@ export function ListingFiltersPanel({
 
   return (
     <>
-      <details className="group bg-card rounded-3xl border lg:hidden">
+      <details className="details-smooth group bg-card rounded-3xl border lg:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 font-bold [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2">
             <SlidersHorizontal aria-hidden className="size-4" />
@@ -106,7 +106,7 @@ function FiltersForm({
                 defaultChecked={paramOf(OPERATION_OPTIONS, filters.operation) === o.param}
                 className="peer sr-only"
               />
-              <span className="peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-ring/50 hover:bg-muted block cursor-pointer rounded-lg px-2 py-2 text-center text-sm font-semibold transition-colors peer-focus-visible:ring-[3px]">
+              <span className="peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:hover:bg-primary-700 peer-focus-visible:ring-ring/50 hover:bg-muted block cursor-pointer rounded-lg px-2 py-2 text-center text-sm font-semibold transition-colors peer-focus-visible:ring-[3px]">
                 {o.label}
               </span>
             </label>

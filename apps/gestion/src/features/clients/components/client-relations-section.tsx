@@ -166,7 +166,7 @@ function AddRelationDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Agregar contacto relacionado</DialogTitle>
+          <DialogTitle icon={UsersIcon}>Agregar contacto relacionado</DialogTitle>
           <DialogDescription>
             {CLIENT_KIND_LABELS[detail.kind]} {clientName(detail.name)}: elegí la relación y el
             contacto.

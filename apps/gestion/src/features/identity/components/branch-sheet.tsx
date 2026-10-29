@@ -2,6 +2,7 @@
 
 import {
   CreateBranchInputSchema,
+  MAX_PDF_CONTACT_LINES,
   type BranchDetail,
   type CreateBranchInput,
 } from '@norde/core/identity/contracts';
@@ -16,6 +17,7 @@ import {
   FormMessage,
 } from '@norde/ui/components/form';
 import { Input } from '@norde/ui/components/input';
+import { Textarea } from '@norde/ui/components/textarea';
 import { SheetBody, SheetFooter } from '@norde/ui/components/sheet';
 import { toast } from '@norde/ui/components/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@norde/ui/components/tabs';
@@ -42,7 +44,7 @@ import { BranchUsersGrid } from './branch-users-grid';
 type BranchValues = CreateBranchInput;
 
 const TEXT_FIELDS: readonly {
-  readonly name: Exclude<keyof BranchValues, 'name'>;
+  readonly name: Exclude<keyof BranchValues, 'name' | 'pdfContactText'>;
   readonly label: string;
   readonly required?: boolean;
   readonly type?: string;
@@ -68,6 +70,7 @@ function initialValues(branch: BranchDetail | undefined): BranchValues {
     phone: branch?.phone ?? '',
     whatsapp: branch?.whatsapp ?? '',
     logoUrl: branch?.logoUrl ?? '',
+    pdfContactText: branch?.pdfContactText ?? '',
   };
 }
 
@@ -246,6 +249,24 @@ function BranchForm({
                 />
               ))}
             </div>
+            <FormField
+              control={form.control}
+              name="pdfContactText"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contacto en los PDF (opcional)</FormLabel>
+                  <FormControl>
+                    <Textarea rows={4} {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormDescription>
+                    Texto libre, hasta {MAX_PDF_CONTACT_LINES} renglones. Si lo cargás, las fichas y
+                    los informes de esta sucursal lo muestran en lugar de la dirección, los
+                    teléfonos y el email, y en lugar del contacto de Mi empresa.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </fieldset>
         </SheetBody>
         {!readOnly && (

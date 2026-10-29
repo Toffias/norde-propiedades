@@ -1,4 +1,4 @@
-import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
+import type { AuditLog, IdempotencyKeys, EventPublisher, UnitOfWork } from '../../../shared';
 import type {
   CustomAttributeRepository,
   FeatureRepository,
@@ -14,6 +14,7 @@ import type { DevelopmentRepository } from '../../domain/development.repository'
 import type { FavoriteSearchRepository } from '../../domain/favorite-search';
 import type { MediaItemRepository, AttachmentRepository } from '../../domain/media.repository';
 import type { PropertyDocumentRepository } from '../../domain/property-document.repository';
+import type { PropertyListDocumentRepository } from '../../domain/property-list-document.repository';
 import type { PropertyRepository } from '../../domain/property.repository';
 import type { ReservationRepository } from '../../domain/reservation.repository';
 
@@ -37,11 +38,15 @@ export interface PropertiesTransaction {
   readonly media: MediaItemRepository;
   readonly attachments: AttachmentRepository;
   readonly documents: PropertyDocumentRepository;
+  /** El PDF de varias propiedades del buscador (#175). */
+  readonly listDocuments: PropertyListDocumentRepository;
   readonly reservations: ReservationRepository;
   readonly clientMerge: PropertyClientMerge;
   readonly owners: PropertyOwnerLinks;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
+  /** Claves de idempotencia de las altas (ADR 0050). */
+  readonly idempotency: IdempotencyKeys;
 }
 
 export type PropertiesUnitOfWork = UnitOfWork<PropertiesTransaction>;

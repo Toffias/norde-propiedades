@@ -1,6 +1,11 @@
 // Fakes del shared kernel para tests de casos de uso (`@norde/core/shared/testing`).
 
 import type {
+  IdempotencyClaim,
+  IdempotencyKeys,
+  IdempotencyScope,
+} from '../application/idempotency';
+import type {
   AuditEntry,
   AuditLog,
   Clock,
@@ -57,6 +62,34 @@ export class InMemoryAuditLog implements AuditLog {
   record(entry: AuditEntry): Promise<void> {
     this.entries.push(entry);
     return Promise.resolve();
+  }
+}
+
+/**
+ * Claves de idempotencia en memoria. Guarda el resultado como JSON, igual que la base, y la
+ * transacción fake lo restaura en el rollback (`rows`).
+ */
+export class InMemoryIdempotencyKeys implements IdempotencyKeys {
+  readonly rows = new Map<string, string | null>();
+
+  claim(scope: IdempotencyScope): Promise<IdempotencyClaim> {
+    const id = InMemoryIdempotencyKeys.#id(scope);
+    const stored = this.rows.get(id);
+    if (stored === undefined) {
+      this.rows.set(id, null);
+      return Promise.resolve({ claimed: true });
+    }
+    if (stored === null) throw new Error(`Idempotency key ${id} was claimed but never completed`);
+    return Promise.resolve({ claimed: false, result: JSON.parse(stored) as unknown });
+  }
+
+  complete(scope: IdempotencyScope, result: unknown): Promise<void> {
+    this.rows.set(InMemoryIdempotencyKeys.#id(scope), JSON.stringify(result));
+    return Promise.resolve();
+  }
+
+  static #id(scope: IdempotencyScope): string {
+    return `${scope.actorId}:${scope.command}:${scope.key}`;
   }
 }
 

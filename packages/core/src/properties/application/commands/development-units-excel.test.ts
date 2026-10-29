@@ -19,6 +19,7 @@ import {
   FakeReferenceCodeAllocator,
   InMemoryDevelopmentUnitImportQuery,
   InMemoryPropertiesUnitOfWork,
+  InMemoryPropertyExportDetails,
   InMemoryUserNames,
   PRODUCER_ID,
   propertySnapshot,
@@ -154,18 +155,20 @@ describe('ExportDevelopmentUnits', () => {
     const s = setup();
     const list = new StubPanelPropertyListQuery({ items, total: items.length });
     const writer = new FakeDevelopmentUnitsExportWriter();
+    const details = new InMemoryPropertyExportDetails();
     const use = new ExportDevelopmentUnits({
       uow: s.uow,
       list,
       users: new InMemoryUserNames(),
+      details,
       writer,
       clock: s.clock,
     });
-    return { ...s, list, writer, use };
+    return { ...s, list, writer, details, use };
   }
 
   it('writes the units of the development and records the export in its history', async () => {
-    const { use, list, writer, uow } = exporter();
+    const { use, list, writer, details, uow } = exporter();
 
     const file = unwrap(await use.execute({ developmentId: DEVELOPMENT_ID }, EXPORTER));
     for await (const _chunk of file.body) {
@@ -175,6 +178,8 @@ describe('ExportDevelopmentUnits', () => {
     expect(list.calls[0]).toMatchObject({ developmentId: DEVELOPMENT_ID, view: 'active' });
     expect(writer.developmentCode).toBe('EMP0001');
     expect(writer.rows.map((r) => [r.floor, r.unit])).toEqual([['4', 'A']]);
+    // La planilla de unidades no lleva propietarios.
+    expect(details.requests).toEqual([{ ids: [UNIT_4A], includeOwners: false }]);
     expect(uow.audit.entries).toEqual([
       expect.objectContaining({
         action: 'development.units_exported',

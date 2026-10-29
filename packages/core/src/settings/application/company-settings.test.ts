@@ -349,11 +349,15 @@ describe('UpdatePortalDescriptionFooter', () => {
 describe('UpdatePdfOptions', () => {
   const pdf = {
     showCompanyContact: true,
-    showAgent: false,
+    agentInfo: 'ask',
     showPrice: false,
     addressOnSend: 'hidden',
     addressOnDownload: 'full',
     developmentPhotosInUnits: true,
+    contactText: ['Lunes a viernes de 9 a 18', 'Matrícula CUCICBA 1234'].join(
+      String.fromCharCode(10),
+    ),
+    brandColor: '#1F4E79',
   } as const;
 
   it('saves the options, auditing only what changed', async () => {
@@ -361,10 +365,29 @@ describe('UpdatePdfOptions', () => {
 
     unwrap(await updatePdf.execute(pdf, admin));
 
-    expect(unwrap(await getSettings.execute({}, admin)).pdfOptions).toEqual(pdf);
+    // El color se guarda en minúsculas.
+    expect(unwrap(await getSettings.execute({}, admin)).pdfOptions).toEqual({
+      ...pdf,
+      brandColor: '#1f4e79',
+    });
     const change = uow.audit.entries[0]?.changes?.pdfOptions;
-    expect(change?.before).toMatchObject({ showAgent: true, showPrice: true });
-    expect(change?.after).toMatchObject({ showAgent: false, showPrice: false });
+    expect(change?.before).toMatchObject({ agentInfo: 'show', showPrice: true });
+    expect(change?.after).toMatchObject({ agentInfo: 'ask', showPrice: false });
+  });
+
+  it('rejects a brand color too light to read on white, and too many contact lines', async () => {
+    const { uow, updatePdf } = setup();
+
+    expect(unwrapErr(await updatePdf.execute({ ...pdf, brandColor: '#f5d0a9' }, admin))).toEqual({
+      type: 'BrandColorTooLight',
+      contrast: 1.45,
+    });
+    const tooLong = {
+      ...pdf,
+      contactText: ['1', '2', '3', '4', '5', '6', '7'].join(String.fromCharCode(10)),
+    };
+    expect(unwrapErr(await updatePdf.execute(tooLong, admin)).type).toBe('ValidationFailed');
+    expect(uow.audit.entries).toHaveLength(0);
   });
 
   it('is only for administrators', async () => {

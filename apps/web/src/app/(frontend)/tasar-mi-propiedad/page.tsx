@@ -1,13 +1,16 @@
-import { ClipboardCheck, House, MessageSquareText, type LucideIcon } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import type { Metadata } from 'next';
 
+import { Reveal } from '../../../components/about/reveal';
+import { AppraisalFactors } from '../../../components/appraisals/appraisal-factors';
+import { AppraisalHero } from '../../../components/appraisals/appraisal-hero';
+import { AppraisalProcess } from '../../../components/appraisals/appraisal-process';
 import { FaqSection } from '../../../components/blog/faq-section';
 import { ContactChannels } from '../../../components/layout/contact-channels';
 import { InquiryForm } from '../../../components/properties/inquiry-form';
-import { Breadcrumbs } from '../../../components/seo/breadcrumbs';
 import { JsonLdScript } from '../../../components/seo/json-ld-script';
 import { getContainer } from '../../../container';
-import { serviceSchema, type FaqEntry } from '../../../lib/seo/json-ld';
+import { breadcrumbSchema, serviceSchema, type FaqEntry } from '../../../lib/seo/json-ld';
 import { buildMetadata, withBrand } from '../../../lib/seo/metadata';
 import { routes } from '../../../lib/seo/routes';
 import { getSiteUrl } from '../../../lib/site-url';
@@ -18,30 +21,11 @@ export const dynamic = 'force-dynamic';
 const DESCRIPTION =
   'Pedí la tasación de tu casa, departamento, PH o local: te decimos su valor de mercado según la zona, el estado y las operaciones comparables.';
 
-interface Step {
-  readonly title: string;
-  readonly description: string;
-  readonly icon: LucideIcon;
-}
-
-const STEPS: readonly Step[] = [
-  {
-    title: 'Nos contás de tu propiedad',
-    description: 'Dejanos tus datos y dónde está la propiedad. Te contactamos para coordinar.',
-    icon: MessageSquareText,
-  },
-  {
-    title: 'La visitamos',
-    description: 'Vemos la propiedad, su estado, la superficie y lo que la hace única.',
-    icon: House,
-  },
-  {
-    title: 'Te damos el valor',
-    description:
-      'Te explicamos el valor de mercado con propiedades comparables de la zona y te asesoramos para vender o alquilar.',
-    icon: ClipboardCheck,
-  },
-];
+const FORM_POINTS = [
+  'Te contactamos para coordinar la visita.',
+  'Vemos la propiedad y analizamos la zona.',
+  'Te entregamos el informe con el valor sugerido.',
+] as const;
 
 const FAQ: readonly FaqEntry[] = [
   {
@@ -73,7 +57,7 @@ export default function AppraisalPage() {
   const formEnabled = getContainer().inquiries !== undefined;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 sm:pt-8">
+    <div className="pb-8">
       <JsonLdScript
         data={serviceSchema(getSiteUrl(), {
           name: 'Tasación de propiedades',
@@ -82,63 +66,74 @@ export default function AppraisalPage() {
           serviceType: 'Tasación inmobiliaria',
         })}
       />
-      <Breadcrumbs
-        items={[
+      {/* Sin migas visibles: la portada ocupa la pantalla. Quedan para los buscadores. */}
+      <JsonLdScript
+        data={breadcrumbSchema(getSiteUrl(), [
           { name: 'Inicio', path: routes.home() },
           { name: 'Tasaciones', path: routes.appraisals() },
-        ]}
+        ])}
       />
-      <div className="mt-4 max-w-2xl space-y-3">
-        <h1 className="text-3xl font-extrabold sm:text-4xl">Tasá tu propiedad</h1>
-        <div aria-hidden className="deco-steps-sm" />
-        <p className="text-muted-foreground">{DESCRIPTION}</p>
-      </div>
+      <AppraisalHero description={DESCRIPTION} />
 
-      <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <div>
-          <section aria-labelledby="steps-title">
-            <h2 id="steps-title" className="text-2xl font-extrabold">
-              Cómo trabajamos
-            </h2>
-            <ol className="mt-5 grid gap-4 sm:grid-cols-3">
-              {STEPS.map((step, index) => (
-                <li key={step.title} className="bg-card rounded-3xl border p-5">
-                  <step.icon aria-hidden className="text-primary size-7" />
-                  <p className="text-muted-foreground mt-4 text-xs font-bold">Paso {index + 1}</p>
-                  <h3 className="mt-1 font-extrabold">{step.title}</h3>
-                  <p className="text-muted-foreground mt-2 text-sm">{step.description}</p>
-                </li>
-              ))}
-            </ol>
-          </section>
+      <div className="mt-20 space-y-24 sm:mt-28 sm:space-y-32">
+        <AppraisalProcess />
+        <AppraisalFactors />
+
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <FaqSection entries={FAQ} />
         </div>
 
-        <div className="space-y-6 lg:sticky lg:top-28">
-          <section
-            id="pedir-tasacion"
-            aria-labelledby="appraisal-form-title"
-            className="bg-card rounded-3xl border p-5 sm:p-6"
-          >
-            <h2 id="appraisal-form-title" className="mb-5 text-xl font-extrabold">
-              Pedí tu tasación
-            </h2>
-            {formEnabled ? (
-              // Hasta que exista el alta de tasaciones desde la web, entra como consulta.
-              <InquiryForm
-                defaultMessage="Hola, quiero tasar mi propiedad."
-                messagePlaceholder="Contanos dónde está, qué tipo de propiedad es y si la querés vender o alquilar."
-                messageLabel="Tu propiedad"
-                submitLabel="Pedir tasación"
-              />
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                Muy pronto vas a poder pedirla desde acá.
+        <section
+          id="pedir-tasacion"
+          aria-labelledby="appraisal-form-title"
+          className="mx-auto max-w-7xl scroll-mt-24 px-4 sm:px-6"
+        >
+          <div className="bg-card grid gap-10 rounded-[28px] border p-6 shadow-sm sm:p-10 lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-16 lg:p-14">
+            <Reveal className="space-y-6">
+              <p className="text-primary text-sm font-bold tracking-[0.14em] uppercase">
+                Tasá tu propiedad
               </p>
-            )}
-          </section>
-          <ContactChannels whatsappText="Hola, quiero tasar mi propiedad." />
-        </div>
+              <h2
+                id="appraisal-form-title"
+                className="text-4xl leading-tight font-extrabold sm:text-5xl"
+              >
+                Pedí tu tasación
+              </h2>
+              <div aria-hidden className="deco-steps-sm" />
+              <p className="text-muted-foreground text-lg">
+                Dejanos tus datos y contanos de tu propiedad: dónde está, qué tipo es y si la querés
+                vender o alquilar.
+              </p>
+              <ul className="space-y-3">
+                {FORM_POINTS.map((point) => (
+                  <li key={point} className="flex items-start gap-3 font-semibold">
+                    <CheckCircle2 aria-hidden className="text-primary mt-0.5 size-5 shrink-0" />
+                    {point}
+                  </li>
+                ))}
+              </ul>
+              <ContactChannels whatsappText="Hola, quiero tasar mi propiedad." />
+            </Reveal>
+
+            <Reveal className="self-start border-t pt-10 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-16">
+              <h3 className="mb-5 text-xl font-extrabold">Tus datos</h3>
+              {formEnabled ? (
+                // Hasta que exista el alta de tasaciones desde la web, entra como consulta: el
+                // saludo inicial es lo que le dice a la bandeja que es una tasación.
+                <InquiryForm
+                  defaultMessage="Hola, quiero tasar mi propiedad. "
+                  messagePlaceholder="Dónde está, qué tipo de propiedad es, ambientes, metros y si la querés vender o alquilar."
+                  messageLabel="Descripción de la propiedad"
+                  submitLabel="Pedir tasación"
+                />
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Muy pronto vas a poder pedirla desde acá.
+                </p>
+              )}
+            </Reveal>
+          </div>
+        </section>
       </div>
     </div>
   );

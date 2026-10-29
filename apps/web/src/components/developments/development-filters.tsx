@@ -1,89 +1,46 @@
-import { cn } from '@norde/ui/lib/utils';
-import Link from 'next/link';
-
 import {
   CONSTRUCTION_STATUS_OPTIONS,
   DEVELOPMENT_TYPE_OPTIONS,
   developmentsHref,
   type DevelopmentFilters,
 } from '../../lib/developments/listing-filters';
+import { LinkSelect } from '../forms/link-select';
 
-/** En mobile, una fila que se desliza; desde `sm`, los chips bajan de línea. */
-const ROW =
-  '-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0';
-
-const CHIP =
-  'inline-flex h-9 items-center rounded-full border px-3.5 text-sm font-semibold transition-colors';
-
-function Chip({
-  href,
-  selected,
-  children,
-}: {
-  readonly href: string;
-  readonly selected: boolean;
-  readonly children: React.ReactNode;
-}) {
+/** Filtros del listado (estado de obra y tipo) como desplegables, al lado del orden. */
+export function DevelopmentFilterSelects({ filters }: { readonly filters: DevelopmentFilters }) {
   return (
-    <li className="shrink-0">
-      <Link
-        href={href}
-        aria-current={selected ? 'true' : undefined}
-        className={cn(
-          CHIP,
-          selected
-            ? 'bg-primary text-primary-foreground border-transparent'
-            : 'bg-card hover:bg-muted',
-        )}
-      >
-        {children}
-      </Link>
-    </li>
-  );
-}
-
-/** Filtros del listado como links (funcionan sin JavaScript y se pueden compartir). */
-export function DevelopmentFilterChips({ filters }: { readonly filters: DevelopmentFilters }) {
-  return (
-    <div className="space-y-3">
-      <nav aria-label="Estado de obra">
-        <ul className={ROW}>
-          <Chip
-            href={developmentsHref(filters, { constructionStatus: undefined })}
-            selected={filters.constructionStatus === undefined}
-          >
-            Todos
-          </Chip>
-          {CONSTRUCTION_STATUS_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              href={developmentsHref(filters, { constructionStatus: option.value })}
-              selected={filters.constructionStatus === option.value}
-            >
-              {option.label}
-            </Chip>
-          ))}
-        </ul>
-      </nav>
-      <nav aria-label="Tipo de emprendimiento">
-        <ul className={ROW}>
-          <Chip
-            href={developmentsHref(filters, { developmentType: undefined })}
-            selected={filters.developmentType === undefined}
-          >
-            Todos los tipos
-          </Chip>
-          {DEVELOPMENT_TYPE_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              href={developmentsHref(filters, { developmentType: option.value })}
-              selected={filters.developmentType === option.value}
-            >
-              {option.label}
-            </Chip>
-          ))}
-        </ul>
-      </nav>
+    // En mobile, los dos en una fila a todo el ancho; desde `sm`, con su ancho fijo.
+    <div className="flex w-full gap-2 sm:w-auto">
+      <LinkSelect
+        label="Estado de obra"
+        className="w-auto min-w-0 flex-1 sm:w-44 sm:flex-none"
+        selectedHref={developmentsHref(filters)}
+        options={[
+          {
+            label: 'Todos los estados',
+            href: developmentsHref(filters, { constructionStatus: undefined }),
+          },
+          ...CONSTRUCTION_STATUS_OPTIONS.map((option) => ({
+            label: option.label,
+            href: developmentsHref(filters, { constructionStatus: option.value }),
+          })),
+        ]}
+      />
+      <LinkSelect
+        label="Tipo de emprendimiento"
+        className="w-auto min-w-0 flex-1 sm:w-52 sm:flex-none"
+        selectedHref={developmentsHref(filters)}
+        options={[
+          {
+            label: 'Todos los tipos',
+            href: developmentsHref(filters, { developmentType: undefined }),
+          },
+          ...DEVELOPMENT_TYPE_OPTIONS.map((option) => ({
+            label: option.label,
+            href: developmentsHref(filters, { developmentType: option.value }),
+          })),
+        ]}
+      />
     </div>
   );
 }

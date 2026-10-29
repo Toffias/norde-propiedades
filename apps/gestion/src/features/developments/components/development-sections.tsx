@@ -1,6 +1,12 @@
 'use client';
 
-import { Building2Icon, HardHatIcon, ListChecksIcon, MapPinIcon, TagsIcon } from 'lucide-react';
+import {
+  Building2Icon,
+  HardHatIcon,
+  ListChecksIcon,
+  MapPinIcon,
+  MapPinOffIcon,
+} from 'lucide-react';
 import {
   CONSTRUCTION_STATUS_VALUES,
   DEVELOPMENT_TYPES,
@@ -16,23 +22,17 @@ import {
   type UpdateDevelopmentLocationInput,
 } from '@norde/core/properties/contracts';
 import { Badge } from '@norde/ui/components/badge';
-import { Button } from '@norde/ui/components/button';
 import { Form } from '@norde/ui/components/form';
-import {
-  PagedMultiSelect,
-  type ComboboxOption,
-  type LoadComboboxPage,
-} from '@norde/ui/components/paged-combobox';
+import type { LoadComboboxPage } from '@norde/ui/components/paged-combobox';
 import { Skeleton } from '@norde/ui/components/skeleton';
 import { toast } from '@norde/ui/components/sonner';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatDateOnly } from '../../../lib/format';
 import { contractResolver } from '../../../lib/form';
 import { loadClientOptions } from '../../clients/actions';
-import { loadLocationOptions, loadTagOptions } from '../../properties/actions';
+import { loadLocationOptions } from '../../properties/actions';
 import { FEATURE_KIND_LABELS } from '../../properties/labels';
 import {
   ChecklistField,
@@ -49,7 +49,6 @@ import {
   type InlineFormControls,
 } from '../../shared/components/inline-section';
 import {
-  changeDevelopmentTagsAction,
   updateDevelopmentDetailsAction,
   updateDevelopmentFeaturesAction,
   updateDevelopmentGeneralAction,
@@ -63,7 +62,7 @@ const LocationMapCanvas = dynamic(
     import('../../properties/components/detail/location-map-canvas').then(
       (module) => module.LocationMapCanvas,
     ),
-  { ssr: false, loading: () => <Skeleton className="h-[50vh] min-h-[300px] w-full" /> },
+  { ssr: false, loading: () => <Skeleton className="size-full min-h-[320px] rounded-none" /> },
 );
 
 const loadContacts: LoadComboboxPage = (search, page) => loadClientOptions(search, page);
@@ -100,7 +99,6 @@ export function DevelopmentSections({
           catalog={catalog}
           truncated={catalogTruncated}
         />
-        <TagsSection detail={detail} canEdit={canEdit} />
       </div>
     </div>
   );
@@ -108,6 +106,7 @@ export function DevelopmentSections({
 
 // ---------- Datos generales ----------
 
+/** Muestra también la dirección, que se edita desde la tarjeta Ubicación: así esa tarjeta es solo el mapa. */
 function GeneralSection({
   detail,
   canEdit,
@@ -115,13 +114,16 @@ function GeneralSection({
   readonly detail: DevelopmentDetail;
   readonly canEdit: boolean;
 }) {
+  const place = detail.locationPath.map((level) => level.name).join(' › ');
   return (
     <InlineSection
       title="Datos generales"
       icon={Building2Icon}
       canEdit={canEdit}
       view={
+        // Un poco más aireado que las demás tarjetas, para acompañar el alto del mapa de al lado.
         <Facts
+          className="gap-y-5"
           items={[
             { label: 'Nombre público', value: detail.name },
             {
@@ -148,6 +150,10 @@ function GeneralSection({
                   </a>
                 ),
             },
+            { label: 'Dirección (privada)', value: text(detail.privateAddress) },
+            { label: 'Dirección para publicar', value: text(detail.publishAddress) },
+            { label: 'Ubicación', value: text(place) },
+            { label: 'Captador', value: text(detail.producer?.name) },
             { label: 'Desarrollista (privado)', value: text(detail.developerName) },
             {
               label: 'Contacto comercial (privado)',
@@ -156,7 +162,6 @@ function GeneralSection({
                   ? EMPTY_VALUE
                   : (detail.commercialContact.name ?? 'Contacto borrado'),
             },
-            { label: 'Captador', value: text(detail.producer?.name) },
           ]}
         />
       }
@@ -247,32 +252,25 @@ function LocationSection({
   readonly detail: DevelopmentDetail;
   readonly canEdit: boolean;
 }) {
-  const place = detail.locationPath.map((level) => level.name).join(' › ');
   return (
     <InlineSection
       title="Ubicación"
       icon={MapPinIcon}
       canEdit={canEdit}
+      bodyClassName="flex flex-1 flex-col"
       view={
-        <div className="flex flex-col gap-4">
-          <Facts
-            items={[
-              { label: 'Dirección (privada)', value: detail.privateAddress },
-              { label: 'Dirección para publicar', value: detail.publishAddress },
-              { label: 'Ubicación', value: text(place) },
-              {
-                label: 'Coordenadas',
-                value:
-                  detail.coordinates === undefined
-                    ? 'Sin cargar'
-                    : `${detail.coordinates.latitude.toString()}, ${detail.coordinates.longitude.toString()}`,
-              },
-            ]}
-          />
-          {detail.coordinates !== undefined && (
+        // El mapa llena la tarjeta de borde a borde: anula el padding del cuerpo.
+        <div className="-m-5 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-b-[13px]">
+          {detail.coordinates === undefined ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-muted/30 p-5 text-center text-sm text-muted-foreground">
+              <MapPinOffIcon className="size-6" aria-hidden />
+              Sin coordenadas: cargalas con Editar o completá la dirección para buscarlas.
+            </div>
+          ) : (
             <LocationMapCanvas
               latitude={detail.coordinates.latitude}
               longitude={detail.coordinates.longitude}
+              className="size-full min-h-[320px] flex-1"
             />
           )}
         </div>
@@ -549,89 +547,5 @@ function FeaturesForm({
         <InlineFormActions controls={controls} />
       </form>
     </Form>
-  );
-}
-
-// ---------- Etiquetas ----------
-
-function TagsSection({
-  detail,
-  canEdit,
-}: {
-  readonly detail: DevelopmentDetail;
-  readonly canEdit: boolean;
-}) {
-  return (
-    <InlineSection
-      title="Etiquetas"
-      icon={TagsIcon}
-      canEdit={canEdit}
-      view={
-        detail.tags.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin etiquetas.</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {detail.tags.map((tag) => (
-              <Badge key={tag.id} variant="secondary">
-                {tag.groupName === undefined ? tag.name : `${tag.groupName}: ${tag.name}`}
-              </Badge>
-            ))}
-          </div>
-        )
-      }
-      form={(controls) => <TagsForm detail={detail} controls={controls} />}
-    />
-  );
-}
-
-function TagsForm({
-  detail,
-  controls,
-}: {
-  readonly detail: DevelopmentDetail;
-  readonly controls: InlineFormControls;
-}) {
-  const [tags, setTags] = useState<readonly ComboboxOption[]>(
-    detail.tags.map((tag) => ({
-      value: tag.id,
-      label: tag.name,
-      ...(tag.groupName === undefined ? {} : { hint: tag.groupName }),
-    })),
-  );
-  return (
-    <form
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        controls.save(
-          () =>
-            changeDevelopmentTagsAction({
-              developmentId: detail.id,
-              tagIds: tags.map((tag) => tag.value),
-            }),
-          'Etiquetas guardadas.',
-        );
-      }}
-    >
-      <PagedMultiSelect
-        value={tags}
-        onChange={setTags}
-        loadPage={loadTagOptions}
-        placeholder="Elegí las etiquetas"
-        searchPlaceholder="Buscar etiqueta"
-      />
-      <div className="flex justify-between gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            setTags([]);
-          }}
-        >
-          Quitar todas
-        </Button>
-        <InlineFormActions controls={controls} />
-      </div>
-    </form>
   );
 }

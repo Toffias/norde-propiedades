@@ -138,18 +138,18 @@ function Entry({ entry, main }: { readonly entry: NewsEntryRow; readonly main: b
   const lines = newsLines(entry);
   const tone = entryTone(entry, lines[0]);
   return (
-    <li className="flex items-start gap-3">
+    <li className="flex items-center gap-3">
       <span
         className={cn(
-          'mt-0.5 flex shrink-0 items-center justify-center rounded-full',
+          'flex shrink-0 items-center justify-center rounded-full',
           ICON_TONES[tone],
-          main ? 'size-7' : 'size-6',
+          main ? 'size-12' : 'size-10',
         )}
         aria-hidden
       >
-        <EntryIcon entry={entry} line={lines[0]} className={main ? 'size-4' : 'size-3.5'} />
+        <EntryIcon entry={entry} line={lines[0]} className={main ? 'size-6' : 'size-5'} />
       </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
         <div className="min-w-0 flex-1">
           {lines.map((line, index) => (
             <p
@@ -191,7 +191,7 @@ function Header({ card }: { readonly card: NewsCardData }) {
   if (header.entityType === 'property') {
     const status = PROPERTY_STATUS_DISPLAY[header.status];
     return (
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <PropertyPhoto
           propertyId={card.entityId}
           cover={header.cover}
@@ -206,13 +206,9 @@ function Header({ card }: { readonly card: NewsCardData }) {
           }
         />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusPill tone={status.tone}>{status.label}</StatusPill>
-            {header.deleted && <Badge variant="secondary">En la papelera</Badge>}
-          </div>
           <Link
             href={entityUrl(card)}
-            className="mt-1 block truncate font-semibold text-foreground hover:underline"
+            className="block truncate font-semibold text-foreground hover:underline"
           >
             {header.title}
           </Link>
@@ -221,9 +217,17 @@ function Header({ card }: { readonly card: NewsCardData }) {
             {header.neighborhood.trim() === '' ? '' : ` en ${header.neighborhood}`}
           </p>
         </div>
-        <ul className="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex">
+        <ul className="flex shrink-0 flex-wrap items-center justify-end gap-1 self-start">
+          <li>
+            <StatusPill tone={status.tone}>{status.label}</StatusPill>
+          </li>
+          {header.deleted && (
+            <li>
+              <Badge variant="secondary">En la papelera</Badge>
+            </li>
+          )}
           {header.operations.map((operation) => (
-            <li key={operation.operation}>
+            <li key={operation.operation} className="hidden sm:block">
               <Badge variant="outline">{OPERATION_LABELS[operation.operation]}</Badge>
             </li>
           ))}

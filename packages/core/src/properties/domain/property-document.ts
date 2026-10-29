@@ -4,7 +4,14 @@ import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { PriceCurrency, PropertyOperationKind } from './property-catalog';
+import type { PropertySheetLayout } from './property-sheet';
 import type { PropertyId } from './property';
+import {
+  DEFAULT_SHOWCASE_OPTIONS,
+  showcaseOptions,
+  type InvalidShowcaseOptionsError,
+  type ShowcaseOptions,
+} from './showcase-options';
 
 export type PropertyDocumentId = Id<'PropertyDocument'>;
 
@@ -14,6 +21,20 @@ export type PropertyDocumentKind = (typeof PROPERTY_DOCUMENT_KINDS)[number];
 
 export const PROPERTY_DOCUMENT_STATUSES = ['pending', 'ready', 'failed'] as const;
 export type PropertyDocumentStatus = (typeof PROPERTY_DOCUMENT_STATUSES)[number];
+
+/**
+ * Qué lleva el reporte al propietario además del movimiento (#175): las publicaciones activas con
+ * su link y las estadísticas de cada portal.
+ */
+export interface OwnerReportOptions {
+  readonly publications: boolean;
+  readonly statistics: boolean;
+}
+
+export const DEFAULT_OWNER_REPORT_OPTIONS: OwnerReportOptions = {
+  publications: true,
+  statistics: true,
+};
 
 /** Período del reporte al propietario, en días `AAAA-MM-DD` de Buenos Aires. */
 export interface ReportPeriod {
@@ -27,6 +48,14 @@ export interface PropertyDocumentSnapshot {
   readonly kind: PropertyDocumentKind;
   readonly status: PropertyDocumentStatus;
   readonly period: ReportPeriod | undefined;
+  /** El formato de la ficha (#175); los demás PDF no tienen. */
+  readonly layout: PropertySheetLayout | undefined;
+  /** Las opciones de la vidriera (#175); los demás PDF no tienen. */
+  readonly showcase: ShowcaseOptions | undefined;
+  /** Lo que lleva el reporte al propietario; los demás PDF no tienen. */
+  readonly ownerReport: OwnerReportOptions | undefined;
+  /** Si lleva los datos del agente que lo pidió, resuelto al pedirlo. */
+  readonly includeAgent: boolean;
   readonly storageKey: string | undefined;
   readonly error: string | undefined;
   readonly requestedBy: string;
@@ -129,17 +158,37 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
     readonly propertyId: PropertyId;
     readonly kind: PropertyDocumentKind;
     readonly period: ReportPeriod | undefined;
+    /** Solo la ficha; sin formato, la vertical de varias hojas. */
+    readonly layout?: PropertySheetLayout | undefined;
+    /** Solo la vidriera; sin opciones, las de la marca. */
+    readonly showcase?: ShowcaseOptions | undefined;
+    /** Solo el reporte al propietario; sin opciones, lleva todo. */
+    readonly ownerReport?: OwnerReportOptions | undefined;
+    readonly includeAgent: boolean;
     readonly requestedBy: string;
     readonly now: Date;
-  }): Result<PropertyDocument, ReportPeriodRequiredError> {
+  }): Result<PropertyDocument, ReportPeriodRequiredError | InvalidShowcaseOptionsError> {
     if (input.kind === 'owner_report' && input.period === undefined) {
       return err({ type: 'ReportPeriodRequired' });
+    }
+    let showcase: ShowcaseOptions | undefined;
+    if (input.kind === 'showcase') {
+      const options = showcaseOptions(input.showcase ?? DEFAULT_SHOWCASE_OPTIONS);
+      if (options.isErr()) return err(options.error);
+      showcase = options.value;
     }
     const document = new PropertyDocument(input.id, {
       propertyId: input.propertyId,
       kind: input.kind,
       status: 'pending',
       period: input.kind === 'owner_report' ? input.period : undefined,
+      layout: input.kind === 'sheet' ? (input.layout ?? 'portrait') : undefined,
+      showcase,
+      ownerReport:
+        input.kind === 'owner_report'
+          ? (input.ownerReport ?? DEFAULT_OWNER_REPORT_OPTIONS)
+          : undefined,
+      includeAgent: input.includeAgent,
       storageKey: undefined,
       error: undefined,
       requestedBy: input.requestedBy,
@@ -178,6 +227,25 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
 
   get requestedBy(): string {
     return this.#state.requestedBy;
+  }
+
+  /** El formato de la ficha; las de antes de #175 eran la vertical. */
+  get layout(): PropertySheetLayout {
+    return this.#state.layout ?? 'portrait';
+  }
+
+  /** Las opciones de la vidriera; las de antes de #175 salen con las de la marca. */
+  get showcase(): ShowcaseOptions {
+    return this.#state.showcase ?? DEFAULT_SHOWCASE_OPTIONS;
+  }
+
+  /** Lo que lleva el reporte; los de antes de #175 llevaban todo. */
+  get ownerReportOptions(): OwnerReportOptions {
+    return this.#state.ownerReport ?? DEFAULT_OWNER_REPORT_OPTIONS;
+  }
+
+  get includeAgent(): boolean {
+    return this.#state.includeAgent;
   }
 
   /** El archivo listo, para descargarlo o enviarlo. */

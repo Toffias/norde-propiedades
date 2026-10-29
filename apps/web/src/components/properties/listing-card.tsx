@@ -89,7 +89,7 @@ export function ListingCard({ listing, priority = false, headingLevel = 'h3' }: 
             {listing.title}
           </Link>
         </Heading>
-        <p className="text-muted-foreground mt-1 line-clamp-1 text-sm">
+        <p className="text-muted-foreground mt-1 mb-3 line-clamp-1 text-sm">
           {listing.address ? `${listing.address} · ${listing.location}` : listing.location}
         </p>
         {listing.facts.length > 0 && (

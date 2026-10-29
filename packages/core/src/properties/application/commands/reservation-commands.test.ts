@@ -431,3 +431,17 @@ describe('a reserved property', () => {
     expect(uow.audit.entries).toEqual([]);
   });
 });
+
+describe('ReserveProperty with an idempotency key', () => {
+  it('a retry with the same key returns the same reservation instead of failing', async () => {
+    const { uow, reserve } = setup();
+    const input = { ...INPUT, idempotencyKey: '0190a5b8-0000-7000-8000-00000000aa01' };
+
+    const first = unwrap(await reserve.execute(input, TEST_RESERVING_AGENT));
+    const retry = unwrap(await reserve.execute(input, TEST_RESERVING_AGENT));
+
+    expect(retry).toEqual(first);
+    expect(uow.reservations.rows.size).toBe(1);
+    expect(uow.audit.entries.filter((e) => e.action === 'property.reserved')).toHaveLength(1);
+  });
+});

@@ -21,6 +21,7 @@ const DETAIL: BranchDetail = {
   id: MAIN_BRANCH_ID,
   name: 'Casa central',
   logoUrl: undefined,
+  pdfContactText: undefined,
   address: undefined,
   email: undefined,
   phone: undefined,

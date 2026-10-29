@@ -1,0 +1,1 @@
+ALTER TABLE "core"."branches" ADD COLUMN "pdf_contact_text" text;

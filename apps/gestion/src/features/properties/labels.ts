@@ -139,7 +139,6 @@ export const GRID_COLUMN_LABELS: Readonly<Record<GridColumnValue, string>> = {
 export const EXPORT_FORMAT_LABELS: Readonly<Record<PropertyExportFormat, string>> = {
   xlsx: 'Excel (.xlsx)',
   csv: 'CSV',
-  pdf: 'PDF',
 };
 
 export const BULK_SKIP_LABELS: Readonly<Record<BulkSkipReason, string>> = {

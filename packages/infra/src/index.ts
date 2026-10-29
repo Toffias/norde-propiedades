@@ -36,6 +36,8 @@ export { BetterAuthPasswordHasher } from './identity/better-auth-password-hasher
 export { createIdentityUnitOfWork } from './identity/identity-unit-of-work';
 export { DrizzleUserListQuery } from './identity/drizzle-user-list-query';
 export { DrizzleRoleListQuery } from './identity/drizzle-role-list-query';
+export { DrizzleDocumentContacts } from './identity/drizzle-document-contacts';
+export { DrizzleOwnerContacts } from './clients/drizzle-owner-contacts';
 export { DrizzleOrganizationQuery } from './identity/drizzle-organization-query';
 
 export { DrizzlePropertySearchQuery } from './properties/drizzle-property-search-query';
@@ -71,10 +73,11 @@ export { DrizzleHomeDashboardQuery } from './reporting/drizzle-home-dashboard-qu
 export { DrizzlePublicationOverviewQuery } from './reporting/drizzle-publication-overview-query';
 export { DrizzleBackgroundTaskQuery } from './reporting/drizzle-background-task-query';
 export { DrizzlePropertyStatisticsQuery } from './reporting/drizzle-property-statistics-query';
-export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-document-renderer';
-export { PdfLibAppraisalReportRenderer } from './adapters/exports/appraisal-report-renderer';
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
+export { OsmStaticMaps } from './adapters/maps/osm-static-maps';
+export { XlsxAppraisalExportWriter } from './adapters/exports/appraisal-export-writer';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
+export { DrizzlePropertyExportDetails } from './properties/drizzle-property-export-details';
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
 export { XlsxDevelopmentUnitsExportWriter } from './adapters/exports/development-units-export-writer';
 export { XlsxReservationExportWriter } from './adapters/exports/reservation-export-writer';

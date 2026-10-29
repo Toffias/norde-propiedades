@@ -6,7 +6,8 @@ import { pageQuerySchema } from '../../shared/contracts';
 
 /**
  * Qué proceso es: las variantes de las fotos de una ficha o de una importación, las importaciones,
- * las acciones masivas de oportunidades, los PDF de la ficha y las publicaciones en los portales.
+ * las acciones masivas de oportunidades, los PDF de la ficha y de una selección del buscador y las
+ * publicaciones en los portales.
  */
 export const BACKGROUND_TASK_KINDS = [
   'media_variants',
@@ -17,6 +18,7 @@ export const BACKGROUND_TASK_KINDS = [
   'tokko_users_import',
   'opportunity_bulk',
   'property_document',
+  'property_list_document',
   'portal_listing',
 ] as const;
 export type BackgroundTaskKind = (typeof BACKGROUND_TASK_KINDS)[number];
@@ -77,7 +79,7 @@ export interface BackgroundTaskRow {
   readonly status: BackgroundTaskStatus;
   readonly subject: BackgroundTaskSubject | undefined;
   /**
-   * El archivo importado, el tipo de PDF (`sheet`…), el portal (`mercadolibre`…), la acción masiva
+   * El archivo importado, el tipo de PDF (`sheet`…) o el formato de la selección (`grid`…), el portal (`mercadolibre`…), la acción masiva
    * (`change_stage`…) o el origen de la importación de propiedades (`api`).
    */
   readonly detail: string | undefined;

@@ -1,4 +1,4 @@
-import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
+import type { AuditLog, IdempotencyKeys, EventPublisher, UnitOfWork } from '../../../shared';
 import type {
   ClientActivityRepository,
   ClientImportRepository,
@@ -49,6 +49,8 @@ export interface ClientsTransaction {
   readonly developmentChances: DevelopmentChances;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
+  /** Claves de idempotencia de las altas (ADR 0050). */
+  readonly idempotency: IdempotencyKeys;
 }
 
 export type ClientsUnitOfWork = UnitOfWork<ClientsTransaction>;

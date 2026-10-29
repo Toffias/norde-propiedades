@@ -2,9 +2,10 @@
 
 import { z } from 'zod';
 
-import { bulkSelectionSchema, pageQuerySchema } from '../../shared/contracts';
+import { bulkSelectionSchema, idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 import type { PropertyCover } from './media';
+import { PROPERTY_SHEET_LAYOUT_VALUES } from './documents';
 
 import {
   CURRENCIES,
@@ -69,6 +70,8 @@ export const CreatePropertyInputSchema = z
     ...CoordinateFields,
     /** Cliente de contactos, buscado en el selector. Privado. Se suman más desde la ficha. */
     ownerClientId: z.uuid().optional(),
+    /** Clave de idempotencia del formulario (ADR 0050). */
+    idempotencyKey: idempotencyKeySchema.optional(),
   })
   .refine((input) => (input.latitude === undefined) === (input.longitude === undefined), {
     message: 'Completá la latitud y la longitud, o ninguna de las dos.',
@@ -247,6 +250,38 @@ export interface PanelPropertyRow {
   readonly deletedBy: UserRef | undefined;
 }
 
+// ---------- Exportación (CSV, Excel) ----------
+
+/** El propietario en la planilla: solo con "Ver datos de propietarios" (`clients:read-owners`). */
+export interface PropertyExportOwner {
+  readonly name: string;
+  readonly email: string | undefined;
+  /** El primer celular cargado o, si no tiene, el teléfono principal (E.164). */
+  readonly mobile: string | undefined;
+}
+
+/** Lo que la planilla agrega a la fila del buscador: las columnas de Tokko. */
+export interface PropertyExportDetails {
+  /** Calle, número, piso y unidad: privados, para uso interno. */
+  readonly address: string | undefined;
+  readonly toilets: number | undefined;
+  readonly surfaceSemiCoveredM2: number | undefined;
+  readonly surfaceLandM2: number | undefined;
+  readonly frontM: number | undefined;
+  readonly depthM: number | undefined;
+  /** Centavos de pesos. */
+  readonly expensesCents: bigint | undefined;
+  readonly maintenanceUser: string | undefined;
+  readonly branch: string | undefined;
+  readonly development: string | undefined;
+  /** El primero cargado. `undefined` sin propietario o sin permiso para verlo. */
+  readonly owner: PropertyExportOwner | undefined;
+}
+
+export interface PropertyExportRow extends PanelPropertyRow {
+  readonly details: PropertyExportDetails;
+}
+
 // ---------- Mapa ----------
 
 /** Pines por pedido: más que esto no se distingue en pantalla; se pide acercar el mapa. */
@@ -334,14 +369,15 @@ export type FindPropertiesByCodeInput = z.input<typeof FindPropertiesByCodeInput
 
 // ---------- Exportar ----------
 
-export const PROPERTY_EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'] as const;
+/** Las planillas; el PDF de la selección es un pedido aparte, con su formato (#175). */
+export const PROPERTY_EXPORT_FORMATS = ['csv', 'xlsx'] as const;
 export type PropertyExportFormat = (typeof PROPERTY_EXPORT_FORMATS)[number];
 
 /** Sin `properties:export-bulk` se exporta hasta esta cantidad. */
 export const EXPORT_WITHOUT_BULK_PERMISSION = 10;
 /** Una planilla más grande conviene pedirla filtrando: se arma por lotes, pero tiene un tope. */
 export const MAX_EXPORT_ROWS = 5000;
-/** El PDF tiene una ficha resumida por propiedad: más que esto no se imprime ni se lee. */
+/** El PDF lleva la ficha de cada propiedad: más que esto no se imprime ni se lee. */
 export const MAX_PDF_EXPORT_ROWS = 100;
 
 export const ExportPropertiesInputSchema = z.object({
@@ -349,6 +385,17 @@ export const ExportPropertiesInputSchema = z.object({
   selection: PropertySelectionSchema,
 });
 export type ExportPropertiesInput = z.input<typeof ExportPropertiesInputSchema>;
+
+/** El PDF de las propiedades elegidas en el buscador, en uno de los formatos de la ficha. */
+export const RequestPropertyListDocumentInputSchema = z.object({
+  selection: PropertySelectionSchema,
+  layout: z.enum(PROPERTY_SHEET_LAYOUT_VALUES),
+  /** Solo cuenta si "Ficha y PDF" pide preguntar al armar el PDF. */
+  includeAgent: z.boolean().optional(),
+});
+export type RequestPropertyListDocumentInput = z.input<
+  typeof RequestPropertyListDocumentInputSchema
+>;
 
 // ---------- Edición rápida masiva ----------
 

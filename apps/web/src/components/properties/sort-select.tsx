@@ -21,6 +21,8 @@ export function SortSelect({ options, selectedHref }: SortSelectProps) {
       <span className="text-muted-foreground font-medium whitespace-nowrap">Ordenar por</span>
       <div className="w-44">
         <SiteSelect
+          // Al cambiar un filtro cambian los links del orden: se vuelve a montar con el valor nuevo.
+          key={selectedHref}
           aria-label="Ordenar por"
           defaultValue={selectedHref}
           onValueChange={(href) => {

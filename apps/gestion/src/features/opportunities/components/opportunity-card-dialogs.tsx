@@ -28,7 +28,7 @@ import { toast } from '@norde/ui/components/sonner';
 import { TablePagination } from '@norde/ui/components/table-pagination';
 import { Textarea } from '@norde/ui/components/textarea';
 import { cn } from '@norde/ui/lib/utils';
-import { Loader2Icon } from 'lucide-react';
+import { HistoryIcon, Loader2Icon, StickyNoteIcon } from 'lucide-react';
 import { useEffect, useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -37,6 +37,7 @@ import { addClientNoteAction } from '../../clients/activity-actions';
 import { ActivityEntry } from '../../clients/components/client-activity-timeline';
 import { FormAlert } from '../../shared/components/form-alert';
 import { loadOpportunityHistoryAction } from '../pipeline-actions';
+import { useIdempotencyKey } from '../../shared/hooks/use-idempotency-key';
 
 /** La oportunidad de la tarjeta: para los textos y para atar la nota. */
 export interface OpportunityCardTarget {
@@ -59,6 +60,8 @@ export function OpportunityNoteDialog({
   const [text, setText] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
+  // Se monta al abrir el diálogo: cada apertura trae su clave.
+  const idempotency = useIdempotencyKey();
   const empty = text.trim() === '';
 
   return (
@@ -72,7 +75,12 @@ export function OpportunityNoteDialog({
             setError(undefined);
             startTransition(async () => {
               const message = await runAction(() =>
-                addClientNoteAction({ clientId: target.clientId, opportunityId: target.id, text }),
+                addClientNoteAction({
+                  clientId: target.clientId,
+                  opportunityId: target.id,
+                  text,
+                  idempotencyKey: idempotency.key,
+                }),
               );
               if (message !== undefined) {
                 setError(message);
@@ -84,7 +92,7 @@ export function OpportunityNoteDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Nota de la oportunidad</DialogTitle>
+            <DialogTitle icon={StickyNoteIcon}>Nota de la oportunidad</DialogTitle>
             <DialogDescription>
               Queda en el historial de la oportunidad de {target.clientName} y en la actividad del
               contacto.
@@ -182,7 +190,7 @@ export function OpportunityHistoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Historial de la oportunidad</DialogTitle>
+          <DialogTitle icon={HistoryIcon}>Historial de la oportunidad</DialogTitle>
           <DialogDescription>
             Notas, cambios de estado y lo demás que pasó con la oportunidad de {target.clientName}.
           </DialogDescription>

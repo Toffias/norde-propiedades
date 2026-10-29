@@ -5,11 +5,17 @@ import { routes } from '../../lib/seo/routes';
 import { EnterLink, HeroEntrance, HeroPhoto } from './hero-entrance';
 
 /** La puerta del 7250 en la foto de la fachada (proporción del ancho y del alto). */
-const FACADE_DOOR = { x: 0.505, y: 0.7 };
+const FACADE_DOOR = { x: 0.505, y: 0.77 };
+
+/**
+ * Video de la entrada por la puerta. Su primer cuadro es la foto de la fachada con el mismo
+ * recorte 16:9: si se cambia uno, hay que cambiar el otro.
+ */
+const ENTRANCE_VIDEO = '/videos/entrada-norde.mp4';
 
 /**
  * Hero de la home: la fachada de la oficina a todo el ancho, con movimiento lento, y el llamado
- * a ver las propiedades, que "entra" por la puerta. El header queda transparente encima.
+ * a ver las propiedades, que "entra" por la puerta en video. El header queda transparente encima.
  */
 export function HomeHero() {
   return (
@@ -20,6 +26,7 @@ export function HomeHero() {
             src={facade}
             alt="Fachada de la oficina de Norde Propiedades en Av. Emilio Castro 7250"
             door={FACADE_DOOR}
+            video={ENTRANCE_VIDEO}
             zoom={1.08}
             className="object-[center_70%]"
           />

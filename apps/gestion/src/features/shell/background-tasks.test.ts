@@ -93,6 +93,15 @@ describe('background task display', () => {
     expect(taskHref(task({ kind: 'opportunity_bulk' }))).toBe('/oportunidades');
   });
 
+  it('shows the PDF of a search selection with its layout, downloadable once ready', () => {
+    const pdf = task({ kind: 'property_list_document', detail: 'landscape_map' });
+    expect(taskTitle(pdf)).toBe('PDF de propiedades seleccionadas');
+    expect(taskSubtitle(pdf)).toBe('Horizontal con mapa');
+    expect(taskHref(pdf)).toBeUndefined();
+    expect(taskHref({ ...pdf, status: 'done' })).toBe('/propiedades/exportar/pdf/i1');
+    expect(taskFailure({ ...pdf, status: 'failed' })).toBe('No se pudo generar el PDF.');
+  });
+
   it('shows the photos of an import as one task, linked to its report', () => {
     const photos = task({ kind: 'import_media', detail: undefined, problems: 2 });
     expect(taskTitle(photos)).toBe('Fotos de la importación de Tokko');

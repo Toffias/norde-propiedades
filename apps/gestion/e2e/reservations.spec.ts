@@ -112,6 +112,31 @@ test.describe('caída y firma', () => {
     await expect(history.getByText('dio por caída la reserva')).toBeVisible();
   });
 
+  test('después de la caída se vuelve a reservar', async ({ page }) => {
+    const { property } = await reservedProperty(page);
+    await page.getByRole('button', { name: 'Dar por caída' }).click();
+    await page
+      .getByRole('dialog', { name: 'Dar por caída la reserva' })
+      .getByRole('button', { name: 'Dar por caída' })
+      .click();
+    await expect(
+      page.getByText('Reserva caída: la propiedad vuelve a estar disponible'),
+    ).toBeVisible();
+
+    const other = await createContact(page);
+    await openProperty(page, property.code);
+    await reserve(page, property, other);
+
+    await page.goto(`${page.url().split('?')[0] ?? ''}?tab=reservas`);
+    const reservations = page.getByRole('table', { name: 'Reservas de la propiedad' });
+    await expect(reservations.getByRole('row').filter({ hasText: 'Caída' })).toHaveCount(1);
+    await expect(
+      reservations.getByRole('row').filter({ hasText: 'Activa' }).getByRole('link', {
+        name: other.name,
+      }),
+    ).toBeVisible();
+  });
+
   test('se firma y la propiedad queda vendida', async ({ page }) => {
     await reservedProperty(page);
 

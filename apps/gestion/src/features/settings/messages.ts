@@ -53,6 +53,8 @@ export const COMPANY_SETTINGS_ERROR_MESSAGES = {
   WatermarkLogoRequired: 'Primero subí el logo de la marca de agua.',
   InvalidImage: 'No pudimos leer la imagen. Probá con un JPG o PNG.',
   FooterTooLong: 'El pie puede tener hasta 1000 caracteres.',
+  BrandColorTooLight: (error) =>
+    `Ese color es muy claro: sobre el blanco de la hoja no se lee (contraste ${error.contrast.toLocaleString('es-AR')}:1, hace falta 3:1). Elegí uno más oscuro.`,
   UnknownTemplateVariable: (error) =>
     `{${error.variable}} no es una variable disponible. Usá las de la lista.`,
   InvalidEmail: 'El email de respuesta no es válido.',

@@ -5,6 +5,7 @@ import {
   MAX_COMPARE,
   MIN_COMPARE,
   PROPERTY_EXPORT_FORMATS,
+  PROPERTY_SHEET_LAYOUT_VALUES,
   type PropertyExportFormat,
   type PropertySelection,
 } from '@norde/core/properties/contracts';
@@ -13,11 +14,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@norde/ui/components/dropdown-menu';
 import { toast } from '@norde/ui/components/sonner';
 import type { DataTableSelection } from '@norde/ui/lib/data-table-selection';
-import { ColumnsIcon, DownloadIcon, PencilIcon, StarIcon, UserPlusIcon } from 'lucide-react';
+import {
+  ColumnsIcon,
+  DownloadIcon,
+  FileDownIcon,
+  Loader2Icon,
+  PencilIcon,
+  StarIcon,
+  UserPlusIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -25,10 +35,11 @@ import { useState, useTransition } from 'react';
 import { runAction } from '../../../lib/action-result';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { FeatureToClientDialog } from '../../clients/components/feature-to-client-dialog';
-import { setPropertyFavoritesAction } from '../actions';
+import { requestPropertyListDocumentAction, setPropertyFavoritesAction } from '../actions';
 import { EXPORT_FORMAT_LABELS } from '../labels';
 import type { PropertyFilterValues } from './properties-toolbar';
 import { QuickEditDialog } from './quick-edit-dialog';
+import { SheetPdfDialog } from './sheet-pdf-dialog';
 
 export interface BulkPermissions {
   readonly bulkEdit: boolean;
@@ -101,12 +112,15 @@ export function PropertyBulkActions({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [featuring, setFeaturing] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [running, setRunning] = useState<'export' | 'favorites' | undefined>();
   const target = toPropertySelection(selection, filters);
   const ids = selection.kind === 'ids' ? selection.ids : [];
   const canCompare = ids.length >= MIN_COMPARE && ids.length <= MAX_COMPARE;
 
   function exportAs(format: PropertyExportFormat) {
+    setRunning('export');
     startTransition(async () => {
       const id = toast.loading(`Preparando ${EXPORT_FORMAT_LABELS[format]}…`);
       try {
@@ -119,6 +133,7 @@ export function PropertyBulkActions({
   }
 
   function markFavorites() {
+    setRunning('favorites');
     startTransition(async () => {
       const message = await runAction(() => setPropertyFavoritesAction({ ids, favorite: true }));
       if (message === undefined) toast.success('Agregadas a tus favoritas');
@@ -132,7 +147,11 @@ export function PropertyBulkActions({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" size="sm" variant="outline" disabled={pending}>
-              <DownloadIcon className="h-4 w-4" />
+              {pending && running === 'export' ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <DownloadIcon className="h-4 w-4" />
+              )}
               Exportar
             </Button>
           </DropdownMenuTrigger>
@@ -147,6 +166,15 @@ export function PropertyBulkActions({
                 {EXPORT_FORMAT_LABELS[format]}
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                setPrinting(true);
+              }}
+            >
+              <FileDownIcon className="h-4 w-4" />
+              PDF…
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
@@ -160,7 +188,11 @@ export function PropertyBulkActions({
         }
         onClick={markFavorites}
       >
-        <StarIcon className="h-4 w-4" />
+        {pending && running === 'favorites' ? (
+          <Loader2Icon className="h-4 w-4 animate-spin" />
+        ) : (
+          <StarIcon className="h-4 w-4" />
+        )}
         Favoritas
       </Button>
       <Button
@@ -218,6 +250,26 @@ export function PropertyBulkActions({
           onOpenChange={setFeaturing}
         />
       )}
+      <SheetPdfDialog
+        open={printing}
+        onOpenChange={setPrinting}
+        title="Exportar a PDF"
+        description={`${count.toLocaleString('es-AR')} ${count === 1 ? 'propiedad' : 'propiedades'}. Te avisamos en la campana cuando el PDF esté listo para descargar.`}
+        layouts={PROPERTY_SHEET_LAYOUT_VALUES}
+        onSubmit={async ({ layout, includeAgent }) => {
+          const message = await runAction(() =>
+            requestPropertyListDocumentAction({
+              selection: target,
+              layout,
+              ...(includeAgent === undefined ? {} : { includeAgent }),
+            }),
+          );
+          if (message === undefined) {
+            toast.success('Estamos armando el PDF. Te avisamos en la campana cuando esté listo.');
+          }
+          return message;
+        }}
+      />
       <QuickEditDialog
         open={editing}
         onOpenChange={setEditing}

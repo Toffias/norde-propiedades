@@ -58,7 +58,7 @@ export function AttachmentsGrid({
   const [uploading, setUploading] = useState(false);
   const [renaming, setRenaming] = useState<AttachmentRow | undefined>();
   const [deleting, setDeleting] = useState<AttachmentRow | undefined>();
-  const [, startTransition] = useTransition();
+  const [toggling, startTransition] = useTransition();
 
   const toggleWeb = (row: AttachmentRow, showOnWeb: boolean) => {
     startTransition(async () => {
@@ -107,7 +107,7 @@ export function AttachmentsGrid({
       cell: (row) => (
         <Switch
           checked={row.showOnWeb}
-          disabled={!canEdit}
+          disabled={!canEdit || toggling}
           aria-label={`Mostrar ${row.name} en la web`}
           onCheckedChange={(checked) => {
             toggleWeb(row, checked);
@@ -262,7 +262,7 @@ function UploadDialog({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Subir archivos</DialogTitle>
+          <DialogTitle icon={UploadIcon}>Subir archivos</DialogTitle>
           <DialogDescription>
             Escrituras, reglamentos, planos en PDF: PDF, imágenes, Word o Excel de hasta 25 MB.
           </DialogDescription>
@@ -308,7 +308,7 @@ function RenameDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Renombrar el archivo</DialogTitle>
+          <DialogTitle icon={PencilIcon}>Renombrar el archivo</DialogTitle>
         </DialogHeader>
         <FormAlert message={error} />
         <Input
@@ -342,6 +342,7 @@ function RenameDialog({
               });
             }}
           >
+            {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
             Guardar
           </Button>
         </DialogFooter>

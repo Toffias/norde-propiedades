@@ -31,12 +31,15 @@ import {
   BookmarkCheckIcon,
   BuildingIcon,
   ChevronDownIcon,
-  EyeIcon,
+  ClipboardListIcon,
   FileDownIcon,
   FileTextIcon,
+  FilesIcon,
   GlobeIcon,
+  Loader2Icon,
   MapPinIcon,
   MoreHorizontalIcon,
+  TagsIcon,
   UserPlusIcon,
 } from 'lucide-react';
 import type { Route } from 'next';
@@ -46,13 +49,21 @@ import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../../lib/action-result';
 import { FeatureToClientDialog } from '../../../clients/components/feature-to-client-dialog';
-import { changePropertyStatusAction, updatePropertyPublicationAction } from '../../detail-actions';
+import { TagList, TagsDialog } from '../../../shared/components/tags-dialog';
+import { loadTagOptions } from '../../actions';
+import {
+  changePropertyStatusAction,
+  changePropertyTagsAction,
+  updatePropertyPublicationAction,
+} from '../../detail-actions';
 import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../../labels';
 import { FavoriteToggle } from '../favorite-toggle';
 import { PropertyPhoto } from '../property-photo';
 import { ReservationDialog, type ReservationSubject } from '../reservations/reservation-dialog';
-import { DocumentsDialog, OwnerReportDialog, useRequestDocument } from './documents-dialogs';
+import { DocumentsDialog, SheetDocumentDialog } from './documents-dialogs';
+import { OwnerReportDialog } from './owner-report-dialog';
 import type { DetailPermissions } from './permissions';
+import { ShowcaseDocumentDialog } from './showcase-dialog';
 
 const LocationMapCanvas = dynamic(
   () => import('./location-map-canvas').then((module) => module.LocationMapCanvas),
@@ -69,7 +80,7 @@ function isStatus(value: string): value is PropertyStatusValue {
 
 /**
  * Cabecera de la ficha: portada, estado (con su cambio), tipo, código y ubicación, favorito,
- * publicación en la web y las acciones (mapa, PDF, reporte al propietario, vista previa).
+ * publicación en la web y las acciones (mapa, PDF, reporte al propietario).
  */
 export function PropertyDetailHeader({
   detail,
@@ -83,14 +94,16 @@ export function PropertyDetailHeader({
   readonly reservationSubject: ReservationSubject;
 }) {
   const [pending, startTransition] = useTransition();
+  // Qué menú disparó la acción en curso, para mostrar el spinner en su botón.
+  const [running, setRunning] = useState<'status' | 'publication' | undefined>();
   const [mapOpen, setMapOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [featuring, setFeaturing] = useState(false);
   const [reserving, setReserving] = useState(false);
-  const documents = useRequestDocument(detail.id, () => {
-    setDocumentsOpen(true);
-  });
+  const [tagging, setTagging] = useState(false);
 
   const status = isStatus(detail.status) ? PROPERTY_STATUS_DISPLAY[detail.status] : undefined;
   const type = isPropertyType(detail.propertyType)
@@ -113,11 +126,13 @@ export function PropertyDetailHeader({
   const canReserve = permissions.reserve && detail.status === 'available';
 
   function run(
+    menu: 'status' | 'publication',
     action: () => Promise<
       { readonly ok: boolean } & ({ ok: true } | { ok: false; message: string })
     >,
     success: string,
   ) {
+    setRunning(menu);
     startTransition(async () => {
       const error = await runAction(action);
       if (error === undefined) toast.success(success);
@@ -128,6 +143,7 @@ export function PropertyDetailHeader({
   const publication = detail.publication;
   const togglePublication = (field: keyof typeof publication, value: boolean) => {
     run(
+      'publication',
       () => updatePropertyPublicationAction({ propertyId: detail.id, [field]: value }),
       'Publicación actualizada.',
     );
@@ -182,209 +198,247 @@ export function PropertyDetailHeader({
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-lg bg-white/10 p-1">
-            <FavoriteToggle propertyId={detail.id} code={detail.code} favorite={favorite} />
-          </div>
+        <div className="flex flex-col gap-3 sm:items-end sm:self-start">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <div className="rounded-lg bg-white/10 p-1">
+              <FavoriteToggle propertyId={detail.id} code={detail.code} favorite={favorite} />
+            </div>
 
-          {canReserve && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-foreground dark:bg-card"
-              onClick={() => {
-                setReserving(true);
-              }}
-            >
-              <BookmarkCheckIcon className="h-4 w-4" />
-              Reservar
-            </Button>
-          )}
-
-          {permissions.edit && reserved && (
-            // Un botón deshabilitado no muestra su `title`: lo muestra el contenedor.
-            <span title="Primero se cae o se firma la reserva.">
-              <Button size="sm" variant="outline" className="text-foreground dark:bg-card" disabled>
-                Cambiar estado
-                <ChevronDownIcon className="h-4 w-4" />
-              </Button>
-            </span>
-          )}
-
-          {permissions.edit && statuses.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-foreground dark:bg-card"
-                  disabled={pending}
-                >
-                  Cambiar estado
-                  <ChevronDownIcon className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {statuses.map((value) => (
-                  <DropdownMenuItem
-                    key={value}
-                    onSelect={() => {
-                      run(
-                        () => changePropertyStatusAction({ propertyId: detail.id, status: value }),
-                        `Ahora está ${PROPERTY_STATUS_DISPLAY[value].label.toLowerCase()}.`,
-                      );
-                    }}
-                  >
-                    {PROPERTY_STATUS_DISPLAY[value].label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {permissions.publish && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-foreground dark:bg-card"
-                  disabled={pending}
-                >
-                  <GlobeIcon className="h-4 w-4" />
-                  Publicación
-                  <ChevronDownIcon className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel>Sitio web de Norde</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={publication.publishedOnWeb}
-                  onCheckedChange={(checked) => {
-                    togglePublication('publishedOnWeb', checked);
-                  }}
-                >
-                  Publicar en web
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={publication.showPriceOnWeb}
-                  onCheckedChange={(checked) => {
-                    togglePublication('showPriceOnWeb', checked);
-                  }}
-                >
-                  Mostrar el precio
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={publication.showExactAddress}
-                  onCheckedChange={(checked) => {
-                    togglePublication('showExactAddress', checked);
-                  }}
-                >
-                  Mostrar la dirección exacta
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={publication.featured}
-                  onCheckedChange={(checked) => {
-                    togglePublication('featured', checked);
-                  }}
-                >
-                  Destacada
-                </DropdownMenuCheckboxItem>
-                {!detail.isPubliclyListed && publication.publishedOnWeb && (
-                  <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                    La web la muestra solo mientras esté disponible.
-                  </p>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            {canReserve && (
               <Button
                 size="sm"
                 variant="outline"
                 className="text-foreground dark:bg-card"
-                aria-label="Más acciones"
-              >
-                <MoreHorizontalIcon className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuItem
-                disabled={detail.coordinates === undefined}
-                onSelect={() => {
-                  setMapOpen(true);
+                onClick={() => {
+                  setReserving(true);
                 }}
               >
-                <MapPinIcon className="h-4 w-4" />
-                {detail.coordinates === undefined ? 'Sin ubicación en el mapa' : 'Ver en el mapa'}
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/propiedades/${detail.id}/vista-previa` as Route} target="_blank">
-                  <EyeIcon className="h-4 w-4" />
-                  Vista previa en la web
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/propiedades/${detail.id}?tab=estadisticas` as Route}>
-                  <BarChart3Icon className="h-4 w-4" />
-                  Estadísticas
-                </Link>
-              </DropdownMenuItem>
-              {permissions.featureToClient && (
+                <BookmarkCheckIcon className="h-4 w-4" />
+                Reservar
+              </Button>
+            )}
+
+            {permissions.edit && reserved && (
+              // Un botón deshabilitado no muestra su `title`: lo muestra el contenedor.
+              <span title="Primero se cae o se firma la reserva.">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-foreground dark:bg-card"
+                  disabled
+                >
+                  Cambiar estado
+                  <ChevronDownIcon className="h-4 w-4" />
+                </Button>
+              </span>
+            )}
+
+            {permissions.edit && statuses.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-foreground dark:bg-card"
+                    disabled={pending}
+                  >
+                    {pending && running === 'status' && (
+                      <Loader2Icon className="h-4 w-4 animate-spin" />
+                    )}
+                    Cambiar estado
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {statuses.map((value) => (
+                    <DropdownMenuItem
+                      key={value}
+                      onSelect={() => {
+                        run(
+                          'status',
+                          () =>
+                            changePropertyStatusAction({ propertyId: detail.id, status: value }),
+                          `Ahora está ${PROPERTY_STATUS_DISPLAY[value].label.toLowerCase()}.`,
+                        );
+                      }}
+                    >
+                      {PROPERTY_STATUS_DISPLAY[value].label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {permissions.publish && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-foreground dark:bg-card"
+                    disabled={pending}
+                  >
+                    {pending && running === 'publication' ? (
+                      <Loader2Icon className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <GlobeIcon className="h-4 w-4" />
+                    )}
+                    Publicación
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>Sitio web de Norde</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={publication.publishedOnWeb}
+                    onCheckedChange={(checked) => {
+                      togglePublication('publishedOnWeb', checked);
+                    }}
+                  >
+                    Publicar en web
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={publication.showPriceOnWeb}
+                    onCheckedChange={(checked) => {
+                      togglePublication('showPriceOnWeb', checked);
+                    }}
+                  >
+                    Mostrar el precio
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={publication.showExactAddress}
+                    onCheckedChange={(checked) => {
+                      togglePublication('showExactAddress', checked);
+                    }}
+                  >
+                    Mostrar la dirección exacta
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={publication.featured}
+                    onCheckedChange={(checked) => {
+                      togglePublication('featured', checked);
+                    }}
+                  >
+                    Destacada
+                  </DropdownMenuCheckboxItem>
+                  {!detail.isPubliclyListed && publication.publishedOnWeb && (
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                      La web la muestra solo mientras esté disponible.
+                    </p>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-foreground dark:bg-card"
+                  aria-label="Más acciones"
+                >
+                  <MoreHorizontalIcon className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
                 <DropdownMenuItem
+                  disabled={detail.coordinates === undefined}
                   onSelect={() => {
-                    setFeaturing(true);
+                    setMapOpen(true);
                   }}
                 >
-                  <UserPlusIcon className="h-4 w-4" />
-                  Destacar a un contacto
+                  <MapPinIcon className="h-4 w-4" />
+                  {detail.coordinates === undefined ? 'Sin ubicación en el mapa' : 'Ver en el mapa'}
                 </DropdownMenuItem>
-              )}
-              {permissions.export && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Exportar</DropdownMenuLabel>
-                  <DropdownMenuItem
-                    disabled={documents.pending}
-                    onSelect={() => {
-                      documents.request('sheet');
-                    }}
-                  >
-                    <FileDownIcon className="h-4 w-4" />
-                    Ficha en PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={documents.pending}
-                    onSelect={() => {
-                      documents.request('showcase');
-                    }}
-                  >
-                    <FileDownIcon className="h-4 w-4" />
-                    PDF de vidriera
-                  </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/propiedades/${detail.id}?tab=estadisticas` as Route}>
+                    <BarChart3Icon className="h-4 w-4" />
+                    Estadísticas
+                  </Link>
+                </DropdownMenuItem>
+                {permissions.edit && (
                   <DropdownMenuItem
                     onSelect={() => {
-                      setReportOpen(true);
+                      setTagging(true);
                     }}
                   >
-                    <FileTextIcon className="h-4 w-4" />
-                    Reporte al propietario
+                    <TagsIcon className="h-4 w-4" />
+                    Gestionar etiquetas
                   </DropdownMenuItem>
+                )}
+                {permissions.featureToClient && (
                   <DropdownMenuItem
                     onSelect={() => {
-                      setDocumentsOpen(true);
+                      setFeaturing(true);
                     }}
                   >
-                    PDF pedidos
+                    <UserPlusIcon className="h-4 w-4" />
+                    Destacar a un contacto
                   </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                )}
+                {permissions.export && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Exportar</DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setSheetOpen(true);
+                      }}
+                    >
+                      <FileDownIcon className="h-4 w-4" />
+                      Ficha en PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setShowcaseOpen(true);
+                      }}
+                    >
+                      <FileDownIcon className="h-4 w-4" />
+                      PDF de vidriera
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setReportOpen(true);
+                      }}
+                    >
+                      <FileTextIcon className="h-4 w-4" />
+                      Reporte al propietario
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      {/* Un archivo para descargar, no una página: un link común, no `Link`. */}
+                      <a href={`/propiedades/${detail.id}/planilla-tasacion`} download>
+                        <ClipboardListIcon className="h-4 w-4" />
+                        Planilla de tasación
+                      </a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setDocumentsOpen(true);
+                      }}
+                    >
+                      <FilesIcon className="h-4 w-4" />
+                      PDF pedidos
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <TagList tags={detail.tags} onDark className="sm:justify-end" />
         </div>
       </div>
+
+      {tagging && (
+        <TagsDialog
+          subject={detail.code}
+          tags={detail.tags}
+          loadPage={loadTagOptions}
+          save={(tagIds) => changePropertyTagsAction({ propertyId: detail.id, tagIds })}
+          open={tagging}
+          onOpenChange={setTagging}
+        />
+      )}
 
       {reserving && (
         <ReservationDialog
@@ -406,7 +460,7 @@ export function PropertyDetailHeader({
       <Dialog open={mapOpen} onOpenChange={setMapOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Ubicación</DialogTitle>
+            <DialogTitle icon={MapPinIcon}>Ubicación</DialogTitle>
             <DialogDescription>{detail.publishAddress}</DialogDescription>
           </DialogHeader>
           {detail.coordinates !== undefined && (
@@ -421,9 +475,35 @@ export function PropertyDetailHeader({
         propertyId={detail.id}
         open={documentsOpen}
         onOpenChange={setDocumentsOpen}
+        onSheet={() => {
+          setSheetOpen(true);
+        }}
+        onShowcase={() => {
+          setShowcaseOpen(true);
+        }}
+        onOwnerReport={() => {
+          setReportOpen(true);
+        }}
+      />
+      <SheetDocumentDialog
+        propertyId={detail.id}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onRequested={() => {
+          setDocumentsOpen(true);
+        }}
+      />
+      <ShowcaseDocumentDialog
+        propertyId={detail.id}
+        open={showcaseOpen}
+        onOpenChange={setShowcaseOpen}
+        onRequested={() => {
+          setDocumentsOpen(true);
+        }}
       />
       <OwnerReportDialog
         propertyId={detail.id}
+        listedAt={detail.createdAt}
         open={reportOpen}
         onOpenChange={setReportOpen}
         onRequested={() => {

@@ -36,5 +36,7 @@ export function LocationMapCanvas({
     };
   }, [latitude, longitude]);
 
-  return <div ref={container} className="h-[50vh] min-h-[300px] w-full rounded-lg" />;
+  // `relative z-0` encierra los z-index de Leaflet (los controles usan 1000): sin eso, el zoom
+  // queda encima de los diálogos que se abren sobre la ficha y les tapa los botones.
+  return <div ref={container} className="relative z-0 h-[50vh] min-h-[300px] w-full rounded-lg" />;
 }

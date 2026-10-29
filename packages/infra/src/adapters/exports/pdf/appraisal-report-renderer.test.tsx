@@ -78,7 +78,7 @@ function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalRepo
       comparablesAverages: [{ currency: 'USD', pricePerM2Cents: 181_538n, count: 1 }],
     },
     photos: stream([]),
-    company: { name: 'Norde Propiedades', logo: undefined },
+    company: { name: 'Norde Propiedades', logo: undefined, brandColor: '#c9302b' },
     appraiser: {
       name: 'Juan Gómez',
       address: undefined,
@@ -128,7 +128,7 @@ describe('ReactPdfAppraisalReportRenderer', { timeout: 30_000 }, () => {
     const bytes = await renderer.render(
       content({
         photos: stream([webp, new Uint8Array([1, 2, 3])]),
-        company: { name: 'Norde Propiedades', logo },
+        company: { name: 'Norde Propiedades', logo, brandColor: '#c9302b' },
       }),
     );
     const doc = await PDFDocument.load(bytes);

@@ -29,7 +29,12 @@ export interface AppraisalSheetContent {
     readonly room: readonly AppraisalSheetFeature[];
     readonly amenity: readonly AppraisalSheetFeature[];
   };
-  readonly company: { readonly name: string; readonly logo: Uint8Array | undefined };
+  readonly company: {
+    readonly name: string;
+    readonly logo: Uint8Array | undefined;
+    /** El color de marca de Mi empresa (`#rrggbb`): títulos, badges e íconos. */
+    readonly brandColor: string;
+  };
   readonly generatedAt: Date;
 }
 

@@ -27,7 +27,7 @@ function content(overrides: Partial<AppraisalSheetContent> = {}): AppraisalSheet
       room: items(['Balcón', 'Cocina', 'Lavadero', 'Living comedor', 'Patio', 'Terraza']),
       amenity: items(['Ascensor', 'Parrilla', 'Pileta', 'Quincho', 'SUM', 'Seguridad']),
     },
-    company: { name: 'Norde Propiedades', logo: undefined },
+    company: { name: 'Norde Propiedades', logo: undefined, brandColor: '#c9302b' },
     generatedAt: new Date('2026-10-29T12:00:00Z'),
     ...overrides,
   };

@@ -102,7 +102,11 @@ export class DownloadAppraisalReport {
         })),
       }),
       photos: this.photoBytes(photos.map((photo) => photo.storageKey)),
-      company: { name: settings.name, logo: logo?.bytes },
+      company: {
+        name: settings.name,
+        logo: logo?.bytes,
+        brandColor: settings.pdfOptions.brandColor,
+      },
       appraiser,
       branch,
       generatedAt: this.deps.clock.now(),

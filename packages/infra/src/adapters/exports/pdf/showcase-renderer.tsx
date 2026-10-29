@@ -183,9 +183,10 @@ async function fitted(
   description: readonly string[],
   maxSize: number,
   build: (fit: DescriptionFit) => ReactElement<DocumentProps>,
+  brandColor: string,
 ): Promise<Uint8Array> {
   const attempt = async (fit: DescriptionFit) => {
-    const pdf = await renderPdf(build(fit));
+    const pdf = await renderPdf(build(fit), { brandColor });
     return { pdf, fits: pageCount(pdf) <= 1 };
   };
   const full = await attempt({ size: maxSize, paragraphs: description });
@@ -654,6 +655,8 @@ export class ReactPdfShowcaseRenderer implements ShowcaseRenderer {
       paragraphs(content.property.description),
       content.options.descriptionSize * POINTS_PER_TOKKO_SIZE,
       (fit) => sheet(prepared, fit),
+      // La vidriera usa su color principal (el de Mi empresa, si no se eligió otro).
+      content.options.primaryColor,
     );
   }
 }

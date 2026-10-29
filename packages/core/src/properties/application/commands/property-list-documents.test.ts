@@ -327,11 +327,16 @@ describe('GetPropertyListDocumentDownload', () => {
 });
 
 describe('GetPdfExportOptions', () => {
-  it('tells the dialog whether to ask for the agent details', async () => {
-    expect(unwrap(await setup(3, { agentInfo: 'ask' }).options.execute({}, EXPORTER))).toEqual({
-      askAgent: true,
+  it('tells the dialog whether to ask for the agent details, and the brand color', async () => {
+    expect(
+      unwrap(
+        await setup(3, { agentInfo: 'ask', brandColor: '#1f4e79' }).options.execute({}, EXPORTER),
+      ),
+    ).toEqual({ askAgent: true, brandColor: '#1f4e79' });
+    expect(unwrap(await setup().options.execute({}, EXPORTER))).toEqual({
+      askAgent: false,
+      brandColor: '#c9302b',
     });
-    expect(unwrap(await setup().options.execute({}, EXPORTER))).toEqual({ askAgent: false });
     expect(
       unwrapErr(await setup().options.execute({}, Actor.user(PRODUCER_ID, ['properties:read']))),
     ).toEqual({ type: 'Forbidden' });

@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { paragraphs } from './format';
 import { PdfIcon, type PdfIconName } from './icons';
+import { brandColor } from './brand';
 import { PDF_COLORS, PDF_FONT, PDF_TYPE } from './theme';
 
 // Las piezas comunes de los PDF (#175): la hoja con cabecera y pie que se repiten en cada página,
@@ -165,11 +166,12 @@ export function PdfPage({
   readonly footerNote?: string;
   readonly children: ReactNode;
 }): ReactElement {
+  const brand = brandColor();
   return (
     <Page size="A4" orientation={orientation} style={styles.page}>
       <View style={styles.header} fixed>
         {branding.logo === undefined ? (
-          <Text style={styles.companyName}>{branding.companyName}</Text>
+          <Text style={[styles.companyName, { color: brand }]}>{branding.companyName}</Text>
         ) : (
           // Como data URI, el PDF lo guarda una sola vez aunque se repita en cada hoja.
           <Image
@@ -207,9 +209,10 @@ export function PdfSection({
   readonly keepTogether?: boolean;
   readonly children: ReactNode;
 }): ReactElement {
+  const brand = brandColor();
   return (
     <View wrap={!keepTogether}>
-      <Text style={styles.sectionTitle} minPresenceAhead={36}>
+      <Text style={[styles.sectionTitle, { color: brand }]} minPresenceAhead={36}>
         {title.toUpperCase()}
       </Text>
       {children}
@@ -219,7 +222,8 @@ export function PdfSection({
 
 /** El título de sección solo, para armarlo junto con el comienzo de su contenido. */
 export function PdfSectionTitle({ title }: { readonly title: string }): ReactElement {
-  return <Text style={styles.sectionTitle}>{title.toUpperCase()}</Text>;
+  const brand = brandColor();
+  return <Text style={[styles.sectionTitle, { color: brand }]}>{title.toUpperCase()}</Text>;
 }
 
 export interface PdfField {
@@ -276,9 +280,10 @@ export function PdfPriceTag({
   readonly operation: string;
   readonly amount: string;
 }): ReactElement {
+  const brand = brandColor();
   return (
     <View style={styles.priceTag}>
-      <Text style={styles.operation}>{operation.toUpperCase()}</Text>
+      <Text style={[styles.operation, { backgroundColor: brand }]}>{operation.toUpperCase()}</Text>
       <Text style={styles.amount}>{amount}</Text>
     </View>
   );
@@ -327,12 +332,13 @@ export function PdfTextSection({
   readonly title: string;
   readonly text: string;
 }): ReactElement | null {
+  const brand = brandColor();
   const [first, ...rest] = paragraphs(text);
   if (first === undefined) return null;
   return (
     <View>
       <View wrap={false}>
-        <Text style={styles.sectionTitle}>{title.toUpperCase()}</Text>
+        <Text style={[styles.sectionTitle, { color: brand }]}>{title.toUpperCase()}</Text>
         <Text style={styles.paragraph}>{first}</Text>
       </View>
       {rest.map((paragraph, index) => (

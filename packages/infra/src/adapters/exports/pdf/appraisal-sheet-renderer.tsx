@@ -14,6 +14,7 @@ import { logoPng } from './images';
 import { PdfDocument, PdfPage, type PdfBranding } from './kit';
 import { kindLabel } from './property-text';
 import { renderPdf } from './render';
+import { brandColor } from './brand';
 import { PDF_COLORS, PDF_TYPE } from './theme';
 
 // La planilla de tasación (#175, etapa 4), como el "PDF de tasación" de Tokko: una hoja para
@@ -233,9 +234,10 @@ function Box({
   readonly children: ReactNode;
   readonly style?: Readonly<Record<string, string | number>>;
 }): ReactElement {
+  const brand = brandColor();
   return (
     <View style={style === undefined ? styles.box : [styles.box, style]} wrap={false}>
-      <Text style={styles.boxTitle}>{title.toUpperCase()}</Text>
+      <Text style={[styles.boxTitle, { color: brand }]}>{title.toUpperCase()}</Text>
       {children}
     </View>
   );
@@ -404,6 +406,7 @@ export class ReactPdfAppraisalSheetRenderer implements AppraisalSheetRenderer {
           </View>
         </PdfPage>
       </PdfDocument>,
+      { brandColor: content.company.brandColor },
     );
   }
 }

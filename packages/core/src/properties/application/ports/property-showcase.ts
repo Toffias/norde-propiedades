@@ -11,7 +11,12 @@ export interface ShowcaseContent {
   readonly prices: readonly PdfPrice[];
   /** Las fotos elegidas (o las primeras de la ficha), en orden: 1 o 3. */
   readonly photos: readonly Uint8Array[];
-  readonly company: { readonly name: string; readonly logo: Uint8Array | undefined };
+  readonly company: {
+    readonly name: string;
+    readonly logo: Uint8Array | undefined;
+    /** El color de marca de Mi empresa (`#rrggbb`): títulos, badges e íconos. */
+    readonly brandColor: string;
+  };
   /** La sucursal de la propiedad, si "Ficha y PDF" muestra el contacto de la empresa. */
   readonly contact: DocumentContact | undefined;
   /** El agente que lo pidió, si van sus datos. */

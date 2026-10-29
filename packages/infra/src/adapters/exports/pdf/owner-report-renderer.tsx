@@ -29,6 +29,7 @@ import {
   operationLabel,
 } from './property-text';
 import { renderPdf } from './render';
+import { brandColor } from './brand';
 import { PDF_COLORS, PDF_TYPE } from './theme';
 
 // El reporte al propietario (#175, etapa 3) con react-pdf, con las tarjetas del de Tokko mejoradas:
@@ -279,6 +280,7 @@ interface Prepared {
 }
 
 function PropertyCard({ prepared }: { readonly prepared: Prepared }): ReactElement {
+  const brand = brandColor();
   const { content, photo } = prepared;
   const { property } = content;
   return (
@@ -289,7 +291,7 @@ function PropertyCard({ prepared }: { readonly prepared: Prepared }): ReactEleme
         </View>
       )}
       <View style={styles.cardBody}>
-        <Text style={styles.eyebrow}>
+        <Text style={[styles.eyebrow, { color: brand }]}>
           {kindLabel(property.propertyType).toUpperCase()} · REF. {property.code}
         </Text>
         <Text style={styles.cardTitle}>{property.portalTitle}</Text>
@@ -394,14 +396,16 @@ function Tile({ value, label }: { readonly value: number; readonly label: string
   );
 }
 
+/** Las consultas van en el color de marca (`null`: lo pone el documento). */
 const SERIES = [
-  { key: 'inquiries', label: 'Consultas', color: PDF_COLORS.brand },
+  { key: 'inquiries', label: 'Consultas', color: null },
   { key: 'emailSends', label: 'Envíos por email', color: PDF_COLORS.ink },
   { key: 'whatsappSends', label: 'Envíos por WhatsApp', color: '#b8a58f' },
 ] as const;
 
 /** Barras por mes: consultas, envíos por email y por WhatsApp. Con un solo mes no aporta. */
 function MonthlyChart({ prepared }: { readonly prepared: Prepared }): ReactElement | null {
+  const brand = brandColor();
   const { monthly } = prepared.content.report;
   const max = Math.max(0, ...monthly.flatMap((row) => SERIES.map((series) => row[series.key])));
   if (monthly.length < 2 || max === 0) return null;
@@ -411,7 +415,7 @@ function MonthlyChart({ prepared }: { readonly prepared: Prepared }): ReactEleme
       <View style={styles.legend}>
         {SERIES.map((series) => (
           <View key={series.key} style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: series.color }]} />
+            <View style={[styles.legendSwatch, { backgroundColor: series.color ?? brand }]} />
             <Text style={styles.cellHint}>{series.label}</Text>
           </View>
         ))}
@@ -425,7 +429,7 @@ function MonthlyChart({ prepared }: { readonly prepared: Prepared }): ReactEleme
               return (
                 <View key={series.key}>
                   {value === 0 ? null : <Text style={styles.barValue}>{value.toString()}</Text>}
-                  <View style={[styles.bar, { height, backgroundColor: series.color }]} />
+                  <View style={[styles.bar, { height, backgroundColor: series.color ?? brand }]} />
                 </View>
               );
             })}
@@ -532,8 +536,9 @@ function PortalStatistics({ prepared }: { readonly prepared: Prepared }): ReactE
 }
 
 function LinkOut({ href, children }: { readonly href: string; readonly children: ReactNode }) {
+  const brand = brandColor();
   return (
-    <Link src={href} style={styles.link}>
+    <Link src={href} style={[styles.link, { color: brand }]}>
       {children}
     </Link>
   );
@@ -599,13 +604,14 @@ function contactLines(contact: DocumentContact): string[] {
 
 /** "Tu productor" y la empresa, como cierre. */
 function Footer({ prepared }: { readonly prepared: Prepared }): ReactElement | null {
+  const brand = brandColor();
   const { producer, contact, company } = prepared.content;
   if (producer === undefined && contact === undefined && prepared.logo === undefined) return null;
   return (
     <View style={styles.footer} wrap={false}>
       {producer === undefined ? null : (
         <View style={styles.producer}>
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: brand }]}>
             <Text style={styles.avatarText}>{initials(producer.name)}</Text>
           </View>
           <View style={{ flex: 1, gap: 1 }}>
@@ -676,6 +682,7 @@ export class ReactPdfOwnerReportRenderer implements OwnerReportRenderer {
           <Footer prepared={prepared} />
         </PdfPage>
       </PdfDocument>,
+      { brandColor: content.company.brandColor },
     );
   }
 }

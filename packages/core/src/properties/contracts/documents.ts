@@ -126,6 +126,8 @@ export type DocumentIdInput = z.input<typeof DocumentIdInputSchema>;
 export interface PdfExportOptions {
   /** Mi empresa pide preguntar si van los datos del agente. */
   readonly askAgent: boolean;
+  /** El color de marca de Mi empresa: el que propone la vidriera. */
+  readonly brandColor: string;
 }
 
 export const SendOwnerReportInputSchema = z.object({

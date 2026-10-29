@@ -135,7 +135,11 @@ describe('DownloadAppraisalReport', () => {
       currency: 'USD',
     });
     expect(content?.photos).toEqual([new Uint8Array([1])]);
-    expect(content?.company).toEqual({ name: 'Norde Propiedades', logo: new Uint8Array([9]) });
+    expect(content?.company).toEqual({
+      name: 'Norde Propiedades',
+      logo: new Uint8Array([9]),
+      brandColor: '#c9302b',
+    });
     expect(content?.generatedAt).toEqual(TEST_NOW);
     expect(content?.appraiser).toEqual(APPRAISER_CONTACT);
     expect(content?.branch).toEqual(MAIN_BRANCH);

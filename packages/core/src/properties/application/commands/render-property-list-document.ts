@@ -86,7 +86,15 @@ export class RenderPropertyListDocument {
       companyContact(this.deps.contacts, undefined, company.pdfOptions),
       document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
     ]);
-    return { company: { name: company.name, logo: logo?.bytes, contact }, agent };
+    return {
+      company: {
+        name: company.name,
+        logo: logo?.bytes,
+        brandColor: company.pdfOptions.brandColor,
+        contact,
+      },
+      agent,
+    };
   }
 
   private async *sheets(

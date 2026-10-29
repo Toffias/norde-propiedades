@@ -42,7 +42,12 @@ async function render(
   const bytes = await new ReactPdfPropertySheetRenderer().render({
     layout,
     title: 'Propiedades seleccionadas',
-    company: { name: 'Norde Propiedades', logo: undefined, contact: undefined },
+    company: {
+      name: 'Norde Propiedades',
+      logo: undefined,
+      brandColor: '#c9302b',
+      contact: undefined,
+    },
     agent: undefined,
     generatedAt: new Date('2026-10-29T12:00:00Z'),
     sheets: (async function* () {
@@ -107,6 +112,7 @@ describe('ReactPdfPropertySheetRenderer', { timeout: 30_000 }, () => {
         company: {
           name: 'Norde Propiedades',
           logo: await image('webp', 600, 200),
+          brandColor: '#1f4e79',
           contact: {
             name: 'Casa central',
             address: 'Av. Siempreviva 742',

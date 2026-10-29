@@ -24,6 +24,8 @@ export interface PropertySheetsContent {
   readonly company: {
     readonly name: string;
     readonly logo: Uint8Array | undefined;
+    /** El color de marca de Mi empresa (`#rrggbb`): títulos, badges e íconos. */
+    readonly brandColor: string;
     /** La sucursal en la cabecera y el pie, si "Ficha y PDF" muestra los datos de la empresa. */
     readonly contact: DocumentContact | undefined;
   };

@@ -24,7 +24,7 @@ async function content(overrides: Partial<OwnerReportContent> = {}): Promise<Own
     address: 'Gurruchaga 1834 · Palermo, CABA',
     prices: [{ operation: 'sale', currency: 'USD', priceCents: 12_000_000n }],
     photo: await photo(),
-    company: { name: 'Norde Propiedades', logo: undefined },
+    company: { name: 'Norde Propiedades', logo: undefined, brandColor: '#c9302b' },
     contact: {
       name: 'Casa central',
       address: 'Gurruchaga 1834',

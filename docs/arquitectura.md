@@ -307,6 +307,7 @@ export class RegisterContact {
 - Los **eventos de dominio** se guardan en la tabla `outbox` **en la misma transacción**. Un relay en `apps/gestion` los publica en **pg-boss**, y los handlers (casos de uso) reaccionan (ADR 0021). Así no se pierde un evento si el proceso se cae.
 - Los **jobs programados** (IPC diario, alertas, sincronización con portales) son casos de uso disparados por pg-boss en `apps/gestion`.
 - Los handlers son **idempotentes**: un evento puede procesarse dos veces sin romper nada.
+- Las **altas desde el panel** también: el formulario manda una clave de idempotencia y el command corre con `runIdempotent` dentro de su transacción. Un doble clic o un reintento devuelve el alta ya guardada (ADR 0050).
 
 ### 6.6 Autorización y auditoría
 

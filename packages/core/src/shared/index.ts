@@ -31,6 +31,13 @@ export {
   type ErasedClientsInput,
 } from './application/erased-clients';
 export { MergedClientInputSchema, type MergedClientInput } from './application/merged-clients';
+export {
+  idempotencyScope,
+  runIdempotent,
+  type IdempotencyClaim,
+  type IdempotencyKeys,
+  type IdempotencyScope,
+} from './application/idempotency';
 export { nextId } from './application/next-id';
 export {
   toOffsetLimit,

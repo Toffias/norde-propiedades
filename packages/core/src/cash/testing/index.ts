@@ -1,7 +1,7 @@
 // Fakes del módulo cash para tests (`@norde/core/cash/testing`).
 
 import { Actor, parseId, type PageSlice } from '../../shared';
-import { InMemoryAuditLog } from '../../shared/testing';
+import { InMemoryAuditLog, InMemoryIdempotencyKeys } from '../../shared/testing';
 import type {
   CashMovementListItem,
   CashQuery,
@@ -174,6 +174,7 @@ export class InMemoryCashUnitOfWork implements CashUnitOfWork, CashTransaction {
   readonly closings = new InMemoryCashClosingRepository();
   readonly ledger = new InMemoryCashLedger(this.movements);
   readonly audit = new InMemoryAuditLog();
+  readonly idempotency = new InMemoryIdempotencyKeys();
 
   async run<T>(work: (context: CashTransaction) => Promise<T>): Promise<T> {
     const movements = new Map(this.movements.rows);
@@ -181,6 +182,7 @@ export class InMemoryCashUnitOfWork implements CashUnitOfWork, CashTransaction {
       [...this.closings.rows].map(([key, c]) => [key, CashClosing.restore(c.toSnapshot())]),
     );
     const audited = this.audit.entries.length;
+    const keys = new Map(this.idempotency.rows);
     const result = await work(this);
     if (typeof result === 'object' && result !== null && 'ok' in result && result.ok === false) {
       this.movements.rows.clear();
@@ -188,6 +190,8 @@ export class InMemoryCashUnitOfWork implements CashUnitOfWork, CashTransaction {
       this.closings.rows.clear();
       for (const [key, row] of closings) this.closings.rows.set(key, row);
       this.audit.entries.splice(audited);
+      this.idempotency.rows.clear();
+      for (const [key, row] of keys) this.idempotency.rows.set(key, row);
     }
     return result;
   }

@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 import { AmountSchema } from './amount';
 import { PercentageSchema, type PanelUserRef } from './detail';
@@ -70,6 +70,8 @@ export const ReservePropertyInputSchema = withCurrencies(
     opportunityId: z.uuid().optional(),
     operation: z.enum(OPERATIONS),
     ...reservationTerms,
+    /** Clave de idempotencia del formulario (ADR 0050). */
+    idempotencyKey: idempotencyKeySchema.optional(),
   }),
 );
 export type ReservePropertyInput = z.input<typeof ReservePropertyInputSchema>;

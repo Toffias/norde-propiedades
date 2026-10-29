@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   err,
   nextId,
@@ -9,6 +11,8 @@ import {
   type InvalidEmailError,
   type InvalidPhoneError,
   type Result,
+  idempotencyScope,
+  runIdempotent,
 } from '../../../shared';
 import {
   CreateClientInputSchema,
@@ -29,6 +33,9 @@ import {
 } from '../client-support';
 import type { ClientAgents } from '../ports/client-agents';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
+
+/** Lo que devuelve un reintento con la misma clave (ADR 0050). */
+const ResultSchema = z.object({ clientId: z.string() });
 
 export type CreateClientError =
   | ForbiddenError
@@ -78,21 +85,28 @@ export class CreateClient {
     if (agent.isErr()) return err(agent.error);
 
     const now = this.deps.clock.now();
-    return this.deps.uow.run(async (tx): Promise<Result<CreateClientOutput, CreateClientError>> => {
-      const created = await createClientIn(tx, actor, {
-        id: nextId<'Client'>(this.deps.ids),
-        kind: data.kind,
-        name: data.name,
-        phones: phones.value,
-        emails: emails.value,
-        clientTypes: data.clientTypes,
-        agentId: agent.value.agentId,
-        branchId: agent.value.branchId,
-        profile: toProfile(data.profile),
-        now,
-      });
-      if (created.isErr()) return err(created.error);
-      return ok({ clientId: created.value.id });
-    });
+    return this.deps.uow.run((tx) =>
+      runIdempotent(
+        tx.idempotency,
+        idempotencyScope(actor.id, 'CreateClient', data.idempotencyKey),
+        ResultSchema,
+        async (): Promise<Result<CreateClientOutput, CreateClientError>> => {
+          const created = await createClientIn(tx, actor, {
+            id: nextId<'Client'>(this.deps.ids),
+            kind: data.kind,
+            name: data.name,
+            phones: phones.value,
+            emails: emails.value,
+            clientTypes: data.clientTypes,
+            agentId: agent.value.agentId,
+            branchId: agent.value.branchId,
+            profile: toProfile(data.profile),
+            now,
+          });
+          if (created.isErr()) return err(created.error);
+          return ok({ clientId: created.value.id });
+        },
+      ),
+    );
   }
 }

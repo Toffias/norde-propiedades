@@ -1,7 +1,11 @@
 // Fakes del módulo appraisals para tests (`@norde/core/appraisals/testing`).
 
 import { parseId, Actor } from '../../shared';
-import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
+import {
+  InMemoryAuditLog,
+  InMemoryEventPublisher,
+  InMemoryIdempotencyKeys,
+} from '../../shared/testing';
 import type { AppraisalDetailItem, AppraisalQuery } from '../application/ports/appraisal-query';
 import type {
   AppraisalCodeSequence,
@@ -198,6 +202,7 @@ export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, Appra
   readonly codes = new InMemoryAppraisalCodeSequence();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
+  readonly idempotency = new InMemoryIdempotencyKeys();
 
   async run<T>(work: (tx: AppraisalsTransaction) => Promise<T>): Promise<T> {
     const backup = {
@@ -205,6 +210,7 @@ export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, Appra
       photos: new Map(this.photos.rows),
       events: this.events.published.length,
       audit: this.audit.entries.length,
+      idempotency: new Map(this.idempotency.rows),
     };
     const rollback = () => {
       this.appraisals.rows.clear();
@@ -213,6 +219,8 @@ export class InMemoryAppraisalsUnitOfWork implements AppraisalsUnitOfWork, Appra
       for (const [k, v] of backup.photos) this.photos.rows.set(k, v);
       this.events.published.splice(backup.events);
       this.audit.entries.splice(backup.audit);
+      this.idempotency.rows.clear();
+      for (const [k, v] of backup.idempotency) this.idempotency.rows.set(k, v);
     };
     try {
       const result = await work(this);

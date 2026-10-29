@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { bulkSelectionSchema, pageQuerySchema } from '../../shared/contracts';
+import { bulkSelectionSchema, idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 import type { PropertyCover } from './media';
 
@@ -69,6 +69,8 @@ export const CreatePropertyInputSchema = z
     ...CoordinateFields,
     /** Cliente de contactos, buscado en el selector. Privado. Se suman más desde la ficha. */
     ownerClientId: z.uuid().optional(),
+    /** Clave de idempotencia del formulario (ADR 0050). */
+    idempotencyKey: idempotencyKeySchema.optional(),
   })
   .refine((input) => (input.latitude === undefined) === (input.longitude === undefined), {
     message: 'Completá la latitud y la longitud, o ninguna de las dos.',

@@ -1,4 +1,4 @@
-import type { AuditLog, EventPublisher, UnitOfWork } from '../../../shared';
+import type { AuditLog, IdempotencyKeys, EventPublisher, UnitOfWork } from '../../../shared';
 import type {
   CustomAttributeRepository,
   FeatureRepository,
@@ -42,6 +42,8 @@ export interface PropertiesTransaction {
   readonly owners: PropertyOwnerLinks;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
+  /** Claves de idempotencia de las altas (ADR 0050). */
+  readonly idempotency: IdempotencyKeys;
 }
 
 export type PropertiesUnitOfWork = UnitOfWork<PropertiesTransaction>;

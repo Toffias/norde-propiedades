@@ -154,3 +154,35 @@ describe('CreateClient', () => {
     expect(unwrapErr(await useCase.execute(input, TEST_OUTSIDER))).toEqual({ type: 'Forbidden' });
   });
 });
+
+describe('CreateClient with an idempotency key', () => {
+  const idempotencyKey = '0190a5b8-0000-7000-8000-00000000aa01';
+
+  it('a retry with the same key returns the same contact without creating another', async () => {
+    const { uow, useCase } = setup();
+
+    const first = unwrap(await useCase.execute({ ...input, idempotencyKey }, TEST_AGENT));
+    const retry = unwrap(await useCase.execute({ ...input, idempotencyKey }, TEST_AGENT));
+
+    expect(retry).toEqual(first);
+    expect(uow.clients.rows.size).toBe(1);
+    expect(uow.audit.entries).toHaveLength(1);
+    expect(uow.events.published).toHaveLength(1);
+  });
+
+  it('an attempt rolled back by an expected error does not burn the key', async () => {
+    const { uow, useCase } = setup();
+    await seedClient(uow, { phones: ['+541166899124'] });
+
+    const error = unwrapErr(await useCase.execute({ ...input, idempotencyKey }, TEST_AGENT));
+    const { clientId } = unwrap(
+      await useCase.execute(
+        { ...input, phones: [{ kind: 'mobile', number: '11 5555-0000' }], idempotencyKey },
+        TEST_AGENT,
+      ),
+    );
+
+    expect(error.type).toBe('DuplicateClient');
+    expect(uow.clients.rows.has(clientId)).toBe(true);
+  });
+});

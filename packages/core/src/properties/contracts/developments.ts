@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 import { historyQuerySchema } from '../../audit/contracts';
-import { pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 import { AmountSchema } from './amount';
 import type { PropertyCover } from './media';
@@ -70,6 +70,8 @@ export const CreateDevelopmentInputSchema = z
     /** Ubicación del catálogo: las unidades la heredan. */
     locationId: z.uuid(),
     ...CoordinateFields,
+    /** Clave de idempotencia del formulario (ADR 0050). */
+    idempotencyKey: idempotencyKeySchema.optional(),
   })
   .refine(bothOrNoneCoordinates.check, bothOrNoneCoordinates.params);
 export type CreateDevelopmentInput = z.input<typeof CreateDevelopmentInputSchema>;

@@ -180,3 +180,20 @@ export const importMappings = coreSchema.table(
     index('import_mappings_internal_idx').on(t.entityType, t.internalId),
   ],
 );
+
+/**
+ * Claves de idempotencia de las altas (ADR 0050): un reintento con la misma clave devuelve lo que
+ * guardó el primero. Se escribe en la transacción del command; si el command falla, el rollback
+ * la libera. `result` guarda solo IDs y valores simples, nunca datos personales.
+ */
+export const idempotencyKeys = coreSchema.table(
+  'idempotency_keys',
+  {
+    actorId: text('actor_id').notNull(),
+    command: text('command').notNull(),
+    key: uuid('key').notNull(),
+    result: jsonb('result'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [uniqueIndex('idempotency_keys_scope_uq').on(t.actorId, t.command, t.key)],
+);

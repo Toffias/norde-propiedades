@@ -51,7 +51,9 @@ function text(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('latin1');
 }
 
-describe('ReactPdfShowcaseRenderer', () => {
+// Armar PDF de verdad (fuentes, fotos con sharp, varias pasadas de react-pdf) con el CI cargado
+// pasa los 5 s por defecto, sobre todo el primero, que además carga react-pdf.
+describe('ReactPdfShowcaseRenderer', { timeout: 30_000 }, () => {
   it.each([
     ['portrait', 595, 842],
     ['landscape', 842, 595],
@@ -73,8 +75,6 @@ describe('ReactPdfShowcaseRenderer', () => {
       });
       expect(pdf.getPageCount()).toBe(1);
     },
-    // Achicar la letra y recortar arma la hoja varias veces: con el CI cargado tarda más de 5 s.
-    30_000,
   );
 
   it('prints with one photo, none, light brand colors and no QR, band or contact', async () => {

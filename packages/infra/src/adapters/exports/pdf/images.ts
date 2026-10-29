@@ -1,6 +1,49 @@
 import sharp from 'sharp';
 
-// Las imágenes que no son fotos de la propiedad, listas para el PDF.
+// Las fotos y el logo, listos para el PDF: en JPEG o PNG (react-pdf no lee WebP ni HEIC) y del
+// tamaño en que se imprimen, para que el PDF no cargue originales enormes.
+
+const PX_PER_POINT = 2.4;
+const MAX_SIDE = 1600;
+
+function toBuffer(bytes: Uint8Array): Buffer {
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+}
+
+/**
+ * La foto enderezada según el EXIF, en JPEG. Con `cover`, recortada al centro de interés para
+ * llenar ese recuadro (en puntos); si no, achicada entera. `undefined` si sharp no puede leerla
+ * (WebP, HEIC y PNG se convierten; un archivo que no es una imagen se omite).
+ */
+export async function photoJpeg(
+  bytes: Uint8Array,
+  cover?: { readonly width: number; readonly height: number },
+): Promise<Uint8Array | undefined> {
+  try {
+    const image = sharp(toBuffer(bytes)).rotate();
+    const resized = cover
+      ? image.resize({
+          width: Math.min(MAX_SIDE, Math.round(cover.width * PX_PER_POINT)),
+          height: Math.min(MAX_SIDE, Math.round(cover.height * PX_PER_POINT)),
+          fit: 'cover',
+          position: sharp.strategy.attention,
+        })
+      : image.resize({
+          width: MAX_SIDE,
+          height: MAX_SIDE,
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+    const jpeg = await resized
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 80, mozjpeg: true })
+      .toBuffer();
+    return new Uint8Array(jpeg);
+  } catch {
+    // sharp lanza ante bytes que no son una imagen soportada: es un dato inválido, no un fallo.
+    return undefined;
+  }
+}
 
 /**
  * El logo de Mi empresa listo para la cabecera: en PNG (react-pdf no lee WebP), sin el margen

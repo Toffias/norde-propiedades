@@ -4,7 +4,7 @@ import { PDFDocument } from 'pdf-lib';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 
-import { PdfLibAppraisalReportRenderer } from './appraisal-report-renderer';
+import { ReactPdfAppraisalReportRenderer } from './appraisal-report-renderer';
 
 const appraisal: AppraisalDetail = {
   id: '00000000-0000-7000-8000-0000000000d1',
@@ -98,8 +98,10 @@ function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalRepo
   };
 }
 
-describe('PdfLibAppraisalReportRenderer', () => {
-  const renderer = new PdfLibAppraisalReportRenderer();
+// Armar PDF de verdad (fuentes, fotos con sharp, varias pasadas de react-pdf) con el CI cargado
+// pasa los 5 s por defecto, sobre todo el primero, que además carga react-pdf.
+describe('ReactPdfAppraisalReportRenderer', { timeout: 30_000 }, () => {
+  const renderer = new ReactPdfAppraisalReportRenderer();
 
   it('renders the result, the comparables and the photos as a valid PDF', async () => {
     const photos = await Promise.all([jpeg(), jpeg(600, 800), jpeg(4000, 3000)]);

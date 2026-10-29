@@ -4,6 +4,7 @@ import {
   BedDouble,
   Car,
   ChartColumn,
+  Check,
   DoorOpen,
   ExternalLink,
   Eye,
@@ -47,6 +48,7 @@ const ICONS = {
   interested: Users,
   chart: ChartColumn,
   link: ExternalLink,
+  check: Check,
 } as const satisfies Record<string, IconNode>;
 
 export type PdfIconName = keyof typeof ICONS;

@@ -10,11 +10,9 @@ import { Link, StyleSheet, Text, View } from '@react-pdf/renderer';
 import sharp from 'sharp';
 import type { ReactElement } from 'react';
 
-import { photoJpeg } from '../pdf-kit';
-
 import { formatAge, formatMeters, formatMoney, formatPhone, formatSquareMeters } from './format';
 import { PdfIcon } from './icons';
-import { logoPng } from './images';
+import { logoPng, photoJpeg } from './images';
 import {
   amount,
   contactLine,

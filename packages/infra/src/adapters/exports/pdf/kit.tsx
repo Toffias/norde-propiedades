@@ -217,6 +217,11 @@ export function PdfSection({
   );
 }
 
+/** El título de sección solo, para armarlo junto con el comienzo de su contenido. */
+export function PdfSectionTitle({ title }: { readonly title: string }): ReactElement {
+  return <Text style={styles.sectionTitle}>{title.toUpperCase()}</Text>;
+}
+
 export interface PdfField {
   readonly label: string;
   readonly value: string;

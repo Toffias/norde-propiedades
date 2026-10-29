@@ -9,6 +9,7 @@ import {
 import type {
   DevelopmentMapPin,
   DevelopmentRef,
+  FeatureRow,
   PanelPropertyCustomAttribute,
   PanelPropertyRow,
   PropertyExportFormat,
@@ -190,6 +191,12 @@ import type {
   StaticMaps,
 } from '../application/ports/property-sheets';
 import type { ShowcaseContent, ShowcaseRenderer } from '../application/ports/property-showcase';
+import type {
+  AppraisalSheetContent,
+  AppraisalSheetRenderer,
+  OwnerContact,
+  OwnerContacts,
+} from '../application/ports/appraisal-sheet';
 import type { OwnerReport } from '../../reporting';
 import {
   DEFAULT_PUBLICATION,
@@ -1116,6 +1123,10 @@ export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
   readonly calls: { readonly method: string; readonly criteria: unknown }[] = [];
   typeSettingRows: readonly PropertyTypeSetting[] = [];
   gridColumnRows: readonly GridColumn[] = [];
+  /** Lo que devuelve `listFeatures`, filtrado por tipo y paginado. */
+  featureRows: readonly FeatureRow[] = [];
+  /** Los pedidos a `listFeatures`, con su tipo. */
+  readonly featureRequests: Parameters<PropertyCatalogQuery['listFeatures']>[0][] = [];
 
   private empty<T>(method: string, criteria: unknown): Promise<PageSlice<T>> {
     this.calls.push({ method, criteria });
@@ -1127,7 +1138,13 @@ export class StubPropertyCatalogQuery implements PropertyCatalogQuery {
   }
 
   listFeatures(criteria: Parameters<PropertyCatalogQuery['listFeatures']>[0]) {
-    return this.empty<never>('listFeatures', criteria);
+    this.calls.push({ method: 'listFeatures', criteria });
+    this.featureRequests.push(criteria);
+    const rows = this.featureRows.filter((row) => row.kind === criteria.kind);
+    return Promise.resolve({
+      items: rows.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: rows.length,
+    });
   }
 
   listCustomAttributes(criteria: Parameters<PropertyCatalogQuery['listCustomAttributes']>[0]) {
@@ -1371,6 +1388,28 @@ export class FakeShowcaseRenderer implements ShowcaseRenderer {
     if (this.fail) return Promise.reject(new Error('react-pdf exploded'));
     this.rendered.push(content);
     return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  }
+}
+
+/** Registra lo que se le pidió imprimir y devuelve un PDF de mentira. */
+export class FakeAppraisalSheetRenderer implements AppraisalSheetRenderer {
+  readonly rendered: AppraisalSheetContent[] = [];
+
+  render(content: AppraisalSheetContent) {
+    this.rendered.push(content);
+    return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
+  }
+}
+
+/** Los propietarios cargados, por ID de cliente. */
+export class InMemoryOwnerContacts implements OwnerContacts {
+  readonly requested: string[] = [];
+
+  constructor(private readonly contacts: ReadonlyMap<string, OwnerContact> = new Map()) {}
+
+  find(clientId: string) {
+    this.requested.push(clientId);
+    return Promise.resolve(this.contacts.get(clientId));
   }
 }
 

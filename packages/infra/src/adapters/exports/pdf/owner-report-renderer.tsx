@@ -7,11 +7,9 @@ import type {
 import { Image, Link, StyleSheet, Text, View } from '@react-pdf/renderer';
 import type { ReactElement, ReactNode } from 'react';
 
-import { photoJpeg } from '../pdf-kit';
-
 import { formatPhone } from './format';
 import { PdfIcon, type PdfIconName } from './icons';
-import { logoPng } from './images';
+import { logoPng, photoJpeg } from './images';
 import {
   PdfDocument,
   PdfKeyFacts,

@@ -24,11 +24,18 @@ import {
   StubPropertyDetailLookups,
   TEST_NOW,
   TEST_OUTSIDER,
+  FakeAppraisalSheetRenderer,
+  InMemoryOwnerContacts,
+  StubPropertyCatalogQuery,
 } from '../../testing';
 import { Coordinates } from '../../domain/coordinates';
 import { MediaItem } from '../../domain/media-item';
 import { DEFAULT_SHOWCASE_OPTIONS } from '../../domain/showcase-options';
 import type { MediaOwner } from '../../domain/media-owner';
+import {
+  APPRAISAL_SHEET_FEATURES_PER_KIND,
+  DownloadPropertyAppraisalSheet,
+} from '../commands/download-property-appraisal-sheet';
 import { RenderPropertyDocument } from '../commands/render-property-document';
 import { RequestPropertyDocument } from '../commands/request-property-document';
 import { SendOwnerReport } from '../commands/send-owner-report';
@@ -914,5 +921,114 @@ describe('property documents', () => {
       READER,
     );
     expect(unwrapErr(result).type).toBe('InvalidInput');
+  });
+});
+
+describe('DownloadPropertyAppraisalSheet', () => {
+  const OWNER_ID = '00000000-0000-7000-8000-00000000c001';
+  const OWNER = {
+    name: 'Ana Pérez',
+    phone: '+541148001111',
+    mobile: '+5491166660000',
+    email: 'ana@example.com',
+  };
+
+  function sheet() {
+    const ctx = setup();
+    const row = ctx.uow.properties.rows.get(PROPERTY_ID);
+    // Tiene cargado un adicional del catálogo (pileta) y otro que no entra en la página.
+    if (row) ctx.uow.properties.rows.set(PROPERTY_ID, { ...row, featureIds: ['pool', 'late'] });
+    ctx.lookups.owners_ = [{ id: OWNER_ID, name: 'Ana Pérez' }];
+    const catalog = new StubPropertyCatalogQuery();
+    catalog.featureRows = [
+      {
+        id: 'water',
+        kind: 'service',
+        key: 'water',
+        name: 'Agua corriente',
+        position: 0,
+        isActive: true,
+      },
+      { id: 'pool', kind: 'amenity', key: 'pool', name: 'Pileta', position: 0, isActive: true },
+      { id: 'grill', kind: 'amenity', key: 'grill', name: 'Parrilla', position: 1, isActive: true },
+    ];
+    const owners = new InMemoryOwnerContacts(new Map([[OWNER_ID, OWNER]]));
+    const renderer = new FakeAppraisalSheetRenderer();
+    const download = new DownloadPropertyAppraisalSheet({
+      ...ctx,
+      catalog,
+      owners,
+      storage: new InMemoryFileStorage(),
+      settings: settingsReader(),
+      renderer,
+    });
+    return { ...ctx, catalog, owners, renderer, download };
+  }
+
+  it('prints the sheet with the catalog as checkboxes, ticking what the property has', async () => {
+    const { download, renderer, catalog, uow } = sheet();
+    const file = unwrap(
+      await download.execute(
+        { propertyId: PROPERTY_ID },
+        Actor.user(PRODUCER_ID, ['properties:read', 'properties:export', 'clients:read-owners']),
+      ),
+    );
+    expect(file).toMatchObject({
+      fileName: 'Planilla-tasacion-DEP0001.pdf',
+      contentType: 'application/pdf',
+    });
+    const content = renderer.rendered[0];
+    expect(content?.features).toEqual({
+      service: [{ name: 'Agua corriente', checked: false }],
+      room: [],
+      amenity: [
+        { name: 'Pileta', checked: true },
+        { name: 'Parrilla', checked: false },
+        // Cargado en la ficha pero fuera de la página del catálogo: igual sale, marcado.
+        { name: 'Ítem late', checked: true },
+      ],
+    });
+    expect(content).toMatchObject({
+      owners: [OWNER],
+      // La planilla es interna: la dirección completa.
+      address: 'Gurruchaga 1834 · Piso 3 Unidad B · Palermo, CABA',
+    });
+    // Solo las activas del catálogo, con un tope por grupo.
+    expect(catalog.featureRequests.find((request) => request.kind === 'amenity')).toMatchObject({
+      active: true,
+      limit: APPRAISAL_SHEET_FEATURES_PER_KIND,
+    });
+    expect(uow.audit.entries.at(-1)).toMatchObject({
+      action: 'property.exported',
+      entityId: PROPERTY_ID,
+      changes: { kind: { before: null, after: 'appraisal_sheet' } },
+    });
+  });
+
+  it('leaves the owners out without permission to see them', async () => {
+    const { download, renderer, owners } = sheet();
+    unwrap(await download.execute({ propertyId: PROPERTY_ID }, READER));
+    expect(renderer.rendered[0]?.owners).toEqual([]);
+    expect(owners.requested).toEqual([]);
+  });
+
+  it('needs to read and export properties, and a property that exists', async () => {
+    const { download } = sheet();
+    expect(
+      unwrapErr(
+        await download.execute(
+          { propertyId: PROPERTY_ID },
+          Actor.user(PRODUCER_ID, ['properties:read']),
+        ),
+      ),
+    ).toEqual({ type: 'Forbidden' });
+    expect(
+      unwrapErr(
+        await download.execute({ propertyId: '00000000-0000-7000-8000-0000000000ff' }, READER),
+      ),
+    ).toEqual({ type: 'PropertyNotFound' });
+    expect(unwrapErr(await download.execute({ propertyId: 'nope' }, READER)).type).toBe(
+      'InvalidInput',
+    );
   });
 });

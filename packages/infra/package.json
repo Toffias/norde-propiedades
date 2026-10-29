@@ -28,7 +28,6 @@
     "drizzle-orm": "catalog:",
     "exceljs": "catalog:",
     "lucide": "catalog:",
-    "pdf-lib": "catalog:",
     "qrcode": "catalog:",
     "pg": "catalog:",
     "pg-boss": "catalog:",
@@ -47,6 +46,7 @@
     "@types/react": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
+    "pdf-lib": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

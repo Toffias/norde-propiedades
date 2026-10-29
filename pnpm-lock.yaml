@@ -689,9 +689,6 @@ importers:
       lucide:
         specifier: 'catalog:'
         version: 1.47.0
-      pdf-lib:
-        specifier: 'catalog:'
-        version: 1.17.1
       pg:
         specifier: 'catalog:'
         version: 8.23.0
@@ -741,6 +738,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.11.0(jiti@2.7.0)
+      pdf-lib:
+        specifier: 'catalog:'
+        version: 1.17.1
       tsx:
         specifier: 'catalog:'
         version: 4.23.15

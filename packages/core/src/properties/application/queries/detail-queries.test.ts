@@ -8,7 +8,7 @@ import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../s
 import {
   BRANCH_ID,
   DEVELOPMENT_ID,
-  FakeDocumentRenderer,
+  FakeOwnerReportRenderer,
   FakeSheetRenderer,
   FakeShowcaseRenderer,
   FakeStaticMaps,
@@ -358,7 +358,7 @@ describe('property documents', () => {
   ) {
     const ctx = setup();
     const storage = new InMemoryFileStorage();
-    const renderer = new FakeDocumentRenderer();
+    const ownerReportRenderer = new FakeOwnerReportRenderer();
     const sheets = new FakeSheetRenderer();
     const showcases = new FakeShowcaseRenderer();
     const maps = new FakeStaticMaps();
@@ -383,7 +383,7 @@ describe('property documents', () => {
     return {
       ...ctx,
       storage,
-      renderer,
+      ownerReportRenderer,
       sheets,
       showcases,
       maps,
@@ -401,7 +401,7 @@ describe('property documents', () => {
         users: ctx.users,
         storage,
         settings,
-        renderer,
+        ownerReportRenderer,
         sheets,
         showcases,
         maps,
@@ -821,7 +821,7 @@ describe('property documents', () => {
   });
 
   it('renders the owner report of the period and emails it with the PDF attached', async () => {
-    const { request, render, renderer, send, mailer, uow } = documents();
+    const { request, render, ownerReportRenderer, ownerReports, send, mailer, uow } = documents();
     const { documentId } = unwrap(
       await request.execute(
         { propertyId: PROPERTY_ID, kind: 'owner_report', from: '2026-09-01', to: '2026-09-30' },
@@ -829,7 +829,24 @@ describe('property documents', () => {
       ),
     );
     unwrap(await render.execute({ documentId }, JOBS));
-    expect(renderer.rendered[0]?.ownerReport).toMatchObject({ emailSends: 2, inquiries: 4 });
+    // El alta de la propiedad va al reporte, para comparar "desde el alta".
+    expect(ownerReports.requested).toEqual([
+      {
+        from: '2026-09-01',
+        to: '2026-09-30',
+        listedAt: uow.properties.rows.get(PROPERTY_ID)?.createdAt,
+      },
+    ]);
+    const content = ownerReportRenderer.rendered[0];
+    expect(content?.report).toMatchObject({ emailSends: 2, inquiries: 4 });
+    expect(content).toMatchObject({
+      // Sin opciones, lleva todo.
+      options: { publications: true, statistics: true },
+      address: 'Gurruchaga 1834 · Piso 3 Unidad B · Palermo, CABA',
+      contact: BRANCH_CONTACT,
+      producer: { name: 'Camila Ruiz' },
+      webUrl: undefined,
+    });
 
     unwrap(await send.execute({ documentId, to: 'propietario@example.com' }, READER));
     expect(mailer.sent).toMatchObject([
@@ -843,6 +860,31 @@ describe('property documents', () => {
     expect(sent).toMatchObject({ action: 'property.owner_report_sent' });
     // El email del propietario no queda en el historial.
     expect(JSON.stringify(sent)).not.toContain('propietario@');
+  });
+
+  it('prints the owner report with the chosen sections and without what Mi empresa hides', async () => {
+    const { request, render, ownerReportRenderer } = documents(true, {
+      showCompanyContact: false,
+      agentInfo: 'hide',
+    });
+    const { documentId } = unwrap(
+      await request.execute(
+        {
+          propertyId: PROPERTY_ID,
+          kind: 'owner_report',
+          from: '2026-09-01',
+          to: '2026-09-30',
+          options: { publications: false },
+        },
+        READER,
+      ),
+    );
+    unwrap(await render.execute({ documentId }, JOBS));
+    expect(ownerReportRenderer.rendered[0]).toMatchObject({
+      options: { publications: false, statistics: true },
+      contact: undefined,
+      producer: undefined,
+    });
   });
 
   it('fails the owner report when the period has no report, and only sends owner reports', async () => {

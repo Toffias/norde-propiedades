@@ -166,9 +166,9 @@ import type { ImageVariantGenerator } from '../application/ports/image-variant-g
 import type { MediaQuery } from '../application/ports/media-query';
 import type {
   OwnerReports,
-  PropertyDocumentContent,
+  OwnerReportContent,
   PropertyDocumentQuery,
-  PropertyDocumentRenderer,
+  OwnerReportRenderer,
 } from '../application/ports/property-documents';
 import type { PropertyDetailLookups } from '../application/ports/property-detail-lookups';
 import {
@@ -1386,12 +1386,12 @@ export class FakeStaticMaps implements StaticMaps {
 }
 
 /** Registra lo que se le pidió imprimir y devuelve un PDF de mentira. */
-export class FakeDocumentRenderer implements PropertyDocumentRenderer {
-  readonly rendered: PropertyDocumentContent[] = [];
+export class FakeOwnerReportRenderer implements OwnerReportRenderer {
+  readonly rendered: OwnerReportContent[] = [];
   fail = false;
 
-  render(content: PropertyDocumentContent) {
-    if (this.fail) return Promise.reject(new Error('pdf-lib exploded'));
+  render(content: OwnerReportContent) {
+    if (this.fail) return Promise.reject(new Error('react-pdf exploded'));
     this.rendered.push(content);
     return Promise.resolve(new Uint8Array([0x25, 0x50, 0x44, 0x46]));
   }
@@ -1409,9 +1409,16 @@ export class StubOwnerReports implements OwnerReports {
     portalViews: 0,
     portalContacts: 0,
     monthly: [{ month: '2026-09', emailSends: 2, whatsappSends: 3, inquiries: 4 }],
+    windows: {
+      last15Days: { emailSends: 1, whatsappSends: 1, inquiries: 2 },
+      last30Days: { emailSends: 2, whatsappSends: 3, inquiries: 4 },
+      sinceCreation: { emailSends: 5, whatsappSends: 6, inquiries: 9, from: '2026-03-10' },
+    },
   };
+  readonly requested: Parameters<OwnerReports['build']>[1][] = [];
 
-  build() {
+  build(_propertyId: string, period: Parameters<OwnerReports['build']>[1]) {
+    this.requested.push(period);
     return Promise.resolve(this.report);
   }
 }

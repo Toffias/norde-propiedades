@@ -475,12 +475,14 @@ export {
 // ---------- Ficha: lectura, historial y documentos (#6) ----------
 
 export {
+  DEFAULT_OWNER_REPORT_OPTIONS,
   PROPERTY_DOCUMENT_KINDS,
   PROPERTY_DOCUMENT_STATUSES,
   PropertyDocument,
   pdfAddress,
   pdfPrices,
   type DocumentNotReadyError,
+  type OwnerReportOptions,
   type PdfAddressDisplay,
   type PdfPrice,
   type PropertyDocumentId,
@@ -495,9 +497,9 @@ export type { PropertyDocumentRepository } from './domain/property-document.repo
 export type { PropertyDetailLookups } from './application/ports/property-detail-lookups';
 export type {
   OwnerReports,
-  PropertyDocumentContent,
+  OwnerReportContent,
   PropertyDocumentQuery,
-  PropertyDocumentRenderer,
+  OwnerReportRenderer,
 } from './application/ports/property-documents';
 export {
   GetPanelPropertyDetail,

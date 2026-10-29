@@ -701,6 +701,8 @@ export const propertyDocuments = coreSchema.table(
     includeAgent: boolean('include_agent').notNull().default(true),
     /** Opciones de la vidriera (#175): orientación, colores, QR, banda, fotos y letra. */
     showcaseOptions: jsonb('showcase_options'),
+    /** Qué lleva el reporte al propietario (#175): publicaciones activas y estadísticas. */
+    ownerReportOptions: jsonb('owner_report_options'),
     storageKey: text('storage_key'),
     error: text('error'),
     requestedBy: text('requested_by').notNull(),

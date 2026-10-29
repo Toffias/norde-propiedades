@@ -77,6 +77,7 @@ export class RequestPropertyDocument {
           period: data.kind === 'owner_report' ? { from: data.from, to: data.to } : undefined,
           layout: data.kind === 'sheet' ? data.layout : undefined,
           showcase: data.kind === 'showcase' ? data.options : undefined,
+          ownerReport: data.kind === 'owner_report' ? data.options : undefined,
           includeAgent,
           requestedBy: actor.id,
           now,

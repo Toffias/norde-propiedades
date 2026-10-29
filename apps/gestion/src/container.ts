@@ -437,6 +437,7 @@ import {
   DrizzleCompanyFilesQuery,
   DrizzleCompanySettingsRepository,
   DrizzleDirectory,
+  DrizzleDocumentContacts,
   DrizzleNewsFeedQuery,
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
@@ -1435,6 +1436,7 @@ function createAppraisalsUseCases(
       storage,
       settings: new DrizzleCompanySettingsRepository(db, clock),
       renderer: new PdfLibAppraisalReportRenderer(),
+      contacts: new DrizzleDocumentContacts(db),
       clock,
     }),
   };
@@ -2025,6 +2027,7 @@ function createPropertyJobs(
       settings,
       renderer: new PdfLibPropertyDocumentRenderer(),
       ownerReports,
+      contacts: new DrizzleDocumentContacts(db),
       clock,
     }),
   };

@@ -110,15 +110,23 @@ export function hasSuggestedValue(result: Pick<AppraisalResult, 'sale' | 'rent'>
 }
 
 /**
- * Valor por metro cuadrado de un comparable, en centavos y redondeado. `undefined` sin superficie.
+ * Valor por metro cuadrado de un monto, en centavos y redondeado. `undefined` sin superficie.
  * Exacto: la superficie se pasa a centésimas de metro y la división se hace en `bigint`.
  */
-export function comparablePricePerM2Cents(comparable: AppraisalComparable): bigint | undefined {
-  const { surfaceM2 } = comparable;
+export function pricePerM2Cents(
+  priceCents: bigint,
+  surfaceM2: number | undefined,
+): bigint | undefined {
   if (surfaceM2 === undefined || surfaceM2 <= 0) return undefined;
   const surfaceCentiM2 = BigInt(Math.round(surfaceM2 * 100));
-  const scaled = comparable.priceCents * 100n;
+  if (surfaceCentiM2 === 0n) return undefined;
+  const scaled = priceCents * 100n;
   return (scaled + surfaceCentiM2 / 2n) / surfaceCentiM2;
+}
+
+/** Valor por metro cuadrado de un comparable, en centavos y redondeado. `undefined` sin superficie. */
+export function comparablePricePerM2Cents(comparable: AppraisalComparable): bigint | undefined {
+  return pricePerM2Cents(comparable.priceCents, comparable.surfaceM2);
 }
 
 function sameRange(a: AppraisalValueRange | undefined, b: AppraisalValueRange | undefined) {

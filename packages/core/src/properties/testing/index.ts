@@ -80,6 +80,7 @@ import type {
   ReferenceCodeUnavailableError,
 } from '../application/ports/reference-code-allocator';
 import type { Producers, UserNames } from '../application/ports/user-names';
+import type { DocumentContact, DocumentContacts } from '../application/ports/document-contacts';
 import type {
   CustomAttributeRepository,
   FeatureRepository,
@@ -1021,6 +1022,22 @@ export class InMemoryUserNames implements UserNames {
   }
 }
 
+/** Contactos de sucursales y usuarios para los PDF; sin sucursal, la casa central (`main`). */
+export class InMemoryDocumentContacts implements DocumentContacts {
+  constructor(
+    readonly branches: ReadonlyMap<string, DocumentContact> = new Map(),
+    readonly users: ReadonlyMap<string, DocumentContact> = new Map(),
+  ) {}
+
+  branch(branchId: string | undefined) {
+    return Promise.resolve(this.branches.get(branchId ?? 'main') ?? this.branches.get('main'));
+  }
+
+  user(userId: string) {
+    return Promise.resolve(this.users.get(userId));
+  }
+}
+
 /** Usuarios activos con su sucursal. */
 export class InMemoryProducers implements Producers {
   constructor(
@@ -1313,6 +1330,9 @@ export class StubOwnerReports implements OwnerReports {
     whatsappSends: 3,
     inquiries: 4,
     interested: 1,
+    portalViews: 0,
+    portalContacts: 0,
+    monthly: [{ month: '2026-09', emailSends: 2, whatsappSends: 3, inquiries: 4 }],
   };
 
   build() {

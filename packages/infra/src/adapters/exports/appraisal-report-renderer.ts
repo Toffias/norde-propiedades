@@ -1,276 +1,258 @@
 import type { AppraisalReportContent, AppraisalReportRenderer } from '@norde/core/appraisals';
-import type {
-  AppraisalComparableRow,
-  AppraisalDetail,
-  AppraisalValueRangeDto,
-} from '@norde/core/appraisals/contracts';
+import type { AppraisalValueRangeDto } from '@norde/core/appraisals/contracts';
 import { PROPERTY_KIND_LABELS, PROPERTY_KINDS } from '@norde/core/properties';
-import { PDFDocument, StandardFonts, type PDFImage } from 'pdf-lib';
-import sharp from 'sharp';
+import { PDFDocument } from 'pdf-lib';
 
 import {
+  BRAND,
   CONDITION_LABELS,
+  contactCard,
   CONTENT_WIDTH,
   Cursor,
   dateFormat,
-  embed,
+  drawChrome,
+  drawText,
+  embedFonts,
+  embedPhoto,
+  factsGrid,
+  INK,
+  fitSize,
+  moneyRange,
   MUTED,
-  money,
-  numberFormat,
   PAGE,
+  photoGrid,
   printable,
-  twoColumns,
+  roundedRect,
+  roundMoney,
+  squareMeters,
+  table,
+  textHeight,
+  type Fact,
 } from './pdf-kit';
 
 // El informe de la tasación con pdf-lib, en español: lo que se le entrega al propietario con la
-// marca de la empresa. Valores sugeridos, comparables, observaciones y fotos.
+// marca de la empresa. Valor sugerido (también por m²), la propiedad, comparables con su promedio,
+// observaciones, fotos, quién tasó y el alcance del informe.
 
-/** Lado mayor de las fotos en el PDF: alcanza para imprimir y el archivo no pesa de más. */
-const PHOTO_MAX_SIDE = 1400;
-const PHOTO_GAP = 12;
+const HERO = { width: CONTENT_WIDTH, height: 250 };
 
-/** Columnas de la tabla de comparables: dirección, precio, superficie y valor por m². */
-const COLUMNS = [
-  { title: 'Dirección', width: 215 },
-  { title: 'Precio', width: 110 },
-  { title: 'Superficie', width: 80 },
-  { title: 'Valor por m2', width: CONTENT_WIDTH - 215 - 110 - 80 },
-] as const;
+const DISCLAIMER =
+  'Este informe es una opinión de valor orientativa, elaborada a partir de la inspección del inmueble, sus características y propiedades comparables de la zona a la fecha de emisión. Los valores pueden variar según la evolución del mercado, la documentación y el estado del inmueble. No constituye una tasación judicial ni bancaria.';
+
+type Content = AppraisalReportContent;
 
 function kindLabel(kind: string): string {
   const known = PROPERTY_KINDS.find((candidate) => candidate === kind);
   return known === undefined ? kind : PROPERTY_KIND_LABELS[known];
 }
 
-/** "USD 110.000 a USD 120.000", o un solo monto si el mínimo y el máximo coinciden. */
+/** "USD 110.000 – 120.000", o un solo monto si el mínimo y el máximo coinciden. */
 function range(value: AppraisalValueRangeDto): string {
-  const min = money(value.currency, value.minCents);
-  return value.minCents === value.maxCents
-    ? min
-    : `${min} a ${money(value.currency, value.maxCents)}`;
+  return moneyRange(value.currency, value.minCents, value.maxCents);
 }
 
-/** "1 baño", "2 baños". */
-function count(value: number | undefined, one: string, many: string): string | undefined {
-  return value === undefined ? undefined : `${value.toString()} ${value === 1 ? one : many}`;
-}
-
-function characteristics(appraisal: AppraisalDetail): string[] {
-  return [
+function facts(content: Content): Fact[] {
+  const { appraisal } = content;
+  const list: (Fact | undefined)[] = [
+    { label: 'Tipo', value: kindLabel(appraisal.propertyType) },
     appraisal.surfaceTotalM2 === undefined
       ? undefined
-      : `${numberFormat.format(appraisal.surfaceTotalM2)} m2 totales`,
+      : { label: 'Sup. total', value: squareMeters(appraisal.surfaceTotalM2) },
     appraisal.surfaceCoveredM2 === undefined
       ? undefined
-      : `${numberFormat.format(appraisal.surfaceCoveredM2)} m2 cubiertos`,
-    count(appraisal.rooms, 'ambiente', 'ambientes'),
-    count(appraisal.bedrooms, 'dormitorio', 'dormitorios'),
-    count(appraisal.bathrooms, 'baño', 'baños'),
+      : { label: 'Sup. cubierta', value: squareMeters(appraisal.surfaceCoveredM2) },
+    appraisal.rooms === undefined
+      ? undefined
+      : { label: 'Ambientes', value: appraisal.rooms.toString() },
+    appraisal.bedrooms === undefined
+      ? undefined
+      : { label: 'Dormitorios', value: appraisal.bedrooms.toString() },
+    appraisal.bathrooms === undefined
+      ? undefined
+      : { label: 'Baños', value: appraisal.bathrooms.toString() },
     appraisal.condition === undefined
       ? undefined
-      : `Estado: ${CONDITION_LABELS[appraisal.condition] ?? appraisal.condition}`,
-  ].filter((part): part is string => part !== undefined);
+      : { label: 'Estado', value: CONDITION_LABELS[appraisal.condition] ?? appraisal.condition },
+    appraisal.visitAt === undefined
+      ? undefined
+      : { label: 'Visita', value: dateFormat.format(appraisal.visitAt) },
+  ];
+  return list.filter((fact): fact is Fact => fact !== undefined);
 }
 
-/**
- * La foto, enderezada según el EXIF y achicada a JPEG. `undefined` si no es una imagen que sharp
- * pueda leer: el informe sale sin ella.
- */
-async function printablePhoto(bytes: Uint8Array): Promise<Uint8Array | undefined> {
-  try {
-    const jpeg = await sharp(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength))
-      .rotate()
-      .resize({
-        width: PHOTO_MAX_SIDE,
-        height: PHOTO_MAX_SIDE,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: 78, mozjpeg: true })
-      .toBuffer();
-    return new Uint8Array(jpeg);
-  } catch {
-    // sharp lanza ante bytes que no son una imagen soportada: es un dato inválido, no un fallo.
-    return undefined;
-  }
-}
-
-async function header(cursor: Cursor, doc: PDFDocument, content: AppraisalReportContent) {
-  const logo =
-    content.company.logo === undefined ? undefined : await embed(doc, content.company.logo);
-  const top = cursor.y;
-  if (logo) {
-    const scale = Math.min(120 / logo.width, 40 / logo.height);
-    cursor.page.drawImage(logo, {
-      x: PAGE.margin,
-      y: top - logo.height * scale,
-      width: logo.width * scale,
-      height: logo.height * scale,
-    });
-  } else {
-    cursor.text(content.company.name, { size: 14, bold: true });
-  }
-  const code = printable(`Tasación ${content.appraisal.code}`);
-  cursor.page.drawText(code, {
-    x: PAGE.width - PAGE.margin - cursor.fonts.bold.widthOfTextAtSize(code, 10),
-    y: top - 14,
-    size: 10,
-    font: cursor.fonts.bold,
-    color: MUTED,
-  });
-  cursor.y = top - 48;
-  cursor.rule();
-}
-
-function summary(cursor: Cursor, content: AppraisalReportContent) {
+function intro(cursor: Cursor, content: Content) {
   const { appraisal } = content;
-  cursor.text('Informe de tasación', { size: 18, bold: true });
-  cursor.text(
-    [kindLabel(appraisal.propertyType), appraisal.address]
-      .filter((part) => part !== undefined && part !== '')
-      .join(' · '),
-    { size: 11, muted: true },
-  );
-  const people = [
+  cursor.text('INFORME DE TASACIÓN', { size: 8.5, font: cursor.fonts.bold, color: BRAND.accent });
+  cursor.gap(3);
+  const title =
+    appraisal.address === undefined || appraisal.address.trim() === ''
+      ? kindLabel(appraisal.propertyType)
+      : appraisal.address;
+  cursor.text(title, { size: 21, font: cursor.fonts.bold, leading: 1.15, maxLines: 2 });
+  cursor.gap(2);
+  const subtitle = [
+    appraisal.address === undefined ? undefined : kindLabel(appraisal.propertyType),
     appraisal.requester.name === undefined
       ? undefined
       : `Preparado para ${appraisal.requester.name}`,
-    appraisal.appraiser?.name === undefined ? undefined : `Tasó ${appraisal.appraiser.name}`,
-    dateFormat.format(content.generatedAt),
+    `Emitido el ${dateFormat.format(content.generatedAt)}`,
   ].filter((part) => part !== undefined);
-  cursor.text(people.join(' · '), { size: 10, muted: true });
-  cursor.gap(12);
-
-  const items = characteristics(appraisal);
-  if (items.length > 0) {
-    cursor.text('La propiedad', { size: 12, bold: true });
-    twoColumns(cursor, items);
-    cursor.gap(12);
-  }
-}
-
-function values(cursor: Cursor, appraisal: AppraisalDetail) {
-  const { sale, rent } = appraisal.result;
-  cursor.text('Valor sugerido', { size: 12, bold: true });
-  cursor.gap(2);
-  if (sale !== undefined) cursor.text(`Venta: ${range(sale)}`, { size: 14, bold: true });
-  if (rent !== undefined) {
-    cursor.text(`Alquiler mensual: ${range(rent)}`, { size: 14, bold: true });
-  }
+  cursor.text(subtitle.join('  ·  '), { size: 10.5, color: MUTED });
   cursor.gap(12);
 }
 
-/** Escribe las celdas de una fila una al lado de la otra; la fila mide lo que la más alta. */
-function row(
-  cursor: Cursor,
-  cells: readonly string[],
-  options: { readonly bold?: boolean; readonly muted?: boolean },
-) {
-  cursor.ensure(30);
+/** Una tarjeta oscura por operación: el rango sugerido y su valor por m². */
+function valueCards(cursor: Cursor, content: Content) {
+  const { sale, rent } = content.appraisal.result;
+  const { figures } = content;
+  const cards = [
+    sale === undefined
+      ? undefined
+      : { label: 'Valor sugerido de venta', value: sale, perM2: figures.salePerM2 },
+    rent === undefined
+      ? undefined
+      : { label: 'Valor sugerido de alquiler mensual', value: rent, perM2: figures.rentPerM2 },
+  ].filter((card) => card !== undefined);
+  if (cards.length === 0) return;
+  const gap = 10;
+  const width = (CONTENT_WIDTH - gap * (cards.length - 1)) / cards.length;
+  const height = 86;
+  cursor.ensure(height + 10);
   const top = cursor.y;
-  let bottom = top;
-  let x = PAGE.margin;
-  COLUMNS.forEach((column, index) => {
-    cursor.y = top;
-    cursor.text(cells[index] ?? '', { size: 9, x, width: column.width - 8, ...options });
-    bottom = Math.min(bottom, cursor.y);
-    x += column.width;
+  cards.forEach((card, index) => {
+    const x = PAGE.margin + index * (width + gap);
+    roundedRect(
+      cursor.page,
+      { x, y: top - height, width, height },
+      { color: BRAND.dark, radius: 8 },
+    );
+    cursor.page.drawRectangle({ x, y: top - height, width: 4, height, color: BRAND.accent });
+    drawText(cursor.page, cursor.fonts, card.label.toUpperCase(), top - 14, {
+      size: 7.5,
+      font: cursor.fonts.bold,
+      color: BRAND.cream,
+      x: x + 18,
+      width: width - 32,
+    });
+    const value = range(card.value);
+    drawText(cursor.page, cursor.fonts, value, top - 28, {
+      size: fitSize(cursor.fonts.bold, value, cards.length === 1 ? 24 : 19, width - 32, 12),
+      font: cursor.fonts.bold,
+      color: BRAND.white,
+      x: x + 18,
+      width: width - 32,
+      maxLines: 1,
+    });
+    if (card.perM2 !== undefined && figures.surfaceM2 !== undefined) {
+      drawText(
+        cursor.page,
+        cursor.fonts,
+        `${range(card.perM2)} por m²  ·  sobre ${squareMeters(figures.surfaceM2)}`,
+        top - 60,
+        { size: 9, color: BRAND.cream, x: x + 18, width: width - 32, maxLines: 1 },
+      );
+    }
   });
-  cursor.y = bottom;
+  cursor.y = top - height - 14;
 }
 
-function comparables(cursor: Cursor, items: readonly AppraisalComparableRow[]) {
+function comparables(cursor: Cursor, content: Content) {
+  const items = content.appraisal.result.comparables;
   if (items.length === 0) return;
-  cursor.text('Comparables', { size: 12, bold: true });
-  cursor.text('Propiedades parecidas de la zona que respaldan el valor sugerido.', {
+  cursor.section('Comparables de la zona', 110);
+  cursor.text('Propiedades parecidas, publicadas o vendidas, que respaldan el valor sugerido.', {
     size: 9,
-    muted: true,
+    color: MUTED,
   });
-  cursor.gap(4);
-  row(
+  cursor.gap(6);
+  table(
     cursor,
-    COLUMNS.map((column) => column.title),
-    { bold: true },
-  );
-  cursor.rule();
-  for (const comparable of items) {
-    row(
-      cursor,
-      [
+    [
+      { title: 'Dirección', width: CONTENT_WIDTH - 110 - 85 - 100 },
+      { title: 'Precio', width: 110, align: 'right' },
+      { title: 'Superficie', width: 85, align: 'right' },
+      { title: 'Valor por m²', width: 100, align: 'right' },
+    ],
+    items.map((comparable) => ({
+      cells: [
         comparable.address,
-        money(comparable.price.currency, comparable.price.amountCents),
-        comparable.surfaceM2 === undefined
-          ? '-'
-          : `${numberFormat.format(comparable.surfaceM2)} m2`,
+        roundMoney(comparable.price.currency, comparable.price.amountCents),
+        comparable.surfaceM2 === undefined ? '-' : squareMeters(comparable.surfaceM2),
         comparable.pricePerM2 === undefined
           ? '-'
-          : money(comparable.pricePerM2.currency, comparable.pricePerM2.amountCents),
+          : roundMoney(comparable.pricePerM2.currency, comparable.pricePerM2.amountCents),
       ],
-      {},
+      note: comparable.note,
+    })),
+  );
+  for (const average of content.figures.comparablesAverages) {
+    const text = `Promedio de los comparables: ${roundMoney(average.currency, average.pricePerM2Cents)} por m² (${average.count.toString()} ${average.count === 1 ? 'comparable' : 'comparables'} con superficie)`;
+    cursor.ensure(22);
+    const top = cursor.y;
+    roundedRect(
+      cursor.page,
+      { x: PAGE.margin, y: top - 22, width: CONTENT_WIDTH, height: 22 },
+      { color: BRAND.sand, radius: 4 },
     );
-    if (comparable.note !== undefined) {
-      cursor.text(comparable.note, { size: 8, muted: true, width: COLUMNS[0].width - 8 });
-    }
-    cursor.gap(4);
+    drawText(cursor.page, cursor.fonts, text, top - 6.5, {
+      size: 9,
+      font: cursor.fonts.bold,
+      color: BRAND.dark,
+      x: PAGE.margin + 10,
+      width: CONTENT_WIDTH - 20,
+      maxLines: 1,
+    });
+    cursor.y = top - 28;
   }
-  cursor.gap(8);
+  cursor.gap(4);
 }
 
 function observations(cursor: Cursor, text: string | undefined) {
   if (text === undefined || text.trim() === '') return;
-  cursor.text('Observaciones', { size: 12, bold: true });
-  cursor.text(text, { size: 10 });
-  cursor.gap(12);
-}
-
-/** Las fotos de a dos por fila. Se achican y se embeben de a una para no cargarlas todas juntas. */
-async function photos(cursor: Cursor, doc: PDFDocument, source: AsyncIterable<Uint8Array>) {
-  const width = (CONTENT_WIDTH - PHOTO_GAP) / 2;
-  const height = width * 0.75;
-  let pending: PDFImage | undefined;
-  let titled = false;
-
-  const drawRow = (images: readonly PDFImage[]) => {
-    if (!titled) {
-      cursor.ensure(height + 24);
-      cursor.text('Fotos', { size: 12, bold: true });
-      cursor.gap(4);
-      titled = true;
-    }
-    cursor.ensure(height);
-    const top = cursor.y;
-    let tallest = 0;
-    images.forEach((image, column) => {
-      cursor.y = top;
-      tallest = Math.max(
-        tallest,
-        cursor.image(image, { x: PAGE.margin + column * (width + PHOTO_GAP), width, height }),
-      );
-    });
-    cursor.y = top - tallest - PHOTO_GAP;
-  };
-
-  for await (const bytes of source) {
-    const jpeg = await printablePhoto(bytes);
-    if (jpeg === undefined) continue;
-    const image = await doc.embedJpg(jpeg);
-    if (pending === undefined) {
-      pending = image;
-    } else {
-      drawRow([pending, image]);
-      pending = undefined;
-    }
-  }
-  if (pending !== undefined) drawRow([pending]);
-}
-
-function footer(cursor: Cursor, content: AppraisalReportContent) {
+  cursor.section('Observaciones y criterios', 30);
+  cursor.text(text, { size: 10, leading: 1.45, color: INK });
   cursor.gap(8);
-  cursor.rule();
-  cursor.text(
-    `${content.company.name} · Valores orientativos, sujetos a las condiciones del mercado · Generado el ${dateFormat.format(content.generatedAt)}`,
-    { size: 8, muted: true },
+}
+
+function disclaimer(cursor: Cursor) {
+  const pad = 12;
+  const height =
+    textHeight(cursor.fonts, DISCLAIMER, {
+      size: 8,
+      width: CONTENT_WIDTH - pad * 2,
+      leading: 1.4,
+    }) +
+    pad * 2 +
+    12;
+  cursor.ensure(height);
+  const top = cursor.y;
+  roundedRect(
+    cursor.page,
+    { x: PAGE.margin, y: top - height, width: CONTENT_WIDTH, height },
+    { border: BRAND.sandDark, radius: 6 },
   );
+  drawText(cursor.page, cursor.fonts, 'ALCANCE DEL INFORME', top - pad, {
+    size: 7,
+    font: cursor.fonts.bold,
+    color: MUTED,
+    x: PAGE.margin + pad,
+  });
+  drawText(cursor.page, cursor.fonts, DISCLAIMER, top - pad - 12, {
+    size: 8,
+    font: cursor.fonts.italic,
+    color: MUTED,
+    x: PAGE.margin + pad,
+    width: CONTENT_WIDTH - pad * 2,
+    leading: 1.4,
+  });
+  cursor.y = top - height - 8;
+}
+
+/** Lo que queda de las fotos, después de la que va arriba. */
+async function* remaining(rest: AsyncIterator<Uint8Array>) {
+  for (let next = await rest.next(); next.done !== true; next = await rest.next()) {
+    yield next.value;
+  }
 }
 
 export class PdfLibAppraisalReportRenderer implements AppraisalReportRenderer {
@@ -279,17 +261,66 @@ export class PdfLibAppraisalReportRenderer implements AppraisalReportRenderer {
     doc.setTitle(printable(`Tasación ${content.appraisal.code}`));
     doc.setAuthor(printable(content.company.name));
     doc.setCreationDate(content.generatedAt);
-    const cursor = new Cursor(doc, {
-      regular: await doc.embedFont(StandardFonts.Helvetica),
-      bold: await doc.embedFont(StandardFonts.HelveticaBold),
-    });
-    await header(cursor, doc, content);
-    summary(cursor, content);
-    values(cursor, content.appraisal);
-    comparables(cursor, content.appraisal.result.comparables);
+    const fonts = await embedFonts(doc);
+    const cursor = new Cursor(doc, fonts);
+
+    intro(cursor, content);
+
+    // La primera foto que se pueda leer va arriba; las demás, en la galería del final.
+    const photos = content.photos[Symbol.asyncIterator]();
+    let hero;
+    for (let next = await photos.next(); next.done !== true; next = await photos.next()) {
+      hero = await embedPhoto(doc, next.value, HERO);
+      if (hero) break;
+    }
+    if (hero) {
+      cursor.page.drawImage(hero, { x: PAGE.margin, y: cursor.y - HERO.height, ...HERO });
+      cursor.gap(HERO.height + 12);
+    }
+
+    valueCards(cursor, content);
+    const list = facts(content);
+    if (list.length > 0) {
+      cursor.section('La propiedad', 50);
+      factsGrid(cursor, list, 4);
+      cursor.gap(4);
+    }
+    comparables(cursor, content);
     observations(cursor, content.appraisal.result.observations);
-    await photos(cursor, doc, content.photos);
-    footer(cursor, content);
+    await photoGrid(cursor, doc, remaining(photos), {
+      columns: 2,
+      ratio: 0.72,
+      title: 'Fotos',
+    });
+
+    cursor.gap(6);
+    contactCard(cursor, {
+      title: '¿Querés avanzar con la venta o el alquiler? Hablemos',
+      agent:
+        content.appraiser ??
+        (content.appraisal.appraiser?.name === undefined
+          ? undefined
+          : {
+              name: content.appraisal.appraiser.name,
+              address: undefined,
+              phone: undefined,
+              whatsapp: undefined,
+              email: undefined,
+            }),
+      agentLabel: 'Tasó',
+      branch: content.branch,
+      companyName: content.company.name,
+    });
+    disclaimer(cursor);
+
+    await drawChrome(doc, fonts, {
+      companyName: content.company.name,
+      logo: content.company.logo,
+      title: 'Informe de tasación',
+      code: content.appraisal.code,
+      contact: content.branch,
+      generatedAt: content.generatedAt,
+    });
     return doc.save();
   }
 }

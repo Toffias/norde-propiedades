@@ -5,7 +5,7 @@ import {
   type OwnerReport,
   type OwnerReportInput,
 } from '../../contracts';
-import { endOfDay, startOfDay } from '../months';
+import { endOfDay, monthOf, shiftMonth, startOfDay } from '../months';
 import type { ReportingPropertyProfiles } from '../ports/property-profiles';
 import type { PropertyStatisticsQuery } from '../ports/property-statistics-query';
 
@@ -51,6 +51,19 @@ export class GetOwnerReport {
       this.deps.statistics.interestedCount(profile),
       this.deps.statistics.publications(propertyId, range),
     ]);
+    // Todos los meses del período, para el gráfico: los que no tuvieron movimiento van en cero.
+    const byMonth = new Map(activity.map((row) => [row.month, row]));
+    const last = monthOf(startOfDay(to));
+    const calendar: string[] = [];
+    for (let month = monthOf(range.from); month <= last; month = shiftMonth(month, 1)) {
+      calendar.push(month);
+    }
+    const monthly = calendar.map((month) => ({
+      month,
+      emailSends: byMonth.get(month)?.emailSends ?? 0,
+      whatsappSends: byMonth.get(month)?.whatsappSends ?? 0,
+      inquiries: byMonth.get(month)?.inquiries ?? 0,
+    }));
     const sum = (field: 'emailSends' | 'whatsappSends' | 'inquiries') =>
       activity.reduce((total, row) => total + row[field], 0);
     return ok({
@@ -61,6 +74,9 @@ export class GetOwnerReport {
       whatsappSends: sum('whatsappSends'),
       inquiries: sum('inquiries'),
       interested,
+      portalViews: publications.reduce((total, p) => total + p.views, 0),
+      portalContacts: publications.reduce((total, p) => total + p.contacts, 0),
+      monthly,
     });
   }
 }

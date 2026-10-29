@@ -187,11 +187,14 @@ function CardBody({
 
 function BoardCard({
   row,
+  moving,
   catalog,
   canPickAgents,
   onDialog,
 }: {
   readonly row: OpportunityPipelineRow;
+  /** Su cambio de estado todavía no lo confirmó el servidor: no se puede volver a arrastrar. */
+  readonly moving: boolean;
   readonly catalog: OpportunityCatalogView;
   readonly canPickAgents: boolean;
   readonly onDialog: (row: OpportunityPipelineRow, dialog: OpportunityDialog) => void;
@@ -199,7 +202,7 @@ function BoardCard({
   const name = clientName(row.client.name);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: row.id,
-    disabled: !row.can.update,
+    disabled: !row.can.update || moving,
   });
   // Con el mouse o el dedo se arrastra desde cualquier lugar de la tarjeta: los links y botones de
   // adentro siguen andando porque el arrastre arranca recién al mover (ver los sensores del tablero).
@@ -227,12 +230,17 @@ function BoardCard({
               type="button"
               aria-label={`Mover la oportunidad de ${name}`}
               title="Arrastrá para cambiar el estado"
+              disabled={moving}
               ref={setActivatorNodeRef}
               className="-mt-1 -mr-1 inline-flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing"
               {...attributes}
               {...(onHandleKeyDown ? { onKeyDown: onHandleKeyDown } : {})}
             >
-              <GripVerticalIcon className="h-4 w-4" />
+              {moving ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <GripVerticalIcon className="h-4 w-4" />
+              )}
             </button>
           )
         }
@@ -261,6 +269,7 @@ function BoardColumn({
   stage,
   state,
   dragging,
+  moving,
   catalog,
   canPickAgents,
   onLoadMore,
@@ -268,6 +277,8 @@ function BoardColumn({
 }: {
   readonly stage: OpportunityStageRow;
   readonly state: ColumnState;
+  /** Las oportunidades cuyo cambio de estado todavía no confirmó el servidor. */
+  readonly moving: ReadonlySet<string>;
   /** La tarjeta que se está arrastrando, para marcar a dónde puede ir. */
   readonly dragging: { readonly row: OpportunityPipelineRow; readonly from: string } | undefined;
   readonly catalog: OpportunityCatalogView;
@@ -330,6 +341,7 @@ function BoardColumn({
           <BoardCard
             key={row.id}
             row={row}
+            moving={moving.has(row.id)}
             catalog={catalog}
             canPickAgents={canPickAgents}
             onDialog={onDialog}
@@ -412,6 +424,7 @@ function BoardBody({
     { readonly row: OpportunityPipelineRow; readonly kind: OpportunityDialog } | undefined
   >();
   const [, startTransition] = useTransition();
+  const [moving, setMoving] = useState<ReadonlySet<string>>(() => new Set());
   const loading = useRef(new Set<string>());
   // Los IDs de accesibilidad de dnd-kit tienen que ser los mismos en el servidor y en el cliente.
   const dndId = useId();
@@ -507,10 +520,16 @@ function BoardBody({
         [stage.id]: { ...target, rows: [moved, ...target.rows], total: target.total + 1 },
       };
     });
+    setMoving((current) => new Set(current).add(row.id));
     startTransition(async () => {
       const message = await runAction(() =>
         changeOpportunityStageAction({ opportunityId: row.id, stageId: stage.id }),
       );
+      setMoving((current) => {
+        const next = new Set(current);
+        next.delete(row.id);
+        return next;
+      });
       if (message !== undefined) {
         setColumns(before);
         toast.error(message);
@@ -554,6 +573,7 @@ function BoardBody({
                 stage={stage}
                 state={state}
                 dragging={dragging}
+                moving={moving}
                 catalog={catalog}
                 canPickAgents={canPickAgents}
                 onLoadMore={loadMore}

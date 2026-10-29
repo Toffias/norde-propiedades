@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 /** Replica `CASH_BOXES` del dominio. */
 export const CASH_BOX_VALUES = ['office', 'osvaldo'] as const;
@@ -75,6 +75,8 @@ const MovementValues = {
 export const RecordCashMovementInputSchema = z.object({
   box: z.enum(CASH_BOX_VALUES),
   ...MovementValues,
+  /** Clave de idempotencia del formulario (ADR 0050). */
+  idempotencyKey: idempotencyKeySchema.optional(),
 });
 export type RecordCashMovementInput = z.input<typeof RecordCashMovementInputSchema>;
 

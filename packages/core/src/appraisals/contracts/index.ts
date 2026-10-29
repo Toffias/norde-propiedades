@@ -13,7 +13,7 @@ import {
   type MoneyDto,
   type PropertyType,
 } from '../../properties/contracts';
-import { pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 // Los catálogos que la tasación comparte con la propiedad a la que se convierte.
 export {
@@ -96,7 +96,11 @@ const appraisalFields = {
   condition: z.enum(CONDITION_VALUES).optional(),
 };
 
-export const CreateAppraisalInputSchema = z.object(appraisalFields);
+export const CreateAppraisalInputSchema = z.object({
+  ...appraisalFields,
+  /** Clave de idempotencia del formulario (ADR 0050). */
+  idempotencyKey: idempotencyKeySchema.optional(),
+});
 export type CreateAppraisalInput = z.input<typeof CreateAppraisalInputSchema>;
 export type CreateAppraisalValues = z.output<typeof CreateAppraisalInputSchema>;
 

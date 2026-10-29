@@ -600,3 +600,17 @@ describe('CreateDevelopmentUnit', () => {
     expect(uow.properties.rows.size).toBe(0);
   });
 });
+
+describe('CreateDevelopment with an idempotency key', () => {
+  it('a retry with the same key returns the same development and code', async () => {
+    const { uow, create } = setup();
+    const input = { ...INPUT, idempotencyKey: '0190a5b8-0000-7000-8000-00000000aa01' };
+
+    const first = unwrap(await create.execute(input, TEST_DEVELOPER));
+    const retry = unwrap(await create.execute(input, TEST_DEVELOPER));
+
+    expect(retry).toEqual(first);
+    expect(uow.developments.rows.size).toBe(1);
+    expect(uow.audit.entries.filter((e) => e.kind === 'created')).toHaveLength(1);
+  });
+});

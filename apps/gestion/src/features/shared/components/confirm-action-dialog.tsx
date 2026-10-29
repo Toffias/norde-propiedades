@@ -42,12 +42,13 @@ export function ConfirmActionDialog({
   const [error, setError] = useState<string | undefined>();
 
   function close(next: boolean) {
+    if (!next && pending) return;
     if (!next) setError(undefined);
     onOpenChange(next);
   }
 
   function confirm() {
-    if (!copy) return;
+    if (!copy || pending) return;
     startTransition(async () => {
       const message = await runAction(run);
       if (message !== undefined) {
@@ -75,6 +76,7 @@ export function ConfirmActionDialog({
           <Button
             type="button"
             variant="outline"
+            disabled={pending}
             onClick={() => {
               close(false);
             }}

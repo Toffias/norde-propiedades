@@ -1,7 +1,11 @@
 // Fakes del módulo properties para tests (`@norde/core/properties/testing`).
 
 import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
-import { InMemoryAuditLog, InMemoryEventPublisher } from '../../shared/testing';
+import {
+  InMemoryAuditLog,
+  InMemoryEventPublisher,
+  InMemoryIdempotencyKeys,
+} from '../../shared/testing';
 import type {
   DevelopmentMapPin,
   DevelopmentRef,
@@ -840,6 +844,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly owners = new InMemoryPropertyOwnerLinks();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
+  readonly idempotency = new InMemoryIdempotencyKeys();
   /** Cuántas transacciones corrieron (las acciones masivas van por lotes). */
   transactions = 0;
 
@@ -862,6 +867,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.documents,
       this.reservations,
       this.owners,
+      this.idempotency,
     ];
   }
 

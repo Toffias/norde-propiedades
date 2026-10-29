@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   auditCreated,
   err,
@@ -8,9 +10,12 @@ import {
   type ForbiddenError,
   type IdGenerator,
   type Result,
+  idempotencyScope,
+  runIdempotent,
 } from '../../../shared';
 import {
   CreatePropertyInputSchema,
+  GEOCODING_OUTCOMES,
   type CreatePropertyInput,
   type CreatePropertyValues,
   type GeocodingOutcome,
@@ -30,6 +35,13 @@ import type {
 } from '../ports/reference-code-allocator';
 import { propertyAuditState, propertyTarget, type InvalidInputError } from '../property-support';
 import type { OwnerClientNotFoundError } from './add-property-owner';
+
+/** Lo que devuelve un reintento con la misma clave (ADR 0050). */
+const ResultSchema = z.object({
+  propertyId: z.string(),
+  code: z.string(),
+  geocoding: z.enum(GEOCODING_OUTCOMES),
+});
 
 export type CreatePropertyError =
   | ForbiddenError
@@ -138,26 +150,31 @@ export class CreateProperty {
     if (created.isErr()) return err(created.error);
     const property = created.value;
 
-    return this.deps.uow.run(
-      async (tx): Promise<Result<CreatePropertyOutput, CreatePropertyError>> => {
-        await tx.properties.save(property, actor.id);
-        if (owner !== undefined) await tx.owners.add(property.id, owner, actor.id);
-        await tx.events.publish(property.pullEvents());
-        await tx.audit.record(
-          auditCreated(
-            actor,
-            {
-              ...propertyTarget('property.created', property.id),
-              clientIds: owner === undefined ? [] : [owner],
-            },
-            {
-              ...propertyAuditState(property),
-              ...(owner === undefined ? {} : { ownerClientIds: [owner] }),
-            },
-          ),
-        );
-        return ok({ propertyId: property.id, code: property.code, geocoding });
-      },
+    return this.deps.uow.run((tx) =>
+      runIdempotent(
+        tx.idempotency,
+        idempotencyScope(actor.id, 'CreateProperty', data.idempotencyKey),
+        ResultSchema,
+        async (): Promise<Result<CreatePropertyOutput, CreatePropertyError>> => {
+          await tx.properties.save(property, actor.id);
+          if (owner !== undefined) await tx.owners.add(property.id, owner, actor.id);
+          await tx.events.publish(property.pullEvents());
+          await tx.audit.record(
+            auditCreated(
+              actor,
+              {
+                ...propertyTarget('property.created', property.id),
+                clientIds: owner === undefined ? [] : [owner],
+              },
+              {
+                ...propertyAuditState(property),
+                ...(owner === undefined ? {} : { ownerClientIds: [owner] }),
+              },
+            ),
+          );
+          return ok({ propertyId: property.id, code: property.code, geocoding });
+        },
+      ),
     );
   }
 }

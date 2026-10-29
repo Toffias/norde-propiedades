@@ -45,6 +45,7 @@ export function InlineSection({
       setEditing(false);
     },
     save: (action, success = 'Cambios guardados.') => {
+      if (pending) return;
       setError(undefined);
       startTransition(async () => {
         try {

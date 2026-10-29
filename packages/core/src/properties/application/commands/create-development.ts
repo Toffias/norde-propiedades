@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   auditCreated,
   err,
@@ -8,9 +10,12 @@ import {
   type ForbiddenError,
   type IdGenerator,
   type Result,
+  idempotencyScope,
+  runIdempotent,
 } from '../../../shared';
 import {
   CreateDevelopmentInputSchema,
+  GEOCODING_OUTCOMES,
   type CreateDevelopmentInput,
   type GeocodingOutcome,
 } from '../../contracts';
@@ -29,6 +34,13 @@ import type { Geocoder } from '../ports/geocoder';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { ReferenceCodeUnavailableError } from '../ports/reference-code-allocator';
 import { invalidInput, type InvalidInputError } from '../property-support';
+
+/** Lo que devuelve un reintento con la misma clave (ADR 0050). */
+const ResultSchema = z.object({
+  developmentId: z.string(),
+  code: z.string(),
+  geocoding: z.enum(GEOCODING_OUTCOMES),
+});
 
 export type CreateDevelopmentError =
   | ForbiddenError
@@ -110,19 +122,24 @@ export class CreateDevelopment {
       now: this.deps.clock.now(),
     });
 
-    return this.deps.uow.run(
-      async (tx): Promise<Result<CreateDevelopmentOutput, CreateDevelopmentError>> => {
-        await tx.developments.save(development, actor.id);
-        await tx.events.publish(development.pullEvents());
-        await tx.audit.record(
-          auditCreated(
-            actor,
-            developmentTarget('development.created', development),
-            developmentCreatedState(development),
-          ),
-        );
-        return ok({ developmentId: development.id, code: development.code, geocoding });
-      },
+    return this.deps.uow.run((tx) =>
+      runIdempotent(
+        tx.idempotency,
+        idempotencyScope(actor.id, 'CreateDevelopment', data.idempotencyKey),
+        ResultSchema,
+        async (): Promise<Result<CreateDevelopmentOutput, CreateDevelopmentError>> => {
+          await tx.developments.save(development, actor.id);
+          await tx.events.publish(development.pullEvents());
+          await tx.audit.record(
+            auditCreated(
+              actor,
+              developmentTarget('development.created', development),
+              developmentCreatedState(development),
+            ),
+          );
+          return ok({ developmentId: development.id, code: development.code, geocoding });
+        },
+      ),
     );
   }
 }

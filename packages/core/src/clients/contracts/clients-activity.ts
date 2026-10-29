@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-import { pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 import type { PropertyCover } from '../../properties/contracts';
 import type { ClientUserRef } from './clients-panel';
@@ -156,6 +156,8 @@ export const AddClientNoteInputSchema = z.object({
     .trim()
     .min(1, 'Escribí la nota.')
     .max(MAX_CLIENT_NOTE_LENGTH, `La nota puede tener hasta ${MAX_CLIENT_NOTE_LENGTH} caracteres.`),
+  /** Clave de idempotencia del formulario (ADR 0050). */
+  idempotencyKey: idempotencyKeySchema.optional(),
 });
 export type AddClientNoteInput = z.input<typeof AddClientNoteInputSchema>;
 

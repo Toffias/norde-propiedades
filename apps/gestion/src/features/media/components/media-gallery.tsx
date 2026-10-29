@@ -419,7 +419,7 @@ function MediaTile({
     id: item.id,
     disabled: !canEdit,
   });
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [describing, setDescribing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -510,8 +510,17 @@ function MediaTile({
         </p>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon-sm" variant="ghost" aria-label="Acciones de la foto">
-              <MoreVerticalIcon className="h-4 w-4" />
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Acciones de la foto"
+              disabled={pending}
+            >
+              {pending ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <MoreVerticalIcon className="h-4 w-4" />
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

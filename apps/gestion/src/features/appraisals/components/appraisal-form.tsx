@@ -43,6 +43,7 @@ import {
 } from '../../shared/components/inline-section';
 import { createAppraisalAction, updateAppraisalAction } from '../actions';
 import { toVisitInput } from '../visit-input';
+import { useIdempotencyKey } from '../../shared/hooks/use-idempotency-key';
 
 type Values = CreateAppraisalInput;
 type Valid = z.output<typeof CreateAppraisalInputSchema>;
@@ -105,6 +106,7 @@ export function AppraisalForm({
   const router = useRouter();
   const editing = detail !== undefined;
   const [error, setError] = useState<string | undefined>();
+  const idempotency = useIdempotencyKey();
   const form = useForm<Values, unknown, Valid>({
     resolver: contractResolver(CreateAppraisalInputSchema),
     defaultValues: defaults(detail),
@@ -122,11 +124,15 @@ export function AppraisalForm({
       return;
     }
     try {
-      const result = await createAppraisalAction(values);
+      const result = await createAppraisalAction({
+        ...values,
+        idempotencyKey: idempotency.key,
+      });
       if (!result.ok) {
         setError(result.message);
         return;
       }
+      idempotency.renew();
       toast.success(`Tasación ${result.code ?? ''} cargada`);
       // La ficha de la tasación nueva: typedRoutes no verifica un segmento armado.
       router.push(`/tasaciones/${result.appraisalId ?? ''}` as Route);

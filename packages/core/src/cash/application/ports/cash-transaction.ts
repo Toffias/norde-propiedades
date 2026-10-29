@@ -1,4 +1,4 @@
-import type { AuditLog, UnitOfWork } from '../../../shared';
+import type { AuditLog, IdempotencyKeys, UnitOfWork } from '../../../shared';
 import type {
   CashClosingRepository,
   CashLedger,
@@ -14,6 +14,8 @@ export interface CashTransaction {
   readonly closings: CashClosingRepository;
   readonly ledger: CashLedger;
   readonly audit: AuditLog;
+  /** Claves de idempotencia de las altas (ADR 0050). */
+  readonly idempotency: IdempotencyKeys;
 }
 
 export type CashUnitOfWork = UnitOfWork<CashTransaction>;

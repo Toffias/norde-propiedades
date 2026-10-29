@@ -345,3 +345,17 @@ describe('CloseCashPeriods', () => {
     expect(unwrapErr(await s.close.execute(undefined, TEST_OUTSIDER)).type).toBe('Forbidden');
   });
 });
+
+describe('RecordCashMovement with an idempotency key', () => {
+  it('a retry with the same key does not record the movement twice', async () => {
+    const s = setup();
+    const input = { ...INPUT, idempotencyKey: '0190a5b8-0000-7000-8000-00000000aa01' };
+
+    const first = unwrap(await s.record.execute(input, TEST_CASHIER));
+    const retry = unwrap(await s.record.execute(input, TEST_CASHIER));
+
+    expect(retry).toEqual(first);
+    expect(s.uow.movements.rows.size).toBe(1);
+    expect(s.uow.audit.entries).toHaveLength(1);
+  });
+});

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { accessScope, canActOn, OWNERSHIP_RULES } from '../../../identity';
 import {
   auditAction,
@@ -8,6 +10,8 @@ import {
   type ForbiddenError,
   type IdGenerator,
   type Result,
+  idempotencyScope,
+  runIdempotent,
 } from '../../../shared';
 import { AddClientNoteInputSchema, type AddClientNoteInput } from '../../contracts';
 import type { ClientInTrashError } from '../../domain/client';
@@ -29,6 +33,9 @@ import {
   type OpportunityNotFoundError,
 } from '../opportunity-support';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
+
+/** Lo que devuelve un reintento con la misma clave (ADR 0050). */
+const ResultSchema = z.object({ noteId: z.string() });
 
 export type AddClientNoteError =
   | ForbiddenError
@@ -68,42 +75,47 @@ export class AddClientNote {
     if (accessScope(actor, rule) === undefined) return err({ type: 'Forbidden' });
     const now = this.deps.clock.now();
 
-    return this.deps.uow.run(
-      async (tx): Promise<Result<{ readonly noteId: string }, AddClientNoteError>> => {
-        const client = await findClient(tx.clients, clientId);
-        if (!client) return err({ type: 'ClientNotFound' });
-        if (opportunityId === undefined) {
-          if (!canActOn(actor, rule, client.ownership)) return err({ type: 'Forbidden' });
-        } else {
-          const opportunity = await findOpportunity(tx, opportunityId);
-          if (opportunity?.clientId !== client.id) return err({ type: 'OpportunityNotFound' });
-          if (!canUpdateOpportunity(actor, opportunity.ownership)) {
-            return err({ type: 'Forbidden' });
+    return this.deps.uow.run((tx) =>
+      runIdempotent(
+        tx.idempotency,
+        idempotencyScope(actor.id, 'AddClientNote', parsed.data.idempotencyKey),
+        ResultSchema,
+        async (): Promise<Result<{ readonly noteId: string }, AddClientNoteError>> => {
+          const client = await findClient(tx.clients, clientId);
+          if (!client) return err({ type: 'ClientNotFound' });
+          if (opportunityId === undefined) {
+            if (!canActOn(actor, rule, client.ownership)) return err({ type: 'Forbidden' });
+          } else {
+            const opportunity = await findOpportunity(tx, opportunityId);
+            if (opportunity?.clientId !== client.id) return err({ type: 'OpportunityNotFound' });
+            if (!canUpdateOpportunity(actor, opportunity.ownership)) {
+              return err({ type: 'Forbidden' });
+            }
           }
-        }
-        if (client.isDeleted) return err({ type: 'ClientInTrash' });
+          if (client.isDeleted) return err({ type: 'ClientInTrash' });
 
-        const note = noteActivity({
-          id: this.deps.ids.next(),
-          clientId: client.id,
-          opportunityId,
-          text,
-          actorId: actor.id,
-          now,
-        });
-        if (note.isErr()) return err(note.error);
+          const note = noteActivity({
+            id: this.deps.ids.next(),
+            clientId: client.id,
+            opportunityId,
+            text,
+            actorId: actor.id,
+            now,
+          });
+          if (note.isErr()) return err(note.error);
 
-        await tx.activities.add(note.value, actor.id);
-        await tx.audit.record(
-          auditAction(actor, clientTarget('client.note_added', client.id), {
-            note: { before: null, after: note.value.body.text },
-            ...(opportunityId === undefined
-              ? {}
-              : { opportunityId: { before: null, after: opportunityId } }),
-          }),
-        );
-        return ok({ noteId: note.value.id });
-      },
+          await tx.activities.add(note.value, actor.id);
+          await tx.audit.record(
+            auditAction(actor, clientTarget('client.note_added', client.id), {
+              note: { before: null, after: note.value.body.text },
+              ...(opportunityId === undefined
+                ? {}
+                : { opportunityId: { before: null, after: opportunityId } }),
+            }),
+          );
+          return ok({ noteId: note.value.id });
+        },
+      ),
     );
   }
 }

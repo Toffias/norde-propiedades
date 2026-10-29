@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   auditCreated,
   err,
@@ -8,6 +10,8 @@ import {
   type ForbiddenError,
   type IdGenerator,
   type Result,
+  idempotencyScope,
+  runIdempotent,
 } from '../../../shared';
 import { RecordCashMovementInputSchema, type RecordCashMovementInput } from '../../contracts';
 import { CashMovement, type InvalidCashMovementError } from '../../domain/cash-movement';
@@ -22,6 +26,9 @@ import {
   type InvalidInputError,
 } from '../cash-support';
 import type { CashUnitOfWork } from '../ports/cash-transaction';
+
+/** Lo que devuelve un reintento con la misma clave (ADR 0050). */
+const ResultSchema = z.object({ movementId: z.string() });
 
 export type RecordCashMovementError =
   ForbiddenError | InvalidInputError | InvalidCashMovementError | CashPeriodClosedError;
@@ -61,28 +68,33 @@ export class RecordCashMovement {
     const open = checkCashPeriodOpen([movement.period], current, actor.can('cash:manage-closed'));
     if (open.isErr()) return err(open.error);
 
-    return this.deps.uow.run(
-      async (tx): Promise<Result<{ readonly movementId: string }, RecordCashMovementError>> => {
-        await tx.movements.insert(movement, actor.id);
-        await tx.audit.record(
-          auditCreated(
-            actor,
-            movementTarget('cash_movement.recorded', movement),
-            movementAuditState(movement),
-          ),
-        );
-        if (isClosedCashPeriod(movement.period, current)) {
-          await syncClosings(tx, {
-            box: movement.box,
-            from: movement.period,
-            current,
-            actor,
-            ids: this.deps.ids,
-            now,
-          });
-        }
-        return ok({ movementId: movement.id });
-      },
+    return this.deps.uow.run((tx) =>
+      runIdempotent(
+        tx.idempotency,
+        idempotencyScope(actor.id, 'RecordCashMovement', parsed.data.idempotencyKey),
+        ResultSchema,
+        async (): Promise<Result<{ readonly movementId: string }, RecordCashMovementError>> => {
+          await tx.movements.insert(movement, actor.id);
+          await tx.audit.record(
+            auditCreated(
+              actor,
+              movementTarget('cash_movement.recorded', movement),
+              movementAuditState(movement),
+            ),
+          );
+          if (isClosedCashPeriod(movement.period, current)) {
+            await syncClosings(tx, {
+              box: movement.box,
+              from: movement.period,
+              current,
+              actor,
+              ids: this.deps.ids,
+              now,
+            });
+          }
+          return ok({ movementId: movement.id });
+        },
+      ),
     );
   }
 }

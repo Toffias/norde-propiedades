@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 import { historyQuerySchema } from '../../audit/contracts';
-import { pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 import type { ClientActiveOpportunity, ClientTabCounts } from './clients-activity';
 import type { ClientTagRef } from './clients-tags';
@@ -279,6 +279,8 @@ export const CreateClientInputSchema = z.object({
   /** Sin agente, queda a cargo de quien lo da de alta. */
   agentId: z.uuid().optional(),
   profile: ClientProfileInputSchema.default({}),
+  /** Clave de idempotencia del formulario (ADR 0050). */
+  idempotencyKey: idempotencyKeySchema.optional(),
 });
 export type CreateClientInput = z.input<typeof CreateClientInputSchema>;
 

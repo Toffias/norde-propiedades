@@ -32,6 +32,7 @@ import { ChecklistField, SelectField, TextField } from '../../shared/components/
 import { checkClientDuplicatesAction, createClientAction, restoreClientAction } from '../actions';
 import { clientName, userName } from '../client-format';
 import { ContactFields } from './contact-fields';
+import { useIdempotencyKey } from '../../shared/hooks/use-idempotency-key';
 
 const DEFAULTS: CreateClientInput = {
   kind: 'person',
@@ -178,6 +179,7 @@ function CreateForm({
   const router = useRouter();
   const [error, setError] = useState<string | undefined>();
   const [duplicates, setDuplicates] = useState<ClientDuplicates | undefined>();
+  const idempotency = useIdempotencyKey();
   const form = useForm<CreateClientInput>({
     resolver: contractResolver(CreateClientInputSchema),
     defaultValues: DEFAULTS,
@@ -207,11 +209,12 @@ function CreateForm({
           return;
         }
       }
-      const created = await createClientAction(values);
+      const created = await createClientAction({ ...values, idempotencyKey: idempotency.key });
       if (!created.ok) {
         setError(created.message);
         return;
       }
+      idempotency.renew();
       toast.success('Contacto creado');
       if (created.clientId !== undefined) router.push(contactHref(created.clientId));
     } catch {

@@ -264,6 +264,7 @@ export function NotificationsPanel({
               disabled={marking}
               onClick={() => void markAllRead()}
             >
+              {marking && <Loader2Icon className="size-4 animate-spin" aria-hidden />}
               Marcar todos como leídos
             </Button>
           )}

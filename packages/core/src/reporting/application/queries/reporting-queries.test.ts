@@ -48,6 +48,8 @@ describe('GetPropertyStatistics', () => {
     statistics.portals = [
       {
         portal: 'zonaprop',
+        operation: 'sale',
+        permalink: 'https://www.zonaprop.com.ar/propiedades/1.html',
         status: 'published',
         publishedAt: undefined,
         views: 120,
@@ -56,6 +58,8 @@ describe('GetPropertyStatistics', () => {
       },
       {
         portal: 'argenprop',
+        operation: undefined,
+        permalink: undefined,
         status: 'paused',
         publishedAt: undefined,
         views: 0,
@@ -128,6 +132,12 @@ describe('GetOwnerReport', () => {
       portalViews: 0,
       portalContacts: 0,
       monthly: [{ month: '2026-09', emailSends: 1, whatsappSends: 2, inquiries: 3 }],
+      windows: {
+        last15Days: { emailSends: 1, whatsappSends: 2, inquiries: 3 },
+        last30Days: { emailSends: 1, whatsappSends: 2, inquiries: 3 },
+        // Sin el alta, desde el inicio del período.
+        sinceCreation: { emailSends: 1, whatsappSends: 2, inquiries: 3, from: '2026-09-01' },
+      },
     });
     expect(statistics.ranges[0]).toEqual({
       from: new Date('2026-09-01T03:00:00Z'),
@@ -141,6 +151,8 @@ describe('GetOwnerReport', () => {
     statistics.portals = [
       {
         portal: 'zonaprop',
+        operation: 'sale',
+        permalink: 'https://www.zonaprop.com.ar/propiedades/1.html',
         status: 'published',
         publishedAt: undefined,
         views: 120,
@@ -149,6 +161,8 @@ describe('GetOwnerReport', () => {
       },
       {
         portal: 'mercadolibre',
+        operation: undefined,
+        permalink: undefined,
         status: 'paused',
         publishedAt: undefined,
         views: 30,
@@ -175,6 +189,52 @@ describe('GetOwnerReport', () => {
       inquiries: 2,
     });
     expect(report).toMatchObject({ portalViews: 150, portalContacts: 5, inquiries: 2 });
+  });
+
+  it('compares the last 15 and 30 days and since the property was listed, up to the end of the period', async () => {
+    const statistics = new StubPropertyStatisticsQuery();
+    const day = (date: string) => new Date(`${date}T03:00:00Z`).getTime();
+    // Un envío por email cada vez que el tramo empieza antes de cada fecha.
+    statistics.monthlyFor = (range) => [
+      {
+        month: '2026-09',
+        emailSends: ['2026-09-16', '2026-09-01', '2026-03-10'].filter(
+          (date) => range.from.getTime() <= day(date),
+        ).length,
+        whatsappSends: 0,
+        inquiries: 0,
+      },
+    ];
+    const report = unwrap(
+      await new GetOwnerReport({
+        profiles: new InMemoryReportingProfiles([PROFILE]),
+        statistics,
+      }).execute(
+        {
+          propertyId: PROPERTY,
+          from: '2026-09-25',
+          to: '2026-09-30',
+          since: new Date('2026-03-10T15:00:00Z'),
+        },
+        READER,
+      ),
+    );
+    expect(report.windows).toEqual({
+      last15Days: { emailSends: 1, whatsappSends: 0, inquiries: 0 },
+      last30Days: { emailSends: 2, whatsappSends: 0, inquiries: 0 },
+      sinceCreation: { emailSends: 3, whatsappSends: 0, inquiries: 0, from: '2026-03-10' },
+    });
+    // Todos los tramos terminan con el período.
+    expect(new Set(statistics.ranges.map((range) => range.to.toISOString()))).toEqual(
+      new Set(['2026-10-01T03:00:00.000Z']),
+    );
+    expect(statistics.ranges.map((range) => range.from.toISOString())).toEqual(
+      expect.arrayContaining([
+        '2026-09-16T03:00:00.000Z',
+        '2026-09-01T03:00:00.000Z',
+        '2026-03-10T03:00:00.000Z',
+      ]),
+    );
   });
 
   it('covers at most a year', async () => {

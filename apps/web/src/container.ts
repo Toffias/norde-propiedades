@@ -20,10 +20,12 @@ import {
   SearchPublicLocations,
   SearchPublishedDevelopments,
 } from '@norde/core/properties';
+import { GetCompanyLogo } from '@norde/core/settings';
 import { Actor } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
   createDatabase,
+  DrizzleCompanySettingsRepository,
   DrizzleDirectory,
   DrizzlePropertySearchQuery,
   DrizzlePublicLocationQuery,
@@ -111,6 +113,8 @@ export interface ChatSender {
 
 export interface Container {
   readonly database: DatabaseConnection;
+  /** El logo que Norde cargó en el panel (Mi empresa), para el header y el footer. */
+  companyLogo(): ReturnType<GetCompanyLogo['execute']>;
   readonly properties: PropertiesUseCases;
   readonly developments: DevelopmentsUseCases;
   readonly sharedListings: SharedListingsUseCases;
@@ -142,12 +146,18 @@ function createContainer(): Container {
     locations: new DrizzlePublicLocationQuery(database.db),
   });
   const developments = new DrizzlePublishedDevelopmentQuery(database.db);
-  const photo = new GetPublicPhoto({ properties, developments, storage: createStorage(env) });
+  const storage = createStorage(env);
+  const photo = new GetPublicPhoto({ properties, developments, storage });
+  const companyLogo = new GetCompanyLogo({
+    settings: new DrizzleCompanySettingsRepository(database.db, new SystemClock()),
+    storage,
+  });
   const searchDevelopments = new SearchPublishedDevelopments({ developments });
   const developmentDetail = new GetPublishedDevelopment({ developments });
   const sharedListings = createSharedListings(database);
   return {
     database,
+    companyLogo: () => companyLogo.execute({ which: 'company' }, WEB_ACTOR),
     properties: {
       search: (input) => search.execute(input, WEB_ACTOR),
       detail: (input) => detail.execute(input, WEB_ACTOR),

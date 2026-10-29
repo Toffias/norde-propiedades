@@ -835,6 +835,10 @@ export interface AboutPage {
          * Ej.: "años en el barrio".
          */
         label: string;
+        /**
+         * Opcional. Sin elegir, se deduce del texto de la cifra.
+         */
+        icon?: ('years' | 'properties' | 'deals' | 'inquiries' | 'locations' | 'services' | 'team') | null;
         id?: string | null;
       }[]
     | null;
@@ -863,6 +867,7 @@ export interface AboutPageSelect<T extends boolean = true> {
         value?: T;
         suffix?: T;
         label?: T;
+        icon?: T;
         id?: T;
       };
   updatedAt?: T;

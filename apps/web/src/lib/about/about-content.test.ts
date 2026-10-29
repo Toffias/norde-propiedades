@@ -19,7 +19,7 @@ describe('toAboutContent', () => {
     });
   });
 
-  it('keeps the milestones in order and drops unpopulated images', () => {
+  it('keeps the milestones in order, drops unpopulated images and keeps the chosen stat icon', () => {
     const page: AboutPage = {
       id: 1,
       intro: '  Somos de Mataderos.  ',
@@ -27,7 +27,11 @@ describe('toAboutContent', () => {
         { id: 'a', label: '2012', title: ' Abrimos ', text: 'Texto', image: 3 },
         { id: 'b', label: 'Hoy', title: 'Equipo', text: 'Texto', image: photo },
       ],
-      stats: [{ id: 's', value: 1200, prefix: '+', suffix: null, label: 'operaciones' }],
+      stats: [
+        { id: 's', value: 1200, prefix: '+', suffix: null, label: 'operaciones' },
+        { id: 't', value: 4, label: 'servicios', icon: 'team' },
+        { id: 'u', value: 7, label: 'otra cosa' },
+      ],
     };
 
     const content = toAboutContent(page);
@@ -38,7 +42,9 @@ describe('toAboutContent', () => {
       ['Hoy', 'Equipo', photo],
     ]);
     expect(content.stats).toEqual([
-      { id: 's', value: 1200, prefix: '+', suffix: '', label: 'operaciones' },
+      { id: 's', value: 1200, prefix: '+', suffix: '', label: 'operaciones', icon: null },
+      { id: 't', value: 4, prefix: '', suffix: '', label: 'servicios', icon: 'team' },
+      { id: 'u', value: 7, prefix: '', suffix: '', label: 'otra cosa', icon: null },
     ]);
   });
 });

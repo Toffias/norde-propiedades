@@ -1,5 +1,6 @@
 import { BUSINESS } from '../../constants/business';
 import type { AboutPage, Media, TeamMember } from '../../payload-types';
+import type { AboutStatIcon } from './stat-icons';
 
 // Lo que la página de Nosotros y contacto muestra, armado desde Payload. Funciones puras: las
 // lecturas cacheadas están en `queries.ts`.
@@ -22,6 +23,8 @@ export interface AboutStat {
   readonly prefix: string;
   readonly suffix: string;
   readonly label: string;
+  /** El elegido en el CMS. Sin elegir, la página lo deduce del texto (`guessStatIcon`). */
+  readonly icon?: AboutStatIcon | null;
 }
 
 export interface AboutContent {
@@ -66,6 +69,7 @@ export function toAboutContent(page: AboutPage | null): AboutContent {
       prefix: clean(s.prefix) ?? '',
       suffix: clean(s.suffix) ?? '',
       label: s.label.trim(),
+      icon: s.icon ?? null,
     })),
   };
 }

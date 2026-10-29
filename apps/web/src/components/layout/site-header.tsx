@@ -7,7 +7,7 @@ import { BUSINESS } from '../../constants/business';
 import { SITE_NAV } from '../../lib/layout/site-nav';
 import { routes } from '../../lib/seo/routes';
 import { whatsappHref } from '../../lib/whatsapp';
-import { NordeLogo } from '../brand/norde-logo';
+import { CompanyLogo } from '../brand/company-logo';
 import { HeaderShell } from './header-shell';
 
 const LINK = 'text-muted-foreground hover:text-foreground rounded-lg px-3 py-2 transition-colors';
@@ -26,7 +26,7 @@ export function SiteHeader() {
           aria-label={`${BUSINESS.name}, ir al inicio`}
           className="text-lg sm:text-xl"
         >
-          <NordeLogo />
+          <CompanyLogo className="h-10 sm:h-12" />
         </Link>
 
         <nav aria-label="Principal" className="hidden md:block">

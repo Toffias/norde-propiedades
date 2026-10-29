@@ -144,6 +144,38 @@ describe('DrizzlePropertyDetailLookups and documents', () => {
     expect(page.items).toMatchObject([
       { id: sheet.id, kind: 'sheet', status: 'pending', layout: 'landscape_map' },
     ]);
+
+    const showcase = unwrap(
+      PropertyDocument.request({
+        id: unwrap(parseId<'PropertyDocument'>(ids.next())),
+        propertyId,
+        kind: 'showcase',
+        period: undefined,
+        showcase: {
+          orientation: 'landscape',
+          primaryColor: '#0a7b83',
+          secondaryColor: '#123456',
+          qr: false,
+          operationBand: true,
+          photoCount: 1,
+          photoIds: [ids.next()],
+          descriptionSize: 34,
+        },
+        includeAgent: true,
+        requestedBy: USER,
+        now: new Date(NOW.getTime() + 2000),
+      }),
+    );
+    await repository.save(showcase, USER);
+    expect((await repository.findById(showcase.id))?.toSnapshot()).toEqual(showcase.toSnapshot());
+    const newest = await new DrizzlePropertyDocumentQuery(db).list({
+      propertyId,
+      offset: 0,
+      limit: 1,
+    });
+    expect(newest.items).toMatchObject([
+      { id: showcase.id, kind: 'showcase', layout: undefined, orientation: 'landscape' },
+    ]);
   });
 
   it('round-trips the PDF of a search selection with its properties in order', async () => {

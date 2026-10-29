@@ -570,6 +570,19 @@ export type {
   StaticMaps,
 } from './application/ports/property-sheets';
 export {
+  DEFAULT_SHOWCASE_OPTIONS,
+  SHOWCASE_DESCRIPTION_SIZE,
+  SHOWCASE_ORIENTATIONS,
+  SHOWCASE_PHOTO_COUNTS,
+  showcaseOptions,
+  showcasePhotos,
+  type InvalidShowcaseOptionsError,
+  type ShowcaseOptions,
+  type ShowcaseOrientation,
+  type ShowcasePhotoCount,
+} from './domain/showcase-options';
+export type { ShowcaseContent, ShowcaseRenderer } from './application/ports/property-showcase';
+export {
   RequestPropertyListDocument,
   type RequestPropertyListDocumentError,
 } from './application/commands/request-property-list-document';

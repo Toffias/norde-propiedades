@@ -10,6 +10,7 @@ import {
   DEVELOPMENT_ID,
   FakeDocumentRenderer,
   FakeSheetRenderer,
+  FakeShowcaseRenderer,
   FakeStaticMaps,
   InMemoryPropertiesUnitOfWork,
   InMemoryPropertyDocumentQuery,
@@ -26,6 +27,7 @@ import {
 } from '../../testing';
 import { Coordinates } from '../../domain/coordinates';
 import { MediaItem } from '../../domain/media-item';
+import { DEFAULT_SHOWCASE_OPTIONS } from '../../domain/showcase-options';
 import type { MediaOwner } from '../../domain/media-owner';
 import { RenderPropertyDocument } from '../commands/render-property-document';
 import { RequestPropertyDocument } from '../commands/request-property-document';
@@ -358,6 +360,7 @@ describe('property documents', () => {
     const storage = new InMemoryFileStorage();
     const renderer = new FakeDocumentRenderer();
     const sheets = new FakeSheetRenderer();
+    const showcases = new FakeShowcaseRenderer();
     const maps = new FakeStaticMaps();
     const ownerReports = new StubOwnerReports();
     const contacts = new InMemoryDocumentContacts(
@@ -382,6 +385,7 @@ describe('property documents', () => {
       storage,
       renderer,
       sheets,
+      showcases,
       maps,
       ownerReports,
       mailer,
@@ -399,6 +403,7 @@ describe('property documents', () => {
         settings,
         renderer,
         sheets,
+        showcases,
         maps,
         ownerReports,
         contacts,
@@ -648,8 +653,44 @@ describe('property documents', () => {
     expect(uow.documents.rows.get(documentId)?.error).toBe('La propiedad ya no está disponible.');
   });
 
-  it('links the sheet to the web when the property is publicly listed', async () => {
-    const { request, render, renderer, uow } = documents();
+  /** Fotos "incluir en PDF" de la propiedad, con su archivo: `[7]`, `[8]`, `[9]`... */
+  async function photos(
+    uow: ReturnType<typeof documents>['uow'],
+    storage: InMemoryFileStorage,
+    total: number,
+  ): Promise<string[]> {
+    const ids: string[] = [];
+    for (let position = 0; position < total; position += 1) {
+      const id = unwrap(
+        parseId<'MediaItem'>(
+          `00000000-0000-7000-8000-00000000e0${position.toString().padStart(2, '0')}`,
+        ),
+      );
+      const item = unwrap(
+        MediaItem.upload({
+          id,
+          owner: { kind: 'property', id: unwrap(parseId<'Property'>(PROPERTY_ID)) },
+          storageKey: `photos/${id}`,
+          contentType: 'image/jpeg',
+          sizeBytes: 1,
+          position,
+          isCover: position === 0,
+          uploadedBy: PRODUCER_ID,
+          now: TEST_NOW,
+        }),
+      );
+      uow.media.rows.set(id, item.toSnapshot());
+      await storage.put({
+        key: item.storageKey ?? '',
+        contentType: 'image/jpeg',
+        bytes: new Uint8Array([7 + position]),
+      });
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  function publishOnWeb(uow: ReturnType<typeof documents>['uow']): string {
     const row = uow.properties.rows.get(PROPERTY_ID);
     if (row) {
       uow.properties.rows.set(PROPERTY_ID, {
@@ -658,22 +699,121 @@ describe('property documents', () => {
         publication: { ...row.publication, publishedOnWeb: true },
       });
     }
+    return `https://norde.com.ar/propiedades/${row?.slug ?? ''}`;
+  }
+
+  it('prints the showcase with the brand options when none is chosen', async () => {
+    const { request, render, showcases, uow, storage } = documents();
+    await photos(uow, storage, 4);
     const { documentId } = unwrap(
       await request.execute({ propertyId: PROPERTY_ID, kind: 'showcase' }, READER),
     );
     expect(unwrap(await render.execute({ documentId }, JOBS))).toBe('ready');
-    expect(renderer.rendered[0]?.webUrl).toBe(
-      `https://norde.com.ar/propiedades/${row?.slug ?? ''}`,
+    const content = showcases.rendered[0];
+    expect(content?.options).toEqual(DEFAULT_SHOWCASE_OPTIONS);
+    // Las tres primeras de la ficha.
+    expect(content?.photos).toEqual([
+      new Uint8Array([7]),
+      new Uint8Array([8]),
+      new Uint8Array([9]),
+    ]);
+    expect(content).toMatchObject({
+      address: 'Gurruchaga 1834 · Piso 3 Unidad B · Palermo, CABA',
+      contact: BRANCH_CONTACT,
+      agent: { name: 'Camila Ruiz' },
+      // Un borrador no está en la web: sin QR.
+      qrUrl: undefined,
+    });
+  });
+
+  it('prints the showcase with the chosen options and photos, and audits the orientation', async () => {
+    const { request, render, showcases, uow, storage } = documents();
+    const ids = await photos(uow, storage, 4);
+    const web = publishOnWeb(uow);
+    const options = {
+      orientation: 'landscape' as const,
+      primaryColor: '#0A7B83',
+      secondaryColor: '#123456',
+      operationBand: false,
+      photoCount: 3 as const,
+      photoIds: [ids[3] ?? '', ids[1] ?? ''],
+      descriptionSize: 32,
+    };
+    const { documentId } = unwrap(
+      await request.execute({ propertyId: PROPERTY_ID, kind: 'showcase', options }, READER),
     );
+    expect(uow.audit.entries[0]?.changes).toMatchObject({
+      orientation: { before: null, after: 'landscape' },
+    });
+    unwrap(await render.execute({ documentId }, JOBS));
+    const content = showcases.rendered[0];
+    expect(content?.options).toEqual({
+      ...options,
+      primaryColor: '#0a7b83',
+      qr: true,
+      photoIds: [ids[3], ids[1]],
+    });
+    // Las elegidas primero, completadas con la primera de la ficha.
+    expect(content?.photos).toEqual([
+      new Uint8Array([10]),
+      new Uint8Array([8]),
+      new Uint8Array([7]),
+    ]);
+    expect(content?.qrUrl).toBe(web);
+  });
+
+  it('leaves the QR out when it is not asked for, and the contact when Mi empresa hides it', async () => {
+    const { request, render, showcases, uow } = documents(true, {
+      showCompanyContact: false,
+      agentInfo: 'ask',
+    });
+    publishOnWeb(uow);
+    const { documentId } = unwrap(
+      await request.execute(
+        { propertyId: PROPERTY_ID, kind: 'showcase', options: { qr: false, photoCount: 1 } },
+        READER,
+      ),
+    );
+    unwrap(await render.execute({ documentId }, JOBS));
+    expect(showcases.rendered[0]).toMatchObject({
+      qrUrl: undefined,
+      contact: undefined,
+      agent: undefined,
+      photos: [],
+    });
+  });
+
+  it('rejects showcase options out of range', async () => {
+    const { request } = documents();
+    const result = await request.execute(
+      { propertyId: PROPERTY_ID, kind: 'showcase', options: { descriptionSize: 60 } },
+      READER,
+    );
+    expect(unwrapErr(result).type).toBe('InvalidInput');
+    const tooMany = await request.execute(
+      {
+        propertyId: PROPERTY_ID,
+        kind: 'showcase',
+        options: {
+          photoCount: 1,
+          photoIds: [
+            '00000000-0000-7000-8000-000000000001',
+            '00000000-0000-7000-8000-000000000002',
+          ],
+        },
+      },
+      READER,
+    );
+    expect(unwrapErr(tooMany)).toEqual({ type: 'InvalidShowcaseOptions', field: 'photoIds' });
   });
 
   it('marks the document failed when the PDF breaks, and lets the error reach the job', async () => {
-    const { request, render, renderer, uow, download } = documents();
-    renderer.fail = true;
+    const { request, render, showcases, uow, download } = documents();
+    showcases.fail = true;
     const { documentId } = unwrap(
       await request.execute({ propertyId: PROPERTY_ID, kind: 'showcase' }, READER),
     );
-    await expect(render.execute({ documentId }, JOBS)).rejects.toThrow('pdf-lib exploded');
+    await expect(render.execute({ documentId }, JOBS)).rejects.toThrow('react-pdf exploded');
     expect(uow.documents.rows.get(documentId)?.status).toBe('failed');
     expect(unwrapErr(await download.execute({ documentId }, READER))).toEqual({
       type: 'DocumentNotReady',

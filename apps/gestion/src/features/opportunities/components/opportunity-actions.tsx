@@ -42,6 +42,8 @@ import { toast } from '@norde/ui/components/sonner';
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
+  FlagIcon,
+  ForwardIcon,
   HandshakeIcon,
   Loader2Icon,
   MoreHorizontalIcon,
@@ -127,7 +129,7 @@ function ReferralDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Derivación a otra inmobiliaria</DialogTitle>
+            <DialogTitle icon={ForwardIcon}>Derivación a otra inmobiliaria</DialogTitle>
             <DialogDescription>
               A qué inmobiliaria socia se derivó la oportunidad de {target.clientName}, cuándo y
               cómo terminó.
@@ -231,7 +233,7 @@ export function CloseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cerrar la oportunidad</DialogTitle>
+          <DialogTitle icon={FlagIcon}>Cerrar la oportunidad</DialogTitle>
           <DialogDescription>
             {stage === undefined
               ? `La oportunidad de ${target.clientName} queda ganada o perdida según el motivo.`
@@ -318,7 +320,7 @@ function ReassignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reasignar la oportunidad</DialogTitle>
+          <DialogTitle icon={UserCogIcon}>Reasignar la oportunidad</DialogTitle>
           <DialogDescription>
             La oportunidad de {target.clientName} pasa al agente que elijas y a su sucursal. El
             agente del contacto no cambia.
@@ -430,7 +432,13 @@ export function OpportunityActionsMenu({
               )}
             </Button>
           ) : (
-            <Button type="button" variant="outline" size="sm" disabled={pending}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-foreground dark:bg-card"
+              disabled={pending}
+            >
               {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
               Cambiar estado
               <ChevronDownIcon className="h-4 w-4" />

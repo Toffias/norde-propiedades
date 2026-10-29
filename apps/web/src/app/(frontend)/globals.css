@@ -88,3 +88,13 @@
 .hero-entrance-fade {
   animation: hero-entrance-fade 450ms ease-in 450ms both;
 }
+
+/* Al final del video de entrada (o al saltearlo): el fundido arranca enseguida. */
+.hero-entrance-fade-now {
+  animation: hero-entrance-fade 450ms ease-in both;
+}
+
+/* El botón "Saltar" aparece cuando el video ya está andando, para no distraer del arranque. */
+.hero-skip-in {
+  animation: hero-entrance-fade 500ms ease 1200ms both;
+}

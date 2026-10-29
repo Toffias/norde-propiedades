@@ -138,7 +138,7 @@ export function AppraisalHeader({
 
   return (
     <>
-      <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-center sm:p-5">
+      <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-start sm:p-5">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary-500">
           <CalculatorIcon className="h-8 w-8" aria-hidden />
         </div>
@@ -158,7 +158,7 @@ export function AppraisalHeader({
             <ConvertedProperty property={detail.convertedProperty} />
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           {permissions.edit && !inTrash && detail.nextStatuses.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

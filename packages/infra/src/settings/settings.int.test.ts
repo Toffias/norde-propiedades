@@ -98,6 +98,16 @@ describe('DrizzleCompanySettingsRepository', () => {
     expect(settings.watermark.enabled).toBe(false);
   });
 
+  it('reads the agent option saved before #175 (yes or no) as show or hide', async () => {
+    await db.update(companySettings).set({ pdfSettings: { showAgent: false } });
+    const hidden = await new DrizzleCompanySettingsRepository(db, clock).get();
+    expect(hidden.toSnapshot().pdfOptions.agentInfo).toBe('hide');
+
+    await db.update(companySettings).set({ pdfSettings: { showAgent: true } });
+    const shown = await new DrizzleCompanySettingsRepository(db, clock).get();
+    expect(shown.toSnapshot().pdfOptions.agentInfo).toBe('show');
+  });
+
   it('round-trips every section with the author', async () => {
     const repository = new DrizzleCompanySettingsRepository(db, clock);
     const settings = await repository.get();
@@ -129,7 +139,7 @@ describe('DrizzleCompanySettingsRepository', () => {
     settings.updatePdfOptions(
       {
         showCompanyContact: false,
-        showAgent: true,
+        agentInfo: 'ask',
         showPrice: false,
         addressOnSend: 'hidden',
         addressOnDownload: 'approximate',

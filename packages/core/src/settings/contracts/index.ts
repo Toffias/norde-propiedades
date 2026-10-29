@@ -39,6 +39,10 @@ export const DIRECTORY_SCOPE_VALUES = ['user', 'team', 'branch'] as const;
 export type NewsScopeValue = (typeof NEWS_SCOPE_VALUES)[number];
 export type WatermarkPositionValue = (typeof WATERMARK_POSITION_VALUES)[number];
 export type AddressDisplayValue = (typeof ADDRESS_DISPLAY_VALUES)[number];
+
+/** Datos del agente en el PDF: siempre, nunca o preguntar al exportar. */
+export const AGENT_INFO_MODE_VALUES = ['show', 'hide', 'ask'] as const;
+export type AgentInfoModeValue = (typeof AGENT_INFO_MODE_VALUES)[number];
 export type ReferenceCodeScopeValue = (typeof REFERENCE_CODE_SCOPE_VALUES)[number];
 export type DirectoryScope = (typeof DIRECTORY_SCOPE_VALUES)[number];
 
@@ -121,7 +125,7 @@ export type UpdatePortalDescriptionFooterInput = z.input<
 
 export const UpdatePdfOptionsInputSchema = z.object({
   showCompanyContact: z.boolean(),
-  showAgent: z.boolean(),
+  agentInfo: z.enum(AGENT_INFO_MODE_VALUES),
   showPrice: z.boolean(),
   addressOnSend: z.enum(ADDRESS_DISPLAY_VALUES),
   addressOnDownload: z.enum(ADDRESS_DISPLAY_VALUES),

@@ -1,6 +1,7 @@
 import { Email, parseId, type Clock, type Result } from '@norde/core/shared';
 import {
   ADDRESS_DISPLAYS,
+  AGENT_INFO_MODES,
   CompanyFile,
   CompanySettings,
   DEFAULT_PDF_OPTIONS,
@@ -52,15 +53,24 @@ const WatermarkSchema = z.object({
   opacity: z.number(),
 });
 
-// Las opciones que falten (agregadas después de guardar la fila) toman el valor de fábrica.
-const PdfOptionsSchema = z.object({
-  showCompanyContact: z.boolean().default(DEFAULT_PDF_OPTIONS.showCompanyContact),
-  showAgent: z.boolean().default(DEFAULT_PDF_OPTIONS.showAgent),
-  showPrice: z.boolean().default(DEFAULT_PDF_OPTIONS.showPrice),
-  addressOnSend: z.enum(ADDRESS_DISPLAYS).default(DEFAULT_PDF_OPTIONS.addressOnSend),
-  addressOnDownload: z.enum(ADDRESS_DISPLAYS).default(DEFAULT_PDF_OPTIONS.addressOnDownload),
-  developmentPhotosInUnits: z.boolean().default(DEFAULT_PDF_OPTIONS.developmentPhotosInUnits),
-});
+// Las opciones que falten (agregadas después de guardar la fila) toman el valor de fábrica. Las filas
+// de antes de #175 guardaban `showAgent` (sí o no): se leen como "mostrar" o "no mostrar".
+const PdfOptionsSchema = z
+  .object({
+    showCompanyContact: z.boolean().default(DEFAULT_PDF_OPTIONS.showCompanyContact),
+    agentInfo: z.enum(AGENT_INFO_MODES).optional(),
+    showAgent: z.boolean().optional(),
+    showPrice: z.boolean().default(DEFAULT_PDF_OPTIONS.showPrice),
+    addressOnSend: z.enum(ADDRESS_DISPLAYS).default(DEFAULT_PDF_OPTIONS.addressOnSend),
+    addressOnDownload: z.enum(ADDRESS_DISPLAYS).default(DEFAULT_PDF_OPTIONS.addressOnDownload),
+    developmentPhotosInUnits: z.boolean().default(DEFAULT_PDF_OPTIONS.developmentPhotosInUnits),
+  })
+  .transform(({ agentInfo, showAgent, ...options }) => ({
+    ...options,
+    agentInfo:
+      agentInfo ??
+      (showAgent === undefined ? DEFAULT_PDF_OPTIONS.agentInfo : showAgent ? 'show' : 'hide'),
+  }));
 
 const SINGLETON = eq(companySettings.id, true);
 

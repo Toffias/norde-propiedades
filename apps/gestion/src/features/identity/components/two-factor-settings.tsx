@@ -28,7 +28,15 @@ import { Input } from '@norde/ui/components/input';
 import { PasswordInput } from '@norde/ui/components/password-input';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { toast } from '@norde/ui/components/sonner';
-import { CopyIcon, DownloadIcon, Loader2Icon, ShieldCheckIcon } from 'lucide-react';
+import {
+  CopyIcon,
+  DownloadIcon,
+  KeyRoundIcon,
+  Loader2Icon,
+  QrCodeIcon,
+  ShieldCheckIcon,
+  ShieldOffIcon,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { useState } from 'react';
@@ -130,7 +138,7 @@ function EnableFlow({ onDone }: { readonly onDone: () => void }) {
     return (
       <>
         <DialogHeader>
-          <DialogTitle>Activar la verificación en dos pasos</DialogTitle>
+          <DialogTitle icon={ShieldCheckIcon}>Activar la verificación en dos pasos</DialogTitle>
           <DialogDescription>Confirmá tu contraseña para empezar.</DialogDescription>
         </DialogHeader>
         <PasswordStep
@@ -152,7 +160,7 @@ function EnableFlow({ onDone }: { readonly onDone: () => void }) {
     return (
       <>
         <DialogHeader>
-          <DialogTitle>Escaneá el código con la app</DialogTitle>
+          <DialogTitle icon={QrCodeIcon}>Escaneá el código con la app</DialogTitle>
           <DialogDescription>
             Abrí la app autenticadora, agregá una cuenta y escaneá este QR. Después ingresá el
             código de 6 dígitos que te muestra.
@@ -187,7 +195,7 @@ function EnableFlow({ onDone }: { readonly onDone: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Listo: guardá los códigos de respaldo</DialogTitle>
+        <DialogTitle icon={KeyRoundIcon}>Listo: guardá los códigos de respaldo</DialogTitle>
         <DialogDescription>
           La verificación en dos pasos quedó activa. Si perdés el celular, entrás con uno de estos
           códigos (cada uno sirve una vez). Guardalos en un lugar seguro: no los vas a volver a ver.
@@ -208,7 +216,7 @@ function RegenerateFlow({ onDone }: { readonly onDone: () => void }) {
     return (
       <>
         <DialogHeader>
-          <DialogTitle>Generar códigos de respaldo nuevos</DialogTitle>
+          <DialogTitle icon={KeyRoundIcon}>Generar códigos de respaldo nuevos</DialogTitle>
           <DialogDescription>
             Los códigos que tenías dejan de servir. Confirmá tu contraseña para seguir.
           </DialogDescription>
@@ -230,7 +238,7 @@ function RegenerateFlow({ onDone }: { readonly onDone: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Tus códigos de respaldo nuevos</DialogTitle>
+        <DialogTitle icon={KeyRoundIcon}>Tus códigos de respaldo nuevos</DialogTitle>
         <DialogDescription>
           Cada uno sirve una vez. Guardalos en un lugar seguro: no los vas a volver a ver.
         </DialogDescription>
@@ -247,7 +255,7 @@ function DisableFlow({ onDone }: { readonly onDone: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Desactivar la verificación en dos pasos</DialogTitle>
+        <DialogTitle icon={ShieldOffIcon}>Desactivar la verificación en dos pasos</DialogTitle>
         <DialogDescription>
           Vas a ingresar solo con la contraseña. La app autenticadora y los códigos de respaldo
           dejan de servir. Confirmá tu contraseña.

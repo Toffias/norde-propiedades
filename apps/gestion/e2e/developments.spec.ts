@@ -127,7 +127,8 @@ test.describe('ficha', () => {
     await addUnit(page, development);
     await page.goto(`/emprendimientos/${development.id}`);
 
-    await page.getByRole('button', { name: 'Borrar emprendimiento' }).click();
+    await page.getByRole('button', { name: 'Más acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Borrar' }).click();
     const dialog = page.getByRole('dialog', { name: 'Borrar emprendimiento' });
     await dialog.getByRole('button', { name: 'Borrar' }).click();
 
@@ -141,7 +142,8 @@ test.describe('papelera', () => {
   test('borra un emprendimiento sin unidades y lo restaura', async ({ page }) => {
     const development = await createDevelopment(page);
 
-    await page.getByRole('button', { name: 'Borrar emprendimiento' }).click();
+    await page.getByRole('button', { name: 'Más acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Borrar' }).click();
     await page
       .getByRole('dialog', { name: 'Borrar emprendimiento' })
       .getByRole('button', { name: 'Borrar' })

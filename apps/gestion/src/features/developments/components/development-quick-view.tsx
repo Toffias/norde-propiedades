@@ -11,7 +11,14 @@ import {
 import { Skeleton } from '@norde/ui/components/skeleton';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
-import { ExternalLinkIcon, FileTextIcon, ImageIcon, LayoutListIcon } from 'lucide-react';
+import {
+  ExternalLinkIcon,
+  EyeIcon,
+  FileTextIcon,
+  ImageIcon,
+  LandmarkIcon,
+  LayoutListIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -120,7 +127,9 @@ function Content({ view }: { readonly view: DevelopmentQuickView }) {
           )}
         </div>
         <div className="flex items-start gap-1">
-          <DialogTitle className="flex-1 text-lg">{detail.name}</DialogTitle>
+          <DialogTitle icon={LandmarkIcon} className="flex-1 text-lg">
+            {detail.name}
+          </DialogTitle>
           <DevelopmentFavoriteToggle
             developmentId={detail.id}
             favorite={favorite}
@@ -235,7 +244,7 @@ export function DevelopmentQuickViewDialog({
           <Content view={loaded.view} />
         ) : loaded?.status === 'failed' ? (
           <>
-            <DialogTitle>Vista rápida</DialogTitle>
+            <DialogTitle icon={EyeIcon}>Vista rápida</DialogTitle>
             <FormAlert message={loaded.message} />
           </>
         ) : (

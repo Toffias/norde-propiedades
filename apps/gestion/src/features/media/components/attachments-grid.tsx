@@ -262,7 +262,7 @@ function UploadDialog({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Subir archivos</DialogTitle>
+          <DialogTitle icon={UploadIcon}>Subir archivos</DialogTitle>
           <DialogDescription>
             Escrituras, reglamentos, planos en PDF: PDF, imágenes, Word o Excel de hasta 25 MB.
           </DialogDescription>
@@ -308,7 +308,7 @@ function RenameDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Renombrar el archivo</DialogTitle>
+          <DialogTitle icon={PencilIcon}>Renombrar el archivo</DialogTitle>
         </DialogHeader>
         <FormAlert message={error} />
         <Input

@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@norde/ui/components/dropdown-menu';
 import { toast } from '@norde/ui/components/sonner';
@@ -18,6 +19,8 @@ import {
   ChevronDownIcon,
   LandmarkIcon,
   Loader2Icon,
+  MoreHorizontalIcon,
+  TagsIcon,
   Trash2Icon,
 } from 'lucide-react';
 import { useState, useTransition } from 'react';
@@ -27,8 +30,11 @@ import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
 } from '../../shared/components/confirm-action-dialog';
+import { TagList, TagsDialog } from '../../shared/components/tags-dialog';
+import { loadTagOptions } from '../../properties/actions';
 import {
   changeDevelopmentStatusAction,
+  changeDevelopmentTagsAction,
   deleteDevelopmentAction,
   restoreDevelopmentAction,
 } from '../actions';
@@ -48,7 +54,10 @@ export interface DevelopmentDetailPermissions {
   readonly history: boolean;
 }
 
-/** Cabecera de la ficha: estado (con su cambio), tipo, código, ubicación y papelera. */
+/**
+ * Cabecera de la ficha: estado (con su cambio), tipo, código, ubicación, etiquetas y el menú de
+ * acciones (etiquetas y papelera).
+ */
 export function DevelopmentDetailHeader({
   detail,
   permissions,
@@ -62,6 +71,7 @@ export function DevelopmentDetailHeader({
   const [confirm, setConfirm] = useState<
     { readonly copy: ConfirmActionCopy; readonly run: () => Promise<ActionResult> } | undefined
   >();
+  const [tagging, setTagging] = useState(false);
   const status = DEVELOPMENT_STATUS_DISPLAY[detail.status];
   const inTrash = detail.deletedAt !== undefined;
   const place = detail.locationPath
@@ -102,56 +112,56 @@ export function DevelopmentDetailHeader({
             {detail.publishAddress} ({detail.privateAddress})
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-lg bg-white/10 p-1">
-            <DevelopmentFavoriteToggle developmentId={detail.id} favorite={favorite} />
-          </div>
-          {permissions.edit && !inTrash && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-foreground dark:bg-card"
-                  disabled={pending}
-                >
-                  {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
-                  Cambiar estado
-                  <ChevronDownIcon className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {DEVELOPMENT_STATUS_VALUES.filter((value) => value !== detail.status).map(
-                  (value) => (
-                    <DropdownMenuItem
-                      key={value}
-                      onSelect={() => {
-                        startTransition(async () => {
-                          const error = await runAction(() =>
-                            changeDevelopmentStatusAction({
-                              developmentId: detail.id,
-                              status: value,
-                            }),
-                          );
-                          if (error === undefined) {
-                            toast.success(
-                              `Ahora está ${DEVELOPMENT_STATUS_DISPLAY[value].label.toLowerCase()}.`,
+        <div className="flex flex-col gap-3 sm:items-end sm:self-start">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <div className="rounded-lg bg-white/10 p-1">
+              <DevelopmentFavoriteToggle developmentId={detail.id} favorite={favorite} />
+            </div>
+            {permissions.edit && !inTrash && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-foreground dark:bg-card"
+                    disabled={pending}
+                  >
+                    {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
+                    Cambiar estado
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {DEVELOPMENT_STATUS_VALUES.filter((value) => value !== detail.status).map(
+                    (value) => (
+                      <DropdownMenuItem
+                        key={value}
+                        onSelect={() => {
+                          startTransition(async () => {
+                            const error = await runAction(() =>
+                              changeDevelopmentStatusAction({
+                                developmentId: detail.id,
+                                status: value,
+                              }),
                             );
-                          } else {
-                            toast.error(error);
-                          }
-                        });
-                      }}
-                    >
-                      {DEVELOPMENT_STATUS_DISPLAY[value].label}
-                    </DropdownMenuItem>
-                  ),
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {permissions.delete &&
-            (inTrash ? (
+                            if (error === undefined) {
+                              toast.success(
+                                `Ahora está ${DEVELOPMENT_STATUS_DISPLAY[value].label.toLowerCase()}.`,
+                              );
+                            } else {
+                              toast.error(error);
+                            }
+                          });
+                        }}
+                      >
+                        {DEVELOPMENT_STATUS_DISPLAY[value].label}
+                      </DropdownMenuItem>
+                    ),
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {permissions.delete && inTrash && (
               <Button
                 size="sm"
                 variant="outline"
@@ -171,30 +181,68 @@ export function DevelopmentDetailHeader({
                 <ArchiveRestoreIcon className="h-4 w-4" />
                 Restaurar
               </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-foreground dark:bg-card"
-                aria-label="Borrar emprendimiento"
-                onClick={() => {
-                  setConfirm({
-                    copy: {
-                      title: 'Borrar emprendimiento',
-                      description: `${detail.name} va a la papelera; desde ahí lo podés restaurar. Si tiene unidades activas, primero hay que borrarlas.`,
-                      confirm: 'Borrar',
-                      done: 'Emprendimiento enviado a la papelera',
-                      destructive: true,
-                    },
-                    run: () => deleteDevelopmentAction({ developmentId: detail.id }),
-                  });
-                }}
-              >
-                <Trash2Icon className="h-4 w-4" />
-              </Button>
-            ))}
+            )}
+            {!inTrash && (permissions.edit || permissions.delete) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-foreground dark:bg-card"
+                    aria-label="Más acciones"
+                  >
+                    <MoreHorizontalIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {permissions.edit && (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setTagging(true);
+                      }}
+                    >
+                      <TagsIcon className="h-4 w-4" />
+                      Gestionar etiquetas
+                    </DropdownMenuItem>
+                  )}
+                  {permissions.edit && permissions.delete && <DropdownMenuSeparator />}
+                  {permissions.delete && (
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => {
+                        setConfirm({
+                          copy: {
+                            title: 'Borrar emprendimiento',
+                            description: `${detail.name} va a la papelera; desde ahí lo podés restaurar. Si tiene unidades activas, primero hay que borrarlas.`,
+                            confirm: 'Borrar',
+                            done: 'Emprendimiento enviado a la papelera',
+                            destructive: true,
+                          },
+                          run: () => deleteDevelopmentAction({ developmentId: detail.id }),
+                        });
+                      }}
+                    >
+                      <Trash2Icon className="h-4 w-4" />
+                      Borrar
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+          <TagList tags={detail.tags} onDark className="sm:justify-end" />
         </div>
       </div>
+      {tagging && (
+        <TagsDialog
+          subject={detail.name}
+          tags={detail.tags}
+          loadPage={loadTagOptions}
+          save={(tagIds) => changeDevelopmentTagsAction({ developmentId: detail.id, tagIds })}
+          open={tagging}
+          onOpenChange={setTagging}
+        />
+      )}
       <ConfirmActionDialog
         copy={confirm?.copy}
         run={confirm?.run ?? (() => Promise.resolve({ ok: true }))}

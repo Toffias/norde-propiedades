@@ -11,7 +11,6 @@ import {
   CustomAttributesSection,
   DealSection,
   FeaturesSection,
-  TagsSection,
 } from './sections-attributes';
 import { InternalSection } from './sections-internal';
 import { DescriptionSection, LocationSection, OperationsSection } from './sections-listing';
@@ -62,7 +61,6 @@ export function DetailSections({
           truncated={catalogTruncated}
         />
       </div>
-      <TagsSection detail={detail} canEdit={canEdit} />
       {showCustomAttributes && <CustomAttributesSection detail={detail} canEdit={canEdit} />}
     </div>
   );

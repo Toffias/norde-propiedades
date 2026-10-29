@@ -19,7 +19,7 @@ import {
 import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
 import { cn } from '@norde/ui/lib/utils';
-import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, CombineIcon, Loader2Icon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
@@ -211,7 +211,7 @@ export function ClientMergeDialog({
     >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Unificar contactos</DialogTitle>
+          <DialogTitle icon={CombineIcon}>Unificar contactos</DialogTitle>
           <DialogDescription>
             Si {clientName(detail.name)} está cargado dos veces, elegí el otro registro y cuál
             queda. No se pierde nada: lo del otro pasa al principal.

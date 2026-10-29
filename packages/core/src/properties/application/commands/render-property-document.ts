@@ -9,6 +9,7 @@ import {
   type PropertyDocumentKind,
 } from '../../domain/property-document';
 import { idOf } from '../catalog-support';
+import type { DocumentContacts } from '../ports/document-contacts';
 import type { OwnerReports, PropertyDocumentRenderer } from '../ports/property-documents';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { PropertyDetailLookups } from '../ports/property-detail-lookups';
@@ -21,10 +22,10 @@ export type RenderPropertyDocumentError = ForbiddenError | InvalidInputError;
 /** Qué pasó: ya no existe (o ya se armó), quedó listo o falló. */
 export type DocumentRenderOutcome = 'gone' | 'ready' | 'failed';
 
-/** Fotos que entran en cada PDF: la vidriera es una sola hoja. */
+/** Fotos que entran en cada PDF: la vidriera es una sola hoja (una grande y dos chicas). */
 const PHOTOS_PER_KIND: Readonly<Record<PropertyDocumentKind, number>> = {
   sheet: 8,
-  showcase: 1,
+  showcase: 3,
   owner_report: 1,
 };
 
@@ -36,7 +37,8 @@ function printableKey(item: MediaItem): string | undefined {
 
 /**
  * Lo corre el job de `PropertyDocumentRequested`: arma el PDF según la configuración de "Ficha y
- * PDF" (dirección, precio, agente), con las fotos marcadas "incluir en PDF", lo guarda en el storage
+ * PDF" (dirección, precio, agente), con las fotos marcadas "incluir en PDF", el contacto de la
+ * sucursal y el link a la ficha en la web si está publicada. Lo guarda en el storage
  * y lo marca listo. Si falla, queda "fallido" y el error sigue hacia el job, que lo registra.
  */
 export class RenderPropertyDocument {
@@ -49,6 +51,7 @@ export class RenderPropertyDocument {
       readonly settings: CompanySettingsReader;
       readonly renderer: PropertyDocumentRenderer;
       readonly ownerReports: OwnerReports;
+      readonly contacts: DocumentContacts;
       readonly clock: Clock;
     },
   ) {}
@@ -125,9 +128,15 @@ export class RenderPropertyDocument {
       .map((stored) => stored.bytes);
     const logo =
       settings.logoKey === undefined ? undefined : await this.deps.storage.get(settings.logoKey);
-    const agentName = options.showAgent
-      ? (await this.deps.users.names([document.requestedBy])).get(document.requestedBy)
-      : undefined;
+    const [agent, branch] = await Promise.all([
+      options.showAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
+      this.deps.contacts.branch(detail.branchId),
+    ]);
+    // La ficha en la web solo si la web la muestra: si no, el link no abre.
+    const webUrl =
+      detail.isPubliclyListed && settings.webPropertyUrlTemplate !== undefined
+        ? settings.webPropertyUrlTemplate.render({ id: detail.id, slug: detail.slug })
+        : undefined;
 
     let ownerReport;
     const period = document.period;
@@ -147,7 +156,9 @@ export class RenderPropertyDocument {
       }),
       photos,
       company: { name: settings.name, logo: logo?.bytes },
-      agentName,
+      agent,
+      branch,
+      webUrl,
       ownerReport,
       generatedAt: this.deps.clock.now(),
     });

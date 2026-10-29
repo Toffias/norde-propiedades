@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { HashIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -128,7 +128,7 @@ function NewSequenceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nuevo prefijo</DialogTitle>
+          <DialogTitle icon={HashIcon}>Nuevo prefijo</DialogTitle>
           <DialogDescription>
             Si a un alta le aplican varios, gana el más específico: usuario, equipo, sucursal, tipo
             de propiedad y, por último, el general.
@@ -301,7 +301,7 @@ function EditPrefixDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cambiar el prefijo</DialogTitle>
+          <DialogTitle icon={HashIcon}>Cambiar el prefijo</DialogTitle>
           <DialogDescription>
             {SCOPE_LABELS[row.scope]}: {appliesTo(row)}. La numeración sigue donde estaba y los
             códigos ya entregados no cambian.

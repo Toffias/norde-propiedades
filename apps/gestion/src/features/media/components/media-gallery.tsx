@@ -41,7 +41,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@norde/ui/components/dropdown-menu';
-import { FileDropzone } from '@norde/ui/components/file-dropzone';
 import { Input } from '@norde/ui/components/input';
 import { Label } from '@norde/ui/components/label';
 import { SectionCard } from '@norde/ui/components/section-card';
@@ -65,6 +64,7 @@ import {
   MoreVerticalIcon,
   PlayCircleIcon,
   RotateCwIcon,
+  TextIcon,
   Trash2Icon,
   VideoIcon,
   XIcon,
@@ -87,6 +87,11 @@ import { mediaFileHref } from '../paths';
 import { MEDIA_KIND_LABELS } from '../labels';
 import { FallbackImage } from '../../properties/components/property-photo';
 import { ConfirmActionDialog } from '../../shared/components/confirm-action-dialog';
+import {
+  AddPhotosButton,
+  PhotoUploadDialog,
+  type PhotoUploadProgress,
+} from './photo-upload-dialog';
 
 /** Fotos que se suben a la vez: el resto espera su turno. */
 const UPLOAD_CONCURRENCY = 3;
@@ -186,11 +191,14 @@ function useUploads(owner: MediaOwnerInput, items: readonly MediaRow[]) {
   }
 
   return {
+    /** Todas las elegidas que siguen en la lista, para mostrar su avance. */
+    all: uploads,
     /** Las que todavía no tienen su tarjeta del servidor con miniatura, en el orden elegido. */
     pending: uploads.filter((upload) => !isSettled(upload)),
     previewFor: (mediaId: string) =>
       uploads.find((upload) => upload.mediaId === mediaId && !isSettled(upload))?.preview,
-    add(files: readonly File[]) {
+    /** Encola las fotos y devuelve sus claves. */
+    add(files: readonly File[]): readonly string[] {
       const stamp = Date.now().toString();
       const added = files.map((file, index) => {
         const preview = URL.createObjectURL(file);
@@ -200,6 +208,7 @@ function useUploads(owner: MediaOwnerInput, items: readonly MediaRow[]) {
       });
       setUploads((current) => [...current.filter((upload) => !isSettled(upload)), ...added]);
       run([...added]);
+      return added.map((upload) => upload.key);
     },
     retry(upload: Upload) {
       const again: Upload = { ...upload, status: 'waiting' };
@@ -239,6 +248,23 @@ export function MediaGallery({
     setDragged({ source: items, order: next });
   };
   const uploads = useUploads(owner, items);
+  const [adding, setAdding] = useState(false);
+  // Las fotos elegidas desde que se abrió el modal: su avance se ve ahí.
+  const [addedKeys, setAddedKeys] = useState<readonly string[]>([]);
+  const progress: readonly PhotoUploadProgress[] = uploads.all
+    .filter((upload) => addedKeys.includes(upload.key))
+    .map((upload) => ({
+      key: upload.key,
+      name: upload.file.name,
+      state:
+        upload.status === 'failed' ? 'failed' : upload.status === 'uploaded' ? 'done' : 'pending',
+      label:
+        upload.status === 'failed'
+          ? (upload.error ?? UPLOAD_STATUS_LABELS.failed)
+          : upload.status === 'uploaded'
+            ? 'Subida'
+            : UPLOAD_STATUS_LABELS[upload.status],
+    }));
   const [, startTransition] = useTransition();
   const processing = items.some((item) => item.processing === 'pending');
 
@@ -291,26 +317,23 @@ export function MediaGallery({
 
   return (
     <div className="flex flex-col gap-4">
-      <SectionCard title={`Fotos y planos (${images.length.toString()})`} icon={ImagesIcon}>
+      <SectionCard
+        title={`Fotos y planos (${images.length.toString()})`}
+        icon={ImagesIcon}
+        {...(canEdit
+          ? {
+              action: (
+                <AddPhotosButton
+                  onClick={() => {
+                    setAddedKeys([]);
+                    setAdding(true);
+                  }}
+                />
+              ),
+            }
+          : {})}
+      >
         <div className="flex flex-col gap-4">
-          {canEdit && (
-            <FileDropzone
-              multiple
-              accept={MEDIA_IMAGE_CONTENT_TYPES.join(',')}
-              title="Arrastrá las fotos o hacé clic para elegirlas"
-              hint="JPG, PNG o WebP, hasta 15 MB cada una. La original se guarda tal cual."
-              onFiles={(files) => {
-                const rejected = files.filter((file) => !allowed(file));
-                if (rejected.length > 0) {
-                  toast.error(
-                    `No se suben ${rejected.length.toString()} archivos: tienen que ser fotos JPG, PNG o WebP de hasta 15 MB.`,
-                  );
-                }
-                const accepted = files.filter(allowed);
-                if (accepted.length > 0) uploads.add(accepted);
-              }}
-            />
-          )}
           {images.length === 0 && local.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Todavía no hay fotos.</p>
           ) : (
@@ -350,6 +373,28 @@ export function MediaGallery({
           )}
         </div>
       </SectionCard>
+
+      {canEdit && (
+        <PhotoUploadDialog
+          open={adding}
+          onOpenChange={setAdding}
+          accept={MEDIA_IMAGE_CONTENT_TYPES.join(',')}
+          hint="JPG, PNG o WebP, hasta 15 MB cada una. La original se guarda tal cual."
+          progress={progress}
+          onFiles={(files) => {
+            const rejected = files.filter((file) => !allowed(file));
+            if (rejected.length > 0) {
+              toast.error(
+                `No se suben ${rejected.length.toString()} archivos: tienen que ser fotos JPG, PNG o WebP de hasta 15 MB.`,
+              );
+            }
+            const accepted = files.filter(allowed);
+            if (accepted.length === 0) return;
+            const keys = uploads.add(accepted);
+            setAddedKeys((current) => [...current, ...keys]);
+          }}
+        />
+      )}
 
       <SectionCard title="Videos y recorridos 360" icon={VideoIcon}>
         <MediaLinks owner={owner} links={links} canEdit={canEdit} />
@@ -721,7 +766,7 @@ function DescriptionDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Descripción de la foto</DialogTitle>
+          <DialogTitle icon={TextIcon}>Descripción de la foto</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={id}>Descripción</Label>

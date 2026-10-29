@@ -71,6 +71,11 @@ export interface OwnerReport {
   readonly whatsappSends: number;
   readonly inquiries: number;
   readonly interested: number;
+  /** Visitas y contactos sumados de todos los portales. */
+  readonly portalViews: number;
+  readonly portalContacts: number;
+  /** Cada mes del período, también los que no tuvieron movimiento. */
+  readonly monthly: readonly PropertyMonthlyActivity[];
 }
 
 export * from './home';

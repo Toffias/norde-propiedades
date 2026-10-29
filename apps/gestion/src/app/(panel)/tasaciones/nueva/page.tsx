@@ -32,7 +32,7 @@ export default async function NewAppraisalPage() {
       <Card>
         {canCreate ? (
           <CardContent>
-            <AppraisalForm canEdit />
+            <AppraisalForm />
           </CardContent>
         ) : (
           <DataTableError message={APPRAISAL_ERROR_MESSAGES.Forbidden} />

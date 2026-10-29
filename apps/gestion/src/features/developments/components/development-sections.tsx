@@ -1,6 +1,17 @@
 'use client';
 
-import { Building2Icon, HardHatIcon, ListChecksIcon, MapPinIcon, TagsIcon } from 'lucide-react';
+import {
+  Building2Icon,
+  ContactIcon,
+  GlobeIcon,
+  HardHatIcon,
+  LayersIcon,
+  ListChecksIcon,
+  MapPinIcon,
+  MegaphoneIcon,
+  UserCheckIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import {
   CONSTRUCTION_STATUS_VALUES,
   DEVELOPMENT_TYPES,
@@ -16,23 +27,18 @@ import {
   type UpdateDevelopmentLocationInput,
 } from '@norde/core/properties/contracts';
 import { Badge } from '@norde/ui/components/badge';
-import { Button } from '@norde/ui/components/button';
 import { Form } from '@norde/ui/components/form';
-import {
-  PagedMultiSelect,
-  type ComboboxOption,
-  type LoadComboboxPage,
-} from '@norde/ui/components/paged-combobox';
+import type { LoadComboboxPage } from '@norde/ui/components/paged-combobox';
 import { Skeleton } from '@norde/ui/components/skeleton';
 import { toast } from '@norde/ui/components/sonner';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatDateOnly } from '../../../lib/format';
 import { contractResolver } from '../../../lib/form';
 import { loadClientOptions } from '../../clients/actions';
-import { loadLocationOptions, loadTagOptions } from '../../properties/actions';
+import { loadLocationOptions } from '../../properties/actions';
 import { FEATURE_KIND_LABELS } from '../../properties/labels';
 import {
   ChecklistField,
@@ -49,7 +55,6 @@ import {
   type InlineFormControls,
 } from '../../shared/components/inline-section';
 import {
-  changeDevelopmentTagsAction,
   updateDevelopmentDetailsAction,
   updateDevelopmentFeaturesAction,
   updateDevelopmentGeneralAction,
@@ -100,7 +105,6 @@ export function DevelopmentSections({
           catalog={catalog}
           truncated={catalogTruncated}
         />
-        <TagsSection detail={detail} canEdit={canEdit} />
       </div>
     </div>
   );
@@ -120,48 +124,80 @@ function GeneralSection({
       title="Datos generales"
       icon={Building2Icon}
       canEdit={canEdit}
+      bodyClassName="@container flex flex-1 flex-col"
       view={
-        <Facts
-          items={[
-            { label: 'Nombre público', value: detail.name },
-            {
-              label: 'Tipo de desarrollo',
-              value:
-                detail.developmentType === undefined
-                  ? EMPTY_VALUE
-                  : DEVELOPMENT_TYPE_LABELS[detail.developmentType],
-            },
-            { label: 'Título para portales', value: detail.portalTitle },
-            {
-              label: 'Página web',
-              value:
-                detail.websiteUrl === undefined ? (
-                  EMPTY_VALUE
-                ) : (
-                  <a
-                    href={detail.websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary-700 hover:underline dark:text-primary-400"
-                  >
-                    {detail.websiteUrl.replace(/^https?:\/\//, '')}
-                  </a>
-                ),
-            },
-            { label: 'Desarrollista (privado)', value: text(detail.developerName) },
-            {
-              label: 'Contacto comercial (privado)',
-              value:
-                detail.commercialContact === undefined
-                  ? EMPTY_VALUE
-                  : (detail.commercialContact.name ?? 'Contacto borrado'),
-            },
-            { label: 'Captador', value: text(detail.producer?.name) },
-          ]}
-        />
+        <dl className="grid flex-1 auto-rows-fr grid-cols-1 gap-3 @md:grid-cols-2 @md:[&>:last-child:nth-child(odd)]:col-span-2">
+          <FactTile icon={Building2Icon} label="Nombre público" value={detail.name} />
+          <FactTile
+            icon={LayersIcon}
+            label="Tipo de desarrollo"
+            value={
+              detail.developmentType === undefined
+                ? EMPTY_VALUE
+                : DEVELOPMENT_TYPE_LABELS[detail.developmentType]
+            }
+          />
+          <FactTile icon={MegaphoneIcon} label="Título para portales" value={detail.portalTitle} />
+          <FactTile
+            icon={GlobeIcon}
+            label="Página web"
+            value={
+              detail.websiteUrl === undefined ? (
+                EMPTY_VALUE
+              ) : (
+                <a
+                  href={detail.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-700 hover:underline dark:text-primary-400"
+                >
+                  {detail.websiteUrl.replace(/^https?:\/\//, '')}
+                </a>
+              )
+            }
+          />
+          <FactTile
+            icon={HardHatIcon}
+            label="Desarrollista (privado)"
+            value={text(detail.developerName)}
+          />
+          <FactTile
+            icon={ContactIcon}
+            label="Contacto comercial (privado)"
+            value={
+              detail.commercialContact === undefined
+                ? EMPTY_VALUE
+                : (detail.commercialContact.name ?? 'Contacto borrado')
+            }
+          />
+          <FactTile icon={UserCheckIcon} label="Captador" value={text(detail.producer?.name)} />
+        </dl>
       }
       form={(controls) => <GeneralForm detail={detail} controls={controls} />}
     />
+  );
+}
+
+/** Un dato de la sección en su propio recuadro: la grilla estira los recuadros al alto de la tarjeta. */
+function FactTile({
+  icon: Icon,
+  label,
+  value,
+}: {
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly value: ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <dt className="text-xs text-muted-foreground">{label}</dt>
+        <dd className="text-sm font-medium break-words">{value}</dd>
+      </div>
+    </div>
   );
 }
 
@@ -549,89 +585,5 @@ function FeaturesForm({
         <InlineFormActions controls={controls} />
       </form>
     </Form>
-  );
-}
-
-// ---------- Etiquetas ----------
-
-function TagsSection({
-  detail,
-  canEdit,
-}: {
-  readonly detail: DevelopmentDetail;
-  readonly canEdit: boolean;
-}) {
-  return (
-    <InlineSection
-      title="Etiquetas"
-      icon={TagsIcon}
-      canEdit={canEdit}
-      view={
-        detail.tags.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin etiquetas.</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {detail.tags.map((tag) => (
-              <Badge key={tag.id} variant="secondary">
-                {tag.groupName === undefined ? tag.name : `${tag.groupName}: ${tag.name}`}
-              </Badge>
-            ))}
-          </div>
-        )
-      }
-      form={(controls) => <TagsForm detail={detail} controls={controls} />}
-    />
-  );
-}
-
-function TagsForm({
-  detail,
-  controls,
-}: {
-  readonly detail: DevelopmentDetail;
-  readonly controls: InlineFormControls;
-}) {
-  const [tags, setTags] = useState<readonly ComboboxOption[]>(
-    detail.tags.map((tag) => ({
-      value: tag.id,
-      label: tag.name,
-      ...(tag.groupName === undefined ? {} : { hint: tag.groupName }),
-    })),
-  );
-  return (
-    <form
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        controls.save(
-          () =>
-            changeDevelopmentTagsAction({
-              developmentId: detail.id,
-              tagIds: tags.map((tag) => tag.value),
-            }),
-          'Etiquetas guardadas.',
-        );
-      }}
-    >
-      <PagedMultiSelect
-        value={tags}
-        onChange={setTags}
-        loadPage={loadTagOptions}
-        placeholder="Elegí las etiquetas"
-        searchPlaceholder="Buscar etiqueta"
-      />
-      <div className="flex justify-between gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            setTags([]);
-          }}
-        >
-          Quitar todas
-        </Button>
-        <InlineFormActions controls={controls} />
-      </div>
-    </form>
   );
 }

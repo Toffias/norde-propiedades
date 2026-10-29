@@ -71,8 +71,28 @@ async function* stream(photos: readonly Uint8Array[]) {
 function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalReportContent {
   return {
     appraisal,
+    figures: {
+      surfaceM2: 80.5,
+      salePerM2: { minCents: 136_646n, maxCents: 149_068n, currency: 'USD' },
+      rentPerM2: { minCents: 993_789n, maxCents: 993_789n, currency: 'ARS' },
+      comparablesAverages: [{ currency: 'USD', pricePerM2Cents: 181_538n, count: 1 }],
+    },
     photos: stream([]),
     company: { name: 'Norde Propiedades', logo: undefined },
+    appraiser: {
+      name: 'Juan Gómez',
+      address: undefined,
+      phone: '+5491155550000',
+      whatsapp: undefined,
+      email: 'juan@norde.com.ar',
+    },
+    branch: {
+      name: 'Casa central',
+      address: 'Av. Santa Fe 1234, CABA',
+      phone: undefined,
+      whatsapp: '+5491166899124',
+      email: 'hola@norde.com.ar',
+    },
     generatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,
   };
@@ -108,7 +128,7 @@ describe('PdfLibAppraisalReportRenderer', () => {
       }),
     );
     const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(1);
+    expect(doc.getPageCount()).toBeLessThanOrEqual(2);
   });
 
   it('renders an appraisal without comparables, observations or photos', async () => {

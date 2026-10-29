@@ -32,9 +32,11 @@ import {
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import {
+  ArchiveXIcon,
   ExternalLinkIcon,
   GlobeIcon,
   Link2Icon,
+  LinkIcon,
   Loader2Icon,
   MegaphoneIcon,
   PauseIcon,
@@ -744,7 +746,7 @@ function UnpublishDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Dar de baja el aviso</DialogTitle>
+          <DialogTitle icon={ArchiveXIcon}>Dar de baja el aviso</DialogTitle>
           <DialogDescription>
             {portal === 'zonaprop'
               ? 'El aviso sale de Zonaprop y libera su crédito. Para volver a mostrarlo hay que publicarlo de nuevo. Si solo querés sacarlo un tiempo, pausalo.'
@@ -819,7 +821,7 @@ function LinkListingDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Vincular un aviso de {site}</DialogTitle>
+          <DialogTitle icon={LinkIcon}>Vincular un aviso de {site}</DialogTitle>
           <DialogDescription>
             Pegá el link del aviso que ya está online en {site} (lo publicó Tokko). No se republica:
             conserva su antigüedad, sus visitas y sus consultas, y queda como está hasta que cambie

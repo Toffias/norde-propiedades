@@ -191,6 +191,7 @@ export type {
   ReferenceCodeUnavailableError,
 } from './application/ports/reference-code-allocator';
 export type { Producers, UserNames } from './application/ports/user-names';
+export type { DocumentContact, DocumentContacts } from './application/ports/document-contacts';
 export type { InvalidInputError, PropertyNotFoundError } from './application/property-support';
 export {
   CreateProperty,

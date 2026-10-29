@@ -14,49 +14,7 @@ import { PROPERTY_STATUS_DISPLAY } from '../../properties/labels';
 import type { WidgetState } from '../home-state';
 
 import { AvailableDevelopmentsList, AvailablePropertiesList } from './available-lists';
-import { DonutChart, ProgressRing } from './portfolio-charts';
-
-interface Bar {
-  readonly key: string;
-  readonly label: string;
-  readonly count: number;
-  /** Texto a la derecha de la barra; por defecto, el número. */
-  readonly value?: string;
-  /** Color propio (el de un estado de oportunidad); por defecto, el primario. */
-  readonly color?: string;
-}
-
-/** Barras horizontales proporcionales al mayor valor, con el número a la derecha. */
-function BarList({ bars, empty }: { readonly bars: readonly Bar[]; readonly empty: string }) {
-  const max = Math.max(1, ...bars.map((bar) => bar.count));
-  if (bars.every((bar) => bar.count === 0)) {
-    return <p className="text-sm text-muted-foreground">{empty}</p>;
-  }
-  return (
-    // Repartidas en el alto de la tarjeta, que se estira a la par de las de al lado.
-    <ul className="flex flex-1 flex-col justify-between gap-2.5">
-      {bars.map((bar) => (
-        <li key={bar.key} className="flex items-center gap-3 text-sm">
-          <span className="w-32 shrink-0 truncate sm:w-40">{bar.label}</span>
-          <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-            <span
-              className="block h-full rounded-full bg-primary"
-              style={{
-                width: `${String(Math.round((bar.count / max) * 100))}%`,
-                ...(bar.color === undefined || bar.color === ''
-                  ? {}
-                  : { backgroundColor: bar.color }),
-              }}
-            />
-          </span>
-          <span className="w-12 shrink-0 text-right text-sm font-semibold tabular-nums">
-            {bar.value ?? String(bar.count)}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
+import { BarList, DonutChart, ProgressRing } from './portfolio-charts';
 
 function plural(count: number, one: string, many: string): string {
   return `${String(count)} ${count === 1 ? one : many}`;

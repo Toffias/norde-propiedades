@@ -13,7 +13,7 @@ import {
 import { Input } from '@norde/ui/components/input';
 import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, PlugIcon, UnplugIcon } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -44,7 +44,7 @@ export function AccountCodeDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Conectar {label}</DialogTitle>
+          <DialogTitle icon={PlugIcon}>Conectar {label}</DialogTitle>
           <DialogDescription>
             Ingresá el código de inmobiliaria de Norde en {label}. Lo verificamos con {label}: la
             inmobiliaria tiene que estar asociada a Norde como integrador.
@@ -132,7 +132,7 @@ export function DisconnectDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Desconectar {PORTAL_LABELS[account.portal]}</DialogTitle>
+          <DialogTitle icon={UnplugIcon}>Desconectar {PORTAL_LABELS[account.portal]}</DialogTitle>
           <DialogDescription>
             {account.connection === 'account_code' ? (
               <>

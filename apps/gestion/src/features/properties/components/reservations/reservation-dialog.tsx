@@ -26,7 +26,7 @@ import {
   FormMessage,
 } from '@norde/ui/components/form';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon } from 'lucide-react';
+import { BookmarkCheckIcon, Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -158,7 +158,9 @@ export function ReservationDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Editar la reserva' : `Reservar ${subject.code}`}</DialogTitle>
+          <DialogTitle icon={BookmarkCheckIcon}>
+            {editing ? 'Editar la reserva' : `Reservar ${subject.code}`}
+          </DialogTitle>
           <DialogDescription>
             {editing
               ? 'El contacto y la operación no cambian: si cambian, la reserva se da por caída y se reserva de nuevo.'

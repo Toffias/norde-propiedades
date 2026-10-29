@@ -1,5 +1,8 @@
 import { Button } from '@norde/ui/components/button';
 import { MessageCircle } from 'lucide-react';
+import Image from 'next/image';
+
+import keys from '../../assets/services/alquileres.jpg';
 
 import { BUSINESS } from '../../constants/business';
 
@@ -14,12 +17,25 @@ export function OwnersCta() {
 
   return (
     <section aria-labelledby="owners-cta-title" className="mx-auto max-w-7xl px-4 sm:px-6">
-      <div className="bg-ink text-background flex flex-col items-start gap-6 rounded-[28px] px-6 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+      {/* Sobre una foto oscurecida: el texto va en blanco en los dos temas. */}
+      <div className="relative isolate flex flex-col items-start gap-6 overflow-hidden rounded-[28px] bg-black px-6 py-12 text-white sm:flex-row sm:items-center sm:justify-between sm:px-10">
+        <Image
+          src={keys}
+          alt=""
+          fill
+          placeholder="blur"
+          sizes="(min-width: 1280px) 80rem, 100vw"
+          className="-z-10 object-cover object-[center_40%]"
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-gradient-to-r from-black/85 via-black/65 to-black/40"
+        />
         <div className="max-w-xl space-y-2">
           <h2 id="owners-cta-title" className="text-2xl font-extrabold sm:text-3xl">
             ¿Querés vender o alquilar tu propiedad?
           </h2>
-          <p className="text-background/75">
+          <p className="text-white/80">
             Te ayudamos a definir el precio, la publicamos en los principales portales y coordinamos
             las visitas por vos.
           </p>

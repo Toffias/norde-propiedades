@@ -20,7 +20,7 @@
         "BETTER_AUTH_URL=http://localhost:3002",
         "pnpm",
         "--dir",
-        "C:/norde-propiedades/.claude/worktrees/pdf-showcase/apps/gestion",
+        "C:/norde-propiedades/.claude/worktrees/pdf-brand/apps/gestion",
         "exec",
         "next",
         "dev",

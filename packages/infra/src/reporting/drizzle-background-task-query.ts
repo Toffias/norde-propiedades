@@ -23,6 +23,7 @@ import {
   portalListings,
   properties,
   propertyDocuments,
+  propertyListDocuments,
 } from '../db/schema';
 
 const count = z.coerce.number().int().min(0);
@@ -233,6 +234,19 @@ export class DrizzleBackgroundTaskQuery implements BackgroundTaskQuery {
         from ${propertyDocuments} pd
         where ${by(sql`pd.requested_by`)}
           and (pd.status = 'pending' or pd.updated_at > ${since}::timestamptz)
+      `,
+      sql`
+        select 'property_list_document' as kind, 'list_document:' || ld.id::text as id,
+          ld.id::text as source_id,
+          case ld.status when 'pending' then 'running' when 'ready' then 'done' else 'failed' end
+            as status,
+          null::text as property_id, null::text as development_id, ld.layout as detail,
+          null::int as done, cardinality(ld.property_ids) as total, 0 as problems,
+          ld.error as failure, ld.requested_by as requester_id, ld.created_at,
+          case when ld.status <> 'pending' then ld.updated_at end as finished_at
+        from ${propertyListDocuments} ld
+        where ${by(sql`ld.requested_by`)}
+          and (ld.status = 'pending' or ld.updated_at > ${since}::timestamptz)
       `,
     ];
     if (criteria.includePortals) {

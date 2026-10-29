@@ -1,8 +1,9 @@
 'use client';
 
-import type {
-  PropertyDocumentKindValue,
-  PropertyDocumentRow,
+import {
+  SINGLE_PROPERTY_SHEET_LAYOUT_VALUES,
+  type PropertyDocumentKindValue,
+  type PropertyDocumentRow,
 } from '@norde/core/properties/contracts';
 import { Button } from '@norde/ui/components/button';
 import {
@@ -39,7 +40,12 @@ import {
   requestPropertyDocumentAction,
   sendOwnerReportAction,
 } from '../../detail-actions';
-import { DOCUMENT_KIND_LABELS, DOCUMENT_STATUS_DISPLAY } from '../../detail-labels';
+import {
+  DOCUMENT_KIND_LABELS,
+  DOCUMENT_STATUS_DISPLAY,
+  SHEET_LAYOUT_LABELS,
+} from '../../detail-labels';
+import { SheetPdfDialog } from '../sheet-pdf-dialog';
 
 /** Cada PDF con su ícono y para qué sirve, para elegirlo y reconocerlo en la lista. */
 const DOCUMENT_KINDS: Readonly<
@@ -62,10 +68,48 @@ function defaultPeriod(): { readonly from: string; readonly to: string } {
   return { from: day(monthAgo), to: day(today) };
 }
 
-/** Pide un PDF y avisa que se está armando. */
+/** Elige el formato de la ficha en PDF (#175) y la pide; avisa que se está armando. */
+export function SheetDocumentDialog({
+  propertyId,
+  open,
+  onOpenChange,
+  onRequested,
+}: {
+  readonly propertyId: string;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly onRequested: () => void;
+}) {
+  return (
+    <SheetPdfDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Ficha en PDF"
+      description="Elegí el formato. Tarda unos segundos en armarse y queda en los PDF de la propiedad."
+      layouts={SINGLE_PROPERTY_SHEET_LAYOUT_VALUES}
+      onSubmit={async ({ layout, includeAgent }) => {
+        const message = await runAction(() =>
+          requestPropertyDocumentAction({
+            propertyId,
+            kind: 'sheet',
+            layout,
+            ...(includeAgent === undefined ? {} : { includeAgent }),
+          }),
+        );
+        if (message === undefined) {
+          toast.success('Estamos armando la ficha en PDF.');
+          onRequested();
+        }
+        return message;
+      }}
+    />
+  );
+}
+
+/** Pide un PDF sin opciones (la vidriera) y avisa que se está armando. */
 export function useRequestDocument(propertyId: string, onRequested: () => void) {
   const [pending, startTransition] = useTransition();
-  const request = (kind: Exclude<PropertyDocumentKindValue, 'owner_report'>) => {
+  const request = (kind: 'showcase') => {
     startTransition(async () => {
       const error = await runAction(() => requestPropertyDocumentAction({ propertyId, kind }));
       if (error !== undefined) {
@@ -87,11 +131,14 @@ export function DocumentsDialog({
   propertyId,
   open,
   onOpenChange,
+  onSheet,
   onOwnerReport,
 }: {
   readonly propertyId: string;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  /** La ficha pide un formato: lo elige su propio diálogo. */
+  readonly onSheet: () => void;
   /** El reporte pide un período: lo elige su propio diálogo. */
   readonly onOwnerReport: () => void;
 }) {
@@ -150,6 +197,7 @@ export function DocumentsDialog({
                   disabled={documentRequest.pending}
                   onClick={() => {
                     if (kind === 'owner_report') onOwnerReport();
+                    else if (kind === 'sheet') onSheet();
                     else documentRequest.request(kind);
                   }}
                   className="flex flex-col items-start gap-2 rounded-xl border border-border bg-muted/30 p-3 text-left transition-colors outline-none hover:border-primary/40 hover:bg-primary/5 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
@@ -188,6 +236,11 @@ export function DocumentsDialog({
                       <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                           {DOCUMENT_KIND_LABELS[document.kind]}
+                          {document.layout === undefined ? null : (
+                            <span className="font-normal text-muted-foreground">
+                              · {SHEET_LAYOUT_LABELS[document.layout]}
+                            </span>
+                          )}
                           <StatusPill tone={status.tone}>
                             {document.status === 'pending' && (
                               <Loader2Icon className="h-3 w-3 animate-spin" aria-hidden />

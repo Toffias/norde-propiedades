@@ -177,6 +177,18 @@ import {
   type PropertyDocumentSnapshot,
 } from '../domain/property-document';
 import type { PropertyDocumentRepository } from '../domain/property-document.repository';
+import {
+  PropertyListDocument,
+  type PropertyListDocumentId,
+  type PropertyListDocumentSnapshot,
+} from '../domain/property-list-document';
+import type { PropertyListDocumentRepository } from '../domain/property-list-document.repository';
+import type {
+  PropertySheet,
+  PropertySheetRenderer,
+  PropertySheetsContent,
+  StaticMaps,
+} from '../application/ports/property-sheets';
 import type { OwnerReport } from '../../reporting';
 import {
   DEFAULT_PUBLICATION,
@@ -839,6 +851,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly media = new InMemoryMediaItemRepository();
   readonly attachments = new InMemoryAttachmentRepository();
   readonly documents = new InMemoryPropertyDocumentRepository();
+  readonly listDocuments = new InMemoryPropertyListDocumentRepository();
   readonly reservations = new InMemoryReservationRepository();
   readonly clientMerge = new FakePropertyClientMerge();
   readonly owners = new InMemoryPropertyOwnerLinks();
@@ -865,6 +878,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
       this.media,
       this.attachments,
       this.documents,
+      this.listDocuments,
       this.reservations,
       this.owners,
       this.idempotency,
@@ -1306,12 +1320,54 @@ export class InMemoryPropertyDocumentQuery implements PropertyDocumentQuery {
         kind: row.kind,
         status: row.status,
         period: row.period,
+        layout: row.layout,
         error: row.error,
         requestedBy: row.requestedBy,
         createdAt: row.createdAt,
       })),
       total: rows.length,
     });
+  }
+}
+
+export class InMemoryPropertyListDocumentRepository implements PropertyListDocumentRepository {
+  readonly rows = new Map<string, PropertyListDocumentSnapshot>();
+
+  findById(id: PropertyListDocumentId) {
+    const row = this.rows.get(id);
+    return Promise.resolve(row ? PropertyListDocument.restore(row) : undefined);
+  }
+
+  save(document: PropertyListDocument) {
+    this.rows.set(document.id, document.toSnapshot());
+    return Promise.resolve();
+  }
+}
+
+/** Registra las fichas que se le pidió imprimir (ya recorridas) y devuelve un PDF de mentira. */
+export class FakeSheetRenderer implements PropertySheetRenderer {
+  readonly rendered: (Omit<PropertySheetsContent, 'sheets'> & {
+    readonly sheets: readonly PropertySheet[];
+  })[] = [];
+  fail = false;
+
+  async render(content: PropertySheetsContent) {
+    const sheets: PropertySheet[] = [];
+    for await (const sheet of content.sheets) sheets.push(sheet);
+    if (this.fail) throw new Error('react-pdf exploded');
+    this.rendered.push({ ...content, sheets });
+    return new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+  }
+}
+
+/** Un mapa de mentira; con `down`, el servicio no responde. */
+export class FakeStaticMaps implements StaticMaps {
+  readonly requested: { readonly latitude: number; readonly longitude: number }[] = [];
+  down = false;
+
+  render(point: { readonly latitude: number; readonly longitude: number }) {
+    this.requested.push(point);
+    return Promise.resolve(this.down ? undefined : new Uint8Array([0x89, 0x50, 0x4e, 0x47]));
   }
 }
 

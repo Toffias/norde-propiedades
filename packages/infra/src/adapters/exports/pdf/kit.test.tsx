@@ -8,10 +8,10 @@ import {
   PdfItems,
   PdfKeyFacts,
   PdfPage,
-  PdfParagraphs,
   PdfPhoto,
   PdfPriceTag,
   PdfSection,
+  PdfTextSection,
 } from './kit';
 import { renderPdf } from './render';
 
@@ -60,9 +60,7 @@ async function sheet(description: string, orientation: 'portrait' | 'landscape')
         <PdfSection title="Servicios" keepTogether>
           <PdfItems items={['Electricidad', 'Gas natural', 'Agua corriente']} />
         </PdfSection>
-        <PdfSection title="Descripción">
-          <PdfParagraphs text={description} />
-        </PdfSection>
+        <PdfTextSection title="Descripción" text={description} />
       </PdfPage>
     </PdfDocument>,
   );

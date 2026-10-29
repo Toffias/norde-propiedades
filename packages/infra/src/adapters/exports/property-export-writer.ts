@@ -10,10 +10,9 @@ import {
   type PropertyStatusValue,
 } from '@norde/core/properties';
 import ExcelJS from 'exceljs';
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 
-// Planilla (CSV, Excel) y PDF de una exportación de propiedades. Arma el archivo a medida que llegan
-// los lotes; nunca tiene la exportación entera en memoria, salvo el PDF (que tiene un tope).
+// Planilla (CSV o Excel) de una exportación de propiedades. Arma el archivo a medida que llegan los
+// lotes; nunca tiene la exportación entera en memoria. El PDF de la selección es otro pedido (#175).
 
 const STATUS_LABELS: Readonly<Record<PropertyStatusValue, string>> = {
   draft: 'Borrador',
@@ -138,140 +137,12 @@ function xlsx(batches: AsyncIterable<readonly PanelPropertyRow[]>): AsyncIterabl
   return stream;
 }
 
-// ---------- PDF ----------
-
-const PAGE = { width: 595.28, height: 841.89, margin: 40 } as const;
-
-/** Las fuentes estándar del PDF solo tienen Latin-1: lo demás se reemplaza. */
-function printable(text: string): string {
-  return text
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/[^\u0020-\u007E\u00A0-\u00FF]/g, '');
-}
-
-function money(row: PanelPropertyRow): string {
-  if (row.operations.length === 0) return 'Sin operación cargada';
-  return row.operations
-    .map((o) => {
-      const price =
-        o.priceCents === null
-          ? 'Consultar'
-          : `${o.currency} ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(Number(units(o.priceCents)))}`;
-      return `${OPERATION_LABELS[o.operation]}: ${price}`;
-    })
-    .join('   ');
-}
-
-function details(row: PanelPropertyRow): string {
-  const a = row.attributes;
-  return [
-    a.rooms === undefined ? undefined : `${a.rooms} amb.`,
-    a.bedrooms === undefined ? undefined : `${a.bedrooms} dorm.`,
-    a.bathrooms === undefined ? undefined : `${a.bathrooms} baños`,
-    a.parkingSpaces === undefined ? undefined : `${a.parkingSpaces} cocheras`,
-    a.surfaceTotalM2 === undefined ? undefined : `${a.surfaceTotalM2} m² totales`,
-    a.surfaceCoveredM2 === undefined ? undefined : `${a.surfaceCoveredM2} m² cubiertos`,
-    a.ageYears === undefined ? undefined : `${a.ageYears} años`,
-  ]
-    .filter((part) => part !== undefined)
-    .join(' · ');
-}
-
-class PdfCursor {
-  page: PDFPage;
-  y: number;
-
-  constructor(
-    private readonly doc: PDFDocument,
-    private readonly fonts: { readonly regular: PDFFont; readonly bold: PDFFont },
-  ) {
-    this.page = doc.addPage([PAGE.width, PAGE.height]);
-    this.y = PAGE.height - PAGE.margin;
-  }
-
-  /** Salta de página si el bloque que sigue no entra. */
-  ensure(height: number): void {
-    if (this.y - height >= PAGE.margin) return;
-    this.page = this.doc.addPage([PAGE.width, PAGE.height]);
-    this.y = PAGE.height - PAGE.margin;
-  }
-
-  line(
-    text: string,
-    options: { readonly size: number; readonly bold?: boolean; readonly muted?: boolean },
-  ) {
-    const font = options.bold ? this.fonts.bold : this.fonts.regular;
-    const maxWidth = PAGE.width - PAGE.margin * 2;
-    let content = printable(text);
-    while (content.length > 1 && font.widthOfTextAtSize(content, options.size) > maxWidth) {
-      content = `${content.slice(0, -2)}…`;
-    }
-    this.ensure(options.size + 4);
-    this.y -= options.size + 4;
-    this.page.drawText(content, {
-      x: PAGE.margin,
-      y: this.y,
-      size: options.size,
-      font,
-      color: options.muted ? rgb(0.4, 0.4, 0.4) : rgb(0.1, 0.1, 0.1),
-    });
-  }
-
-  gap(height: number): void {
-    this.y -= height;
-  }
-}
-
-function pdf(
-  batches: AsyncIterable<readonly PanelPropertyRow[]>,
-  generatedAt: Date,
-): AsyncIterable<Uint8Array> {
-  return (async function* () {
-    const doc = await PDFDocument.create();
-    doc.setTitle('Propiedades');
-    doc.setCreator('Norde Propiedades');
-    const fonts = {
-      regular: await doc.embedFont(StandardFonts.Helvetica),
-      bold: await doc.embedFont(StandardFonts.HelveticaBold),
-    };
-    const cursor = new PdfCursor(doc, fonts);
-    cursor.line('Propiedades', { size: 18, bold: true });
-    cursor.line(`Generado el ${dateFormat.format(generatedAt)}`, { size: 9, muted: true });
-    cursor.gap(12);
-
-    for await (const batch of batches) {
-      for (const row of batch) {
-        cursor.ensure(80);
-        cursor.line(`${row.code} · ${row.portalTitle}`, { size: 12, bold: true });
-        cursor.line(
-          `${PROPERTY_KIND_LABELS[row.propertyType]} · ${STATUS_LABELS[row.status]} · ${[
-            row.publishAddress,
-            row.neighborhood,
-            row.city,
-          ]
-            .filter((part) => part !== undefined && part !== '')
-            .join(', ')}`,
-          { size: 9, muted: true },
-        );
-        cursor.line(money(row), { size: 10 });
-        const extra = details(row);
-        if (extra !== '') cursor.line(extra, { size: 9 });
-        cursor.gap(10);
-      }
-    }
-    yield await doc.save();
-  })();
-}
-
 const CONTENT_TYPES: Readonly<Record<PropertyExportFormat, string>> = {
   csv: 'text/csv; charset=utf-8',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  pdf: 'application/pdf',
 };
 
-/** CSV a mano, Excel con exceljs (en streaming) y PDF con pdf-lib. */
+/** CSV a mano y Excel con exceljs (en streaming). */
 export class FilePropertyExportWriter implements PropertyExportWriter {
   write(
     format: PropertyExportFormat,
@@ -279,12 +150,7 @@ export class FilePropertyExportWriter implements PropertyExportWriter {
     meta: { readonly generatedAt: Date },
   ): ExportFile {
     const day = meta.generatedAt.toISOString().slice(0, 10);
-    const body =
-      format === 'csv'
-        ? csv(batches)
-        : format === 'xlsx'
-          ? xlsx(batches)
-          : pdf(batches, meta.generatedAt);
+    const body = format === 'csv' ? csv(batches) : xlsx(batches);
     return { filename: `propiedades-${day}.${format}`, contentType: CONTENT_TYPES[format], body };
   }
 }

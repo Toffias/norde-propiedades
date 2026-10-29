@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { bulkSelectionSchema, idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
 
 import type { PropertyCover } from './media';
+import { PROPERTY_SHEET_LAYOUT_VALUES } from './documents';
 
 import {
   CURRENCIES,
@@ -336,14 +337,15 @@ export type FindPropertiesByCodeInput = z.input<typeof FindPropertiesByCodeInput
 
 // ---------- Exportar ----------
 
-export const PROPERTY_EXPORT_FORMATS = ['csv', 'xlsx', 'pdf'] as const;
+/** Las planillas; el PDF de la selección es un pedido aparte, con su formato (#175). */
+export const PROPERTY_EXPORT_FORMATS = ['csv', 'xlsx'] as const;
 export type PropertyExportFormat = (typeof PROPERTY_EXPORT_FORMATS)[number];
 
 /** Sin `properties:export-bulk` se exporta hasta esta cantidad. */
 export const EXPORT_WITHOUT_BULK_PERMISSION = 10;
 /** Una planilla más grande conviene pedirla filtrando: se arma por lotes, pero tiene un tope. */
 export const MAX_EXPORT_ROWS = 5000;
-/** El PDF tiene una ficha resumida por propiedad: más que esto no se imprime ni se lee. */
+/** El PDF lleva la ficha de cada propiedad: más que esto no se imprime ni se lee. */
 export const MAX_PDF_EXPORT_ROWS = 100;
 
 export const ExportPropertiesInputSchema = z.object({
@@ -351,6 +353,17 @@ export const ExportPropertiesInputSchema = z.object({
   selection: PropertySelectionSchema,
 });
 export type ExportPropertiesInput = z.input<typeof ExportPropertiesInputSchema>;
+
+/** El PDF de las propiedades elegidas en el buscador, en uno de los formatos de la ficha. */
+export const RequestPropertyListDocumentInputSchema = z.object({
+  selection: PropertySelectionSchema,
+  layout: z.enum(PROPERTY_SHEET_LAYOUT_VALUES),
+  /** Solo cuenta si "Ficha y PDF" pide preguntar al armar el PDF. */
+  includeAgent: z.boolean().optional(),
+});
+export type RequestPropertyListDocumentInput = z.input<
+  typeof RequestPropertyListDocumentInputSchema
+>;
 
 // ---------- Edición rápida masiva ----------
 

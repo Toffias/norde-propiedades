@@ -12,6 +12,7 @@ import { Button } from '@norde/ui/components/button';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
 import {
+  FilesIcon,
   FileTextIcon,
   ImageIcon,
   ImagesIcon,
@@ -54,6 +55,7 @@ const KIND_ICONS: Readonly<Record<BackgroundTaskKind, LucideIcon>> = {
   tokko_users_import: UsersIcon,
   opportunity_bulk: WorkflowIcon,
   property_document: FileTextIcon,
+  property_list_document: FilesIcon,
   portal_listing: MegaphoneIcon,
 };
 

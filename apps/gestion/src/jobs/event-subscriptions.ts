@@ -47,6 +47,7 @@ import {
   type UnlinkErasedClients,
   type GenerateMediaVariants,
   type RenderPropertyDocument,
+  type RenderPropertyListDocument,
   type RevalidatePublicDevelopment,
   type RevalidatePublicProperty,
   type RunDevelopmentUnitImport,
@@ -416,6 +417,7 @@ export interface PropertyJobs {
   readonly generateMediaVariants: Pick<GenerateMediaVariants, 'execute'>;
   readonly deleteStoredMediaFiles: Pick<DeleteStoredMediaFiles, 'execute'>;
   readonly renderDocument: Pick<RenderPropertyDocument, 'execute'>;
+  readonly renderListDocument: Pick<RenderPropertyListDocument, 'execute'>;
 }
 
 function propertySubscriptions(
@@ -451,6 +453,15 @@ function propertySubscriptions(
       handle: async (event) => {
         const { documentId } = DocumentPayloadSchema.parse(event.payload);
         const result = await jobs.renderDocument.execute({ documentId }, actor);
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+    {
+      eventType: 'properties.list_document_requested',
+      name: 'render-list-document',
+      handle: async (event) => {
+        const { documentId } = DocumentPayloadSchema.parse(event.payload);
+        const result = await jobs.renderListDocument.execute({ documentId }, actor);
         if (result.isErr()) skipped(event, result.error);
       },
     },

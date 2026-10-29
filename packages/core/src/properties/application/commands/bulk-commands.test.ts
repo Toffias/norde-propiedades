@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Actor, parseId } from '../../../shared';
 import { FixedClock, unwrap, unwrapErr } from '../../../shared/testing';
-import { MAX_BULK_EDIT, MAX_PDF_EXPORT_ROWS, type BulkEditPropertiesInput } from '../../contracts';
+import { MAX_BULK_EDIT, type BulkEditPropertiesInput } from '../../contracts';
 import {
   aPanelItem,
   BRANCH_ID,
@@ -452,17 +452,9 @@ describe('ExportProperties', () => {
     expect((await exportProperties.execute({ format: 'csv', selection }, bulk)).isOk()).toBe(true);
   });
 
-  it('limits the PDF and refuses an empty export', async () => {
+  it('refuses an empty export', async () => {
     const actor = Actor.user(PRODUCER_ID, ['properties:export-bulk']);
     const selection = { kind: 'filter', filter: {} } as const;
-    const big = exporter(MAX_PDF_EXPORT_ROWS + 1);
-    expect(
-      unwrapErr(await big.exportProperties.execute({ format: 'pdf', selection }, actor)),
-    ).toEqual({
-      type: 'TooManyToExport',
-      max: MAX_PDF_EXPORT_ROWS,
-      total: MAX_PDF_EXPORT_ROWS + 1,
-    });
     const empty = exporter(0);
     expect(
       unwrapErr(await empty.exportProperties.execute({ format: 'csv', selection }, actor)),

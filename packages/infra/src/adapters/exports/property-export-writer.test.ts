@@ -1,7 +1,6 @@
 import { Readable } from 'node:stream';
 
 import ExcelJS from 'exceljs';
-import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 
 import type { PanelPropertyRow } from '@norde/core/properties';
@@ -97,18 +96,5 @@ describe('FilePropertyExportWriter', () => {
     expect(sheet?.getRow(1).getCell(1).value).toBe('Código');
     expect(sheet?.getRow(3).getCell(1).value).toBe('DEP0002');
     expect(sheet?.getRow(2).getCell(10).value).toBe('120000.50');
-  });
-
-  it('writes a PDF with one block per property', async () => {
-    const many = Array.from({ length: 25 }, (_, i) =>
-      row({ code: `DEP${String(i).padStart(4, '0')}` }),
-    );
-    const file = writer.write('pdf', batches(many), { generatedAt: GENERATED_AT });
-    const bytes = await read(file.body);
-
-    expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
-    const doc = await PDFDocument.load(bytes);
-    expect(doc.getTitle()).toBe('Propiedades');
-    expect(doc.getPageCount()).toBeGreaterThan(1);
   });
 });

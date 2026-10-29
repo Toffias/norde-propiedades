@@ -7,6 +7,7 @@ import {
   FavoriteSearchIdInputSchema,
   PropertyIdInputSchema,
   PropertyMapQuerySchema,
+  RequestPropertyListDocumentInputSchema,
   SaveFavoriteSearchInputSchema,
   type BulkEditPropertiesInput,
   type BulkEditResult,
@@ -15,7 +16,9 @@ import {
   type GeocodingOutcome,
   type PropertyIdInput,
   type PropertyMapQuery,
+  type PdfExportOptions,
   type PropertyMapResult,
+  type RequestPropertyListDocumentInput,
   type SaveFavoriteSearchInput,
 } from '@norde/core/properties/contracts';
 import type { ComboboxPage } from '@norde/ui/components/paged-combobox';
@@ -29,6 +32,7 @@ import {
   BULK_EDIT_ERROR_MESSAGES,
   FAVORITE_ERROR_MESSAGES,
   FAVORITE_SEARCH_ERROR_MESSAGES,
+  LIST_DOCUMENT_ERROR_MESSAGES,
   PROPERTY_ERROR_MESSAGES,
   PROPERTY_MAP_ERROR_MESSAGES,
 } from './messages';
@@ -178,6 +182,33 @@ export async function bulkEditPropertiesAction(
   if (result.isErr()) return failed(messageForError(result.error, BULK_EDIT_ERROR_MESSAGES));
   revalidatePath(PROPERTIES_PATH);
   return { ok: true, value: result.value };
+}
+
+/** Pide el PDF de la selección en el formato elegido (#175): lo arma un job y avisa en la barra. */
+export async function requestPropertyListDocumentAction(
+  input: RequestPropertyListDocumentInput,
+): Promise<ActionResult> {
+  const { actor } = await requireSession();
+  const parsed = RequestPropertyListDocumentInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailed(LIST_DOCUMENT_ERROR_MESSAGES.InvalidInput);
+  const result = await getContainer().properties.requestPropertyListDocument.execute(
+    parsed.data,
+    actor,
+  );
+  if (result.isErr()) {
+    return actionFailed(messageForError(result.error, LIST_DOCUMENT_ERROR_MESSAGES));
+  }
+  return ACTION_OK;
+}
+
+/**
+ * Lo que el diálogo de PDF necesita de "Ficha y PDF". Sin permiso para exportar no pregunta: el
+ * caso de uso que pide el PDF es el que decide.
+ */
+export async function loadPdfExportOptionsAction(): Promise<PdfExportOptions> {
+  const { actor } = await requireSession();
+  const result = await getContainer().properties.getPdfExportOptions.execute({}, actor);
+  return result.isOk() ? result.value : { askAgent: false };
 }
 
 /** Marca o desmarca propiedades como favoritas de quien lo pide. */

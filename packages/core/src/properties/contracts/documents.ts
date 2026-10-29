@@ -12,11 +12,50 @@ export type PropertyDocumentStatusValue = (typeof PROPERTY_DOCUMENT_STATUS_VALUE
 
 const Day = z.iso.date();
 
+/**
+ * Los formatos de la ficha (#175), los mismos del "Exportar a PDF" de Tokko: horizontal (una hoja
+ * por propiedad), horizontal con mapa, vertical (varias hojas), vertical con mapa y grilla.
+ */
+export const PROPERTY_SHEET_LAYOUT_VALUES = [
+  'landscape',
+  'landscape_map',
+  'portrait',
+  'portrait_map',
+  'grid',
+] as const;
+export type PropertySheetLayoutValue = (typeof PROPERTY_SHEET_LAYOUT_VALUES)[number];
+
+/** La grilla compara varias propiedades: la ficha de una sola no la ofrece. */
+export const SINGLE_PROPERTY_SHEET_LAYOUT_VALUES = [
+  'landscape',
+  'landscape_map',
+  'portrait',
+  'portrait_map',
+] as const satisfies readonly PropertySheetLayoutValue[];
+
+/** Datos del agente: solo cuenta si "Ficha y PDF" pide preguntar al armar el PDF. */
+const IncludeAgentSchema = z.boolean().optional();
+
 export const RequestPropertyDocumentInputSchema = z
   .discriminatedUnion('kind', [
-    z.object({ propertyId: z.uuid(), kind: z.literal('sheet') }),
-    z.object({ propertyId: z.uuid(), kind: z.literal('showcase') }),
-    z.object({ propertyId: z.uuid(), kind: z.literal('owner_report'), from: Day, to: Day }),
+    z.object({
+      propertyId: z.uuid(),
+      kind: z.literal('sheet'),
+      layout: z.enum(SINGLE_PROPERTY_SHEET_LAYOUT_VALUES).default('portrait'),
+      includeAgent: IncludeAgentSchema,
+    }),
+    z.object({
+      propertyId: z.uuid(),
+      kind: z.literal('showcase'),
+      includeAgent: IncludeAgentSchema,
+    }),
+    z.object({
+      propertyId: z.uuid(),
+      kind: z.literal('owner_report'),
+      from: Day,
+      to: Day,
+      includeAgent: IncludeAgentSchema,
+    }),
   ])
   .refine((input) => input.kind !== 'owner_report' || input.from <= input.to, {
     message: 'La fecha de inicio tiene que ser anterior a la de fin.',
@@ -26,6 +65,12 @@ export type RequestPropertyDocumentInput = z.input<typeof RequestPropertyDocumen
 
 export const DocumentIdInputSchema = z.object({ documentId: z.uuid() });
 export type DocumentIdInput = z.input<typeof DocumentIdInputSchema>;
+
+/** Lo que el diálogo de exportar necesita saber de "Ficha y PDF". */
+export interface PdfExportOptions {
+  /** Mi empresa pide preguntar si van los datos del agente. */
+  readonly askAgent: boolean;
+}
 
 export const SendOwnerReportInputSchema = z.object({
   documentId: z.uuid(),
@@ -46,6 +91,8 @@ export interface PropertyDocumentRow {
   readonly kind: PropertyDocumentKindValue;
   readonly status: PropertyDocumentStatusValue;
   readonly period: { readonly from: string; readonly to: string } | undefined;
+  /** El formato de la ficha; los demás PDF no tienen. */
+  readonly layout: PropertySheetLayoutValue | undefined;
   readonly error: string | undefined;
   readonly requestedBy: { readonly id: string; readonly name: string | undefined };
   readonly createdAt: Date;

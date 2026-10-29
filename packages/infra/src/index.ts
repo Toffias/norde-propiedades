@@ -75,6 +75,7 @@ export { DrizzlePropertyStatisticsQuery } from './reporting/drizzle-property-sta
 export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-document-renderer';
 export { PdfLibAppraisalReportRenderer } from './adapters/exports/appraisal-report-renderer';
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
+export { OsmStaticMaps } from './adapters/maps/osm-static-maps';
 export { FilePropertyExportWriter } from './adapters/exports/property-export-writer';
 export { XlsxClientExportWriter } from './adapters/exports/client-export-writer';
 export { XlsxDevelopmentUnitsExportWriter } from './adapters/exports/development-units-export-writer';

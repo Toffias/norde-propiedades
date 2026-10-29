@@ -41,6 +41,14 @@ const EnvSchema = z.object({
   GEOCODER_USER_AGENT: z.string().min(3).default('NordePropiedades/1.0 (panel de gestion)'),
   /** Otra instancia de Nominatim. Sin valor, la pública de OpenStreetMap. */
   GEOCODER_URL: z.url({ protocol: /^https?$/ }).optional(),
+  /**
+   * Teselas del mapa de los PDF (#175), con `{z}`, `{x}` e `{y}`. Sin valor, las públicas de
+   * OpenStreetMap (las del mapa del panel); se piden con `GEOCODER_USER_AGENT`.
+   */
+  MAP_TILES_URL: z
+    .string()
+    .regex(/^https?:\/\/.*\{z\}.*\{x\}.*\{y\}/, 'Tiene que tener {z}, {x} e {y}')
+    .optional(),
 
   /**
    * Relay del outbox y workers de pg-boss (ADR 0021): variantes de fotos, PDF, importaciones,

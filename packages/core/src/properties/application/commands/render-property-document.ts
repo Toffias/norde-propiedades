@@ -13,7 +13,9 @@ import type { DocumentContacts } from '../ports/document-contacts';
 import type { OwnerReports, PropertyDocumentRenderer } from '../ports/property-documents';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { PropertyDetailLookups } from '../ports/property-detail-lookups';
+import type { PropertySheetRenderer, StaticMaps } from '../ports/property-sheets';
 import type { UserNames } from '../ports/user-names';
+import { loadPropertySheet, printableKey, sheetsOf } from '../property-sheets';
 import { findProperty, invalidInput, type InvalidInputError } from '../property-support';
 import { buildPanelPropertyDetail } from '../queries/get-panel-property-detail';
 
@@ -22,24 +24,18 @@ export type RenderPropertyDocumentError = ForbiddenError | InvalidInputError;
 /** Qué pasó: ya no existe (o ya se armó), quedó listo o falló. */
 export type DocumentRenderOutcome = 'gone' | 'ready' | 'failed';
 
-/** Fotos que entran en cada PDF: la vidriera es una sola hoja (una grande y dos chicas). */
-const PHOTOS_PER_KIND: Readonly<Record<PropertyDocumentKind, number>> = {
-  sheet: 8,
+/** Fotos de la vidriera (una grande y dos chicas) y del reporte; la ficha según su formato. */
+const PHOTOS_PER_KIND: Readonly<Record<Exclude<PropertyDocumentKind, 'sheet'>, number>> = {
   showcase: 3,
   owner_report: 1,
 };
 
-/** La foto para imprimir: con marca de agua si la hay, si no la versión web, si no la original. */
-function printableKey(item: MediaItem): string | undefined {
-  const { variants, storageKey } = item.toSnapshot();
-  return variants.watermarked ?? variants.web ?? storageKey;
-}
-
 /**
  * Lo corre el job de `PropertyDocumentRequested`: arma el PDF según la configuración de "Ficha y
- * PDF" (dirección, precio, agente), con las fotos marcadas "incluir en PDF", el contacto de la
- * sucursal y el link a la ficha en la web si está publicada. Lo guarda en el storage
- * y lo marca listo. Si falla, queda "fallido" y el error sigue hacia el job, que lo registra.
+ * PDF" (dirección, precio, contacto), con las fotos marcadas "incluir en PDF", el agente si se
+ * eligió al pedirlo y el link a la ficha en la web si está publicada. La ficha sale en el formato
+ * pedido (#175). Lo guarda en el storage y lo marca listo. Si falla, queda "fallido" y el error
+ * sigue hacia el job, que lo registra.
  */
 export class RenderPropertyDocument {
   constructor(
@@ -50,6 +46,8 @@ export class RenderPropertyDocument {
       readonly storage: FileStorage;
       readonly settings: CompanySettingsReader;
       readonly renderer: PropertyDocumentRenderer;
+      readonly sheets: PropertySheetRenderer;
+      readonly maps: StaticMaps;
       readonly ownerReports: OwnerReports;
       readonly contacts: DocumentContacts;
       readonly clock: Clock;
@@ -69,6 +67,9 @@ export class RenderPropertyDocument {
     const loaded = await this.deps.uow.run(async (tx) => {
       const document = await tx.documents.findById(id);
       if (document?.status !== 'pending') return undefined;
+      if (document.kind === 'sheet') {
+        return { document, property: undefined, gallery: [], developmentGallery: [] };
+      }
       const property = await findProperty(tx.properties, document.propertyId);
       if (!property) return undefined;
       const gallery = await tx.media.listForOwner({ kind: 'property', id: property.id });
@@ -87,14 +88,20 @@ export class RenderPropertyDocument {
     const { document, property, gallery, developmentGallery } = loaded;
 
     try {
-      const bytes = await this.render(document, property, gallery, developmentGallery, actor);
+      const bytes =
+        property === undefined
+          ? await this.renderSheet(document)
+          : await this.render(document, property, gallery, developmentGallery, actor);
       if (bytes === undefined) {
         await this.finish(document.id, actor, {
-          failed: 'No se pudo armar el reporte del período.',
+          failed:
+            document.kind === 'owner_report'
+              ? 'No se pudo armar el reporte del período.'
+              : 'La propiedad ya no está disponible.',
         });
         return ok('failed');
       }
-      const key = `properties/${property.id}/documents/${document.id}`;
+      const key = `properties/${document.propertyId}/documents/${document.id}`;
       await this.deps.storage.put({ key, contentType: 'application/pdf', bytes });
       await this.finish(document.id, actor, { storageKey: key });
       return ok('ready');
@@ -102,6 +109,31 @@ export class RenderPropertyDocument {
       await this.finish(document.id, actor, { failed: 'No se pudo armar el PDF.' });
       throw error;
     }
+  }
+
+  /** La ficha en el formato pedido. `undefined` si la propiedad ya no existe. */
+  private async renderSheet(document: PropertyDocument): Promise<Uint8Array | undefined> {
+    const settings = await this.deps.settings.get();
+    const sheet = await loadPropertySheet(document.propertyId, document.layout, settings, {
+      ...this.deps,
+    });
+    if (sheet === undefined) return undefined;
+    const company = settings.toSnapshot();
+    const [logo, contact, agent] = await Promise.all([
+      company.logoKey === undefined ? undefined : this.deps.storage.get(company.logoKey),
+      company.pdfOptions.showCompanyContact
+        ? this.deps.contacts.branch(sheet.property.branchId)
+        : undefined,
+      document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
+    ]);
+    return this.deps.sheets.render({
+      layout: document.layout,
+      title: `Ficha ${sheet.property.code}`,
+      company: { name: company.name, logo: logo?.bytes, contact },
+      agent,
+      generatedAt: this.deps.clock.now(),
+      sheets: sheetsOf([sheet]),
+    });
   }
 
   private async render(
@@ -116,9 +148,10 @@ export class RenderPropertyDocument {
     const options = settings.pdfOptions;
 
     // Primero las de la unidad; después, si Mi empresa lo pide, las del emprendimiento.
+    const limit = document.kind === 'sheet' ? 0 : PHOTOS_PER_KIND[document.kind];
     const keys = (options.developmentPhotosInUnits ? [...gallery, ...developmentGallery] : gallery)
       .filter((item) => item.kind === 'photo' && item.toSnapshot().includeInPdf)
-      .slice(0, PHOTOS_PER_KIND[document.kind])
+      .slice(0, limit)
       .flatMap((item) => {
         const key = printableKey(item);
         return key === undefined ? [] : [key];
@@ -129,7 +162,7 @@ export class RenderPropertyDocument {
     const logo =
       settings.logoKey === undefined ? undefined : await this.deps.storage.get(settings.logoKey);
     const [agent, branch] = await Promise.all([
-      options.showAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
+      document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
       this.deps.contacts.branch(detail.branchId),
     ]);
     // La ficha en la web solo si la web la muestra: si no, el link no abre.

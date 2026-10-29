@@ -542,6 +542,46 @@ export {
   GetPropertyDocumentDownload,
   type GetPropertyDocumentDownloadError,
 } from './application/queries/get-property-document-download';
+
+// ---------- Ficha en PDF en los formatos de Tokko (#175) ----------
+
+export {
+  MAX_LIST_DOCUMENT_PROPERTIES,
+  PROPERTY_SHEET_LAYOUTS,
+  SINGLE_PROPERTY_SHEET_LAYOUTS,
+  includesAgent,
+  sheetHasMap,
+  type AgentInfoRule,
+  type PropertySheetLayout,
+} from './domain/property-sheet';
+export {
+  PropertyListDocument,
+  type NothingToPrintError,
+  type PropertyListDocumentId,
+  type PropertyListDocumentRequested,
+  type PropertyListDocumentSnapshot,
+  type TooManyToPrintError,
+} from './domain/property-list-document';
+export type { PropertyListDocumentRepository } from './domain/property-list-document.repository';
+export type {
+  PropertySheet,
+  PropertySheetRenderer,
+  PropertySheetsContent,
+  StaticMaps,
+} from './application/ports/property-sheets';
+export {
+  RequestPropertyListDocument,
+  type RequestPropertyListDocumentError,
+} from './application/commands/request-property-list-document';
+export {
+  RenderPropertyListDocument,
+  type RenderPropertyListDocumentError,
+} from './application/commands/render-property-list-document';
+export {
+  GetPropertyListDocumentDownload,
+  type GetPropertyListDocumentDownloadError,
+} from './application/queries/get-property-list-document-download';
+export { GetPdfExportOptions } from './application/queries/get-pdf-export-options';
 export {
   ListCustomAttributes,
   type ListCustomAttributesError,

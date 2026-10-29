@@ -12,7 +12,6 @@ import {
   EXPORT_WITHOUT_BULK_PERMISSION,
   ExportPropertiesInputSchema,
   MAX_EXPORT_ROWS,
-  MAX_PDF_EXPORT_ROWS,
   type ExportPropertiesInput,
   type PanelPropertyRow,
 } from '../../contracts';
@@ -37,8 +36,8 @@ export type ExportPropertiesError =
 const BATCH_SIZE = 200;
 
 /**
- * Exporta las propiedades seleccionadas (las marcadas o todas las que cumplen el filtro) a CSV,
- * Excel o PDF. Hasta 10 alcanza con `properties:export`; más, hace falta `properties:export-bulk`.
+ * Exporta las propiedades seleccionadas (las marcadas o todas las que cumplen el filtro) a CSV
+ * o Excel (el PDF es `RequestPropertyListDocument`). Hasta 10 alcanza con `properties:export`; más, hace falta `properties:export-bulk`.
  * La exportación queda en la auditoría con el filtro y la cantidad. No incluye la dirección
  * privada (calle y altura): sale la dirección para publicar.
  */
@@ -74,8 +73,9 @@ export class ExportProperties {
     if (total > EXPORT_WITHOUT_BULK_PERMISSION && !actor.can('properties:export-bulk')) {
       return err({ type: 'Forbidden' });
     }
-    const max = format === 'pdf' ? MAX_PDF_EXPORT_ROWS : MAX_EXPORT_ROWS;
-    if (total > max) return err({ type: 'TooManyToExport', max, total });
+    if (total > MAX_EXPORT_ROWS) {
+      return err({ type: 'TooManyToExport', max: MAX_EXPORT_ROWS, total });
+    }
 
     const now = this.deps.clock.now();
     await this.deps.uow.run((tx) =>

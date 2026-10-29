@@ -1,6 +1,7 @@
 import {
   PROPERTY_DOCUMENT_KINDS,
   PROPERTY_DOCUMENT_STATUSES,
+  PROPERTY_SHEET_LAYOUTS,
   PropertyDocument,
   type PropertyDocumentId,
   type PropertyDocumentQuery,
@@ -17,6 +18,10 @@ import { propertyDocuments } from '../db/schema';
 const DocumentEnums = z.object({
   kind: z.enum(PROPERTY_DOCUMENT_KINDS),
   status: z.enum(PROPERTY_DOCUMENT_STATUSES),
+  layout: z
+    .enum(PROPERTY_SHEET_LAYOUTS)
+    .nullable()
+    .transform((layout) => layout ?? undefined),
 });
 
 function stored<T, E>(result: Result<T, E>): T {
@@ -47,6 +52,8 @@ export class DrizzlePropertyDocumentRepository implements PropertyDocumentReposi
       kind: enums.kind,
       status: enums.status,
       period: period(row),
+      layout: enums.layout,
+      includeAgent: row.includeAgent,
       storageKey: row.storageKey ?? undefined,
       error: row.error ?? undefined,
       requestedBy: row.requestedBy,
@@ -72,6 +79,8 @@ export class DrizzlePropertyDocumentRepository implements PropertyDocumentReposi
         kind: s.kind,
         periodFrom: s.period?.from ?? null,
         periodTo: s.period?.to ?? null,
+        layout: s.layout ?? null,
+        includeAgent: s.includeAgent,
         requestedBy: s.requestedBy,
         createdAt: s.createdAt,
         createdBy: actorId,

@@ -3,7 +3,12 @@ import {
   type MatchableSearch,
   type PropertyInterestProfile,
 } from '@norde/core/clients';
-import { PropertyDocument, Property, type PropertyId } from '@norde/core/properties';
+import {
+  PropertyDocument,
+  PropertyListDocument,
+  Property,
+  type PropertyId,
+} from '@norde/core/properties';
 import { parseId, type Result } from '@norde/core/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -28,6 +33,7 @@ import {
   DrizzlePropertyDocumentRepository,
 } from '../properties/drizzle-property-documents';
 import { DrizzlePropertyDetailLookups } from '../properties/drizzle-property-detail-lookups';
+import { DrizzlePropertyListDocumentRepository } from '../properties/drizzle-property-list-documents';
 import { DrizzlePropertyRepository } from '../properties/drizzle-property-repository';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
@@ -105,6 +111,7 @@ describe('DrizzlePropertyDetailLookups and documents', () => {
         propertyId,
         kind: 'owner_report',
         period: { from: '2026-09-01', to: '2026-09-30' },
+        includeAgent: true,
         requestedBy: USER,
         now: NOW,
       }),
@@ -120,18 +127,43 @@ describe('DrizzlePropertyDetailLookups and documents', () => {
         propertyId,
         kind: 'sheet',
         period: undefined,
+        layout: 'landscape_map',
+        includeAgent: false,
         requestedBy: USER,
         now: new Date(NOW.getTime() + 1000),
       }),
     );
     await repository.save(sheet, USER);
+    expect((await repository.findById(sheet.id))?.toSnapshot()).toEqual(sheet.toSnapshot());
     const page = await new DrizzlePropertyDocumentQuery(db).list({
       propertyId,
       offset: 0,
       limit: 1,
     });
     expect(page.total).toBe(2);
-    expect(page.items).toMatchObject([{ id: sheet.id, kind: 'sheet', status: 'pending' }]);
+    expect(page.items).toMatchObject([
+      { id: sheet.id, kind: 'sheet', status: 'pending', layout: 'landscape_map' },
+    ]);
+  });
+
+  it('round-trips the PDF of a search selection with its properties in order', async () => {
+    const first = await aProperty('DEP0103');
+    const second = await aProperty('DEP0104');
+    const repository = new DrizzlePropertyListDocumentRepository(db);
+    const document = unwrap(
+      PropertyListDocument.request({
+        id: unwrap(parseId<'PropertyListDocument'>(ids.next())),
+        propertyIds: [second, first],
+        layout: 'grid',
+        includeAgent: false,
+        requestedBy: USER,
+        now: NOW,
+      }),
+    );
+    await repository.save(document, USER);
+    document.complete(`properties/exports/${document.id}`, NOW);
+    await repository.save(document, USER);
+    expect((await repository.findById(document.id))?.toSnapshot()).toEqual(document.toSnapshot());
   });
 });
 

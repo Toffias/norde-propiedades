@@ -31,6 +31,7 @@ import {
   BookmarkCheckIcon,
   BuildingIcon,
   ChevronDownIcon,
+  ClipboardListIcon,
   FileDownIcon,
   FileTextIcon,
   FilesIcon,
@@ -403,6 +404,13 @@ export function PropertyDetailHeader({
                     >
                       <FileTextIcon className="h-4 w-4" />
                       Reporte al propietario
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      {/* Un archivo para descargar, no una página: un link común, no `Link`. */}
+                      <a href={`/propiedades/${detail.id}/planilla-tasacion`} download>
+                        <ClipboardListIcon className="h-4 w-4" />
+                        Planilla de tasación
+                      </a>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => {

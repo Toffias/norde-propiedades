@@ -37,6 +37,7 @@ import { addClientNoteAction } from '../../clients/activity-actions';
 import { ActivityEntry } from '../../clients/components/client-activity-timeline';
 import { FormAlert } from '../../shared/components/form-alert';
 import { loadOpportunityHistoryAction } from '../pipeline-actions';
+import { useIdempotencyKey } from '../../shared/hooks/use-idempotency-key';
 
 /** La oportunidad de la tarjeta: para los textos y para atar la nota. */
 export interface OpportunityCardTarget {
@@ -59,6 +60,8 @@ export function OpportunityNoteDialog({
   const [text, setText] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
+  // Se monta al abrir el diálogo: cada apertura trae su clave.
+  const idempotency = useIdempotencyKey();
   const empty = text.trim() === '';
 
   return (
@@ -72,7 +75,12 @@ export function OpportunityNoteDialog({
             setError(undefined);
             startTransition(async () => {
               const message = await runAction(() =>
-                addClientNoteAction({ clientId: target.clientId, opportunityId: target.id, text }),
+                addClientNoteAction({
+                  clientId: target.clientId,
+                  opportunityId: target.id,
+                  text,
+                  idempotencyKey: idempotency.key,
+                }),
               );
               if (message !== undefined) {
                 setError(message);

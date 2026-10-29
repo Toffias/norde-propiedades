@@ -41,6 +41,7 @@ import { SelectField, TextareaField, TextField } from '../../../shared/component
 import { CURRENCY_LABELS, OPERATION_LABELS } from '../../labels';
 import { reservePropertyAction, updateReservationAction } from '../../reservation-actions';
 import { centsToAmount } from '../detail/sections-listing';
+import { useIdempotencyKey } from '../../../shared/hooks/use-idempotency-key';
 
 type Values = ReservePropertyInput;
 type Valid = z.output<typeof ReservePropertyInputSchema>;
@@ -106,6 +107,7 @@ export function ReservationDialog({
 }) {
   const editing = reservation !== undefined;
   const [error, setError] = useState<string | undefined>();
+  const idempotency = useIdempotencyKey();
   const form = useForm<Values, unknown, Valid>({
     resolver: contractResolver(ReservePropertyInputSchema),
     defaultValues: defaults(subject, reservation),
@@ -136,12 +138,13 @@ export function ReservationDialog({
             estimatedSigningDate: values.estimatedSigningDate,
             notes: values.notes,
           })
-        : reservePropertyAction(values),
+        : reservePropertyAction({ ...values, idempotencyKey: idempotency.key }),
     );
     if (message !== undefined) {
       setError(message);
       return;
     }
+    if (!editing) idempotency.renew();
     toast.success(editing ? 'Reserva actualizada' : `${subject.code} quedó reservada`);
     close();
   }

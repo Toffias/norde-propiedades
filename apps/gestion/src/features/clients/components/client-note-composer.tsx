@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { runAction } from '../../../lib/action-result';
 import { FormAlert } from '../../shared/components/form-alert';
 import { addClientNoteAction } from '../activity-actions';
+import { useIdempotencyKey } from '../../shared/hooks/use-idempotency-key';
 
 /** Id del campo: "Agregar nota" en la tarjeta lleva hasta acá. */
 export const NOTE_FIELD_ID = 'nueva-nota';
@@ -20,6 +21,7 @@ export const NOTE_FIELD_ID = 'nueva-nota';
 export function ClientNoteComposer({ clientId }: { readonly clientId: string }) {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | undefined>();
+  const idempotency = useIdempotencyKey();
   const [pending, startTransition] = useTransition();
   const field = useRef<HTMLTextAreaElement>(null);
   const empty = text.trim() === '';
@@ -38,11 +40,14 @@ export function ClientNoteComposer({ clientId }: { readonly clientId: string }) 
           if (empty) return;
           setError(undefined);
           startTransition(async () => {
-            const message = await runAction(() => addClientNoteAction({ clientId, text }));
+            const message = await runAction(() =>
+              addClientNoteAction({ clientId, text, idempotencyKey: idempotency.key }),
+            );
             if (message !== undefined) {
               setError(message);
               return;
             }
+            idempotency.renew();
             setText('');
             toast.success('Nota agregada');
           });

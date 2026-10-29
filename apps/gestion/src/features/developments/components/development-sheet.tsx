@@ -35,6 +35,7 @@ import { FormAlert } from '../../shared/components/form-alert';
 import { SelectField, TextField } from '../../shared/components/form-fields';
 import { createDevelopmentAction } from '../actions';
 import { DEVELOPMENT_TYPE_LABELS } from '../labels';
+import { useIdempotencyKey } from '../../shared/hooks/use-idempotency-key';
 
 type Values = CreateDevelopmentInput;
 type ValidValues = Parameters<typeof createDevelopmentAction>[0];
@@ -156,6 +157,7 @@ export function DevelopmentSheet({ navigation }: { readonly navigation: PanelNav
 function NewDevelopmentForm({ onCancel }: { readonly onCancel: () => void }) {
   const router = useRouter();
   const [error, setError] = useState<string | undefined>();
+  const idempotency = useIdempotencyKey();
   const form = useForm<Values, unknown, ValidValues>({
     resolver: contractResolver(CreateDevelopmentInputSchema),
     defaultValues: INITIAL_VALUES,
@@ -164,11 +166,12 @@ function NewDevelopmentForm({ onCancel }: { readonly onCancel: () => void }) {
   async function submit(values: ValidValues) {
     setError(undefined);
     try {
-      const result = await createDevelopmentAction(values);
+      const result = await createDevelopmentAction({ ...values, idempotencyKey: idempotency.key });
       if (!result.ok) {
         setError(result.message);
         return;
       }
+      idempotency.renew();
       const notice =
         result.geocoding === undefined ? undefined : GEOCODING_NOTICE[result.geocoding];
       toast.success(`Emprendimiento ${result.code ?? ''} creado`, {

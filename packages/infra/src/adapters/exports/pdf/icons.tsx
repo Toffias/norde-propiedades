@@ -3,15 +3,23 @@ import {
   Bath,
   BedDouble,
   Car,
+  ChartColumn,
   DoorOpen,
+  ExternalLink,
+  Eye,
   Globe,
+  Heart,
   type IconNode,
   Mail,
   MapPin,
   Maximize,
   MessageCircle,
+  MessageSquareText,
   Phone,
+  Send,
   User,
+  UserCheck,
+  Users,
 } from 'lucide';
 import type { ReactElement } from 'react';
 
@@ -31,6 +39,14 @@ const ICONS = {
   email: Mail,
   agent: User,
   web: Globe,
+  send: Send,
+  inquiry: MessageSquareText,
+  views: Eye,
+  contacts: UserCheck,
+  favorites: Heart,
+  interested: Users,
+  chart: ChartColumn,
+  link: ExternalLink,
 } as const satisfies Record<string, IconNode>;
 
 export type PdfIconName = keyof typeof ICONS;

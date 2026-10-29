@@ -6,7 +6,7 @@ import { pdfAddress, pdfPrices, type PropertyDocument } from '../../domain/prope
 import { showcasePhotos } from '../../domain/showcase-options';
 import { idOf } from '../catalog-support';
 import type { DocumentContacts } from '../ports/document-contacts';
-import type { OwnerReports, PropertyDocumentRenderer } from '../ports/property-documents';
+import type { OwnerReportRenderer, OwnerReports } from '../ports/property-documents';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { PropertyDetailLookups } from '../ports/property-detail-lookups';
 import type { ShowcaseRenderer } from '../ports/property-showcase';
@@ -39,7 +39,7 @@ export class RenderPropertyDocument {
       readonly users: UserNames;
       readonly storage: FileStorage;
       readonly settings: CompanySettingsReader;
-      readonly renderer: PropertyDocumentRenderer;
+      readonly ownerReportRenderer: OwnerReportRenderer;
       readonly sheets: PropertySheetRenderer;
       readonly showcases: ShowcaseRenderer;
       readonly maps: StaticMaps;
@@ -88,7 +88,7 @@ export class RenderPropertyDocument {
           ? await this.renderSheet(document)
           : document.kind === 'showcase'
             ? await this.renderShowcase(document, property, gallery, developmentGallery)
-            : await this.render(document, property, gallery, developmentGallery, actor);
+            : await this.renderOwnerReport(document, property, gallery, developmentGallery, actor);
       if (bytes === undefined) {
         await this.finish(document.id, actor, {
           failed:
@@ -203,57 +203,61 @@ export class RenderPropertyDocument {
     });
   }
 
-  private async render(
+  /**
+   * El reporte al propietario del período, con la foto de la ficha, "Tu productor" (el productor de
+   * la propiedad o quien lo pidió) si van los datos del agente, y el contacto de la sucursal si
+   * "Ficha y PDF" lo muestra. `undefined` si no hay reporte para el período.
+   */
+  private async renderOwnerReport(
     document: PropertyDocument,
     property: Parameters<typeof buildPanelPropertyDetail>[0],
     gallery: readonly MediaItem[],
     developmentGallery: readonly MediaItem[],
     actor: Actor,
   ): Promise<Uint8Array | undefined> {
+    const period = document.period;
+    if (period === undefined) return undefined;
     const detail = await buildPanelPropertyDetail(property, this.deps);
-    const settings = (await this.deps.settings.get()).toSnapshot();
-    const options = settings.pdfOptions;
-
-    const photos = await this.photoBytes(
-      this.printablePhotos(gallery, developmentGallery, options.developmentPhotosInUnits).slice(
-        0,
-        OWNER_REPORT_PHOTOS,
-      ),
+    const report = await this.deps.ownerReports.build(
+      property.id,
+      { ...period, listedAt: detail.createdAt },
+      actor,
     );
-    const logo =
-      settings.logoKey === undefined ? undefined : await this.deps.storage.get(settings.logoKey);
-    const [agent, branch] = await Promise.all([
-      document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
-      this.deps.contacts.branch(detail.branchId),
+    if (report === undefined) return undefined;
+    const settings = (await this.deps.settings.get()).toSnapshot();
+    const pdf = settings.pdfOptions;
+    const [photos, logo, contact, producer] = await Promise.all([
+      this.photoBytes(
+        this.printablePhotos(gallery, developmentGallery, pdf.developmentPhotosInUnits).slice(
+          0,
+          OWNER_REPORT_PHOTOS,
+        ),
+      ),
+      settings.logoKey === undefined ? undefined : this.deps.storage.get(settings.logoKey),
+      pdf.showCompanyContact ? this.deps.contacts.branch(detail.branchId) : undefined,
+      document.includeAgent
+        ? this.deps.contacts.user(detail.producer?.id ?? document.requestedBy)
+        : undefined,
     ]);
     // La ficha en la web solo si la web la muestra: si no, el link no abre.
     const webUrl =
       detail.isPubliclyListed && settings.webPropertyUrlTemplate !== undefined
         ? settings.webPropertyUrlTemplate.render({ id: detail.id, slug: detail.slug })
         : undefined;
-
-    let ownerReport;
-    const period = document.period;
-    if (document.kind === 'owner_report' && period !== undefined) {
-      ownerReport = await this.deps.ownerReports.build(property.id, period, actor);
-      if (ownerReport === undefined) return undefined;
-    }
-
-    return this.deps.renderer.render({
-      kind: document.kind,
+    return this.deps.ownerReportRenderer.render({
       property: detail,
-      address: pdfAddress(detail, options.addressOnDownload),
-      addressDisplay: options.addressOnDownload,
+      address: pdfAddress(detail, pdf.addressOnDownload),
       prices: pdfPrices(detail.operations, {
-        showPrice: options.showPrice,
+        showPrice: pdf.showPrice,
         showPriceOnWeb: detail.publication.showPriceOnWeb,
       }),
-      photos,
+      photo: photos[0],
       company: { name: settings.name, logo: logo?.bytes },
-      agent,
-      branch,
+      contact,
+      producer,
       webUrl,
-      ownerReport,
+      report,
+      options: document.ownerReportOptions,
       generatedAt: this.deps.clock.now(),
     });
   }

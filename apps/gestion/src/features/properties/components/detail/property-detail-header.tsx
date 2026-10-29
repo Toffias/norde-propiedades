@@ -59,7 +59,8 @@ import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../../labels';
 import { FavoriteToggle } from '../favorite-toggle';
 import { PropertyPhoto } from '../property-photo';
 import { ReservationDialog, type ReservationSubject } from '../reservations/reservation-dialog';
-import { DocumentsDialog, OwnerReportDialog, SheetDocumentDialog } from './documents-dialogs';
+import { DocumentsDialog, SheetDocumentDialog } from './documents-dialogs';
+import { OwnerReportDialog } from './owner-report-dialog';
 import type { DetailPermissions } from './permissions';
 import { ShowcaseDocumentDialog } from './showcase-dialog';
 
@@ -494,6 +495,7 @@ export function PropertyDetailHeader({
       />
       <OwnerReportDialog
         propertyId={detail.id}
+        listedAt={detail.createdAt}
         open={reportOpen}
         onOpenChange={setReportOpen}
         onRequested={() => {

@@ -80,6 +80,13 @@ export const ShowcaseOptionsInputSchema = z.object({
 });
 export type ShowcaseOptionsInput = z.input<typeof ShowcaseOptionsInputSchema>;
 
+/** Qué lleva el reporte al propietario además del movimiento: publicaciones y estadísticas. */
+export const OwnerReportOptionsInputSchema = z.object({
+  publications: z.boolean().default(true),
+  statistics: z.boolean().default(true),
+});
+export type OwnerReportOptionsInput = z.input<typeof OwnerReportOptionsInputSchema>;
+
 /** Datos del agente: solo cuenta si "Ficha y PDF" pide preguntar al armar el PDF. */
 const IncludeAgentSchema = z.boolean().optional();
 
@@ -102,6 +109,7 @@ export const RequestPropertyDocumentInputSchema = z
       kind: z.literal('owner_report'),
       from: Day,
       to: Day,
+      options: OwnerReportOptionsInputSchema.optional(),
       includeAgent: IncludeAgentSchema,
     }),
   ])

@@ -127,6 +127,8 @@ export class DrizzlePropertyStatisticsQuery implements PropertyStatisticsQuery {
     const rows = await this.db
       .select({
         portal: portalListings.portal,
+        operation: portalListings.operation,
+        permalink: portalListings.permalink,
         status: portalListings.status,
         publishedAt: portalListings.publishedAt,
         views: sql<number>`coalesce(sum(${portalListingDailyStats.views}), 0)::int`,
@@ -144,6 +146,11 @@ export class DrizzlePropertyStatisticsQuery implements PropertyStatisticsQuery {
       )
       .orderBy(asc(portalListings.portal))
       .limit(MAX_PORTALS);
-    return rows.map((row) => ({ ...row, publishedAt: row.publishedAt ?? undefined }));
+    return rows.map((row) => ({
+      ...row,
+      operation: row.operation ?? undefined,
+      permalink: row.permalink ?? undefined,
+      publishedAt: row.publishedAt ?? undefined,
+    }));
   }
 }

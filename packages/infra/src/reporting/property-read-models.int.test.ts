@@ -111,6 +111,7 @@ describe('DrizzlePropertyDetailLookups and documents', () => {
         propertyId,
         kind: 'owner_report',
         period: { from: '2026-09-01', to: '2026-09-30' },
+        ownerReport: { publications: false, statistics: true },
         includeAgent: true,
         requestedBy: USER,
         now: NOW,
@@ -524,6 +525,7 @@ describe('DrizzlePropertyStatisticsQuery', () => {
       portal: 'zonaprop',
       propertyId,
       operation: 'sale',
+      permalink: 'https://www.zonaprop.com.ar/propiedades/aviso-1.html',
       status: 'published',
       ...stamps,
     });
@@ -559,7 +561,14 @@ describe('DrizzlePropertyStatisticsQuery', () => {
       to: new Date('2026-10-01T03:00:00Z'),
     };
     expect(await statistics.publications(propertyId, september)).toMatchObject([
-      { portal: 'zonaprop', status: 'published', views: 15, contacts: 2 },
+      {
+        portal: 'zonaprop',
+        operation: 'sale',
+        permalink: 'https://www.zonaprop.com.ar/propiedades/aviso-1.html',
+        status: 'published',
+        views: 15,
+        contacts: 2,
+      },
     ]);
   });
 });

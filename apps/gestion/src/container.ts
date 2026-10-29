@@ -498,7 +498,6 @@ import {
   LogPublicSite,
   LogTeamNotifier,
   OutboxRelay,
-  PdfLibPropertyDocumentRenderer,
   PgBossEventBus,
   SharpImageVariantGenerator,
   WebhookPublicSite,
@@ -527,7 +526,11 @@ import {
   ZonapropLocations,
   ZonapropPortalConnector,
 } from '@norde/infra';
-import { ReactPdfPropertySheetRenderer, ReactPdfShowcaseRenderer } from '@norde/infra/pdf';
+import {
+  ReactPdfOwnerReportRenderer,
+  ReactPdfPropertySheetRenderer,
+  ReactPdfShowcaseRenderer,
+} from '@norde/infra/pdf';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
@@ -2031,7 +2034,10 @@ function createPropertyJobs(
   });
   const ownerReports: OwnerReports = {
     async build(propertyId, period, actor) {
-      const report = await ownerReport.execute({ propertyId, ...period }, actor);
+      const report = await ownerReport.execute(
+        { propertyId, from: period.from, to: period.to, since: period.listedAt },
+        actor,
+      );
       return report.isOk() ? report.value : undefined;
     },
   };
@@ -2051,7 +2057,7 @@ function createPropertyJobs(
       users: { names: (userIds) => directory.names('user', userIds) },
       storage,
       settings,
-      renderer: new PdfLibPropertyDocumentRenderer(),
+      ownerReportRenderer: new ReactPdfOwnerReportRenderer(),
       sheets,
       showcases,
       maps,

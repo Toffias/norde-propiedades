@@ -72,7 +72,6 @@ export { DrizzleHomeDashboardQuery } from './reporting/drizzle-home-dashboard-qu
 export { DrizzlePublicationOverviewQuery } from './reporting/drizzle-publication-overview-query';
 export { DrizzleBackgroundTaskQuery } from './reporting/drizzle-background-task-query';
 export { DrizzlePropertyStatisticsQuery } from './reporting/drizzle-property-statistics-query';
-export { PdfLibPropertyDocumentRenderer } from './adapters/exports/property-document-renderer';
 export { PdfLibAppraisalReportRenderer } from './adapters/exports/appraisal-report-renderer';
 export { NominatimGeocoder } from './adapters/geocoding/nominatim-geocoder';
 export { OsmStaticMaps } from './adapters/maps/osm-static-maps';

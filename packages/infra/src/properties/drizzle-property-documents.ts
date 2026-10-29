@@ -41,6 +41,12 @@ const ShowcaseOptionsSchema = z
   .nullable()
   .transform((options) => options ?? undefined);
 
+/** Lo que lleva el reporte al propietario, como lo guardó el dominio. */
+const OwnerReportOptionsSchema = z
+  .object({ publications: z.boolean(), statistics: z.boolean() })
+  .nullable()
+  .transform((options) => options ?? undefined);
+
 function stored<T, E>(result: Result<T, E>): T {
   if (result.isErr()) throw new Error('Invalid value stored in property_documents');
   return result.value;
@@ -71,6 +77,7 @@ export class DrizzlePropertyDocumentRepository implements PropertyDocumentReposi
       period: period(row),
       layout: enums.layout,
       showcase: ShowcaseOptionsSchema.parse(row.showcaseOptions),
+      ownerReport: OwnerReportOptionsSchema.parse(row.ownerReportOptions),
       includeAgent: row.includeAgent,
       storageKey: row.storageKey ?? undefined,
       error: row.error ?? undefined,
@@ -99,6 +106,7 @@ export class DrizzlePropertyDocumentRepository implements PropertyDocumentReposi
         periodTo: s.period?.to ?? null,
         layout: s.layout ?? null,
         showcaseOptions: s.showcase ?? null,
+        ownerReportOptions: s.ownerReport ?? null,
         includeAgent: s.includeAgent,
         requestedBy: s.requestedBy,
         createdAt: s.createdAt,

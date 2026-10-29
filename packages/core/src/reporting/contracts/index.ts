@@ -22,7 +22,12 @@ export interface PropertyMonthlyActivity {
 }
 
 export interface PortalPublicationStats {
+  /** El portal y la cuenta (`mercadolibre`, `mercadolibre_developments`, `zonaprop`). */
   readonly portal: string;
+  /** La operación del aviso, si el portal publica una por aviso (`sale`, `rent`…). */
+  readonly operation: string | undefined;
+  /** El aviso en el portal, si ya tiene link. */
+  readonly permalink: string | undefined;
   /** `pending` / `published` / `paused` / `error` / `unpublished`. */
   readonly status: string;
   readonly publishedAt: Date | undefined;
@@ -55,12 +60,21 @@ export const OwnerReportQuerySchema = z
     /** `AAAA-MM-DD`, inclusive. */
     from: z.iso.date(),
     to: z.iso.date(),
+    /** El alta de la propiedad, para la columna "desde el alta". */
+    since: z.date().optional(),
   })
   .refine((input) => input.from <= input.to, {
     message: 'La fecha de inicio tiene que ser anterior a la de fin.',
     path: ['to'],
   });
 export type OwnerReportInput = z.input<typeof OwnerReportQuerySchema>;
+
+/** Envíos y consultas de un tramo. */
+export interface OwnerReportActivity {
+  readonly emailSends: number;
+  readonly whatsappSends: number;
+  readonly inquiries: number;
+}
 
 /** Lo que se le informa al propietario de un período: dónde está publicada y qué movimiento tuvo. */
 export interface OwnerReport {
@@ -76,6 +90,18 @@ export interface OwnerReport {
   readonly portalContacts: number;
   /** Cada mes del período, también los que no tuvieron movimiento. */
   readonly monthly: readonly PropertyMonthlyActivity[];
+  /**
+   * El movimiento de los últimos 15 y 30 días y desde el alta, hasta el fin del período: la tabla
+   * para comparar del reporte de Tokko.
+   */
+  readonly windows: {
+    readonly last15Days: OwnerReportActivity;
+    readonly last30Days: OwnerReportActivity;
+    readonly sinceCreation: OwnerReportActivity & {
+      /** El día del alta (o el inicio del período si no se conoce). */
+      readonly from: string;
+    };
+  };
 }
 
 export * from './home';

@@ -22,6 +22,20 @@ export type PropertyDocumentKind = (typeof PROPERTY_DOCUMENT_KINDS)[number];
 export const PROPERTY_DOCUMENT_STATUSES = ['pending', 'ready', 'failed'] as const;
 export type PropertyDocumentStatus = (typeof PROPERTY_DOCUMENT_STATUSES)[number];
 
+/**
+ * Qué lleva el reporte al propietario además del movimiento (#175): las publicaciones activas con
+ * su link y las estadísticas de cada portal.
+ */
+export interface OwnerReportOptions {
+  readonly publications: boolean;
+  readonly statistics: boolean;
+}
+
+export const DEFAULT_OWNER_REPORT_OPTIONS: OwnerReportOptions = {
+  publications: true,
+  statistics: true,
+};
+
 /** Período del reporte al propietario, en días `AAAA-MM-DD` de Buenos Aires. */
 export interface ReportPeriod {
   readonly from: string;
@@ -38,6 +52,8 @@ export interface PropertyDocumentSnapshot {
   readonly layout: PropertySheetLayout | undefined;
   /** Las opciones de la vidriera (#175); los demás PDF no tienen. */
   readonly showcase: ShowcaseOptions | undefined;
+  /** Lo que lleva el reporte al propietario; los demás PDF no tienen. */
+  readonly ownerReport: OwnerReportOptions | undefined;
   /** Si lleva los datos del agente que lo pidió, resuelto al pedirlo. */
   readonly includeAgent: boolean;
   readonly storageKey: string | undefined;
@@ -146,6 +162,8 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
     readonly layout?: PropertySheetLayout | undefined;
     /** Solo la vidriera; sin opciones, las de la marca. */
     readonly showcase?: ShowcaseOptions | undefined;
+    /** Solo el reporte al propietario; sin opciones, lleva todo. */
+    readonly ownerReport?: OwnerReportOptions | undefined;
     readonly includeAgent: boolean;
     readonly requestedBy: string;
     readonly now: Date;
@@ -166,6 +184,10 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
       period: input.kind === 'owner_report' ? input.period : undefined,
       layout: input.kind === 'sheet' ? (input.layout ?? 'portrait') : undefined,
       showcase,
+      ownerReport:
+        input.kind === 'owner_report'
+          ? (input.ownerReport ?? DEFAULT_OWNER_REPORT_OPTIONS)
+          : undefined,
       includeAgent: input.includeAgent,
       storageKey: undefined,
       error: undefined,
@@ -215,6 +237,11 @@ export class PropertyDocument extends AggregateRoot<PropertyDocumentId, Property
   /** Las opciones de la vidriera; las de antes de #175 salen con las de la marca. */
   get showcase(): ShowcaseOptions {
     return this.#state.showcase ?? DEFAULT_SHOWCASE_OPTIONS;
+  }
+
+  /** Lo que lleva el reporte; los de antes de #175 llevaban todo. */
+  get ownerReportOptions(): OwnerReportOptions {
+    return this.#state.ownerReport ?? DEFAULT_OWNER_REPORT_OPTIONS;
   }
 
   get includeAgent(): boolean {

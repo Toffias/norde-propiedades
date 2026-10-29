@@ -2,41 +2,41 @@ import type { OwnerReport } from '../../../reporting';
 import type { Actor, PageSlice } from '../../../shared';
 import type { PanelPropertyDetail, PropertyDocumentRow } from '../../contracts';
 import type { DocumentContact } from './document-contacts';
-import type {
-  PdfAddressDisplay,
-  PdfPrice,
-  PropertyDocumentKind,
-  ReportPeriod,
-} from '../../domain/property-document';
+import type { OwnerReportOptions, PdfPrice, ReportPeriod } from '../../domain/property-document';
 
-/** Lo que imprime el PDF, ya resuelto por el caso de uso (dirección y precios según las reglas). */
-export interface PropertyDocumentContent {
-  readonly kind: PropertyDocumentKind;
+/** Lo que imprime el reporte al propietario, ya resuelto por el caso de uso. */
+export interface OwnerReportContent {
   readonly property: PanelPropertyDetail;
+  /** La dirección según "Ficha y PDF". */
   readonly address: string;
   readonly prices: readonly PdfPrice[];
-  /** Fotos para el PDF (versión web, con marca de agua si está activa), en orden. */
-  readonly photos: readonly Uint8Array[];
+  /** La foto de la tarjeta de la propiedad: la primera marcada para el PDF. */
+  readonly photo: Uint8Array | undefined;
   readonly company: { readonly name: string; readonly logo: Uint8Array | undefined };
-  /** El agente que lo pidió, con su teléfono y email, si la configuración lo muestra. */
-  readonly agent: DocumentContact | undefined;
-  /** La sucursal de la propiedad (o la casa central): el contacto del pie. */
-  readonly branch: DocumentContact | undefined;
+  /** La sucursal de la propiedad, si "Ficha y PDF" muestra el contacto de la empresa. */
+  readonly contact: DocumentContact | undefined;
+  /** "Tu productor": el productor de la propiedad (o quien lo pidió), si van los datos del agente. */
+  readonly producer: DocumentContact | undefined;
   /** La ficha en la web, si está publicada y Mi empresa tiene la plantilla de la URL. */
   readonly webUrl: string | undefined;
-  readonly ownerReport: OwnerReport | undefined;
+  readonly report: OwnerReport;
+  readonly options: OwnerReportOptions;
   readonly generatedAt: Date;
-  readonly addressDisplay: PdfAddressDisplay;
 }
 
-/** Arma el PDF (pdf-lib), en español. */
-export interface PropertyDocumentRenderer {
-  render(content: PropertyDocumentContent): Promise<Uint8Array>;
+/** Arma el PDF del reporte al propietario. */
+export interface OwnerReportRenderer {
+  render(content: OwnerReportContent): Promise<Uint8Array>;
 }
 
 /** El reporte al propietario de un período: lo entrega el módulo de reportes. */
 export interface OwnerReports {
-  build(propertyId: string, period: ReportPeriod, actor: Actor): Promise<OwnerReport | undefined>;
+  /** `listedAt`: el alta de la propiedad, para comparar "desde el alta". */
+  build(
+    propertyId: string,
+    period: ReportPeriod & { readonly listedAt: Date },
+    actor: Actor,
+  ): Promise<OwnerReport | undefined>;
 }
 
 /** Los PDF pedidos de una propiedad, paginados en la base. */

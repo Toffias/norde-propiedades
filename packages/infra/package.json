@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test:int": "vitest run --config vitest.int.config.ts",
-    "pdf:fonts": "tsx scripts/generate-pdf-fonts.ts"
+    "pdf:fonts": "tsx scripts/generate-pdf-fonts.ts",
+    "pdf:portal-logos": "tsx scripts/generate-pdf-portal-logos.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "catalog:",

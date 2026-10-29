@@ -28,7 +28,7 @@ import { toast } from '@norde/ui/components/sonner';
 import { TablePagination } from '@norde/ui/components/table-pagination';
 import { Textarea } from '@norde/ui/components/textarea';
 import { cn } from '@norde/ui/lib/utils';
-import { Loader2Icon } from 'lucide-react';
+import { HistoryIcon, Loader2Icon, StickyNoteIcon } from 'lucide-react';
 import { useEffect, useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -84,7 +84,7 @@ export function OpportunityNoteDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Nota de la oportunidad</DialogTitle>
+            <DialogTitle icon={StickyNoteIcon}>Nota de la oportunidad</DialogTitle>
             <DialogDescription>
               Queda en el historial de la oportunidad de {target.clientName} y en la actividad del
               contacto.
@@ -182,7 +182,7 @@ export function OpportunityHistoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Historial de la oportunidad</DialogTitle>
+          <DialogTitle icon={HistoryIcon}>Historial de la oportunidad</DialogTitle>
           <DialogDescription>
             Notas, cambios de estado y lo demás que pasó con la oportunidad de {target.clientName}.
           </DialogDescription>

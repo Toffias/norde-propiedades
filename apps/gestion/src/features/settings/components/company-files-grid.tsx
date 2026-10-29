@@ -91,7 +91,7 @@ function NameDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle icon={PencilIcon}>{title}</DialogTitle>
         </DialogHeader>
         <form
           className="flex flex-col gap-4"
@@ -388,7 +388,7 @@ export function CompanyFilesGrid({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Subir archivos</DialogTitle>
+            <DialogTitle icon={UploadIcon}>Subir archivos</DialogTitle>
             <DialogDescription>
               {breadcrumb.length === 0
                 ? 'Van a la raíz de Archivos.'

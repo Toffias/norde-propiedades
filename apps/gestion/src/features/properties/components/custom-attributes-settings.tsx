@@ -30,7 +30,7 @@ import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { Switch } from '@norde/ui/components/switch';
 import { Textarea } from '@norde/ui/components/textarea';
-import { Loader2Icon, PencilIcon, PlusIcon } from 'lucide-react';
+import { Loader2Icon, PencilIcon, PlusIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -190,7 +190,7 @@ function CustomAttributeDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle icon={SlidersHorizontalIcon}>
             {attribute === undefined ? 'Nuevo atributo' : 'Editar atributo'}
           </DialogTitle>
           <DialogDescription>Aparece en la ficha de todas las propiedades.</DialogDescription>

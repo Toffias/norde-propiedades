@@ -83,10 +83,7 @@ export function ClientEraseDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldAlertIcon className="h-5 w-5 text-destructive" />
-            Suprimir los datos de {name}
-          </DialogTitle>
+          <DialogTitle icon={ShieldAlertIcon}>Suprimir los datos de {name}</DialogTitle>
           <DialogDescription>
             {step === 'explain'
               ? 'Es para cuando el cliente pide que borremos sus datos (Ley 25.326). Se borra para siempre, sin papelera.'

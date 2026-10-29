@@ -28,7 +28,7 @@ import {
 import { toast } from '@norde/ui/components/sonner';
 import { Textarea } from '@norde/ui/components/textarea';
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
-import { Loader2Icon, MailIcon } from 'lucide-react';
+import { Loader2Icon, MailIcon, SendIcon } from 'lucide-react';
 import { useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -164,7 +164,7 @@ export function SendListingsDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Enviar {subject}</DialogTitle>
+          <DialogTitle icon={SendIcon}>Enviar {subject}</DialogTitle>
           <DialogDescription>
             Le llega un link para ver las propiedades y marcar cuáles le gustan. Vence a los{' '}
             {SHARED_LISTING_LIFETIME_DAY_COUNT} días y lo podés revocar desde la pestaña Envíos.

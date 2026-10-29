@@ -11,7 +11,7 @@ import {
 } from '@norde/ui/components/dialog';
 import { Label } from '@norde/ui/components/label';
 import { toast } from '@norde/ui/components/sonner';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, UserPlusIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
@@ -95,7 +95,7 @@ export function FeatureToClientDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Destacar a un contacto</DialogTitle>
+          <DialogTitle icon={UserPlusIcon}>Destacar a un contacto</DialogTitle>
           <DialogDescription>
             {client === undefined
               ? `Elegí a quién le ofrecés ${subject}. Aparece en sus destacadas, con la coincidencia con sus búsquedas.`

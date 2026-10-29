@@ -180,7 +180,7 @@ function SaveSearchDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Guardar búsqueda</DialogTitle>
+            <DialogTitle icon={BookmarkIcon}>Guardar búsqueda</DialogTitle>
             <DialogDescription>
               Se guardan los filtros y el orden actuales. Con un nombre que ya usaste, se
               reemplazan.

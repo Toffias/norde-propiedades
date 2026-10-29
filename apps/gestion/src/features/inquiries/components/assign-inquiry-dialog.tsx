@@ -204,7 +204,7 @@ export function AssignInquiryDialog({
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Asignar consulta</DialogTitle>
+          <DialogTitle icon={UserPlusIcon}>Asignar consulta</DialogTitle>
           <DialogDescription>
             {row.senderName ?? 'Sin nombre'}: elegí el contacto al que corresponde. Se abre una
             oportunidad o se suma a la que ya tiene por la misma propiedad.

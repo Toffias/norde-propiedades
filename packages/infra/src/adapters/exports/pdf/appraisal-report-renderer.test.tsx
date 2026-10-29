@@ -85,6 +85,7 @@ function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalRepo
       phone: '+5491155550000',
       whatsapp: undefined,
       email: 'juan@norde.com.ar',
+      text: undefined,
     },
     branch: {
       name: 'Casa central',
@@ -92,6 +93,7 @@ function content(overrides: Partial<AppraisalReportContent> = {}): AppraisalRepo
       phone: undefined,
       whatsapp: '+5491166899124',
       email: 'hola@norde.com.ar',
+      text: undefined,
     },
     generatedAt: new Date('2026-10-01T12:00:00Z'),
     ...overrides,

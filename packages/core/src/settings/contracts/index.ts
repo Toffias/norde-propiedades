@@ -130,6 +130,15 @@ export const UpdatePdfOptionsInputSchema = z.object({
   addressOnSend: z.enum(ADDRESS_DISPLAY_VALUES),
   addressOnDownload: z.enum(ADDRESS_DISPLAY_VALUES),
   developmentPhotosInUnits: z.boolean(),
+  /** Hasta 6 renglones: más no entran en la cabecera ni en la tarjeta de contacto. */
+  contactText: z
+    .string()
+    .trim()
+    .max(400)
+    .refine((text) => text.split(/\r?\n/).length <= 6, 'Usá hasta 6 renglones.')
+    .optional()
+    .transform((text) => (text === '' ? undefined : text)),
+  brandColor: z.string().regex(/^#[0-9a-f]{6}$/i, 'Elegí un color.'),
 });
 export type UpdatePdfOptionsInput = z.input<typeof UpdatePdfOptionsInputSchema>;
 

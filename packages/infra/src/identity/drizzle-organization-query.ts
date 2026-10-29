@@ -75,6 +75,7 @@ export class DrizzleOrganizationQuery implements OrganizationQuery {
       id: row.id,
       name: row.name,
       logoUrl: row.logoUrl ?? undefined,
+      pdfContactText: row.pdfContactText ?? undefined,
       address: row.address ?? undefined,
       email: row.email ?? undefined,
       phone: row.phoneE164 ?? undefined,

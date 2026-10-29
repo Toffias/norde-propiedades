@@ -41,6 +41,7 @@ export class DrizzleDocumentContacts implements DocumentContacts, ReportContacts
       phone: orUndefined(row.phone),
       whatsapp: undefined,
       email: orUndefined(row.email),
+      text: undefined,
     };
   }
 
@@ -52,6 +53,7 @@ export class DrizzleDocumentContacts implements DocumentContacts, ReportContacts
         phone: branches.phoneE164,
         whatsapp: branches.whatsappE164,
         email: branches.email,
+        text: branches.pdfContactText,
       })
       .from(branches)
       .where(and(condition, isNull(branches.deletedAt)))
@@ -63,6 +65,7 @@ export class DrizzleDocumentContacts implements DocumentContacts, ReportContacts
       phone: orUndefined(row.phone),
       whatsapp: orUndefined(row.whatsapp),
       email: orUndefined(row.email),
+      text: orUndefined(row.text),
     };
   }
 }

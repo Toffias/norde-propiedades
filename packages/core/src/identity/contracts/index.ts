@@ -204,6 +204,9 @@ export type TrashViewValue = (typeof TRASH_VIEW_VALUES)[number];
 
 const OptionalText = (max: number) => z.string().trim().min(1).max(max).optional();
 
+/** Renglones del contacto en texto libre de los PDF: más no entran en la cabecera ni en la tarjeta. */
+export const MAX_PDF_CONTACT_LINES = 6;
+
 const BranchFields = {
   name: z.string().trim().min(1).max(80),
   /** Logo para portales y PDF. Por ahora una URL (todavía no hay subida de archivos). */
@@ -216,6 +219,17 @@ const BranchFields = {
   phone: OptionalText(40),
   /** Obligatorio: es el contacto que se publica en los portales y en las fichas. */
   whatsapp: z.string().trim().min(1).max(40),
+  /**
+   * Contacto en texto libre para los PDF: reemplaza al de Mi empresa y a los datos de arriba
+   * (dirección, teléfonos, email). Hasta 6 renglones.
+   */
+  pdfContactText: z
+    .string()
+    .trim()
+    .max(400)
+    .refine((text) => text.split(/\r?\n/).length <= MAX_PDF_CONTACT_LINES, 'Usá hasta 6 renglones.')
+    .optional()
+    .transform((text) => (text === '' ? undefined : text)),
 };
 
 export const CreateBranchInputSchema = z.object(BranchFields);
@@ -279,6 +293,7 @@ export interface BranchDetail {
   readonly id: string;
   readonly name: string;
   readonly logoUrl: string | undefined;
+  readonly pdfContactText: string | undefined;
   readonly address: string | undefined;
   readonly email: string | undefined;
   readonly phone: string | undefined;

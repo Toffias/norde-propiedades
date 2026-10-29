@@ -20,7 +20,7 @@ import {
   type PdfBranding,
   type PdfField,
 } from './kit';
-import { contactLine, kindLabel } from './property-text';
+import { contactLine, contactTextLines, kindLabel } from './property-text';
 import { renderPdf } from './render';
 import { PDF_COLORS, PDF_TYPE } from './theme';
 
@@ -326,6 +326,18 @@ function Observations({ text }: { readonly text: string | undefined }): ReactEle
 }
 
 function ContactLines({ contact }: { readonly contact: ReportContact }): ReactElement {
+  const text = contactTextLines(contact);
+  if (text !== undefined) {
+    return (
+      <>
+        {text.map((line, index) => (
+          <Text key={index} style={styles.contactText}>
+            {line}
+          </Text>
+        ))}
+      </>
+    );
+  }
   const lines = [
     contact.address === undefined
       ? undefined

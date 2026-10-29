@@ -7,6 +7,11 @@ export interface DocumentContact {
   /** E.164. */
   readonly whatsapp: string | undefined;
   readonly email: string | undefined;
+  /**
+   * Contacto en texto libre (el de la sucursal o el de Mi empresa): si está, los PDF lo muestran en
+   * lugar de la dirección, los teléfonos y el email.
+   */
+  readonly text: string | undefined;
 }
 
 /** Contactos del panel (identity) para el pie y la tarjeta de contacto de los PDF. */

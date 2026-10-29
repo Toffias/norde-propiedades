@@ -8,7 +8,11 @@ import {
   type ForbiddenError,
   type Result,
 } from '../../../shared';
-import type { CompanySettingsReader, FileStorage } from '../../../settings';
+import {
+  withPdfContactText,
+  type CompanySettingsReader,
+  type FileStorage,
+} from '../../../settings';
 import { AppraisalIdInputSchema, type AppraisalIdInput } from '../../contracts';
 import {
   appraisalReportFigures,
@@ -80,7 +84,10 @@ export class DownloadAppraisalReport {
       appraisal.appraiser === undefined
         ? undefined
         : this.deps.contacts.user(appraisal.appraiser.id),
-      this.deps.contacts.branch(appraisal.branch?.id),
+      // La sucursal con su texto libre o, si no tiene, el de Mi empresa.
+      this.deps.contacts
+        .branch(appraisal.branch?.id)
+        .then((found) => found && withPdfContactText(found, settings.pdfOptions)),
     ]);
     const bytes = await this.deps.renderer.render({
       appraisal,

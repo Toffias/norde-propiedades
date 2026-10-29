@@ -20,7 +20,14 @@ import {
   type PdfBranding,
 } from './kit';
 import { PORTAL_LOGOS } from './portal-logos.generated';
-import { amount, contactLine, keyFacts, kindLabel, operationLabel } from './property-text';
+import {
+  amount,
+  contactLine,
+  contactTextLines,
+  keyFacts,
+  kindLabel,
+  operationLabel,
+} from './property-text';
 import { renderPdf } from './render';
 import { PDF_COLORS, PDF_TYPE } from './theme';
 
@@ -580,6 +587,8 @@ function ActivePublications({ prepared }: { readonly prepared: Prepared }): Reac
 }
 
 function contactLines(contact: DocumentContact): string[] {
+  const text = contactTextLines(contact);
+  if (text !== undefined) return text;
   return [
     contact.address,
     contact.phone === undefined ? undefined : `Tel. ${formatPhone(contact.phone)}`,

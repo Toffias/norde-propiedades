@@ -17,6 +17,8 @@ export interface BranchContact {
   readonly phone: Phone | undefined;
   /** Obligatorio: es el contacto que se publica en los portales y en las fichas. */
   readonly whatsapp: Phone;
+  /** Contacto en texto libre para los PDF: reemplaza al de Mi empresa y a los datos de arriba. */
+  readonly pdfContactText: string | undefined;
 }
 
 export interface BranchSnapshot extends BranchContact {
@@ -50,10 +52,12 @@ const MAX_NAME_LENGTH = 80;
 
 function clean(contact: BranchContact): BranchContact {
   const address = contact.address?.trim();
+  const pdfContactText = contact.pdfContactText?.trim();
   return {
     ...contact,
     name: contact.name.trim().slice(0, MAX_NAME_LENGTH),
     address: address === '' ? undefined : address,
+    pdfContactText: pdfContactText === '' ? undefined : pdfContactText,
   };
 }
 
@@ -66,6 +70,7 @@ function contactKey(contact: BranchContact): string {
     contact.email?.value,
     contact.phone?.e164,
     contact.whatsapp.e164,
+    contact.pdfContactText,
   ]);
 }
 

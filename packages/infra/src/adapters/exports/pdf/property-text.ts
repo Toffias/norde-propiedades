@@ -35,9 +35,28 @@ function amount(price: PdfPrice): string {
     : formatMoney(price.currency, price.priceCents);
 }
 
-/** "Dirección · Tel. … · WhatsApp … · email", sin los datos que falten. */
+/**
+ * Los renglones del contacto en texto libre (de la sucursal o de Mi empresa), sin los vacíos.
+ * `undefined` si no hay: van los datos de la sucursal.
+ */
+export function contactTextLines(
+  contact: { readonly text: string | undefined } | undefined,
+): string[] | undefined {
+  const lines = (contact?.text ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  return lines.length === 0 ? undefined : lines;
+}
+
+/**
+ * "Dirección · Tel. … · WhatsApp … · email", sin los datos que falten; o los renglones del texto
+ * libre, si lo hay.
+ */
 export function contactLine(contact: DocumentContact | undefined): string | undefined {
   if (contact === undefined) return undefined;
+  const text = contactTextLines(contact);
+  if (text !== undefined) return text.join(' · ');
   const parts = [
     contact.address,
     contact.phone === undefined ? undefined : `Tel. ${formatPhone(contact.phone)}`,

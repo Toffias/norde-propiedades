@@ -31,6 +31,7 @@ async function content(overrides: Partial<OwnerReportContent> = {}): Promise<Own
       phone: '+541148000000',
       whatsapp: '+5491166899124',
       email: 'info@norde.com.ar',
+      text: undefined,
     },
     producer: {
       name: 'Camila Ruiz',
@@ -38,6 +39,7 @@ async function content(overrides: Partial<OwnerReportContent> = {}): Promise<Own
       phone: '+5491155550000',
       whatsapp: undefined,
       email: 'camila@norde.com.ar',
+      text: undefined,
     },
     webUrl: 'https://norde.com.ar/propiedades/luminoso-3-ambientes',
     report: {

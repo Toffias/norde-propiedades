@@ -113,6 +113,7 @@ describe('ReactPdfPropertySheetRenderer', { timeout: 30_000 }, () => {
             phone: '+541140000000',
             whatsapp: undefined,
             email: 'hola@norde.com.ar',
+            text: undefined,
           },
         },
         agent: {
@@ -121,6 +122,7 @@ describe('ReactPdfPropertySheetRenderer', { timeout: 30_000 }, () => {
           phone: '+5491155550000',
           whatsapp: undefined,
           email: 'camila@norde.com.ar',
+          text: undefined,
         },
       },
     );

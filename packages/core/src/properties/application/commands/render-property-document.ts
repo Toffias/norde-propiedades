@@ -5,6 +5,7 @@ import type { MediaItem } from '../../domain/media-item';
 import { pdfAddress, pdfPrices, type PropertyDocument } from '../../domain/property-document';
 import { showcasePhotos } from '../../domain/showcase-options';
 import { idOf } from '../catalog-support';
+import { companyContact } from '../company-contact';
 import type { DocumentContacts } from '../ports/document-contacts';
 import type { OwnerReportRenderer, OwnerReports } from '../ports/property-documents';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
@@ -118,9 +119,7 @@ export class RenderPropertyDocument {
     const company = settings.toSnapshot();
     const [logo, contact, agent] = await Promise.all([
       company.logoKey === undefined ? undefined : this.deps.storage.get(company.logoKey),
-      company.pdfOptions.showCompanyContact
-        ? this.deps.contacts.branch(sheet.property.branchId)
-        : undefined,
+      companyContact(this.deps.contacts, sheet.property.branchId, company.pdfOptions),
       document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
     ]);
     return this.deps.sheets.render({
@@ -178,7 +177,7 @@ export class RenderPropertyDocument {
     const [photos, logo, contact, agent] = await Promise.all([
       this.photoBytes(chosen),
       settings.logoKey === undefined ? undefined : this.deps.storage.get(settings.logoKey),
-      pdf.showCompanyContact ? this.deps.contacts.branch(detail.branchId) : undefined,
+      companyContact(this.deps.contacts, detail.branchId, pdf),
       document.includeAgent ? this.deps.contacts.user(document.requestedBy) : undefined,
     ]);
     // La ficha en la web solo si la web la muestra: si no, el QR no abre.
@@ -234,7 +233,7 @@ export class RenderPropertyDocument {
         ),
       ),
       settings.logoKey === undefined ? undefined : this.deps.storage.get(settings.logoKey),
-      pdf.showCompanyContact ? this.deps.contacts.branch(detail.branchId) : undefined,
+      companyContact(this.deps.contacts, detail.branchId, pdf),
       document.includeAgent
         ? this.deps.contacts.user(detail.producer?.id ?? document.requestedBy)
         : undefined,

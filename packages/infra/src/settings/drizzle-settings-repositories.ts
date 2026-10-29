@@ -64,9 +64,12 @@ const PdfOptionsSchema = z
     addressOnSend: z.enum(ADDRESS_DISPLAYS).default(DEFAULT_PDF_OPTIONS.addressOnSend),
     addressOnDownload: z.enum(ADDRESS_DISPLAYS).default(DEFAULT_PDF_OPTIONS.addressOnDownload),
     developmentPhotosInUnits: z.boolean().default(DEFAULT_PDF_OPTIONS.developmentPhotosInUnits),
+    contactText: z.string().optional(),
+    brandColor: z.string().default(DEFAULT_PDF_OPTIONS.brandColor),
   })
-  .transform(({ agentInfo, showAgent, ...options }) => ({
+  .transform(({ agentInfo, showAgent, contactText, ...options }) => ({
     ...options,
+    contactText,
     agentInfo:
       agentInfo ??
       (showAgent === undefined ? DEFAULT_PDF_OPTIONS.agentInfo : showAgent ? 'show' : 'hide'),

@@ -33,6 +33,7 @@ async function content(overrides: Partial<ShowcaseContent> = {}): Promise<Showca
       phone: '+541148000000',
       whatsapp: '+5491166899124',
       email: 'info@norde.com.ar',
+      text: undefined,
     },
     agent: undefined,
     qrUrl: 'https://norde.com.ar/propiedades/luminoso-3-ambientes',

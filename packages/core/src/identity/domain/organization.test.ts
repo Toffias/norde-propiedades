@@ -20,6 +20,7 @@ function newBranch(isFirst: boolean) {
     id: unwrap(parseId<'Branch'>('00000000-0000-7000-8000-0000000000b1')),
     name: '  Sucursal Belgrano ',
     logoUrl: undefined,
+    pdfContactText: undefined,
     address: '  ',
     email: unwrap(Email.create('belgrano@norde.com.ar')),
     phone: undefined,
@@ -81,6 +82,20 @@ describe('Branch', () => {
 
     expect(branch.isMain).toBe(true);
     expect(branch.pullEvents().map((e) => e.type)).toEqual(['identity.branch_made_main']);
+  });
+
+  it('keeps the free-text PDF contact trimmed and reports when it changes', () => {
+    const branch = newBranch(true);
+    branch.pullEvents();
+    const contact = { ...branch.toSnapshot(), pdfContactText: '  Lunes a viernes de 9 a 18  ' };
+
+    branch.update(contact, LATER);
+    branch.update(contact, LATER);
+    expect(branch.toSnapshot().pdfContactText).toBe('Lunes a viernes de 9 a 18');
+    expect(branch.pullEvents().map((e) => e.type)).toEqual(['identity.branch_updated']);
+
+    branch.update({ ...contact, pdfContactText: '   ' }, LATER);
+    expect(branch.toSnapshot().pdfContactText).toBeUndefined();
   });
 });
 

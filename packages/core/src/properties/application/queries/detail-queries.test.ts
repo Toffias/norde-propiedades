@@ -91,6 +91,7 @@ const BRANCH_CONTACT = {
   phone: '+541148001234',
   whatsapp: '+5491166899124',
   email: 'hola@norde.com.ar',
+  text: undefined,
 };
 
 function setup() {
@@ -381,6 +382,7 @@ describe('property documents', () => {
             phone: '+5491155550000',
             whatsapp: undefined,
             email: 'camila@norde.com.ar',
+            text: undefined,
           },
         ],
       ]),

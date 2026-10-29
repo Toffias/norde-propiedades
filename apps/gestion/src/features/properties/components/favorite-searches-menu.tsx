@@ -52,6 +52,7 @@ export function FavoriteSearchesMenu({
   const searchParams = useSearchParams();
   const [saving, setSaving] = useState(false);
   const [deleting, startDelete] = useTransition();
+  const [deletingId, setDeletingId] = useState<string | undefined>();
 
   function open(search: FavoriteSearchRow) {
     const query = new URLSearchParams(search.params);
@@ -62,6 +63,7 @@ export function FavoriteSearchesMenu({
   }
 
   function remove(search: FavoriteSearchRow) {
+    setDeletingId(search.id);
     startDelete(async () => {
       const message = await runAction(() => deleteFavoriteSearchAction({ searchId: search.id }));
       if (message === undefined) toast.success(`Borraste "${search.name}"`);
@@ -119,7 +121,11 @@ export function FavoriteSearchesMenu({
                     remove(search);
                   }}
                 >
-                  <Trash2Icon className="h-4 w-4" />
+                  {deleting && deletingId === search.id ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             ))

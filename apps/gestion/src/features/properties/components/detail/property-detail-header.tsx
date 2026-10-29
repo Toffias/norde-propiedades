@@ -35,6 +35,7 @@ import {
   FileDownIcon,
   FileTextIcon,
   GlobeIcon,
+  Loader2Icon,
   MapPinIcon,
   MoreHorizontalIcon,
   UserPlusIcon,
@@ -83,6 +84,8 @@ export function PropertyDetailHeader({
   readonly reservationSubject: ReservationSubject;
 }) {
   const [pending, startTransition] = useTransition();
+  // Qué menú disparó la acción en curso, para mostrar el spinner en su botón.
+  const [running, setRunning] = useState<'status' | 'publication' | undefined>();
   const [mapOpen, setMapOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -113,11 +116,13 @@ export function PropertyDetailHeader({
   const canReserve = permissions.reserve && detail.status === 'available';
 
   function run(
+    menu: 'status' | 'publication',
     action: () => Promise<
       { readonly ok: boolean } & ({ ok: true } | { ok: false; message: string })
     >,
     success: string,
   ) {
+    setRunning(menu);
     startTransition(async () => {
       const error = await runAction(action);
       if (error === undefined) toast.success(success);
@@ -128,6 +133,7 @@ export function PropertyDetailHeader({
   const publication = detail.publication;
   const togglePublication = (field: keyof typeof publication, value: boolean) => {
     run(
+      'publication',
       () => updatePropertyPublicationAction({ propertyId: detail.id, [field]: value }),
       'Publicación actualizada.',
     );
@@ -220,6 +226,9 @@ export function PropertyDetailHeader({
                   className="text-foreground dark:bg-card"
                   disabled={pending}
                 >
+                  {pending && running === 'status' && (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  )}
                   Cambiar estado
                   <ChevronDownIcon className="h-4 w-4" />
                 </Button>
@@ -230,6 +239,7 @@ export function PropertyDetailHeader({
                     key={value}
                     onSelect={() => {
                       run(
+                        'status',
                         () => changePropertyStatusAction({ propertyId: detail.id, status: value }),
                         `Ahora está ${PROPERTY_STATUS_DISPLAY[value].label.toLowerCase()}.`,
                       );
@@ -251,7 +261,11 @@ export function PropertyDetailHeader({
                   className="text-foreground dark:bg-card"
                   disabled={pending}
                 >
-                  <GlobeIcon className="h-4 w-4" />
+                  {pending && running === 'publication' ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <GlobeIcon className="h-4 w-4" />
+                  )}
                   Publicación
                   <ChevronDownIcon className="h-4 w-4" />
                 </Button>

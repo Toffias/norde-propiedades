@@ -2,7 +2,7 @@
 
 import { toast } from '@norde/ui/components/sonner';
 import { cn } from '@norde/ui/lib/utils';
-import { StarIcon } from 'lucide-react';
+import { Loader2Icon, StarIcon } from 'lucide-react';
 import { useOptimistic, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -19,7 +19,7 @@ export function FavoriteToggle({
   readonly favorite: boolean;
 }) {
   const [optimistic, setOptimistic] = useOptimistic(favorite);
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
 
   return (
     <button
@@ -27,7 +27,8 @@ export function FavoriteToggle({
       aria-pressed={optimistic}
       aria-label={optimistic ? `Quitar ${code} de favoritas` : `Marcar ${code} como favorita`}
       title={optimistic ? 'Quitar de favoritas' : 'Marcar como favorita'}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      disabled={pending}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none"
       onClick={() => {
         startTransition(async () => {
           setOptimistic(!optimistic);
@@ -38,10 +39,14 @@ export function FavoriteToggle({
         });
       }}
     >
-      <StarIcon
-        className={cn('h-4 w-4', optimistic && 'fill-warning-400 text-warning-500')}
-        aria-hidden
-      />
+      {pending ? (
+        <Loader2Icon className="h-4 w-4 animate-spin" aria-hidden />
+      ) : (
+        <StarIcon
+          className={cn('h-4 w-4', optimistic && 'fill-warning-400 text-warning-500')}
+          aria-hidden
+        />
+      )}
     </button>
   );
 }

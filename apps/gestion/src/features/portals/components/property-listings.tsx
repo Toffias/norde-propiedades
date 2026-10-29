@@ -419,8 +419,13 @@ function ListingRow({
   const [confirming, setConfirming] = useState(false);
   const [linking, setLinking] = useState(false);
 
-  function run(action: () => Promise<ActionResult>, success: string) {
+  // Qué botón disparó la acción en curso, para mostrar su spinner.
+  const [running, setRunning] = useState<ListingRowAction | undefined>();
+  const spinning = (action: ListingRowAction) => busy && running === action;
+
+  function run(key: ListingRowAction, action: () => Promise<ActionResult>, success: string) {
     setError(undefined);
+    setRunning(key);
     startTransition(async () => {
       const message = await runAction(action);
       if (message !== undefined) {
@@ -522,6 +527,7 @@ function ListingRow({
                     onClick={() => {
                       const chosen = choosesPlan && plan !== undefined ? { plan } : {};
                       run(
+                        'publish',
                         () =>
                           owner.kind === 'development'
                             ? requestDevelopmentPublicationAction({
@@ -540,7 +546,7 @@ function ListingRow({
                       );
                     }}
                   >
-                    {busy ? (
+                    {spinning('publish') ? (
                       <Loader2Icon className="h-4 w-4 animate-spin" />
                     ) : (
                       <SendIcon className="h-4 w-4" aria-hidden />
@@ -581,10 +587,18 @@ function ListingRow({
                   variant="outline"
                   disabled={busy}
                   onClick={() => {
-                    run(() => resumeListingAction({ listingId: listing.id }), 'Aviso reactivado');
+                    run(
+                      'resume',
+                      () => resumeListingAction({ listingId: listing.id }),
+                      'Aviso reactivado',
+                    );
                   }}
                 >
-                  <PlayIcon className="h-4 w-4" aria-hidden />
+                  {spinning('resume') ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <PlayIcon className="h-4 w-4" aria-hidden />
+                  )}
                   Reactivar
                 </Button>
               ) : (
@@ -593,10 +607,18 @@ function ListingRow({
                   variant="outline"
                   disabled={busy}
                   onClick={() => {
-                    run(() => pauseListingAction({ listingId: listing.id }), 'Aviso pausado');
+                    run(
+                      'pause',
+                      () => pauseListingAction({ listingId: listing.id }),
+                      'Aviso pausado',
+                    );
                   }}
                 >
-                  <PauseIcon className="h-4 w-4" aria-hidden />
+                  {spinning('pause') ? (
+                    <Loader2Icon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <PauseIcon className="h-4 w-4" aria-hidden />
+                  )}
                   Pausar
                 </Button>
               )}
@@ -615,11 +637,13 @@ function ListingRow({
                       disabled={busy}
                       onClick={() => {
                         run(
+                          'plan',
                           () => changeListingPlanAction({ listingId: listing.id, plan }),
                           'Plan cambiado',
                         );
                       }}
                     >
+                      {spinning('plan') && <Loader2Icon className="h-4 w-4 animate-spin" />}
                       Cambiar plan
                     </Button>
                   )}
@@ -632,6 +656,7 @@ function ListingRow({
                     disabled={busy}
                     onClick={() => {
                       run(
+                        'type',
                         () =>
                           changeListingTypeAction({
                             listingId: listing.id,
@@ -641,6 +666,7 @@ function ListingRow({
                       );
                     }}
                   >
+                    {spinning('type') && <Loader2Icon className="h-4 w-4 animate-spin" />}
                     {listing.listingType === 'simple' ? 'Pasar a destacado' : 'Pasar a simple'}
                   </Button>
                 )
@@ -651,12 +677,17 @@ function ListingRow({
                 disabled={busy}
                 onClick={() => {
                   run(
+                    'resync',
                     () => resyncListingAction({ listingId: listing.id }),
                     'Sincronización pedida',
                   );
                 }}
               >
-                <RefreshCwIcon className="h-4 w-4" aria-hidden />
+                {spinning('resync') ? (
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCwIcon className="h-4 w-4" aria-hidden />
+                )}
                 Sincronizar
               </Button>
               <Button
@@ -668,7 +699,11 @@ function ListingRow({
                   setConfirming(true);
                 }}
               >
-                <Trash2Icon className="h-4 w-4" aria-hidden />
+                {spinning('unpublish') ? (
+                  <Loader2Icon className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2Icon className="h-4 w-4" aria-hidden />
+                )}
                 Dar de baja
               </Button>
               <UnpublishDialog
@@ -677,7 +712,11 @@ function ListingRow({
                 onOpenChange={setConfirming}
                 onConfirm={() => {
                   setConfirming(false);
-                  run(() => unpublishListingAction({ listingId: listing.id }), 'Baja pedida');
+                  run(
+                    'unpublish',
+                    () => unpublishListingAction({ listingId: listing.id }),
+                    'Baja pedida',
+                  );
                 }}
               />
             </>
@@ -687,6 +726,8 @@ function ListingRow({
     </li>
   );
 }
+
+type ListingRowAction = 'publish' | 'resume' | 'pause' | 'plan' | 'type' | 'resync' | 'unpublish';
 
 function UnpublishDialog({
   portal,

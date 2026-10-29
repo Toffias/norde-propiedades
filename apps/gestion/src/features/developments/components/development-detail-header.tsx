@@ -13,7 +13,13 @@ import {
 } from '@norde/ui/components/dropdown-menu';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import { ArchiveRestoreIcon, ChevronDownIcon, LandmarkIcon, Trash2Icon } from 'lucide-react';
+import {
+  ArchiveRestoreIcon,
+  ChevronDownIcon,
+  LandmarkIcon,
+  Loader2Icon,
+  Trash2Icon,
+} from 'lucide-react';
 import { useState, useTransition } from 'react';
 
 import { runAction, type ActionResult } from '../../../lib/action-result';
@@ -109,6 +115,7 @@ export function DevelopmentDetailHeader({
                   className="text-foreground dark:bg-card"
                   disabled={pending}
                 >
+                  {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
                   Cambiar estado
                   <ChevronDownIcon className="h-4 w-4" />
                 </Button>

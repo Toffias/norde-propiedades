@@ -168,6 +168,7 @@ export function AppraisalHeader({
                   className="text-foreground dark:bg-card"
                   disabled={pending}
                 >
+                  {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
                   Cambiar estado
                   <ChevronDownIcon className="h-4 w-4" />
                 </Button>

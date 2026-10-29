@@ -41,7 +41,7 @@ import {
 import { toast } from '@norde/ui/components/sonner';
 import { Loader2Icon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
 import { runAction } from '../../../lib/action-result';
@@ -356,17 +356,20 @@ export function ReferenceCodesGrid({ canUpdate, ...page }: ReferenceCodesGridPro
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ReferenceCodeSequenceRow | undefined>();
+  const [removing, startRemove] = useTransition();
 
-  async function remove(row: ReferenceCodeSequenceRow) {
-    const message = await runAction(() =>
-      deleteReferenceCodeSequenceAction({ sequenceId: row.id }),
-    );
-    if (message !== undefined) {
-      toast.error(message);
-      return;
-    }
-    toast.success(`Prefijo ${row.prefix} borrado`);
-    router.refresh();
+  function remove(row: ReferenceCodeSequenceRow) {
+    startRemove(async () => {
+      const message = await runAction(() =>
+        deleteReferenceCodeSequenceAction({ sequenceId: row.id }),
+      );
+      if (message !== undefined) {
+        toast.error(message);
+        return;
+      }
+      toast.success(`Prefijo ${row.prefix} borrado`);
+      router.refresh();
+    });
   }
 
   const columns: readonly DataTableColumn<ReferenceCodeSequenceRow>[] = [
@@ -416,8 +419,9 @@ export function ReferenceCodesGrid({ canUpdate, ...page }: ReferenceCodesGridPro
               <RowAction
                 icon={Trash2Icon}
                 label="Borrar"
+                {...(removing ? { disabledReason: 'Borrando…' } : {})}
                 onClick={() => {
-                  void remove(row);
+                  remove(row);
                 }}
               />
             )}

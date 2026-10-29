@@ -17,7 +17,14 @@ import {
 } from '@norde/ui/components/dropdown-menu';
 import { toast } from '@norde/ui/components/sonner';
 import type { DataTableSelection } from '@norde/ui/lib/data-table-selection';
-import { ColumnsIcon, DownloadIcon, PencilIcon, StarIcon, UserPlusIcon } from 'lucide-react';
+import {
+  ColumnsIcon,
+  DownloadIcon,
+  Loader2Icon,
+  PencilIcon,
+  StarIcon,
+  UserPlusIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -102,11 +109,13 @@ export function PropertyBulkActions({
   const [editing, setEditing] = useState(false);
   const [featuring, setFeaturing] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [running, setRunning] = useState<'export' | 'favorites' | undefined>();
   const target = toPropertySelection(selection, filters);
   const ids = selection.kind === 'ids' ? selection.ids : [];
   const canCompare = ids.length >= MIN_COMPARE && ids.length <= MAX_COMPARE;
 
   function exportAs(format: PropertyExportFormat) {
+    setRunning('export');
     startTransition(async () => {
       const id = toast.loading(`Preparando ${EXPORT_FORMAT_LABELS[format]}…`);
       try {
@@ -119,6 +128,7 @@ export function PropertyBulkActions({
   }
 
   function markFavorites() {
+    setRunning('favorites');
     startTransition(async () => {
       const message = await runAction(() => setPropertyFavoritesAction({ ids, favorite: true }));
       if (message === undefined) toast.success('Agregadas a tus favoritas');
@@ -132,7 +142,11 @@ export function PropertyBulkActions({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" size="sm" variant="outline" disabled={pending}>
-              <DownloadIcon className="h-4 w-4" />
+              {pending && running === 'export' ? (
+                <Loader2Icon className="h-4 w-4 animate-spin" />
+              ) : (
+                <DownloadIcon className="h-4 w-4" />
+              )}
               Exportar
             </Button>
           </DropdownMenuTrigger>
@@ -160,7 +174,11 @@ export function PropertyBulkActions({
         }
         onClick={markFavorites}
       >
-        <StarIcon className="h-4 w-4" />
+        {pending && running === 'favorites' ? (
+          <Loader2Icon className="h-4 w-4 animate-spin" />
+        ) : (
+          <StarIcon className="h-4 w-4" />
+        )}
         Favoritas
       </Button>
       <Button

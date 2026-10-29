@@ -20,7 +20,7 @@ import {
 import { Label } from '@norde/ui/components/label';
 import { PagedMultiSelect, type LoadComboboxPage } from '@norde/ui/components/paged-combobox';
 import { Button } from '@norde/ui/components/button';
-import { LockIcon, XIcon } from 'lucide-react';
+import { Loader2Icon, LockIcon, XIcon } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { Fragment, useState, type SyntheticEvent } from 'react';
@@ -158,14 +158,30 @@ function InternalForms({
   readonly controls: InlineFormControls;
   readonly canChangeProducer: boolean;
 }) {
+  // Los formularios comparten el guardado: esto marca cuál lo disparó, para su spinner.
+  const [saving, setSaving] = useState<string | undefined>();
+  const keyed = (key: string): KeyedControls => ({
+    ...controls,
+    save: (action, success) => {
+      setSaving(key);
+      controls.save(action, success);
+    },
+    spinning: (target = key) => controls.pending && saving === target,
+  });
   return (
     <div className="flex flex-col gap-6">
-      <CodeForm detail={detail} controls={controls} />
-      {canChangeProducer && <ProducerForm detail={detail} controls={controls} />}
-      {canChangeProducer && <OwnersForm detail={detail} controls={controls} />}
+      <CodeForm detail={detail} controls={keyed('code')} />
+      {canChangeProducer && <ProducerForm detail={detail} controls={keyed('producer')} />}
+      {canChangeProducer && <OwnersForm detail={detail} controls={controls} keyed={keyed} />}
       <InternalInfoForm detail={detail} controls={controls} />
     </div>
   );
+}
+
+/** Los controles de un formulario de la sección, con su propio spinner. */
+interface KeyedControls extends InlineFormControls {
+  /** Si el guardado en curso lo disparó este formulario (o la clave indicada). */
+  readonly spinning: (key?: string) => boolean;
 }
 
 function CodeForm({
@@ -173,7 +189,7 @@ function CodeForm({
   controls,
 }: {
   readonly detail: PanelPropertyDetail;
-  readonly controls: InlineFormControls;
+  readonly controls: KeyedControls;
 }) {
   const form = useForm<ChangePropertyCodeInput>({
     resolver: contractResolver(ChangePropertyCodeInputSchema),
@@ -197,9 +213,10 @@ function CodeForm({
         </div>
         <button
           type="submit"
-          className="mb-0.5 h-9 rounded-md border border-input px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          className="mb-0.5 inline-flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
           disabled={controls.pending}
         >
+          {controls.spinning() && <Loader2Icon className="h-4 w-4 animate-spin" />}
           Cambiar código
         </button>
       </form>
@@ -212,7 +229,7 @@ function ProducerForm({
   controls,
 }: {
   readonly detail: PanelPropertyDetail;
-  readonly controls: InlineFormControls;
+  readonly controls: KeyedControls;
 }) {
   const [userId, setUserId] = useState<string | undefined>(detail.producer?.id);
   function submit(event: SyntheticEvent) {
@@ -242,9 +259,10 @@ function ProducerForm({
       </div>
       <button
         type="submit"
-        className="mb-0.5 h-9 rounded-md border border-input px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
+        className="mb-0.5 inline-flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
         disabled={controls.pending || userId === undefined || userId === detail.producer?.id}
       >
+        {controls.spinning() && <Loader2Icon className="h-4 w-4 animate-spin" />}
         Cambiar captador
       </button>
     </form>
@@ -272,16 +290,20 @@ function OwnerLinks({ owners }: { readonly owners: PanelPropertyDetail['owners']
 function OwnersForm({
   detail,
   controls,
+  keyed,
 }: {
   readonly detail: PanelPropertyDetail;
   readonly controls: InlineFormControls;
+  /** Los controles de cada botón: el de agregar y el de quitar cada propietario. */
+  readonly keyed: (key: string) => KeyedControls;
 }) {
   const [clientId, setClientId] = useState<string | undefined>();
+  const adding = keyed('owner-add');
   const owned = new Set(detail.owners.map((owner) => owner.id));
   function submit(event: SyntheticEvent) {
     event.preventDefault();
     if (clientId === undefined) return;
-    controls.save(
+    adding.save(
       () => addPropertyOwnerAction({ propertyId: detail.id, clientId }),
       'Propietario agregado.',
     );
@@ -305,13 +327,17 @@ function OwnersForm({
                 aria-label={`Quitar a ${owner.name} como propietario`}
                 disabled={controls.pending}
                 onClick={() => {
-                  controls.save(
+                  keyed(`owner-${owner.id}`).save(
                     () => removePropertyOwnerAction({ propertyId: detail.id, clientId: owner.id }),
                     'Propietario quitado.',
                   );
                 }}
               >
-                <XIcon className="h-3.5 w-3.5" />
+                {adding.spinning(`owner-${owner.id}`) ? (
+                  <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <XIcon className="h-3.5 w-3.5" />
+                )}
               </Button>
             </li>
           ))}
@@ -330,9 +356,10 @@ function OwnersForm({
         </div>
         <button
           type="submit"
-          className="mb-0.5 h-9 rounded-md border border-input px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
+          className="mb-0.5 inline-flex h-9 items-center gap-2 rounded-md border border-input px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
           disabled={controls.pending || clientId === undefined || owned.has(clientId)}
         >
+          {adding.spinning() && <Loader2Icon className="h-4 w-4 animate-spin" />}
           Agregar propietario
         </button>
       </form>

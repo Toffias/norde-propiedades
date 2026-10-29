@@ -6,6 +6,7 @@ import { RowAction, RowActions } from '@norde/ui/components/row-actions';
 import { toast } from '@norde/ui/components/sonner';
 import { FileIcon, RotateCcwIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
 import { formatDate } from '../../../lib/format';
@@ -27,15 +28,18 @@ function getRowId(row: TrashedFileRow): string {
 
 export function TrashedFilesGrid(page: TrashedFilesGridProps) {
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
-  async function restore(row: TrashedFileRow) {
-    const message = await runAction(() => restoreCompanyFileAction({ fileId: row.id }));
-    if (message !== undefined) {
-      toast.error(message);
-      return;
-    }
-    toast.success(`${row.name} restaurado`);
-    router.refresh();
+  function restore(row: TrashedFileRow) {
+    startTransition(async () => {
+      const message = await runAction(() => restoreCompanyFileAction({ fileId: row.id }));
+      if (message !== undefined) {
+        toast.error(message);
+        return;
+      }
+      toast.success(`${row.name} restaurado`);
+      router.refresh();
+    });
   }
 
   const columns: readonly DataTableColumn<TrashedFileRow>[] = [
@@ -75,8 +79,9 @@ export function TrashedFilesGrid(page: TrashedFilesGridProps) {
           <RowAction
             icon={RotateCcwIcon}
             label="Restaurar"
+            {...(pending ? { disabledReason: 'Restaurando…' } : {})}
             onClick={() => {
-              void restore(row);
+              restore(row);
             }}
           />
         </RowActions>

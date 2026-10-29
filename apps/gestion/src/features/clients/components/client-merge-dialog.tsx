@@ -179,7 +179,7 @@ export function ClientMergeDialog({
   }
 
   function merge() {
-    if (preview === undefined) return;
+    if (preview === undefined || merging) return;
     const [primary, duplicate] = keepCurrent
       ? [preview.primary, preview.duplicate]
       : [preview.duplicate, preview.primary];
@@ -206,7 +206,7 @@ export function ClientMergeDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) close();
+        if (!next && !merging) close();
       }}
     >
       <DialogContent className="sm:max-w-2xl">
@@ -264,7 +264,7 @@ export function ClientMergeDialog({
             <RelationsWarning duplicate={preview.primary} primary={preview.duplicate} />
           ))}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={close}>
+          <Button type="button" variant="outline" disabled={merging} onClick={close}>
             Cancelar
           </Button>
           <Button type="button" disabled={preview === undefined || merging} onClick={merge}>

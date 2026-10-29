@@ -44,6 +44,7 @@ import {
   DOCUMENT_KIND_LABELS,
   DOCUMENT_STATUS_DISPLAY,
   SHEET_LAYOUT_LABELS,
+  SHOWCASE_ORIENTATION_LABELS,
 } from '../../detail-labels';
 import { SheetPdfDialog } from '../sheet-pdf-dialog';
 
@@ -106,23 +107,6 @@ export function SheetDocumentDialog({
   );
 }
 
-/** Pide un PDF sin opciones (la vidriera) y avisa que se está armando. */
-export function useRequestDocument(propertyId: string, onRequested: () => void) {
-  const [pending, startTransition] = useTransition();
-  const request = (kind: 'showcase') => {
-    startTransition(async () => {
-      const error = await runAction(() => requestPropertyDocumentAction({ propertyId, kind }));
-      if (error !== undefined) {
-        toast.error(error);
-        return;
-      }
-      toast.success(`Estamos armando el ${DOCUMENT_KIND_LABELS[kind].toLowerCase()}.`);
-      onRequested();
-    });
-  };
-  return { request, pending };
-}
-
 /**
  * Los PDF de la ficha: arriba, para armar uno nuevo; abajo, los pedidos con su estado (se actualiza
  * solo mientras alguno se arma).
@@ -132,6 +116,7 @@ export function DocumentsDialog({
   open,
   onOpenChange,
   onSheet,
+  onShowcase,
   onOwnerReport,
 }: {
   readonly propertyId: string;
@@ -139,6 +124,8 @@ export function DocumentsDialog({
   readonly onOpenChange: (open: boolean) => void;
   /** La ficha pide un formato: lo elige su propio diálogo. */
   readonly onSheet: () => void;
+  /** La vidriera pide sus opciones: las elige su propio diálogo. */
+  readonly onShowcase: () => void;
   /** El reporte pide un período: lo elige su propio diálogo. */
   readonly onOwnerReport: () => void;
 }) {
@@ -155,10 +142,6 @@ export function DocumentsDialog({
       setError(result.message);
     }
   }, [propertyId]);
-
-  const documentRequest = useRequestDocument(propertyId, () => {
-    void load();
-  });
 
   // Mientras el diálogo está abierto: una consulta al abrir y después cada unos segundos.
   useEffect(() => {
@@ -194,11 +177,10 @@ export function DocumentsDialog({
                 <button
                   key={kind}
                   type="button"
-                  disabled={documentRequest.pending}
                   onClick={() => {
                     if (kind === 'owner_report') onOwnerReport();
                     else if (kind === 'sheet') onSheet();
-                    else documentRequest.request(kind);
+                    else onShowcase();
                   }}
                   className="flex flex-col items-start gap-2 rounded-xl border border-border bg-muted/30 p-3 text-left transition-colors outline-none hover:border-primary/40 hover:bg-primary/5 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
                 >
@@ -239,6 +221,11 @@ export function DocumentsDialog({
                           {document.layout === undefined ? null : (
                             <span className="font-normal text-muted-foreground">
                               · {SHEET_LAYOUT_LABELS[document.layout]}
+                            </span>
+                          )}
+                          {document.orientation === undefined ? null : (
+                            <span className="font-normal text-muted-foreground">
+                              · {SHOWCASE_ORIENTATION_LABELS[document.orientation]}
                             </span>
                           )}
                           <StatusPill tone={status.tone}>

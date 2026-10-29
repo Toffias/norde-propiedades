@@ -527,7 +527,7 @@ import {
   ZonapropLocations,
   ZonapropPortalConnector,
 } from '@norde/infra';
-import { ReactPdfPropertySheetRenderer } from '@norde/infra/pdf';
+import { ReactPdfPropertySheetRenderer, ReactPdfShowcaseRenderer } from '@norde/infra/pdf';
 import { nextCookies } from 'better-auth/next-js';
 import type { Logger } from 'pino';
 
@@ -2017,6 +2017,7 @@ function createPropertyJobs(
   const settings = new DrizzleCompanySettingsRepository(db, clock);
   const directory = new DrizzleDirectory(db);
   const sheets = new ReactPdfPropertySheetRenderer();
+  const showcases = new ReactPdfShowcaseRenderer();
   const interestProfile = new GetPropertyInterestProfile({ uow });
   const profiles: ReportingPropertyProfiles = {
     async find(propertyId, actor) {
@@ -2052,6 +2053,7 @@ function createPropertyJobs(
       settings,
       renderer: new PdfLibPropertyDocumentRenderer(),
       sheets,
+      showcases,
       maps,
       ownerReports,
       contacts: new DrizzleDocumentContacts(db),

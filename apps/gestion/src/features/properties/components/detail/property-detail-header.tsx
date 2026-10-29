@@ -59,13 +59,9 @@ import { PROPERTY_STATUS_DISPLAY, PROPERTY_TYPE_LABELS } from '../../labels';
 import { FavoriteToggle } from '../favorite-toggle';
 import { PropertyPhoto } from '../property-photo';
 import { ReservationDialog, type ReservationSubject } from '../reservations/reservation-dialog';
-import {
-  DocumentsDialog,
-  OwnerReportDialog,
-  SheetDocumentDialog,
-  useRequestDocument,
-} from './documents-dialogs';
+import { DocumentsDialog, OwnerReportDialog, SheetDocumentDialog } from './documents-dialogs';
 import type { DetailPermissions } from './permissions';
+import { ShowcaseDocumentDialog } from './showcase-dialog';
 
 const LocationMapCanvas = dynamic(
   () => import('./location-map-canvas').then((module) => module.LocationMapCanvas),
@@ -102,12 +98,10 @@ export function PropertyDetailHeader({
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [showcaseOpen, setShowcaseOpen] = useState(false);
   const [featuring, setFeaturing] = useState(false);
   const [reserving, setReserving] = useState(false);
   const [tagging, setTagging] = useState(false);
-  const documents = useRequestDocument(detail.id, () => {
-    setDocumentsOpen(true);
-  });
 
   const status = isStatus(detail.status) ? PROPERTY_STATUS_DISPLAY[detail.status] : undefined;
   const type = isPropertyType(detail.propertyType)
@@ -394,9 +388,8 @@ export function PropertyDetailHeader({
                       Ficha en PDF
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      disabled={documents.pending}
                       onSelect={() => {
-                        documents.request('showcase');
+                        setShowcaseOpen(true);
                       }}
                     >
                       <FileDownIcon className="h-4 w-4" />
@@ -476,6 +469,9 @@ export function PropertyDetailHeader({
         onSheet={() => {
           setSheetOpen(true);
         }}
+        onShowcase={() => {
+          setShowcaseOpen(true);
+        }}
         onOwnerReport={() => {
           setReportOpen(true);
         }}
@@ -484,6 +480,14 @@ export function PropertyDetailHeader({
         propertyId={detail.id}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
+        onRequested={() => {
+          setDocumentsOpen(true);
+        }}
+      />
+      <ShowcaseDocumentDialog
+        propertyId={detail.id}
+        open={showcaseOpen}
+        onOpenChange={setShowcaseOpen}
         onRequested={() => {
           setDocumentsOpen(true);
         }}

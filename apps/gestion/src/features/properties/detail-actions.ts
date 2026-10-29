@@ -45,6 +45,7 @@ import type { Result } from '@norde/core/shared';
 import { revalidatePath } from 'next/cache';
 
 import { getContainer } from '../../container';
+import { MEDIA_LIST_ERROR_MESSAGES } from '../media/messages';
 import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-result';
 import { messageForError, type ErrorMessages, type ExpectedError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
@@ -267,6 +268,42 @@ export async function loadPropertyDocumentsAction(
     return { ok: false, message: messageForError(result.error, DETAIL_LIST_ERROR_MESSAGES) };
   }
   return { ok: true, value: result.value.items };
+}
+
+/** Una foto que se puede elegir para la vidriera. */
+export interface ShowcasePhotoOption {
+  readonly id: string;
+  readonly hasThumbnail: boolean;
+}
+
+/** Cuántas fotos ofrece el diálogo de la vidriera para elegir. */
+const SHOWCASE_PHOTO_CHOICES = 60;
+
+/** Las fotos "incluir en PDF" de la propiedad, en el orden de la ficha, para elegir las de la vidriera. */
+export async function loadShowcasePhotosAction(
+  propertyId: string,
+): Promise<
+  | { readonly ok: true; readonly value: readonly ShowcasePhotoOption[] }
+  | { readonly ok: false; readonly message: string }
+> {
+  const { actor } = await requireSession();
+  const result = await properties().listMedia.execute(
+    {
+      owner: { kind: 'property', id: propertyId },
+      kind: 'images',
+      pageSize: SHOWCASE_PHOTO_CHOICES,
+    },
+    actor,
+  );
+  if (result.isErr()) {
+    return { ok: false, message: messageForError(result.error, MEDIA_LIST_ERROR_MESSAGES) };
+  }
+  return {
+    ok: true,
+    value: result.value.items
+      .filter((item) => item.kind === 'photo' && item.includeInPdf && item.processing === 'ready')
+      .map((item) => ({ id: item.id, hasThumbnail: item.hasThumbnail })),
+  };
 }
 
 // ---------- Mi empresa: atributos personalizados ----------

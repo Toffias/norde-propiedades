@@ -2,15 +2,10 @@
 
 import {
   Building2Icon,
-  ContactIcon,
-  GlobeIcon,
   HardHatIcon,
-  LayersIcon,
   ListChecksIcon,
   MapPinIcon,
-  MegaphoneIcon,
-  UserCheckIcon,
-  type LucideIcon,
+  MapPinOffIcon,
 } from 'lucide-react';
 import {
   CONSTRUCTION_STATUS_VALUES,
@@ -32,7 +27,6 @@ import type { LoadComboboxPage } from '@norde/ui/components/paged-combobox';
 import { Skeleton } from '@norde/ui/components/skeleton';
 import { toast } from '@norde/ui/components/sonner';
 import dynamic from 'next/dynamic';
-import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatDateOnly } from '../../../lib/format';
@@ -68,7 +62,7 @@ const LocationMapCanvas = dynamic(
     import('../../properties/components/detail/location-map-canvas').then(
       (module) => module.LocationMapCanvas,
     ),
-  { ssr: false, loading: () => <Skeleton className="h-[50vh] min-h-[300px] w-full" /> },
+  { ssr: false, loading: () => <Skeleton className="size-full min-h-[320px] rounded-none" /> },
 );
 
 const loadContacts: LoadComboboxPage = (search, page) => loadClientOptions(search, page);
@@ -112,6 +106,7 @@ export function DevelopmentSections({
 
 // ---------- Datos generales ----------
 
+/** Muestra también la dirección, que se edita desde la tarjeta Ubicación: así esa tarjeta es solo el mapa. */
 function GeneralSection({
   detail,
   canEdit,
@@ -119,85 +114,59 @@ function GeneralSection({
   readonly detail: DevelopmentDetail;
   readonly canEdit: boolean;
 }) {
+  const place = detail.locationPath.map((level) => level.name).join(' › ');
   return (
     <InlineSection
       title="Datos generales"
       icon={Building2Icon}
       canEdit={canEdit}
-      bodyClassName="@container flex flex-1 flex-col"
       view={
-        <dl className="grid flex-1 auto-rows-fr grid-cols-1 gap-3 @md:grid-cols-2 @md:[&>:last-child:nth-child(odd)]:col-span-2">
-          <FactTile icon={Building2Icon} label="Nombre público" value={detail.name} />
-          <FactTile
-            icon={LayersIcon}
-            label="Tipo de desarrollo"
-            value={
-              detail.developmentType === undefined
-                ? EMPTY_VALUE
-                : DEVELOPMENT_TYPE_LABELS[detail.developmentType]
-            }
-          />
-          <FactTile icon={MegaphoneIcon} label="Título para portales" value={detail.portalTitle} />
-          <FactTile
-            icon={GlobeIcon}
-            label="Página web"
-            value={
-              detail.websiteUrl === undefined ? (
-                EMPTY_VALUE
-              ) : (
-                <a
-                  href={detail.websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-700 hover:underline dark:text-primary-400"
-                >
-                  {detail.websiteUrl.replace(/^https?:\/\//, '')}
-                </a>
-              )
-            }
-          />
-          <FactTile
-            icon={HardHatIcon}
-            label="Desarrollista (privado)"
-            value={text(detail.developerName)}
-          />
-          <FactTile
-            icon={ContactIcon}
-            label="Contacto comercial (privado)"
-            value={
-              detail.commercialContact === undefined
-                ? EMPTY_VALUE
-                : (detail.commercialContact.name ?? 'Contacto borrado')
-            }
-          />
-          <FactTile icon={UserCheckIcon} label="Captador" value={text(detail.producer?.name)} />
-        </dl>
+        // Un poco más aireado que las demás tarjetas, para acompañar el alto del mapa de al lado.
+        <Facts
+          className="gap-y-5"
+          items={[
+            { label: 'Nombre público', value: detail.name },
+            {
+              label: 'Tipo de desarrollo',
+              value:
+                detail.developmentType === undefined
+                  ? EMPTY_VALUE
+                  : DEVELOPMENT_TYPE_LABELS[detail.developmentType],
+            },
+            { label: 'Título para portales', value: detail.portalTitle },
+            {
+              label: 'Página web',
+              value:
+                detail.websiteUrl === undefined ? (
+                  EMPTY_VALUE
+                ) : (
+                  <a
+                    href={detail.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-700 hover:underline dark:text-primary-400"
+                  >
+                    {detail.websiteUrl.replace(/^https?:\/\//, '')}
+                  </a>
+                ),
+            },
+            { label: 'Dirección (privada)', value: text(detail.privateAddress) },
+            { label: 'Dirección para publicar', value: text(detail.publishAddress) },
+            { label: 'Ubicación', value: text(place) },
+            { label: 'Captador', value: text(detail.producer?.name) },
+            { label: 'Desarrollista (privado)', value: text(detail.developerName) },
+            {
+              label: 'Contacto comercial (privado)',
+              value:
+                detail.commercialContact === undefined
+                  ? EMPTY_VALUE
+                  : (detail.commercialContact.name ?? 'Contacto borrado'),
+            },
+          ]}
+        />
       }
       form={(controls) => <GeneralForm detail={detail} controls={controls} />}
     />
-  );
-}
-
-/** Un dato de la sección en su propio recuadro: la grilla estira los recuadros al alto de la tarjeta. */
-function FactTile({
-  icon: Icon,
-  label,
-  value,
-}: {
-  readonly icon: LucideIcon;
-  readonly label: string;
-  readonly value: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-2.5">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-        <Icon className="size-4" aria-hidden />
-      </span>
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <dt className="text-xs text-muted-foreground">{label}</dt>
-        <dd className="text-sm font-medium break-words">{value}</dd>
-      </div>
-    </div>
   );
 }
 
@@ -283,32 +252,25 @@ function LocationSection({
   readonly detail: DevelopmentDetail;
   readonly canEdit: boolean;
 }) {
-  const place = detail.locationPath.map((level) => level.name).join(' › ');
   return (
     <InlineSection
       title="Ubicación"
       icon={MapPinIcon}
       canEdit={canEdit}
+      bodyClassName="flex flex-1 flex-col"
       view={
-        <div className="flex flex-col gap-4">
-          <Facts
-            items={[
-              { label: 'Dirección (privada)', value: detail.privateAddress },
-              { label: 'Dirección para publicar', value: detail.publishAddress },
-              { label: 'Ubicación', value: text(place) },
-              {
-                label: 'Coordenadas',
-                value:
-                  detail.coordinates === undefined
-                    ? 'Sin cargar'
-                    : `${detail.coordinates.latitude.toString()}, ${detail.coordinates.longitude.toString()}`,
-              },
-            ]}
-          />
-          {detail.coordinates !== undefined && (
+        // El mapa llena la tarjeta de borde a borde: anula el padding del cuerpo.
+        <div className="-m-5 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-b-[13px]">
+          {detail.coordinates === undefined ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-muted/30 p-5 text-center text-sm text-muted-foreground">
+              <MapPinOffIcon className="size-6" aria-hidden />
+              Sin coordenadas: cargalas con Editar o completá la dirección para buscarlas.
+            </div>
+          ) : (
             <LocationMapCanvas
               latitude={detail.coordinates.latitude}
               longitude={detail.coordinates.longitude}
+              className="size-full min-h-[320px] flex-1"
             />
           )}
         </div>

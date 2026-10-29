@@ -12,6 +12,22 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@norde/gestion", "dev"],
       "port": 3001
+    },
+    {
+      "name": "gestion-showcase",
+      "runtimeExecutable": "C:/Program Files/Git/usr/bin/env.exe",
+      "runtimeArgs": [
+        "BETTER_AUTH_URL=http://localhost:3002",
+        "pnpm",
+        "--dir",
+        "C:/norde-propiedades/.claude/worktrees/pdf-showcase/apps/gestion",
+        "exec",
+        "next",
+        "dev",
+        "--port",
+        "3002"
+      ],
+      "port": 3002
     }
   ]
 }

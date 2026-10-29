@@ -9,9 +9,12 @@ import { useEffect, useRef } from 'react';
 export function LocationMapCanvas({
   latitude,
   longitude,
+  className = 'h-[50vh] min-h-[300px] w-full rounded-lg',
 }: {
   readonly latitude: number;
   readonly longitude: number;
+  /** Tamaño y bordes del mapa; por ejemplo, para que llene el alto de una tarjeta. */
+  readonly className?: string;
 }) {
   const container = useRef<HTMLDivElement>(null);
 
@@ -31,10 +34,16 @@ export function LocationMapCanvas({
         iconAnchor: [10, 10],
       }),
     }).addTo(map);
+    // Si el contenedor cambia de alto (una tarjeta que se estira), Leaflet recalcula las teselas.
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(element);
     return () => {
+      observer.disconnect();
       map.remove();
     };
   }, [latitude, longitude]);
 
-  return <div ref={container} className="h-[50vh] min-h-[300px] w-full rounded-lg" />;
+  return <div ref={container} className={className} />;
 }

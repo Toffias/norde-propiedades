@@ -9,18 +9,28 @@ export interface PageHeaderProps {
   readonly subtitle?: ReactNode;
   /** Solo cuando agrega algo. */
   readonly icon?: LucideIcon;
+  /** En lugar del ícono, antes del título: por ejemplo, el logo de una marca. */
+  readonly leading?: ReactNode;
   /** Se alinean al pie, sobre la línea del subtítulo. */
   readonly actions?: ReactNode;
   readonly className?: string;
 }
 
 /** Título de pantalla discreto: el peso visual lo llevan los datos, no el encabezado. */
-export function PageHeader({ title, subtitle, icon: Icon, actions, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  subtitle,
+  icon: Icon,
+  leading,
+  actions,
+  className,
+}: PageHeaderProps) {
   return (
     <div className={cn('flex flex-wrap items-end justify-between gap-4', className)}>
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          {Icon && <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />}
+          {leading ??
+            (Icon && <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />)}
           <h1 className="truncate font-body text-base font-semibold text-foreground dark:text-foreground">
             {title}
           </h1>

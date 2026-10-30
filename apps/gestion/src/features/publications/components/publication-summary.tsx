@@ -2,6 +2,7 @@ import type { ListingOwnerKindValue } from '@norde/core/portals/contracts';
 import type { PublicationOverview } from '@norde/core/reporting/contracts';
 import Link from 'next/link';
 
+import { PortalMark } from '../../portals/components/portal-account-facts';
 import { PORTAL_LABELS } from '../../portals/messages';
 import { OWNER_KIND_LABELS } from '../labels';
 import { portalPath } from '../paths';
@@ -31,7 +32,10 @@ export function PublicationSummary({ overview }: { readonly overview: Publicatio
             </th>
             {overview.portals.map(({ portal }) => (
               <th key={portal} scope="col" className="px-3 py-2 text-right font-semibold">
-                {PORTAL_LABELS[portal]}
+                <span className="inline-flex flex-col items-end gap-1">
+                  <PortalMark portal={portal} />
+                  {PORTAL_LABELS[portal]}
+                </span>
               </th>
             ))}
           </tr>

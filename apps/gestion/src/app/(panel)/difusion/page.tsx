@@ -5,6 +5,7 @@ import { ArrowRightIcon, MegaphoneIcon, TableIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { PortalMark } from '../../../features/portals/components/portal-account-facts';
 import { PORTAL_LABELS } from '../../../features/portals/messages';
 import { PortalCounters } from '../../../features/publications/components/portal-counters';
 import { PublicationSummary } from '../../../features/publications/components/publication-summary';
@@ -62,7 +63,7 @@ export default async function PublicationsPage() {
           <SectionCard
             key={portal}
             title={PORTAL_LABELS[portal]}
-            icon={MegaphoneIcon}
+            leading={<PortalMark portal={portal} />}
             action={
               kinds[0] && (
                 <Link

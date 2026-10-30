@@ -25,12 +25,14 @@ import {
 } from '@norde/ui/components/form';
 import { toast } from '@norde/ui/components/sonner';
 import { Badge } from '@norde/ui/components/badge';
+import { SectionCard } from '@norde/ui/components/section-card';
 import { cn } from '@norde/ui/lib/utils';
 import {
   BanknoteIcon,
   CalendarDaysIcon,
   FileTextIcon,
   KeyRoundIcon,
+  MapIcon,
   MapPinIcon,
   PlusIcon,
   TagIcon,
@@ -58,6 +60,7 @@ import {
   submitWith,
 } from '../../../shared/components/form-fields';
 import { Facts, InlineFormActions, InlineSection } from '../../../shared/components/inline-section';
+import { LocationMapView } from './location-map-view';
 
 /** Centavos → lo que se escribe en el formulario ("120000", "1500,50"). */
 export function centsToAmount(cents: bigint | undefined): string {
@@ -69,6 +72,20 @@ export function centsToAmount(cents: bigint | undefined): string {
 
 function text(value: string | undefined): string {
   return value === undefined || value === '' ? EMPTY_VALUE : value;
+}
+
+// ---------- Mapa ----------
+
+/** Solo lectura: las coordenadas se editan en la tarjeta Ubicación. */
+export function MapSection({ detail }: { readonly detail: PanelPropertyDetail }) {
+  return (
+    <SectionCard title="Mapa" icon={MapIcon} bodyClassName="flex flex-1 flex-col">
+      <LocationMapView
+        coordinates={detail.coordinates}
+        emptyMessage="Sin coordenadas: cargalas editando la Ubicación o completá la dirección para buscarlas."
+      />
+    </SectionCard>
+  );
 }
 
 // ---------- Ubicación ----------

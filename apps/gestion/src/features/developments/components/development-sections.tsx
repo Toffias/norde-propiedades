@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Building2Icon,
-  HardHatIcon,
-  ListChecksIcon,
-  MapPinIcon,
-  MapPinOffIcon,
-} from 'lucide-react';
+import { Building2Icon, HardHatIcon, ListChecksIcon, MapPinIcon } from 'lucide-react';
 import {
   CONSTRUCTION_STATUS_VALUES,
   DEVELOPMENT_TYPES,
@@ -24,15 +18,14 @@ import {
 import { Badge } from '@norde/ui/components/badge';
 import { Form } from '@norde/ui/components/form';
 import type { LoadComboboxPage } from '@norde/ui/components/paged-combobox';
-import { Skeleton } from '@norde/ui/components/skeleton';
 import { toast } from '@norde/ui/components/sonner';
-import dynamic from 'next/dynamic';
 import { useForm } from 'react-hook-form';
 
 import { EMPTY_VALUE, formatDateOnly } from '../../../lib/format';
 import { contractResolver } from '../../../lib/form';
 import { loadClientOptions } from '../../clients/actions';
 import { loadLocationOptions } from '../../properties/actions';
+import { LocationMapView } from '../../properties/components/detail/location-map-view';
 import { FEATURE_KIND_LABELS } from '../../properties/labels';
 import {
   ChecklistField,
@@ -56,14 +49,6 @@ import {
 } from '../actions';
 import { CONSTRUCTION_STATUS_LABELS, DEVELOPMENT_TYPE_LABELS } from '../labels';
 import { GEOCODING_NOTICE, PickerField } from './development-sheet';
-
-const LocationMapCanvas = dynamic(
-  () =>
-    import('../../properties/components/detail/location-map-canvas').then(
-      (module) => module.LocationMapCanvas,
-    ),
-  { ssr: false, loading: () => <Skeleton className="size-full min-h-[320px] rounded-none" /> },
-);
 
 const loadContacts: LoadComboboxPage = (search, page) => loadClientOptions(search, page);
 
@@ -259,21 +244,10 @@ function LocationSection({
       canEdit={canEdit}
       bodyClassName="flex flex-1 flex-col"
       view={
-        // El mapa llena la tarjeta de borde a borde: anula el padding del cuerpo.
-        <div className="-m-5 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-b-[13px]">
-          {detail.coordinates === undefined ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 bg-muted/30 p-5 text-center text-sm text-muted-foreground">
-              <MapPinOffIcon className="size-6" aria-hidden />
-              Sin coordenadas: cargalas con Editar o completá la dirección para buscarlas.
-            </div>
-          ) : (
-            <LocationMapCanvas
-              latitude={detail.coordinates.latitude}
-              longitude={detail.coordinates.longitude}
-              className="size-full min-h-[320px] flex-1"
-            />
-          )}
-        </div>
+        <LocationMapView
+          coordinates={detail.coordinates}
+          emptyMessage="Sin coordenadas: cargalas con Editar o completá la dirección para buscarlas."
+        />
       }
       form={(controls) => <LocationForm detail={detail} controls={controls} />}
     />

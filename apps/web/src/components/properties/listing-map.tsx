@@ -35,7 +35,8 @@ export function ListingMap({ pins, truncated, filters }: ListingMapProps) {
   const selected = pins.find((pin) => pin.id === selectedId);
 
   return (
-    <div className="bg-muted relative h-[calc(100dvh-14rem)] min-h-[26rem] overflow-hidden rounded-3xl border lg:h-[calc(100dvh-12rem)]">
+    // `isolate`: los z-index de Leaflet (400-1000) quedan dentro del mapa y no tapan el header sticky.
+    <div className="bg-muted relative isolate h-[calc(100dvh-14rem)] min-h-[26rem] overflow-hidden rounded-3xl border lg:h-[calc(100dvh-12rem)]">
       <Canvas
         pins={pins}
         area={filters.area}

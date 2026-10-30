@@ -13,7 +13,12 @@ import {
   FeaturesSection,
 } from './sections-attributes';
 import { InternalSection } from './sections-internal';
-import { DescriptionSection, LocationSection, OperationsSection } from './sections-listing';
+import {
+  DescriptionSection,
+  LocationSection,
+  MapSection,
+  OperationsSection,
+} from './sections-listing';
 
 /** La pestaña Detalles: cada bloque se edita en el lugar con su propio caso de uso. */
 export function DetailSections({
@@ -43,23 +48,22 @@ export function DetailSections({
         <CharacteristicsSection detail={detail} canEdit={canEdit} visible={visibleAttributes} />
       </div>
       <LocationSection detail={detail} canEdit={canEdit} />
+      <MapSection detail={detail} />
       <InternalSection
         detail={detail}
         sourceAppraisal={sourceAppraisal}
         canEdit={canEdit}
         canChangeProducer={permissions.changeProducer}
       />
+      <FeaturesSection
+        detail={detail}
+        canEdit={canEdit}
+        visible={visibleAttributes}
+        catalog={catalog}
+        truncated={catalogTruncated}
+      />
       <div className="lg:col-span-2">
         <DescriptionSection detail={detail} canEdit={canEdit} />
-      </div>
-      <div className="lg:col-span-2">
-        <FeaturesSection
-          detail={detail}
-          canEdit={canEdit}
-          visible={visibleAttributes}
-          catalog={catalog}
-          truncated={catalogTruncated}
-        />
       </div>
       {showCustomAttributes && <CustomAttributesSection detail={detail} canEdit={canEdit} />}
     </div>

@@ -2,6 +2,7 @@
 
 import { CURRENCIES, OPERATIONS, PROPERTY_TYPES } from '@norde/core/properties/contracts';
 import { Label } from '@norde/ui/components/label';
+import type { ComboboxOption } from '@norde/ui/components/paged-combobox';
 import { useId, useState } from 'react';
 
 import { EntityPicker } from '../../identity/components/entity-picker';
@@ -11,22 +12,25 @@ import { SavedSearchForm, type SavedSearchPrefill } from './saved-search-form';
 
 /** Los filtros del buscador que se pueden guardar como búsqueda de un contacto. */
 export interface SearchFilters {
-  readonly operation: string;
-  readonly propertyType: string;
+  readonly operation: readonly string[];
+  readonly propertyType: readonly string[];
   readonly currency: string;
   readonly minPrice: string;
   readonly maxPrice: string;
-  /** Texto libre: no se guarda, el catálogo de ubicaciones va por ID. */
-  readonly location: string;
+  /** Las ubicaciones del catálogo elegidas en el buscador, con su nombre. */
+  readonly locationOptions: readonly ComboboxOption[];
 }
 
 function prefillFrom(filters: SearchFilters): SavedSearchPrefill {
-  const operation = OPERATIONS.find((value) => value === filters.operation);
-  const propertyType = PROPERTY_TYPES.find((value) => value === filters.propertyType);
+  // La búsqueda de un contacto tiene una sola operación: con varias, se elige en el formulario.
+  const [only] = filters.operation.length === 1 ? filters.operation : [];
+  const operation = OPERATIONS.find((value) => value === only);
+  const propertyTypes = PROPERTY_TYPES.filter((value) => filters.propertyType.includes(value));
   const currency = CURRENCIES.find((value) => value === filters.currency);
   return {
     ...(operation === undefined ? {} : { operation }),
-    ...(propertyType === undefined ? {} : { propertyTypes: [propertyType] }),
+    ...(propertyTypes.length === 0 ? {} : { propertyTypes }),
+    ...(filters.locationOptions.length === 0 ? {} : { locations: filters.locationOptions }),
     ...(currency === undefined ? {} : { currency }),
     ...(filters.minPrice === '' ? {} : { minPrice: filters.minPrice }),
     ...(filters.maxPrice === '' ? {} : { maxPrice: filters.maxPrice }),
@@ -50,7 +54,7 @@ export function SaveSearchForClientSheet({
 }) {
   const id = useId();
   const [clientId, setClientId] = useState<string | undefined>();
-  const location = filters.location.trim();
+  const manyOperations = filters.operation.length > 1;
 
   return (
     <EntitySheet
@@ -69,9 +73,9 @@ export function SaveSearchForClientSheet({
         readOnly={false}
         canTurnOnAutoSend={canTurnOnAutoSend}
         notice={
-          location === ''
-            ? undefined
-            : `En el buscador filtraste por "${location}": elegí las ubicaciones del catálogo.`
+          manyOperations
+            ? 'En el buscador elegiste varias operaciones: la búsqueda de un contacto tiene una sola.'
+            : undefined
         }
         before={
           <div className="flex flex-col gap-1.5">

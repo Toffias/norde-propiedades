@@ -27,10 +27,10 @@ export interface NoBranchAssignedError {
 /** Los filtros del buscador ya validados por el contract. */
 export interface ParsedPanelFilter {
   readonly q?: string | undefined;
-  readonly operation?: Operation | undefined;
-  readonly propertyType?: PropertyType | undefined;
-  readonly status?: PropertyStatusValue | undefined;
-  readonly location?: string | undefined;
+  readonly operation?: readonly Operation[] | undefined;
+  readonly propertyType?: readonly PropertyType[] | undefined;
+  readonly status?: readonly PropertyStatusValue[] | undefined;
+  readonly location?: readonly string[] | undefined;
   readonly currency?: Currency | undefined;
   readonly minPrice?: bigint | undefined;
   readonly maxPrice?: bigint | undefined;

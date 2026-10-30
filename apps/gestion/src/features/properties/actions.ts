@@ -37,6 +37,7 @@ import {
   PROPERTY_ERROR_MESSAGES,
   PROPERTY_MAP_ERROR_MESSAGES,
 } from './messages';
+import { locationOption } from './property-format';
 
 /** Opciones por página de los selectores paginados. */
 const PICKER_PAGE_SIZE = 20;
@@ -117,14 +118,7 @@ export async function loadLocationOptions(search: string, page: number): Promise
   if (result.isErr()) throw new Error(`Could not load the locations: ${result.error.type}`);
   const { items, total } = result.value;
   return {
-    options: items.map((location) => ({
-      value: location.id,
-      label: location.name,
-      // De lo más cercano a lo más general: "CABA, Argentina".
-      ...(location.ancestors.length === 0
-        ? {}
-        : { hint: [...location.ancestors].reverse().join(', ') }),
-    })),
+    options: items.map(locationOption),
     hasMore: page * PICKER_PAGE_SIZE < total,
   };
 }

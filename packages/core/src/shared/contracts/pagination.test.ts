@@ -3,10 +3,32 @@ import { z } from 'zod';
 
 import {
   DEFAULT_PAGE_SIZE,
+  MAX_FILTER_VALUES,
   MAX_PAGE_SIZE,
   bulkSelectionSchema,
+  multiValueSchema,
   pageQuerySchema,
 } from './pagination';
+
+describe('multiValueSchema', () => {
+  const Status = z.object({ status: multiValueSchema(z.enum(['draft', 'available'])) });
+
+  it('reads one value or a repeated param as a list without repeats', () => {
+    expect(Status.parse({ status: 'draft' })).toEqual({ status: ['draft'] });
+    expect(Status.parse({ status: ['draft', 'available', 'draft'] })).toEqual({
+      status: ['draft', 'available'],
+    });
+    expect(Status.parse({})).toEqual({});
+  });
+
+  it('rejects an unknown value, an empty list and too many values', () => {
+    expect(Status.safeParse({ status: ['draft', 'sold'] }).success).toBe(false);
+    expect(Status.safeParse({ status: [] }).success).toBe(false);
+    const Many = z.object({ ids: multiValueSchema(z.string()) });
+    const ids = Array.from({ length: MAX_FILTER_VALUES + 1 }, (_, i) => `id-${i}`);
+    expect(Many.safeParse({ ids }).success).toBe(false);
+  });
+});
 
 const ListSchema = pageQuerySchema({
   sortable: ['name', 'createdAt'],

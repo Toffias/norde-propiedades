@@ -29,7 +29,13 @@ import {
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
-import { mediaItems, properties, propertyOperations, propertyOwners } from '../db/schema';
+import {
+  locations,
+  mediaItems,
+  properties,
+  propertyOperations,
+  propertyOwners,
+} from '../db/schema';
 import { matchesSearchText } from '../db/text-search';
 
 /** La clave de la miniatura, o de la original mientras se genera: el caso de uso la firma. */
@@ -51,10 +57,6 @@ const OperationEnums = z.object({
   operation: z.enum(OPERATIONS),
   currency: z.enum(CURRENCIES),
 });
-
-function escapeLike(text: string): string {
-  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
 
 /**
  * Barrio, localidad y provincia sin acentos. Tiene que ser la misma expresión del índice
@@ -215,11 +217,11 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
       c.owner.kind === 'producer' ? eq(properties.producerUserId, c.owner.userId) : undefined,
       c.owner.kind === 'branch' ? eq(properties.branchId, c.owner.branchId) : undefined,
       c.text === undefined ? undefined : matchesSearchText(properties.searchText, c.text),
-      c.propertyType === undefined ? undefined : eq(properties.propertyType, c.propertyType),
-      c.status === undefined ? undefined : eq(properties.status, c.status),
-      c.location === undefined
+      c.propertyType === undefined
         ? undefined
-        : sql`${locationText} like '%' || core.search_normalize(${escapeLike(c.location)}) || '%'`,
+        : inArray(properties.propertyType, [...c.propertyType]),
+      c.status === undefined ? undefined : inArray(properties.status, [...c.status]),
+      c.location === undefined ? undefined : this.withinLocations(c.location),
       // La operación y el precio salen de `property_operations`: una propiedad puede estar en venta
       // y en alquiler a la vez, cada una con su precio y su moneda.
       c.operation === undefined && c.price === undefined
@@ -228,11 +230,37 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
     ];
   }
 
+  /**
+   * En alguna de las ubicaciones o adentro de alguna, por la ruta materializada
+   * (`locations_path_idx`). Las propiedades sin ubicación del catálogo (cargadas antes del catálogo
+   * y que el backfill 0041 no pudo resolver) se comparan por el nombre contra su barrio, localidad
+   * o provincia (`properties_location_text_idx`), para que no queden afuera del filtro.
+   */
+  private withinLocations(ids: readonly string[]): SQL {
+    return sql`exists (
+      select 1 from ${locations} root
+      where root.id in ${[...ids]} and (
+        exists (
+          select 1 from ${locations} l
+          where l.id = ${properties.locationId} and l.path like root.path || '%'
+        )
+        or (
+          ${properties.locationId} is null
+          and ${locationText} like '%' || replace(replace(replace(root.normalized_name, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'
+        )
+      )
+    )`;
+  }
+
+  private operationIn(operations: readonly string[]): SQL {
+    return sql`po.operation in ${[...operations]}`;
+  }
+
   /** Condiciones sobre `po` (una operación de la propiedad): operación, moneda y rango de precio. */
   private operationMatch(c: PanelPropertyFilterCriteria): (SQL | undefined)[] {
     return [
       sql`po.property_id = ${properties.id}`,
-      c.operation === undefined ? undefined : sql`po.operation = ${c.operation}`,
+      c.operation === undefined ? undefined : this.operationIn(c.operation),
       c.price === undefined ? undefined : sql`po.currency = ${c.price.currency}`,
       c.price?.minCents === undefined ? undefined : sql`po.price_cents >= ${c.price.minCents}`,
       c.price?.maxCents === undefined ? undefined : sql`po.price_cents <= ${c.price.maxCents}`,
@@ -254,7 +282,7 @@ export class DrizzlePanelPropertyListQuery implements PanelPropertyListQuery {
         // El contract exige moneda para ordenar por precio; sin precio, al final.
         const price = sql`(select min(po.price_cents) from ${propertyOperations} po where ${and(
           sql`po.property_id = ${properties.id}`,
-          c.operation === undefined ? undefined : sql`po.operation = ${c.operation}`,
+          c.operation === undefined ? undefined : this.operationIn(c.operation),
           c.price === undefined ? undefined : sql`po.currency = ${c.price.currency}`,
         )})`;
         return [sql`${by(direction, price)} nulls last`, tiebreak];

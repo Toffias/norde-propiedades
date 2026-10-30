@@ -29,6 +29,9 @@ const ITEM: PanelPropertyListItem = aPanelItem({
   deletedBy: OTHER_USER_ID,
 });
 
+const PALERMO_ID = '00000000-0000-7000-8000-0000000000e1';
+const BELGRANO_ID = '00000000-0000-7000-8000-0000000000e2';
+
 function setup(items: readonly PanelPropertyListItem[] = []) {
   const properties = new StubPanelPropertyListQuery({ items, total: 41 });
   const users = new InMemoryUserNames(new Map([[PRODUCER_ID, 'Camila Ruiz']]));
@@ -48,9 +51,10 @@ describe('ListPanelProperties', () => {
           sort: '-price',
           q: 'gurruchaga',
           operation: 'sale',
-          propertyType: 'apartment',
+          // Un param repetido en la URL llega como lista.
+          propertyType: ['apartment', 'ph'],
           status: 'available',
-          location: 'Palermo',
+          location: [PALERMO_ID, BELGRANO_ID],
           currency: 'USD',
           minPrice: '100000',
           maxPrice: '150000,5',
@@ -65,10 +69,10 @@ describe('ListPanelProperties', () => {
         view: 'active',
         owner: { kind: 'all' },
         text: 'gurruchaga',
-        operation: 'sale',
-        propertyType: 'apartment',
-        status: 'available',
-        location: 'Palermo',
+        operation: ['sale'],
+        propertyType: ['apartment', 'ph'],
+        status: ['available'],
+        location: [PALERMO_ID, BELGRANO_ID],
         price: { currency: 'USD', minCents: 10_000_000n, maxCents: 15_000_050n },
         sort: { field: 'price', direction: 'desc' },
         offset: 10,

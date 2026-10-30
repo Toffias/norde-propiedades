@@ -16,6 +16,7 @@ import { useTestDatabase } from '../../test/database';
 import * as schema from '../db/schema';
 import {
   features,
+  locations,
   mediaItems,
   properties,
   propertyCustomAttributes,
@@ -321,6 +322,54 @@ const PLACES = [
 ] as const;
 const TOTAL = 5_000;
 
+/** Catálogo chico: Argentina > Buenos Aires > Vicente López > Florida, y CABA > Palermo. */
+const LOCATION = {
+  argentina: '00000000-0000-7000-b000-000000000001',
+  buenosAires: '00000000-0000-7000-b000-000000000002',
+  vicenteLopez: '00000000-0000-7000-b000-000000000003',
+  florida: '00000000-0000-7000-b000-000000000004',
+  caba: '00000000-0000-7000-b000-000000000005',
+  palermo: '00000000-0000-7000-b000-000000000006',
+} as const;
+
+async function seedLocations(): Promise<void> {
+  const tree = [
+    { id: LOCATION.argentina, parent: undefined, kind: 'country', name: 'Argentina' },
+    {
+      id: LOCATION.buenosAires,
+      parent: LOCATION.argentina,
+      kind: 'province',
+      name: 'Buenos Aires',
+    },
+    {
+      id: LOCATION.vicenteLopez,
+      parent: LOCATION.buenosAires,
+      kind: 'city',
+      name: 'Vicente López',
+    },
+    { id: LOCATION.florida, parent: LOCATION.vicenteLopez, kind: 'neighborhood', name: 'Florida' },
+    { id: LOCATION.caba, parent: LOCATION.argentina, kind: 'city', name: 'CABA' },
+    { id: LOCATION.palermo, parent: LOCATION.caba, kind: 'neighborhood', name: 'Palermo' },
+  ] as const;
+  const paths = new Map<string, string>();
+  for (const node of tree) {
+    const path = `${node.parent === undefined ? '/' : (paths.get(node.parent) ?? '/')}${node.id}/`;
+    paths.set(node.id, path);
+    await db.insert(locations).values({
+      id: node.id,
+      parentId: node.parent ?? null,
+      kind: node.kind,
+      name: node.name,
+      normalizedName: node.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(),
+      path,
+      createdAt: NOW,
+      updatedAt: NOW,
+      createdBy: 'system:import',
+      updatedBy: 'system:import',
+    });
+  }
+}
+
 function pick<T>(list: readonly T[], index: number): T {
   const item = list[index % list.length];
   if (item === undefined) throw new Error('Empty list');
@@ -329,8 +378,11 @@ function pick<T>(list: readonly T[], index: number): T {
 
 /** 5.000 propiedades con una distribución conocida, insertadas en SQL por volumen. */
 async function seedPortfolio(): Promise<void> {
+  await seedLocations();
   const rows = Array.from({ length: TOTAL }, (_, i) => {
     const [neighborhood, city, province] = pick(PLACES, i);
+    // La mitad de las de Florida, con su barrio del catálogo; el resto, sin ubicación del catálogo.
+    const locationId = i % 8 === 2 ? LOCATION.florida : null;
     const deleted = i % 50 === 0;
     return {
       id: `00000000-0000-7000-8000-${(i + 1).toString().padStart(12, '0')}`,
@@ -342,6 +394,7 @@ async function seedPortfolio(): Promise<void> {
       neighborhood,
       city,
       province,
+      locationId,
       street: `Calle ${i + 1}`,
       producerUserId: i % 10 === 0 ? PRODUCER : OTHER,
       branchId: i % 4 === 0 ? BRANCH : null,
@@ -493,19 +546,22 @@ describe('DrizzlePanelPropertyListQuery', () => {
     const byCode = await query.search({ ...BASE, text: 'p00042' });
     expect(byCode.items.map((item) => item.code)).toEqual(['P00042']);
 
-    const houses = await query.search({ ...BASE, propertyType: 'house', status: 'available' });
+    const houses = await query.search({ ...BASE, propertyType: ['house'], status: ['available'] });
     expect(houses.items.every((i) => i.propertyType === 'house' && i.status === 'available')).toBe(
       true,
     );
     expect(houses.total).toBeGreaterThan(0);
 
-    const vicenteLopez = await query.search({ ...BASE, location: 'vicente lopez' });
-    expect(vicenteLopez.items.every((item) => item.city === 'Vicente López')).toBe(true);
-    expect(vicenteLopez.total).toBeGreaterThan(0);
+    const housesOrPhs = await query.search({ ...BASE, propertyType: ['house', 'ph'] });
+    expect(new Set(housesOrPhs.items.map((i) => i.propertyType))).toEqual(new Set(['house', 'ph']));
+    expect(housesOrPhs.total).toBe(
+      (await query.count({ ...FILTER, propertyType: ['house'] })) +
+        (await query.count({ ...FILTER, propertyType: ['ph'] })),
+    );
 
     const priced = await query.search({
       ...BASE,
-      operation: 'rent',
+      operation: ['rent'],
       price: { currency: 'ARS', minCents: 100_000_000n, maxCents: 200_000_000n },
       sort: { field: 'price', direction: 'asc' },
     });
@@ -517,6 +573,33 @@ describe('DrizzlePanelPropertyListQuery', () => {
     });
     expect(prices.every((price) => price >= 100_000_000n && price <= 200_000_000n)).toBe(true);
     expect(prices).toEqual([...prices].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
+  });
+
+  it('filters by catalog locations, with their subtree, and by name when there is none', async () => {
+    await seedPortfolio();
+    const inCity = async (city: string) =>
+      (
+        await db
+          .select({ total: sql<number>`count(*)::int` })
+          .from(properties)
+          .where(sql`${properties.city} = ${city} and ${properties.deletedAt} is null`)
+      )[0]?.total;
+
+    // Vicente López: las de Florida del catálogo (su subárbol) y las que solo tienen el texto.
+    const vicenteLopez = await query.search({ ...BASE, location: [LOCATION.vicenteLopez] });
+    expect(vicenteLopez.items.every((item) => item.city === 'Vicente López')).toBe(true);
+    expect(vicenteLopez.total).toBe(await inCity('Vicente López'));
+
+    // Palermo no tiene ninguna del catálogo: coincide por el nombre del barrio.
+    const palermo = await query.search({ ...BASE, location: [LOCATION.palermo] });
+    expect(palermo.items.every((item) => item.neighborhood === 'Palermo')).toBe(true);
+    expect(palermo.total).toBeGreaterThan(0);
+
+    const both = await query.count({
+      ...FILTER,
+      location: [LOCATION.palermo, LOCATION.vicenteLopez],
+    });
+    expect(both).toBe(palermo.total + vicenteLopez.total);
   });
 
   it('sorts by code and creation date in both directions', async () => {
@@ -532,15 +615,15 @@ describe('DrizzlePanelPropertyListQuery', () => {
     ['creation date', { sort: { field: 'createdAt', direction: 'desc' } }],
     ['code', { sort: { field: 'code', direction: 'asc' } }],
     ['text', { text: 'p00042' }],
-    ['location', { location: 'vicente lopez' }],
-    ['type and status', { propertyType: 'house', status: 'available' }],
+    ['location', { location: [LOCATION.vicenteLopez, LOCATION.palermo] }],
+    ['type and status', { propertyType: ['house', 'ph'], status: ['available'] }],
     ['my properties', { owner: { kind: 'producer', userId: PRODUCER } }],
     ['my branch', { owner: { kind: 'branch', branchId: BRANCH } }],
     ['trash', { view: 'trash' }],
     [
       'operation and price',
       {
-        operation: 'rent',
+        operation: ['rent', 'sale'],
         price: { currency: 'ARS', minCents: 100_000_000n, maxCents: 200_000_000n },
         sort: { field: 'price', direction: 'asc' },
       },
@@ -603,7 +686,7 @@ describe('DrizzlePanelPropertyListQuery', () => {
     expect(selected.items.map((item) => item.id)).toEqual([chosen[0]]);
     expect(await query.count({ ...FILTER, ids: [] })).toBe(0);
 
-    const houses = { ...FILTER, propertyType: 'house' as const };
+    const houses = { ...FILTER, propertyType: ['house' as const] };
     const total = await query.count(houses);
     const seen: string[] = [];
     let afterId: string | undefined;
@@ -702,7 +785,7 @@ describe('DrizzlePanelPropertyListQuery', () => {
     const updated = pins.items.map((item) => item.updatedAt.getTime());
     expect(updated).toEqual([...updated].sort((a, b) => b - a));
 
-    const filtered = await query.mapPins({ ...FILTER, status: 'available' }, area, 500);
+    const filtered = await query.mapPins({ ...FILTER, status: ['available'] }, area, 500);
     expect(filtered.items.every((item) => item.status === 'available')).toBe(true);
     expect(filtered.total).toBeLessThan(pins.total);
   });

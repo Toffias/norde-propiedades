@@ -30,7 +30,7 @@ import { gridColumnValue, operationPrice, placeSummary, userName } from '../prop
 import { FavoriteToggle } from './favorite-toggle';
 import { PropertyPhoto } from './property-photo';
 import { PropertyBulkActions, type BulkPermissions } from './property-bulk-actions';
-import type { PropertyFilterValues } from './properties-toolbar';
+import { hasActiveFilters, type PropertyFilterValues } from './properties-toolbar';
 
 export interface PropertyPermissions extends BulkPermissions {
   readonly create: boolean;
@@ -108,9 +108,7 @@ export function PropertiesGrid({
   const inTrash = filters.view === 'trash';
   // El orden por precio compara una sola moneda: solo se ofrece con la moneda elegida.
   const canSortByPrice = filters.currency !== '';
-  const hasFilters = Object.entries(filters).some(
-    ([key, value]) => key !== 'view' && key !== 'scope' && value !== '',
-  );
+  const hasFilters = hasActiveFilters(filters);
 
   const columns = useMemo((): readonly DataTableColumn<PanelPropertyRow>[] => {
     const configurable = inTrash

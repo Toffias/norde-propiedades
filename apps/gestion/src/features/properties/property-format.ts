@@ -1,10 +1,13 @@
 import type {
   GridColumnValue,
+  LocationRow,
   PanelPropertyAttributes,
   PanelPropertyOperation,
   PanelPropertyRow,
   UserRef,
 } from '@norde/core/properties/contracts';
+
+import type { ComboboxOption } from '@norde/ui/components/paged-combobox';
 
 import { EMPTY_VALUE, formatDateTime, formatMoney } from '../../lib/format';
 import { OPERATION_LABELS } from './labels';
@@ -15,6 +18,18 @@ import { OPERATION_LABELS } from './labels';
 export function userName(user: UserRef | undefined): string {
   if (user === undefined) return EMPTY_VALUE;
   return user.name ?? 'Usuario inactivo';
+}
+
+/** Una ubicación del catálogo como opción de un selector: "Palermo", con "CABA, Argentina". */
+export function locationOption(location: LocationRow): ComboboxOption {
+  return {
+    value: location.id,
+    label: location.name,
+    // De lo más cercano a lo más general.
+    ...(location.ancestors.length === 0
+      ? {}
+      : { hint: [...location.ancestors].reverse().join(', ') }),
+  };
 }
 
 /** "US$ 120.000" o "Consultar". */
@@ -33,7 +48,9 @@ export function operationsSummary(operations: readonly PanelPropertyOperation[])
 }
 
 /** "Gurruchaga al 1800, Palermo, CABA". */
-export function placeSummary(row: PanelPropertyRow): string {
+export function placeSummary(
+  row: Pick<PanelPropertyRow, 'publishAddress' | 'neighborhood' | 'city'>,
+): string {
   return [row.publishAddress, row.neighborhood, row.city]
     .filter((part) => part !== undefined && part !== '')
     .join(', ');

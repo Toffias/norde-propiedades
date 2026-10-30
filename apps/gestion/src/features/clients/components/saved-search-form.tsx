@@ -37,7 +37,10 @@ type SavedSearchValues = CreateSavedSearchInput;
 /** Criterios para precargar una búsqueda nueva (los filtros del buscador). */
 export type SavedSearchPrefill = Partial<
   Pick<SavedSearchValues, 'operation' | 'propertyTypes' | 'currency' | 'minPrice' | 'maxPrice'>
->;
+> & {
+  /** Ubicaciones del catálogo, con su nombre para mostrarlas sin volver a buscarlas. */
+  readonly locations?: readonly ComboboxOption[];
+};
 
 function initialValues(
   clientId: string,
@@ -53,7 +56,7 @@ function initialValues(
       currency: prefill.currency,
       minPrice: prefill.minPrice ?? '',
       maxPrice: prefill.maxPrice ?? '',
-      locationIds: [],
+      locationIds: (prefill.locations ?? []).map((location) => location.value),
       minRooms: undefined,
       autoSend: false,
     };
@@ -113,11 +116,13 @@ export function SavedSearchForm({
   const id = useId();
   const [error, setError] = useState<string | undefined>();
   const [locations, setLocations] = useState<readonly ComboboxOption[]>(
-    (search?.locations ?? []).map((location) => ({
-      value: location.id,
-      label: location.name,
-      ...(location.hint === undefined ? {} : { hint: location.hint }),
-    })),
+    search === undefined
+      ? (prefill.locations ?? [])
+      : search.locations.map((location) => ({
+          value: location.id,
+          label: location.name,
+          ...(location.hint === undefined ? {} : { hint: location.hint }),
+        })),
   );
   const [linked, setLinked] = useState(
     search === undefined ? activeOpportunityId !== undefined : search.opportunityId !== undefined,

@@ -72,7 +72,8 @@ const TypeSettingRow = z.object({
   visibleAttributes: z.array(z.string()),
 });
 const GridColumns = z.array(z.string());
-const Params = z.record(z.string(), z.string());
+/** Como en la URL: un filtro de varios valores es una lista. */
+const Params = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
 
 export class DrizzleLocationRepository implements LocationRepository {
   constructor(private readonly db: DbExecutor) {}

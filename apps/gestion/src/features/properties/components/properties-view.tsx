@@ -12,7 +12,12 @@ import { useMemo } from 'react';
 import { usePanel } from '../../shared/components/entity-sheet';
 import { ListNavigationProvider } from '../../shared/components/server-data-table';
 import { PropertiesGrid, type PropertyPermissions } from './properties-grid';
-import { PropertiesToolbar, type PropertyFilterValues } from './properties-toolbar';
+import {
+  hasActiveFilters,
+  PropertiesToolbar,
+  type LocationOptions,
+  type PropertyFilterValues,
+} from './properties-toolbar';
 import { PropertyActionsBar } from './property-actions-bar';
 import { PropertyCards } from './property-cards';
 import { PropertyMap } from './property-map';
@@ -26,6 +31,7 @@ export interface PropertiesViewProps {
   readonly pageSize: number;
   readonly sort: { readonly field: string; readonly direction: 'asc' | 'desc' };
   readonly filters: PropertyFilterValues;
+  readonly locationOptions: LocationOptions;
   readonly permissions: PropertyPermissions;
   readonly gridColumns: readonly GridColumnValue[];
   /** Tipos habilitados en Mi empresa: los que ofrece el alta. */
@@ -45,13 +51,12 @@ export function PropertiesView(props: PropertiesViewProps) {
   const toolbar = (
     <PropertiesToolbar
       filters={filters}
+      locationOptions={props.locationOptions}
       sortsByPrice={props.sort.field === 'price'}
       canSeeTrash={permissions.delete}
     />
   );
-  const empty = Object.entries(filters).some(
-    ([key, value]) => key !== 'view' && key !== 'scope' && value !== '',
-  )
+  const empty = hasActiveFilters(filters)
     ? 'No hay propiedades que coincidan con los filtros.'
     : 'Todavía no hay propiedades en la cartera.';
 
@@ -60,6 +65,7 @@ export function PropertiesView(props: PropertiesViewProps) {
       <PropertyActionsBar
         layout={effectiveLayout}
         filters={filters}
+        locationOptions={props.locationOptions}
         canCreate={permissions.create}
         canSaveForClient={permissions.featureToClient}
         canTurnOnAutoSend={permissions.turnOnAutoSend}

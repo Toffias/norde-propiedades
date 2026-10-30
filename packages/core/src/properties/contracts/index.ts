@@ -2,7 +2,12 @@
 
 import { z } from 'zod';
 
-import { bulkSelectionSchema, idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
+import {
+  bulkSelectionSchema,
+  idempotencyKeySchema,
+  multiValueSchema,
+  pageQuerySchema,
+} from '../../shared/contracts';
 
 import type { PropertyCover } from './media';
 import { PROPERTY_SHEET_LAYOUT_VALUES } from './documents';
@@ -132,11 +137,12 @@ export type PropertyLayoutValue = (typeof PROPERTY_LAYOUT_VALUES)[number];
 const PanelPropertyFilterFields = {
   /** Código, título o dirección, sin distinguir mayúsculas ni acentos. */
   q: z.string().trim().min(1).max(100).optional(),
-  operation: z.enum(OPERATIONS).optional(),
-  propertyType: z.enum(PROPERTY_TYPES).optional(),
-  status: z.enum(PROPERTY_STATUS_VALUES).optional(),
-  /** Barrio, localidad o provincia. */
-  location: z.string().trim().min(1).max(100).optional(),
+  // Los de varios valores: alcanza con que coincida uno.
+  operation: multiValueSchema(z.enum(OPERATIONS)),
+  propertyType: multiValueSchema(z.enum(PROPERTY_TYPES)),
+  status: multiValueSchema(z.enum(PROPERTY_STATUS_VALUES)),
+  /** Ubicaciones del catálogo (con todo lo que está adentro de cada una). */
+  location: multiValueSchema(z.uuid()),
   currency: z.enum(CURRENCIES).optional(),
   minPrice: AmountSchema.optional(),
   maxPrice: AmountSchema.optional(),
@@ -312,9 +318,15 @@ export interface PropertyMapPin {
   readonly status: PropertyStatusValue;
   readonly propertyType: PropertyType;
   readonly portalTitle: string;
+  readonly publishAddress: string | undefined;
+  readonly neighborhood: string;
+  readonly city: string;
   readonly latitude: number;
   readonly longitude: number;
   readonly operations: readonly PanelPropertyOperation[];
+  readonly attributes: PanelPropertyAttributes;
+  /** Sin URL firmada: la tarjeta del pin elegido la pide a la ruta de fotos del panel. */
+  readonly cover: PropertyCover | undefined;
 }
 
 export interface PropertyMapResult {

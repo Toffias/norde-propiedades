@@ -322,23 +322,31 @@ describe('grid columns', () => {
   });
 });
 
+const PALERMO = '00000000-0000-7000-8000-0000000000e1';
+const BELGRANO = '00000000-0000-7000-8000-0000000000e2';
+
 describe('favorite searches', () => {
   it('saves the filters for the user, and replaces them when the name repeats', async () => {
     const { uow, saveSearch } = setup();
     const { searchId } = unwrap(
       await saveSearch.execute(
-        { name: 'Palermo en venta', params: { operation: 'sale', location: 'Palermo', q: '' } },
+        {
+          name: 'Palermo en venta',
+          // Los filtros de varios valores, como lista (el param repetido de la URL).
+          params: { operation: 'sale', location: [PALERMO, BELGRANO], status: [], q: '' },
+        },
         AGENT,
       ),
     );
     expect(uow.favoriteSearches.rows.get(searchId)).toMatchObject({
       userId: AGENT_ID,
-      params: { operation: 'sale', location: 'Palermo' },
+      params: { operation: 'sale', location: [PALERMO, BELGRANO] },
     });
+    expect(uow.favoriteSearches.rows.get(searchId)?.params).not.toHaveProperty('status');
 
     const again = unwrap(
       await saveSearch.execute(
-        { name: 'palermo en venta', params: { operation: 'rent', location: 'Palermo' } },
+        { name: 'palermo en venta', params: { operation: 'rent', location: [PALERMO] } },
         AGENT,
       ),
     );

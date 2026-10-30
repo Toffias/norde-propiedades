@@ -23,12 +23,16 @@ export interface PanelPropertyFilterCriteria {
   readonly owner: PropertyOwnerFilter;
   /** Código, título o dirección, sin distinguir mayúsculas ni acentos. */
   readonly text: string | undefined;
-  readonly operation: Operation | undefined;
-  readonly propertyType: PropertyType | undefined;
-  readonly status: PropertyStatusValue | undefined;
-  /** Barrio, localidad o provincia. */
-  readonly location: string | undefined;
-  /** Moneda del rango y del orden por precio. Con operación, el precio es el de esa operación. */
+  // Los de varios valores: alcanza con que coincida uno. `undefined`: sin filtro.
+  readonly operation: readonly Operation[] | undefined;
+  readonly propertyType: readonly PropertyType[] | undefined;
+  readonly status: readonly PropertyStatusValue[] | undefined;
+  /**
+   * IDs de ubicaciones del catálogo: la propiedad está en alguna o adentro de alguna. Si no tiene
+   * ubicación del catálogo, se compara el nombre con su barrio, localidad o provincia.
+   */
+  readonly location: readonly string[] | undefined;
+  /** Moneda del rango y del orden por precio. Con operación, el precio es el de esas operaciones. */
   readonly price:
     | {
         readonly currency: Currency;

@@ -11,13 +11,6 @@ import type { Page } from '@norde/core/shared';
 import { Button } from '@norde/ui/components/button';
 import type { DataTableColumn, DataTableSort } from '@norde/ui/components/data-table';
 import { Input } from '@norde/ui/components/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { CheckIcon, Loader2Icon, SearchIcon, StarIcon } from 'lucide-react';
@@ -32,15 +25,14 @@ import {
   PROPERTY_TYPE_LABELS,
 } from '../../properties/labels';
 import { operationsSummary, placeSummary } from '../../properties/property-format';
+import { FilterMultiSelect, options } from '../../shared/components/list-filters';
 import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
 import { featurePropertiesAction } from '../activity-actions';
 
-const ANY = 'all';
-
 export interface OfferFilters {
   readonly q: string | undefined;
-  readonly operation: Operation | undefined;
-  readonly propertyType: PropertyType | undefined;
+  readonly operation: readonly Operation[] | undefined;
+  readonly propertyType: readonly PropertyType[] | undefined;
 }
 
 function Toolbar({ filters }: { readonly filters: OfferFilters }) {
@@ -69,42 +61,22 @@ function Toolbar({ filters }: { readonly filters: OfferFilters }) {
           className="pl-8"
         />
       </div>
-      <Select
-        value={filters.operation ?? ANY}
-        onValueChange={(next) => {
-          setParams({ operation: next === ANY ? undefined : next });
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[180px]" aria-label="Operación">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Todas las operaciones</SelectItem>
-          {OPERATIONS.map((value) => (
-            <SelectItem key={value} value={value}>
-              {OPERATION_LABELS[value]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={filters.propertyType ?? ANY}
-        onValueChange={(next) => {
-          setParams({ propertyType: next === ANY ? undefined : next });
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[180px]" aria-label="Tipo de propiedad">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Todos los tipos</SelectItem>
-          {PROPERTY_TYPES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {PROPERTY_TYPE_LABELS[value]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterMultiSelect
+        param="operation"
+        value={filters.operation ?? []}
+        label="Operación"
+        anyLabel="Operación"
+        options={options(OPERATIONS, OPERATION_LABELS)}
+        className="w-full sm:w-[180px]"
+      />
+      <FilterMultiSelect
+        param="propertyType"
+        value={filters.propertyType ?? []}
+        label="Tipo de propiedad"
+        anyLabel="Tipo"
+        options={options(PROPERTY_TYPES, PROPERTY_TYPE_LABELS)}
+        className="w-full sm:w-[180px]"
+      />
       <Button type="submit" variant="outline" className="sm:w-auto">
         Buscar
       </Button>

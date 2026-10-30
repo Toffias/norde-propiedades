@@ -58,6 +58,24 @@ export function pageQuerySchema<const TField extends string>(options: {
   });
 }
 
+/** Tope de valores elegidos en un filtro de varios valores. */
+export const MAX_FILTER_VALUES = 20;
+
+/**
+ * Filtro de varios valores (`?status=draft&status=available`): en la URL el param se repite, así
+ * que llega como un valor suelto o como lista. Siempre sale como lista sin repetidos; sin el param,
+ * `undefined` (sin filtro).
+ */
+export function multiValueSchema<TItem extends z.ZodType<string>>(item: TItem) {
+  return (
+    z
+      .union([item, z.array(item).min(1).max(MAX_FILTER_VALUES)])
+      // Mutable: la página parsea los params y el caso de uso vuelve a validar esa misma salida.
+      .transform((value): z.output<TItem>[] => [...new Set(Array.isArray(value) ? value : [value])])
+      .optional()
+  );
+}
+
 /**
  * Selección de una acción masiva: los IDs marcados en la página, o "todos los que cumplen el
  * filtro" (viaja el filtro, nunca la lista completa de IDs).

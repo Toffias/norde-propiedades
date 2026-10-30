@@ -12,7 +12,7 @@ export interface FavoriteSearchSnapshot {
   readonly userId: string;
   readonly name: string;
   /** Los parámetros del buscador tal como están en la URL (filtros y orden). */
-  readonly params: Readonly<Record<string, string>>;
+  readonly params: Readonly<Record<string, string | readonly string[]>>;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -40,7 +40,7 @@ export class FavoriteSearch extends AggregateRoot<FavoriteSearchId, never> {
     readonly id: FavoriteSearchId;
     readonly userId: string;
     readonly name: string;
-    readonly params: Readonly<Record<string, string>>;
+    readonly params: Readonly<Record<string, string | readonly string[]>>;
     readonly now: Date;
   }): FavoriteSearch {
     return new FavoriteSearch(input.id, {
@@ -66,7 +66,7 @@ export class FavoriteSearch extends AggregateRoot<FavoriteSearchId, never> {
   }
 
   /** Guardar con un nombre que ya existe reemplaza los filtros de esa búsqueda. */
-  replaceParams(params: Readonly<Record<string, string>>, now: Date): void {
+  replaceParams(params: Readonly<Record<string, string | readonly string[]>>, now: Date): void {
     this.#state = { ...this.#state, params, updatedAt: now };
   }
 

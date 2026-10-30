@@ -862,8 +862,10 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 
 - Es una query distinta de la búsqueda pública: ve borradores y datos internos.
 - La cartera es de toda la inmobiliaria: con `properties:read` se ven todas. "Mis captaciones" y "Mi sucursal" son filtros.
-- Filtros rápidos: texto (código, título o dirección), barrio / localidad / provincia, operación, tipo, estado, y moneda con rango de precio.
-- El precio se filtra y se ordena en **una sola moneda**: sin moneda no hay rango ni orden por precio. Con operación elegida, el precio es el de esa operación.
+- Filtros rápidos: texto (código, título o dirección), ubicación, operación, tipo, estado, y moneda con rango de precio.
+- **Ubicación**: como en el sitio, al escribir aparecen las ubicaciones del catálogo (barrios, localidades y provincias) y se eligen una o más, que quedan como etiquetas. Cada una incluye todo lo que está adentro (CABA trae Palermo y Belgrano). Una propiedad sin ubicación del catálogo coincide si su barrio, localidad o provincia contiene el nombre de la elegida.
+- Operación, tipo y estado admiten **varios valores**: alcanza con que la propiedad cumpla uno. En la URL el param se repite (`?status=draft&status=available`).
+- El precio se filtra y se ordena en **una sola moneda**: sin moneda no hay rango ni orden por precio. Con operaciones elegidas, el precio es el de esas operaciones.
 - Orden por última actualización (por defecto), creación, precio o código.
 - Todo paginado en el servidor, con un índice por filtro y orden (probado con 5.000 propiedades).
 
@@ -885,12 +887,13 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 
 - **Lista**: columnas fijas (código, propiedad, operación y precio, estado) más hasta 4 que elige la inmobiliaria en Mi empresa → Propiedades (ambientes, dormitorios, baños, cocheras, superficies, antigüedad, captador, alta, actualización). Valen para todos los usuarios, como en Tokko.
 - **Tarjetas**: la foto de portada, el estado, el título, la ubicación, los precios y los atributos principales.
-- **Mapa**: los pines del área visible, como mucho 500 (las actualizadas más recientemente). Una capa por estado y pines agrupados. Las propiedades sin coordenadas no aparecen.
+- **Mapa**: los pines del área visible, como mucho 500 (las actualizadas más recientemente). Una capa por estado y pines agrupados. Las propiedades sin coordenadas no aparecen. Al tocar un pin, se resalta y aparece abajo su tarjeta (portada, código y tipo, título, ubicación, operaciones y precio, ambientes y estado), que lleva a la ficha; tocar el mapa o la cruz la cierra.
 
 **Favoritas y búsquedas favoritas** (de cada usuario):
 
 - La estrella de cada fila o tarjeta marca la propiedad como favorita.
-- "Búsquedas" guarda los filtros y el orden actuales con un nombre (hasta 50 por usuario). Con un nombre que ya existe, se reemplazan.
+- "Búsquedas" guarda los filtros y el orden actuales con un nombre (hasta 50 por usuario). Con un nombre que ya existe, se reemplazan. Los filtros de varios valores se guardan como lista. Una búsqueda guardada antes con la ubicación como texto libre abre sin ese filtro (el buscador avisa que no era válido).
+- "Guardar para un contacto" arranca con los tipos y las ubicaciones del buscador; la operación, solo si se eligió una (la búsqueda de un contacto tiene una sola).
 
 **Acciones masivas** sobre las propiedades marcadas o sobre todas las que cumplen el filtro:
 

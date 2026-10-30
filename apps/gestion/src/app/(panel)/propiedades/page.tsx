@@ -7,6 +7,7 @@ import {
   type PropertyType,
 } from '@norde/core/properties/contracts';
 import { accessScope, OWNERSHIP_RULES } from '@norde/core/identity';
+import { MAX_FILTER_VALUES } from '@norde/core/shared/contracts';
 import { Card } from '@norde/ui/components/card';
 import { DataTableError } from '@norde/ui/components/data-table';
 import { PageHeader } from '@norde/ui/components/page-header';
@@ -17,6 +18,7 @@ import { getContainer } from '../../../container';
 import { PropertiesView } from '../../../features/properties/components/properties-view';
 import type { PropertyFilterValues } from '../../../features/properties/components/properties-toolbar';
 import { PROPERTY_LIST_ERROR_MESSAGES } from '../../../features/properties/messages';
+import { locationOption } from '../../../features/properties/property-format';
 import { messageForError } from '../../../lib/errors';
 import { parseListParams, type SearchParams } from '../../../lib/list-params';
 import { requireSession } from '../../../lib/session';
@@ -47,13 +49,20 @@ export default async function PropertiesPage({
   const params = await searchParams;
   const { value: query, invalidKeys } = parseListParams(ListPanelPropertiesQuerySchema, params);
   const { properties, identity } = getContainer();
-  const [result, configuration, favoriteSearches] = await Promise.all([
+  const [result, configuration, favoriteSearches, chosenLocations] = await Promise.all([
     properties.listPanelProperties.execute(query, actor),
     properties.getPropertyConfiguration.execute(actor),
     properties.listFavoriteSearches.execute(
       { page: 1, pageSize: FAVORITE_SEARCHES_PAGE, sort: 'name' },
       actor,
     ),
+    // El nombre de las ubicaciones elegidas: en la URL viajan solo sus IDs.
+    query.location === undefined
+      ? undefined
+      : properties.searchLocations.execute(
+          { ids: query.location, page: 1, pageSize: MAX_FILTER_VALUES },
+          actor,
+        ),
   ]);
 
   const rowIds = result.isOk() ? result.value.items.map((row) => row.id) : [];
@@ -64,10 +73,10 @@ export default async function PropertiesPage({
 
   const filters: PropertyFilterValues = {
     q: query.q ?? '',
-    location: query.location ?? '',
-    operation: query.operation ?? '',
-    propertyType: query.propertyType ?? '',
-    status: query.status ?? '',
+    location: query.location ?? [],
+    operation: query.operation ?? [],
+    propertyType: query.propertyType ?? [],
+    status: query.status ?? [],
     scope: query.scope === 'all' ? '' : query.scope,
     currency: query.currency ?? '',
     // Los montos se muestran como se escribieron: el contract ya los pasó a centavos.
@@ -75,6 +84,8 @@ export default async function PropertiesPage({
     maxPrice: raw(params, 'maxPrice', invalidKeys),
     view: query.view,
   };
+  const locationOptions =
+    chosenLocations?.isOk() === true ? chosenLocations.value.items.map(locationOption) : [];
   const gridColumns: readonly GridColumnValue[] = configuration.isOk()
     ? configuration.value.gridColumns
     : [];
@@ -112,6 +123,7 @@ export default async function PropertiesPage({
             pageSize={result.value.pageSize}
             sort={query.sort}
             filters={filters}
+            locationOptions={locationOptions}
             gridColumns={gridColumns}
             enabledTypes={enabledTypes}
             favoriteIds={favorites?.isOk() === true ? [...favorites.value] : []}

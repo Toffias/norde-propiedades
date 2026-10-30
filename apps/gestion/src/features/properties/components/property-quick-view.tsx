@@ -6,7 +6,22 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@norde/ui
 import { Skeleton } from '@norde/ui/components/skeleton';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { cn } from '@norde/ui/lib/utils';
-import { ArrowRightIcon, ChevronLeftIcon, ChevronRightIcon, HomeIcon } from 'lucide-react';
+import {
+  ArrowRightIcon,
+  BathIcon,
+  BedDoubleIcon,
+  Building2Icon,
+  CalendarClockIcon,
+  CarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DoorOpenIcon,
+  HomeIcon,
+  LandPlotIcon,
+  RulerIcon,
+  UserRoundIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useEffect, useState, type KeyboardEvent } from 'react';
@@ -41,18 +56,25 @@ function count(value: number | undefined, unit = ''): string | undefined {
   return value === undefined ? undefined : `${numberFormat.format(value)}${unit}`;
 }
 
-/** Los datos clave que tienen valor: los vacíos no ocupan lugar en el vistazo. */
-function keyFacts(detail: Detail): readonly { readonly label: string; readonly value: string }[] {
+interface KeyFact {
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly value: string;
+}
+
+/** Las características de la unidad que tienen valor: las vacías no ocupan lugar en el vistazo. */
+function keyFacts(detail: Detail): readonly KeyFact[] {
   const c = detail.characteristics;
-  const facts: readonly { readonly label: string; readonly value: string | undefined }[] = [
-    { label: 'Ambientes', value: count(c.rooms) },
-    { label: 'Dormitorios', value: count(c.bedrooms) },
-    { label: 'Baños', value: count(c.bathrooms) },
-    { label: 'Cocheras', value: count(c.parkingSpaces) },
-    { label: 'Sup. total', value: count(c.surfaceTotalM2, ' m²') },
-    { label: 'Sup. cubierta', value: count(c.surfaceCoveredM2, ' m²') },
-    { label: 'Terreno', value: count(c.surfaceLandM2, ' m²') },
+  const facts: readonly (Omit<KeyFact, 'value'> & { readonly value: string | undefined })[] = [
+    { icon: DoorOpenIcon, label: 'Ambientes', value: count(c.rooms) },
+    { icon: BedDoubleIcon, label: 'Dormitorios', value: count(c.bedrooms) },
+    { icon: BathIcon, label: 'Baños', value: count(c.bathrooms) },
+    { icon: CarIcon, label: 'Cocheras', value: count(c.parkingSpaces) },
+    { icon: RulerIcon, label: 'Sup. total', value: count(c.surfaceTotalM2, ' m²') },
+    { icon: HomeIcon, label: 'Sup. cubierta', value: count(c.surfaceCoveredM2, ' m²') },
+    { icon: LandPlotIcon, label: 'Terreno', value: count(c.surfaceLandM2, ' m²') },
     {
+      icon: CalendarClockIcon,
       label: 'Antigüedad',
       value:
         c.ageYears === undefined
@@ -61,14 +83,23 @@ function keyFacts(detail: Detail): readonly { readonly label: string; readonly v
             ? 'A estrenar'
             : `${c.ageYears} años`,
     },
-    {
-      label: 'Captador',
-      value: detail.producer === undefined ? undefined : userName(detail.producer),
-    },
-    { label: 'Emprendimiento', value: detail.development?.name },
   ];
-  return facts.flatMap((fact) =>
-    fact.value === undefined ? [] : [{ label: fact.label, value: fact.value }],
+  return facts.flatMap(({ value, ...fact }) => (value === undefined ? [] : [{ ...fact, value }]));
+}
+
+/** Un dato de la unidad en su cuadrito, con el mismo aspecto que el precio. */
+function FactTile({ fact }: { readonly fact: KeyFact }) {
+  const Icon = fact.icon;
+  return (
+    <div className="flex min-w-0 items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-3 py-2">
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+        <Icon className="size-3.5" aria-hidden />
+      </span>
+      <div className="flex min-w-0 flex-col">
+        <dt className="truncate text-xs text-muted-foreground">{fact.label}</dt>
+        <dd className="truncate text-sm font-semibold tabular-nums">{fact.value}</dd>
+      </div>
+    </div>
   );
 }
 
@@ -114,14 +145,14 @@ function Carousel({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 md:h-full">
       <div
         role="group"
         aria-roledescription="carrusel"
         aria-label={`Fotos de ${title}`}
         tabIndex={photoIds.length > 1 ? 0 : -1}
         onKeyDown={onKeyDown}
-        className="relative aspect-[16/10] overflow-hidden rounded-lg bg-muted outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="relative aspect-[16/10] overflow-hidden rounded-lg md:aspect-auto md:min-h-72 md:flex-1 bg-muted outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {current === undefined ? (
           empty
@@ -242,7 +273,7 @@ function QuickViewBody({ value }: { readonly value: PropertyQuickView }) {
   const facts = keyFacts(detail);
 
   return (
-    <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <div className="grid gap-5 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       <Carousel
         propertyId={detail.id}
         photoIds={value.photoIds}
@@ -291,14 +322,30 @@ function QuickViewBody({ value }: { readonly value: PropertyQuickView }) {
         )}
 
         {facts.length > 0 && (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 md:grid-cols-2">
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2">
             {facts.map((fact) => (
-              <div key={fact.label} className="flex min-w-0 flex-col gap-0.5">
-                <dt className="text-xs text-muted-foreground">{fact.label}</dt>
-                <dd className="truncate text-sm font-medium tabular-nums">{fact.value}</dd>
-              </div>
+              <FactTile key={fact.label} fact={fact} />
             ))}
           </dl>
+        )}
+
+        {(detail.producer !== undefined || detail.development !== undefined) && (
+          <ul className="flex flex-col gap-1 text-sm">
+            {detail.producer !== undefined && (
+              <li className="flex items-center gap-2">
+                <UserRoundIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="text-muted-foreground">Captador</span>
+                <span className="truncate font-medium">{userName(detail.producer)}</span>
+              </li>
+            )}
+            {detail.development !== undefined && (
+              <li className="flex items-center gap-2">
+                <Building2Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="text-muted-foreground">Emprendimiento</span>
+                <span className="truncate font-medium">{detail.development.name}</span>
+              </li>
+            )}
+          </ul>
         )}
 
         <div className="flex flex-col gap-1">
@@ -313,7 +360,7 @@ function QuickViewBody({ value }: { readonly value: PropertyQuickView }) {
 function QuickViewSkeleton() {
   return (
     <div className="grid gap-5 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]" aria-busy>
-      <Skeleton className="aspect-[16/10] w-full rounded-lg" />
+      <Skeleton className="aspect-[16/10] w-full rounded-lg md:aspect-auto md:min-h-72" />
       <div className="flex flex-col gap-2">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-6 w-3/4" />

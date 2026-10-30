@@ -2,7 +2,6 @@
 
 import type { Route } from 'next';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 import type { GridColumnValue, PanelPropertyRow } from '@norde/core/properties/contracts';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
@@ -30,6 +29,7 @@ import { gridColumnValue, operationPrice, placeSummary, userName } from '../prop
 import { FavoriteToggle } from './favorite-toggle';
 import { PropertyPhoto } from './property-photo';
 import { PropertyBulkActions, type BulkPermissions } from './property-bulk-actions';
+import { PropertyQuickViewDialog } from './property-quick-view';
 import { hasActiveFilters, type PropertyFilterValues } from './properties-toolbar';
 
 export interface PropertyPermissions extends BulkPermissions {
@@ -102,9 +102,10 @@ export function PropertiesGrid({
   readonly favoriteIds: ReadonlySet<string>;
   readonly toolbar: ReactNode;
 }) {
-  const router = useRouter();
   const [pending, setPending] = useState<PendingAction | undefined>();
   const [featuring, setFeaturing] = useState<PanelPropertyRow | undefined>();
+  // La fila del vistazo: un click la muestra sin salir de la grilla.
+  const [peeking, setPeeking] = useState<string | undefined>();
   const inTrash = filters.view === 'trash';
   // El orden por precio compara una sola moneda: solo se ofrece con la moneda elegida.
   const canSortByPrice = filters.currency !== '';
@@ -299,7 +300,8 @@ export function PropertiesGrid({
             window.open(detailHref(row), '_blank', 'noopener');
             return;
           }
-          router.push(detailHref(row));
+          // El código sigue siendo el link directo a la ficha.
+          setPeeking(row.id);
         }}
         bulkActions={(selection, count, clearSelection) => (
           <PropertyBulkActions
@@ -326,6 +328,15 @@ export function PropertiesGrid({
           if (!open) setPending(undefined);
         }}
       />
+      {peeking !== undefined && (
+        <PropertyQuickViewDialog
+          key={peeking}
+          propertyId={peeking}
+          onClose={() => {
+            setPeeking(undefined);
+          }}
+        />
+      )}
       {featuring !== undefined && (
         <FeatureToClientDialog
           key={featuring.id}

@@ -886,6 +886,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 **Vistas del buscador** (`?layout=`): lista, tarjetas y mapa, con los mismos filtros. La papelera solo se ve en lista.
 
 - **Lista**: columnas fijas (código, propiedad, operación y precio, estado) más hasta 4 que elige la inmobiliaria en Mi empresa → Propiedades (ambientes, dormitorios, baños, cocheras, superficies, antigüedad, captador, alta, actualización). Valen para todos los usuarios, como en Tokko.
+  - **Vistazo**: tocar una fila abre un modal con las fotos (carrusel con miniaturas, hasta 30), el estado, el código y el tipo, el título, la ubicación, las operaciones con su precio, las características de la unidad que estén cargadas, en cuadritos con ícono como el precio (ambientes, dormitorios, baños, cocheras, superficies, antigüedad), el captador y el emprendimiento, y la descripción. En desktop, las fotos ocupan todo el alto a la izquierda. Sirve para mirar una propiedad sin salir de la grilla; **Ver ficha completa** lleva a la ficha. El código de la fila sigue siendo el link directo a la ficha, y con Ctrl o Cmd la fila la abre en otra pestaña. Lee con los mismos permisos que la ficha.
 - **Tarjetas**: la foto de portada, el estado, el título, la ubicación, los precios y los atributos principales.
 - **Mapa**: los pines del área visible, como mucho 500 (las actualizadas más recientemente). Una capa por estado y pines agrupados. Las propiedades sin coordenadas no aparecen. Al tocar un pin, se resalta y aparece abajo su tarjeta (portada, código y tipo, título, ubicación, operaciones y precio, ambientes y estado), que lleva a la ficha; tocar el mapa o la cruz la cierra.
 
@@ -931,7 +932,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 
 ### 4.8 Ficha de propiedad (#6)
 
-Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). La grilla y las tarjetas del buscador enlazan a la ficha.
+Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). Las tarjetas del buscador enlazan a la ficha; la grilla abre primero el vistazo (4.7), salvo el código, que enlaza directo.
 
 **Cabecera**: foto de portada, estado (con "Cambiar estado", con las transiciones de §4.7), tipo, código, ubicación, dirección para publicar y la real, favorita, "Publicación" (publicar en web, con o sin precio, dirección exacta y destacada, con `properties:publish`) y las acciones: ver en el mapa, estadísticas, PDF de la ficha, PDF de vidriera y reporte al propietario.
 

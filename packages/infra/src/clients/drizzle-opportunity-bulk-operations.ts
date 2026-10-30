@@ -22,7 +22,11 @@ const ActionSchema = z.discriminatedUnion('kind', [
 
 const SelectionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ids'), ids: z.array(z.string()) }),
-  z.object({ kind: z.literal('filter'), filter: z.record(z.string(), z.string()) }),
+  z.object({
+    kind: z.literal('filter'),
+    // Un filtro de varios valores se guarda como lista.
+    filter: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
+  }),
 ]);
 
 const count = z.int().min(0);

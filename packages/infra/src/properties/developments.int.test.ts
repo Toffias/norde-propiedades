@@ -372,9 +372,9 @@ describe('DrizzleDevelopmentListQuery', () => {
 
     const combined = await list.search({
       ...BASE,
-      status: 'marketing',
-      developmentType: 'building',
-      constructionStatus: 'finished',
+      status: ['marketing'],
+      developmentType: ['building'],
+      constructionStatus: ['finished'],
     });
     expect(combined.total).toBeGreaterThan(0);
     expect(
@@ -385,6 +385,16 @@ describe('DrizzleDevelopmentListQuery', () => {
           i.constructionStatus === 'finished',
       ),
     ).toBe(true);
+
+    // Varios valores: alcanza con que coincida uno.
+    const buildingsOrLots = await list.search({ ...BASE, developmentType: ['building', 'lots'] });
+    expect(new Set(buildingsOrLots.items.map((i) => i.developmentType))).toEqual(
+      new Set(['building', 'lots']),
+    );
+    expect(buildingsOrLots.total).toBe(
+      (await list.search({ ...BASE, developmentType: ['building'] })).total +
+        (await list.search({ ...BASE, developmentType: ['lots'] })).total,
+    );
 
     const tagged = await list.search({ ...BASE, tagId: tag });
     expect(tagged.total).toBe(90);
@@ -450,9 +460,9 @@ describe('DrizzleDevelopmentListQuery', () => {
       BASE,
       { ...BASE, view: 'trash' },
       { ...BASE, text: 'torre' },
-      { ...BASE, status: 'marketing' },
-      { ...BASE, developmentType: 'lots' },
-      { ...BASE, constructionStatus: 'finished' },
+      { ...BASE, status: ['marketing'] },
+      { ...BASE, developmentType: ['lots', 'building'] },
+      { ...BASE, constructionStatus: ['finished'] },
       { ...BASE, tagId: tag },
       { ...BASE, codes: ['EMP0042', 'EMP0007'] },
       { ...BASE, sort: { field: 'name', direction: 'asc' } },
@@ -499,7 +509,7 @@ describe('DrizzleDevelopmentListQuery.mapPins', () => {
         longitude: -58.4321,
       },
     ]);
-    expect((await list.mapPins({ ...FILTERS, status: 'marketing' }, PALERMO, 10)).total).toBe(0);
+    expect((await list.mapPins({ ...FILTERS, status: ['marketing'] }, PALERMO, 10)).total).toBe(0);
   });
 
   it('caps the pins, counts them all and uses the coordinates index', async () => {
@@ -509,7 +519,7 @@ describe('DrizzleDevelopmentListQuery.mapPins', () => {
     expect(page.items).toHaveLength(50);
     expect(page.total).toBe(270);
     const plan = await planOf((query) =>
-      query.mapPins({ ...FILTERS, status: 'marketing' }, city, 50),
+      query.mapPins({ ...FILTERS, status: ['marketing'] }, city, 50),
     );
     expect(scansWithIndex(plan)).toBe(true);
   });

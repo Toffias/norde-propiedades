@@ -8,33 +8,27 @@ import {
 } from '@norde/core/clients/contracts';
 import { Label } from '@norde/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@norde/ui/components/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@norde/ui/components/select';
 import { useId } from 'react';
 
 import { DateRange, SearchInput } from '../../clients/components/clients-toolbar';
 import { loadClientTagOptions } from '../../clients/tag-actions';
 import { loadBranchOptions, loadUserOptions } from '../../identity/actions';
 import { EntityPicker } from '../../identity/components/entity-picker';
+import { FilterMultiSelect, options } from '../../shared/components/list-filters';
 import { MoreFiltersButton } from '../../shared/components/more-filters-button';
 import { useListNavigation } from '../../shared/components/server-data-table';
 import { ALL_AGENTS_PARAM } from '../agent-filter';
 
 import { OpportunitySortSelect, type OpportunitySort } from './opportunity-view-controls';
 
-/** Filtros del pipeline tal como están en la URL (texto, sin parsear). */
+/** Filtros del pipeline tal como están en la URL: texto, o listas en los de varios valores. */
 export interface OpportunityFilterValues {
   readonly q: string;
   readonly agentId: string;
   readonly branchId: string;
   readonly tagId: string;
-  readonly originChannel: string;
-  readonly category: string;
+  readonly originChannel: readonly string[];
+  readonly category: readonly string[];
   readonly createdFrom: string;
   readonly createdTo: string;
   readonly updatedFrom: string;
@@ -47,9 +41,6 @@ export interface OpportunityFilterPermissions {
   /** Filtrar por sucursal (`branches:read`). */
   readonly pickBranches: boolean;
 }
-
-/** "Todos" en un select: sin el param en la URL. */
-const ANY = 'any';
 
 /** El orden, agente, sucursal, etiqueta y fechas: lo menos usado, en un popover. */
 function MoreFilters({
@@ -178,8 +169,6 @@ export function OpportunityFilters({
   /** El nombre del agente filtrado, si se conoce (para el selector). */
   readonly agentLabel: string | undefined;
 }) {
-  const { setParams } = useListNavigation();
-
   return (
     <div className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
       <div className="col-span-3 sm:contents">
@@ -189,42 +178,25 @@ export function OpportunityFilters({
           label="Buscar oportunidades por contacto"
         />
       </div>
-      <Select
-        value={filters.category === '' ? ANY : filters.category}
-        onValueChange={(next) => {
-          setParams({ category: next === ANY ? undefined : next });
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[210px]" aria-label="Categoría">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Todas las categorías</SelectItem>
-          {OPPORTUNITY_STATUS_VALUES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {OPPORTUNITY_STATUS_LABELS[value]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={filters.originChannel === '' ? ANY : filters.originChannel}
-        onValueChange={(next) => {
-          setParams({ originChannel: next === ANY ? undefined : next });
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[190px]" aria-label="Canal de origen">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Todos los canales</SelectItem>
-          {CONTACT_CHANNEL_VALUES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {CONTACT_CHANNEL_LABELS[value] ?? value}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterMultiSelect
+        param="category"
+        value={filters.category}
+        label="Categoría"
+        anyLabel="Todas las categorías"
+        options={options(OPPORTUNITY_STATUS_VALUES, OPPORTUNITY_STATUS_LABELS)}
+        className="w-full sm:w-[210px]"
+      />
+      <FilterMultiSelect
+        param="originChannel"
+        value={filters.originChannel}
+        label="Canal de origen"
+        anyLabel="Todos los canales"
+        options={CONTACT_CHANNEL_VALUES.map((value) => ({
+          value,
+          label: CONTACT_CHANNEL_LABELS[value] ?? value,
+        }))}
+        className="w-full sm:w-[190px]"
+      />
       <MoreFilters
         filters={filters}
         sort={sort}

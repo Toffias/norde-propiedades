@@ -45,9 +45,9 @@ export default async function DevelopmentsPage({
 
   const filters: DevelopmentFilterValues = {
     q: query.q ?? '',
-    status: query.status ?? '',
-    developmentType: query.developmentType ?? '',
-    constructionStatus: query.constructionStatus ?? '',
+    status: query.status ?? [],
+    developmentType: query.developmentType ?? [],
+    constructionStatus: query.constructionStatus ?? [],
     view: query.view,
   };
 

@@ -401,7 +401,10 @@ describe('ListClientLetters', () => {
     const useCase = new ListClientLetters({ list });
 
     const letters = unwrap(
-      await useCase.execute({ tagged: 'with', letter: 'M', kind: 'company' }, TEST_AGENT),
+      await useCase.execute(
+        { tagged: 'with', letter: 'M', kind: ['company', 'group'] },
+        TEST_AGENT,
+      ),
     );
 
     expect(letters).toHaveLength(27);
@@ -413,7 +416,7 @@ describe('ListClientLetters', () => {
     expect(list.letterCriteria[0]).toMatchObject({
       letter: undefined,
       tagged: 'with',
-      kind: 'company',
+      kind: ['company', 'group'],
       visibility: { kind: 'own', ownerId: AGENT_ID },
     });
   });

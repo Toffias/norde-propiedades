@@ -27,7 +27,11 @@ export type OpportunityBulkAction =
  */
 export type OpportunityBulkSelection =
   | { readonly kind: 'ids'; readonly ids: readonly string[] }
-  | { readonly kind: 'filter'; readonly filter: Readonly<Record<string, string>> };
+  /** Un filtro de varios valores se guarda como lista. */
+  | {
+      readonly kind: 'filter';
+      readonly filter: Readonly<Record<string, string | readonly string[]>>;
+    };
 
 export const OPPORTUNITY_BULK_SKIP_REASONS = [
   'not_found',

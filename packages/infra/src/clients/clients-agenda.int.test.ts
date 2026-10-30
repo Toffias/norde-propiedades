@@ -370,8 +370,19 @@ describe('DrizzleClientListQuery', () => {
     expect((await query.search({ ...BASE, agentId: AGENT })).total).toBe(TOTAL / 10 - TOTAL / 50);
     expect((await query.search({ ...BASE, branchId: BRANCH })).total).toBe(TOTAL / 4 - TOTAL / 100);
 
-    const buyers = await query.search({ ...BASE, clientType: 'buyer' });
+    const buyers = await query.search({ ...BASE, clientType: ['buyer'] });
     expect(buyers.items.every((item) => item.clientTypes.includes('buyer'))).toBe(true);
+    // Varios tipos: alcanza con que tenga uno.
+    const buyersOrTenants = await query.search({ ...BASE, clientType: ['buyer', 'tenant'] });
+    expect(
+      buyersOrTenants.items.every(
+        (item) => item.clientTypes.includes('buyer') || item.clientTypes.includes('tenant'),
+      ),
+    ).toBe(true);
+    expect(buyersOrTenants.total).toBeGreaterThanOrEqual(buyers.total);
+    const companies = await query.count({ ...BASE, kind: ['company'] });
+    const people = await query.count({ ...BASE, kind: ['person'] });
+    expect(await query.count({ ...BASE, kind: ['company', 'person'] })).toBe(companies + people);
     const owners = await query.search({
       ...BASE,
       anyOfTypes: ['owner_seller', 'owner_landlord'],
@@ -414,7 +425,7 @@ describe('DrizzleClientListQuery', () => {
     ['text', { text: 'contacto 00042' }],
     ['agent', { agentId: AGENT }],
     ['branch', { branchId: BRANCH }],
-    ['client type', { clientType: 'buyer' }],
+    ['client type', { clientType: ['buyer', 'tenant'] }],
     ['owners', { anyOfTypes: ['owner_seller', 'owner_landlord'] }],
     [
       'creation range',
@@ -427,7 +438,7 @@ describe('DrizzleClientListQuery', () => {
     ['own contacts', { visibility: { kind: 'own', ownerId: AGENT } }],
     ['branch contacts', { visibility: { kind: 'branch', ownerId: AGENT, branchId: BRANCH } }],
     ['trash', { view: 'trash' }],
-    ['kind', { kind: 'company' }],
+    ['kind', { kind: ['company', 'group'] }],
     ['letter page', { letter: 'C', sort: { field: 'name', direction: 'asc' } }],
     ['letter #', { letter: '#', sort: { field: 'name', direction: 'asc' } }],
     ['with tags', { tagged: 'with' }],

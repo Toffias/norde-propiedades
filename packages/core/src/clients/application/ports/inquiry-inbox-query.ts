@@ -24,7 +24,8 @@ export interface InquiryInboxItem {
 
 export interface InquiryInboxFilters {
   readonly branchId: string | undefined;
-  readonly channel: ContactChannel | undefined;
+  /** Alguno de estos canales. `undefined`: sin filtro. */
+  readonly channel: readonly ContactChannel[] | undefined;
   readonly propertyId: string | undefined;
   /** Recibidas desde (inclusive) y hasta (exclusive). */
   readonly received: { readonly from: Date | undefined; readonly to: Date | undefined };

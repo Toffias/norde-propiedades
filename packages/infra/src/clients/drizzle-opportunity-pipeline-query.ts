@@ -234,8 +234,10 @@ export class DrizzleOpportunityPipelineQuery implements OpportunityPipelineQuery
       c.text === undefined ? undefined : matchesSearchText(clients.searchText, c.text),
       c.agentId === undefined ? undefined : eq(opportunities.agentId, c.agentId),
       c.branchId === undefined ? undefined : eq(opportunities.branchId, c.branchId),
-      c.originChannel === undefined ? undefined : eq(opportunities.originChannel, c.originChannel),
-      c.category === undefined ? undefined : eq(opportunities.status, c.category),
+      c.originChannel === undefined
+        ? undefined
+        : inArray(opportunities.originChannel, [...c.originChannel]),
+      c.category === undefined ? undefined : inArray(opportunities.status, [...c.category]),
       // La PK de `client_tag_assignments` empieza por `client_id`.
       c.tagId === undefined
         ? undefined

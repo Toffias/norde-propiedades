@@ -32,8 +32,8 @@ export default async function AppraisalsPage({
 
   const filters: AppraisalFilterValues = {
     view: query.view,
-    status: query.status ?? '',
-    propertyType: query.propertyType ?? '',
+    status: query.status ?? [],
+    propertyType: query.propertyType ?? [],
     producerId: query.producerId ?? '',
     appraiserId: query.appraiserId ?? '',
     branchId: query.branchId ?? '',

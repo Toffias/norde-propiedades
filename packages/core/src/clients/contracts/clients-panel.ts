@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 import { historyQuerySchema } from '../../audit/contracts';
-import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, multiValueSchema, pageQuerySchema } from '../../shared/contracts';
 
 import type { ClientActiveOpportunity, ClientTabCounts } from './clients-activity';
 import type { ClientTagRef } from './clients-tags';
@@ -142,16 +142,17 @@ const ClientFilterFields = {
   q: z.string().trim().min(1).max(100).optional(),
   agentId: z.uuid().optional(),
   branchId: z.uuid().optional(),
-  kind: z.enum(CLIENT_KIND_VALUES).optional(),
-  clientType: z.enum(CLIENT_TYPE_VALUES).optional(),
+  // Los de varios valores: alcanza con que coincida uno.
+  kind: multiValueSchema(z.enum(CLIENT_KIND_VALUES)),
+  clientType: multiValueSchema(z.enum(CLIENT_TYPE_VALUES)),
   tagged: z.enum(CLIENT_TAGGED_VALUES).optional(),
   tagId: z.uuid().optional(),
   /** Una letra de la agenda alfabética. */
   letter: z.enum(CLIENT_LETTERS).optional(),
   /** Solo propietarios (vendedores o que alquilan). */
   owners: BooleanParam,
-  /** Con una oportunidad en este estado. */
-  opportunityStageId: z.uuid().optional(),
+  /** Con una oportunidad en alguno de estos estados. */
+  opportunityStageId: multiValueSchema(z.uuid()),
   /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
   createdFrom: z.iso.date().optional(),
   createdTo: z.iso.date().optional(),

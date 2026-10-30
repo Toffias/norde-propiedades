@@ -1,4 +1,6 @@
-import type { ReservationFilter } from '../contracts';
+import type { z } from 'zod';
+
+import type { ReservationFilterSchema } from '../contracts';
 import type { ReservationFilterCriteria } from './ports/reservation-list-query';
 
 // Los filtros del listado de reservas (`/reservas`), compartidos por el listado y la exportación.
@@ -11,7 +13,9 @@ function startOfDay(date: string): Date {
 }
 
 /** Los filtros ya validados por el contract, como los recibe el puerto. */
-export function reservationCriteria(filter: ReservationFilter): ReservationFilterCriteria {
+export function reservationCriteria(
+  filter: z.output<typeof ReservationFilterSchema>,
+): ReservationFilterCriteria {
   return {
     status: filter.status,
     operation: filter.operation,

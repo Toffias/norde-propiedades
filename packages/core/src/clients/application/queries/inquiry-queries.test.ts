@@ -63,7 +63,7 @@ describe('ListInquiries', () => {
       {
         tab: 'assigned',
         branchId: BRANCH_ID,
-        channel: 'zonaprop',
+        channel: ['zonaprop'],
         propertyId: PROPERTY_ID,
         // Días de Buenos Aires (UTC-3), con el "hasta" inclusive.
         received: {
@@ -182,7 +182,7 @@ describe('CountInquiriesByTab', () => {
       await countByTab.execute(
         {
           branchId: BRANCH_ID,
-          channel: 'zonaprop',
+          channel: ['zonaprop', 'web_form'],
           propertyId: PROPERTY_ID.toUpperCase(),
           receivedFrom: '2026-05-01',
           receivedTo: '2026-05-01',
@@ -195,7 +195,7 @@ describe('CountInquiriesByTab', () => {
     expect(inbox.counts).toEqual([
       {
         branchId: BRANCH_ID,
-        channel: 'zonaprop',
+        channel: ['zonaprop', 'web_form'],
         propertyId: PROPERTY_ID,
         received: {
           from: new Date('2026-05-01T03:00:00Z'),

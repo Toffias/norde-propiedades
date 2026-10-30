@@ -42,7 +42,8 @@ describe('ListAppraisals', () => {
     const page = unwrap(
       await list.execute(
         {
-          status: 'pending',
+          // Un param repetido en la URL llega como lista: los estados de los dos grupos.
+          status: ['pending', 'appraised'],
           propertyType: 'house',
           producerId: PRODUCER_ID,
           createdFrom: '2026-10-01',
@@ -60,8 +61,8 @@ describe('ListAppraisals', () => {
       {
         visibility: { kind: 'own', ownerId: PRODUCER_ID },
         deleted: false,
-        statuses: ['requested', 'visit_scheduled'],
-        propertyType: 'house',
+        statuses: ['requested', 'visit_scheduled', 'appraised'],
+        propertyType: ['house'],
         producerUserId: PRODUCER_ID,
         appraiserUserId: undefined,
         branchId: undefined,

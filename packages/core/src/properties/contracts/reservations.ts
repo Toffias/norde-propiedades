@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, multiValueSchema, pageQuerySchema } from '../../shared/contracts';
 
 import { AmountSchema } from './amount';
 import { PercentageSchema, type PanelUserRef } from './detail';
@@ -134,10 +134,11 @@ export type ReservationSortField = (typeof RESERVATION_SORT_FIELDS)[number];
 export const MAX_RESERVATION_EXPORT_ROWS = 10_000;
 
 const ReservationFilterFields = {
-  status: z.enum(RESERVATION_STATUS_VALUES).optional(),
-  operation: z.enum(OPERATIONS).optional(),
+  // Los de varios valores: alcanza con que coincida uno.
+  status: multiValueSchema(z.enum(RESERVATION_STATUS_VALUES)),
+  operation: multiValueSchema(z.enum(OPERATIONS)),
   /** El tipo de la propiedad reservada. */
-  propertyType: z.enum(PROPERTY_TYPES).optional(),
+  propertyType: multiValueSchema(z.enum(PROPERTY_TYPES)),
   agentId: z.uuid().optional(),
   managerId: z.uuid().optional(),
   branchId: z.uuid().optional(),

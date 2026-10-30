@@ -8,7 +8,19 @@ import {
 } from '@norde/core/clients';
 import type { InquiryTabCounts, InquiryTabValue } from '@norde/core/clients/contracts';
 import type { PageSlice } from '@norde/core/shared';
-import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -118,7 +130,7 @@ export class DrizzleInquiryInboxQuery implements InquiryInboxQuery {
         ? isNotNull(inquiries.deletedAt)
         : and(eq(inquiries.status, c.tab), isNull(inquiries.deletedAt)),
       c.branchId === undefined ? undefined : eq(inquiries.branchId, c.branchId),
-      c.channel === undefined ? undefined : eq(inquiries.channel, c.channel),
+      c.channel === undefined ? undefined : inArray(inquiries.channel, [...c.channel]),
       c.propertyId === undefined ? undefined : eq(inquiries.propertyId, c.propertyId),
       c.received.from === undefined ? undefined : gte(inquiries.receivedAt, c.received.from),
       c.received.to === undefined ? undefined : lt(inquiries.receivedAt, c.received.to),

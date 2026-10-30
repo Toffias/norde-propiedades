@@ -23,7 +23,7 @@ const MapCanvas = dynamic(
   () => import('../../shared/components/map-canvas').then((module) => module.MapCanvas),
   {
     ssr: false,
-    loading: () => <Skeleton className="h-[60vh] min-h-[360px] w-full rounded-none" />,
+    loading: () => <Skeleton className="h-full w-full rounded-none" />,
   },
 );
 
@@ -81,8 +81,8 @@ export function DevelopmentMap({
     const current = ++request.current;
     const { q, status, developmentType, constructionStatus } = filters;
     const filter = Object.fromEntries(
-      Object.entries({ q, status, developmentType, constructionStatus }).filter(
-        ([, value]) => value !== '',
+      Object.entries({ q, status, developmentType, constructionStatus }).filter(([, value]) =>
+        typeof value === 'string' ? value !== '' : value.length > 0,
       ),
     );
     const timer = setTimeout(() => {
@@ -130,12 +130,15 @@ export function DevelopmentMap({
           <FormAlert message={error} />
         </div>
       )}
-      <MapCanvas
-        pins={pins}
-        layers={LAYERS}
-        label="Mapa de emprendimientos"
-        onAreaChange={onAreaChange}
-      />
+      {/* `isolate`: los z-index de Leaflet (400-1000) quedan dentro del mapa. */}
+      <div className="relative isolate h-[60vh] min-h-[360px] w-full">
+        <MapCanvas
+          pins={pins}
+          layers={LAYERS}
+          label="Mapa de emprendimientos"
+          onAreaChange={onAreaChange}
+        />
+      </div>
     </div>
   );
 }

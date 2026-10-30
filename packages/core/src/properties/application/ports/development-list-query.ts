@@ -15,9 +15,10 @@ export interface DevelopmentListCriteria {
   readonly view: DevelopmentViewValue;
   /** Código, nombre, dirección o desarrollista, sin distinguir mayúsculas ni acentos. */
   readonly text: string | undefined;
-  readonly status: DevelopmentStatusValue | undefined;
-  readonly developmentType: DevelopmentType | undefined;
-  readonly constructionStatus: ConstructionStatusValue | undefined;
+  // Los de varios valores: alcanza con que coincida uno. `undefined`: sin filtro.
+  readonly status: readonly DevelopmentStatusValue[] | undefined;
+  readonly developmentType: readonly DevelopmentType[] | undefined;
+  readonly constructionStatus: readonly ConstructionStatusValue[] | undefined;
   readonly tagId: string | undefined;
   /** Solo los que tienen alguno de estos códigos (por `developments_code_uq`). */
   readonly codes?: readonly string[];

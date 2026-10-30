@@ -15,9 +15,10 @@ export type ReservationSearchItem = ReservationListItem & {
 
 /** Los filtros ya validados, con las fechas de reserva como instantes UTC. */
 export interface ReservationFilterCriteria {
-  readonly status?: ReservationStatusValue | undefined;
-  readonly operation?: Operation | undefined;
-  readonly propertyType?: PropertyType | undefined;
+  // Los de varios valores: alcanza con que coincida uno.
+  readonly status?: readonly ReservationStatusValue[] | undefined;
+  readonly operation?: readonly Operation[] | undefined;
+  readonly propertyType?: readonly PropertyType[] | undefined;
   readonly agentUserId?: string | undefined;
   readonly managerUserId?: string | undefined;
   readonly branchId?: string | undefined;

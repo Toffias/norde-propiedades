@@ -233,6 +233,14 @@ describe('appraisals (Postgres)', () => {
       [created[2], created[4], created[6]].sort(),
     );
 
+    // Varios tipos: alcanza con que coincida uno (las 7 son casas o departamentos).
+    const housesOrApartments = unwrap(
+      await list.execute({ propertyType: ['house', 'apartment'] }, PRODUCER_ACTOR),
+    );
+    expect(housesOrApartments.total).toBe(7);
+    const onlyPhs = unwrap(await list.execute({ propertyType: ['ph', 'land'] }, PRODUCER_ACTOR));
+    expect(onlyPhs.total).toBe(0);
+
     const byAppraiser = unwrap(await list.execute({ appraiserId: APPRAISER }, PRODUCER_ACTOR));
     expect(byAppraiser.items.map((item) => item.id)).toEqual([created[6]]);
 
@@ -321,7 +329,7 @@ describe('appraisals (Postgres)', () => {
       visibility: { kind: 'all' },
       deleted: false,
       statuses: undefined,
-      propertyType: 'house',
+      propertyType: ['house'],
       producerUserId: undefined,
       appraiserUserId: undefined,
       branchId: undefined,

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { pageQuerySchema } from '../../shared/contracts/pagination';
+import { multiValueSchema, pageQuerySchema } from '../../shared/contracts/pagination';
 
 import type { ClientListingSummary } from './clients-activity';
 import type { ClientUserRef } from './clients-panel';
@@ -60,7 +60,8 @@ export const INQUIRY_SORT_FIELDS = ['receivedAt'] as const;
 /** Filtros de la bandeja, comunes a la lista y a los totales por pestaña. */
 const inquiryFilterFields = {
   branchId: z.uuid().optional(),
-  channel: z.enum(CONTACT_CHANNEL_VALUES).optional(),
+  /** Alcanza con que coincida uno. */
+  channel: multiValueSchema(z.enum(CONTACT_CHANNEL_VALUES)),
   propertyId: z.uuid().optional(),
   /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
   receivedFrom: z.iso.date().optional(),

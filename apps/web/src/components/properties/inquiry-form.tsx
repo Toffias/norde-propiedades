@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@norde/ui/lib/utils';
 import { CheckCircle2 } from 'lucide-react';
 import { useActionState } from 'react';
 
@@ -18,6 +19,8 @@ interface InquiryFormProps {
   readonly messagePlaceholder?: string;
   readonly messageLabel?: string;
   readonly submitLabel?: string;
+  /** Ocupa el alto del contenedor (flex): el textarea crece con el espacio sobrante. */
+  readonly fill?: boolean;
 }
 
 const INITIAL: InquiryFormState = { status: 'idle' };
@@ -38,6 +41,7 @@ export function InquiryForm({
   messagePlaceholder,
   messageLabel = 'Consulta',
   submitLabel = 'Enviar consulta',
+  fill = false,
 }: InquiryFormProps) {
   const [state, action, pending] = useActionState(sendInquiry, INITIAL);
 
@@ -59,7 +63,12 @@ export function InquiryForm({
 
   return (
     // `key`: con cada respuesta se vuelve a montar, así toma los `defaultValue` nuevos.
-    <form key={JSON.stringify(values ?? {})} action={action} className="space-y-3" noValidate>
+    <form
+      key={JSON.stringify(values ?? {})}
+      action={action}
+      className={cn('space-y-3', fill && 'flex flex-1 flex-col')}
+      noValidate
+    >
       {propertyId && <input type="hidden" name={F.propertyId} value={propertyId} />}
       {/* Trampa para bots: oculto para las personas y para los lectores de pantalla. */}
       <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
@@ -119,7 +128,7 @@ export function InquiryForm({
           <FieldError id="inquiry-email-error" {...(errors.email && { message: errors.email })} />
         </div>
       </div>
-      <div>
+      <div className={cn(fill && 'flex flex-1 flex-col')}>
         <label className={LABEL} htmlFor="inquiry-message">
           {messageLabel}
         </label>
@@ -133,7 +142,7 @@ export function InquiryForm({
           placeholder={messagePlaceholder}
           aria-invalid={Boolean(errors.message)}
           aria-describedby={describedBy('message')}
-          className={`${FIELD} py-2.5`}
+          className={cn(FIELD, 'py-2.5', fill && 'min-h-28 flex-1')}
         />
         <FieldError
           id="inquiry-message-error"

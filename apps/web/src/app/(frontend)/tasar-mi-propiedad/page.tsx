@@ -1,4 +1,3 @@
-import { CheckCircle2 } from 'lucide-react';
 import type { Metadata } from 'next';
 
 import { Reveal } from '../../../components/about/reveal';
@@ -20,12 +19,6 @@ export const dynamic = 'force-dynamic';
 
 const DESCRIPTION =
   'Pedí la tasación de tu casa, departamento, PH o local: te decimos su valor de mercado según la zona, el estado y las operaciones comparables.';
-
-const FORM_POINTS = [
-  'Te contactamos para coordinar la visita.',
-  'Vemos la propiedad y analizamos la zona.',
-  'Te entregamos el informe con el valor sugerido.',
-] as const;
 
 const FAQ: readonly FaqEntry[] = [
   {
@@ -104,18 +97,11 @@ export default function AppraisalPage() {
                 Dejanos tus datos y contanos de tu propiedad: dónde está, qué tipo es y si la querés
                 vender o alquilar.
               </p>
-              <ul className="space-y-3">
-                {FORM_POINTS.map((point) => (
-                  <li key={point} className="flex items-start gap-3 font-semibold">
-                    <CheckCircle2 aria-hidden className="text-primary mt-0.5 size-5 shrink-0" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
               <ContactChannels whatsappText="Hola, quiero tasar mi propiedad." />
             </Reveal>
 
-            <Reveal className="self-start border-t pt-10 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-16">
+            {/* Se estira al alto de la columna izquierda: el textarea crece y el botón queda al ras. */}
+            <Reveal className="flex flex-col border-t pt-10 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-16">
               <h3 className="mb-5 text-xl font-extrabold">Tus datos</h3>
               {formEnabled ? (
                 // Hasta que exista el alta de tasaciones desde la web, entra como consulta: el
@@ -125,6 +111,7 @@ export default function AppraisalPage() {
                   messagePlaceholder="Dónde está, qué tipo de propiedad es, ambientes, metros y si la querés vender o alquilar."
                   messageLabel="Descripción de la propiedad"
                   submitLabel="Pedir tasación"
+                  fill
                 />
               ) : (
                 <p className="text-muted-foreground text-sm">

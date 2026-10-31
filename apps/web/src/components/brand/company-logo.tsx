@@ -8,7 +8,7 @@ import { NordeLogo } from './norde-logo';
 
 /**
  * El logo de Norde: el que cargaron en el panel (Mi empresa) o, si no hay, el dibujado con texto.
- * Sobre la foto de una portada y en el tema oscuro se pinta de blanco para que se lea.
+ * Se muestra siempre con sus colores, también sobre la foto de una portada y en el tema oscuro.
  */
 export async function CompanyLogo({
   className,
@@ -32,12 +32,7 @@ export async function CompanyLogo({
       height={80}
       unoptimized
       priority
-      className={cn(
-        'w-auto object-contain',
-        'group-data-[overlay=true]/header:brightness-0 group-data-[overlay=true]/header:invert',
-        'dark:brightness-0 dark:invert',
-        className,
-      )}
+      className={cn('w-auto object-contain', className)}
     />
   );
 }

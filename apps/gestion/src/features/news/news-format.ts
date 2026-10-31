@@ -98,6 +98,43 @@ export function newsDayLabel(day: string, today: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+const SHORT_DAY = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'UTC',
+  weekday: 'short',
+  day: 'numeric',
+});
+const DAY_MONTH = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'UTC',
+  day: 'numeric',
+  month: 'long',
+});
+/** Del domingo al sábado; el miércoles es "X" para no confundirlo con el martes. */
+const WEEKDAY_INITIALS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const;
+
+const noon = (day: string) => new Date(`${day}T12:00:00Z`);
+
+/** "Hoy", "Ayer" o "lun 27": el día de una tarjeta cuando el resumen abarca la semana. */
+export function newsShortDayLabel(day: string, today: string): string {
+  const label = newsDayLabel(day, today);
+  if (label === 'Hoy' || label === 'Ayer') return label;
+  return SHORT_DAY.format(noon(day)).replace('.', '');
+}
+
+/** "Del 25 al 31 de octubre" o "Del 28 de septiembre al 4 de octubre". */
+export function newsDaySpanLabel(from: string, to: string): string {
+  const end = DAY_MONTH.format(noon(to));
+  const start =
+    from.slice(5, 7) === to.slice(5, 7)
+      ? String(Number(from.slice(8)))
+      : DAY_MONTH.format(noon(from));
+  return `Del ${start} al ${end}`;
+}
+
+/** La inicial del día de la semana ("L", "M", "X"…), para el gráfico de actividad. */
+export function newsWeekdayInitial(day: string): string {
+  return WEEKDAY_INITIALS[noon(day).getUTCDay()] ?? '';
+}
+
 export function newsBadge(kind: NewsKindValue): string {
   return KIND_BADGES[kind];
 }

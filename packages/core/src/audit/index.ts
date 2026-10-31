@@ -19,7 +19,9 @@ export {
   type NewsKind,
 } from './domain/news';
 export type {
+  NewsActivityCriteria,
   NewsCardRecord,
+  NewsDayRange,
   NewsEntryRecord,
   NewsFeedCriteria,
   NewsFeedQuery,
@@ -27,3 +29,7 @@ export type {
   NewsUserNames,
 } from './application/ports/news-feed-query';
 export { ListNews, type ListNewsError } from './application/queries/list-news';
+export {
+  GetNewsActivity,
+  type GetNewsActivityError,
+} from './application/queries/get-news-activity';

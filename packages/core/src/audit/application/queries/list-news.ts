@@ -4,6 +4,7 @@ import {
   toOffsetLimit,
   toPage,
   type Actor,
+  type Clock,
   type ForbiddenError,
   type Page,
   type Result,
@@ -21,6 +22,7 @@ import type {
   NewsScopeReader,
   NewsUserNames,
 } from '../ports/news-feed-query';
+import { newsDayOf, newsPeriodDays } from '../news-period';
 
 export interface InvalidNewsQueryError {
   readonly type: 'InvalidInput';
@@ -45,7 +47,9 @@ function assigneeOf(entry: NewsEntryRecord): string | undefined {
 /**
  * Noticias: el feed de actividad de la empresa, por entidad y día, de lo más nuevo a lo más viejo.
  * Pide `news:read`. Según la configuración de la empresa, se ven las novedades de todas las
- * sucursales o solo las de la sucursal de quien mira (un usuario sin sucursal ve todas).
+ * sucursales o solo las de la sucursal de quien mira (un usuario sin sucursal ve todas). Con un
+ * período (hoy, ayer, la semana), solo las de esos días de Buenos Aires: así se arma cada sección
+ * del resumen, una por tipo.
  */
 export class ListNews {
   constructor(
@@ -53,6 +57,7 @@ export class ListNews {
       readonly feed: NewsFeedQuery;
       readonly settings: NewsScopeReader;
       readonly users: NewsUserNames;
+      readonly clock: Clock;
     },
   ) {}
 
@@ -68,13 +73,15 @@ export class ListNews {
         issues: parsed.error.issues.map((issue) => issue.message),
       });
     }
-    const { page, pageSize, kinds } = parsed.data;
+    const { page, pageSize, kinds, period } = parsed.data;
     if (kinds.length === 0) return ok(toPage({ items: [], total: 0 }, { page, pageSize }));
 
     const scope = await this.deps.settings.scope();
     const slice = await this.deps.feed.list({
       kinds,
       branchId: scope === 'branch' ? actor.branchId : undefined,
+      days:
+        period === undefined ? undefined : newsPeriodDays(period, newsDayOf(this.deps.clock.now())),
       entriesPerCard: NEWS_ENTRIES_PER_CARD,
       ...toOffsetLimit({ page, pageSize }),
     });

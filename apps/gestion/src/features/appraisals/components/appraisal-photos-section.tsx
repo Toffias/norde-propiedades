@@ -6,6 +6,7 @@ import {
   MAX_APPRAISAL_PHOTOS,
   type ConvertedPropertyRef,
 } from '@norde/core/appraisals/contracts';
+import { SkeletonImg } from '@norde/ui/components/image-skeleton';
 import { Badge } from '@norde/ui/components/badge';
 import { Button } from '@norde/ui/components/button';
 import { SectionCard } from '@norde/ui/components/section-card';
@@ -162,8 +163,7 @@ export function AppraisalPhotosSection({
                   rel="noreferrer"
                   className="block aspect-[4/3] w-full"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel */}
-                  <img
+                  <SkeletonImg
                     src={appraisalPhotoHref(appraisalId, photoId)}
                     alt={`Foto ${(index + 1).toString()} de la visita`}
                     loading="lazy"

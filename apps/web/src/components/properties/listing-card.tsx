@@ -9,9 +9,9 @@ import {
   Ruler,
   type LucideIcon,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 
+import { SkeletonImage } from '../layout/skeleton-image';
 import { isExternal } from '../../lib/properties/images';
 import type { ListingCard as ListingCardData, ListingFactKind } from '../../lib/properties/view';
 
@@ -39,7 +39,7 @@ export function ListingCard({ listing, priority = false, headingLevel = 'h3' }: 
     <article className="group bg-card w-full hover:border-brand-200 dark:hover:border-brand-800 relative flex flex-col overflow-hidden rounded-3xl border transition-colors">
       <div className="bg-muted relative m-2 aspect-[4/3] overflow-hidden rounded-2xl">
         {listing.cover ? (
-          <Image
+          <SkeletonImage
             src={listing.cover.src}
             alt={listing.cover.alt}
             fill

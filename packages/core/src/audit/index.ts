@@ -7,6 +7,19 @@ export type {
   AuditHistoryEntry,
   AuditHistoryQuery,
 } from './application/ports/audit-history-query';
+export type {
+  ActorActivityCriteria,
+  ActorActivityQuery,
+  ActorActivityRecord,
+} from './application/ports/actor-activity-query';
+export {
+  ACTIVITY_AREA_ENTITY_TYPES,
+  ACTIVITY_AREAS,
+  activityAreaOf,
+  activityEntityTypes,
+  type ActivityArea,
+  type ActivityEntityTypeFilter,
+} from './domain/activity';
 export {
   NEWS_ACTION_KINDS,
   NEWS_ACTIONS,
@@ -33,3 +46,4 @@ export {
   GetNewsActivity,
   type GetNewsActivityError,
 } from './application/queries/get-news-activity';
+export { ListMyActivity, type ListMyActivityError } from './application/queries/list-my-activity';

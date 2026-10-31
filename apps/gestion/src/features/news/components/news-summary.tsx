@@ -81,7 +81,7 @@ export function NewsSummary({
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {periodTitle(period, activity, today)}
         </p>
-        <p className="mt-1.5 text-base leading-relaxed text-foreground sm:text-lg">
+        <p className="mt-1.5 text-base leading-relaxed text-foreground">
           {total === 0 ? (
             <>
               {LEADS[period]} {period === 'today' ? 'todavía no hubo' : 'no hubo'} novedades.

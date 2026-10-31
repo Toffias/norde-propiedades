@@ -27,7 +27,7 @@ import {
   type ActiveUsers,
   type PanelDirectory,
 } from '@norde/core/appraisals';
-import { ListNews } from '@norde/core/audit';
+import { GetNewsActivity, ListNews } from '@norde/core/audit';
 import {
   AddFavorites,
   AddTeamMember,
@@ -638,7 +638,7 @@ export interface Container {
   /** Tasaciones: listado, alta, edición, estados y papelera (#12). */
   readonly appraisals: AppraisalsUseCases;
   /** Noticias: el feed de actividad de la empresa (#16). */
-  readonly news: { readonly listNews: ListNews };
+  readonly news: { readonly listNews: ListNews; readonly getNewsActivity: GetNewsActivity };
   /** Difusión en portales (#14): cuentas de MercadoLibre. Sin `PORTALS_ENABLED`, no existe. */
   readonly portals: PortalsUseCases | undefined;
 }
@@ -1773,7 +1773,7 @@ function createContainer(): Container {
     },
     backgroundTasks: createBackgroundTasks(database.db, clock),
     notifications: createNotifications(database.db, clock),
-    news: { listNews: createListNews(database.db, clock) },
+    news: createNewsUseCases(database.db, clock),
     portals: createPortalsUseCases(database.db, env, { ids, clock }, { properties, settings }),
     identity: {
       listUsers,
@@ -1843,14 +1843,22 @@ function createBackgroundTasks(db: Database, clock: Clock) {
   };
 }
 
-function createListNews(db: Database, clock: Clock): ListNews {
-  const settings = new DrizzleCompanySettingsRepository(db, clock);
+function createNewsUseCases(db: Database, clock: Clock): Container['news'] {
+  const companySettings = new DrizzleCompanySettingsRepository(db, clock);
   const directory = new DrizzleDirectory(db);
-  return new ListNews({
-    feed: new DrizzleNewsFeedQuery(db),
-    settings: { scope: async () => (await settings.get()).toSnapshot().newsScope },
-    users: { names: (userIds) => directory.names('user', userIds) },
-  });
+  const feed = new DrizzleNewsFeedQuery(db);
+  const settings = {
+    scope: async () => (await companySettings.get()).toSnapshot().newsScope,
+  };
+  return {
+    listNews: new ListNews({
+      feed,
+      settings,
+      users: { names: (userIds) => directory.names('user', userIds) },
+      clock,
+    }),
+    getNewsActivity: new GetNewsActivity({ feed, settings, clock }),
+  };
 }
 
 /** Suma la agenda de contactos a los read models de clientes de la ficha de propiedad. */

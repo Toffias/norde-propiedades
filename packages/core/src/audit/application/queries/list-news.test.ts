@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../../shared';
-import { unwrap, unwrapErr } from '../../../shared/testing';
+import { FixedClock, unwrap, unwrapErr } from '../../../shared/testing';
 import type { NewsHeader } from '../../contracts';
 import {
   FixedNewsScope,
@@ -19,6 +19,8 @@ const CLIENT = '01900000-0000-7000-8000-0000000000c1';
 const NORTH = '01900000-0000-7000-8000-0000000000d1';
 const SOUTH = '01900000-0000-7000-8000-0000000000d2';
 
+// 01:30 UTC del 6 de octubre: en Buenos Aires todavía es el 5.
+const clock = new FixedClock('2026-10-06T01:30:00Z');
 const reader = Actor.user(CAMILA, ['news:read']).withBranch(NORTH);
 
 const propertyHeader: NewsHeader = {
@@ -77,7 +79,7 @@ function setup(entries: InMemoryNewsEntry[], scope: 'branch' | 'all' = 'all') {
       [PEDRO, 'Pedro'],
     ]),
   );
-  const listNews = new ListNews({ feed, settings: new FixedNewsScope(scope), users });
+  const listNews = new ListNews({ feed, settings: new FixedNewsScope(scope), users, clock });
   return { listNews, feed, users };
 }
 
@@ -129,6 +131,7 @@ describe('ListNews', () => {
       feed,
       settings: new FixedNewsScope('all'),
       users: new InMemoryNewsUserNames(new Map()),
+      clock,
     });
     const agent = Actor.user(CAMILA, ['news:read', 'properties:read']).withBranch(NORTH);
 
@@ -234,10 +237,52 @@ describe('ListNews', () => {
     expect(first.items[0]?.moreCount).toBe(3);
   });
 
+  it.each([
+    ['today', '2026-10-05', '2026-10-05', ['p-05']],
+    ['yesterday', '2026-10-04', '2026-10-04', ['p-04']],
+    ['week', '2026-09-29', '2026-10-05', ['p-05', 'p-04', 'p-29']],
+  ] as const)(
+    'narrows the feed to the days of the period "%s" in Buenos Aires',
+    async (period, from, to, expected) => {
+      const created = (id: string, at: string) => ({
+        ...entry('property', PROPERTY, 'property.created', at),
+        entityId: id,
+      });
+      const { listNews, feed } = setup([
+        created('p-05', '2026-10-06T01:00:00Z'),
+        created('p-04', '2026-10-04T12:00:00Z'),
+        created('p-29', '2026-09-29T03:30:00Z'),
+        created('p-28', '2026-09-29T02:30:00Z'),
+      ]);
+
+      const page = unwrap(await listNews.execute({ period }, reader));
+
+      expect(feed.criteria[0]?.days).toEqual({ from, to });
+      expect(page.items.map((card) => card.entityId)).toEqual(expected);
+    },
+  );
+
+  it('reads the whole feed without a period', async () => {
+    const { listNews, feed } = setup([]);
+
+    unwrap(await listNews.execute({}, reader));
+
+    expect(feed.criteria[0]?.days).toBeUndefined();
+  });
+
   it('rejects an invalid query', async () => {
     const { listNews } = setup([]);
 
     const error = unwrapErr(await listNews.execute({ pageSize: 999 }, reader));
+
+    expect(error.type).toBe('InvalidInput');
+  });
+
+  it('rejects an unknown period', async () => {
+    const { listNews } = setup([]);
+
+    // @ts-expect-error: un período que no existe, como podría llegar de la URL.
+    const error = unwrapErr(await listNews.execute({ period: 'month' }, reader));
 
     expect(error.type).toBe('InvalidInput');
   });

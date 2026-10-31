@@ -23,6 +23,7 @@ const stamps = { createdAt: NOW, updatedAt: NOW, createdBy: USER, updatedBy: USE
 const ALL: NewsFeedCriteria = {
   kinds: NEWS_KINDS,
   branchId: undefined,
+  days: undefined,
   offset: 0,
   limit: 10,
   entriesPerCard: 20,
@@ -278,5 +279,55 @@ describe('DrizzleNewsFeedQuery', () => {
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.entries.map((entry) => entry.action)).toEqual(['client.deleted']);
     expect(page.items[0]?.header).toMatchObject({ deleted: true });
+  });
+
+  it('narrows the feed to whole days in Buenos Aires', async () => {
+    const before = await aClient('Antes');
+    const first = await aClient('Primero');
+    const last = await aClient('Último');
+    const after = await aClient('Después');
+    // 23:59 del 1 en Buenos Aires.
+    await record('client', before, 'client.created', '2026-10-02T02:59:00Z');
+    // 00:00 del 2 y 23:59 del 3 en Buenos Aires: los bordes del rango.
+    await record('client', first, 'client.created', '2026-10-02T03:00:00Z');
+    await record('client', last, 'client.created', '2026-10-04T02:59:00Z');
+    await record('client', after, 'client.created', '2026-10-04T03:00:00Z');
+
+    const page = await new DrizzleNewsFeedQuery(db).list({
+      ...ALL,
+      days: { from: '2026-10-02', to: '2026-10-03' },
+    });
+
+    expect(page.total).toBe(2);
+    expect(page.items.map((card) => card.entityId)).toEqual([last, first]);
+  });
+
+  it('counts one card per entity, day and kind for each day of the range', async () => {
+    const propertyId = await aProperty('NEWS500');
+    const north = await aClient('Eva');
+    const south = await aClient('Fede', SOUTH);
+    await record('property', propertyId, 'property.created', '2026-10-02T12:00:00Z');
+    await record('property', propertyId, 'property.status_changed', '2026-10-02T13:00:00Z');
+    await record('property', propertyId, 'property.status_changed', '2026-10-02T14:00:00Z');
+    await record('property', propertyId, 'property.media_added', '2026-10-02T15:00:00Z');
+    await record('client', north, 'client.created', '2026-10-03T12:00:00Z');
+    await record('client', south, 'client.created', '2026-10-03T12:00:00Z');
+    await record('client', north, 'client.deleted', '2026-10-05T12:00:00Z');
+    const query = new DrizzleNewsFeedQuery(db);
+    const range = { from: '2026-10-01', to: '2026-10-04' };
+
+    expect(
+      await query.dailyCounts({ kinds: NEWS_KINDS, branchId: undefined, days: range }),
+    ).toEqual([
+      { day: '2026-10-02', count: 2 },
+      { day: '2026-10-03', count: 2 },
+    ]);
+    expect(await query.dailyCounts({ kinds: NEWS_KINDS, branchId: NORTH, days: range })).toEqual([
+      { day: '2026-10-02', count: 2 },
+      { day: '2026-10-03', count: 1 },
+    ]);
+    expect(
+      await query.dailyCounts({ kinds: ['client.created'], branchId: undefined, days: range }),
+    ).toEqual([{ day: '2026-10-03', count: 2 }]);
   });
 });

@@ -6,7 +6,9 @@ import type {
   AuditHistoryQuery,
 } from '../application/ports/audit-history-query';
 import type {
+  NewsActivityCriteria,
   NewsCardRecord,
+  NewsDayRange,
   NewsFeedCriteria,
   NewsFeedQuery,
   NewsScopeReader,
@@ -25,9 +27,14 @@ function dayInBuenosAires(at: Date): string {
   return new Date(at.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+function inRange(day: string, days: NewsDayRange | undefined): boolean {
+  return days === undefined || (day >= days.from && day <= days.to);
+}
+
 /** Clasifica, agrupa y pagina en memoria lo que `DrizzleNewsFeedQuery` hace en la base. */
 export class InMemoryNewsFeedQuery implements NewsFeedQuery {
   readonly criteria: NewsFeedCriteria[] = [];
+  readonly activityCriteria: NewsActivityCriteria[] = [];
 
   constructor(
     readonly entries: InMemoryNewsEntry[] = [],
@@ -50,6 +57,7 @@ export class InMemoryNewsFeedQuery implements NewsFeedQuery {
       const entity = this.entities.get(entry.entityId);
       if (criteria.branchId !== undefined && entity?.branchId !== criteria.branchId) continue;
       const day = dayInBuenosAires(entry.occurredAt);
+      if (!inRange(day, criteria.days)) continue;
       const key = `${entry.entityType}|${entry.entityId}|${day}`;
       const card = cards.get(key) ?? {
         entityType: entry.entityType,
@@ -73,6 +81,27 @@ export class InMemoryNewsFeedQuery implements NewsFeedQuery {
       items: all.slice(criteria.offset, criteria.offset + criteria.limit),
       total: all.length,
     });
+  }
+
+  dailyCounts(criteria: NewsActivityCriteria) {
+    this.activityCriteria.push(criteria);
+    const cards = new Map<string, string>();
+    for (const entry of this.entries) {
+      const kind = newsKindOf(entry.action, entry.changes);
+      if (kind === undefined || !criteria.kinds.includes(kind)) continue;
+      const entity = this.entities.get(entry.entityId);
+      if (criteria.branchId !== undefined && entity?.branchId !== criteria.branchId) continue;
+      const day = dayInBuenosAires(entry.occurredAt);
+      if (!inRange(day, criteria.days)) continue;
+      cards.set(`${entry.entityType}|${entry.entityId}|${day}|${kind}`, day);
+    }
+    const counts = new Map<string, number>();
+    for (const day of cards.values()) counts.set(day, (counts.get(day) ?? 0) + 1);
+    return Promise.resolve(
+      [...counts.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([day, count]) => ({ day, count })),
+    );
   }
 }
 

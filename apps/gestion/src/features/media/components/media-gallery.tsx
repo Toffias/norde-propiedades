@@ -53,9 +53,14 @@ import {
 } from '@norde/ui/components/select';
 import { toast } from '@norde/ui/components/sonner';
 import { Textarea } from '@norde/ui/components/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@norde/ui/components/tooltip';
 import { cn } from '@norde/ui/lib/utils';
 import {
+  DownloadIcon,
+  DraftingCompassIcon,
   ExternalLinkIcon,
+  FileTextIcon,
+  GlobeIcon,
   GripVerticalIcon,
   ImageIcon,
   ImageOffIcon,
@@ -64,6 +69,7 @@ import {
   MoreVerticalIcon,
   PlayCircleIcon,
   RotateCwIcon,
+  StarIcon,
   TextIcon,
   Trash2Icon,
   VideoIcon,
@@ -508,6 +514,41 @@ function MediaTile({
         >
           {item.description ?? ''}
         </p>
+        {canEdit && (
+          <>
+            <QuickAction
+              icon={StarIcon}
+              filled
+              label={item.isCover ? 'Es la portada' : 'Usar como portada'}
+              active={item.isCover}
+              disabled={pending || item.isCover || item.kind !== 'photo'}
+              onClick={() => {
+                run(() => setMediaCoverAction(owner, { mediaId: item.id }), 'Portada elegida.');
+              }}
+            />
+            <QuickAction
+              icon={GlobeIcon}
+              label={item.showOnWeb ? 'Se muestra en la web' : 'Mostrar en la web'}
+              active={item.showOnWeb}
+              disabled={pending}
+              onClick={() => {
+                update({ mediaId: item.id, showOnWeb: !item.showOnWeb }, 'Foto actualizada.');
+              }}
+            />
+            <QuickAction
+              icon={DraftingCompassIcon}
+              label={item.kind === 'floor_plan' ? 'Es un plano' : 'Marcar como plano'}
+              active={item.kind === 'floor_plan'}
+              disabled={pending}
+              onClick={() => {
+                update(
+                  { mediaId: item.id, isFloorPlan: item.kind !== 'floor_plan' },
+                  'Foto actualizada.',
+                );
+              }}
+            />
+          </>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -532,6 +573,7 @@ function MediaTile({
                     run(() => setMediaCoverAction(owner, { mediaId: item.id }), 'Portada elegida.');
                   }}
                 >
+                  <StarIcon />
                   Usar como portada
                 </DropdownMenuItem>
                 <DropdownMenuCheckboxItem
@@ -540,6 +582,7 @@ function MediaTile({
                     update({ mediaId: item.id, showOnWeb: checked }, 'Foto actualizada.');
                   }}
                 >
+                  <GlobeIcon />
                   Mostrar en la web
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
@@ -548,6 +591,7 @@ function MediaTile({
                     update({ mediaId: item.id, includeInPdf: checked }, 'Foto actualizada.');
                   }}
                 >
+                  <FileTextIcon />
                   Incluir en el PDF
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
@@ -556,6 +600,7 @@ function MediaTile({
                     update({ mediaId: item.id, isFloorPlan: checked }, 'Foto actualizada.');
                   }}
                 >
+                  <DraftingCompassIcon />
                   Es un plano
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuItem
@@ -566,6 +611,7 @@ function MediaTile({
                     );
                   }}
                 >
+                  <RotateCwIcon />
                   Rotar 90°
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -573,6 +619,7 @@ function MediaTile({
                     setDescribing(true);
                   }}
                 >
+                  <TextIcon />
                   Descripción…
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -580,6 +627,7 @@ function MediaTile({
             )}
             <DropdownMenuItem asChild>
               <a href={`${src}?v=original`} download>
+                <DownloadIcon />
                 Descargar la original
               </a>
             </DropdownMenuItem>
@@ -590,6 +638,7 @@ function MediaTile({
                   setDeleting(true);
                 }}
               >
+                <Trash2Icon className="text-destructive" />
                 Borrar
               </DropdownMenuItem>
             )}
@@ -712,6 +761,50 @@ function UploadTile({
         )}
       </div>
     </li>
+  );
+}
+
+/** Un atajo del pie de la foto: el ícono se resalta cuando la opción está activa. */
+function QuickAction({
+  icon: Icon,
+  label,
+  active,
+  disabled,
+  onClick,
+  filled = false,
+}: {
+  readonly icon: LucideIcon;
+  readonly label: string;
+  readonly active: boolean;
+  readonly disabled: boolean;
+  readonly onClick: () => void;
+  /** Rellena el ícono cuando está activa (la estrella de la portada). */
+  readonly filled?: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* El span lleva el tooltip aunque el botón esté deshabilitado. */}
+        <span className="inline-flex">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={label}
+            aria-pressed={active}
+            disabled={disabled}
+            onClick={onClick}
+            className={cn(
+              active ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
+              'disabled:opacity-100',
+              disabled && !active && 'opacity-50',
+            )}
+          >
+            <Icon className={cn('h-4 w-4', active && filled && 'fill-current')} />
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

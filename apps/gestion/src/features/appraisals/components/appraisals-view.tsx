@@ -31,6 +31,7 @@ import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
 } from '../../shared/components/confirm-action-dialog';
+import { usePanel } from '../../shared/components/entity-sheet';
 import { FilterMultiSelect, options } from '../../shared/components/list-filters';
 import {
   ListNavigationProvider,
@@ -40,6 +41,7 @@ import {
 import { deleteAppraisalAction, restoreAppraisalAction } from '../actions';
 import { APPRAISAL_STATUS_DISPLAY, APPRAISAL_STATUS_GROUP_LABELS } from '../labels';
 import { appraisalPhotoHref } from '../paths';
+import { AppraisalSheet } from './appraisal-sheet';
 import { ExportAppraisalsButton } from './export-appraisals-button';
 
 /**
@@ -250,10 +252,12 @@ function ActionsBar({
   filters,
   permissions,
   total,
+  onCreate,
 }: {
   readonly filters: AppraisalFilterValues;
   readonly permissions: AppraisalListPermissions;
   readonly total: number;
+  readonly onCreate: () => void;
 }) {
   const { setParams } = useListNavigation();
   const inTrash = filters.view === 'trash';
@@ -278,11 +282,9 @@ function ActionsBar({
           </Button>
         )}
         {permissions.create && !inTrash && (
-          <Button asChild>
-            <Link href="/tasaciones/nueva">
-              <PlusIcon className="h-4 w-4" />
-              Nueva tasación
-            </Link>
+          <Button onClick={onCreate}>
+            <PlusIcon className="h-4 w-4" />
+            Nueva tasación
           </Button>
         )}
       </div>
@@ -292,7 +294,7 @@ function ActionsBar({
 
 /**
  * Listado de tasaciones: grilla paginada en el servidor con filtros y papelera. Cada fila abre la
- * ficha de la tasación.
+ * ficha de la tasación; el alta, el panel lateral.
  */
 export function AppraisalsView({
   rows,
@@ -314,6 +316,7 @@ export function AppraisalsView({
   readonly labels: AppraisalFilterLabels;
 }) {
   const router = useRouter();
+  const navigation = usePanel();
   const [pending, setPending] = useState<PendingAction | undefined>();
   const inTrash = filters.view === 'trash';
   const hasFilters = Object.entries(filters).some(
@@ -485,7 +488,12 @@ export function AppraisalsView({
   return (
     <>
       <ListNavigationProvider>
-        <ActionsBar filters={filters} permissions={permissions} total={total} />
+        <ActionsBar
+          filters={filters}
+          permissions={permissions}
+          total={total}
+          onCreate={navigation.openNew}
+        />
       </ListNavigationProvider>
       <ServerDataTable
         label={inTrash ? 'Papelera de tasaciones' : 'Tasaciones'}
@@ -520,6 +528,7 @@ export function AppraisalsView({
           if (!open) setPending(undefined);
         }}
       />
+      {permissions.create && <AppraisalSheet navigation={navigation} />}
     </>
   );
 }

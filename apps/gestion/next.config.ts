@@ -7,6 +7,12 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
+  redirects() {
+    // El alta de tasaciones pasó al panel lateral del listado: los enlaces viejos llegan ahí.
+    return Promise.resolve([
+      { source: '/tasaciones/nueva', destination: '/tasaciones?panel=new', permanent: false },
+    ]);
+  },
   experimental: {
     // Subida de archivos al gestor de Mi empresa (hasta 25 MB, más el resto del formulario).
     serverActions: { bodySizeLimit: '26mb' },

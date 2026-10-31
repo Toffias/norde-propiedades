@@ -8,6 +8,7 @@ import { useState } from 'react';
 
 import { isExternal } from '../../lib/properties/images';
 import type { ListingImage } from '../../lib/properties/view';
+import { SkeletonImage } from '../layout/skeleton-image';
 
 /**
  * Ancho de cada foto del mosaico (4 columnas × 2 filas) según cuántas hay, para que nunca quede
@@ -71,7 +72,7 @@ export function PropertyGallery({ title, photos }: PropertyGalleryProps) {
               tileSpan(index, mosaic.length),
             )}
           >
-            <Image
+            <SkeletonImage
               src={photo.src}
               alt={photo.alt}
               fill
@@ -116,7 +117,8 @@ export function PropertyGallery({ title, photos }: PropertyGalleryProps) {
           </DialogDescription>
           {current && (
             <div className="relative h-[70vh]">
-              <Image
+              <SkeletonImage
+                key={current.src}
                 src={current.src}
                 alt={current.alt}
                 fill

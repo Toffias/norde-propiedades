@@ -70,6 +70,13 @@ export const auditLog = coreSchema.table(
     index('audit_log_occurred_idx').on(t.occurredAt),
     // Noticias: feed por tipo de entidad.
     index('audit_log_entity_type_occurred_idx').on(t.entityType, t.occurredAt.desc()),
+    // Mi cuenta: lo que hizo cada usuario, en total y por área.
+    index('audit_log_actor_occurred_idx').on(t.actorId, t.occurredAt.desc()),
+    index('audit_log_actor_entity_type_occurred_idx').on(
+      t.actorId,
+      t.entityType,
+      t.occurredAt.desc(),
+    ),
     index('audit_log_client_ids_idx').using('gin', t.clientIds),
     index('audit_log_correlation_idx')
       .on(t.correlationId)

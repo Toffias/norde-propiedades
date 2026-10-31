@@ -102,6 +102,7 @@ export function NotificationBell({
     <Popover open={open} onOpenChange={changeOpen}>
       <PopoverTrigger asChild>
         <Button
+          data-tour="shell-notifications"
           type="button"
           variant="ghost"
           size="sm"

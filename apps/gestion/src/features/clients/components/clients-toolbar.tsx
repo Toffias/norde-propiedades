@@ -96,6 +96,7 @@ export function LayoutSwitcher({ layout }: { readonly layout: ClientLayout }) {
   const { setParams } = useListNavigation();
   return (
     <div
+      data-tour="clients-view"
       role="group"
       aria-label="Cómo ver los contactos"
       className="inline-flex shrink-0 self-start rounded-md border border-border bg-card p-0.5"
@@ -431,7 +432,10 @@ export function ClientsToolbar({
   const { setParams } = useListNavigation();
 
   return (
-    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
+    <div
+      data-tour="clients-filters"
+      className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center"
+    >
       <div className="col-span-2 sm:contents">
         <SearchInput value={filters.q} />
       </div>

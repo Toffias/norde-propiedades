@@ -181,7 +181,10 @@ export function ClientDetailHeader({
     detail.can.edit || canReassign || detail.can.merge || canTrash || detail.can.erase;
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:p-5">
+    <div
+      data-tour="client-header"
+      className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:p-5"
+    >
       {inTrash && (
         <p
           role="status"
@@ -275,7 +278,7 @@ export function ClientDetailHeader({
         </div>
 
         <div className="flex flex-col gap-3 lg:items-end">
-          <div className="flex flex-wrap gap-2 lg:justify-end">
+          <div data-tour="client-contact" className="flex flex-wrap gap-2 lg:justify-end">
             {opportunityCatalog !== undefined && detail.activeOpportunity !== undefined && (
               <OpportunityActionsMenu
                 target={{
@@ -337,6 +340,7 @@ export function ClientDetailHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    data-tour="client-actions"
                     type="button"
                     variant="outline"
                     size="sm"

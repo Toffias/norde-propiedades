@@ -251,7 +251,10 @@ function Toolbar({
   readonly labels: ReservationFilterLabels;
 }) {
   return (
-    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
+    <div
+      data-tour="reservations-filters"
+      className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center"
+    >
       <FilterMultiSelect
         param="status"
         value={filters.status}
@@ -313,12 +316,19 @@ function ActionsBar({
         {total === 1 ? '1 reserva' : `${total.toLocaleString('es-AR')} reservas`}
       </p>
       <div className="ml-auto flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="outline" disabled={total === 0} onClick={printLight}>
+        <Button
+          data-tour="reservations-print"
+          type="button"
+          variant="outline"
+          disabled={total === 0}
+          onClick={printLight}
+        >
           <PrinterIcon className="h-4 w-4" />
           Imprimir
         </Button>
         {permissions.export && (
           <Button
+            data-tour="reservations-export"
             type="button"
             variant="outline"
             disabled={exporting || total === 0}

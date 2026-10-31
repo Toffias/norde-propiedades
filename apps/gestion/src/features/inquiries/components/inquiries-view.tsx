@@ -119,7 +119,7 @@ function TabCardsBody({
 }) {
   const { setParams } = useListNavigation();
   return (
-    <nav aria-label="Estado de las consultas">
+    <nav data-tour="inquiries-status" aria-label="Estado de las consultas">
       <ul className="grid grid-cols-3 gap-2">
         {INQUIRY_TAB_VALUES.map((value) => {
           const active = tab === value;
@@ -240,7 +240,10 @@ function Toolbar({
   const active = more + (filters.channel.length > 0 ? 1 : 0) + (filters.propertyId === '' ? 0 : 1);
 
   return (
-    <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap">
+    <div
+      data-tour="inquiries-filters"
+      className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap"
+    >
       <FilterMultiSelect
         param="channel"
         value={filters.channel}
@@ -626,6 +629,7 @@ function InboxBody({
         </p>
       ) : (
         <ul
+          data-tour="inquiries-list"
           aria-label={`Consultas ${INQUIRY_TAB_LABELS[filters.tab].toLowerCase()}`}
           className={cn('divide-y divide-border', pending && 'opacity-60')}
         >

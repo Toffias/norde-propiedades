@@ -66,7 +66,7 @@ export default async function DevelopmentsPage({
         </p>
       )}
 
-      <Card className="gap-0 overflow-hidden p-0">
+      <Card data-tour="developments-grid" className="gap-0 overflow-hidden p-0">
         {result?.isErr() === true ? (
           <DataTableError
             message={messageForError(result.error, DEVELOPMENT_LIST_ERROR_MESSAGES)}

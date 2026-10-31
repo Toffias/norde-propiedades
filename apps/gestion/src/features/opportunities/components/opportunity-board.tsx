@@ -563,7 +563,7 @@ function BoardBody({
           },
         }}
       >
-        <div className="flex snap-x gap-3 overflow-x-auto p-3">
+        <div data-tour="opportunities-board" className="flex snap-x gap-3 overflow-x-auto p-3">
           {serverColumns.map(({ stage }) => {
             const state = columns[stage.id];
             if (!state) return null;

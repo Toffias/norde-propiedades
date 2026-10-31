@@ -75,7 +75,10 @@ export function NewsSummary({
     (period === 'yesterday' && index === activity.length - 2);
 
   return (
-    <section className="relative grid gap-5 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-xs sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <section
+      data-tour="news-summary"
+      className="relative grid gap-5 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-xs sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+    >
       <span className="absolute inset-y-0 left-0 w-[3px] bg-primary-500" aria-hidden />
       <div className="min-w-0">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">

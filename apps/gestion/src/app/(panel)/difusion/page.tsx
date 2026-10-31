@@ -58,6 +58,7 @@ export default async function PublicationsPage() {
             action={
               kinds[0] && (
                 <Link
+                  data-tour="publications-portal-link"
                   href={portalPath(portal, kinds[0].kind)}
                   className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
                 >

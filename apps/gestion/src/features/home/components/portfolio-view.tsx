@@ -54,7 +54,7 @@ export function PortfolioView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div data-tour="home-kpis" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {value?.clientsWithOpenOpportunity !== undefined && (
           <KpiCard
             icon={UsersIcon}

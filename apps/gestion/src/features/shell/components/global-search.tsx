@@ -481,7 +481,11 @@ export function GlobalSearch({
     <>
       <Popover open={open && search.term !== ''} onOpenChange={setOpen}>
         <PopoverAnchor asChild>
-          <div ref={anchorRef} className="hidden w-[300px] md:block lg:w-[420px]">
+          <div
+            data-tour="shell-search"
+            ref={anchorRef}
+            className="hidden w-[300px] md:block lg:w-[420px]"
+          >
             <SearchField
               {...fieldProps}
               inputRef={inputRef}
@@ -517,6 +521,7 @@ export function GlobalSearch({
         type="button"
         variant="ghost"
         size="icon-sm"
+        data-tour="shell-search"
         className="md:hidden"
         aria-label="Buscar"
         onClick={() => {

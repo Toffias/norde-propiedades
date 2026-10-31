@@ -32,7 +32,7 @@ export function ClientNoteComposer({ clientId }: { readonly clientId: string }) 
   }, []);
 
   return (
-    <Card className="gap-3 p-4">
+    <Card data-tour="client-note" className="gap-3 p-4">
       <form
         className="flex flex-col gap-3"
         onSubmit={(event) => {

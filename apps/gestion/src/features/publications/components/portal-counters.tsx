@@ -26,7 +26,7 @@ export function PortalCounters({
   readonly active?: PublicationBucketValue;
 }) {
   return (
-    <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <ul data-tour="publications-counters" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {COUNTER_ORDER.map((bucket) => {
         const { label, hint, tone } = BUCKET_LABELS[bucket];
         const current = bucket === active;

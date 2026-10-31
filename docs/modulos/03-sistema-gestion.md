@@ -1083,9 +1083,9 @@ La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y pap
 - Papelera con restaurar, con `appraisals:delete`.
 - **Exportar a Excel** (#175), con "Exportar tasaciones" (`appraisals:export`): las que cumplen los filtros aplicados y el usuario puede ver, por lotes y hasta 10.000. Lleva las columnas de Tokko (código, estado, tipo, dirección, solicitante, productor, tasador, sucursal, alta y última modificación) más ambientes, superficies, visita y los valores tasados de venta y alquiler (moneda, desde y hasta), que Tokko no exporta. Queda en la auditoría con el filtro y la cantidad.
 
-### 6.2 Alta y ficha (`/tasaciones/nueva`, `/tasaciones/[id]`)
+### 6.2 Alta y ficha (`/tasaciones?panel=new`, `/tasaciones/[id]`)
 
-La tasación tiene pantalla propia (no panel lateral).
+El alta es un panel lateral ancho sobre el listado, como el de propiedades; al guardarla se abre su ficha, que es pantalla propia. `/tasaciones/nueva` redirige al panel.
 
 - **Solicitud**: solicitante (el cliente propietario, obligatorio), productor (quien trae la tasación; sin elegir, quien la carga), tasador (opcional hasta asignarlo) y visita (día y hora de Buenos Aires). La sucursal es la del productor.
 - **Propiedad**: tipo (obligatorio), dirección, superficie total y cubierta (m², hasta dos decimales), ambientes, dormitorios, baños y estado de conservación. Los catálogos son los de las propiedades, para poder convertirla.
@@ -1179,9 +1179,14 @@ El feed de actividad de la empresa (`/noticias`, permiso `news:read`). Se lee de
 | Cambios de precio     | Edición que cambia un precio o su moneda, con el anterior (sube o baja)                          |
 | Reservas              | Reserva, reserva caída y reserva firmada                                                         |
 
-- **Tarjetas**: una por propiedad o contacto y por día (en Buenos Aires), ordenadas por su novedad más reciente. Muestran la entidad como está hoy (estado, código, tipo, barrio y operaciones; nombre y etiquetas), la última novedad con su autor y hora, y las demás plegadas ("N actualizaciones más"). Cada tarjeta trae hasta 20 novedades; las demás se ven en el historial de la ficha.
-- **Scroll infinito**, paginado por tarjetas en la base (15 por tanda).
-- **Tipos**: el selector "Mostrando N tipos de noticias" se guarda por usuario en una cookie.
+La pantalla es un **resumen por período**, no un feed cronológico:
+
+- **Período**: Hoy (por defecto), Ayer o Últimos 7 días (hoy incluido), en días de Buenos Aires. Va en la URL (`?periodo=ayer`, `?periodo=semana`).
+- **Resumen**: una frase con lo que pasó en el período ("Hoy hubo 5 novedades: 2 propiedades nuevas, 1 reserva…"), con enlace a cada sección, y un gráfico de barras con la actividad de los últimos 7 días (cada barra de hoy y ayer lleva a ese día; las demás, a la semana).
+- **Secciones**: una por tipo de noticia, en el orden de la tabla de arriba empezando por las de propiedades. Las de propiedades son tarjetas con la foto de portada, una pastilla con lo que cambió (variación del precio, estado nuevo, "Reservada"…), el título, el cambio y su autor. Las de contactos son una lista con nombre, etiquetas, lo que pasó, autor y hora. Las secciones sin novedades no se muestran.
+- **Tarjetas**: una por propiedad o contacto, por día y por tipo. Muestran la entidad como está hoy y la novedad más reciente de ese tipo ese día; si hubo más, un enlace "+N cambios" lleva al historial de la ficha. En "Últimos 7 días" cada tarjeta dice también el día.
+- **Paginado** en la base por sección (6 tarjetas de propiedades o 5 filas de contactos por tanda), con "Ver N más". El gráfico cuenta por día las mismas tarjetas que las secciones (entidad, día y tipo).
+- **Tipos**: el selector "Mostrando N tipos de noticias" se guarda por usuario en una cookie y oculta las secciones que no se eligieron.
 - **Alcance**: lo define "Noticias" en Mi empresa → General. Con "Sucursal", cada usuario ve las propiedades y contactos de su sucursal; un usuario sin sucursal ve todo. Las reglas de lectura de propiedades y contactos no se aplican al feed: se ve la novedad aunque no se pueda abrir la ficha.
 - Los avisos a cada usuario (lo que le asignan) van en la campana de la barra (§9, #112).
 

@@ -2,7 +2,16 @@ import type { HistoryValue, NewsEntryRow } from '@norde/core/audit/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { parseNewsKinds, serializeNewsKinds } from './news-kinds';
-import { newsAuthor, newsDayLabel, newsDayOf, newsLines, type NewsLine } from './news-format';
+import {
+  newsAuthor,
+  newsDayLabel,
+  newsDayOf,
+  newsDaySpanLabel,
+  newsLines,
+  newsShortDayLabel,
+  newsWeekdayInitial,
+  type NewsLine,
+} from './news-format';
 
 const USER = '00000000-0000-7000-8000-0000000000a1';
 
@@ -154,6 +163,31 @@ describe('newsDayLabel', () => {
 
   it('takes the day in Buenos Aires', () => {
     expect(newsDayOf(new Date('2026-10-05T02:00:00Z'))).toBe('2026-10-04');
+  });
+});
+
+describe('newsShortDayLabel', () => {
+  it('says today, yesterday or the short weekday and day', () => {
+    expect(newsShortDayLabel('2026-10-31', '2026-10-31')).toBe('Hoy');
+    expect(newsShortDayLabel('2026-10-30', '2026-10-31')).toBe('Ayer');
+    expect(newsShortDayLabel('2026-10-27', '2026-10-31')).toBe('mar 27');
+  });
+});
+
+describe('newsDaySpanLabel', () => {
+  it('names the month once when both days share it', () => {
+    expect(newsDaySpanLabel('2026-10-25', '2026-10-31')).toBe('Del 25 al 31 de octubre');
+    expect(newsDaySpanLabel('2026-09-28', '2026-10-04')).toBe(
+      'Del 28 de septiembre al 4 de octubre',
+    );
+  });
+});
+
+describe('newsWeekdayInitial', () => {
+  it('tells Tuesday from Wednesday', () => {
+    expect(newsWeekdayInitial('2026-10-27')).toBe('M');
+    expect(newsWeekdayInitial('2026-10-28')).toBe('X');
+    expect(newsWeekdayInitial('2026-11-01')).toBe('D');
   });
 });
 

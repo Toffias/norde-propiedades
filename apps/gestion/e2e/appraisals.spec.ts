@@ -11,7 +11,8 @@ test.use({ storageState: storageStateFor('admin') });
 
 test.describe('alta', () => {
   test('pide el solicitante', async ({ page }) => {
-    await page.goto('/tasaciones/nueva');
+    await page.goto('/tasaciones');
+    await page.getByRole('button', { name: 'Nueva tasación' }).click();
 
     await page.getByRole('button', { name: 'Cargar tasación' }).click();
 

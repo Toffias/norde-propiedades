@@ -31,18 +31,50 @@ export const NEWS_MAX_PAGE_SIZE = 30;
 /** Entradas que trae cada tarjeta; las demás se ven en el historial de la entidad. */
 export const NEWS_ENTRIES_PER_CARD = 20;
 
+/**
+ * El período del resumen de Noticias, en días de Buenos Aires: hoy, ayer o los últimos 7 días
+ * (hoy incluido). Sin período, el feed no tiene límite de fechas.
+ */
+export const NEWS_PERIODS = ['today', 'yesterday', 'week'] as const;
+export type NewsPeriod = (typeof NEWS_PERIODS)[number];
+
+/** Días que muestra el gráfico de actividad del resumen, hoy incluido. */
+export const NEWS_ACTIVITY_DAYS = 7;
+
+const newsKindsSchema = z
+  .array(z.enum(NEWS_KIND_VALUES))
+  .max(NEWS_KIND_VALUES.length)
+  .default([...NEWS_KIND_VALUES]);
+
 /** El feed va siempre de lo más nuevo a lo más viejo; sin tipos, se ven todos. */
 export const NewsFeedQuerySchema = pageQuerySchema({
   sortable: ['occurredAt'],
   defaultSort: { field: 'occurredAt', direction: 'desc' },
 }).extend({
   pageSize: z.coerce.number().int().min(1).max(NEWS_MAX_PAGE_SIZE).default(NEWS_PAGE_SIZE),
-  kinds: z
-    .array(z.enum(NEWS_KIND_VALUES))
-    .max(NEWS_KIND_VALUES.length)
-    .default([...NEWS_KIND_VALUES]),
+  kinds: newsKindsSchema,
+  period: z.enum(NEWS_PERIODS).optional(),
 });
 export type ListNewsQuery = z.input<typeof NewsFeedQuerySchema>;
+
+/** La actividad de los últimos días, para el gráfico del resumen. */
+export const NewsActivityQuerySchema = z.object({ kinds: newsKindsSchema });
+export type GetNewsActivityQuery = z.input<typeof NewsActivityQuerySchema>;
+
+/**
+ * Novedades de un día: cada entidad cuenta una vez por tipo de noticia, como las tarjetas de las
+ * secciones del resumen.
+ */
+export interface NewsActivityDay {
+  /** `AAAA-MM-DD` en Buenos Aires. */
+  readonly day: string;
+  readonly count: number;
+}
+
+export interface NewsActivity {
+  /** Del más viejo a hoy, uno por día (con cero los días sin novedades). */
+  readonly days: readonly NewsActivityDay[];
+}
 
 export interface NewsPropertyHeader {
   readonly entityType: 'property';

@@ -1,5 +1,5 @@
 import type { PageSlice } from '../../../shared';
-import type { HistoryChange, NewsHeader } from '../../contracts';
+import type { HistoryChange, NewsActivityDay, NewsHeader } from '../../contracts';
 import type { NewsEntityType, NewsKind } from '../../domain/news';
 
 export interface NewsFeedCriteria {
@@ -7,11 +7,25 @@ export interface NewsFeedCriteria {
   readonly kinds: readonly NewsKind[];
   /** Solo las entidades de esta sucursal; `undefined`, todas. */
   readonly branchId: string | undefined;
+  /** Solo las novedades de estos días (inclusive); `undefined`, sin límite de fechas. */
+  readonly days: NewsDayRange | undefined;
   /** Sobre las tarjetas (entidad + día), no sobre las entradas. */
   readonly offset: number;
   readonly limit: number;
   /** Como mucho, estas entradas por tarjeta: las más nuevas. */
   readonly entriesPerCard: number;
+}
+
+/** Días de Buenos Aires (`AAAA-MM-DD`), los dos inclusive. */
+export interface NewsDayRange {
+  readonly from: string;
+  readonly to: string;
+}
+
+export interface NewsActivityCriteria {
+  readonly kinds: readonly NewsKind[];
+  readonly branchId: string | undefined;
+  readonly days: NewsDayRange;
 }
 
 export interface NewsEntryRecord {
@@ -41,6 +55,11 @@ export interface NewsCardRecord {
  */
 export interface NewsFeedQuery {
   list(criteria: NewsFeedCriteria): Promise<PageSlice<NewsCardRecord>>;
+  /**
+   * Cuántas tarjetas (entidad, día y tipo) hay por día, en el rango. Solo vuelven los días con
+   * novedades: como mucho, uno por día del rango.
+   */
+  dailyCounts(criteria: NewsActivityCriteria): Promise<readonly NewsActivityDay[]>;
 }
 
 /** El alcance de Noticias de la configuración de la empresa (settings). */

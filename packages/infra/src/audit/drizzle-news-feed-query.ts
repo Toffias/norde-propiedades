@@ -5,8 +5,11 @@ import {
   NEWS_KINDS,
   OPERATIONS_FIELD,
   PROPERTY_EDIT_ACTION,
+  type NewsActivityCriteria,
+  type NewsActivityDay,
   type NewsCardRecord,
   type NewsClientHeader,
+  type NewsDayRange,
   type NewsFeedCriteria,
   type NewsFeedQuery,
   type NewsPropertyHeader,
@@ -43,6 +46,13 @@ const PropertyRow = z.object({
   status: z.enum(PROPERTY_STATUS_VALUES),
 });
 const OperationRow = z.object({ operation: z.enum(OPERATIONS), currency: z.enum(CURRENCIES) });
+
+/** Días entre dos `AAAA-MM-DD`. */
+function daysBetween(days: NewsDayRange): number {
+  return Math.round(
+    (Date.parse(`${days.to}T00:00:00Z`) - Date.parse(`${days.from}T00:00:00Z`)) / 86_400_000,
+  );
+}
 
 /** Etiquetas que muestra la tarjeta de un contacto. */
 const MAX_CARD_TAGS = 8;
@@ -95,6 +105,15 @@ function inBranch(branchId: string): SQL {
 }
 
 /**
+ * Las novedades de esos días de Buenos Aires, como rango de instantes para que use el índice de
+ * `occurred_at`: desde la medianoche de `from` hasta la de el día siguiente a `to`.
+ */
+function inDays(days: NewsDayRange): SQL {
+  return sql`${auditLog.occurredAt} >= (${days.from}::date)::timestamp at time zone ${TIME_ZONE}
+    and ${auditLog.occurredAt} < (${days.to}::date + 1)::timestamp at time zone ${TIME_ZONE}`;
+}
+
+/**
  * Noticias sobre `audit_log`, con el índice `(entity_type, occurred_at desc)`: clasifica cada
  * entrada, agrupa por entidad y día en Buenos Aires y pagina las tarjetas. Las cabeceras salen de
  * propiedades y contactos tal como están hoy, también los que están en la papelera.
@@ -103,7 +122,7 @@ export class DrizzleNewsFeedQuery implements NewsFeedQuery {
   constructor(private readonly db: DbExecutor) {}
 
   /** Las novedades (entradas que son noticia de esos tipos), acotadas por `where`. */
-  private news(criteria: NewsFeedCriteria, where?: SQL) {
+  private news(criteria: Pick<NewsFeedCriteria, 'kinds' | 'branchId' | 'days'>, where?: SQL) {
     const kind = sql<string | null>`(${kindExpression()})`;
     return this.db.$with('news').as(
       this.db
@@ -127,6 +146,7 @@ export class DrizzleNewsFeedQuery implements NewsFeedQuery {
             inArray(auditLog.action, [...NEWS_ACTIONS]),
             inArray(kind, [...criteria.kinds]),
             criteria.branchId === undefined ? undefined : inBranch(criteria.branchId),
+            criteria.days === undefined ? undefined : inDays(criteria.days),
             where,
           ),
         ),
@@ -177,6 +197,29 @@ export class DrizzleNewsFeedQuery implements NewsFeedQuery {
         };
       }),
     };
+  }
+
+  async dailyCounts(criteria: NewsActivityCriteria): Promise<readonly NewsActivityDay[]> {
+    if (criteria.kinds.length === 0) return [];
+    const news = this.news(criteria);
+    const cards = this.db
+      .with(news)
+      .selectDistinct({
+        entityType: news.entityType,
+        entityId: news.entityId,
+        day: news.day,
+        kind: news.kind,
+      })
+      .from(news)
+      .as('cards');
+    const rows = await this.db
+      .select({ day: cards.day, count: count() })
+      .from(cards)
+      .groupBy(cards.day)
+      .orderBy(asc(cards.day))
+      // Como mucho, un renglón por día del rango.
+      .limit(daysBetween(criteria.days) + 1);
+    return rows.map((row) => ({ day: row.day, count: row.count }));
   }
 
   /** Las entradas más nuevas de cada tarjeta de la página. */

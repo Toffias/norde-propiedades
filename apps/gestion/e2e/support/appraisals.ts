@@ -26,7 +26,8 @@ export async function pickOption(
 export async function createAppraisal(page: Page): Promise<CreatedAppraisal> {
   const requester = await createContact(page);
 
-  await page.goto('/tasaciones/nueva');
+  await page.goto('/tasaciones');
+  await page.getByRole('button', { name: 'Nueva tasación' }).click();
   await pickOption(page, page.getByRole('combobox', { name: 'Solicitante' }), {
     label: 'Buscar contacto',
     text: requester.name,

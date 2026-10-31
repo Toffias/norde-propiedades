@@ -48,14 +48,14 @@ function capitalize(text: string): string {
 }
 
 /** Lo que cambió, campo por campo y uno al lado del otro: "Precio: US$ 120.000 → US$ 115.000". */
-function Changes({
-  entry,
+export function HistoryChanges({
+  changes: diff,
   format,
 }: {
-  readonly entry: HistoryEntryRow;
+  readonly changes: HistoryEntryRow['changes'];
   readonly format: HistoryFormat;
 }) {
-  const changes = Object.entries(entry.changes);
+  const changes = Object.entries(diff);
   if (changes.length === 0) return null;
   const prefix = sharedPrefix(changes.map(([field]) => format.fieldLabel(field)));
   const label = (field: string) => {
@@ -181,7 +181,7 @@ export function AuditHistoryGrid({
             <span className="font-medium">{actorName(entry)}</span>{' '}
             {format.actionLabels[entry.action] ?? entry.action}
           </p>
-          <Changes entry={entry} format={format} />
+          <HistoryChanges changes={entry.changes} format={format} />
         </div>
       ),
     },

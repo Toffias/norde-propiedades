@@ -88,6 +88,16 @@ Roles propuestos (a validar con Norde):
 - **Recuperación**: si se perdieron el celular y los códigos, un administrador con `users:reset-password` le quita la verificación desde Mi empresa → Usuarios (acción de la fila, solo en quien la tiene activa). Vuelve a entrar solo con la contraseña.
 - Auditoría contra el usuario: `user.signed-in` con el factor usado (`secondFactor`), `user.sign-in-failed` con el motivo y el factor, `user.two-factor-enabled`, `user.two-factor-disabled`, `user.two-factor-backup-codes-regenerated` y `user.two-factor-reset`.
 
+**Implementado (historial de la cuenta):**
+
+- **Mi cuenta** usa el ancho completo, como el resto de las pantallas: a la izquierda los datos (nombre, email, roles), la contraseña y la verificación en dos pasos; a la derecha, el **historial** de la cuenta.
+- El historial es todo lo que hizo quien mira, leído de `audit_log` por autor (`ListMyActivity`, módulo `audit`): altas, ediciones, bajas, cambios de estado, exportaciones, ingresos y cierres de sesión.
+  - Timeline agrupado por día de Buenos Aires ("Hoy", "Ayer", "Jueves, 29 de octubre"), de lo más nuevo a lo más viejo, paginado en el servidor (25 o 50 por página).
+  - Filtros en la URL: **área** (propiedades, emprendimientos, contactos, oportunidades, tasaciones, cuenta y usuarios, configuración y otros) y **período**. Índices `audit_log (actor_id, occurred_at)` y `(actor_id, entity_type, occurred_at)` (migración 0056).
+  - Cada acción nombra la entidad (código y título o nombre) con enlace a su ficha; la oportunidad enlaza a su contacto. Si la entidad está en la papelera, se marca.
+  - El diff se muestra con el mismo formato que la pestaña Historial de la ficha (propiedad, contacto, emprendimiento, tasación). Las exportaciones no muestran diff.
+  - Cualquier usuario ve el suyo, sin permisos. Si ya no puede leer un área (le cambiaron el rol), la entrada queda sin el nombre de la entidad ni el diff. Los ingresos fallidos no aparecen: los registra el sistema, no el usuario.
+
 **Implementado (#3, roles y permisos):**
 
 - **Mi empresa → Roles** (`/mi-empresa/roles`): grilla paginada con búsqueda y cantidad de usuarios por rol, y su **papelera** (baja lógica, con restaurar).

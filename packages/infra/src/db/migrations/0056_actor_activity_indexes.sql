@@ -1,0 +1,2 @@
+CREATE INDEX "audit_log_actor_occurred_idx" ON "core"."audit_log" USING btree ("actor_id","occurred_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "audit_log_actor_entity_type_occurred_idx" ON "core"."audit_log" USING btree ("actor_id","entity_type","occurred_at" DESC NULLS LAST);

@@ -362,8 +362,9 @@ describe('DrizzleClientListQuery', () => {
   it('filters by text, agent, branch, types and dates, and sorts by name', async () => {
     await seedAgenda();
 
-    const byName = await query.search({ ...BASE, text: 'contacto 00042' });
-    expect(byName.items.map((item) => item.name)).toEqual(['Contacto 00042']);
+    // Cada palabra se busca por separado y en cualquier orden.
+    const byName = await query.search({ ...BASE, text: '05000 contacto' });
+    expect(byName.items.map((item) => item.name)).toEqual(['Contacto 05000']);
     const byEmail = await query.search({ ...BASE, text: 'contacto43@mail' });
     expect(byEmail.items.map((item) => item.email)).toEqual(['contacto43@mail.com']);
 

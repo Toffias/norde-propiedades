@@ -35,6 +35,7 @@ import {
 } from '../navigation';
 import { FallbackImage } from '../../properties/components/property-photo';
 import { GlobalSearch } from './global-search';
+import { HelpTourButton } from './help-tour-button';
 import { NotificationBell } from './notification-bell';
 
 const NavLink: NavLinkComponent = ({ href, className, onClick, children, ...aria }) => (
@@ -165,6 +166,7 @@ export function PanelShell({
             canSeeAllTasks={notifications.canSeeAllTasks}
           />
           <ThemeSwitcher />
+          <HelpTourButton />
           <AccountMenu
             name={profile.name}
             email={profile.email}

@@ -18,6 +18,7 @@ export function LayoutSwitcher({ layout }: { readonly layout: PropertyLayoutValu
   const { setParams } = useListNavigation();
   return (
     <div
+      data-tour="properties-view"
       role="group"
       aria-label="Cómo ver los resultados"
       className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5"

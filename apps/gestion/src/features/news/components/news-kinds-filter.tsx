@@ -42,7 +42,7 @@ export function NewsKindsFilter({ selected }: { readonly selected: readonly News
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" aria-busy={pending}>
+        <Button data-tour="news-kinds" variant="outline" size="sm" aria-busy={pending}>
           {all ? 'Mostrando todas las noticias' : summary}
           <ChevronDownIcon className="size-4" aria-hidden />
         </Button>

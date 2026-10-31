@@ -1250,6 +1250,11 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Cada usuario ve lo que pidió. Con el permiso `background-tasks:read-others` (el administrador lo tiene) aparece "Míos / Todos": lo de los demás, lo del sistema y los portales.
   - Los terminados se muestran una semana o hasta "Limpiar terminados" (se recuerda en una cookie del navegador). De a 10, con "Ver más" hasta 50.
   - Las exportaciones no aparecen: se arman en la misma descarga, no en un job.
+- **Tutoriales guiados** (botón "?" de la barra superior, a la derecha del tema): recorren la pantalla paso a paso con driver.js, para que alguien que empieza en Norde aprenda a usarla.
+  - Hay uno por pantalla principal: Inicio (que además presenta el menú, el buscador, la campana y la cuenta), Noticias, Oportunidades, Contactos y su ficha, Consultas, Propiedades y su ficha, Emprendimientos y su ficha, Tasaciones y su ficha, Reservas y Difusión. En las demás pantallas (Mi empresa, importaciones, comparar) el botón no aparece.
+  - Cada paso resalta un elemento marcado con `data-tour`. Los pasos cuyo elemento no está en pantalla (sin permiso, sin datos, otra vista, otra pestaña o mobile) se saltean solos.
+  - Los recorridos viven en `apps/gestion/src/features/shell/tours/panel-tours.ts`; un test verifica que cada paso apunte a un `data-tour` que existe.
+  - No se abren solos ni se guarda quién los vio.
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
 - **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
 - **Notificaciones**: los avisos a cada usuario viven en la campana del panel (módulo `notifications`, ADR 0043). Los avisos por mail o WhatsApp a usuarios del panel no se construyen (#112).

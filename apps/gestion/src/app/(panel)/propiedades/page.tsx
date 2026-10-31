@@ -111,7 +111,7 @@ export default async function PropertiesPage({
         </p>
       )}
 
-      <Card className="gap-0 overflow-hidden p-0">
+      <Card data-tour="properties-grid" className="gap-0 overflow-hidden p-0">
         {result.isErr() ? (
           <DataTableError message={messageForError(result.error, PROPERTY_LIST_ERROR_MESSAGES)} />
         ) : (

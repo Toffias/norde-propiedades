@@ -64,7 +64,10 @@ export default async function ReservationsPage({
         </p>
       )}
 
-      <Card className="gap-0 overflow-hidden p-0 print:border-0 print:shadow-none">
+      <Card
+        data-tour="reservations-grid"
+        className="gap-0 overflow-hidden p-0 print:border-0 print:shadow-none"
+      >
         {result.isErr() ? (
           <DataTableError
             message={messageForError(result.error, RESERVATION_READ_ERROR_MESSAGES)}

@@ -534,7 +534,7 @@ function PipelineBody({
           No hay oportunidades con estos filtros.
         </p>
       ) : (
-        <ul aria-busy={pending} className="divide-y divide-border">
+        <ul data-tour="opportunities-list" aria-busy={pending} className="divide-y divide-border">
           {visible.map((stage) => {
             const count = countOf.get(stage.id) ?? 0;
             return (
@@ -617,7 +617,7 @@ function StageCardsBody({
   }
 
   return (
-    <nav aria-label="Oportunidades por estado">
+    <nav data-tour="opportunities-stages" aria-label="Oportunidades por estado">
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
         {shownStages(stages, countOf).map((stage) => {
           const count = countOf.get(stage.id) ?? 0;

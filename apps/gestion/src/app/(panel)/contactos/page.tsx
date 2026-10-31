@@ -115,7 +115,7 @@ export default async function ContactsPage({
         </p>
       )}
 
-      <Card className="gap-0 overflow-hidden p-0">
+      <Card data-tour="clients-grid" className="gap-0 overflow-hidden p-0">
         {lettersError !== undefined ? (
           <DataTableError message={lettersError} />
         ) : result?.isErr() === true ? (

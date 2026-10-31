@@ -88,7 +88,10 @@ export function DevelopmentDetailHeader({
 
   return (
     <>
-      <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-center sm:p-5">
+      <div
+        data-tour="development-header"
+        className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-center sm:p-5"
+      >
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary-500">
           <LandmarkIcon className="h-8 w-8" aria-hidden />
         </div>
@@ -121,6 +124,7 @@ export function DevelopmentDetailHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    data-tour="development-status"
                     size="sm"
                     variant="outline"
                     className="text-foreground dark:bg-card"
@@ -186,6 +190,7 @@ export function DevelopmentDetailHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    data-tour="development-more"
                     size="sm"
                     variant="outline"
                     className="text-foreground dark:bg-card"

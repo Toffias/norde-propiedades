@@ -10,7 +10,11 @@ import { NEWS_PERIOD_LABELS, NEWS_PERIOD_ORDER, newsPeriodHref } from '../news-s
  */
 export function NewsPeriodTabs({ selected }: { readonly selected: NewsPeriod }) {
   return (
-    <nav aria-label="Período" className="inline-flex flex-wrap items-center gap-2">
+    <nav
+      data-tour="news-period"
+      aria-label="Período"
+      className="inline-flex flex-wrap items-center gap-2"
+    >
       {NEWS_PERIOD_ORDER.map((period) => {
         const active = period === selected;
         return (

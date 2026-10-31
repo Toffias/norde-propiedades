@@ -28,6 +28,7 @@ export function AccountMenu({ name, email, roles = [], children, onSignOut }: Ac
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        data-tour="shell-account"
         aria-label="Menú de la cuenta"
         className="rounded-full focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
       >

@@ -151,7 +151,10 @@ export function PropertyDetailHeader({
 
   return (
     <>
-      <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-center sm:p-5">
+      <div
+        data-tour="property-header"
+        className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-center sm:p-5"
+      >
         <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-primary-500 sm:h-20 sm:w-28">
           <PropertyPhoto
             propertyId={detail.id}
@@ -206,6 +209,7 @@ export function PropertyDetailHeader({
 
             {canReserve && (
               <Button
+                data-tour="property-reserve"
                 size="sm"
                 variant="outline"
                 className="text-foreground dark:bg-card"
@@ -237,6 +241,7 @@ export function PropertyDetailHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    data-tour="property-status"
                     size="sm"
                     variant="outline"
                     className="text-foreground dark:bg-card"
@@ -273,6 +278,7 @@ export function PropertyDetailHeader({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    data-tour="property-publication"
                     size="sm"
                     variant="outline"
                     className="text-foreground dark:bg-card"
@@ -333,6 +339,7 @@ export function PropertyDetailHeader({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
+                  data-tour="property-more"
                   size="sm"
                   variant="outline"
                   className="text-foreground dark:bg-card"

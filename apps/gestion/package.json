@@ -25,6 +25,7 @@
     "@norde/ui": "workspace:*",
     "@sentry/nextjs": "catalog:",
     "better-auth": "catalog:",
+    "driver.js": "catalog:",
     "leaflet": "catalog:",
     "leaflet.markercluster": "catalog:",
     "lucide-react": "catalog:",

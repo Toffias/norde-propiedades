@@ -53,6 +53,7 @@ export function PropertyActionsBar({
           <FavoriteSearchesMenu searches={favoriteSearches} />
           {canSaveForClient && !inTrash && (
             <Button
+              data-tour="properties-save-search"
               type="button"
               variant="outline"
               onClick={() => {
@@ -64,7 +65,7 @@ export function PropertyActionsBar({
             </Button>
           )}
           {canImport && !inTrash && (
-            <Button asChild variant="outline">
+            <Button data-tour="properties-import" asChild variant="outline">
               <Link href="/propiedades/importaciones">
                 <UploadIcon className="h-4 w-4" />
                 Importar de Tokko
@@ -72,7 +73,7 @@ export function PropertyActionsBar({
             </Button>
           )}
           {canCreate && !inTrash && (
-            <Button type="button" onClick={onCreate}>
+            <Button data-tour="properties-new" type="button" onClick={onCreate}>
               <PlusIcon className="h-4 w-4" />
               Nueva propiedad
             </Button>

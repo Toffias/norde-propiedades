@@ -41,7 +41,7 @@ export function PublicationSummary({ overview }: { readonly overview: Publicatio
         : 'xl:grid-cols-3';
 
   return (
-    <div className={cn('grid gap-4 sm:grid-cols-2', columns)}>
+    <div data-tour="publications-summary" className={cn('grid gap-4 sm:grid-cols-2', columns)}>
       <ChannelCard
         title="Para difundir"
         leading={

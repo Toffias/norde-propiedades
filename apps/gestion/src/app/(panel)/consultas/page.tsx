@@ -60,7 +60,7 @@ export default async function InquiriesPage({
         actions={
           inquiryRulesEnabled() &&
           actor.can('inquiries:manage') && (
-            <Button asChild variant="outline" size="sm">
+            <Button data-tour="inquiries-rules" asChild variant="outline" size="sm">
               <Link href="/consultas/reglas">
                 <WorkflowIcon className="h-4 w-4" />
                 Reglas de asignación

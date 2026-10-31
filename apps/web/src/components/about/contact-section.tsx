@@ -6,6 +6,7 @@ import { BUSINESS } from '../../constants/business';
 import { whatsappHref } from '../../lib/whatsapp';
 import { SectionHeading } from '../layout/section-heading';
 import { InquiryForm } from '../properties/inquiry-form';
+import { PropertyMap } from '../properties/property-map';
 import { Reveal } from './reveal';
 
 const CARD = 'bg-card flex min-w-0 flex-col gap-1 rounded-2xl border p-4';
@@ -64,7 +65,8 @@ export function ContactSection({ formEnabled }: { readonly formEnabled: boolean 
         title="¿Hablamos?"
         description="Escribinos para comprar, vender, alquilar o tasar tu propiedad. Te respondemos a la brevedad."
       />
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      {/* Las dos columnas con el mismo alto: la tarjeta de la oficina estira su mapa. */}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <Reveal className="bg-card rounded-3xl border p-5 sm:p-8">
           <h3 className="mb-5 text-xl font-extrabold">Dejanos tu consulta</h3>
           {formEnabled ? (
@@ -76,8 +78,8 @@ export function ContactSection({ formEnabled }: { readonly formEnabled: boolean 
           )}
         </Reveal>
 
-        <Reveal delayMs={80}>
-          <address className="grid gap-3 not-italic">
+        <Reveal delayMs={80} className="flex">
+          <address className="flex flex-1 flex-col gap-3 not-italic">
             {(telephone ?? whatsapp) && (
               <div className="grid grid-cols-2 gap-3">
                 {telephone && (
@@ -114,20 +116,33 @@ export function ContactSection({ formEnabled }: { readonly formEnabled: boolean 
               </ChannelCard>
             )}
             {address && (
-              <ChannelCard icon={<MapPin aria-hidden className="size-3.5" />} label="Oficina">
-                <span>{address}</span>
+              <div className={`${CARD} flex-1`}>
+                <p className={CARD_LABEL}>
+                  <MapPin aria-hidden className="size-3.5" />
+                  Oficina
+                </p>
+                <p className="font-bold break-words">{address}</p>
                 {maps && (
                   <a
                     href={maps}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary mt-1 inline-flex items-center gap-1 text-sm hover:underline"
+                    className="text-primary mt-1 inline-flex w-fit items-center gap-1 text-sm font-bold hover:underline"
                   >
                     Cómo llegar
                     <ExternalLink aria-hidden className="size-3.5" />
                   </a>
                 )}
-              </ChannelCard>
+                {BUSINESS.geo && (
+                  <PropertyMap
+                    latitude={BUSINESS.geo.latitude}
+                    longitude={BUSINESS.geo.longitude}
+                    exact
+                    label={`Ubicación de la oficina: ${address}`}
+                    className="mt-3 h-48 rounded-xl lg:h-auto lg:min-h-40 lg:flex-1"
+                  />
+                )}
+              </div>
             )}
           </address>
         </Reveal>

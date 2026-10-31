@@ -17,6 +17,8 @@
     "@dnd-kit/core": "catalog:",
     "@dnd-kit/sortable": "catalog:",
     "@dnd-kit/utilities": "catalog:",
+    "@fontsource/ibm-plex-sans": "catalog:",
+    "@fontsource/space-grotesk": "catalog:",
     "@hookform/resolvers": "catalog:",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",

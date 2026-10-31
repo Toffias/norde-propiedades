@@ -18,7 +18,7 @@ La web pública y el panel tienen necesidades distintas: la web es la vitrina de
   - Los **componentes son los mismos** para las dos apps y solo usan tokens; cada tema define los valores.
 - **Se adapta el stack, no el look**. Alquilo es Vite + React Router; acá es Next.js:
   - Modo oscuro con `next-themes` y `data-theme` en `<html>` (en lugar de un store de Zustand y la clase `.dark`). Sin flash: next-themes aplica el tema antes del primer paint. En el panel, claro por defecto y sin opción "sistema", como en Alquilo.
-  - Fuentes con `next/font` (variables CSS) en lugar de `<link>` a Google Fonts.
+  - Fuentes con `next/font` (variables CSS) en lugar de `<link>` a Google Fonts. Reemplazado por el ADR 0053: autohospedadas con `@fontsource`.
   - Primitivas de Radix con el paquete unificado `radix-ui`.
   - Sin i18next: el panel es solo en español; los textos van en el JSX.
   - ApexCharts se carga solo en el cliente (`lazy` + `Suspense`) desde `Chart`.

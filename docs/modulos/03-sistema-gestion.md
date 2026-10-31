@@ -1083,9 +1083,9 @@ La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y pap
 - Papelera con restaurar, con `appraisals:delete`.
 - **Exportar a Excel** (#175), con "Exportar tasaciones" (`appraisals:export`): las que cumplen los filtros aplicados y el usuario puede ver, por lotes y hasta 10.000. Lleva las columnas de Tokko (código, estado, tipo, dirección, solicitante, productor, tasador, sucursal, alta y última modificación) más ambientes, superficies, visita y los valores tasados de venta y alquiler (moneda, desde y hasta), que Tokko no exporta. Queda en la auditoría con el filtro y la cantidad.
 
-### 6.2 Alta y ficha (`/tasaciones/nueva`, `/tasaciones/[id]`)
+### 6.2 Alta y ficha (`/tasaciones?panel=new`, `/tasaciones/[id]`)
 
-La tasación tiene pantalla propia (no panel lateral).
+El alta es un panel lateral ancho sobre el listado, como el de propiedades; al guardarla se abre su ficha, que es pantalla propia. `/tasaciones/nueva` redirige al panel.
 
 - **Solicitud**: solicitante (el cliente propietario, obligatorio), productor (quien trae la tasación; sin elegir, quien la carga), tasador (opcional hasta asignarlo) y visita (día y hora de Buenos Aires). La sucursal es la del productor.
 - **Propiedad**: tipo (obligatorio), dirección, superficie total y cubierta (m², hasta dos decimales), ambientes, dormitorios, baños y estado de conservación. Los catálogos son los de las propiedades, para poder convertirla.

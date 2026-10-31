@@ -17,6 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@norde/ui/components/form';
+import { SheetBody, SheetFooter } from '@norde/ui/components/sheet';
 import { toast } from '@norde/ui/components/sonner';
 import { ClipboardListIcon, Loader2Icon } from 'lucide-react';
 import type { Route } from 'next';
@@ -92,16 +93,20 @@ function Section({ title, children }: { readonly title: string; readonly childre
 
 /**
  * Alta y edición de una tasación: quién la pide, quién la trae y quién la hace, la visita y los
- * datos de la propiedad. Con `controls`, edita la tasación dentro de su sección de la ficha.
+ * datos de la propiedad. Sin `controls`, es el alta en el panel lateral del listado; con
+ * `controls`, edita la tasación dentro de su sección de la ficha.
  */
 export function AppraisalForm({
   detail,
   controls,
+  onCancel,
 }: {
   /** La tasación a editar; sin ella, es una nueva. */
   readonly detail?: AppraisalDetail | undefined;
   /** Guardar y cancelar de la sección en línea, al editar. */
   readonly controls?: InlineFormControls | undefined;
+  /** Cierra el panel lateral del alta. */
+  readonly onCancel?: (() => void) | undefined;
 }) {
   const router = useRouter();
   const editing = detail !== undefined;
@@ -141,159 +146,165 @@ export function AppraisalForm({
     }
   }
 
+  const fields = (
+    <>
+      <FormAlert message={error} />
+      <Section title="Solicitud">
+        <FormField
+          control={control}
+          name="requesterClientId"
+          render={({ field }) => (
+            <FormItem className="sm:col-span-2">
+              <FormLabel>Solicitante</FormLabel>
+              <FormControl>
+                <EntityPicker
+                  value={field.value === '' ? undefined : field.value}
+                  initial={
+                    detail === undefined
+                      ? undefined
+                      : {
+                          value: detail.requester.id,
+                          label: detail.requester.name ?? 'Contacto sin datos',
+                        }
+                  }
+                  onChange={(id) => {
+                    field.onChange(id ?? '');
+                  }}
+                  loadPage={loadClientOptions}
+                  placeholder="Buscalo por nombre, teléfono o email"
+                  searchPlaceholder="Buscar contacto"
+                />
+              </FormControl>
+              <FormDescription>El propietario que pide la tasación.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={control}
+          name="producerUserId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Productor</FormLabel>
+              <FormControl>
+                <EntityPicker
+                  value={field.value}
+                  initial={
+                    detail === undefined
+                      ? undefined
+                      : {
+                          value: detail.producer.id,
+                          label: detail.producer.name ?? 'Usuario inactivo',
+                        }
+                  }
+                  onChange={field.onChange}
+                  loadPage={loadUserOptions}
+                  placeholder="Vos"
+                  searchPlaceholder="Buscar usuario"
+                />
+              </FormControl>
+              {!editing && (
+                <FormDescription>Quien trae la tasación. Sin elegir, quedás vos.</FormDescription>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={control}
+          name="appraiserUserId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Tasador</FormLabel>
+              <FormControl>
+                <EntityPicker
+                  value={field.value}
+                  initial={
+                    detail?.appraiser === undefined
+                      ? undefined
+                      : {
+                          value: detail.appraiser.id,
+                          label: detail.appraiser.name ?? 'Usuario inactivo',
+                        }
+                  }
+                  onChange={field.onChange}
+                  loadPage={loadUserOptions}
+                  placeholder="Sin asignar"
+                  searchPlaceholder="Buscar usuario"
+                  clearLabel="Quitar tasador"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <TextField
+          control={control}
+          name="visitAt"
+          label="Visita"
+          type="datetime-local"
+          description="Día y hora en que se visita la propiedad."
+        />
+      </Section>
+
+      <Section title="Propiedad">
+        <SelectField
+          control={control}
+          name="propertyType"
+          label="Tipo de propiedad"
+          options={PROPERTY_TYPES}
+          labels={PROPERTY_TYPE_LABELS}
+        />
+        <TextField
+          control={control}
+          name="address"
+          label="Dirección"
+          placeholder="Calle, número, piso y depto"
+        />
+        <NumberField control={control} name="surfaceTotalM2" label="Superficie total (m²)" />
+        <NumberField control={control} name="surfaceCoveredM2" label="Superficie cubierta (m²)" />
+        <NumberField control={control} name="rooms" label="Ambientes" step="1" />
+        <NumberField control={control} name="bedrooms" label="Dormitorios" step="1" />
+        <NumberField control={control} name="bathrooms" label="Baños" step="1" />
+        <SelectField
+          control={control}
+          name="condition"
+          label="Estado de conservación"
+          options={CONDITION_VALUES}
+          labels={CONDITION_LABELS}
+          empty="Sin dato"
+        />
+      </Section>
+    </>
+  );
+
   return (
     <Form {...form}>
       <form
-        className="flex flex-col gap-6"
+        className={controls === undefined ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-col gap-6'}
         noValidate
         onSubmit={(event) => void form.handleSubmit(submit)(event)}
       >
-        <FormAlert message={error} />
-        <Section title="Solicitud">
-          <FormField
-            control={control}
-            name="requesterClientId"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Solicitante</FormLabel>
-                <FormControl>
-                  <EntityPicker
-                    value={field.value === '' ? undefined : field.value}
-                    initial={
-                      detail === undefined
-                        ? undefined
-                        : {
-                            value: detail.requester.id,
-                            label: detail.requester.name ?? 'Contacto sin datos',
-                          }
-                    }
-                    onChange={(id) => {
-                      field.onChange(id ?? '');
-                    }}
-                    loadPage={loadClientOptions}
-                    placeholder="Buscalo por nombre, teléfono o email"
-                    searchPlaceholder="Buscar contacto"
-                  />
-                </FormControl>
-                <FormDescription>El propietario que pide la tasación.</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={control}
-            name="producerUserId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Productor</FormLabel>
-                <FormControl>
-                  <EntityPicker
-                    value={field.value}
-                    initial={
-                      detail === undefined
-                        ? undefined
-                        : {
-                            value: detail.producer.id,
-                            label: detail.producer.name ?? 'Usuario inactivo',
-                          }
-                    }
-                    onChange={field.onChange}
-                    loadPage={loadUserOptions}
-                    placeholder="Vos"
-                    searchPlaceholder="Buscar usuario"
-                  />
-                </FormControl>
-                {!editing && (
-                  <FormDescription>Quien trae la tasación. Sin elegir, quedás vos.</FormDescription>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={control}
-            name="appraiserUserId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tasador</FormLabel>
-                <FormControl>
-                  <EntityPicker
-                    value={field.value}
-                    initial={
-                      detail?.appraiser === undefined
-                        ? undefined
-                        : {
-                            value: detail.appraiser.id,
-                            label: detail.appraiser.name ?? 'Usuario inactivo',
-                          }
-                    }
-                    onChange={field.onChange}
-                    loadPage={loadUserOptions}
-                    placeholder="Sin asignar"
-                    searchPlaceholder="Buscar usuario"
-                    clearLabel="Quitar tasador"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <TextField
-            control={control}
-            name="visitAt"
-            label="Visita"
-            type="datetime-local"
-            description="Día y hora en que se visita la propiedad."
-          />
-        </Section>
-
-        <Section title="Propiedad">
-          <SelectField
-            control={control}
-            name="propertyType"
-            label="Tipo de propiedad"
-            options={PROPERTY_TYPES}
-            labels={PROPERTY_TYPE_LABELS}
-          />
-          <TextField
-            control={control}
-            name="address"
-            label="Dirección"
-            placeholder="Calle, número, piso y depto"
-          />
-          <NumberField control={control} name="surfaceTotalM2" label="Superficie total (m²)" />
-          <NumberField control={control} name="surfaceCoveredM2" label="Superficie cubierta (m²)" />
-          <NumberField control={control} name="rooms" label="Ambientes" step="1" />
-          <NumberField control={control} name="bedrooms" label="Dormitorios" step="1" />
-          <NumberField control={control} name="bathrooms" label="Baños" step="1" />
-          <SelectField
-            control={control}
-            name="condition"
-            label="Estado de conservación"
-            options={CONDITION_VALUES}
-            labels={CONDITION_LABELS}
-            empty="Sin dato"
-          />
-        </Section>
-
         {controls === undefined ? (
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                router.push('/tasaciones');
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
-              Cargar tasación
-            </Button>
-          </div>
+          <>
+            <SheetBody scroll className="flex flex-col gap-6">
+              {fields}
+            </SheetBody>
+            <SheetFooter>
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
+                Cargar tasación
+              </Button>
+            </SheetFooter>
+          </>
         ) : (
-          <InlineFormActions controls={controls} />
+          <>
+            {fields}
+            <InlineFormActions controls={controls} />
+          </>
         )}
       </form>
     </Form>

@@ -3,8 +3,8 @@
  * acento rojo. Paleta tomada de Alquilo (ver docs/diseno-gestion.md y ADR 0012).
  * Usar SIEMPRE tokens (bg-card, text-muted-foreground, bg-success-50): nunca hex sueltos en el .tsx.
  *
- * Las fuentes las carga la app con next/font y publica `--font-ibm-plex-sans` y `--font-space-grotesk`
- * en <html>.
+ * Las fuentes las carga la app (autohospedadas con @fontsource) y publica `--font-ibm-plex-sans` y
+ * `--font-space-grotesk` en :root.
  */
 
 @import 'tailwindcss';
@@ -106,7 +106,7 @@
   --shadow-3xl: rgba(20, 24, 27, 0.12) 0px 10px 30px;
 }
 
-/* `inline`: las variables de next/font viven en <html> y se resuelven en cada elemento. */
+/* `inline`: las variables de las fuentes las define la app y se resuelven en cada elemento. */
 @theme inline {
   --font-display: var(--font-space-grotesk), var(--font-ibm-plex-sans), sans-serif;
   --font-body: var(--font-ibm-plex-sans), sans-serif;

@@ -1,7 +1,7 @@
 import { ErrorState } from '@norde/ui/components/error-state';
 import { PageHeader } from '@norde/ui/components/page-header';
 import { SectionCard } from '@norde/ui/components/section-card';
-import { ArrowRightIcon, MegaphoneIcon, TableIcon } from 'lucide-react';
+import { ArrowRightIcon, MegaphoneIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -39,16 +39,7 @@ export default async function PublicationsPage() {
         subtitle="Qué está publicado en la web y en cada portal"
       />
 
-      <SectionCard title="Resumen" icon={TableIcon}>
-        <div className="flex flex-col gap-3">
-          <PublicationSummary overview={overview} />
-          <p className="text-xs text-muted-foreground">
-            Propiedades disponibles sin contar las unidades de los emprendimientos, que se publican
-            con su emprendimiento. Emprendimientos en comercialización. En cada portal, cuántos
-            tienen algún aviso online.
-          </p>
-        </div>
-      </SectionCard>
+      <PublicationSummary overview={overview} />
 
       {overview.portals.length === 0 ? (
         <p className="text-sm text-muted-foreground">

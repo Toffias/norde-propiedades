@@ -9,6 +9,7 @@ import {
   type ShowcaseOrientationValue,
   type ShowcasePhotoCountValue,
 } from '@norde/core/properties/contracts';
+import { SkeletonImg } from '@norde/ui/components/image-skeleton';
 import { Button } from '@norde/ui/components/button';
 import { Checkbox } from '@norde/ui/components/checkbox';
 import {
@@ -374,8 +375,7 @@ export function ShowcaseDocumentDialog({
                         !chosen && full && 'opacity-40',
                       )}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element -- miniatura privada servida por la ficha; next/image no aporta */}
-                      <img
+                      <SkeletonImg
                         src={`${src}?v=${photo.hasThumbnail ? 'thumbnail' : 'original'}`}
                         alt=""
                         loading="lazy"

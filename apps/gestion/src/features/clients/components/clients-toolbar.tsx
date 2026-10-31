@@ -36,6 +36,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useId, useState, useTransition } from 'react';
 
+import { FilterMultiSelect, options } from '../../shared/components/list-filters';
 import { MoreFiltersButton } from '../../shared/components/more-filters-button';
 import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { loadBranchOptions, loadUserOptions } from '../../identity/actions';
@@ -48,13 +49,13 @@ export interface ClientFilterValues {
   readonly q: string;
   readonly agentId: string;
   readonly branchId: string;
-  readonly kind: string;
-  readonly clientType: string;
+  readonly kind: readonly string[];
+  readonly clientType: readonly string[];
   readonly tagId: string;
   /** Solo en la agenda: la letra abierta. */
   readonly letter: string;
   readonly owners: boolean;
-  readonly opportunityStageId: string;
+  readonly opportunityStageId: readonly string[];
   readonly createdFrom: string;
   readonly createdTo: string;
   readonly updatedFrom: string;
@@ -72,9 +73,6 @@ export interface ClientToolbarPermissions {
   /** Filtrar por sucursal (`branches:read`). */
   readonly pickBranches: boolean;
 }
-
-/** "Todos" en un select: sin el param en la URL. */
-const ANY = 'any';
 
 /** Un estado de oportunidad para el filtro (de Mi empresa → Oportunidades). */
 export interface OpportunityStageOption {
@@ -134,11 +132,26 @@ export function LayoutSwitcher({ layout }: { readonly layout: ClientLayout }) {
   );
 }
 
+/** Un filtro sin valor: texto vacío, lista vacía o interruptor apagado. */
+type FilterValue = string | boolean | readonly string[];
+
+function isEmptyFilter(value: FilterValue): boolean {
+  return Array.isArray(value) ? value.length === 0 : value === '' || value === false;
+}
+
+/** Los filtros con valor, como pares clave-valor. */
+function chosenFilters(filters: ClientFilterValues): [string, FilterValue][] {
+  return Object.entries<FilterValue>({ ...filters }).filter(([, value]) => !isEmptyFilter(value));
+}
+
 /** Los filtros aplicados, para exportar: viaja el filtro, nunca la lista de contactos. */
 export function toClientFilter(filters: ClientFilterValues): ClientFilter {
-  return Object.fromEntries(
-    Object.entries(filters).filter(([, value]) => value !== '' && value !== false),
-  );
+  return Object.fromEntries(chosenFilters(filters));
+}
+
+/** Hay algún filtro elegido (la papelera no cuenta: es la vista). */
+export function hasClientFilters(filters: ClientFilterValues): boolean {
+  return chosenFilters(filters).some(([key]) => key !== 'view');
 }
 
 const ATTACHMENT_NAME = /filename="([^"]+)"/;
@@ -262,16 +275,16 @@ function MoreFilters({
 }) {
   const id = useId();
   const { setParams } = useListNavigation();
-  const active = [
-    filters.agentId,
-    filters.branchId,
-    filters.tagId,
-    filters.opportunityStageId,
-    filters.createdFrom,
-    filters.createdTo,
-    filters.updatedFrom,
-    filters.updatedTo,
-  ].filter((value) => value !== '').length;
+  const active =
+    [
+      filters.agentId,
+      filters.branchId,
+      filters.tagId,
+      filters.createdFrom,
+      filters.createdTo,
+      filters.updatedFrom,
+      filters.updatedTo,
+    ].filter((value) => value !== '').length + (filters.opportunityStageId.length > 0 ? 1 : 0);
 
   return (
     <Popover>
@@ -348,27 +361,15 @@ function MoreFilters({
         </div>
         {opportunityStages.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-stage`} className="text-xs">
-              Estado de oportunidad
-            </Label>
-            <Select
-              value={filters.opportunityStageId === '' ? ANY : filters.opportunityStageId}
-              onValueChange={(next) => {
-                setParams({ opportunityStageId: next === ANY ? undefined : next });
-              }}
-            >
-              <SelectTrigger id={`${id}-stage`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ANY}>Cualquier estado</SelectItem>
-                {opportunityStages.map((stage) => (
-                  <SelectItem key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span className="text-xs font-medium">Estado de oportunidad</span>
+            <FilterMultiSelect
+              param="opportunityStageId"
+              value={filters.opportunityStageId}
+              label="Estado de oportunidad"
+              anyLabel="Cualquier estado"
+              options={opportunityStages.map((stage) => ({ value: stage.id, label: stage.name }))}
+              className="w-full"
+            />
           </div>
         )}
         <DateRange
@@ -434,42 +435,21 @@ export function ClientsToolbar({
       <div className="col-span-2 sm:contents">
         <SearchInput value={filters.q} />
       </div>
-      <Select
-        value={filters.kind === '' ? ANY : filters.kind}
-        onValueChange={(next) => {
-          setParams({ kind: next === ANY ? undefined : next });
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[170px]" aria-label="Tipo de registro">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Todos los registros</SelectItem>
-          {CLIENT_KIND_VALUES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {CLIENT_KIND_LABELS[value]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={filters.clientType === '' ? ANY : filters.clientType}
-        onValueChange={(next) => {
-          setParams({ clientType: next === ANY ? undefined : next });
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[200px]" aria-label="Tipo de cliente">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Todos los tipos</SelectItem>
-          {CLIENT_TYPE_VALUES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {CLIENT_TYPE_LABELS[value]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterMultiSelect
+        param="kind"
+        value={filters.kind}
+        label="Tipo de registro"
+        anyLabel="Todos los registros"
+        options={options(CLIENT_KIND_VALUES, CLIENT_KIND_LABELS)}
+      />
+      <FilterMultiSelect
+        param="clientType"
+        value={filters.clientType}
+        label="Tipo de cliente"
+        anyLabel="Todos los tipos"
+        options={options(CLIENT_TYPE_VALUES, CLIENT_TYPE_LABELS)}
+        className="w-full sm:w-[200px]"
+      />
       <div className="flex items-center gap-2 px-1">
         <Switch
           id={`${id}-owners`}

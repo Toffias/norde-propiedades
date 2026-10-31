@@ -491,7 +491,7 @@ describe('ExportProperties', () => {
       changes: {
         format: { before: null, after: 'xlsx' },
         count: { before: null, after: 3 },
-        selection: { before: null, after: { kind: 'filter', filter: { operation: 'sale' } } },
+        selection: { before: null, after: { kind: 'filter', filter: { operation: ['sale'] } } },
       },
     });
   });

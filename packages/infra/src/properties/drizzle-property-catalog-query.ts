@@ -63,7 +63,8 @@ const LocationKind = z.enum(LOCATION_KINDS);
 const FeatureKind = z.enum(FEATURE_KINDS);
 const CustomAttributeKind = z.enum(CUSTOM_ATTRIBUTE_KINDS);
 const CustomAttributeOptions = z.array(z.string()).catch([]);
-const Params = z.record(z.string(), z.string());
+/** Como en la URL: un filtro de varios valores es una lista. */
+const Params = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
 
 /** Lecturas paginadas de los catálogos de propiedades. Cada filtro y orden tiene su índice (0009). */
 export class DrizzlePropertyCatalogQuery implements PropertyCatalogQuery {

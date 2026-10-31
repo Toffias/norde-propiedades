@@ -31,7 +31,7 @@ import {
   ConfirmActionDialog,
   type ConfirmActionCopy,
 } from '../../shared/components/confirm-action-dialog';
-import { FilterSelect, options } from '../../shared/components/list-filters';
+import { FilterMultiSelect, options } from '../../shared/components/list-filters';
 import {
   ListNavigationProvider,
   ServerDataTable,
@@ -42,11 +42,14 @@ import { APPRAISAL_STATUS_DISPLAY, APPRAISAL_STATUS_GROUP_LABELS } from '../labe
 import { appraisalPhotoHref } from '../paths';
 import { ExportAppraisalsButton } from './export-appraisals-button';
 
-/** Filtros del listado tal como están en la URL (texto, sin parsear). */
+/**
+ * Filtros del listado tal como están en la URL: texto, o listas en los de varios valores (el param
+ * se repite). Vacío o sin elementos: sin filtro.
+ */
 export interface AppraisalFilterValues {
   readonly view: AppraisalViewValue;
-  readonly status: string;
-  readonly propertyType: string;
+  readonly status: readonly string[];
+  readonly propertyType: readonly string[];
   readonly producerId: string;
   readonly appraiserId: string;
   readonly branchId: string;
@@ -209,14 +212,14 @@ function Toolbar({
 }) {
   return (
     <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
-      <FilterSelect
+      <FilterMultiSelect
         param="status"
         value={filters.status}
         label="Estado"
         anyLabel="Todos los estados"
         options={options(APPRAISAL_STATUS_GROUP_VALUES, APPRAISAL_STATUS_GROUP_LABELS)}
       />
-      <FilterSelect
+      <FilterMultiSelect
         param="propertyType"
         value={filters.propertyType}
         label="Tipo de propiedad"
@@ -228,9 +231,18 @@ function Toolbar({
   );
 }
 
+type FilterValue = string | readonly string[];
+
+/** Un filtro con valor: texto no vacío o lista con algún elemento. */
+function isSet(value: FilterValue): boolean {
+  return typeof value === 'string' ? value !== '' : value.length > 0;
+}
+
 /** Los filtros aplicados, para exportar: los vacíos no viajan. */
 function toAppraisalFilter(filters: AppraisalFilterValues): AppraisalFilter {
-  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''));
+  return Object.fromEntries(
+    Object.entries(filters).filter(([, value]: [string, FilterValue]) => isSet(value)),
+  );
 }
 
 /** La barra de acciones, arriba de los filtros: exportar, papelera y alta a la derecha. */
@@ -304,7 +316,9 @@ export function AppraisalsView({
   const router = useRouter();
   const [pending, setPending] = useState<PendingAction | undefined>();
   const inTrash = filters.view === 'trash';
-  const hasFilters = Object.entries(filters).some(([key, value]) => key !== 'view' && value !== '');
+  const hasFilters = Object.entries(filters).some(
+    ([key, value]: [string, FilterValue]) => key !== 'view' && isSet(value),
+  );
 
   const columns = useMemo<readonly DataTableColumn<AppraisalListRow>[]>(
     () => [

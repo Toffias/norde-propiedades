@@ -25,16 +25,19 @@ import { EMPTY_VALUE, formatDate, formatDateOnly } from '../../../../lib/format'
 import { DateRange } from '../../../clients/components/clients-toolbar';
 import { loadBranchOptions, loadUserOptions } from '../../../identity/actions';
 import { EntityPicker } from '../../../identity/components/entity-picker';
-import { FilterSelect, options } from '../../../shared/components/list-filters';
+import { FilterMultiSelect, options } from '../../../shared/components/list-filters';
 import { ServerDataTable, useListNavigation } from '../../../shared/components/server-data-table';
 import { OPERATION_LABELS, PROPERTY_TYPE_LABELS, RESERVATION_STATUS_DISPLAY } from '../../labels';
 import { reservationAmount, reservationClient, reservationCommission } from './reservation-format';
 
-/** Filtros del listado tal como están en la URL (texto, sin parsear). */
+/**
+ * Filtros del listado tal como están en la URL: texto, o listas en los de varios valores (el param
+ * se repite). Vacío o sin elementos: sin filtro.
+ */
 export interface ReservationFilterValues {
-  readonly status: string;
-  readonly operation: string;
-  readonly propertyType: string;
+  readonly status: readonly string[];
+  readonly operation: readonly string[];
+  readonly propertyType: readonly string[];
   readonly agentId: string;
   readonly managerId: string;
   readonly branchId: string;
@@ -64,9 +67,18 @@ function propertyHref(row: ReservationListRow): Route {
   return `/propiedades/${row.property.id}?tab=reservas` as Route;
 }
 
+type FilterValue = string | readonly string[];
+
+/** Un filtro con valor: texto no vacío o lista con algún elemento. */
+function isSet(value: FilterValue): boolean {
+  return typeof value === 'string' ? value !== '' : value.length > 0;
+}
+
 /** Los filtros aplicados, para exportar: viaja el filtro, nunca la lista de reservas. */
 function toReservationFilter(filters: ReservationFilterValues): ReservationFilter {
-  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''));
+  return Object.fromEntries(
+    Object.entries(filters).filter(([, value]: [string, FilterValue]) => isSet(value)),
+  );
 }
 
 const ATTACHMENT_NAME = /filename="([^"]+)"/;
@@ -240,7 +252,7 @@ function Toolbar({
 }) {
   return (
     <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
-      <FilterSelect
+      <FilterMultiSelect
         param="status"
         value={filters.status}
         label="Estado de la reserva"
@@ -250,14 +262,14 @@ function Toolbar({
           label: RESERVATION_STATUS_DISPLAY[value].label,
         }))}
       />
-      <FilterSelect
+      <FilterMultiSelect
         param="operation"
         value={filters.operation}
         label="Operación"
         anyLabel="Todas las operaciones"
         options={options(OPERATIONS, OPERATION_LABELS)}
       />
-      <FilterSelect
+      <FilterMultiSelect
         param="propertyType"
         value={filters.propertyType}
         label="Tipo de propiedad"
@@ -349,7 +361,7 @@ export function ReservationsView({
   readonly labels: ReservationFilterLabels;
 }) {
   const router = useRouter();
-  const hasFilters = Object.values(filters).some((value) => value !== '');
+  const hasFilters = Object.values(filters).some(isSet);
 
   const columns: readonly DataTableColumn<ReservationListRow>[] = [
     {

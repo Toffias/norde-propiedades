@@ -57,7 +57,7 @@ export class SaveFavoriteSearch {
     }
     const { name } = parsed.data;
     const params = Object.fromEntries(
-      Object.entries(parsed.data.params).filter(([, value]) => value !== ''),
+      Object.entries(parsed.data.params).filter(([, value]) => value !== '' && value.length > 0),
     );
     // Se guardan filtros que el buscador acepta: una búsqueda favorita siempre se puede abrir.
     const valid = ListPanelPropertiesQuerySchema.safeParse(params);

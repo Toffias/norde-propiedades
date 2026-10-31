@@ -33,8 +33,8 @@ export interface MapPin {
   readonly tone: StatusTone;
   /** Lo que se lee al pasar el mouse. */
   readonly title: string;
-  /** Las líneas del globo, como texto: se escapan al armarlo. */
-  readonly popup: readonly {
+  /** Las líneas del globo, como texto: se escapan al armarlo. Sin globo con `onSelect`. */
+  readonly popup?: readonly {
     readonly text: string;
     readonly strong?: boolean;
     readonly muted?: boolean;
@@ -57,18 +57,21 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-function pinIcon(tone: StatusTone): L.DivIcon {
+/** El pin elegido, más grande y con el anillo de la marca. */
+function pinIcon(tone: StatusTone, selected = false): L.DivIcon {
+  const size = selected ? 26 : 18;
+  const ring = selected ? 'ring-4 ring-primary-500/60' : 'ring-1 ring-black/40';
   return L.divIcon({
     className: '',
-    html: `<span class="block h-[18px] w-[18px] rounded-full border-2 border-white shadow-md ring-1 ring-black/40 ${PIN_CLASS[tone] ?? ''}"></span>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    html: `<span class="block rounded-full border-2 border-white shadow-md ${ring} ${PIN_CLASS[tone] ?? ''}" style="width:${size}px;height:${size}px"></span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -10],
   });
 }
 
 function popupHtml(pin: MapPin): string {
-  const lines = pin.popup.map((line) => {
+  const lines = (pin.popup ?? []).map((line) => {
     const text = escapeHtml(line.text);
     if (line.strong === true) return `<strong>${text}</strong>`;
     if (line.muted === true) return `<div style="opacity:.7">${text}</div>`;
@@ -83,27 +86,37 @@ function popupHtml(pin: MapPin): string {
 /**
  * Mapa de Leaflet con OpenStreetMap (ADR 0019): una capa por grupo, que se prende y se apaga, con
  * los pines agrupados cuando están cerca. Avisa el área visible cada vez que se mueve.
+ *
+ * Con `onSelect`, tocar un pin lo elige (y tocar el mapa lo suelta) en vez de abrir su globo: la
+ * pantalla muestra su propia tarjeta.
  */
 export function MapCanvas({
   pins,
   layers,
   label,
   onAreaChange,
+  selectedId,
+  onSelect,
 }: {
   readonly pins: readonly MapPin[];
   readonly layers: readonly MapLayer[];
   readonly label: string;
   readonly onAreaChange: (area: MapArea) => void;
+  readonly selectedId?: string | undefined;
+  readonly onSelect?: (id: string | undefined) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const groups = useRef(new Map<string, L.MarkerClusterGroup>());
+  const markers = useRef(new Map<string, L.Marker>());
   const onArea = useRef(onAreaChange);
+  const select = useRef(onSelect);
   const initialLayers = useRef(layers);
 
   useEffect(() => {
     onArea.current = onAreaChange;
-  }, [onAreaChange]);
+    select.current = onSelect;
+  }, [onAreaChange, onSelect]);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -133,10 +146,20 @@ export function MapCanvas({
       });
     };
     instance.on('moveend', report);
+    // El click de un pin no llega al mapa: este es el de tocar afuera.
+    instance.on('click', () => {
+      select.current?.(undefined);
+    });
     map.current = instance;
     report();
+    // Leaflet mide el contenedor al crearse; si el layout cambia (menú contraído), se recalcula.
+    const resize = new ResizeObserver(() => {
+      instance.invalidateSize();
+    });
+    resize.observe(container.current);
 
     return () => {
+      resize.disconnect();
       instance.remove();
       map.current = null;
       byKey.clear();
@@ -145,22 +168,33 @@ export function MapCanvas({
 
   useEffect(() => {
     for (const group of groups.current.values()) group.clearLayers();
+    markers.current.clear();
     for (const pin of pins) {
-      groups.current.get(pin.layer)?.addLayer(
-        L.marker([pin.latitude, pin.longitude], {
-          icon: pinIcon(pin.tone),
-          title: pin.title,
-        }).bindPopup(popupHtml(pin)),
-      );
+      const marker = L.marker([pin.latitude, pin.longitude], {
+        icon: pinIcon(pin.tone),
+        title: pin.title,
+        keyboard: true,
+      });
+      if (select.current === undefined) {
+        marker.bindPopup(popupHtml(pin));
+      } else {
+        marker.on('click', () => {
+          select.current?.(pin.id);
+        });
+      }
+      markers.current.set(pin.id, marker);
+      groups.current.get(pin.layer)?.addLayer(marker);
     }
   }, [pins]);
 
-  return (
-    <div
-      ref={container}
-      role="region"
-      aria-label={label}
-      className="relative z-0 h-[60vh] min-h-[360px] w-full"
-    />
-  );
+  // Resalta el pin elegido.
+  useEffect(() => {
+    for (const pin of pins) {
+      const marker = markers.current.get(pin.id);
+      marker?.setIcon(pinIcon(pin.tone, pin.id === selectedId));
+      marker?.setZIndexOffset(pin.id === selectedId ? 1000 : 0);
+    }
+  }, [pins, selectedId]);
+
+  return <div ref={container} role="region" aria-label={label} className="h-full w-full" />;
 }

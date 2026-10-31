@@ -212,13 +212,13 @@ export class DrizzleDevelopmentListQuery implements DevelopmentListQuery {
       // Por `developments_code_uq`.
       c.codes === undefined ? undefined : inArray(developments.code, [...c.codes]),
       c.text === undefined ? undefined : matchesSearchText(developments.searchText, c.text),
-      c.status === undefined ? undefined : eq(developments.status, c.status),
+      c.status === undefined ? undefined : inArray(developments.status, [...c.status]),
       c.developmentType === undefined
         ? undefined
-        : eq(developments.developmentType, c.developmentType),
+        : inArray(developments.developmentType, [...c.developmentType]),
       c.constructionStatus === undefined
         ? undefined
-        : eq(developments.constructionStatus, c.constructionStatus),
+        : inArray(developments.constructionStatus, [...c.constructionStatus]),
       // Por la clave (development_id, tag_id) de `development_tag_assignments`.
       c.tagId === undefined
         ? undefined

@@ -146,9 +146,11 @@ export class BulkUpdateOpportunities {
 
 /** El filtro tal como llegó, sin los vacíos: se vuelve a validar cuando corre el job. */
 function storedFilter(
-  filter: Readonly<Record<string, string | undefined>>,
-): Record<string, string> {
+  filter: Readonly<Record<string, string | readonly string[] | undefined>>,
+): Record<string, string | readonly string[]> {
   return Object.fromEntries(
-    Object.entries(filter).filter((entry): entry is [string, string] => entry[1] !== undefined),
+    Object.entries(filter).filter(
+      (entry): entry is [string, string | readonly string[]] => entry[1] !== undefined,
+    ),
   );
 }

@@ -18,16 +18,18 @@ export interface ClientFilterCriteria {
   readonly text: string | undefined;
   readonly agentId: string | undefined;
   readonly branchId: string | undefined;
-  readonly kind: ClientKindValue | undefined;
-  readonly clientType: ClientTypeValue | undefined;
+  // Los de varios valores: alcanza con que coincida uno. `undefined`: sin filtro.
+  readonly kind: readonly ClientKindValue[] | undefined;
+  /** Con alguno de estos tipos. */
+  readonly clientType: readonly ClientTypeValue[] | undefined;
   readonly tagged: ClientTaggedValue | undefined;
   readonly tagId: string | undefined;
   /** La inicial del nombre sin acentos; `#` si no empieza con una letra. */
   readonly letter: ClientLetter | undefined;
   /** Solo los que tienen alguno de estos tipos (propietarios). */
   readonly anyOfTypes: readonly ClientTypeValue[] | undefined;
-  /** Solo los que tienen una oportunidad en este estado. */
-  readonly opportunityStageId: string | undefined;
+  /** Solo los que tienen una oportunidad en alguno de estos estados. */
+  readonly opportunityStageId: readonly string[] | undefined;
   /** `[from, to)`. */
   readonly created: { readonly from: Date | undefined; readonly to: Date | undefined };
   readonly updated: { readonly from: Date | undefined; readonly to: Date | undefined };

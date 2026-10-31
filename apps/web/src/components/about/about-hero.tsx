@@ -1,14 +1,14 @@
-import facade from '../../assets/fachada-norde.jpg';
+import team from '../../assets/contacto-equipo.jpg';
 import { ScrollFade } from '../appraisals/scroll-fade';
 import { PhotoHero } from '../layout/photo-hero';
 
-/** Portada de Nosotros: la fachada a pantalla completa, con el único H1. */
+/** Portada de Nosotros: un equipo trabajando a pantalla completa, con el único H1. */
 export function AboutHero({ intro }: { readonly intro: string }) {
   return (
     <PhotoHero
-      image={facade}
-      alt="Fachada de Norde Propiedades en la esquina de Av. Emilio Castro 7250"
-      imageClassName="object-[center_40%]"
+      image={team}
+      alt="Un equipo de trabajo reunido alrededor de una notebook"
+      imageClassName="object-[center_30%]"
       labelledBy="about-title"
     >
       <ScrollFade className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pt-24 pb-16 sm:px-10 sm:pt-28 sm:pb-24">

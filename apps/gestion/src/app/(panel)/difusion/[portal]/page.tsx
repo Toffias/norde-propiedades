@@ -5,11 +5,12 @@ import { DataTableError } from '@norde/ui/components/data-table';
 import { ErrorState } from '@norde/ui/components/error-state';
 import { PageHeader } from '@norde/ui/components/page-header';
 import { cn } from '@norde/ui/lib/utils';
-import { ArrowLeftIcon, MegaphoneIcon } from 'lucide-react';
+import { ArrowLeftIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { PortalMark } from '../../../../features/portals/components/portal-account-facts';
 import { PORTAL_LABELS } from '../../../../features/portals/messages';
 import { PortalCounters } from '../../../../features/publications/components/portal-counters';
 import { PortalPublicationsGrid } from '../../../../features/publications/components/portal-publications-grid';
@@ -72,7 +73,7 @@ export default async function PortalPublicationsPage({
         Difusión
       </Link>
       <PageHeader
-        icon={MegaphoneIcon}
+        leading={<PortalMark portal={portal} />}
         title={PORTAL_LABELS[portal]}
         subtitle="Las publicaciones de la cuenta: tocá un contador para ver su listado"
       />

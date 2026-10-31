@@ -289,8 +289,8 @@ export interface ParsedOpportunityFilter {
   readonly agentId?: string | undefined;
   readonly branchId?: string | undefined;
   readonly tagId?: string | undefined;
-  readonly originChannel?: ContactChannelValue | undefined;
-  readonly category?: OpportunityStatusValue | undefined;
+  readonly originChannel?: readonly ContactChannelValue[] | undefined;
+  readonly category?: readonly OpportunityStatusValue[] | undefined;
   readonly createdFrom?: string | undefined;
   readonly createdTo?: string | undefined;
   readonly updatedFrom?: string | undefined;

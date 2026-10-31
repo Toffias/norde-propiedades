@@ -34,22 +34,34 @@ test.describe('listado', () => {
     await expect(grid.getByRole('row')).toHaveCount(2);
   });
 
-  test('filtra por tipo de propiedad', async ({ page }) => {
+  test('filtra por tipo de propiedad, con uno o varios', async ({ page }) => {
     await page.goto('/propiedades');
-    await page.getByRole('combobox', { name: 'Tipo de propiedad' }).click();
-    await page.getByRole('option', { name: 'Oficina' }).click();
+    await page.getByRole('button', { name: 'Tipo de propiedad' }).click();
+    await page.getByRole('checkbox', { name: 'Oficina' }).click();
 
     await expect(page).toHaveURL(/[?&]propertyType=office/);
     const grid = page.getByRole('table', { name: table });
     await expect(grid.getByRole('link', { name: 'P-008', exact: true })).toBeVisible();
     await expect(grid.getByRole('row')).toHaveCount(2);
+
+    // El popover queda abierto: se suma otro tipo y el param se repite.
+    await page.getByRole('checkbox', { name: 'Casa' }).click();
+    await expect(page).toHaveURL(
+      /propertyType=office.*propertyType=house|propertyType=house.*propertyType=office/,
+    );
+    await expect(grid.getByRole('link', { name: 'P-008', exact: true })).toBeVisible();
   });
 
-  test('filtra por barrio, localidad o provincia', async ({ page }) => {
+  test('filtra por barrio, localidad o provincia eligiendo una sugerencia', async ({ page }) => {
     await page.goto('/propiedades');
-    await page.getByRole('textbox', { name: 'Barrio, localidad o provincia' }).fill('Palermo');
+    await page.getByRole('combobox', { name: 'Barrio, localidad o provincia' }).fill('Palerm');
+    await page
+      .getByRole('option', { name: /^Palermo/ })
+      .first()
+      .click();
 
-    await expect(page).toHaveURL(/[?&]location=Palermo/);
+    await expect(page).toHaveURL(/[?&]location=[0-9a-f-]{36}/);
+    await expect(page.getByRole('button', { name: 'Quitar Palermo' })).toBeVisible();
     const grid = page.getByRole('table', { name: table });
     await expect(grid.getByRole('link', { name: 'P-001', exact: true })).toBeVisible();
     await expect(grid.getByRole('link', { name: 'P-002', exact: true })).toBeVisible();
@@ -110,6 +122,31 @@ test.describe('listado', () => {
     await page.getByRole('menuitem', { name: 'CSV' }).click();
 
     expect((await download).suggestedFilename()).toMatch(/\.csv$/);
+  });
+});
+
+test.describe('vistazo', () => {
+  test('tocar la fila abre el vistazo y de ahí se va a la ficha', async ({ page }) => {
+    const created = await createProperty(page);
+    await page.goto(`/propiedades?q=${encodeURIComponent(created.code)}`);
+    const row = page
+      .getByRole('table', { name: table })
+      .getByRole('row')
+      .filter({ has: page.getByRole('link', { name: created.code, exact: true }) });
+    await row.getByText(created.title).click();
+
+    const dialog = page.getByRole('dialog', { name: created.title });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('Sin descripción todavía.')).toBeVisible();
+    await expect(page).toHaveURL(/\/propiedades\?/);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+
+    await row.getByText(created.title).click();
+    await dialog.getByRole('link', { name: 'Ver ficha completa' }).click();
+    await expect(page).toHaveURL(/\/propiedades\/[0-9a-f-]{36}/);
+    await expect(page.getByRole('heading', { level: 1, name: created.title })).toBeVisible();
   });
 });
 

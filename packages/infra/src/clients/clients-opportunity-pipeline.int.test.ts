@@ -316,7 +316,12 @@ describe('DrizzleOpportunityPipelineQuery', () => {
   it.each<[string, Partial<OpportunityFilterCriteria>, (o: SeededOpportunity) => boolean]>([
     ['agent', { agentId: OTHER }, (o) => o.agentId === OTHER],
     ['branch', { branchId: OTHER_BRANCH }, (o) => o.branchId === OTHER_BRANCH],
-    ['channel', { originChannel: 'zonaprop' }, (o) => o.channel === 'zonaprop'],
+    ['channel', { originChannel: ['zonaprop'] }, (o) => o.channel === 'zonaprop'],
+    [
+      'two channels',
+      { originChannel: ['zonaprop', 'office'] },
+      (o) => o.channel === 'zonaprop' || o.channel === 'office',
+    ],
     ['tag', { tagId: TAG }, (o) => isTagged(o.client)],
     ['text', { text: 'busqueda' }, (o) => o.client % 7 === 0],
     [
@@ -342,7 +347,7 @@ describe('DrizzleOpportunityPipelineQuery', () => {
   it('counts by stage with the same filters, and the assigned new ones', async () => {
     await seedPipeline();
 
-    const counts = await pipeline.countByStage({ ...FILTER, originChannel: 'whatsapp' });
+    const counts = await pipeline.countByStage({ ...FILTER, originChannel: ['whatsapp'] });
     expect(new Map(counts.map((c) => [c.stageId, c.count]))).toEqual(
       new Map(
         STAGES.map(
@@ -354,9 +359,14 @@ describe('DrizzleOpportunityPipelineQuery', () => {
         ).filter(([, total]) => total !== 0),
       ),
     );
-    expect(await pipeline.countByStage({ ...FILTER, category: 'won' })).toEqual([
+    expect(await pipeline.countByStage({ ...FILTER, category: ['won'] })).toEqual([
       { stageId: SEEDED_STAGES.won, count: visible.filter((o) => o.category === 'won').length },
     ]);
+    // Varias categorías: los estados de las dos.
+    const wonOrLost = await pipeline.countByStage({ ...FILTER, category: ['won', 'lost'] });
+    expect(wonOrLost.reduce((total, c) => total + c.count, 0)).toBe(
+      visible.filter((o) => o.category === 'won' || o.category === 'lost').length,
+    );
     expect(await pipeline.countAssigned(AGENT, ['new'])).toBe(
       visible.filter((o) => o.agentId === AGENT && o.category === 'new').length,
     );
@@ -587,11 +597,14 @@ describe('opportunity actions persistence', () => {
       updated: { from: undefined, to: undefined },
     };
 
-    expect(await list.count({ ...base, opportunityStageId: SEEDED_STAGES.new })).toBe(1);
-    expect(await list.count({ ...base, opportunityStageId: SEEDED_STAGES.won })).toBe(0);
+    expect(await list.count({ ...base, opportunityStageId: [SEEDED_STAGES.new] })).toBe(1);
+    expect(await list.count({ ...base, opportunityStageId: [SEEDED_STAGES.won] })).toBe(0);
+    expect(
+      await list.count({ ...base, opportunityStageId: [SEEDED_STAGES.won, SEEDED_STAGES.new] }),
+    ).toBe(1);
     const page = await list.search({
       ...base,
-      opportunityStageId: SEEDED_STAGES.new,
+      opportunityStageId: [SEEDED_STAGES.new],
       sort: { field: 'name', direction: 'asc' },
       offset: 0,
       limit: 25,

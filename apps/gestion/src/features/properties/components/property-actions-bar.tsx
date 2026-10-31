@@ -10,7 +10,7 @@ import { SaveSearchForClientSheet } from '../../clients/components/save-search-f
 import { ListNavigationProvider } from '../../shared/components/server-data-table';
 import { FavoriteSearchesMenu } from './favorite-searches-menu';
 import { LayoutSwitcher } from './layout-switcher';
-import type { PropertyFilterValues } from './properties-toolbar';
+import type { LocationOptions, PropertyFilterValues } from './properties-toolbar';
 
 /**
  * Las acciones de arriba del buscador, igual en la lista, las tarjetas y el mapa: la vista a la
@@ -21,6 +21,7 @@ import type { PropertyFilterValues } from './properties-toolbar';
 export function PropertyActionsBar({
   layout,
   filters,
+  locationOptions,
   canCreate,
   canSaveForClient,
   canTurnOnAutoSend,
@@ -30,6 +31,7 @@ export function PropertyActionsBar({
 }: {
   readonly layout: PropertyLayoutValue;
   readonly filters: PropertyFilterValues;
+  readonly locationOptions: LocationOptions;
   readonly canCreate: boolean;
   /** Editar contactos: guardarles búsquedas (#11). */
   readonly canSaveForClient: boolean;
@@ -79,7 +81,7 @@ export function PropertyActionsBar({
       </div>
       {saving && (
         <SaveSearchForClientSheet
-          filters={filters}
+          filters={{ ...filters, locationOptions }}
           open={saving}
           onOpenChange={setSaving}
           canTurnOnAutoSend={canTurnOnAutoSend}

@@ -862,8 +862,10 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 
 - Es una query distinta de la búsqueda pública: ve borradores y datos internos.
 - La cartera es de toda la inmobiliaria: con `properties:read` se ven todas. "Mis captaciones" y "Mi sucursal" son filtros.
-- Filtros rápidos: texto (código, título o dirección), barrio / localidad / provincia, operación, tipo, estado, y moneda con rango de precio.
-- El precio se filtra y se ordena en **una sola moneda**: sin moneda no hay rango ni orden por precio. Con operación elegida, el precio es el de esa operación.
+- Filtros rápidos: texto (código, título o dirección), ubicación, operación, tipo, estado, y moneda con rango de precio.
+- **Ubicación**: como en el sitio, al escribir aparecen las ubicaciones del catálogo (barrios, localidades y provincias) y se eligen una o más, que quedan como etiquetas. Cada una incluye todo lo que está adentro (CABA trae Palermo y Belgrano). Una propiedad sin ubicación del catálogo coincide si su barrio, localidad o provincia contiene el nombre de la elegida.
+- Operación, tipo y estado admiten **varios valores**: alcanza con que la propiedad cumpla uno. En la URL el param se repite (`?status=draft&status=available`).
+- El precio se filtra y se ordena en **una sola moneda**: sin moneda no hay rango ni orden por precio. Con operaciones elegidas, el precio es el de esas operaciones.
 - Orden por última actualización (por defecto), creación, precio o código.
 - Todo paginado en el servidor, con un índice por filtro y orden (probado con 5.000 propiedades).
 
@@ -884,13 +886,15 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 **Vistas del buscador** (`?layout=`): lista, tarjetas y mapa, con los mismos filtros. La papelera solo se ve en lista.
 
 - **Lista**: columnas fijas (código, propiedad, operación y precio, estado) más hasta 4 que elige la inmobiliaria en Mi empresa → Propiedades (ambientes, dormitorios, baños, cocheras, superficies, antigüedad, captador, alta, actualización). Valen para todos los usuarios, como en Tokko.
+  - **Vistazo**: tocar una fila abre un modal con las fotos (carrusel con miniaturas, hasta 30), el estado, el código y el tipo, el título, la ubicación, las operaciones con su precio, las características de la unidad que estén cargadas, en cuadritos con ícono como el precio (ambientes, dormitorios, baños, cocheras, superficies, antigüedad), el captador y el emprendimiento, y la descripción. En desktop, las fotos ocupan todo el alto a la izquierda. Sirve para mirar una propiedad sin salir de la grilla; **Ver ficha completa** lleva a la ficha. El código de la fila sigue siendo el link directo a la ficha, y con Ctrl o Cmd la fila la abre en otra pestaña. Lee con los mismos permisos que la ficha.
 - **Tarjetas**: la foto de portada, el estado, el título, la ubicación, los precios y los atributos principales.
-- **Mapa**: los pines del área visible, como mucho 500 (las actualizadas más recientemente). Una capa por estado y pines agrupados. Las propiedades sin coordenadas no aparecen.
+- **Mapa**: los pines del área visible, como mucho 500 (las actualizadas más recientemente). Una capa por estado y pines agrupados. Las propiedades sin coordenadas no aparecen. Al tocar un pin, se resalta y aparece abajo su tarjeta (portada, código y tipo, título, ubicación, operaciones y precio, ambientes y estado), que lleva a la ficha; tocar el mapa o la cruz la cierra.
 
 **Favoritas y búsquedas favoritas** (de cada usuario):
 
 - La estrella de cada fila o tarjeta marca la propiedad como favorita.
-- "Búsquedas" guarda los filtros y el orden actuales con un nombre (hasta 50 por usuario). Con un nombre que ya existe, se reemplazan.
+- "Búsquedas" guarda los filtros y el orden actuales con un nombre (hasta 50 por usuario). Con un nombre que ya existe, se reemplazan. Los filtros de varios valores se guardan como lista. Una búsqueda guardada antes con la ubicación como texto libre abre sin ese filtro (el buscador avisa que no era válido).
+- "Guardar para un contacto" arranca con los tipos y las ubicaciones del buscador; la operación, solo si se eligió una (la búsqueda de un contacto tiene una sola).
 
 **Acciones masivas** sobre las propiedades marcadas o sobre todas las que cumplen el filtro:
 
@@ -928,7 +932,7 @@ La #5 se hace en dos etapas. La etapa 1 (la base) se describe acá; la etapa 2 (
 
 ### 4.8 Ficha de propiedad (#6)
 
-Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). La grilla y las tarjetas del buscador enlazan a la ficha.
+Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). Las tarjetas del buscador enlazan a la ficha; la grilla abre primero el vistazo (4.7), salvo el código, que enlaza directo.
 
 **Cabecera**: foto de portada, estado (con "Cambiar estado", con las transiciones de §4.7), tipo, código, ubicación, dirección para publicar y la real, favorita, "Publicación" (publicar en web, con o sin precio, dirección exacta y destacada, con `properties:publish`) y las acciones: ver en el mapa, estadísticas, PDF de la ficha, PDF de vidriera y reporte al propietario.
 
@@ -940,9 +944,9 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 - Operaciones: venta, alquiler y temporario, cada una con precio, moneda, "precio a consultar" y comisión (0 a 100 %, con dos decimales). Al menos una. Cada cambio de precio va al historial de precios y emite `PropertyPriceChanged`. Cada operación se muestra como una tarjeta con el precio, el precio por m² (sobre la superficie total) y la comisión estimada (el porcentaje aplicado al precio). Con permiso de edición, las operaciones que faltan aparecen juntas en una tarjeta ("Agregar venta", etc.) y abren la edición con esa operación ya sumada.
 - Condiciones: exclusividad, permuta, escritura inmediata, financiación, apto crédito y expensas (en pesos).
 - Características: ambientes, superficies y medidas, antigüedad, orientación, estado de conservación y disposición. La superficie cubierta más la semicubierta no supera la total. Se muestran los atributos que el tipo de propiedad tiene habilitados en Mi empresa.
-- Ubicación: dirección real (privada), dirección para publicar (vacía: se sugiere), ubicación del catálogo y coordenadas. Si cambia la dirección y no hay coordenadas cargadas a mano, se ubica de nuevo en el mapa.
+- Ubicación: dirección real (privada), dirección para publicar (vacía: se sugiere), ubicación del catálogo y coordenadas. Si cambia la dirección y no hay coordenadas cargadas a mano, se ubica de nuevo en el mapa. Al lado, la tarjeta **Mapa** (solo lectura) muestra el pin; sin coordenadas, un aviso de cómo cargarlas.
 - Título para portales y descripción. Servicios, ambientes y adicionales como checklists del catálogo. Etiquetas. Atributos personalizados (se definen en Mi empresa → Propiedades: texto, número, sí o no, o lista; no se borran ni cambian de tipo, se desactivan). **Ocultos (#50)**: Norde no creó ninguno en Tokko; con `CUSTOM_ATTRIBUTES_ENABLED=false` (por defecto) no se muestran ni en Mi empresa ni en la ficha.
-- Información interna: código de referencia (editable, sin repetir), captador (`properties:change-producer`), tasadores, usuario de mantenimiento, ubicación de las llaves, información legal y comentarios internos.
+- Información interna (comparte fila con servicios, ambientes y adicionales): código de referencia (editable, sin repetir), captador (`properties:change-producer`), tasadores, usuario de mantenimiento, ubicación de las llaves, información legal y comentarios internos.
 - Propietarios (#107): se ven con enlace a su ficha de contacto. Con el mismo permiso que el captador ("Cambiar el productor o los propietarios") se suman y se quitan de a uno, hasta 20: un contacto en la papelera o unificado no se puede sumar, y quitarlo no borra el contacto. Cada cambio queda en el historial de la propiedad (`property.owner_added`, `property.owner_removed`, filtro "Captador, propietarios y etiquetas") con el contacto en `client_ids`, así la supresión lo borra. La unificación de contactos mueve los vínculos y la supresión los quita (§3.3.2 y §3.3.4).
 
 **Multimedia**: fotos y planos (JPG, PNG o WebP, hasta 15 MB, hasta 100 ítems por propiedad), videos (YouTube, Vimeo) y recorridos 360 (Matterport, Kuula, Roundme) por link.

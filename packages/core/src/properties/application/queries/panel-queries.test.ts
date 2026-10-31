@@ -46,6 +46,25 @@ describe('GetPropertyMap', () => {
     ]);
   });
 
+  it('sends the cover of each pin without its storage key', async () => {
+    const mediaId = '00000000-0000-7000-8000-0000000000d1';
+    const properties = new StubPanelPropertyListQuery({
+      items: [
+        aPanelItem({
+          id: A,
+          coordinates: { latitude: -34.58, longitude: -58.43 },
+          cover: { mediaId, hasThumbnail: true, fileKey: 'thumbnail-key' },
+        }),
+      ],
+      total: 1,
+    });
+    const map = new GetPropertyMap({ properties });
+
+    const result = unwrap(await map.execute(AREA, TEST_PRODUCER));
+
+    expect(result.pins[0]?.cover).toEqual({ mediaId, hasThumbnail: true });
+  });
+
   it('rejects an inverted area and an actor without permission', async () => {
     const map = new GetPropertyMap({ properties: new StubPanelPropertyListQuery() });
     expect(unwrapErr(await map.execute({ ...AREA, south: '-34.4' }, TEST_PRODUCER)).type).toBe(

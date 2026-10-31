@@ -41,7 +41,7 @@ export default async function InquiriesPage({
   const filters: InquiryFilterValues = {
     tab: query.tab,
     branchId: query.branchId ?? '',
-    channel: query.channel ?? '',
+    channel: query.channel ?? [],
     propertyId: query.propertyId ?? '',
     receivedFrom: query.receivedFrom ?? '',
     receivedTo: query.receivedTo ?? '',

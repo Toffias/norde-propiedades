@@ -17,8 +17,9 @@ export interface OpportunityFilterCriteria {
   readonly agentId: string | undefined;
   readonly branchId: string | undefined;
   readonly tagId: string | undefined;
-  readonly originChannel: ContactChannelValue | undefined;
-  readonly category: OpportunityStatusValue | undefined;
+  // Los de varios valores: alcanza con que coincida uno. `undefined`: sin filtro.
+  readonly originChannel: readonly ContactChannelValue[] | undefined;
+  readonly category: readonly OpportunityStatusValue[] | undefined;
   /** `[from, to)`. */
   readonly created: { readonly from: Date | undefined; readonly to: Date | undefined };
   readonly updated: { readonly from: Date | undefined; readonly to: Date | undefined };

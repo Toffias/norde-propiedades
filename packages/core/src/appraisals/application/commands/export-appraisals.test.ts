@@ -97,7 +97,7 @@ describe('ExportAppraisals', () => {
         entityType: 'appraisal_export',
         changes: {
           count: { before: null, after: 1 },
-          filter: { before: null, after: { status: 'appraised', view: 'active' } },
+          filter: { before: null, after: { status: ['appraised'], view: 'active' } },
         },
       }),
     ]);

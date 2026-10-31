@@ -51,6 +51,37 @@ export function PortalLogo({
   );
 }
 
+/**
+ * El logo del portal en chico, para ir junto al nombre de la cuenta en un título o una columna.
+ * Decorativo: el nombre ya está en el texto de al lado. Sobre blanco en los dos temas, como
+ * `PortalLogo`.
+ */
+export function PortalMark({
+  portal,
+  className,
+}: {
+  readonly portal: PortalValue;
+  readonly className?: string;
+}) {
+  const logo = LOGOS[portal];
+  return (
+    <span
+      className={cn(
+        'inline-flex h-7 shrink-0 items-center rounded-md border border-border bg-white px-2',
+        className,
+      )}
+    >
+      <Image
+        src={logo.src}
+        alt=""
+        width={320}
+        height={93}
+        className="h-5 w-auto max-w-[96px] object-contain"
+      />
+    </span>
+  );
+}
+
 /** Un dato de la cuenta: etiqueta arriba, valor grande y un detalle opcional. */
 export function Fact({
   label,

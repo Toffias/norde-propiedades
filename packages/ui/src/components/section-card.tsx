@@ -11,6 +11,7 @@ import { Card } from './card';
 export function SectionCard({
   title,
   icon: Icon,
+  leading,
   action,
   children,
   className,
@@ -18,6 +19,8 @@ export function SectionCard({
 }: {
   readonly title: string;
   readonly icon?: LucideIcon;
+  /** En lugar del ícono, antes del título: por ejemplo, el logo de una marca. */
+  readonly leading?: ReactNode;
   readonly action?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
@@ -28,7 +31,10 @@ export function SectionCard({
     <Card className={cn('gap-0 p-0', className)}>
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
         <h2 className="flex min-w-0 items-center gap-2 text-base font-bold">
-          {Icon !== undefined && <Icon className="size-4 shrink-0 text-foreground" aria-hidden />}
+          {leading ??
+            (Icon !== undefined && (
+              <Icon className="size-4 shrink-0 text-foreground" aria-hidden />
+            ))}
           {title}
         </h2>
         {action !== undefined && <div className="-my-1.5 shrink-0">{action}</div>}

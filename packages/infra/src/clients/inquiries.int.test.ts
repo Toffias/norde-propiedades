@@ -195,7 +195,7 @@ describe('DrizzleInquiryInboxQuery', () => {
       deleted: 6,
     });
 
-    const filters = { ...noFilters, branchId: BRANCH, channel: 'zonaprop' as const, received };
+    const filters = { ...noFilters, branchId: BRANCH, channel: ['zonaprop' as const], received };
     const totals = await Promise.all(
       (['pending', 'assigned', 'deleted'] as const).map(
         async (tab) => (await inbox.search(criteria({ tab, ...filters }))).total,
@@ -214,10 +214,16 @@ describe('DrizzleInquiryInboxQuery', () => {
     expect(byBranch.items.map((i) => i.id)).toEqual(
       all.filter((i) => i.branchId === OTHER_BRANCH).map((i) => i.id),
     );
-    const byChannel = await inbox.search(criteria({ channel: 'zonaprop' }));
+    const byChannel = await inbox.search(criteria({ channel: ['zonaprop'] }));
     expect(byChannel.items.map((i) => i.id)).toEqual(
       all.filter((i) => i.channel === 'zonaprop').map((i) => i.id),
     );
+    // Varios canales: alcanza con que coincida uno.
+    const byTwoChannels = await inbox.search(criteria({ channel: ['zonaprop', 'web_form'] }));
+    expect(byTwoChannels.items.map((i) => i.id)).toEqual(
+      all.filter((i) => i.channel === 'zonaprop' || i.channel === 'web_form').map((i) => i.id),
+    );
+    expect((await inbox.search(criteria({ channel: ['whatsapp'] }))).total).toBe(0);
     const byProperty = await inbox.search(criteria({ propertyId: PROPERTY }));
     expect(byProperty.items.map((i) => i.id)).toEqual(
       all.filter((i) => i.propertyId === PROPERTY).map((i) => i.id),
@@ -231,7 +237,7 @@ describe('DrizzleInquiryInboxQuery', () => {
     expect(byDate.total).toBe(2);
 
     const combined = await inbox.search(
-      criteria({ tab: 'assigned', branchId: BRANCH, channel: 'zonaprop' }),
+      criteria({ tab: 'assigned', branchId: BRANCH, channel: ['zonaprop'] }),
     );
     // La de las 9 h cumple todo pero está borrada.
     expect(combined.items.map((i) => i.receivedAt.getTime())).toEqual([NOW.getTime() + 3 * HOUR]);

@@ -29,14 +29,30 @@ import { runAction } from '../../../lib/action-result';
 import { FormAlert } from '../../shared/components/form-alert';
 import { deleteFavoriteSearchAction, saveFavoriteSearchAction } from '../actions';
 
-/** Los filtros y el orden actuales del buscador, sin la página ni la vista. */
-function currentParams(search: URLSearchParams): Record<string, string> {
+type SearchParamsRecord = Record<string, string | readonly string[]>;
+
+/**
+ * Los filtros y el orden actuales del buscador, sin la página ni la vista. Un param repetido (un
+ * filtro de varios valores) se guarda como lista.
+ */
+function currentParams(search: URLSearchParams): SearchParamsRecord {
   return Object.fromEntries(
     FAVORITE_SEARCH_PARAMS.flatMap((key) => {
-      const value = search.get(key);
-      return value === null || value === '' ? [] : [[key, value]];
+      const values = search.getAll(key).filter((value) => value !== '');
+      if (values.length === 0) return [];
+      const [only] = values;
+      return [[key, values.length === 1 && only !== undefined ? only : values]];
     }),
   );
+}
+
+/** La query string de una búsqueda guardada: las listas vuelven a ser params repetidos. */
+function toQuery(params: Readonly<SearchParamsRecord>): URLSearchParams {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    for (const item of typeof value === 'string' ? [value] : value) query.append(key, item);
+  }
+  return query;
 }
 
 /**
@@ -55,7 +71,7 @@ export function FavoriteSearchesMenu({
   const [deletingId, setDeletingId] = useState<string | undefined>();
 
   function open(search: FavoriteSearchRow) {
-    const query = new URLSearchParams(search.params);
+    const query = toQuery(search.params);
     const layout = searchParams.get('layout');
     if (layout !== null) query.set('layout', layout);
     const suffix = query.toString();
@@ -147,7 +163,7 @@ function SaveSearchDialog({
   onOpenChange,
 }: {
   readonly open: boolean;
-  readonly params: Record<string, string>;
+  readonly params: SearchParamsRecord;
   readonly onOpenChange: (open: boolean) => void;
 }) {
   const id = useId();

@@ -23,7 +23,7 @@ import {
 import { ServerDataTable } from '../../shared/components/server-data-table';
 import { deleteClientAction, restoreClientAction } from '../actions';
 import { clientName, formatPhone, userName } from '../client-format';
-import type { ClientFilterValues } from './clients-toolbar';
+import { hasClientFilters, type ClientFilterValues } from './clients-toolbar';
 import { ContactInitials } from './contact-initials';
 
 interface PendingAction {
@@ -79,9 +79,7 @@ export function ClientsGrid({
 }) {
   const [pending, setPending] = useState<PendingAction | undefined>();
   const inTrash = filters.view === 'trash';
-  const hasFilters = Object.entries(filters).some(
-    ([key, value]) => key !== 'view' && value !== '' && value !== false,
-  );
+  const hasFilters = hasClientFilters(filters);
 
   const columns = useMemo(
     (): readonly DataTableColumn<ClientListRow>[] => [

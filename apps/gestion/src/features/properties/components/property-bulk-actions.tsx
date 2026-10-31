@@ -37,7 +37,7 @@ import { UNEXPECTED_ERROR_MESSAGE } from '../../../lib/errors';
 import { FeatureToClientDialog } from '../../clients/components/feature-to-client-dialog';
 import { requestPropertyListDocumentAction, setPropertyFavoritesAction } from '../actions';
 import { EXPORT_FORMAT_LABELS } from '../labels';
-import type { PropertyFilterValues } from './properties-toolbar';
+import { activeFilters, type PropertyFilterValues } from './properties-toolbar';
 import { QuickEditDialog } from './quick-edit-dialog';
 import { SheetPdfDialog } from './sheet-pdf-dialog';
 
@@ -59,8 +59,7 @@ export function toPropertySelection(
   filters: PropertyFilterValues,
 ): PropertySelection {
   if (selection.kind === 'ids') return { kind: 'ids', ids: [...selection.ids] };
-  const filter = Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''));
-  return { kind: 'filter', filter };
+  return { kind: 'filter', filter: activeFilters(filters) };
 }
 
 const ATTACHMENT_NAME = /filename="([^"]+)"/;

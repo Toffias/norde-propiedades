@@ -12,7 +12,6 @@ import {
 import type { PageSlice } from '@norde/core/shared';
 import {
   and,
-  arrayContains,
   arrayOverlaps,
   asc,
   count,
@@ -136,7 +135,7 @@ export class DrizzleClientListQuery implements ClientListQuery {
       c.text === undefined ? undefined : matchesSearchText(clients.searchText, c.text),
       c.agentId === undefined ? undefined : eq(clients.agentId, c.agentId),
       c.branchId === undefined ? undefined : eq(clients.branchId, c.branchId),
-      c.kind === undefined ? undefined : eq(clients.kind, c.kind),
+      c.kind === undefined ? undefined : inArray(clients.kind, [...c.kind]),
       // La PK de `client_tag_assignments` empieza por `client_id`.
       c.tagged === undefined ? undefined : c.tagged === 'with' ? tagged : sql`not ${tagged}`,
       c.tagId === undefined
@@ -144,14 +143,16 @@ export class DrizzleClientListQuery implements ClientListQuery {
         : sql`exists (select 1 from ${clientTagAssignments} a where a.client_id = ${clients.id} and a.tag_id = ${c.tagId})`,
       c.letter === undefined ? undefined : letterFilter(c.letter),
       // `@>` y `&&` usan el índice GIN de `client_types`; `= any(...)` no.
-      c.clientType === undefined ? undefined : arrayContains(clients.clientTypes, [c.clientType]),
+      c.clientType === undefined
+        ? undefined
+        : arrayOverlaps(clients.clientTypes, [...c.clientType]),
       c.anyOfTypes === undefined
         ? undefined
         : arrayOverlaps(clients.clientTypes, [...c.anyOfTypes]),
       // `opportunities_stage_updated_idx` (por estado) o `opportunities_client_status_idx`.
       c.opportunityStageId === undefined
         ? undefined
-        : sql`exists (select 1 from ${opportunities} o where o.client_id = ${clients.id} and o.stage_id = ${c.opportunityStageId})`,
+        : sql`exists (select 1 from ${opportunities} o where o.client_id = ${clients.id} and o.stage_id in ${[...c.opportunityStageId]})`,
       c.created.from === undefined ? undefined : gte(clients.createdAt, c.created.from),
       c.created.to === undefined ? undefined : lt(clients.createdAt, c.created.to),
       c.updated.from === undefined ? undefined : gte(clients.updatedAt, c.updated.from),

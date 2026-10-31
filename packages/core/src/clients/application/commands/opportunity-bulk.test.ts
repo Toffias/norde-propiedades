@@ -140,7 +140,7 @@ describe('BulkUpdateOpportunities', () => {
     expect(output.mode === 'done' && output.result.updated).toBe(3);
     expect(pipeline.bulkCriteria[0]).toMatchObject({
       stageId: NEW,
-      originChannel: 'whatsapp',
+      originChannel: ['whatsapp'],
       visibility: { kind: 'all' },
     });
     for (const o of opportunities) {
@@ -171,7 +171,8 @@ describe('BulkUpdateOpportunities', () => {
       status: 'pending',
       requestedBy: MANAGER.id,
       action: { kind: 'reassign', agentId: OTHER_AGENT_ID },
-      selection: { kind: 'filter', filter: { category: 'new' } },
+      // El filtro se guarda como lo dejó el contract: los de varios valores, como lista.
+      selection: { kind: 'filter', filter: { category: ['new'] } },
       totals: { total: 150, processed: 0 },
     });
     expect(uow.events.published.map((e) => e.type)).toEqual(['clients.opportunity_bulk_requested']);

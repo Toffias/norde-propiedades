@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { pageQuerySchema } from '../../shared/contracts';
+import { multiValueSchema, pageQuerySchema } from '../../shared/contracts';
 
 import { OPPORTUNITY_STATUS_VALUES, type OpportunityStatusValue } from './clients-activity';
 import type { ClientKindValue, ClientUserRef } from './clients-panel';
@@ -33,8 +33,9 @@ export const OpportunityFilterFields = {
   branchId: z.uuid().optional(),
   /** Etiqueta del contacto. */
   tagId: z.uuid().optional(),
-  originChannel: z.enum(CONTACT_CHANNEL_VALUES).optional(),
-  category: z.enum(OPPORTUNITY_STATUS_VALUES).optional(),
+  // Los de varios valores: alcanza con que coincida uno.
+  originChannel: multiValueSchema(z.enum(CONTACT_CHANNEL_VALUES)),
+  category: multiValueSchema(z.enum(OPPORTUNITY_STATUS_VALUES)),
   /** Fechas `AAAA-MM-DD` de Buenos Aires, inclusive. */
   createdFrom: z.iso.date().optional(),
   createdTo: z.iso.date().optional(),

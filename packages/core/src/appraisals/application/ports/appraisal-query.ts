@@ -37,7 +37,8 @@ export interface AppraisalFilterCriteria {
   /** `true`: solo las de la papelera; `false`: solo las activas. */
   readonly deleted: boolean;
   readonly statuses: readonly AppraisalStatusValue[] | undefined;
-  readonly propertyType: PropertyType | undefined;
+  /** Alcanza con que sea de uno de estos tipos. */
+  readonly propertyType: readonly PropertyType[] | undefined;
   readonly producerUserId: string | undefined;
   readonly appraiserUserId: string | undefined;
   readonly branchId: string | undefined;

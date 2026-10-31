@@ -12,13 +12,6 @@ import { Button } from '@norde/ui/components/button';
 import { DateRangePicker } from '@norde/ui/components/date-range-picker';
 import { Label } from '@norde/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@norde/ui/components/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@norde/ui/components/select';
 import { SoftBadge } from '@norde/ui/components/status-pill';
 import { TablePagination } from '@norde/ui/components/table-pagination';
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
@@ -41,6 +34,7 @@ import Link from 'next/link';
 import { useId, useState } from 'react';
 
 import { MoreFiltersButton } from '../../shared/components/more-filters-button';
+import { FilterMultiSelect } from '../../shared/components/list-filters';
 import type { ActionResult } from '../../../lib/action-result';
 import { EMPTY_VALUE, formatDateTime } from '../../../lib/format';
 import { listingPrice } from '../../clients/activity-format';
@@ -67,7 +61,7 @@ import { AssignInquiryDialog } from './assign-inquiry-dialog';
 export interface InquiryFilterValues {
   readonly tab: InquiryTabValue;
   readonly branchId: string;
-  readonly channel: string;
+  readonly channel: readonly string[];
   readonly propertyId: string;
   readonly receivedFrom: string;
   readonly receivedTo: string;
@@ -83,9 +77,6 @@ export interface InquiryPermissions {
   /** Filtrar por propiedad (`properties:read`). */
   readonly pickProperties: boolean;
 }
-
-/** "Todos" en un select: sin el param en la URL. */
-const ANY = 'any';
 
 const EMPTY_MESSAGES: Readonly<Record<InquiryTabValue, string>> = {
   pending: 'No hay consultas pendientes. Las que lleguen de los portales y de la web aparecen acá.',
@@ -246,28 +237,21 @@ function Toolbar({
   const more = [filters.branchId, filters.receivedFrom, filters.receivedTo].filter(
     (value) => value !== '',
   ).length;
-  const active = more + [filters.channel, filters.propertyId].filter((v) => v !== '').length;
+  const active = more + (filters.channel.length > 0 ? 1 : 0) + (filters.propertyId === '' ? 0 : 1);
 
   return (
     <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap">
-      <Select
-        value={filters.channel === '' ? ANY : filters.channel}
-        onValueChange={(value) => {
-          setParams({ channel: value === ANY ? undefined : value });
-        }}
-      >
-        <SelectTrigger aria-label="Canal" className="w-full sm:w-auto sm:min-w-[160px] sm:flex-1">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ANY}>Todos los canales</SelectItem>
-          {CONTACT_CHANNEL_VALUES.map((channel) => (
-            <SelectItem key={channel} value={channel}>
-              {CONTACT_CHANNEL_LABELS[channel]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FilterMultiSelect
+        param="channel"
+        value={filters.channel}
+        label="Canal"
+        anyLabel="Todos los canales"
+        options={CONTACT_CHANNEL_VALUES.map((channel) => ({
+          value: channel,
+          label: CONTACT_CHANNEL_LABELS[channel] ?? channel,
+        }))}
+        className="w-full sm:w-auto sm:min-w-[160px] sm:flex-1"
+      />
       {permissions.pickProperties && (
         <div className="w-full sm:w-auto sm:min-w-[200px] sm:flex-[1.5]">
           <EntityPicker
@@ -620,13 +604,11 @@ function InboxBody({
   const { setParams, pending } = useListNavigation();
   const [action, setAction] = useState<PendingAction | undefined>();
   const [assigning, setAssigning] = useState<InquiryInboxRow | undefined>();
-  const filtered = [
-    filters.branchId,
-    filters.channel,
-    filters.propertyId,
-    filters.receivedFrom,
-    filters.receivedTo,
-  ].some((value) => value !== '');
+  const filtered =
+    filters.channel.length > 0 ||
+    [filters.branchId, filters.propertyId, filters.receivedFrom, filters.receivedTo].some(
+      (value) => value !== '',
+    );
 
   return (
     <div className="flex flex-col">

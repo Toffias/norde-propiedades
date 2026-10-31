@@ -28,7 +28,11 @@ export function appraisalCriteria(
   return {
     visibility: visibilityFilter(actor, OWNERSHIP_RULES.appraisalsRead),
     deleted: filter.view === 'trash',
-    statuses: filter.status === undefined ? undefined : statusesOfGroup(filter.status),
+    // Los estados de todos los grupos elegidos.
+    statuses:
+      filter.status === undefined
+        ? undefined
+        : filter.status.flatMap((group) => statusesOfGroup(group)),
     propertyType: filter.propertyType,
     producerUserId: filter.producerId,
     appraiserUserId: filter.appraiserId,

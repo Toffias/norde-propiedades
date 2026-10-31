@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { pageQuerySchema } from '../../shared/contracts';
+import { MAX_FILTER_VALUES, pageQuerySchema } from '../../shared/contracts';
 
 import { PROPERTY_TYPES } from './values';
 
@@ -292,7 +292,14 @@ export const FAVORITE_SEARCH_PARAMS = [
 
 export const SaveFavoriteSearchInputSchema = z.object({
   name: Name(60),
-  params: z.partialRecord(z.enum(FAVORITE_SEARCH_PARAMS), z.string().trim().max(100)),
+  /** Un filtro de varios valores se guarda como lista, igual que se repite en la URL. */
+  params: z.partialRecord(
+    z.enum(FAVORITE_SEARCH_PARAMS),
+    z.union([
+      z.string().trim().max(100),
+      z.array(z.string().trim().min(1).max(100)).max(MAX_FILTER_VALUES),
+    ]),
+  ),
 });
 export type SaveFavoriteSearchInput = z.input<typeof SaveFavoriteSearchInputSchema>;
 
@@ -302,6 +309,6 @@ export type FavoriteSearchIdInput = z.input<typeof FavoriteSearchIdInputSchema>;
 export interface FavoriteSearchRow {
   readonly id: string;
   readonly name: string;
-  readonly params: Readonly<Record<string, string>>;
+  readonly params: Readonly<Record<string, string | readonly string[]>>;
   readonly updatedAt: Date;
 }

@@ -1,6 +1,6 @@
 import { ChevronDown, ClipboardCheck, House, Scale } from 'lucide-react';
 
-import facade from '../../assets/fachada-norde.jpg';
+import magnifier from '../../assets/tasacion-lupa.webp';
 import { PhotoHero } from '../layout/photo-hero';
 import { ScrollFade } from './scroll-fade';
 
@@ -10,13 +10,14 @@ const HIGHLIGHTS = [
   { label: 'Informe con el valor sugerido', icon: ClipboardCheck },
 ] as const;
 
-/** Portada de Tasaciones: la fachada a pantalla completa, con el único H1. */
+/** Portada de Tasaciones: la casa bajo la lupa a pantalla completa, con el único H1. */
 export function AppraisalHero({ description }: { readonly description: string }) {
   return (
     <PhotoHero
-      image={facade}
-      alt="Fachada de la oficina de Norde Propiedades"
-      imageClassName="object-[center_35%]"
+      image={magnifier}
+      alt="Una persona examina con una lupa la maqueta de una casa"
+      // La casa está a la derecha: en mobile el recorte la mantiene a la vista.
+      imageClassName="object-[80%_center]"
       labelledBy="appraisal-title"
     >
       <ScrollFade className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 pt-24 pb-20 sm:px-10 sm:pt-28 sm:pb-28">

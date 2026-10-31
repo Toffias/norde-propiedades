@@ -198,13 +198,13 @@ export interface ParsedClientFilter {
   readonly q?: string | undefined;
   readonly agentId?: string | undefined;
   readonly branchId?: string | undefined;
-  readonly kind?: ClientKindValue | undefined;
-  readonly clientType?: ClientTypeValue | undefined;
+  readonly kind?: readonly ClientKindValue[] | undefined;
+  readonly clientType?: readonly ClientTypeValue[] | undefined;
   readonly tagged?: ClientTaggedValue | undefined;
   readonly tagId?: string | undefined;
   readonly letter?: ClientLetter | undefined;
   readonly owners: boolean;
-  readonly opportunityStageId?: string | undefined;
+  readonly opportunityStageId?: readonly string[] | undefined;
   readonly createdFrom?: string | undefined;
   readonly createdTo?: string | undefined;
   readonly updatedFrom?: string | undefined;

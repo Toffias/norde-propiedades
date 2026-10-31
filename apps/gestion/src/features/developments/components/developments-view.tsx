@@ -39,7 +39,7 @@ import {
 } from '../../shared/components/confirm-action-dialog';
 import { PropertyPhoto } from '../../properties/components/property-photo';
 import { usePanel } from '../../shared/components/entity-sheet';
-import { DebouncedInput, FilterSelect, options } from '../../shared/components/list-filters';
+import { DebouncedInput, FilterMultiSelect, options } from '../../shared/components/list-filters';
 import {
   ListNavigationProvider,
   ServerDataTable,
@@ -55,12 +55,15 @@ import { DevelopmentMap } from './development-map';
 import { DevelopmentQuickViewDialog } from './development-quick-view';
 import { DevelopmentSheet } from './development-sheet';
 
-/** Filtros del listado tal como están en la URL (texto, sin parsear). */
+/**
+ * Filtros del listado tal como están en la URL: texto, o listas en los de varios valores (el param
+ * se repite). Vacío o sin elementos: sin filtro.
+ */
 export interface DevelopmentFilterValues {
   readonly q: string;
-  readonly status: string;
-  readonly developmentType: string;
-  readonly constructionStatus: string;
+  readonly status: readonly string[];
+  readonly developmentType: readonly string[];
+  readonly constructionStatus: readonly string[];
   readonly view: DevelopmentViewValue;
 }
 
@@ -135,7 +138,7 @@ function Toolbar({ filters }: { readonly filters: DevelopmentFilterValues }) {
         icon={SearchIcon}
         className="col-span-2 w-full sm:max-w-[260px]"
       />
-      <FilterSelect
+      <FilterMultiSelect
         param="status"
         value={filters.status}
         label="Estado"
@@ -146,14 +149,14 @@ function Toolbar({ filters }: { readonly filters: DevelopmentFilterValues }) {
         }))}
         className="w-full sm:w-[200px]"
       />
-      <FilterSelect
+      <FilterMultiSelect
         param="developmentType"
         value={filters.developmentType}
         label="Tipo de desarrollo"
         anyLabel="Tipo"
         options={options(DEVELOPMENT_TYPES, DEVELOPMENT_TYPE_LABELS)}
       />
-      <FilterSelect
+      <FilterMultiSelect
         param="constructionStatus"
         value={filters.constructionStatus}
         label="Estado de obra"
@@ -238,12 +241,11 @@ export function DevelopmentsView({
   const inTrash = filters.view === 'trash';
   // La papelera solo se ve en lista.
   const effectiveLayout = inTrash ? 'list' : layout;
-  const hasFilters = [
-    filters.q,
-    filters.status,
-    filters.developmentType,
-    filters.constructionStatus,
-  ].some((value) => value !== '');
+  const hasFilters =
+    filters.q !== '' ||
+    [filters.status, filters.developmentType, filters.constructionStatus].some(
+      (values) => values.length > 0,
+    );
 
   const columns = useMemo(
     (): readonly DataTableColumn<DevelopmentRow>[] => [

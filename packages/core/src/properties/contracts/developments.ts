@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 import { historyQuerySchema } from '../../audit/contracts';
-import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, multiValueSchema, pageQuerySchema } from '../../shared/contracts';
 
 import { AmountSchema } from './amount';
 import type { PropertyCover } from './media';
@@ -196,9 +196,10 @@ export type DevelopmentViewValue = (typeof DEVELOPMENT_VIEW_VALUES)[number];
 const DevelopmentFilterFields = {
   /** Código, nombre, dirección o desarrollista, sin distinguir mayúsculas ni acentos. */
   q: z.string().trim().min(1).max(100).optional(),
-  status: z.enum(DEVELOPMENT_STATUS_VALUES).optional(),
-  developmentType: z.enum(DEVELOPMENT_TYPES).optional(),
-  constructionStatus: z.enum(CONSTRUCTION_STATUS_VALUES).optional(),
+  // Los de varios valores: alcanza con que coincida uno.
+  status: multiValueSchema(z.enum(DEVELOPMENT_STATUS_VALUES)),
+  developmentType: multiValueSchema(z.enum(DEVELOPMENT_TYPES)),
+  constructionStatus: multiValueSchema(z.enum(CONSTRUCTION_STATUS_VALUES)),
   tagId: z.uuid().optional(),
 };
 

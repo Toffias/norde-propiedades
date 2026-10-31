@@ -2,9 +2,11 @@ import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../
 import {
   MAX_MAP_PINS,
   PropertyMapQuerySchema,
+  type PropertyMapPin,
   type PropertyMapQuery,
   type PropertyMapResult,
 } from '../../contracts';
+import { toCover } from '../cover-urls';
 import { resolvePanelFilter, type NoBranchAssignedError } from '../panel-filter';
 import type { PanelPropertyListQuery } from '../ports/panel-property-list-query';
 
@@ -39,21 +41,27 @@ export class GetPropertyMap {
       { south, west, north, east },
       MAX_MAP_PINS,
     );
-    const pins = slice.items.flatMap((item) =>
-      item.coordinates === undefined
-        ? []
-        : [
-            {
-              id: item.id,
-              code: item.code,
-              status: item.status,
-              propertyType: item.propertyType,
-              portalTitle: item.portalTitle,
-              latitude: item.coordinates.latitude,
-              longitude: item.coordinates.longitude,
-              operations: item.operations,
-            },
-          ],
+    const located = slice.items.flatMap(({ coordinates, ...item }) =>
+      coordinates === undefined ? [] : [{ ...item, coordinates }],
+    );
+    const pins = await Promise.all(
+      located.map(async (item): Promise<PropertyMapPin> => ({
+        id: item.id,
+        code: item.code,
+        status: item.status,
+        propertyType: item.propertyType,
+        portalTitle: item.portalTitle,
+        publishAddress: item.publishAddress,
+        neighborhood: item.neighborhood,
+        city: item.city,
+        latitude: item.coordinates.latitude,
+        longitude: item.coordinates.longitude,
+        operations: item.operations,
+        attributes: item.attributes,
+        // Sin `storage`, sin firmar: firmar cientos de pines por cada movimiento del mapa no
+        // tiene sentido si la foto se ve solo en la tarjeta del pin elegido.
+        cover: await toCover(item.cover),
+      })),
     );
     return ok({ pins, total: slice.total, truncated: slice.total > pins.length });
   }

@@ -324,6 +324,12 @@ describe('reservations', () => {
       ids: [second.reservationId],
       total: 1,
     });
+    // Varios estados: alcanza con que coincida uno.
+    const fallenOrActive = await idsOf({ status: ['fallen', 'active'] });
+    expect(fallenOrActive.total).toBe(
+      (await idsOf({ status: 'fallen' })).total + (await idsOf({ status: 'active' })).total,
+    );
+    expect(fallenOrActive.ids).toContain(last.reservationId);
     expect(await idsOf({ propertyType: 'house' })).toEqual({
       ids: [second.reservationId],
       total: 1,

@@ -31,9 +31,9 @@ export default async function ReservationsPage({
   const page = result.isOk() ? result.value : undefined;
 
   const filters: ReservationFilterValues = {
-    status: query.status ?? '',
-    operation: query.operation ?? '',
-    propertyType: query.propertyType ?? '',
+    status: query.status ?? [],
+    operation: query.operation ?? [],
+    propertyType: query.propertyType ?? [],
     agentId: query.agentId ?? '',
     managerId: query.managerId ?? '',
     branchId: query.branchId ?? '',

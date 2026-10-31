@@ -76,7 +76,9 @@ function conditions(c: AppraisalFilterCriteria): SQL | undefined {
     visibleAppraisals(c.visibility),
     c.deleted ? isNotNull(appraisals.deletedAt) : isNull(appraisals.deletedAt),
     c.statuses === undefined ? undefined : inArray(appraisals.status, [...c.statuses]),
-    c.propertyType === undefined ? undefined : eq(appraisals.propertyType, c.propertyType),
+    c.propertyType === undefined
+      ? undefined
+      : inArray(appraisals.propertyType, [...c.propertyType]),
     c.producerUserId === undefined ? undefined : eq(appraisals.producerUserId, c.producerUserId),
     c.appraiserUserId === undefined ? undefined : eq(appraisals.appraiserUserId, c.appraiserUserId),
     c.branchId === undefined ? undefined : eq(appraisals.branchId, c.branchId),

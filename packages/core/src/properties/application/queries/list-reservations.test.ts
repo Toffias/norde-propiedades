@@ -96,7 +96,8 @@ describe('ListReservations', () => {
       await new ListReservations({ reservations, users }).execute(
         {
           status: 'active',
-          operation: 'rent',
+          // Un param repetido en la URL llega como lista.
+          operation: ['rent', 'sale'],
           propertyType: 'house',
           agentId: PRODUCER_ID,
           managerId: MANAGER_USER_ID,
@@ -112,9 +113,9 @@ describe('ListReservations', () => {
     );
 
     expect(reservations.requests[0]).toEqual({
-      status: 'active',
-      operation: 'rent',
-      propertyType: 'house',
+      status: ['active'],
+      operation: ['rent', 'sale'],
+      propertyType: ['house'],
       agentUserId: PRODUCER_ID,
       managerUserId: MANAGER_USER_ID,
       branchId: BRANCH_ID,
@@ -172,9 +173,9 @@ describe('ExportReservations', () => {
       // La planilla se arma a medida que se lee.
     }
 
-    expect(reservations.counts).toEqual([{ ...EMPTY_CRITERIA, status: 'active' }]);
+    expect(reservations.counts).toEqual([{ ...EMPTY_CRITERIA, status: ['active'] }]);
     expect(reservations.requests[0]).toMatchObject({
-      status: 'active',
+      status: ['active'],
       sort: { field: 'reservedAt', direction: 'asc' },
       offset: 0,
       limit: 1,
@@ -190,7 +191,7 @@ describe('ExportReservations', () => {
         clientIds: [],
         changes: {
           count: { before: null, after: 1 },
-          filter: { before: null, after: { status: 'active' } },
+          filter: { before: null, after: { status: ['active'] } },
         },
       }),
     ]);

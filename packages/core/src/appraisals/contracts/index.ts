@@ -13,7 +13,7 @@ import {
   type MoneyDto,
   type PropertyType,
 } from '../../properties/contracts';
-import { idempotencyKeySchema, pageQuerySchema } from '../../shared/contracts';
+import { idempotencyKeySchema, multiValueSchema, pageQuerySchema } from '../../shared/contracts';
 
 // Los catálogos que la tasación comparte con la propiedad a la que se convierte.
 export {
@@ -260,9 +260,10 @@ function checkDateRanges(
 
 const AppraisalFilterFields = {
   view: z.enum(APPRAISAL_VIEW_VALUES).default('active'),
-  /** Estado agrupado como en Tokko: Pendiente, Tasado, Caída, Ingresada. */
-  status: z.enum(APPRAISAL_STATUS_GROUP_VALUES).optional(),
-  propertyType: z.enum(PROPERTY_TYPES).optional(),
+  // Los de varios valores: alcanza con que coincida uno.
+  /** Estados agrupados como en Tokko: Pendiente, Tasado, Caída, Ingresada. */
+  status: multiValueSchema(z.enum(APPRAISAL_STATUS_GROUP_VALUES)),
+  propertyType: multiValueSchema(z.enum(PROPERTY_TYPES)),
   producerId: z.uuid().optional(),
   appraiserId: z.uuid().optional(),
   branchId: z.uuid().optional(),

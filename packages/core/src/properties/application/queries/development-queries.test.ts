@@ -47,7 +47,8 @@ describe('ListDevelopments', () => {
       await query.execute(
         {
           q: 'torre',
-          status: 'marketing',
+          // Un param repetido en la URL llega como lista.
+          status: ['marketing', 'loading'],
           developmentType: 'building',
           sort: '-deliveryDate',
           page: 2,
@@ -62,8 +63,8 @@ describe('ListDevelopments', () => {
       {
         view: 'trash',
         text: 'torre',
-        status: 'marketing',
-        developmentType: 'building',
+        status: ['marketing', 'loading'],
+        developmentType: ['building'],
         constructionStatus: undefined,
         tagId: undefined,
         sort: { field: 'deliveryDate', direction: 'desc' },
@@ -223,7 +224,7 @@ describe('GetDevelopmentMap', () => {
       {
         criteria: {
           text: 'torre',
-          status: 'marketing',
+          status: ['marketing'],
           developmentType: undefined,
           constructionStatus: undefined,
           tagId: undefined,

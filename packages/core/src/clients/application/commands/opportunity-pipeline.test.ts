@@ -424,7 +424,8 @@ describe('ListOpportunities', () => {
         {
           stageId: NEW,
           q: 'ana',
-          originChannel: 'zonaprop',
+          // Un param repetido en la URL llega como lista.
+          originChannel: ['zonaprop', 'whatsapp'],
           createdFrom: '2026-02-01',
           sort: '-statusChangedAt',
           page: 2,
@@ -439,7 +440,7 @@ describe('ListOpportunities', () => {
       stageId: NEW,
       visibility: { kind: 'own', ownerId: AGENT_ID },
       text: 'ana',
-      originChannel: 'zonaprop',
+      originChannel: ['zonaprop', 'whatsapp'],
       created: { from: new Date('2026-02-01T03:00:00.000Z'), to: undefined },
       sort: { field: 'statusChangedAt', direction: 'desc' },
       offset: 10,
@@ -506,7 +507,7 @@ describe('CountOpportunitiesByStage', () => {
     expect(unwrap(await useCase.execute({ category: 'new' }, MANAGER))).toEqual([
       { stageId: NEW, count: 3 },
     ]);
-    expect(pipeline.counts[0]).toMatchObject({ visibility: { kind: 'all' }, category: 'new' });
+    expect(pipeline.counts[0]).toMatchObject({ visibility: { kind: 'all' }, category: ['new'] });
     expect(unwrapErr(await useCase.execute({}, OUTSIDER))).toEqual({ type: 'Forbidden' });
     expect(
       unwrapErr(

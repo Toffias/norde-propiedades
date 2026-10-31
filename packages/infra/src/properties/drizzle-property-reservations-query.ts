@@ -14,7 +14,20 @@ import {
   type ReservationSortField,
 } from '@norde/core/properties/contracts';
 import type { PageSlice } from '@norde/core/shared';
-import { and, asc, count, desc, eq, gte, isNull, lt, lte, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -124,11 +137,13 @@ const LIST_SORT_COLUMNS: Readonly<
 /** Las condiciones de los filtros: cada una tiene su índice (ver el esquema de `reservations`). */
 function conditions(criteria: ReservationFilterCriteria): SQL | undefined {
   const parts: (SQL | undefined)[] = [
-    criteria.status === undefined ? undefined : eq(reservations.status, criteria.status),
-    criteria.operation === undefined ? undefined : eq(reservations.operation, criteria.operation),
+    criteria.status === undefined ? undefined : inArray(reservations.status, [...criteria.status]),
+    criteria.operation === undefined
+      ? undefined
+      : inArray(reservations.operation, [...criteria.operation]),
     criteria.propertyType === undefined
       ? undefined
-      : eq(properties.propertyType, criteria.propertyType),
+      : inArray(properties.propertyType, [...criteria.propertyType]),
     criteria.agentUserId === undefined
       ? undefined
       : eq(reservations.agentUserId, criteria.agentUserId),

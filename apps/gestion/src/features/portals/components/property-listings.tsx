@@ -34,7 +34,6 @@ import { StatusPill } from '@norde/ui/components/status-pill';
 import {
   ArchiveXIcon,
   ExternalLinkIcon,
-  GlobeIcon,
   Link2Icon,
   LinkIcon,
   Loader2Icon,
@@ -67,6 +66,8 @@ import {
 import { LISTING_OPERATION_LABELS, LISTING_STATUS_LABELS, LISTING_TYPE_LABELS } from '../labels';
 import { PORTAL_LABELS, PORTAL_SITE_NAMES, planLabel } from '../messages';
 import type { ListingStatsResult, PortalCreditsResult } from '../queries';
+
+import { PortalMark } from './portal-account-facts';
 
 /** Mientras haya avisos publicándose, la pestaña se refresca sola cada tanto. */
 const REFRESH_MS = 5000;
@@ -267,7 +268,11 @@ function ListingsPanel({
         const whole = owner.kind === 'development' || option.listingScope === 'property';
         const rows = whole ? [undefined] : operations;
         return (
-          <SectionCard key={portal} title={PORTAL_LABELS[portal]} icon={GlobeIcon}>
+          <SectionCard
+            key={portal}
+            title={PORTAL_LABELS[portal]}
+            leading={<PortalMark portal={portal} />}
+          >
             <ul className="flex flex-col divide-y divide-border">
               {rows.map((operation) => {
                 const listing = view.listings.find(

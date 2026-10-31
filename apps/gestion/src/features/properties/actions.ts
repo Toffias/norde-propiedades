@@ -15,6 +15,7 @@ import {
   type CreatePropertyInput,
   type FavoriteSearchIdInput,
   type GeocodingOutcome,
+  type PanelPropertyDetail,
   type PropertyIdInput,
   type PropertyMapQuery,
   type PdfExportOptions,
@@ -26,6 +27,7 @@ import type { ComboboxPage } from '@norde/ui/components/paged-combobox';
 import { revalidatePath } from 'next/cache';
 
 import { getContainer } from '../../container';
+import { MEDIA_LIST_ERROR_MESSAGES } from '../media/messages';
 import { ACTION_OK, actionFailed, type ActionResult } from '../../lib/action-result';
 import { messageForError } from '../../lib/errors';
 import { requireSession } from '../../lib/session';
@@ -37,6 +39,8 @@ import {
   PROPERTY_ERROR_MESSAGES,
   PROPERTY_MAP_ERROR_MESSAGES,
 } from './messages';
+import { DETAIL_READ_ERROR_MESSAGES } from './detail-messages';
+import { locationOption } from './property-format';
 
 /** Opciones por página de los selectores paginados. */
 const PICKER_PAGE_SIZE = 20;
@@ -98,6 +102,84 @@ export async function loadMapPinsAction(
   return { ok: true, value: result.value };
 }
 
+// --- Vistazo ---
+
+/** Cuántas fotos muestra el vistazo: para recorrer más, está la ficha. */
+const QUICK_VIEW_PHOTOS = 30;
+
+/** Lo que muestra el vistazo de una propiedad desde el buscador. */
+export interface PropertyQuickView {
+  readonly detail: Pick<
+    PanelPropertyDetail,
+    | 'id'
+    | 'code'
+    | 'propertyType'
+    | 'status'
+    | 'portalTitle'
+    | 'publishAddress'
+    | 'description'
+    | 'locationPath'
+    | 'operations'
+    | 'characteristics'
+    | 'producer'
+    | 'development'
+  >;
+  /** Fotos y planos ya procesados, en el orden de la galería. */
+  readonly photoIds: readonly string[];
+  /** Todas las fotos y planos de la propiedad, aunque el vistazo muestre solo las primeras. */
+  readonly totalPhotos: number;
+}
+
+/** El vistazo de una fila del buscador: datos clave, descripción y las primeras fotos. */
+export async function loadPropertyQuickViewAction(
+  input: PropertyIdInput,
+): Promise<{ readonly ok: true; readonly value: PropertyQuickView } | ActionResultFailure> {
+  const { actor } = await requireSession();
+  const parsed = PropertyIdInputSchema.safeParse(input);
+  if (!parsed.success) return failed(DETAIL_READ_ERROR_MESSAGES.InvalidInput);
+
+  const { properties } = getContainer();
+  const [detail, media] = await Promise.all([
+    properties.getPanelPropertyDetail.execute(parsed.data, actor),
+    properties.listMedia.execute(
+      {
+        owner: { kind: 'property', id: parsed.data.propertyId },
+        kind: 'images',
+        pageSize: QUICK_VIEW_PHOTOS,
+      },
+      actor,
+    ),
+  ]);
+  if (detail.isErr()) return failed(messageForError(detail.error, DETAIL_READ_ERROR_MESSAGES));
+  if (media.isErr()) return failed(messageForError(media.error, MEDIA_LIST_ERROR_MESSAGES));
+
+  const d = detail.value;
+  return {
+    ok: true,
+    value: {
+      detail: {
+        id: d.id,
+        code: d.code,
+        propertyType: d.propertyType,
+        status: d.status,
+        portalTitle: d.portalTitle,
+        publishAddress: d.publishAddress,
+        description: d.description,
+        locationPath: d.locationPath,
+        operations: d.operations,
+        characteristics: d.characteristics,
+        producer: d.producer,
+        development: d.development,
+      },
+      // Las que todavía se procesan o fallaron no tienen versión web para mostrar.
+      photoIds: media.value.items
+        .filter((item) => item.processing === 'ready')
+        .map((item) => item.id),
+      totalPhotos: media.value.total,
+    },
+  };
+}
+
 type ActionResultFailure = Extract<ActionResult, { readonly ok: false }>;
 
 /** Una falla con mensaje, para las acciones que además devuelven un valor. */
@@ -117,14 +199,7 @@ export async function loadLocationOptions(search: string, page: number): Promise
   if (result.isErr()) throw new Error(`Could not load the locations: ${result.error.type}`);
   const { items, total } = result.value;
   return {
-    options: items.map((location) => ({
-      value: location.id,
-      label: location.name,
-      // De lo más cercano a lo más general: "CABA, Argentina".
-      ...(location.ancestors.length === 0
-        ? {}
-        : { hint: [...location.ancestors].reverse().join(', ') }),
-    })),
+    options: items.map(locationOption),
     hasMore: page * PICKER_PAGE_SIZE < total,
   };
 }

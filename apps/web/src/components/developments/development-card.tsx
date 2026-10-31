@@ -1,7 +1,7 @@
 import { Building2, CalendarDays, Camera, KeyRound } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 
+import { SkeletonImage } from '../layout/skeleton-image';
 import type { DevelopmentCard as DevelopmentCardData } from '../../lib/developments/view';
 import { isExternal } from '../../lib/properties/images';
 
@@ -25,7 +25,7 @@ export function DevelopmentCard({
     <article className="group bg-card hover:border-brand-200 dark:hover:border-brand-800 relative flex w-full flex-col overflow-hidden rounded-3xl border transition-colors">
       <div className="bg-muted relative m-2 aspect-[4/3] overflow-hidden rounded-2xl">
         {development.cover ? (
-          <Image
+          <SkeletonImage
             src={development.cover.src}
             alt={development.cover.alt}
             fill

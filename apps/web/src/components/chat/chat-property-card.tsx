@@ -1,6 +1,6 @@
 import { BedDouble, DoorOpen, ExternalLink, House, Ruler, type LucideIcon } from 'lucide-react';
-import Image from 'next/image';
 
+import { SkeletonImage } from '../layout/skeleton-image';
 import type { ChatPropertyCard as ChatPropertyCardData } from '../../lib/chat/chat-contract';
 import { internalPath } from '../../lib/chat/markdown';
 import { formatSurface } from '../../lib/properties/format';
@@ -39,7 +39,7 @@ export function ChatPropertyCard({
     <article className="bg-card flex gap-3 rounded-2xl border p-2 shadow-xs">
       <div className="bg-muted relative size-24 shrink-0 overflow-hidden rounded-xl">
         {photoSrc ? (
-          <Image
+          <SkeletonImage
             src={photoSrc}
             alt={`Foto de ${card.title}`}
             fill

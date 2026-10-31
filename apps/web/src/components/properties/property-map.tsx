@@ -10,9 +10,13 @@ const Canvas = dynamic(() => import('./property-map-canvas').then((m) => m.Prope
   loading: () => <div className="bg-muted h-full w-full animate-pulse" />,
 });
 
-export function PropertyMap(props: PropertyMapProps) {
+/** `className` reemplaza el alto y el radio de la ficha (`h-80 rounded-3xl`). */
+export function PropertyMap({
+  className = 'h-80 rounded-3xl',
+  ...props
+}: PropertyMapProps & { readonly className?: string }) {
   return (
-    <div className="h-80 overflow-hidden rounded-3xl border">
+    <div className={`overflow-hidden border ${className}`}>
       <Canvas {...props} />
     </div>
   );

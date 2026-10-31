@@ -59,7 +59,8 @@ export const BUSINESS: Business = {
     postalCode: null,
     addressCountry: 'AR',
   },
-  geo: null,
+  // La puerta de Av. Emilio Castro 7250 en OpenStreetMap (nodo 4267243788).
+  geo: { latitude: -34.6539488, longitude: -58.5194518 },
   openingHours: [],
   areaServed: [],
   sameAs: [

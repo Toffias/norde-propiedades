@@ -180,3 +180,94 @@ html {
 .hero-skip-in {
   animation: hero-entrance-fade 500ms ease 1200ms both;
 }
+
+/*
+ * Burbuja del chat cerrada: una partícula gira a distancia variable y, cada tanto, baja y se funde
+ * con el círculo (filtro "gooey" de `ChatLauncherOrbit`). Dos más chicas asoman de vez en cuando.
+ * Las duraciones no son múltiplos entre sí: el recorrido no se repite igual.
+ */
+@keyframes chat-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes chat-orbit-drift {
+  0%,
+  100% {
+    transform: translateX(42px);
+  }
+  18% {
+    transform: translateX(47px);
+  }
+  34% {
+    transform: translateX(37px);
+  }
+  44%,
+  47% {
+    transform: translateX(22px);
+  }
+  56% {
+    transform: translateX(40px);
+  }
+  72% {
+    transform: translateX(49px);
+  }
+  86% {
+    transform: translateX(35px);
+  }
+}
+
+@keyframes chat-orbit-peek {
+  0%,
+  28% {
+    transform: translateX(18px) scale(0);
+  }
+  38% {
+    transform: translateX(37px) scale(1);
+  }
+  50% {
+    transform: translateX(44px) scale(1);
+  }
+  60% {
+    transform: translateX(24px) scale(0.6);
+  }
+  64%,
+  100% {
+    transform: translateX(18px) scale(0);
+  }
+}
+
+@keyframes chat-spark-twinkle {
+  0%,
+  78%,
+  100% {
+    transform: scale(1) rotate(0);
+  }
+  85% {
+    transform: scale(1.35) rotate(20deg);
+  }
+  92% {
+    transform: scale(0.9) rotate(-8deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-orbit {
+    animation: chat-orbit-spin 7s linear infinite;
+  }
+
+  .chat-orbit-main {
+    animation: chat-orbit-drift 10.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  .chat-orbit-peek {
+    animation: chat-orbit-peek 13s ease-in-out infinite;
+  }
+
+  .chat-spark {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: chat-spark-twinkle 5s ease-in-out infinite;
+  }
+}

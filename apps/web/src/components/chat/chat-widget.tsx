@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  ExternalLink,
-  Maximize2,
-  MessageCircle,
-  Minimize2,
-  RotateCcw,
-  SendHorizontal,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import { ExternalLink, Maximize2, Minimize2, RotateCcw, SendHorizontal, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 import { SkeletonImage } from '../layout/skeleton-image';
@@ -18,7 +9,9 @@ import { internalPath } from '../../lib/chat/markdown';
 import { resetChatSession, sendChatMessage } from '../../lib/chat/send-chat-message';
 import { loadTranscript, saveTranscript, type ChatEntry } from '../../lib/chat/transcript';
 
+import { ChatLauncherOrbit } from './chat-launcher-orbit';
 import { ChatPropertyCard } from './chat-property-card';
+import { ChatSparkIcon } from './chat-spark-icon';
 import { ChatText } from './chat-text';
 
 const WELCOME =
@@ -40,7 +33,10 @@ const SHELL =
   'fixed z-(--z-float) overflow-clip transition-[right,bottom,width,height,border-radius,background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none';
 // Radio en px (no `rounded-full`, que es enorme): así el borde se anima parejo hasta el panel.
 const SHELL_CLOSED =
-  'bg-primary right-4 bottom-4 size-14 rounded-[28px] shadow-lg hover:scale-105 sm:right-6 sm:bottom-6';
+  'peer bg-primary right-4 bottom-4 size-14 rounded-[28px] shadow-lg hover:scale-105 sm:right-6 sm:bottom-6';
+// Debajo de la burbuja, en su mismo lugar, y crece con ella al pasar el mouse.
+const ORBIT =
+  'fixed right-4 bottom-4 z-[calc(var(--z-float)-1)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] peer-hover:scale-105 animate-in fade-in sm:right-6 sm:bottom-6';
 const SHELL_OPEN =
   'bg-card right-0 bottom-0 h-dvh w-full rounded-none sm:right-6 sm:bottom-6 sm:rounded-3xl sm:border sm:shadow-2xl';
 // Las alturas dejan libre el encabezado del sitio.
@@ -48,7 +44,7 @@ const SHELL_COMPACT = 'sm:h-[min(640px,calc(100dvh-7rem))] sm:w-100';
 const SHELL_EXPANDED = 'sm:h-[min(820px,calc(100dvh-7rem))] sm:w-[min(560px,calc(100vw-3rem))]';
 
 const ICON_BUTTON =
-  'flex size-9 items-center justify-center rounded-full transition-colors outline-none hover:bg-white/15 focus-visible:ring-[3px] focus-visible:ring-white/50';
+  'text-primary hover:bg-primary/10 focus-visible:ring-ring/50 flex size-9 items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-[3px] disabled:opacity-50';
 
 function assistantEntry(reply: ChatReply): ChatEntry {
   return {
@@ -244,193 +240,200 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
         : [];
 
   return (
-    <div
-      // Al cerrar, el contenedor vuelve a tamaño de burbuja mientras el contenido se desvanece.
-      className={`${SHELL} ${
-        open ? `${SHELL_OPEN} ${expanded ? SHELL_EXPANDED : SHELL_COMPACT}` : SHELL_CLOSED
-      }`}
-    >
-      {phase === 'closed' ? (
-        <button
-          ref={launcherRef}
-          type="button"
-          onClick={openPanel}
-          aria-expanded={false}
-          aria-label="Abrir el chat con el asistente de Norde"
-          className="text-primary-foreground focus-visible:ring-ring/50 animate-in fade-in absolute inset-0 flex items-center justify-center rounded-[28px] duration-200 outline-none focus-visible:ring-[3px]"
-        >
-          <MessageCircle aria-hidden className="size-7" />
-        </button>
-      ) : (
-        <section
-          id={panelId}
-          role="dialog"
-          aria-label="Chat con el asistente de Norde"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') close();
-          }}
-          className={`text-card-foreground absolute inset-0 flex min-w-72 flex-col ${
-            phase === 'closing'
-              ? 'animate-out fade-out fill-mode-forwards duration-150'
-              : 'animate-in fade-in fill-mode-backwards delay-150 duration-200'
-          }`}
-        >
-          <header className="bg-primary text-primary-foreground flex items-center gap-3 px-4 py-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15">
-              <Sparkles aria-hidden className="size-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate leading-tight font-bold">Asistente de Norde</p>
-              <p className="truncate text-xs opacity-85">Te ayudo a encontrar tu propiedad</p>
-            </div>
-            <button
-              type="button"
-              onClick={toggleSize}
-              aria-label={expanded ? 'Achicar el chat' : 'Agrandar el chat'}
-              title={expanded ? 'Achicar' : 'Agrandar'}
-              className={`${ICON_BUTTON} max-sm:hidden`}
-            >
-              {expanded ? (
-                <Minimize2 aria-hidden className="size-4.5" />
-              ) : (
-                <Maximize2 aria-hidden className="size-4.5" />
-              )}
-            </button>
-            {entries.length > 0 && (
+    <>
+      <div
+        // Al cerrar, el contenedor vuelve a tamaño de burbuja mientras el contenido se desvanece.
+        className={`${SHELL} ${
+          open ? `${SHELL_OPEN} ${expanded ? SHELL_EXPANDED : SHELL_COMPACT}` : SHELL_CLOSED
+        }`}
+      >
+        {phase === 'closed' ? (
+          <button
+            ref={launcherRef}
+            type="button"
+            onClick={openPanel}
+            aria-expanded={false}
+            aria-label="Abrir el chat con el asistente de Norde"
+            className="text-primary-foreground focus-visible:ring-ring/50 animate-in fade-in absolute inset-0 flex items-center justify-center rounded-[28px] duration-200 outline-none focus-visible:ring-[3px]"
+          >
+            <ChatSparkIcon className="size-7" />
+          </button>
+        ) : (
+          <section
+            id={panelId}
+            role="dialog"
+            aria-label="Chat con el asistente de Norde"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') close();
+            }}
+            className={`text-card-foreground absolute inset-0 flex min-w-72 flex-col ${
+              phase === 'closing'
+                ? 'animate-out fade-out fill-mode-forwards duration-150'
+                : 'animate-in fade-in fill-mode-backwards delay-150 duration-200'
+            }`}
+          >
+            {/* Blanco con una franja roja: así no se funde con los mensajes del visitante, que son rojos. */}
+            <header className="bg-card border-t-primary flex items-center gap-3 border-t-4 border-b px-4 py-3">
+              <span className="bg-primary/10 text-primary border-primary/20 flex size-10 shrink-0 items-center justify-center rounded-full border">
+                <ChatSparkIcon className="size-5.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate leading-tight font-bold">Asistente de Norde</p>
+                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                  <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  En línea
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => void restart()}
-                disabled={pending}
-                aria-label="Empezar una conversación nueva"
-                title="Conversación nueva"
+                onClick={toggleSize}
+                aria-label={expanded ? 'Achicar el chat' : 'Agrandar el chat'}
+                title={expanded ? 'Achicar' : 'Agrandar'}
+                className={`${ICON_BUTTON} max-sm:hidden`}
+              >
+                {expanded ? (
+                  <Minimize2 aria-hidden className="size-4.5" />
+                ) : (
+                  <Maximize2 aria-hidden className="size-4.5" />
+                )}
+              </button>
+              {entries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void restart()}
+                  disabled={pending}
+                  aria-label="Empezar una conversación nueva"
+                  title="Conversación nueva"
+                  className={ICON_BUTTON}
+                >
+                  <RotateCcw aria-hidden className="size-4.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Cerrar el chat"
                 className={ICON_BUTTON}
               >
-                <RotateCcw aria-hidden className="size-4.5" />
+                <X aria-hidden className="size-5" />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={close}
-              aria-label="Cerrar el chat"
-              className={ICON_BUTTON}
+            </header>
+
+            <div
+              ref={logRef}
+              role="log"
+              aria-live="polite"
+              aria-busy={pending}
+              className="bg-background flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 text-sm leading-relaxed"
             >
-              <X aria-hidden className="size-5" />
-            </button>
-          </header>
-
-          <div
-            ref={logRef}
-            role="log"
-            aria-live="polite"
-            aria-busy={pending}
-            className="bg-background flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 text-sm leading-relaxed"
-          >
-            <div className="bg-muted max-w-[85%] rounded-2xl rounded-bl-md px-3.5 py-2.5">
-              {WELCOME}
-            </div>
-            {entries.map((entry) =>
-              entry.role === 'visitor' ? (
-                <div
-                  key={entry.id}
-                  className="bg-primary text-primary-foreground ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2.5 break-words whitespace-pre-wrap"
-                >
-                  {entry.text}
-                </div>
-              ) : (
-                <div key={entry.id} className="space-y-2">
-                  <div
-                    className={`max-w-[85%] space-y-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 ${
-                      entry.error ? 'bg-destructive/10 text-destructive' : 'bg-muted'
-                    }`}
-                  >
-                    {entry.photoUrl && <ChatPhoto url={entry.photoUrl} siteUrl={siteUrl} />}
-                    <ChatText
-                      text={entry.text}
-                      siteUrl={siteUrl}
-                      onInternalNavigation={onInternalNavigation}
-                    />
-                  </div>
-                  {entry.cards.length > 0 && (
-                    <ul aria-label="Propiedades sugeridas" className="space-y-2">
-                      {entry.cards.map((card) => (
-                        <li key={card.id}>
-                          <ChatPropertyCard card={card} siteUrl={siteUrl} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {entry.listingUrl && (
-                    <a
-                      href={entry.listingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="border-primary/40 text-primary hover:bg-primary/10 focus-visible:ring-ring/50 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed px-3 py-2.5 text-sm font-bold transition-colors outline-none focus-visible:ring-[3px]"
-                    >
-                      Ver todas las opciones en la web
-                      <ExternalLink aria-hidden className="size-4" />
-                      <span className="sr-only"> (se abre en otra pestaña)</span>
-                    </a>
-                  )}
-                </div>
-              ),
-            )}
-            {pending && <TypingIndicator />}
-            {!pending && quickReplies.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {quickReplies.map((title) => (
-                  <button
-                    key={title}
-                    type="button"
-                    onClick={() => void send(title)}
-                    className={CHIP}
-                  >
-                    {title}
-                  </button>
-                ))}
+              <div className="bg-muted max-w-[85%] rounded-2xl rounded-bl-md px-3.5 py-2.5">
+                {WELCOME}
               </div>
-            )}
-          </div>
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send(draft);
-            }}
-            className="bg-card border-t px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-          >
-            <div className="flex items-end gap-2">
-              <label htmlFor={`${panelId}-input`} className="sr-only">
-                Tu mensaje
-              </label>
-              <textarea
-                id={`${panelId}-input`}
-                ref={inputRef}
-                value={draft}
-                onChange={(event) => {
-                  setDraft(event.target.value);
-                }}
-                onKeyDown={onKeyDown}
-                rows={1}
-                maxLength={CHAT_MAX_CHARS}
-                placeholder="Escribí tu consulta…"
-                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 field-sizing-content max-h-32 min-h-11 flex-1 resize-none rounded-2xl border px-3.5 py-2.5 text-base outline-none focus-visible:ring-[3px] sm:text-sm"
-              />
-              <button
-                type="submit"
-                disabled={pending || draft.trim() === ''}
-                aria-label="Enviar"
-                className="bg-primary text-primary-foreground focus-visible:ring-ring/50 flex size-11 shrink-0 items-center justify-center rounded-full transition-opacity outline-none focus-visible:ring-[3px] disabled:opacity-40"
-              >
-                <SendHorizontal aria-hidden className="size-5" />
-              </button>
+              {entries.map((entry) =>
+                entry.role === 'visitor' ? (
+                  <div
+                    key={entry.id}
+                    className="bg-primary text-primary-foreground ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2.5 break-words whitespace-pre-wrap"
+                  >
+                    {entry.text}
+                  </div>
+                ) : (
+                  <div key={entry.id} className="space-y-2">
+                    <div
+                      className={`max-w-[85%] space-y-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 ${
+                        entry.error ? 'bg-destructive/10 text-destructive' : 'bg-muted'
+                      }`}
+                    >
+                      {entry.photoUrl && <ChatPhoto url={entry.photoUrl} siteUrl={siteUrl} />}
+                      <ChatText
+                        text={entry.text}
+                        siteUrl={siteUrl}
+                        onInternalNavigation={onInternalNavigation}
+                      />
+                    </div>
+                    {entry.cards.length > 0 && (
+                      <ul aria-label="Propiedades sugeridas" className="space-y-2">
+                        {entry.cards.map((card) => (
+                          <li key={card.id}>
+                            <ChatPropertyCard card={card} siteUrl={siteUrl} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {entry.listingUrl && (
+                      <a
+                        href={entry.listingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="border-primary/40 text-primary hover:bg-primary/10 focus-visible:ring-ring/50 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed px-3 py-2.5 text-sm font-bold transition-colors outline-none focus-visible:ring-[3px]"
+                      >
+                        Ver todas las opciones en la web
+                        <ExternalLink aria-hidden className="size-4" />
+                        <span className="sr-only"> (se abre en otra pestaña)</span>
+                      </a>
+                    )}
+                  </div>
+                ),
+              )}
+              {pending && <TypingIndicator />}
+              {!pending && quickReplies.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {quickReplies.map((title) => (
+                    <button
+                      key={title}
+                      type="button"
+                      onClick={() => void send(title)}
+                      className={CHIP}
+                    >
+                      {title}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <p className="text-muted-foreground mt-2 text-center text-[11px]">
-              Asistente con IA: puede equivocarse. Un asesor confirma cada dato.
-            </p>
-          </form>
-        </section>
-      )}
-    </div>
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void send(draft);
+              }}
+              className="bg-card border-t px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            >
+              <div className="flex items-end gap-2">
+                <label htmlFor={`${panelId}-input`} className="sr-only">
+                  Tu mensaje
+                </label>
+                <textarea
+                  id={`${panelId}-input`}
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                  }}
+                  onKeyDown={onKeyDown}
+                  rows={1}
+                  maxLength={CHAT_MAX_CHARS}
+                  placeholder="Escribí tu consulta…"
+                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 field-sizing-content max-h-32 min-h-11 flex-1 resize-none rounded-2xl border px-3.5 py-2.5 text-base outline-none focus-visible:ring-[3px] sm:text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={pending || draft.trim() === ''}
+                  aria-label="Enviar"
+                  className="bg-primary text-primary-foreground focus-visible:ring-ring/50 flex size-11 shrink-0 items-center justify-center rounded-full transition-opacity outline-none focus-visible:ring-[3px] disabled:opacity-40"
+                >
+                  <SendHorizontal aria-hidden className="size-5" />
+                </button>
+              </div>
+              <p className="text-muted-foreground mt-2 text-center text-[11px]">
+                Asistente con IA: puede equivocarse. Un asesor confirma cada dato.
+              </p>
+            </form>
+          </section>
+        )}
+      </div>
+      {phase === 'closed' && <ChatLauncherOrbit className={ORBIT} />}
+    </>
   );
 }
 

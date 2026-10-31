@@ -94,6 +94,7 @@ function LayoutSwitcher({ layout }: { readonly layout: DevelopmentLayoutValue })
   const { setParams } = useListNavigation();
   return (
     <div
+      data-tour="developments-view"
       role="group"
       aria-label="Cómo ver los emprendimientos"
       className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5"
@@ -129,7 +130,10 @@ function LayoutSwitcher({ layout }: { readonly layout: DevelopmentLayoutValue })
 /** Filtros del listado (búsqueda, estado, tipo y obra): debajo de la barra de acciones. */
 function Toolbar({ filters }: { readonly filters: DevelopmentFilterValues }) {
   return (
-    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
+    <div
+      data-tour="developments-filters"
+      className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center"
+    >
       <DebouncedInput
         param="q"
         value={filters.q}
@@ -200,7 +204,7 @@ function ActionsBar({
           </Button>
         )}
         {permissions.create && !inTrash && (
-          <Button onClick={onCreate}>
+          <Button data-tour="developments-new" onClick={onCreate}>
             <PlusIcon className="h-4 w-4" />
             Nuevo emprendimiento
           </Button>

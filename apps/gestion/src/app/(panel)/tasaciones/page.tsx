@@ -65,7 +65,7 @@ export default async function AppraisalsPage({
         </p>
       )}
 
-      <Card className="gap-0 overflow-hidden p-0">
+      <Card data-tour="appraisals-grid" className="gap-0 overflow-hidden p-0">
         {result.isErr() ? (
           <DataTableError message={messageForError(result.error, APPRAISAL_READ_ERROR_MESSAGES)} />
         ) : (

@@ -138,7 +138,10 @@ export function AppraisalHeader({
 
   return (
     <>
-      <div className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-start sm:p-5">
+      <div
+        data-tour="appraisal-header"
+        className="flex flex-col gap-4 rounded-2xl bg-linear-to-br from-entity-header-from to-entity-header-to p-4 text-white sm:flex-row sm:items-start sm:p-5"
+      >
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary-500">
           <CalculatorIcon className="h-8 w-8" aria-hidden />
         </div>
@@ -163,6 +166,7 @@ export function AppraisalHeader({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
+                  data-tour="appraisal-status"
                   size="sm"
                   variant="outline"
                   className="text-foreground dark:bg-card"
@@ -188,7 +192,13 @@ export function AppraisalHeader({
             </DropdownMenu>
           )}
           {detail.reportable && (
-            <Button size="sm" variant="outline" className="text-foreground dark:bg-card" asChild>
+            <Button
+              data-tour="appraisal-pdf"
+              size="sm"
+              variant="outline"
+              className="text-foreground dark:bg-card"
+              asChild
+            >
               {/* Lo sirve una ruta (no una página): se baja con un enlace común. */}
               <a href={appraisalReportHref(detail.id)} download>
                 <FileDownIcon className="h-4 w-4" />
@@ -198,6 +208,7 @@ export function AppraisalHeader({
           )}
           {permissions.convert && !inTrash && detail.convertible && (
             <Button
+              data-tour="appraisal-convert"
               size="sm"
               variant="outline"
               className="text-foreground dark:bg-card"

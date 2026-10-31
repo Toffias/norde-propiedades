@@ -51,6 +51,7 @@ export function PendingFocusTabs({
   return (
     <div className="flex flex-col gap-5">
       <div
+        data-tour="home-pending"
         role="tablist"
         aria-label="Pendientes"
         className={cn(

@@ -88,6 +88,16 @@ Roles propuestos (a validar con Norde):
 - **Recuperación**: si se perdieron el celular y los códigos, un administrador con `users:reset-password` le quita la verificación desde Mi empresa → Usuarios (acción de la fila, solo en quien la tiene activa). Vuelve a entrar solo con la contraseña.
 - Auditoría contra el usuario: `user.signed-in` con el factor usado (`secondFactor`), `user.sign-in-failed` con el motivo y el factor, `user.two-factor-enabled`, `user.two-factor-disabled`, `user.two-factor-backup-codes-regenerated` y `user.two-factor-reset`.
 
+**Implementado (historial de la cuenta):**
+
+- **Mi cuenta** usa el ancho completo, como el resto de las pantallas: a la izquierda los datos (nombre, email, roles), la contraseña y la verificación en dos pasos; a la derecha, el **historial** de la cuenta.
+- El historial es todo lo que hizo quien mira, leído de `audit_log` por autor (`ListMyActivity`, módulo `audit`): altas, ediciones, bajas, cambios de estado, exportaciones, ingresos y cierres de sesión.
+  - Timeline agrupado por día de Buenos Aires ("Hoy", "Ayer", "Jueves, 29 de octubre"), de lo más nuevo a lo más viejo, paginado en el servidor (25 o 50 por página).
+  - Filtros en la URL: **área** (propiedades, emprendimientos, contactos, oportunidades, tasaciones, cuenta y usuarios, configuración y otros) y **período**. Índices `audit_log (actor_id, occurred_at)` y `(actor_id, entity_type, occurred_at)` (migración 0056).
+  - Cada acción nombra la entidad (código y título o nombre) con enlace a su ficha; la oportunidad enlaza a su contacto. Si la entidad está en la papelera, se marca.
+  - El diff se muestra con el mismo formato que la pestaña Historial de la ficha (propiedad, contacto, emprendimiento, tasación). Las exportaciones no muestran diff.
+  - Cualquier usuario ve el suyo, sin permisos. Si ya no puede leer un área (le cambiaron el rol), la entrada queda sin el nombre de la entidad ni el diff. Los ingresos fallidos no aparecen: los registra el sistema, no el usuario.
+
 **Implementado (#3, roles y permisos):**
 
 - **Mi empresa → Roles** (`/mi-empresa/roles`): grilla paginada con búsqueda y cantidad de usuarios por rol, y su **papelera** (baja lógica, con restaurar).
@@ -1250,6 +1260,11 @@ Un asistente de IA dentro del panel, para el equipo de Norde:
   - Cada usuario ve lo que pidió. Con el permiso `background-tasks:read-others` (el administrador lo tiene) aparece "Míos / Todos": lo de los demás, lo del sistema y los portales.
   - Los terminados se muestran una semana o hasta "Limpiar terminados" (se recuerda en una cookie del navegador). De a 10, con "Ver más" hasta 50.
   - Las exportaciones no aparecen: se arman en la misma descarga, no en un job.
+- **Tutoriales guiados** (botón "?" de la barra superior, a la derecha del tema): recorren la pantalla paso a paso con driver.js, para que alguien que empieza en Norde aprenda a usarla.
+  - Hay uno por pantalla principal: Inicio (que además presenta el menú, el buscador, la campana y la cuenta), Noticias, Oportunidades, Contactos y su ficha, Consultas, Propiedades y su ficha, Emprendimientos y su ficha, Tasaciones y su ficha, Reservas y Difusión. En las demás pantallas (Mi empresa, importaciones, comparar) el botón no aparece.
+  - Cada paso resalta un elemento marcado con `data-tour`. Los pasos cuyo elemento no está en pantalla (sin permiso, sin datos, otra vista, otra pestaña o mobile) se saltean solos.
+  - Los recorridos viven en `apps/gestion/src/features/shell/tours/panel-tours.ts`; un test verifica que cada paso apunte a un `data-tour` que existe.
+  - No se abren solos ni se guarda quién los vio.
 - **Sin API interna**: el sitio web, el agente de IA y los jobs llaman a los **mismos casos de uso** de `@norde/core`, contra la misma base (ver [arquitectura.md](../arquitectura.md)).
 - **Archivos**: fotos, planos y PDFs en Cloudflare R2 (S3 compatible, ADR 0018), con thumbnails optimizados. El bucket es privado: el panel sirve cada archivo después de autorizarlo.
 - **Notificaciones**: los avisos a cada usuario viven en la campana del panel (módulo `notifications`, ADR 0043). Los avisos por mail o WhatsApp a usuarios del panel no se construyen (#112).

@@ -213,7 +213,10 @@ function Toolbar({
   readonly labels: AppraisalFilterLabels;
 }) {
   return (
-    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
+    <div
+      data-tour="appraisals-filters"
+      className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center"
+    >
       <FilterMultiSelect
         param="status"
         value={filters.status}
@@ -282,7 +285,7 @@ function ActionsBar({
           </Button>
         )}
         {permissions.create && !inTrash && (
-          <Button onClick={onCreate}>
+          <Button data-tour="appraisals-new" onClick={onCreate}>
             <PlusIcon className="h-4 w-4" />
             Nueva tasación
           </Button>

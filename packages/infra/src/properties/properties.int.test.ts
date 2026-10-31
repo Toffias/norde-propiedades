@@ -545,6 +545,9 @@ describe('DrizzlePanelPropertyListQuery', () => {
 
     const byCode = await query.search({ ...BASE, text: 'p00042' });
     expect(byCode.items.map((item) => item.code)).toEqual(['P00042']);
+    // Cada palabra por separado, en cualquier orden y en columnas distintas (título, calle y código).
+    const byWords = await query.search({ ...BASE, text: '  calle  P00042 propiedad ' });
+    expect(byWords.items.map((item) => item.code)).toEqual(['P00042']);
 
     const houses = await query.search({ ...BASE, propertyType: ['house'], status: ['available'] });
     expect(houses.items.every((i) => i.propertyType === 'house' && i.status === 'available')).toBe(

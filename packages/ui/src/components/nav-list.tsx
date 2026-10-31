@@ -103,6 +103,7 @@ export function NavList<THref extends string>({
 }) {
   return (
     <nav
+      data-tour="shell-nav"
       aria-label="Menú principal"
       className={cn(
         'custom-scrollbar min-h-0 flex-1 overflow-y-auto py-3',

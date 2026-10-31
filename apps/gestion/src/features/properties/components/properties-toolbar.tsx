@@ -67,7 +67,7 @@ export function PropertiesToolbar({
   readonly canSeeTrash: boolean;
 }) {
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div data-tour="properties-filters" className="flex w-full flex-col gap-2">
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center">
         <DebouncedInput
           param="q"

@@ -92,6 +92,7 @@ export function FavoriteSearchesMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            data-tour="properties-favorites"
             type="button"
             variant="outline"
             className="bg-card"

@@ -1,6 +1,11 @@
 // Fakes del módulo audit para tests (`@norde/core/audit/testing`).
 
 import type {
+  ActorActivityCriteria,
+  ActorActivityQuery,
+  ActorActivityRecord,
+} from '../application/ports/actor-activity-query';
+import type {
   AuditHistoryCriteria,
   AuditHistoryEntry,
   AuditHistoryQuery,
@@ -164,6 +169,40 @@ export class InMemoryAuditHistoryQuery implements AuditHistoryQuery {
       );
     return Promise.resolve({
       items: rows.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: rows.length,
+    });
+  }
+}
+
+/** Filtra y pagina en memoria lo que el SQL hace en la base, por autor. */
+export class InMemoryActorActivityQuery implements ActorActivityQuery {
+  readonly criteria: ActorActivityCriteria[] = [];
+
+  constructor(readonly entries: (ActorActivityRecord & { readonly actorId: string })[] = []) {}
+
+  list(criteria: ActorActivityCriteria) {
+    this.criteria.push(criteria);
+    const types = criteria.entityTypes;
+    const rows = this.entries
+      .filter(
+        (entry) =>
+          entry.actorId === criteria.actorId &&
+          (types === undefined ||
+            ('include' in types
+              ? types.include.includes(entry.entityType)
+              : !types.exclude.includes(entry.entityType))) &&
+          (criteria.from === undefined || entry.occurredAt >= criteria.from) &&
+          (criteria.to === undefined || entry.occurredAt < criteria.to),
+      )
+      .sort((a, b) =>
+        criteria.direction === 'asc'
+          ? a.occurredAt.getTime() - b.occurredAt.getTime()
+          : b.occurredAt.getTime() - a.occurredAt.getTime(),
+      );
+    return Promise.resolve({
+      items: rows
+        .slice(criteria.offset, criteria.offset + criteria.limit)
+        .map(({ actorId: _actorId, ...record }) => record),
       total: rows.length,
     });
   }

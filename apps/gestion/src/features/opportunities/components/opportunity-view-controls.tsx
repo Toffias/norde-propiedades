@@ -87,6 +87,7 @@ export function OpportunityViewToggle({ view }: { readonly view: OpportunityView
   const { setParams, pending } = useListNavigation();
   return (
     <div
+      data-tour="opportunities-view"
       role="group"
       aria-label="Vista"
       className="inline-flex h-8 shrink-0 items-center rounded-md border border-border bg-card p-0.5"
@@ -136,7 +137,10 @@ export function PipelineToolbar({
   readonly children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col-reverse gap-3 border-b border-border px-4 py-3 lg:flex-row lg:items-start">
+    <div
+      data-tour="opportunities-filters"
+      className="flex flex-col-reverse gap-3 border-b border-border px-4 py-3 lg:flex-row lg:items-start"
+    >
       <div className="min-w-0 flex-1">{children}</div>
       <div className="flex justify-end">
         <OpportunityViewToggle view={view} />

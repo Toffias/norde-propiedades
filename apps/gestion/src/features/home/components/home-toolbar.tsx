@@ -46,7 +46,12 @@ function Toolbar({
 
   return (
     <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between">
-      <div role="group" aria-label="Vista de Inicio" className="flex flex-wrap gap-2">
+      <div
+        data-tour="home-view"
+        role="group"
+        aria-label="Vista de Inicio"
+        className="flex flex-wrap gap-2"
+      >
         {HOME_VIEW_VALUES.map((value) => (
           <button
             key={value}
@@ -73,7 +78,7 @@ function Toolbar({
       </div>
 
       {(permissions.pickUsers || permissions.pickBranches) && (
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div data-tour="home-filters" className="flex flex-col gap-3 sm:flex-row">
           {permissions.pickUsers && (
             <div className="flex flex-col gap-1.5 sm:w-60">
               <Label htmlFor={`${id}-agent`} className="text-xs">

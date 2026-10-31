@@ -61,6 +61,7 @@ export { DrizzlePropertyCatalogQuery } from './properties/drizzle-property-catal
 export { DrizzleMediaQuery } from './properties/drizzle-media-query';
 export { DrizzlePropertyDocumentQuery } from './properties/drizzle-property-documents';
 export { DrizzlePropertyDetailLookups } from './properties/drizzle-property-detail-lookups';
+export { DrizzleActorActivityQuery } from './audit/drizzle-actor-activity-query';
 export { DrizzleAuditHistoryQuery } from './audit/drizzle-audit-history-query';
 export { DrizzleNewsFeedQuery } from './audit/drizzle-news-feed-query';
 export { DrizzlePropertyInterestQuery } from './clients/drizzle-property-interest-query';

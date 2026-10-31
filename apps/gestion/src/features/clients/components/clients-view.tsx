@@ -78,10 +78,10 @@ export function ClientsView({
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
           {/* La papelera se ve siempre en la grilla. */}
           {filters.view === 'active' && <LayoutSwitcher layout={layout} />}
-          <div className="ml-auto flex flex-wrap justify-end gap-2">
+          <div data-tour="clients-data" className="ml-auto flex flex-wrap justify-end gap-2">
             <ClientsDataActions filters={filters} permissions={permissions} />
             {permissions.create && (
-              <Button type="button" onClick={navigation.openNew}>
+              <Button data-tour="clients-new" type="button" onClick={navigation.openNew}>
                 <PlusIcon className="h-4 w-4" />
                 Nuevo contacto
               </Button>

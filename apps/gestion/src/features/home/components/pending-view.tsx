@@ -171,7 +171,7 @@ function Widget<T>({
   if (state.kind === 'hidden') return null;
   const rest = state.kind === 'ok' ? state.value.total - state.value.items.length : 0;
   return (
-    <Card className="gap-0 p-0">
+    <Card data-tour="home-pending-list" className="gap-0 p-0">
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
         <h2 className="flex min-w-0 items-center gap-2 text-base font-bold">
           <Icon className="size-4 shrink-0" aria-hidden />

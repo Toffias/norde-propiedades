@@ -27,7 +27,7 @@ import {
   type ActiveUsers,
   type PanelDirectory,
 } from '@norde/core/appraisals';
-import { GetNewsActivity, ListNews } from '@norde/core/audit';
+import { GetNewsActivity, ListMyActivity, ListNews } from '@norde/core/audit';
 import {
   AddFavorites,
   AddTeamMember,
@@ -448,6 +448,7 @@ import {
   DrizzleOwnerContacts,
   DrizzlePropertyExportDetails,
   DrizzleNewsFeedQuery,
+  DrizzleActorActivityQuery,
   DrizzleOrganizationQuery,
   DrizzlePanelPropertyListQuery,
   DrizzleDevelopmentListQuery,
@@ -639,6 +640,8 @@ export interface Container {
   readonly appraisals: AppraisalsUseCases;
   /** Noticias: el feed de actividad de la empresa (#16). */
   readonly news: { readonly listNews: ListNews; readonly getNewsActivity: GetNewsActivity };
+  /** Mi cuenta: el historial de lo que hizo quien mira. */
+  readonly account: { readonly listMyActivity: ListMyActivity };
   /** Difusión en portales (#14): cuentas de MercadoLibre. Sin `PORTALS_ENABLED`, no existe. */
   readonly portals: PortalsUseCases | undefined;
 }
@@ -1774,6 +1777,9 @@ function createContainer(): Container {
     backgroundTasks: createBackgroundTasks(database.db, clock),
     notifications: createNotifications(database.db, clock),
     news: createNewsUseCases(database.db, clock),
+    account: {
+      listMyActivity: new ListMyActivity({ activity: new DrizzleActorActivityQuery(database.db) }),
+    },
     portals: createPortalsUseCases(database.db, env, { ids, clock }, { properties, settings }),
     identity: {
       listUsers,

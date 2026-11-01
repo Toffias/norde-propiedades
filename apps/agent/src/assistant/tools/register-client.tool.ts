@@ -6,6 +6,8 @@ import type { CustomerTurnContext } from '../turn-context';
 
 import { UnexpectedToolError, type AssistantToolDeps } from './tool-deps';
 
+const NOTE_MAX = 2000;
+
 const Parameters = z.object({
   type: z
     .enum(['sale', 'rent', 'appraisal'])
@@ -31,14 +33,30 @@ const Parameters = z.object({
     .describe('Id de la propiedad de interés (el que devolvieron las herramientas), si hay una'),
   notes: z
     .string()
-    .max(2000)
+    .max(NOTE_MAX)
     .nullable()
     .describe('Resumen para el asesor: qué busca, presupuesto, disponibilidad, lo relevante'),
   noMatchingStock: z.boolean().describe('true si buscaste y Norde no tiene hoy nada que le sirva'),
 });
 
+const PropertyIdSchema = z.uuid();
+
+/**
+ * Un id que no salió de las tools (un slug, "la 2") no frena el registro: se registra sin
+ * propiedad y la referencia queda en la nota para que el asesor la resuelva.
+ */
+function propertyOf(propertyId: string | null, notes: string | null) {
+  if (propertyId === null || PropertyIdSchema.safeParse(propertyId).success) {
+    return { propertyId: propertyId ?? undefined, note: notes ?? undefined };
+  }
+  const reference = `Propiedad de interés sin identificar: "${propertyId}".`;
+  // La nota del core admite 2000 caracteres: si no entra, se recorta el resumen del modelo.
+  const summary = notes?.slice(0, NOTE_MAX - reference.length - 1);
+  return { propertyId: undefined, note: summary ? `${summary}\n${reference}` : reference };
+}
+
 const REASONS: Readonly<Record<Exclude<RegisterContactError['type'], 'Forbidden'>, string>> = {
-  InvalidInput: 'Datos inválidos (revisá el id de la propiedad)',
+  InvalidInput: 'Datos inválidos',
   InvalidPhone: 'El teléfono no es válido',
   InvalidEmail: 'El email no es válido',
   MissingContactInfo: 'Falta un teléfono o un email para que el asesor lo contacte',
@@ -56,6 +74,7 @@ export function registerClientTool(deps: AssistantToolDeps) {
         return { ok: false, reason: 'El cliente ya quedó registrado en este mensaje' };
       }
       context.registering = true;
+      const property = propertyOf(args.propertyId, args.notes);
       const result = await deps.registerContact
         .execute(
           {
@@ -67,9 +86,9 @@ export function registerClientTool(deps: AssistantToolDeps) {
             opportunity: {
               type: args.type,
               intent: args.intent,
-              propertyId: args.propertyId ?? undefined,
+              propertyId: property.propertyId,
               search: context.lastSearch,
-              note: args.notes ?? undefined,
+              note: property.note,
               noMatchingStock: args.noMatchingStock,
             },
           },

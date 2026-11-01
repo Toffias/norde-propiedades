@@ -3,7 +3,7 @@ import { aPropertyRecord, InMemoryPropertySearchQuery } from '@norde/core/proper
 import { Actor } from '@norde/core/shared';
 import { describe, expect, it } from 'vitest';
 
-import { presentSummary } from './property-presenter';
+import { presentSummary, propertyReference } from './property-presenter';
 
 const actor = Actor.system('agent-ia', ['properties:read']);
 
@@ -50,6 +50,23 @@ describe('presentSummary', () => {
       operations: ['Venta: USD 120.000', 'Alquiler: $ 780.000'],
       surfaceTotalM2: 120,
       surfaceCoveredM2: 90,
+    });
+  });
+});
+
+describe('propertyReference', () => {
+  it('reads the slug of a ficha link, with or without domain', () => {
+    expect(propertyReference('https://norde.com.ar/propiedades/2-amb-palermo?utm=wa')).toEqual({
+      slug: '2-amb-palermo',
+    });
+    expect(propertyReference(' norde.com.ar/propiedades/casa-%C3%B1u%C3%B1oa ')).toEqual({
+      slug: 'casa-ñuñoa',
+    });
+  });
+
+  it('takes anything else as an id', () => {
+    expect(propertyReference(' 0198a1b2-0000-7000-8000-000000000001 ')).toEqual({
+      propertyId: '0198a1b2-0000-7000-8000-000000000001',
     });
   });
 });

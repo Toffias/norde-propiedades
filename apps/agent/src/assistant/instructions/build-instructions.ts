@@ -5,7 +5,7 @@ import { channelInstructions } from './channels';
 import { sanitizeContactName } from './contact-name';
 
 /** Versión de las instrucciones: se guarda con cada respuesta para comparar versiones del prompt. */
-export const PROMPT_VERSION = '2026-10-25.1';
+export const PROMPT_VERSION = '2026-10-31.1';
 
 const TIME_ZONE = 'America/Argentina/Buenos_Aires';
 

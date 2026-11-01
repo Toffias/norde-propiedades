@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadTranscript, saveTranscript, type ChatEntry } from './transcript';
+import {
+  isTranscriptInactive,
+  loadLastActivity,
+  loadTranscript,
+  saveLastActivity,
+  saveTranscript,
+  type ChatEntry,
+} from './transcript';
 
 const store = new Map<string, string>();
 
@@ -57,5 +64,41 @@ describe('transcript', () => {
   it('starts empty when the stored value is not valid', () => {
     store.set('norde-chat:v1', '{nope');
     expect(loadTranscript()).toEqual([]);
+  });
+});
+
+describe('last activity', () => {
+  it('remembers when the last message was and forgets it on a new chat', () => {
+    saveLastActivity(1_700_000_000_000);
+    expect(loadLastActivity()).toBe(1_700_000_000_000);
+
+    saveLastActivity(null);
+    expect(loadLastActivity()).toBeNull();
+  });
+
+  it('ignores an invalid stored value', () => {
+    store.set('norde-chat:last-activity', 'ayer');
+    expect(loadLastActivity()).toBeNull();
+  });
+});
+
+describe('isTranscriptInactive', () => {
+  const HOUR = 3_600_000;
+  const now = 1_700_000_000_000;
+
+  it('is inactive once the idle period of the agent has passed', () => {
+    const input = { entries: [entry], now, idleResetMs: 24 * HOUR };
+
+    expect(isTranscriptInactive({ ...input, lastActivityAt: now - 23 * HOUR })).toBe(false);
+    expect(isTranscriptInactive({ ...input, lastActivityAt: now - 25 * HOUR })).toBe(true);
+  });
+
+  it('takes a saved chat without its last activity as inactive, but never an empty one', () => {
+    expect(
+      isTranscriptInactive({ entries: [entry], lastActivityAt: null, now, idleResetMs: HOUR }),
+    ).toBe(true);
+    expect(
+      isTranscriptInactive({ entries: [], lastActivityAt: null, now, idleResetMs: HOUR }),
+    ).toBe(false);
   });
 });

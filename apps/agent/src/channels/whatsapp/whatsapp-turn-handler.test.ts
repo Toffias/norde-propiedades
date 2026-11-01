@@ -370,7 +370,7 @@ describe('WhatsAppTurnHandler', () => {
   it('tells the model when a property does not exist instead of failing', async () => {
     const ctx = setup();
     ctx.model.enqueue(
-      [functionCall('get_property', { propertyId: 'P-999' }, { callId: 'c1' })],
+      [functionCall('get_property', { property: 'P-999' }, { callId: 'c1' })],
       [reply('No encuentro esa propiedad.')],
     );
 
@@ -380,6 +380,57 @@ describe('WhatsAppTurnHandler', () => {
       'No hay una propiedad publicada',
     );
     expect(ctx.toolErrors).toEqual([]);
+  });
+
+  it('finds a property by the link of its ficha that the client pasted', async () => {
+    const ctx = setup();
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'get_property',
+          { property: 'https://norde.com.ar/propiedades/2-ambientes-palermo?ref=wa' },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Es un 2 ambientes en Palermo.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('¿qué onda esta? norde.com.ar/propiedades/...')]);
+
+    expect(JSON.stringify(ctx.model.lastCall?.request.input)).toContain(palermo.id);
+    expect(ctx.toolErrors).toEqual([]);
+  });
+
+  it('registers without the property, noted for the advisor, when its id is not one of the tools', async () => {
+    const ctx = setup();
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'register_client',
+          {
+            type: 'rent',
+            intent: 'visit',
+            name: null,
+            email: null,
+            phone: null,
+            propertyId: 'la que me pasaste',
+            notes: 'Quiere visitar el sábado',
+            noMatchingStock: false,
+          },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('¡Listo! Un asesor te va a escribir para coordinar la visita.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('quiero visitar la que me pasaste')]);
+
+    const [opportunity] = [...ctx.clients.opportunities.rows.values()];
+    expect(opportunity?.propertyId).toBeUndefined();
+    expect(opportunity?.notes.map((n) => n.text)).toEqual([
+      'Quiere visitar el sábado\nPropiedad de interés sin identificar: "la que me pasaste".',
+    ]);
+    expect(JSON.stringify(ctx.model.lastCall?.request.input)).toContain('{\\"ok\\":true}');
   });
 
   it('sends a fallback when the agent fails, and one notice once the breaker opens', async () => {

@@ -47,6 +47,11 @@ const EnvSchema = z.object({
    */
   AGENT_CHAT_URL: z.url({ protocol: /^https?$/ }).optional(),
   AGENT_CHAT_SECRET: z.string().min(32).optional(),
+  /**
+   * Horas sin mensajes tras las que el agente olvida la charla: el mismo valor que su
+   * `CONVERSATION_IDLE_RESET_HOURS`. Pasado ese tiempo, el chat ofrece empezar una nueva.
+   */
+  CHAT_IDLE_RESET_HOURS: z.coerce.number().int().positive().default(24),
 });
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */

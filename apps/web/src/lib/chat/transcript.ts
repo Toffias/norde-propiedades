@@ -32,6 +32,8 @@ const ChatEntrySchema = z.object({
 export type ChatEntry = z.infer<typeof ChatEntrySchema>;
 
 const STORAGE_KEY = 'norde-chat:v1';
+/** Cuándo fue el último mensaje (epoch en ms), para saber si el agente todavía recuerda la charla. */
+const ACTIVITY_KEY = 'norde-chat:last-activity';
 /** Solo se recuerdan los últimos mensajes: la memoria de la charla la tiene el agente. */
 export const MAX_STORED_ENTRIES = 50;
 
@@ -63,4 +65,43 @@ export function saveTranscript(entries: readonly ChatEntry[]): void {
   } catch {
     // Sin almacenamiento (modo privado, cuota llena): el chat sigue funcionando sin recordar.
   }
+}
+
+export function loadLastActivity(): number | null {
+  try {
+    const parsed = z.coerce
+      .number()
+      .int()
+      .positive()
+      .safeParse(window.localStorage.getItem(ACTIVITY_KEY));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    // Almacenamiento bloqueado: sin dato, la charla guardada se toma como inactiva.
+    return null;
+  }
+}
+
+/** Registra un mensaje (enviado o recibido) ahora; `null` lo olvida (charla nueva). */
+export function saveLastActivity(at: number | null = Date.now()): void {
+  try {
+    if (at === null) window.localStorage.removeItem(ACTIVITY_KEY);
+    else window.localStorage.setItem(ACTIVITY_KEY, String(at));
+  } catch {
+    // Sin almacenamiento: el chat sigue funcionando sin recordar.
+  }
+}
+
+/**
+ * La charla guardada ya no la recuerda el agente: pasó su período de inactividad. Sin fecha del
+ * último mensaje (charlas guardadas antes de registrarla), se toma como inactiva.
+ */
+export function isTranscriptInactive(input: {
+  readonly entries: readonly ChatEntry[];
+  readonly lastActivityAt: number | null;
+  readonly idleResetMs: number;
+  readonly now?: number;
+}): boolean {
+  if (input.entries.length === 0) return false;
+  if (input.lastActivityAt === null) return true;
+  return (input.now ?? Date.now()) - input.lastActivityAt > input.idleResetMs;
 }

@@ -1,13 +1,28 @@
 'use client';
 
-import { ExternalLink, Maximize2, Minimize2, RotateCcw, SendHorizontal, X } from 'lucide-react';
+import {
+  ExternalLink,
+  Maximize2,
+  Minimize2,
+  MoonStar,
+  RotateCcw,
+  SendHorizontal,
+  X,
+} from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 import { CHAT_MAX_CHARS, type ChatReply } from '../../lib/chat/chat-contract';
 import { internalPath } from '../../lib/chat/markdown';
 import { resetChatSession, sendChatMessage } from '../../lib/chat/send-chat-message';
-import { loadTranscript, saveTranscript, type ChatEntry } from '../../lib/chat/transcript';
+import {
+  isTranscriptInactive,
+  loadLastActivity,
+  loadTranscript,
+  saveLastActivity,
+  saveTranscript,
+  type ChatEntry,
+} from '../../lib/chat/transcript';
 
 import { ChatLauncherOrbit } from './chat-launcher-orbit';
 import { ChatPropertyCard } from './chat-property-card';
@@ -101,7 +116,14 @@ function hasCards(entries: readonly ChatEntry[]): boolean {
  * mobile el panel ocupa la pantalla; en desktop se agranda solo cuando el agente muestra
  * propiedades, y el visitante puede achicarlo o agrandarlo desde el encabezado.
  */
-export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
+export function ChatWidget({
+  siteUrl,
+  idleResetMs,
+}: {
+  readonly siteUrl: string;
+  /** Pasado este tiempo sin mensajes, el agente olvida la charla y se ofrece empezar otra. */
+  readonly idleResetMs: number;
+}) {
   const [phase, setPhase] = useState<Phase>('closed');
   const [expanded, setExpanded] = useState(false);
   /** El visitante eligió el tamaño: el chat deja de agrandarse solo. */
@@ -110,6 +132,8 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
+  /** El agente ya no recuerda la charla guardada: se muestra el aviso y no se puede escribir. */
+  const [inactive, setInactive] = useState(false);
   const panelId = useId();
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -146,15 +170,24 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
     if (open) inputRef.current?.focus({ preventScroll: true });
   }, [open]);
 
+  const isStale = (current: readonly ChatEntry[]) =>
+    isTranscriptInactive({
+      entries: current,
+      lastActivityAt: loadLastActivity(),
+      idleResetMs,
+    });
+
   // Lo ya conversado se lee al abrir por primera vez: no existe en el servidor ni en el HTML.
   const openPanel = () => {
     clearTimeout(closeTimer.current);
+    const current = loaded ? entries : loadTranscript();
     if (!loaded) {
-      const stored = loadTranscript();
-      setEntries(stored);
+      setEntries(current);
       setLoaded(true);
-      if (!sizeChosen && hasCards(stored)) setExpanded(true);
+      if (!sizeChosen && hasCards(current)) setExpanded(true);
     }
+    // La pestaña pudo quedar abierta más que el período de inactividad: se revisa en cada apertura.
+    if (isStale(current)) setInactive(true);
     setPhase('open');
   };
 
@@ -175,7 +208,12 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
 
   const send = async (text: string) => {
     const trimmed = text.trim().slice(0, CHAT_MAX_CHARS);
-    if (!trimmed || pending) return;
+    if (!trimmed || pending || inactive) return;
+    if (isStale(entries)) {
+      setInactive(true);
+      return;
+    }
+    saveLastActivity();
     const messageId = crypto.randomUUID();
     setEntries((current) => [
       ...current,
@@ -198,6 +236,7 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
         setEntries((current) => [...current, errorEntry(result.message)]);
       } else if (result.reply) {
         const reply = result.reply;
+        saveLastActivity();
         setEntries((current) => [...current, assistantEntry(reply)]);
         // Con propiedades para mirar, el panel se agranda (salvo que el visitante lo haya achicado).
         if (reply.cards.length > 0 && !sizeChosen) setExpanded(true);
@@ -213,6 +252,8 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
 
   const restart = async () => {
     setEntries([]);
+    setInactive(false);
+    saveLastActivity(null);
     setExpanded(false);
     setSizeChosen(false);
     await resetChatSession();
@@ -232,8 +273,9 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
   };
 
   const last = entries.at(-1);
-  const quickReplies =
-    entries.length === 0
+  const quickReplies = inactive
+    ? []
+    : entries.length === 0
       ? SUGGESTIONS
       : last?.role === 'assistant' && !last.error
         ? last.buttons.map((button) => button.title)
@@ -329,51 +371,76 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
               <div className="bg-muted max-w-[85%] rounded-2xl rounded-bl-md px-3.5 py-2.5">
                 {WELCOME}
               </div>
-              {entries.map((entry) =>
-                entry.role === 'visitor' ? (
-                  <div
-                    key={entry.id}
-                    className="bg-primary text-primary-foreground ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2.5 break-words whitespace-pre-wrap"
-                  >
-                    {entry.text}
-                  </div>
-                ) : (
-                  <div key={entry.id} className="space-y-2">
+              <div className={inactive ? 'space-y-3 opacity-55' : 'contents'}>
+                {entries.map((entry) =>
+                  entry.role === 'visitor' ? (
                     <div
-                      className={`max-w-[85%] space-y-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 ${
-                        entry.error ? 'bg-destructive/10 text-destructive' : 'bg-muted'
-                      }`}
+                      key={entry.id}
+                      className="bg-primary text-primary-foreground ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2.5 break-words whitespace-pre-wrap"
                     >
-                      {entry.photoUrl && <ChatPhoto url={entry.photoUrl} siteUrl={siteUrl} />}
-                      <ChatText
-                        text={entry.text}
-                        siteUrl={siteUrl}
-                        onInternalNavigation={onInternalNavigation}
-                      />
+                      {entry.text}
                     </div>
-                    {entry.cards.length > 0 && (
-                      <ul aria-label="Propiedades sugeridas" className="space-y-2">
-                        {entry.cards.map((card) => (
-                          <li key={card.id}>
-                            <ChatPropertyCard card={card} siteUrl={siteUrl} />
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {entry.listingUrl && (
-                      <a
-                        href={entry.listingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="border-primary/40 text-primary hover:bg-primary/10 focus-visible:ring-ring/50 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed px-3 py-2.5 text-sm font-bold transition-colors outline-none focus-visible:ring-[3px]"
+                  ) : (
+                    <div key={entry.id} className="space-y-2">
+                      <div
+                        className={`max-w-[85%] space-y-2 rounded-2xl rounded-bl-md px-3.5 py-2.5 ${
+                          entry.error ? 'bg-destructive/10 text-destructive' : 'bg-muted'
+                        }`}
                       >
-                        Ver todas las opciones en la web
-                        <ExternalLink aria-hidden className="size-4" />
-                        <span className="sr-only"> (se abre en otra pestaña)</span>
-                      </a>
-                    )}
+                        {entry.photoUrl && <ChatPhoto url={entry.photoUrl} siteUrl={siteUrl} />}
+                        <ChatText
+                          text={entry.text}
+                          siteUrl={siteUrl}
+                          onInternalNavigation={onInternalNavigation}
+                        />
+                      </div>
+                      {entry.cards.length > 0 && (
+                        <ul aria-label="Propiedades sugeridas" className="space-y-2">
+                          {entry.cards.map((card) => (
+                            <li key={card.id}>
+                              <ChatPropertyCard card={card} siteUrl={siteUrl} />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {entry.listingUrl && (
+                        <a
+                          href={entry.listingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="border-primary/40 text-primary hover:bg-primary/10 focus-visible:ring-ring/50 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed px-3 py-2.5 text-sm font-bold transition-colors outline-none focus-visible:ring-[3px]"
+                        >
+                          Ver todas las opciones en la web
+                          <ExternalLink aria-hidden className="size-4" />
+                          <span className="sr-only"> (se abre en otra pestaña)</span>
+                        </a>
+                      )}
+                    </div>
+                  ),
+                )}
+              </div>
+              {inactive && (
+                <div
+                  role="status"
+                  className="bg-card border-primary/30 space-y-3 rounded-2xl border border-dashed px-4 py-4 text-center"
+                >
+                  <MoonStar aria-hidden className="text-primary mx-auto size-6" />
+                  <div className="space-y-1">
+                    <p className="font-bold">Esta charla quedó inactiva</p>
+                    <p className="text-muted-foreground">
+                      Pasó un tiempo desde el último mensaje y el asistente ya no la recuerda.
+                      Empezá una charla nueva para seguir.
+                    </p>
                   </div>
-                ),
+                  <button
+                    type="button"
+                    onClick={() => void restart()}
+                    className="bg-primary text-primary-foreground focus-visible:ring-ring/50 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-opacity outline-none hover:opacity-90 focus-visible:ring-[3px]"
+                  >
+                    <RotateCcw aria-hidden className="size-4" />
+                    Nueva charla
+                  </button>
+                </div>
               )}
               {pending && <TypingIndicator />}
               {!pending && quickReplies.length > 0 && (
@@ -413,12 +480,13 @@ export function ChatWidget({ siteUrl }: { readonly siteUrl: string }) {
                   onKeyDown={onKeyDown}
                   rows={1}
                   maxLength={CHAT_MAX_CHARS}
-                  placeholder="Escribí tu consulta…"
-                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 field-sizing-content max-h-32 min-h-11 flex-1 resize-none rounded-2xl border px-3.5 py-2.5 text-base outline-none focus-visible:ring-[3px] sm:text-sm"
+                  disabled={inactive}
+                  placeholder={inactive ? 'Empezá una charla nueva' : 'Escribí tu consulta…'}
+                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 field-sizing-content max-h-32 min-h-11 flex-1 resize-none rounded-2xl border px-3.5 py-2.5 text-base outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
                 />
                 <button
                   type="submit"
-                  disabled={pending || draft.trim() === ''}
+                  disabled={pending || inactive || draft.trim() === ''}
                   aria-label="Enviar"
                   className="bg-primary text-primary-foreground focus-visible:ring-ring/50 flex size-11 shrink-0 items-center justify-center rounded-full transition-opacity outline-none focus-visible:ring-[3px] disabled:opacity-40"
                 >

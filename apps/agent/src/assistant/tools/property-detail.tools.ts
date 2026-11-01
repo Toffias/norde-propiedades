@@ -1,25 +1,28 @@
 import { defineTool } from '@norde/agent-kit';
 import { z } from 'zod';
 
-import { presentCard, presentDetail } from '../property-presenter';
+import { presentCard, presentDetail, propertyReference } from '../property-presenter';
 import type { CustomerTurnContext } from '../turn-context';
 
 import { UnexpectedToolError, type AssistantToolDeps } from './tool-deps';
 
-const PropertyIdParameters = z.object({
-  propertyId: z.string().max(64).describe('El id que devolvió search_properties'),
+const PropertyParameters = z.object({
+  property: z
+    .string()
+    .max(500)
+    .describe('El id que devolvió search_properties, o el link de una ficha que pegó el cliente'),
 });
 
-const NOT_FOUND = { error: 'No hay una propiedad publicada con ese id' };
+const NOT_FOUND = { error: 'No hay una propiedad publicada con ese id o link' };
 
 export function getPropertyTool(deps: AssistantToolDeps) {
-  return defineTool<CustomerTurnContext, typeof PropertyIdParameters>({
+  return defineTool<CustomerTurnContext, typeof PropertyParameters>({
     name: 'get_property',
     description:
-      'Devuelve la ficha completa de una propiedad por id: descripción, amenities, dirección y cantidad de fotos.',
-    parameters: PropertyIdParameters,
-    execute: async ({ propertyId }, context) => {
-      const result = await deps.getPropertyDetail.execute({ propertyId }, deps.actor);
+      'Devuelve la ficha completa de una propiedad por id o por el link de su ficha: descripción, amenities, dirección y cantidad de fotos.',
+    parameters: PropertyParameters,
+    execute: async ({ property }, context) => {
+      const result = await deps.getPropertyDetail.execute(propertyReference(property), deps.actor);
       if (result.isErr()) {
         if (result.error.type === 'Forbidden') {
           throw new UnexpectedToolError('get_property', 'forbidden');

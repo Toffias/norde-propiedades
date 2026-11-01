@@ -43,6 +43,25 @@ export function propertyUrl(siteUrl: string, slug: string): string {
   return new URL(`/propiedades/${encodeURIComponent(slug)}`, siteUrl).toString();
 }
 
+const FICHA_PATH = /\/propiedades\/([^/?#\s]+)/;
+
+/**
+ * Cómo buscar la propiedad que nombró el modelo: el id de una tool o el link de una ficha que
+ * pegó el cliente (con o sin dominio). Por slug solo aparecen las publicadas.
+ */
+export function propertyReference(
+  reference: string,
+): { readonly propertyId: string } | { readonly slug: string } {
+  const slug = FICHA_PATH.exec(reference.trim())?.[1];
+  if (slug === undefined) return { propertyId: reference.trim() };
+  try {
+    return { slug: decodeURIComponent(slug) };
+  } catch {
+    // Escape inválido (%E0): se busca tal cual y, si no existe, la tool lo informa.
+    return { slug };
+  }
+}
+
 /** Vista compacta para el modelo: lo necesario para responder, sin descripción larga. */
 export function presentSummary(property: PropertySummary, siteUrl: string) {
   return {

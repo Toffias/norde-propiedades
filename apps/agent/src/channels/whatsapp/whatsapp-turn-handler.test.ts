@@ -16,6 +16,8 @@ import {
   InMemoryConversationsUnitOfWork,
   RecordingMessenger,
 } from '@norde/core/conversations/testing';
+import { FindPropertyByPortalAd } from '@norde/core/portals';
+import { InMemoryPortalAdLookup } from '@norde/core/portals/testing';
 import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
 import {
   aPropertyMediaRecord,
@@ -92,6 +94,7 @@ function setup(
     budgetUsd?: number;
     perContactPerHour?: number;
     transcript?: string | Error;
+    properties?: ReturnType<typeof aPropertyRecord>[];
   } = {},
 ) {
   const model = new ScriptedModel();
@@ -101,7 +104,8 @@ function setup(
   const messengers = { whatsapp: messenger };
   const clients = new InMemoryClientsUnitOfWork();
   const conversations = new InMemoryConversationsUnitOfWork();
-  const properties = new InMemoryPropertySearchQuery([palermo]);
+  const properties = new InMemoryPropertySearchQuery(options.properties ?? [palermo]);
+  const ads = new InMemoryPortalAdLookup();
   const toolErrors: string[] = [];
 
   const assistant = createCustomerAssistant({
@@ -113,6 +117,7 @@ function setup(
     siteUrl: 'https://norde.com.ar',
     searchProperties: new SearchProperties({ properties }),
     getPropertyDetail: new GetPropertyDetail({ properties }),
+    findPropertyByPortalAd: new FindPropertyByPortalAd({ ads }),
     registerContact: new RegisterContact({ uow: clients, ids, clock }),
   });
   const handler = new WhatsAppTurnHandler({
@@ -169,7 +174,18 @@ function setup(
   });
   const conversation = () => [...conversations.conversations.rows.values()][0];
 
-  return { model, messenger, clients, conversations, handler, inbound, conversation, toolErrors };
+  return {
+    model,
+    messenger,
+    clients,
+    conversations,
+    handler,
+    inbound,
+    conversation,
+    toolErrors,
+    clock,
+    ads,
+  };
 }
 
 describe('WhatsAppTurnHandler', () => {
@@ -209,6 +225,62 @@ describe('WhatsAppTurnHandler', () => {
     });
     expect(ctx.conversation()?.agentMemory.length).toBeGreaterThan(2);
     expect(ctx.conversations.messages.outbound).toHaveLength(1);
+  });
+
+  it('remembers the shown properties after the idle reset, so "la que me pasaste" still works', async () => {
+    const ctx = setup();
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'search_properties',
+          { ...NO_FILTERS, operation: 'rent', location: 'Palermo' },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Tengo esta opción en Palermo.')],
+      [reply('¡Dale! ¿Qué día te queda bien para visitarla?')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('busco alquilar en palermo')]);
+    ctx.clock.advance(48 * HOUR);
+    await ctx.handler.handle([ctx.inbound('quiero visitar la que me pasaste')]);
+
+    expect(ctx.conversation()?.shownProperties).toEqual([
+      {
+        id: palermo.id,
+        title: '2 ambientes en Palermo',
+        url: 'https://norde.com.ar/propiedades/2-ambientes-palermo',
+      },
+    ]);
+    const instructions = ctx.model.lastCall?.request.systemInstructions ?? '';
+    expect(instructions).toContain('Propiedades que ya vio en esta charla');
+    expect(instructions).toContain(`«2 ambientes en Palermo» (id: ${palermo.id}`);
+    // La memoria se reinició: lo único que tiene de la propiedad es el bloque del turno.
+    expect(JSON.stringify(ctx.model.lastCall?.request.input)).not.toContain(palermo.id);
+  });
+
+  it('numbers the results across pages, so the second page starts at 4', async () => {
+    const more = ['b', 'c', 'd', 'e'].map((slug) =>
+      aPropertyRecord({ slug, title: `Depto ${slug}`, neighborhood: 'Palermo' }),
+    );
+    const ctx = setup({ properties: [palermo, ...more] });
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'search_properties',
+          { ...NO_FILTERS, location: 'Palermo', page: 2 },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Estas son otras dos.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('mostrame más')]);
+
+    const input = JSON.stringify(ctx.model.lastCall?.request.input);
+    expect(input).toContain('\\"number\\":4');
+    expect(input).toContain('\\"number\\":5');
+    expect(input).not.toContain('\\"number\\":1');
   });
 
   it('passes the profile name to the model sanitized, as data at the end', async () => {
@@ -370,7 +442,7 @@ describe('WhatsAppTurnHandler', () => {
   it('tells the model when a property does not exist instead of failing', async () => {
     const ctx = setup();
     ctx.model.enqueue(
-      [functionCall('get_property', { property: 'P-999' }, { callId: 'c1' })],
+      [functionCall('get_property', { property: 'P-999', portal: null }, { callId: 'c1' })],
       [reply('No encuentro esa propiedad.')],
     );
 
@@ -388,7 +460,7 @@ describe('WhatsAppTurnHandler', () => {
       [
         functionCall(
           'get_property',
-          { property: 'https://norde.com.ar/propiedades/2-ambientes-palermo?ref=wa' },
+          { property: 'https://norde.com.ar/propiedades/2-ambientes-palermo?ref=wa', portal: null },
           { callId: 'c1' },
         ),
       ],
@@ -399,6 +471,55 @@ describe('WhatsAppTurnHandler', () => {
 
     expect(JSON.stringify(ctx.model.lastCall?.request.input)).toContain(palermo.id);
     expect(ctx.toolErrors).toEqual([]);
+  });
+
+  it('finds a property by the code the site shows or by its Zonaprop ad', async () => {
+    const ctx = setup();
+    ctx.ads.ads.set('zonaprop:54321678', palermo.id);
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'get_property',
+          { property: ` ${palermo.code.toLowerCase()} `, portal: null },
+          { callId: 'c1' },
+        ),
+        functionCall(
+          'get_property',
+          { property: 'aviso 54321678', portal: 'zonaprop' },
+          { callId: 'c2' },
+        ),
+      ],
+      [reply('Es un 2 ambientes en Palermo.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('vi la del código y el aviso 54321678 de zonaprop')]);
+
+    const input = JSON.stringify(ctx.model.lastCall?.request.input);
+    expect(input.split(`\\"id\\":\\"${palermo.id}\\"`)).toHaveLength(3);
+    expect(ctx.toolErrors).toEqual([]);
+  });
+
+  it('tells the model when a portal ad is not of a Norde property', async () => {
+    const ctx = setup();
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'get_property',
+          {
+            property: 'https://departamento.mercadolibre.com.ar/MLA-111111111-depto',
+            portal: null,
+          },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Ese aviso no es nuestro.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('¿y este? mercadolibre.com.ar/MLA-111111111')]);
+
+    expect(JSON.stringify(ctx.model.lastCall?.request.input)).toContain(
+      'Ese aviso no es de una propiedad publicada de Norde',
+    );
   });
 
   it('registers without the property, noted for the advisor, when its id is not one of the tools', async () => {

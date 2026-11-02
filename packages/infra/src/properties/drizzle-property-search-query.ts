@@ -122,6 +122,11 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     return this.findOne(eq(properties.slug, slug));
   }
 
+  /** Usa el índice único de `code`. */
+  findByCode(code: string) {
+    return this.findOne(eq(properties.code, code));
+  }
+
   /** `mediaId` ya validado como UUID por el caso de uso. */
   findByMediaId(mediaId: string) {
     const owner = this.db

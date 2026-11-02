@@ -21,6 +21,19 @@ export function isAcknowledgementOnly(text: string, afterQuestion = false): bool
 export interface LastReply {
   readonly kind: string;
   readonly body: Readonly<Record<string, unknown>>;
+  readonly channelMessageId?: string | undefined;
+}
+
+/**
+ * El contacto tocó un botón de un mensaje anterior a la última respuesta: su texto ("Sí", "Ver
+ * más") no contesta lo último que se le preguntó. Sin el dato del canal, se asume que es actual.
+ */
+export function isOldButtonTap(
+  message: { readonly kind: string; readonly replyTo?: string | undefined },
+  last: LastReply | undefined,
+): boolean {
+  if (message.kind !== 'button' || message.replyTo === undefined) return false;
+  return last?.channelMessageId !== message.replyTo;
 }
 
 /** Si la última respuesta le preguntó algo al contacto: ofreció botones o terminó en pregunta. */

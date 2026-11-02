@@ -1,7 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
 import { Conversation, type ConversationId } from './conversation';
-import { evaluateUsage, isAcknowledgementOnly, isStale, repliedWithQuestion } from './reply-policy';
+import {
+  evaluateUsage,
+  isAcknowledgementOnly,
+  isOldButtonTap,
+  isStale,
+  repliedWithQuestion,
+} from './reply-policy';
+
+describe('isOldButtonTap', () => {
+  const last = { kind: 'buttons', body: {}, channelMessageId: 'wamid.out-2' };
+
+  it('is old when the button belonged to another message than the last reply', () => {
+    expect(isOldButtonTap({ kind: 'button', replyTo: 'wamid.out-1' }, last)).toBe(true);
+    expect(isOldButtonTap({ kind: 'button', replyTo: 'wamid.out-1' }, undefined)).toBe(true);
+  });
+
+  it('is current for the last reply, without channel data or for plain text', () => {
+    expect(isOldButtonTap({ kind: 'button', replyTo: 'wamid.out-2' }, last)).toBe(false);
+    expect(isOldButtonTap({ kind: 'button' }, last)).toBe(false);
+    expect(isOldButtonTap({ kind: 'text', replyTo: 'wamid.out-1' }, last)).toBe(false);
+  });
+});
 
 const T0 = new Date('2026-03-01T10:00:00Z');
 const HOUR = 3_600_000;
@@ -86,6 +107,21 @@ describe('Conversation', () => {
     conversation.recordAgentTurn({ memory: [1, 2] });
 
     expect(conversation.searchCriteria).toEqual({ zona: 'Palermo' });
+  });
+
+  it('keeps the shown properties when a turn does not bring new ones and after an idle reset', () => {
+    const conversation = started();
+    conversation.recordAgentTurn({ memory: [{ role: 'user' }], shownProperties: [{ id: 'p1' }] });
+
+    conversation.recordAgentTurn({ memory: [{ role: 'user' }, { role: 'assistant' }] });
+    const { memoryReset } = conversation.registerInbound({
+      now: new Date(T0.getTime() + 48 * HOUR),
+      idleResetAfterMs: 24 * HOUR,
+    });
+
+    expect(memoryReset).toBe(true);
+    expect(conversation.agentMemory).toEqual([]);
+    expect(conversation.shownProperties).toEqual([{ id: 'p1' }]);
   });
 
   it('links the client once', () => {

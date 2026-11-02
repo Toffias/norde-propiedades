@@ -118,10 +118,11 @@ export interface PublicLocation {
   readonly listingCount: number;
 }
 
-/** La ficha se busca por id (agente) o por slug (URL de la web). */
+/** La ficha se busca por id (agente), por slug (URL de la web) o por el código que muestra la web. */
 export const GetPropertyDetailInputSchema = z.union([
   z.object({ propertyId: z.string() }),
   z.object({ slug: z.string().trim().min(1).max(200) }),
+  z.object({ code: z.string().trim().min(1).max(40) }),
 ]);
 export type GetPropertyDetailInput = z.input<typeof GetPropertyDetailInputSchema>;
 

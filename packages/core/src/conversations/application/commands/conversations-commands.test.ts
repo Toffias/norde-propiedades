@@ -173,6 +173,28 @@ describe('ReceiveInboundMessages', () => {
     });
   });
 
+  it('tells the agent when a button comes from an older message than the last reply', async () => {
+    const ctx = setup();
+    const first = await planFor(ctx, [ctx.message('hola')]);
+    for (const text of ['¿Comprar o alquilar?', '¿Querés visitarla?']) {
+      await ctx.reply.execute(
+        { conversationId: first.conversationId, message: { type: 'text', text } },
+        agent,
+      );
+    }
+    const button = (replyTo: string) => ctx.message('Sí', { kind: 'button', replyTo });
+
+    // `RecordingMessenger` numera los enviados: wamid.out-1 y wamid.out-2 (el último).
+    expect((await planFor(ctx, [button('wamid.out-1')])).plan).toEqual({
+      action: 'agent',
+      userText: '(botón de un mensaje anterior) Sí',
+    });
+    expect((await planFor(ctx, [button('wamid.out-2')])).plan).toEqual({
+      action: 'agent',
+      userText: 'Sí',
+    });
+  });
+
   it('stays silent while a person handles the conversation', async () => {
     const ctx = setup();
     const first = await planFor(ctx, [ctx.message('hola')]);

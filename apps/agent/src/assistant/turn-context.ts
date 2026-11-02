@@ -1,6 +1,8 @@
 import type { RegisterContactInput } from '@norde/core/clients';
 import type { ConversationChannel } from '@norde/core/conversations';
 
+import type { RecentProperty } from './recent-properties';
+
 /** Búsqueda del cliente, en el formato en que se guarda en su oportunidad. */
 export type ContactSearch = NonNullable<RegisterContactInput['opportunity']['search']>;
 
@@ -42,6 +44,11 @@ export interface CustomerTurnContext {
    * búsqueda anterior: el agente puede retomarla.
    */
   readonly resumedSearch: ContactSearch | undefined;
+  /**
+   * Propiedades que el contacto vio en turnos anteriores, guardadas en la conversación: siguen
+   * ahí aunque la memoria del agente se haya recortado o reiniciado.
+   */
+  readonly recentProperties: readonly RecentProperty[];
   /** Propiedades que el agente vio o mostró en este turno. */
   readonly shownProperties: Map<string, ShownProperty>;
   /** Última búsqueda, para guardarla en la conversación y en la oportunidad. */
@@ -64,6 +71,7 @@ export function createTurnContext(input: {
   readonly phone?: string | undefined;
   readonly contactName?: string | undefined;
   readonly previousSearch?: ContactSearch | undefined;
+  readonly recentProperties?: readonly RecentProperty[];
   readonly now: Date;
   readonly knownClient?: boolean;
   /** Si la memoria del agente está vacía en este turno. */
@@ -77,6 +85,7 @@ export function createTurnContext(input: {
     now: input.now,
     knownClient: input.knownClient ?? false,
     resumedSearch: input.freshMemory ? input.previousSearch : undefined,
+    recentProperties: input.recentProperties ?? [],
     shownProperties: new Map(),
     lastSearch: input.previousSearch,
     searchResult: undefined,

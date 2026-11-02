@@ -18,6 +18,11 @@ export const InboundMessageSchema = z.object({
   sentAt: z.date(),
   /** Tipo original del canal (ej. `audio`), para el registro. */
   rawType: z.string().min(1).max(40),
+  /**
+   * En un `button`, el mensaje del canal al que pertenecía el botón. Si no es la última respuesta
+   * enviada, el contacto tocó un botón de un mensaje viejo.
+   */
+  replyTo: z.string().min(1).max(200).optional(),
 });
 
 /** Largo máximo del nombre del contacto: el canal recorta el que le llega (perfil de WhatsApp). */
@@ -89,6 +94,8 @@ export interface ReceiveInboundMessagesOutput {
   /** Memoria del agente para este turno (vacía si se reinició por inactividad). */
   readonly agentMemory: readonly unknown[];
   readonly searchCriteria: unknown;
+  /** Últimas propiedades que vio el contacto (se conservan tras el reinicio por inactividad). */
+  readonly shownProperties: unknown;
   readonly memoryReset: boolean;
   readonly plan: ReplyPlan;
 }
@@ -110,6 +117,7 @@ export interface SendReplyInput {
   readonly agentTurn?: {
     readonly memory: readonly unknown[];
     readonly searchCriteria?: unknown;
+    readonly shownProperties?: unknown;
     readonly usage?: AgentTurnUsage | undefined;
     /** Versión de las instrucciones con que respondió, para comparar versiones del prompt. */
     readonly promptVersion?: string | undefined;

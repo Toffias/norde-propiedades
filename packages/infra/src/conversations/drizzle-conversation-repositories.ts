@@ -49,6 +49,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
       status: s.status,
       agentMemory: toJsonb(s.agentMemory),
       searchCriteria: s.searchCriteria === undefined ? null : toJsonb(s.searchCriteria),
+      shownProperties: s.shownProperties === undefined ? null : toJsonb(s.shownProperties),
       startedAt: s.startedAt,
       lastActivityAt: s.lastActivityAt,
     };
@@ -63,6 +64,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
           status: row.status,
           agentMemory: row.agentMemory,
           searchCriteria: row.searchCriteria,
+          shownProperties: row.shownProperties,
           lastActivityAt: row.lastActivityAt,
         },
       });
@@ -84,6 +86,7 @@ export class DrizzleConversationRepository implements ConversationRepository {
       status: parsed.status,
       agentMemory: parsed.agentMemory,
       searchCriteria: row.searchCriteria === null ? undefined : fromJsonb(row.searchCriteria),
+      shownProperties: row.shownProperties === null ? undefined : fromJsonb(row.shownProperties),
       startedAt: row.startedAt,
       lastActivityAt: row.lastActivityAt,
     });
@@ -157,7 +160,11 @@ export class DrizzleMessageLog implements MessageLog {
   async lastOutbound(conversationId: ConversationId) {
     // Usa el índice (conversation_id, recorded_at).
     const [row] = await this.db
-      .select({ kind: conversationMessages.kind, body: conversationMessages.body })
+      .select({
+        kind: conversationMessages.kind,
+        body: conversationMessages.body,
+        channelMessageId: conversationMessages.channelMessageId,
+      })
       .from(conversationMessages)
       .where(
         and(
@@ -169,6 +176,10 @@ export class DrizzleMessageLog implements MessageLog {
       .limit(1);
     if (!row) return undefined;
     const body = BodySchema.safeParse(fromJsonb(row.body));
-    return { kind: row.kind, body: body.success ? body.data : {} };
+    return {
+      kind: row.kind,
+      body: body.success ? body.data : {},
+      channelMessageId: row.channelMessageId ?? undefined,
+    };
   }
 }

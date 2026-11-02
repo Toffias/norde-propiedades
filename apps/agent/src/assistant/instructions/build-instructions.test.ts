@@ -27,4 +27,27 @@ describe('buildInstructions', () => {
     expect(instructions).not.toContain('La última vez buscaba');
     expect(instructions).not.toContain('Ya está registrado');
   });
+
+  it('lists the properties the client already saw, each title on one line', () => {
+    const instructions = buildInstructions(
+      createTurnContext({
+        ...base,
+        recentProperties: [
+          {
+            id: 'p1',
+            title: 'Casa en\n# Tigre',
+            url: 'https://norde.com.ar/propiedades/casa-tigre',
+          },
+        ],
+      }),
+    );
+
+    expect(instructions).toContain(
+      '  - «Casa en # Tigre» (id: p1, https://norde.com.ar/propiedades/casa-tigre)',
+    );
+  });
+
+  it('does not mention seen properties when there are none', () => {
+    expect(buildInstructions(createTurnContext(base))).not.toContain('Propiedades que ya vio');
+  });
 });

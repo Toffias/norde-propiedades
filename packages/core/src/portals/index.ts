@@ -307,3 +307,9 @@ export {
   GetPropertyListings,
   type GetPropertyListingsError,
 } from './application/queries/get-property-listings';
+export { parsePortalAdReference, type PortalAdReference } from './domain/portal-ad-reference';
+export type { PortalAdLookup } from './application/ports/portal-ad-lookup';
+export {
+  FindPropertyByPortalAd,
+  type FindPropertyByPortalAdError,
+} from './application/queries/find-property-by-portal-ad';

@@ -13,6 +13,13 @@ export type PortalConnectionMethodValue = (typeof PORTAL_CONNECTION_METHOD_VALUE
 
 export const PortalSchema = z.enum(PORTAL_VALUES);
 
+/** Un aviso que nombró un cliente: su link o su número, y de qué portal es si lo dijo. */
+export const FindPropertyByPortalAdInputSchema = z.object({
+  reference: z.string().trim().min(1).max(500),
+  provider: z.enum(['mercadolibre', 'zonaprop']).optional(),
+});
+export type FindPropertyByPortalAdInput = z.input<typeof FindPropertyByPortalAdInputSchema>;
+
 export const StartPortalConnectionInputSchema = z.object({ portal: PortalSchema });
 export type StartPortalConnectionInput = z.input<typeof StartPortalConnectionInputSchema>;
 

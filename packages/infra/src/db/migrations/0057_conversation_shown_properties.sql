@@ -1,1 +1,0 @@
-ALTER TABLE "core"."conversations" ADD COLUMN "shown_properties" jsonb;

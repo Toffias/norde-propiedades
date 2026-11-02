@@ -1,5 +1,5 @@
 {
-  "id": "88c3b872-e639-4ba5-acf7-0301c92a615c",
+  "id": "9268186a-b8fb-49f1-ae8d-98a0651b3fbf",
   "prevId": "02f2ccc2-dc32-4db0-b48c-03411e916374",
   "version": "7",
   "dialect": "postgresql",
@@ -8963,6 +8963,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "portal_listings_portal_permalink_idx": {
+          "name": "portal_listings_portal_permalink_idx",
+          "columns": [
+            {
+              "expression": "portal",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "permalink",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "permalink is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

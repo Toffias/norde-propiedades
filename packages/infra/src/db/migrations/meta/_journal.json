@@ -404,8 +404,8 @@
     {
       "idx": 57,
       "version": "7",
-      "when": 1793583921002,
-      "tag": "0057_conversation_shown_properties",
+      "when": 1793585515344,
+      "tag": "0057_agent_property_references",
       "breakpoints": true
     }
   ]

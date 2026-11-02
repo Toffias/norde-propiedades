@@ -1,7 +1,6 @@
 'use client';
 
-import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { cn } from '../lib/utils';
 import { Button } from './button';
@@ -19,7 +18,8 @@ export function RowActions({
 }
 
 export interface RowActionProps {
-  readonly icon: LucideIcon;
+  /** Un ícono de lucide o uno propio, como `WhatsAppIcon`. */
+  readonly icon: ComponentType<{ className?: string }>;
   /** Nombre accesible y texto del tooltip: la tabla no gasta ancho en texto. */
   readonly label: string;
   readonly onClick?: () => void;

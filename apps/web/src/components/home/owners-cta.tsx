@@ -1,5 +1,5 @@
 import { Button } from '@norde/ui/components/button';
-import { MessageCircle } from 'lucide-react';
+import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import Image from 'next/image';
 
 import keys from '../../assets/services/alquileres.jpg';
@@ -43,7 +43,7 @@ export function OwnersCta() {
         {whatsappHref && (
           <Button asChild variant="secondary" size="lg">
             <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-              <MessageCircle aria-hidden />
+              <WhatsAppIcon />
               Escribinos por WhatsApp
             </a>
           </Button>

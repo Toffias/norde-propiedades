@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@norde/ui/components/select';
 import { StatusPill } from '@norde/ui/components/status-pill';
+import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import { CATEGORICAL_COLORS } from '@norde/ui/lib/chart-colors';
 import { baseChartOptions } from '@norde/ui/lib/chart-options';
 import { useIsDark } from '@norde/ui/lib/use-is-dark';
@@ -21,7 +22,6 @@ import {
   GlobeIcon,
   InboxIcon,
   MailIcon,
-  MessageCircleIcon,
   PieChartIcon,
   SendIcon,
   UsersIcon,
@@ -124,7 +124,7 @@ export function StatisticsView({
             foot="Envíos a contactos"
           />
           <KpiCard
-            icon={MessageCircleIcon}
+            icon={WhatsAppIcon}
             label="WhatsApp"
             value={totals.whatsappSends}
             foot="Envíos a contactos"

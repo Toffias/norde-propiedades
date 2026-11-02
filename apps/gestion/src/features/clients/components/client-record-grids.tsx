@@ -25,12 +25,12 @@ import {
 import { toast } from '@norde/ui/components/sonner';
 import { StatusPill } from '@norde/ui/components/status-pill';
 import { Switch } from '@norde/ui/components/switch';
+import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import {
   ArchiveRestoreIcon,
   BookmarkCheckIcon,
   ExternalLinkIcon,
   MailIcon,
-  MessageCircleIcon,
   PencilIcon,
   SendIcon,
   PlusIcon,
@@ -343,7 +343,7 @@ export function ClientFeaturedGrid({
                 }}
               />
               <RowAction
-                icon={MessageCircleIcon}
+                icon={WhatsAppIcon}
                 label="Enviar por WhatsApp"
                 onClick={() => {
                   sendOne(row, 'whatsapp');

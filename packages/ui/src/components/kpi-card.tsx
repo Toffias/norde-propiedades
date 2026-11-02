@@ -1,5 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { cn } from '../lib/utils';
 import { Card } from './card';
@@ -17,7 +16,8 @@ const FOOT_TONE: Record<KpiTone, string> = {
 
 export interface KpiCardProps {
   readonly label: string;
-  readonly icon?: LucideIcon;
+  /** Un ícono de lucide o uno propio, como `WhatsAppIcon`. */
+  readonly icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
   readonly value: ReactNode;
   readonly foot?: ReactNode;
   readonly tone?: KpiTone;

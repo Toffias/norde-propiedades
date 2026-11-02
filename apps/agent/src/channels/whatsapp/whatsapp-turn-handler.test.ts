@@ -92,6 +92,7 @@ function setup(
     budgetUsd?: number;
     perContactPerHour?: number;
     transcript?: string | Error;
+    properties?: ReturnType<typeof aPropertyRecord>[];
   } = {},
 ) {
   const model = new ScriptedModel();
@@ -101,7 +102,7 @@ function setup(
   const messengers = { whatsapp: messenger };
   const clients = new InMemoryClientsUnitOfWork();
   const conversations = new InMemoryConversationsUnitOfWork();
-  const properties = new InMemoryPropertySearchQuery([palermo]);
+  const properties = new InMemoryPropertySearchQuery(options.properties ?? [palermo]);
   const toolErrors: string[] = [];
 
   const assistant = createCustomerAssistant({
@@ -251,6 +252,30 @@ describe('WhatsAppTurnHandler', () => {
     expect(instructions).toContain(`«2 ambientes en Palermo» (id: ${palermo.id}`);
     // La memoria se reinició: lo único que tiene de la propiedad es el bloque del turno.
     expect(JSON.stringify(ctx.model.lastCall?.request.input)).not.toContain(palermo.id);
+  });
+
+  it('numbers the results across pages, so the second page starts at 4', async () => {
+    const more = ['b', 'c', 'd', 'e'].map((slug) =>
+      aPropertyRecord({ slug, title: `Depto ${slug}`, neighborhood: 'Palermo' }),
+    );
+    const ctx = setup({ properties: [palermo, ...more] });
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'search_properties',
+          { ...NO_FILTERS, location: 'Palermo', page: 2 },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Estas son otras dos.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('mostrame más')]);
+
+    const input = JSON.stringify(ctx.model.lastCall?.request.input);
+    expect(input).toContain('\\"number\\":4');
+    expect(input).toContain('\\"number\\":5');
+    expect(input).not.toContain('\\"number\\":1');
   });
 
   it('passes the profile name to the model sanitized, as data at the end', async () => {

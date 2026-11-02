@@ -2,8 +2,10 @@ import type { ToolOutputCompactor } from '@norde/agent-kit';
 import { z } from 'zod';
 
 // Lo que el agente necesita de un turno viejo para seguir la charla ("la 2", "esa de Palermo"):
-// id, título, precio y link. El resto (superficies, amenities, descripción) se vuelve a pedir.
+// número, id, título, precio y link. El resto (superficies, amenities, descripción) se vuelve a
+// pedir.
 const SummarySchema = z.object({
+  number: z.number().optional(),
   id: z.string(),
   title: z.string(),
   price: z.string().optional(),

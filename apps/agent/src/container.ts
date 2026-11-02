@@ -11,12 +11,14 @@ import {
   type ChannelMessengers,
   type ConversationPolicy,
 } from '@norde/core/conversations';
+import { FindPropertyByPortalAd } from '@norde/core/portals';
 import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
 import { Actor } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
   createConversationsUnitOfWork,
   createDatabase,
+  DrizzlePortalAdLookup,
   DrizzlePropertySearchQuery,
   MetaWhatsAppMessenger,
   openAIModeration,
@@ -84,6 +86,7 @@ export function createContainer(
   const properties = new DrizzlePropertySearchQuery(db);
   const searchProperties = new SearchProperties({ properties });
   const getPropertyDetail = new GetPropertyDetail({ properties });
+  const findPropertyByPortalAd = new FindPropertyByPortalAd({ ads: new DrizzlePortalAdLookup(db) });
   const registerContact = new RegisterContact({
     uow: createClientsUnitOfWork(db, { ids, clock }),
     ids,
@@ -161,6 +164,7 @@ export function createContainer(
           siteUrl: env.PUBLIC_SITE_URL,
           searchProperties,
           getPropertyDetail,
+          findPropertyByPortalAd,
           registerContact,
         });
   const budget = new DailyBudget(env.AGENT_DAILY_BUDGET_USD, {

@@ -27,11 +27,13 @@ import { describe, expect, it } from 'vitest';
 import { useTestDatabase } from '../../test/database';
 import { AesGcmSecretCipher } from '../adapters/crypto/aes-gcm-secret-cipher';
 import { MercadoLibreAuthorizer } from '../adapters/portals/mercadolibre/mercadolibre-authorizer';
-import { auditLog, outbox, portalListings } from '../db/schema';
+import { listingPermalink } from '../adapters/portals/zonaprop/zonaprop-listing';
+import { auditLog, outbox, portalAccounts, portalListings } from '../db/schema';
 import type { InfraLogger } from '../shared/logger';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { DrizzleListingRepository } from './drizzle-listing-repository';
+import { DrizzlePortalAdLookup } from './drizzle-portal-ad-lookup';
 import { DrizzlePortalListingCountsQuery } from './drizzle-portal-listing-counts-query';
 import { MercadoLibreTokens } from './mercadolibre-tokens';
 import { createPortalsUnitOfWork } from './portals-unit-of-work';
@@ -170,6 +172,42 @@ describe('portal listings (Postgres)', () => {
 
     expect(outcomes.map((o) => unwrap(o)).sort()).toEqual(['synced', 'unchanged']);
     expect(connector.calls.filter((c) => c.method === 'create')).toHaveLength(1);
+  });
+
+  it('finds the property of a live portal ad, by MercadoLibre item or Zonaprop link number', async () => {
+    const { request, sync } = await setup();
+    const { listingId } = unwrap(await request.execute(SALE, ADMIN));
+    unwrap(await sync.execute({ listingId }, PORTAL_SYNC));
+    const ads = new DrizzlePortalAdLookup(db);
+
+    expect(await ads.propertyIdFor({ provider: 'mercadolibre', itemId: 'MLA1' })).toBe(
+      LISTED_PROPERTY_ID,
+    );
+    expect(await ads.propertyIdFor({ provider: 'mercadolibre', itemId: 'MLA999' })).toBeUndefined();
+
+    const now = clock.now();
+    await db.insert(portalAccounts).values({
+      portal: 'zonaprop',
+      createdAt: now,
+      updatedAt: now,
+      createdBy: ADMIN.id,
+      updatedBy: ADMIN.id,
+    });
+    await db
+      .update(portalListings)
+      .set({ portal: 'zonaprop', permalink: listingPermalink('54321678') })
+      .where(eq(portalListings.id, listingId));
+    expect(await ads.propertyIdFor({ provider: 'zonaprop', postingId: '54321678' })).toBe(
+      LISTED_PROPERTY_ID,
+    );
+
+    await db
+      .update(portalListings)
+      .set({ status: 'unpublished' })
+      .where(eq(portalListings.id, listingId));
+    expect(
+      await ads.propertyIdFor({ provider: 'zonaprop', postingId: '54321678' }),
+    ).toBeUndefined();
   });
 
   it('finds listings by their portal id', async () => {

@@ -30,6 +30,11 @@ export interface ConversationSnapshot {
   readonly agentMemory: AgentMemory;
   /** Última búsqueda que hizo el agente, para retomarla. Opaca para el dominio. */
   readonly searchCriteria: unknown;
+  /**
+   * Últimas propiedades que vio el contacto, para que el agente sepa a cuál se refiere aunque su
+   * memoria se haya recortado o reiniciado. Opacas para el dominio.
+   */
+  readonly shownProperties: unknown;
   readonly startedAt: Date;
   readonly lastActivityAt: Date;
 }
@@ -71,6 +76,7 @@ export class Conversation extends AggregateRoot<ConversationId, ConversationEven
       status: 'active',
       agentMemory: [],
       searchCriteria: undefined,
+      shownProperties: undefined,
       startedAt: input.now,
       lastActivityAt: input.now,
     });
@@ -116,6 +122,10 @@ export class Conversation extends AggregateRoot<ConversationId, ConversationEven
     return this.#state.searchCriteria;
   }
 
+  get shownProperties(): unknown {
+    return this.#state.shownProperties;
+  }
+
   /** El bot responde solo si nadie del equipo tomó la conversación. */
   canBotReply(): boolean {
     return this.#state.status === 'active';
@@ -124,7 +134,8 @@ export class Conversation extends AggregateRoot<ConversationId, ConversationEven
   /**
    * El contacto escribió. Tras un período de inactividad la conversación arranca de cero: se
    * olvida la memoria del agente y, si la había tomado una persona, vuelve al bot. La última
-   * búsqueda se conserva, para que el agente pueda retomarla ("la otra vez buscabas…").
+   * búsqueda y las propiedades que vio se conservan, para que el agente pueda retomarlas ("la
+   * otra vez buscabas…", "quiero ver la segunda").
    */
   registerInbound(input: {
     readonly now: Date;
@@ -149,11 +160,16 @@ export class Conversation extends AggregateRoot<ConversationId, ConversationEven
   }
 
   /** Guarda lo que el agente recuerda después de responder un turno. */
-  recordAgentTurn(input: { readonly memory: AgentMemory; readonly searchCriteria?: unknown }) {
+  recordAgentTurn(input: {
+    readonly memory: AgentMemory;
+    readonly searchCriteria?: unknown;
+    readonly shownProperties?: unknown;
+  }) {
     this.#state = {
       ...this.#state,
       agentMemory: input.memory,
       searchCriteria: input.searchCriteria ?? this.#state.searchCriteria,
+      shownProperties: input.shownProperties ?? this.#state.shownProperties,
     };
   }
 

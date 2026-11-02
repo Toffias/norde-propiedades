@@ -10,6 +10,7 @@ import type {
   PortalCredentials,
   PortalNotConfiguredError,
 } from '../application/ports/portal-authorizer';
+import type { PortalAdLookup } from '../application/ports/portal-ad-lookup';
 import type {
   PortalAccountDirectory,
   PortalAccountLookupError,
@@ -22,6 +23,7 @@ import type {
   PortalLeadSink,
   PortalLeadSource,
 } from '../application/ports/portal-leads';
+import type { PortalAdReference } from '../domain/portal-ad-reference';
 import type { PortalLead } from '../domain/portal-lead';
 import type {
   DevelopmentByCode,
@@ -308,6 +310,16 @@ export class InMemoryListingRepository implements ListingRepository {
   save(listing: Listing) {
     this.rows.set(listing.id, listing.toSnapshot());
     return Promise.resolve();
+  }
+}
+
+/** Avisos de portales cargados a mano: `mercadolibre:MLA123` o `zonaprop:123` → propiedad. */
+export class InMemoryPortalAdLookup implements PortalAdLookup {
+  readonly ads = new Map<string, string>();
+
+  propertyIdFor(reference: PortalAdReference): Promise<string | undefined> {
+    const id = reference.provider === 'mercadolibre' ? reference.itemId : reference.postingId;
+    return Promise.resolve(this.ads.get(`${reference.provider}:${id}`));
   }
 }
 

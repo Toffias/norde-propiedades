@@ -1,0 +1,2 @@
+ALTER TABLE "core"."conversations" ADD COLUMN "shown_properties" jsonb;--> statement-breakpoint
+CREATE INDEX "portal_listings_portal_permalink_idx" ON "core"."portal_listings" USING btree ("portal","permalink") WHERE permalink is not null;

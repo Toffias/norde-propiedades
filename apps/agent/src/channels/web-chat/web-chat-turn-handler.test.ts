@@ -11,6 +11,8 @@ import {
   InMemoryConversationsUnitOfWork,
   RecordingMessenger,
 } from '@norde/core/conversations/testing';
+import { FindPropertyByPortalAd } from '@norde/core/portals';
+import { InMemoryPortalAdLookup } from '@norde/core/portals/testing';
 import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
 import {
   aPropertyMediaRecord,
@@ -88,6 +90,7 @@ function setup(
   const clients = new InMemoryClientsUnitOfWork();
   const conversations = new InMemoryConversationsUnitOfWork();
   const properties = new InMemoryPropertySearchQuery([palermo]);
+  const ads = new InMemoryPortalAdLookup();
 
   const assistant = createCustomerAssistant({
     model: { instance: model },
@@ -97,6 +100,7 @@ function setup(
     siteUrl: 'https://norde.com.ar',
     searchProperties: new SearchProperties({ properties }),
     getPropertyDetail: new GetPropertyDetail({ properties }),
+    findPropertyByPortalAd: new FindPropertyByPortalAd({ ads }),
     registerContact: new RegisterContact({ uow: clients, ids, clock }),
   });
   const handler = new WebChatTurnHandler({

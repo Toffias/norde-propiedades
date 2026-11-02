@@ -31,5 +31,5 @@ export interface MessageLog {
   /** La última respuesta enviada en la conversación, o `undefined` si no hubo ninguna. */
   lastOutbound(
     conversationId: ConversationId,
-  ): Promise<Pick<OutboundMessageEntry, 'kind' | 'body'> | undefined>;
+  ): Promise<Pick<OutboundMessageEntry, 'kind' | 'body' | 'channelMessageId'> | undefined>;
 }

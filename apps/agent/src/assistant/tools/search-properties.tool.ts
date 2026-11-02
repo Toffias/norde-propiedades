@@ -16,7 +16,7 @@ const Parameters = z.object({
     .max(100)
     .nullable()
     .describe(
-      'Solo el nombre del barrio, localidad o zona, sin aclaraciones ni paréntesis, ej. "Palermo", "Vicente López", "CABA" (para Capital Federal)',
+      'Solo el nombre del barrio, localidad, zona o calle, sin aclaraciones ni paréntesis, ej. "Palermo", "Vicente López", "CABA" (para Capital Federal), "Cabildo"',
     ),
   minPrice: z.number().nonnegative().nullable().describe('En la moneda indicada, sin centavos'),
   maxPrice: z.number().nonnegative().nullable(),
@@ -90,7 +90,11 @@ export function searchPropertiesTool(deps: AssistantToolDeps) {
         total: page.total,
         page: page.page,
         hasMore: page.page * page.pageSize < page.total,
-        items: page.items.map((p) => presentSummary(p, deps.siteUrl)),
+        // Numeradas de corrido entre páginas: "la 5" no se confunde con la 2 de la primera.
+        items: page.items.map((p, i) => ({
+          number: (page.page - 1) * page.pageSize + i + 1,
+          ...presentSummary(p, deps.siteUrl),
+        })),
       };
     },
   });

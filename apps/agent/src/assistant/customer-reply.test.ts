@@ -1,3 +1,5 @@
+import { FindPropertyByPortalAd } from '@norde/core/portals';
+import { InMemoryPortalAdLookup } from '@norde/core/portals/testing';
 import { GetPropertyDetail } from '@norde/core/properties';
 import { InMemoryPropertySearchQuery } from '@norde/core/properties/testing';
 import { Actor } from '@norde/core/shared';
@@ -10,6 +12,7 @@ const deps = {
   actor: Actor.system('agent-ia', ['properties:read']),
   siteUrl: 'https://norde.com.ar',
   getPropertyDetail: new GetPropertyDetail({ properties: new InMemoryPropertySearchQuery([]) }),
+  findPropertyByPortalAd: new FindPropertyByPortalAd({ ads: new InMemoryPortalAdLookup() }),
 };
 
 const context = () =>

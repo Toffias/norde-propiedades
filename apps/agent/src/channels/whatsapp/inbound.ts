@@ -17,6 +17,8 @@ const MessageSchema = z.object({
     })
     .optional(),
   button: z.object({ text: z.string() }).optional(),
+  /** El mensaje al que responde: en un botón, el mensaje que lo ofreció. */
+  context: z.object({ id: z.string().min(1).max(200) }).optional(),
   audio: z.object({ id: z.string().min(1) }).optional(),
   errors: z.array(z.unknown()).optional(),
 });
@@ -106,11 +108,15 @@ function profileName(name: string | undefined): string | undefined {
   return trimmed === '' ? undefined : trimmed;
 }
 
-function content(m: z.infer<typeof MessageSchema>): Pick<InboundMessage, 'kind' | 'text'> {
+function content(
+  m: z.infer<typeof MessageSchema>,
+): Pick<InboundMessage, 'kind' | 'text' | 'replyTo'> {
   if (m.type === 'text' && m.text) return { kind: 'text', text: m.text.body };
+  // De un botón se guarda qué mensaje lo ofreció, para saber si es de un mensaje viejo.
+  const replyTo = m.context ? { replyTo: m.context.id } : {};
   const reply = m.interactive?.button_reply ?? m.interactive?.list_reply;
-  if (m.type === 'interactive' && reply) return { kind: 'button', text: reply.title };
-  if (m.type === 'button' && m.button) return { kind: 'button', text: m.button.text };
+  if (m.type === 'interactive' && reply) return { kind: 'button', text: reply.title, ...replyTo };
+  if (m.type === 'button' && m.button) return { kind: 'button', text: m.button.text, ...replyTo };
   // Imagen, sticker, ubicación…: el agente solo lee texto. Un audio se transcribe después.
   return { kind: 'unsupported', text: '' };
 }

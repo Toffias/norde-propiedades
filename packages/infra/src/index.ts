@@ -126,6 +126,7 @@ export {
 } from './portals/drizzle-portal-accounts';
 export { DrizzleListingRepository } from './portals/drizzle-listing-repository';
 export { DrizzlePortalListingCountsQuery } from './portals/drizzle-portal-listing-counts-query';
+export { DrizzlePortalAdLookup } from './portals/drizzle-portal-ad-lookup';
 export { MercadoLibreTokens } from './portals/mercadolibre-tokens';
 export {
   MercadoLibrePortalConnector,

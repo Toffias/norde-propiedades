@@ -10,6 +10,7 @@ import type { Logger } from 'pino';
 import type { CustomerAssistant } from '../../assistant/customer-assistant';
 import { PROMPT_VERSION } from '../../assistant/instructions/build-instructions';
 import { keepAllowedLinks } from '../../assistant/link-policy';
+import { mergeRecentProperties, parseRecentProperties } from '../../assistant/recent-properties';
 import { toolCallsForLog } from '../../assistant/tool-call-log';
 import { createTurnContext } from '../../assistant/turn-context';
 import type { DailyBudget } from '../shared/daily-budget';
@@ -128,6 +129,7 @@ export class WebChatTurnHandler {
       phone: undefined,
       contactName: conversation.contactName,
       previousSearch: previousSearch.success ? previousSearch.data : undefined,
+      recentProperties: parseRecentProperties(conversation.shownProperties),
       now: deps.now(),
       knownClient: conversation.clientId !== undefined,
       freshMemory: conversation.agentMemory.length === 0,
@@ -171,6 +173,10 @@ export class WebChatTurnHandler {
       agentTurn: {
         memory: turn.memory,
         searchCriteria: context.lastSearch,
+        shownProperties: mergeRecentProperties(
+          context.recentProperties,
+          context.shownProperties.values(),
+        ),
         usage: turn.usage,
         promptVersion: PROMPT_VERSION,
       },

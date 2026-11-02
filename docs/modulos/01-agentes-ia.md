@@ -290,6 +290,10 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
   - Si va a responder el agente, WhatsApp muestra "escribiendo…" junto con el acuse de lectura.
   - Una foto con botones sale en un solo mensaje: botones con la foto de encabezado.
   - Tras el período de inactividad se olvida la memoria pero no la última búsqueda: el agente la recibe como dato para retomarla, y sabe si el contacto ya es cliente.
+  - La conversación guarda también las últimas propiedades que vio el contacto (hasta 9, la más reciente primero). Sobreviven al recorte (`AGENT_MAX_MEMORY_ITEMS`) y al reinicio de la memoria, y el agente las recibe en cada turno para resolver "la segunda" o "la que me pasaste".
+  - Los resultados se numeran de corrido entre páginas (la segunda arranca en 4), así "la 5" no es ambigua.
+  - Si el contacto toca un botón de un mensaje de WhatsApp anterior a la última respuesta, el agente lo recibe marcado ("(botón de un mensaje anterior)") y pregunta en lugar de tomarlo como respuesta.
+  - El agente encuentra una propiedad por el link de su ficha, por el código que muestra la web, por un aviso de MercadoLibre (id del ítem) o de Zonaprop (número del link, que se busca en el permalink guardado) y por la calle de la dirección publicada. Un aviso que no es de Norde se informa como tal.
   - El agente nunca le pide al cliente un id ni un código de propiedad: la identifica por la charla ("la 2", "la que me pasaste"), ofrece botones si hay varias posibles, acepta el link de una ficha y, si igual no la identifica, registra la consulta sin propiedad con la referencia en la nota para el asesor.
 
 ### 8.3 Pendiente

@@ -62,6 +62,7 @@ describe('parseInbound', () => {
             timestamp: '1767225601',
             type: 'interactive',
             interactive: { type: 'button_reply', button_reply: { id: 'opt_1', title: 'Alquilar' } },
+            context: { from: '5491100000000', id: 'wamid.out-1' },
           },
           {
             from: '5491166899124',
@@ -89,7 +90,11 @@ describe('parseInbound', () => {
         },
       },
       expect.objectContaining({
-        message: expect.objectContaining({ kind: 'button', text: 'Alquilar' }) as unknown,
+        message: expect.objectContaining({
+          kind: 'button',
+          text: 'Alquilar',
+          replyTo: 'wamid.out-1',
+        }) as unknown,
       }),
       expect.objectContaining({
         audioMediaId: 'a',

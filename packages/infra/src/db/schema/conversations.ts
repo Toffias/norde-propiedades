@@ -19,6 +19,8 @@ export const conversations = coreSchema.table(
       .notNull()
       .default(sql`'[]'::jsonb`),
     searchCriteria: jsonb('search_criteria'),
+    /** Últimas propiedades que vio el contacto, opacas para el core (las interpreta el agente). */
+    shownProperties: jsonb('shown_properties'),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull(),
     /** Nullable hasta el backfill (expand): la `0000` no la tenía. */

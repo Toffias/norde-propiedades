@@ -92,6 +92,10 @@ export const portalListings = coreSchema.table(
       .on(t.portal, t.externalId)
       .where(sql`external_id is not null`),
     index('portal_listings_portal_status_idx').on(t.portal, t.status),
+    // El agente busca un aviso de Zonaprop por el número de su link (está en el permalink).
+    index('portal_listings_portal_permalink_idx')
+      .on(t.portal, t.permalink)
+      .where(sql`permalink is not null`),
     // Difusión (#114): el listado de cada contador, de lo último que cambió hacia atrás.
     index('portal_listings_portal_status_updated_idx').on(t.portal, t.status, t.updatedAt, t.id),
     index('portal_listings_property_idx').on(t.propertyId),

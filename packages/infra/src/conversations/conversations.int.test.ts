@@ -61,6 +61,33 @@ async function receiveFrom(messages: InboundMessage[]) {
 }
 
 describe('conversations persistence', () => {
+  it('marks a tap on a button of an older message than the last reply', async () => {
+    const { conversationId } = await receiveFrom([message('hola')]);
+    const sent: string[] = [];
+    for (const text of ['¿Comprar o alquilar?', '¿Querés visitarla?']) {
+      const result = await reply.execute(
+        { conversationId, message: { type: 'text', text } },
+        agent,
+      );
+      if (result.isErr() || result.value.channelMessageId === undefined) throw new Error('send');
+      sent.push(result.value.channelMessageId);
+      clock.advance(1000);
+    }
+    const tap = (replyTo: string | undefined): InboundMessage => ({
+      ...message('Sí'),
+      kind: 'button',
+      ...(replyTo === undefined ? {} : { replyTo }),
+    });
+
+    expect((await receiveFrom([tap(sent[0])])).plan).toEqual({
+      action: 'agent',
+      userText: '(botón de un mensaje anterior) Sí',
+    });
+    // El tope de la política es de 2 mensajes por hora.
+    clock.advance(HOUR);
+    expect((await receiveFrom([tap(sent[1])])).plan).toEqual({ action: 'agent', userText: 'Sí' });
+  });
+
   it('ignores redelivered messages thanks to the unique index', async () => {
     const hello = message('hola');
 
@@ -87,6 +114,7 @@ describe('conversations persistence', () => {
         agentTurn: {
           memory,
           searchCriteria: { location: 'Palermo', maxPriceCents: 80_000_000n },
+          shownProperties: [{ id: 'p1', title: '2 ambientes en Palermo' }],
           usage: { requests: 2, inputTokens: 900, outputTokens: 120 },
         },
       },
@@ -96,6 +124,7 @@ describe('conversations persistence', () => {
 
     expect(next.agentMemory).toEqual(memory);
     expect(next.searchCriteria).toEqual({ location: 'Palermo', maxPriceCents: 80_000_000n });
+    expect(next.shownProperties).toEqual([{ id: 'p1', title: '2 ambientes en Palermo' }]);
     const outbound = await db.select().from(conversationMessages);
     expect(outbound.filter((m) => m.direction === 'out')).toMatchObject([
       { kind: 'text', channelMessageId: expect.any(String) as string },

@@ -87,6 +87,7 @@ describe('conversations persistence', () => {
         agentTurn: {
           memory,
           searchCriteria: { location: 'Palermo', maxPriceCents: 80_000_000n },
+          shownProperties: [{ id: 'p1', title: '2 ambientes en Palermo' }],
           usage: { requests: 2, inputTokens: 900, outputTokens: 120 },
         },
       },
@@ -96,6 +97,7 @@ describe('conversations persistence', () => {
 
     expect(next.agentMemory).toEqual(memory);
     expect(next.searchCriteria).toEqual({ location: 'Palermo', maxPriceCents: 80_000_000n });
+    expect(next.shownProperties).toEqual([{ id: 'p1', title: '2 ambientes en Palermo' }]);
     const outbound = await db.select().from(conversationMessages);
     expect(outbound.filter((m) => m.direction === 'out')).toMatchObject([
       { kind: 'text', channelMessageId: expect.any(String) as string },

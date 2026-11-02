@@ -89,6 +89,8 @@ export interface ReceiveInboundMessagesOutput {
   /** Memoria del agente para este turno (vacía si se reinició por inactividad). */
   readonly agentMemory: readonly unknown[];
   readonly searchCriteria: unknown;
+  /** Últimas propiedades que vio el contacto (se conservan tras el reinicio por inactividad). */
+  readonly shownProperties: unknown;
   readonly memoryReset: boolean;
   readonly plan: ReplyPlan;
 }
@@ -110,6 +112,7 @@ export interface SendReplyInput {
   readonly agentTurn?: {
     readonly memory: readonly unknown[];
     readonly searchCriteria?: unknown;
+    readonly shownProperties?: unknown;
     readonly usage?: AgentTurnUsage | undefined;
     /** Versión de las instrucciones con que respondió, para comparar versiones del prompt. */
     readonly promptVersion?: string | undefined;

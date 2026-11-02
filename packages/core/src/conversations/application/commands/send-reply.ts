@@ -67,6 +67,7 @@ export class SendReply {
         conversation.recordAgentTurn({
           memory: input.agentTurn.memory,
           searchCriteria: input.agentTurn.searchCriteria,
+          shownProperties: input.agentTurn.shownProperties,
         });
       }
       const linkedClient = clientId?.isOk() ? clientId.value : undefined;

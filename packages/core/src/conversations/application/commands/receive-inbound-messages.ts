@@ -145,6 +145,7 @@ export class ReceiveInboundMessages {
       clientId: conversation.clientId,
       agentMemory: conversation.agentMemory,
       searchCriteria: conversation.searchCriteria,
+      shownProperties: conversation.shownProperties,
       memoryReset,
       plan,
     });

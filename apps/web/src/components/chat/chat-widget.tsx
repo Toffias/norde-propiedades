@@ -53,7 +53,7 @@ const SHELL_CLOSED =
 const ORBIT =
   'fixed right-4 bottom-4 z-[calc(var(--z-float)-1)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] peer-hover:scale-105 animate-in fade-in sm:right-6 sm:bottom-6';
 const SHELL_OPEN =
-  'bg-card right-0 bottom-0 h-dvh w-full rounded-none sm:right-6 sm:bottom-6 sm:rounded-3xl sm:border sm:shadow-2xl';
+  'bg-card right-0 bottom-0 h-dvh w-full rounded-none sm:right-6 sm:bottom-6 sm:rounded-3xl sm:shadow-2xl';
 // Las alturas dejan libre el encabezado del sitio.
 const SHELL_COMPACT = 'sm:h-[min(640px,calc(100dvh-7rem))] sm:w-100';
 const SHELL_EXPANDED = 'sm:h-[min(820px,calc(100dvh-7rem))] sm:w-[min(560px,calc(100vw-3rem))]';

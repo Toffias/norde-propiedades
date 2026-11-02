@@ -464,6 +464,8 @@ describe('DrizzlePropertySearchQuery', () => {
     });
     expect(record?.media[2]).toMatchObject({ kind: 'video', externalUrl: 'https://youtu.be/abc' });
     expect((await query.findBySlug(row.slug))?.id).toBe(row.id);
+    expect((await query.findByCode(row.code))?.id).toBe(row.id);
+    expect(await query.findByCode('NOEXISTE1')).toBeUndefined();
     expect(await query.findById('00000000-0000-7000-8000-999999999999')).toBeUndefined();
   });
 

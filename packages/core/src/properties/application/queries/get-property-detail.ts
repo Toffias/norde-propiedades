@@ -4,6 +4,7 @@ import {
   type GetPropertyDetailInput,
   type PropertyDetail,
 } from '../../contracts';
+import { cleanReferenceCode } from '../../domain/property';
 import { isPubliclyListed, isUnreleased } from '../../domain/property-status';
 import type { PropertySearchQuery } from '../ports/property-search-query';
 import { toPropertyDetail } from '../property-mapper';
@@ -18,7 +19,7 @@ export type GetPropertyDetailError =
    */
   | { readonly type: 'PropertyNotListed' };
 
-/** Ficha pública de una propiedad, por id (agente) o por slug (web). */
+/** Ficha pública de una propiedad, por id o código (agente) o por slug (web). */
 export class GetPropertyDetail {
   constructor(private readonly deps: { readonly properties: PropertySearchQuery }) {}
 
@@ -37,8 +38,17 @@ export class GetPropertyDetail {
     return detail ? ok(detail) : err({ type: 'PropertyNotListed' });
   }
 
-  private find(input: { readonly propertyId: string } | { readonly slug: string }) {
+  private find(
+    input: { readonly propertyId: string } | { readonly slug: string } | { readonly code: string },
+  ) {
     if ('slug' in input) return this.deps.properties.findBySlug(input.slug);
+    if ('code' in input) {
+      // "dep0001" es el mismo código que "DEP0001"; uno inválido no existe.
+      const code = cleanReferenceCode(input.code.replace(/\s+/g, ''));
+      return code === undefined
+        ? Promise.resolve(undefined)
+        : this.deps.properties.findByCode(code);
+    }
     const id = parseId<'Property'>(input.propertyId);
     return id.isErr() ? Promise.resolve(undefined) : this.deps.properties.findById(id.value);
   }

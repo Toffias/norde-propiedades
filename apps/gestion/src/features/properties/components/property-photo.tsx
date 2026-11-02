@@ -1,6 +1,7 @@
 'use client';
 
 import type { PropertyCover } from '@norde/core/properties/contracts';
+import { SkeletonImg } from '@norde/ui/components/image-skeleton';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type CoverOwner = 'property' | 'development';
@@ -74,8 +75,7 @@ export function FallbackImage({
   if (failed) return fallback;
   return (
     // La ruta redirige a una URL firmada del storage: sin optimización de Next.
-    // eslint-disable-next-line @next/next/no-img-element -- la URL final la firma el storage
-    <img
+    <SkeletonImg
       ref={image}
       src={src}
       alt={alt}

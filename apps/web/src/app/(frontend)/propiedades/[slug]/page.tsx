@@ -1,10 +1,10 @@
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import { MapPin, PlayCircle, Rotate3d } from 'lucide-react';
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { SkeletonImage } from '../../../../components/layout/skeleton-image';
 import { SectionHeading } from '../../../../components/layout/section-heading';
 import { InquiryForm } from '../../../../components/properties/inquiry-form';
 import { ListingGrid } from '../../../../components/properties/listing-card';
@@ -271,7 +271,7 @@ function PropertyMedia({ listing }: { readonly listing: ListingDetail }) {
               className="bg-card relative aspect-[4/3] overflow-hidden rounded-2xl border"
             >
               <a href={plan.src} target="_blank" rel="noopener noreferrer" aria-label={plan.alt}>
-                <Image
+                <SkeletonImage
                   src={plan.src}
                   alt={plan.alt}
                   fill

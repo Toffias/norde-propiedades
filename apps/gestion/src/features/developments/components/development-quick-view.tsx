@@ -1,5 +1,6 @@
 'use client';
 
+import { SkeletonImg } from '@norde/ui/components/image-skeleton';
 import { Button } from '@norde/ui/components/button';
 import {
   Dialog,
@@ -58,8 +59,8 @@ function Gallery({ view }: { readonly view: DevelopmentQuickView }) {
   return (
     <div className="flex flex-col gap-2">
       {/* Foto del storage privado, servida por el panel: no pasa por el optimizador de Next. */}
-      {/* eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel */}
-      <img
+      <SkeletonImg
+        key={photo.id}
         src={`${mediaFileHref(owner, photo.id)}?v=web`}
         alt={photo.description ?? `Foto de ${view.detail.name}`}
         className="aspect-[16/9] w-full rounded-lg bg-muted object-cover"
@@ -80,8 +81,7 @@ function Gallery({ view }: { readonly view: DevelopmentQuickView }) {
                   setSelected(index);
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel */}
-                <img
+                <SkeletonImg
                   src={`${mediaFileHref(owner, item.id)}?v=thumbnail`}
                   alt=""
                   className="h-14 w-20 object-cover"

@@ -1,4 +1,5 @@
 import { Badge } from '@norde/ui/components/badge';
+import { SkeletonImg } from '@norde/ui/components/image-skeleton';
 import { Card } from '@norde/ui/components/card';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { EyeIcon, FileTextIcon, ListChecksIcon } from 'lucide-react';
@@ -86,8 +87,7 @@ export default async function PropertyPreviewPage({
             Sin fotos para la web
           </div>
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel
-          <img
+          <SkeletonImg
             src={`/propiedades/${detail.id}/fotos/${cover.id}?v=web`}
             alt={cover.description ?? detail.portalTitle}
             className="aspect-[16/7] w-full object-cover"
@@ -96,8 +96,7 @@ export default async function PropertyPreviewPage({
         {rest.length > 0 && (
           <div className="grid grid-cols-3 gap-1 p-1 sm:grid-cols-6">
             {rest.map((photo) => (
-              // eslint-disable-next-line @next/next/no-img-element -- la sirve una ruta autorizada del panel
-              <img
+              <SkeletonImg
                 key={photo.id}
                 src={`/propiedades/${detail.id}/fotos/${photo.id}?v=thumbnail`}
                 alt={photo.description ?? ''}

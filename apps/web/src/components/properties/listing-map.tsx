@@ -3,11 +3,11 @@
 import type { MapArea } from '@norde/core/properties/contracts';
 import { Search, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { SkeletonImage } from '../layout/skeleton-image';
 import { isExternal } from '../../lib/properties/images';
 import { listingHref, type ListingFilters } from '../../lib/properties/listing-filters';
 import type { MapPinView } from '../../lib/properties/view';
@@ -80,7 +80,8 @@ export function ListingMap({ pins, truncated, filters }: ListingMapProps) {
         <article className="bg-card text-card-foreground absolute inset-x-3 bottom-3 z-[500] flex overflow-hidden rounded-2xl border shadow-xl sm:inset-x-auto sm:left-3 sm:w-[24rem]">
           <Link href={selected.href} className="relative w-32 shrink-0 sm:w-36">
             {selected.cover ? (
-              <Image
+              <SkeletonImage
+                key={selected.cover.src}
                 src={selected.cover.src}
                 alt={selected.cover.alt}
                 fill

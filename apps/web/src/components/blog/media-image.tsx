@@ -1,6 +1,6 @@
 import { cn } from '@norde/ui/lib/utils';
-import Image from 'next/image';
 
+import { SkeletonImage } from '../layout/skeleton-image';
 import { toSitePath } from '../../lib/seo/routes';
 import { getSiteUrl } from '../../lib/site-url';
 import type { Media } from '../../payload-types';
@@ -20,7 +20,7 @@ export function MediaImage({ media, sizes, className, priority = false }: MediaI
   const hasFocalPoint = typeof media.focalX === 'number' && typeof media.focalY === 'number';
 
   return (
-    <Image
+    <SkeletonImage
       // Payload devuelve URLs absolutas; las del propio sitio pasan por `images.localPatterns`.
       src={toSitePath(media.url, getSiteUrl())}
       alt={media.alt}

@@ -9,9 +9,9 @@ import {
   SendHorizontal,
   X,
 } from 'lucide-react';
-import Image from 'next/image';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
+import { SkeletonImage } from '../layout/skeleton-image';
 import { CHAT_MAX_CHARS, type ChatReply } from '../../lib/chat/chat-contract';
 import { internalPath } from '../../lib/chat/markdown';
 import { resetChatSession, sendChatMessage } from '../../lib/chat/send-chat-message';
@@ -510,7 +510,7 @@ function ChatPhoto({ url, siteUrl }: { readonly url: string; readonly siteUrl: s
   const path = internalPath(url, siteUrl);
   if (!path?.startsWith('/fotos/')) return null;
   return (
-    <Image
+    <SkeletonImage
       src={path}
       alt="Foto de la propiedad"
       width={480}

@@ -177,3 +177,24 @@
     linear-gradient(var(--ink), var(--ink)) 12px 4px / calc(100% - 24px) 1px no-repeat,
     linear-gradient(var(--ink), var(--ink)) 24px 8px / calc(100% - 48px) 1px no-repeat;
 }
+
+/*
+ * Una imagen que todavía carga (`useImageSkeleton` / `SkeletonImg`): su fondo late hasta que llega
+ * la foto, en lugar de dejar el hueco vacío. Sin latido cuando el usuario pide menos movimiento.
+ */
+@keyframes image-skeleton-pulse {
+  50% {
+    background-color: color-mix(in oklab, var(--muted) 85%, var(--foreground));
+  }
+}
+
+.image-skeleton {
+  background-color: var(--muted);
+  animation: image-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-skeleton {
+    animation: none;
+  }
+}

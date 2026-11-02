@@ -26,7 +26,7 @@ export function SiteHeader() {
           aria-label={`${BUSINESS.name}, ir al inicio`}
           className="text-lg sm:text-xl"
         >
-          <CompanyLogo className="h-10 sm:h-12" />
+          <CompanyLogo placement="header" />
         </Link>
 
         <nav aria-label="Principal" className="hidden md:block">

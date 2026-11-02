@@ -1,4 +1,5 @@
 import type { RegisterContact } from '@norde/core/clients';
+import type { FindPropertyByPortalAd } from '@norde/core/portals';
 import type { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
 import type { Actor } from '@norde/core/shared';
 
@@ -8,6 +9,7 @@ export interface AssistantToolDeps {
   readonly siteUrl: string;
   readonly searchProperties: Pick<SearchProperties, 'execute'>;
   readonly getPropertyDetail: Pick<GetPropertyDetail, 'execute'>;
+  readonly findPropertyByPortalAd: Pick<FindPropertyByPortalAd, 'execute'>;
   readonly registerContact: Pick<RegisterContact, 'execute'>;
 }
 

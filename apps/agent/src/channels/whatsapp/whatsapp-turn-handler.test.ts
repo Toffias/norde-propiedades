@@ -16,6 +16,8 @@ import {
   InMemoryConversationsUnitOfWork,
   RecordingMessenger,
 } from '@norde/core/conversations/testing';
+import { FindPropertyByPortalAd } from '@norde/core/portals';
+import { InMemoryPortalAdLookup } from '@norde/core/portals/testing';
 import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
 import {
   aPropertyMediaRecord,
@@ -103,6 +105,7 @@ function setup(
   const clients = new InMemoryClientsUnitOfWork();
   const conversations = new InMemoryConversationsUnitOfWork();
   const properties = new InMemoryPropertySearchQuery(options.properties ?? [palermo]);
+  const ads = new InMemoryPortalAdLookup();
   const toolErrors: string[] = [];
 
   const assistant = createCustomerAssistant({
@@ -114,6 +117,7 @@ function setup(
     siteUrl: 'https://norde.com.ar',
     searchProperties: new SearchProperties({ properties }),
     getPropertyDetail: new GetPropertyDetail({ properties }),
+    findPropertyByPortalAd: new FindPropertyByPortalAd({ ads }),
     registerContact: new RegisterContact({ uow: clients, ids, clock }),
   });
   const handler = new WhatsAppTurnHandler({
@@ -180,6 +184,7 @@ function setup(
     conversation,
     toolErrors,
     clock,
+    ads,
   };
 }
 
@@ -437,7 +442,7 @@ describe('WhatsAppTurnHandler', () => {
   it('tells the model when a property does not exist instead of failing', async () => {
     const ctx = setup();
     ctx.model.enqueue(
-      [functionCall('get_property', { property: 'P-999' }, { callId: 'c1' })],
+      [functionCall('get_property', { property: 'P-999', portal: null }, { callId: 'c1' })],
       [reply('No encuentro esa propiedad.')],
     );
 
@@ -455,7 +460,7 @@ describe('WhatsAppTurnHandler', () => {
       [
         functionCall(
           'get_property',
-          { property: 'https://norde.com.ar/propiedades/2-ambientes-palermo?ref=wa' },
+          { property: 'https://norde.com.ar/propiedades/2-ambientes-palermo?ref=wa', portal: null },
           { callId: 'c1' },
         ),
       ],
@@ -466,6 +471,55 @@ describe('WhatsAppTurnHandler', () => {
 
     expect(JSON.stringify(ctx.model.lastCall?.request.input)).toContain(palermo.id);
     expect(ctx.toolErrors).toEqual([]);
+  });
+
+  it('finds a property by the code the site shows or by its Zonaprop ad', async () => {
+    const ctx = setup();
+    ctx.ads.ads.set('zonaprop:54321678', palermo.id);
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'get_property',
+          { property: ` ${palermo.code.toLowerCase()} `, portal: null },
+          { callId: 'c1' },
+        ),
+        functionCall(
+          'get_property',
+          { property: 'aviso 54321678', portal: 'zonaprop' },
+          { callId: 'c2' },
+        ),
+      ],
+      [reply('Es un 2 ambientes en Palermo.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('vi la del código y el aviso 54321678 de zonaprop')]);
+
+    const input = JSON.stringify(ctx.model.lastCall?.request.input);
+    expect(input.split(`\\"id\\":\\"${palermo.id}\\"`)).toHaveLength(3);
+    expect(ctx.toolErrors).toEqual([]);
+  });
+
+  it('tells the model when a portal ad is not of a Norde property', async () => {
+    const ctx = setup();
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'get_property',
+          {
+            property: 'https://departamento.mercadolibre.com.ar/MLA-111111111-depto',
+            portal: null,
+          },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Ese aviso no es nuestro.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('¿y este? mercadolibre.com.ar/MLA-111111111')]);
+
+    expect(JSON.stringify(ctx.model.lastCall?.request.input)).toContain(
+      'Ese aviso no es de una propiedad publicada de Norde',
+    );
   });
 
   it('registers without the property, noted for the advisor, when its id is not one of the tools', async () => {

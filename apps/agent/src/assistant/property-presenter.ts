@@ -44,16 +44,18 @@ export function propertyUrl(siteUrl: string, slug: string): string {
 }
 
 const FICHA_PATH = /\/propiedades\/([^/?#\s]+)/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Cómo buscar la propiedad que nombró el modelo: el id de una tool o el link de una ficha que
- * pegó el cliente (con o sin dominio). Por slug solo aparecen las publicadas.
+ * Cómo buscar la propiedad que nombró el modelo: el link de una ficha que pegó el cliente (con o
+ * sin dominio), el id de una tool o, si no es ninguno, el código que muestra la web (`DEP0001`).
  */
 export function propertyReference(
   reference: string,
-): { readonly propertyId: string } | { readonly slug: string } {
-  const slug = FICHA_PATH.exec(reference.trim())?.[1];
-  if (slug === undefined) return { propertyId: reference.trim() };
+): { readonly propertyId: string } | { readonly slug: string } | { readonly code: string } {
+  const trimmed = reference.trim();
+  const slug = FICHA_PATH.exec(trimmed)?.[1];
+  if (slug === undefined) return UUID.test(trimmed) ? { propertyId: trimmed } : { code: trimmed };
   try {
     return { slug: decodeURIComponent(slug) };
   } catch {

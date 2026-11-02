@@ -99,9 +99,11 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     'about-page': AboutPage;
+    'site-appearance': SiteAppearance;
   };
   globalsSelect: {
     'about-page': AboutPageSelect<false> | AboutPageSelect<true>;
+    'site-appearance': SiteAppearanceSelect<false> | SiteAppearanceSelect<true>;
   };
   locale: null;
   widgets: {
@@ -847,6 +849,23 @@ export interface AboutPage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-appearance".
+ */
+export interface SiteAppearance {
+  id: number;
+  /**
+   * En computadora, de 24 a 72. En el celular se achica en proporción. Vacío: 48.
+   */
+  headerLogoHeight?: number | null;
+  /**
+   * De 32 a 120. Vacío: 56.
+   */
+  footerLogoHeight?: number | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "about-page_select".
  */
 export interface AboutPageSelect<T extends boolean = true> {
@@ -870,6 +889,17 @@ export interface AboutPageSelect<T extends boolean = true> {
         icon?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-appearance_select".
+ */
+export interface SiteAppearanceSelect<T extends boolean = true> {
+  headerLogoHeight?: T;
+  footerLogoHeight?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

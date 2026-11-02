@@ -31,7 +31,7 @@ export function SiteFooter() {
         <div aria-hidden className="deco-steps" />
         <div className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4 lg:col-span-2">
-            <CompanyLogo className="h-14" fallbackClassName="text-xl" />
+            <CompanyLogo placement="footer" fallbackClassName="text-xl" />
             <p className="text-muted-foreground max-w-sm text-sm">{BUSINESS.description}</p>
           </div>
           <nav aria-label="Pie de página" className="text-sm">

@@ -14,6 +14,7 @@ import { Posts } from './payload/collections/posts';
 import { TeamMembers } from './payload/collections/team-members';
 import { Users } from './payload/collections/users';
 import { AboutPage } from './payload/globals/about-page';
+import { SiteAppearance } from './payload/globals/site-appearance';
 import { plugins } from './payload/plugins';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,7 +39,7 @@ export default buildConfig({
   },
   i18n: { supportedLanguages: { es }, fallbackLanguage: 'es' },
   collections: [Posts, Categories, TeamMembers, Media, Users],
-  globals: [AboutPage],
+  globals: [AboutPage, SiteAppearance],
   plugins,
   // Ejecuta la cola de jobs (publicación programada de posts). El sitio corre en un VPS
   // con un proceso de larga duración (PM2), no en serverless.

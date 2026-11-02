@@ -169,7 +169,17 @@ function setup(
   });
   const conversation = () => [...conversations.conversations.rows.values()][0];
 
-  return { model, messenger, clients, conversations, handler, inbound, conversation, toolErrors };
+  return {
+    model,
+    messenger,
+    clients,
+    conversations,
+    handler,
+    inbound,
+    conversation,
+    toolErrors,
+    clock,
+  };
 }
 
 describe('WhatsAppTurnHandler', () => {
@@ -209,6 +219,38 @@ describe('WhatsAppTurnHandler', () => {
     });
     expect(ctx.conversation()?.agentMemory.length).toBeGreaterThan(2);
     expect(ctx.conversations.messages.outbound).toHaveLength(1);
+  });
+
+  it('remembers the shown properties after the idle reset, so "la que me pasaste" still works', async () => {
+    const ctx = setup();
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'search_properties',
+          { ...NO_FILTERS, operation: 'rent', location: 'Palermo' },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Tengo esta opción en Palermo.')],
+      [reply('¡Dale! ¿Qué día te queda bien para visitarla?')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('busco alquilar en palermo')]);
+    ctx.clock.advance(48 * HOUR);
+    await ctx.handler.handle([ctx.inbound('quiero visitar la que me pasaste')]);
+
+    expect(ctx.conversation()?.shownProperties).toEqual([
+      {
+        id: palermo.id,
+        title: '2 ambientes en Palermo',
+        url: 'https://norde.com.ar/propiedades/2-ambientes-palermo',
+      },
+    ]);
+    const instructions = ctx.model.lastCall?.request.systemInstructions ?? '';
+    expect(instructions).toContain('Propiedades que ya vio en esta charla');
+    expect(instructions).toContain(`«2 ambientes en Palermo» (id: ${palermo.id}`);
+    // La memoria se reinició: lo único que tiene de la propiedad es el bloque del turno.
+    expect(JSON.stringify(ctx.model.lastCall?.request.input)).not.toContain(palermo.id);
   });
 
   it('passes the profile name to the model sanitized, as data at the end', async () => {

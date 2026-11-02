@@ -160,7 +160,11 @@ export class DrizzleMessageLog implements MessageLog {
   async lastOutbound(conversationId: ConversationId) {
     // Usa el índice (conversation_id, recorded_at).
     const [row] = await this.db
-      .select({ kind: conversationMessages.kind, body: conversationMessages.body })
+      .select({
+        kind: conversationMessages.kind,
+        body: conversationMessages.body,
+        channelMessageId: conversationMessages.channelMessageId,
+      })
       .from(conversationMessages)
       .where(
         and(
@@ -172,6 +176,10 @@ export class DrizzleMessageLog implements MessageLog {
       .limit(1);
     if (!row) return undefined;
     const body = BodySchema.safeParse(fromJsonb(row.body));
-    return { kind: row.kind, body: body.success ? body.data : {} };
+    return {
+      kind: row.kind,
+      body: body.success ? body.data : {},
+      channelMessageId: row.channelMessageId ?? undefined,
+    };
   }
 }

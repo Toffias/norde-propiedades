@@ -61,6 +61,33 @@ async function receiveFrom(messages: InboundMessage[]) {
 }
 
 describe('conversations persistence', () => {
+  it('marks a tap on a button of an older message than the last reply', async () => {
+    const { conversationId } = await receiveFrom([message('hola')]);
+    const sent: string[] = [];
+    for (const text of ['¿Comprar o alquilar?', '¿Querés visitarla?']) {
+      const result = await reply.execute(
+        { conversationId, message: { type: 'text', text } },
+        agent,
+      );
+      if (result.isErr() || result.value.channelMessageId === undefined) throw new Error('send');
+      sent.push(result.value.channelMessageId);
+      clock.advance(1000);
+    }
+    const tap = (replyTo: string | undefined): InboundMessage => ({
+      ...message('Sí'),
+      kind: 'button',
+      ...(replyTo === undefined ? {} : { replyTo }),
+    });
+
+    expect((await receiveFrom([tap(sent[0])])).plan).toEqual({
+      action: 'agent',
+      userText: '(botón de un mensaje anterior) Sí',
+    });
+    // El tope de la política es de 2 mensajes por hora.
+    clock.advance(HOUR);
+    expect((await receiveFrom([tap(sent[1])])).plan).toEqual({ action: 'agent', userText: 'Sí' });
+  });
+
   it('ignores redelivered messages thanks to the unique index', async () => {
     const hello = message('hola');
 

@@ -1,7 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
 import { Conversation, type ConversationId } from './conversation';
-import { evaluateUsage, isAcknowledgementOnly, isStale, repliedWithQuestion } from './reply-policy';
+import {
+  evaluateUsage,
+  isAcknowledgementOnly,
+  isOldButtonTap,
+  isStale,
+  repliedWithQuestion,
+} from './reply-policy';
+
+describe('isOldButtonTap', () => {
+  const last = { kind: 'buttons', body: {}, channelMessageId: 'wamid.out-2' };
+
+  it('is old when the button belonged to another message than the last reply', () => {
+    expect(isOldButtonTap({ kind: 'button', replyTo: 'wamid.out-1' }, last)).toBe(true);
+    expect(isOldButtonTap({ kind: 'button', replyTo: 'wamid.out-1' }, undefined)).toBe(true);
+  });
+
+  it('is current for the last reply, without channel data or for plain text', () => {
+    expect(isOldButtonTap({ kind: 'button', replyTo: 'wamid.out-2' }, last)).toBe(false);
+    expect(isOldButtonTap({ kind: 'button' }, last)).toBe(false);
+    expect(isOldButtonTap({ kind: 'text', replyTo: 'wamid.out-1' }, last)).toBe(false);
+  });
+});
 
 const T0 = new Date('2026-03-01T10:00:00Z');
 const HOUR = 3_600_000;

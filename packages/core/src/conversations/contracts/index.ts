@@ -18,6 +18,11 @@ export const InboundMessageSchema = z.object({
   sentAt: z.date(),
   /** Tipo original del canal (ej. `audio`), para el registro. */
   rawType: z.string().min(1).max(40),
+  /**
+   * En un `button`, el mensaje del canal al que pertenecía el botón. Si no es la última respuesta
+   * enviada, el contacto tocó un botón de un mensaje viejo.
+   */
+  replyTo: z.string().min(1).max(200).optional(),
 });
 
 /** Largo máximo del nombre del contacto: el canal recorta el que le llega (perfil de WhatsApp). */

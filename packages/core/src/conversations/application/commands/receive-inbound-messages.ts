@@ -20,6 +20,7 @@ import { Conversation } from '../../domain/conversation';
 import {
   evaluateUsage,
   isAcknowledgementOnly,
+  isOldButtonTap,
   isStale,
   repliedWithQuestion,
 } from '../../domain/reply-policy';
@@ -165,7 +166,8 @@ export class ReceiveInboundMessages {
     if (readable.length === 0) return { action: 'notice', notice: 'unsupported_content' };
 
     const userText = readable.map((m) => m.text).join('\n');
-    const afterQuestion = repliedWithQuestion(await tx.messages.lastOutbound(conversation.id));
+    const lastReply = await tx.messages.lastOutbound(conversation.id);
+    const afterQuestion = repliedWithQuestion(lastReply);
     if (isAcknowledgementOnly(userText, afterQuestion)) {
       return { action: 'silent', reason: 'acknowledgement' };
     }
@@ -188,9 +190,14 @@ export class ReceiveInboundMessages {
       }
     }
 
-    // El agente sabe qué fue un audio: la transcripción puede tener errores.
+    // El agente sabe qué fue un audio (la transcripción puede tener errores) y qué fue un botón de
+    // un mensaje viejo (no contesta su última pregunta).
     const agentText = readable
-      .map((m) => (m.kind === 'audio' ? `(audio) ${m.text}` : m.text))
+      .map((m) => {
+        if (m.kind === 'audio') return `(audio) ${m.text}`;
+        if (isOldButtonTap(m, lastReply)) return `(botón de un mensaje anterior) ${m.text}`;
+        return m.text;
+      })
       .join('\n');
     return { action: 'agent', userText: agentText };
   }

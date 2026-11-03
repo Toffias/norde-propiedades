@@ -257,7 +257,8 @@ describe('DisconnectPortalAccount', () => {
 
     expect(uow.accounts.rows.get('mercadolibre')).toEqual({
       portal: 'mercadolibre',
-      isEnabled: false,
+      // Recuerda que estaba activa: vuelve así si se reconecta la misma cuenta.
+      isEnabled: true,
       connection: undefined,
       formerExternalAccountId: '123456789',
     });

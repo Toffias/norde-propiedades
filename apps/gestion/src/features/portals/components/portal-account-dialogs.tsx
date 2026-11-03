@@ -21,7 +21,10 @@ import { FormAlert } from '../../shared/components/form-alert';
 import { connectPortalAccountWithCodeAction, disconnectPortalAccountAction } from '../actions';
 import { PORTAL_LABELS } from '../messages';
 
-/** Pide el código de la cuenta en el portal (en Zonaprop, el código de inmobiliaria). */
+/**
+ * Pide el código de la cuenta en el portal (en Zonaprop, el código de inmobiliaria). Con la cuenta
+ * conectada es para cambiarlo: viene con el código actual.
+ */
 export function AccountCodeDialog({
   account,
   onClose,
@@ -29,7 +32,8 @@ export function AccountCodeDialog({
   readonly account: PortalAccountView;
   readonly onClose: () => void;
 }) {
-  const [code, setCode] = useState('');
+  const changing = account.isConnected;
+  const [code, setCode] = useState(account.externalAccountId ?? '');
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
   const label = PORTAL_LABELS[account.portal];
@@ -44,10 +48,13 @@ export function AccountCodeDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle icon={PlugIcon}>Conectar {label}</DialogTitle>
+          <DialogTitle icon={PlugIcon}>
+            {changing ? `Cambiar el código de ${label}` : `Conectar ${label}`}
+          </DialogTitle>
           <DialogDescription>
-            Ingresá el código de inmobiliaria de Norde en {label}. Lo verificamos con {label}: la
-            inmobiliaria tiene que estar asociada a Norde como integrador.
+            {changing
+              ? `Ingresá el nuevo código de inmobiliaria de Norde en ${label}. Lo verificamos con ${label} antes de cambiarlo.`
+              : `Ingresá el código de inmobiliaria de Norde en ${label}. Lo verificamos con ${label}: la inmobiliaria tiene que estar asociada a Norde como integrador.`}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -63,7 +70,7 @@ export function AccountCodeDialog({
                 setError(message);
                 return;
               }
-              toast.success('Cuenta conectada');
+              toast.success(changing ? 'Código actualizado' : 'Cuenta conectada');
               onClose();
             });
           }}
@@ -88,7 +95,7 @@ export function AccountCodeDialog({
             </Button>
             <Button type="submit" disabled={pending || code.trim() === ''}>
               {pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
-              Conectar
+              {changing ? 'Guardar' : 'Conectar'}
             </Button>
           </DialogFooter>
         </form>

@@ -30,7 +30,7 @@ export class ListPortalAccounts {
     return ok({
       canManage,
       accounts: accounts.map((account) => {
-        const { portal, isEnabled, connection } = account.toSnapshot();
+        const { portal, connection } = account.toSnapshot();
         const definition = PORTAL_CATALOG[portal];
         const own = counts.filter((c) => c.portal === portal);
         return {
@@ -39,10 +39,12 @@ export class ListPortalAccounts {
           publishes: definition.publishes,
           paid: definition.paid,
           linksExisting: definition.linksExisting,
-          isEnabled,
+          // Desconectada no se publica, aunque recuerde que estaba activa.
+          isEnabled: account.canPublish,
           isConnected: connection !== undefined,
           needsReconnect: account.needsReconnect,
           accountName: connection?.accountName,
+          externalAccountId: connection?.externalAccountId,
           connectedAt: connection?.connectedAt,
           linked: {
             property: linkedCounts(own, 'property'),

@@ -101,7 +101,8 @@ export class PortalAccount extends AggregateRoot<PortalId> {
    * portal revocó el acceso). Dos cuentas de Norde del mismo proveedor no pueden usar la misma
    * cuenta del portal: en ML, la de emprendimientos no puede publicar avisos comunes. Con avisos
    * vivos, solo se puede volver a conectar la misma cuenta del portal: con otra, los avisos
-   * quedarían huérfanos (hay que darlos de baja antes).
+   * quedarían huérfanos (hay que darlos de baja antes). La misma cuenta vuelve como estaba (activa o
+   * no); otra empieza desactivada, hasta que alguien la active.
    */
   connect(
     connection: PortalConnection,
@@ -120,8 +121,11 @@ export class PortalAccount extends AggregateRoot<PortalId> {
     if (hasLiveListings && current !== undefined && current !== connection.externalAccountId) {
       return err({ type: 'PortalAccountChanged' });
     }
-    // Otra cuenta del portal: sus contactos se leen desde cero.
-    if (current !== connection.externalAccountId) this.#leadsPulledAt = undefined;
+    // Otra cuenta del portal: sus contactos se leen desde cero, y no se publica hasta activarla.
+    if (current !== connection.externalAccountId) {
+      this.#leadsPulledAt = undefined;
+      this.#isEnabled = false;
+    }
     this.#connection = connection;
     this.#formerExternalAccountId = undefined;
     return ok(undefined);
@@ -142,12 +146,14 @@ export class PortalAccount extends AggregateRoot<PortalId> {
     return true;
   }
 
-  /** Desvincula la cuenta. Una cuenta desconectada no se ofrece para publicar. */
+  /**
+   * Desvincula la cuenta. Una cuenta desconectada no se ofrece para publicar; si estaba activa, se
+   * recuerda, para que vuelva activa al reconectar la misma cuenta del portal.
+   */
   disconnect(): Result<void, PortalNotConnectedError> {
     if (!this.#connection) return err({ type: 'PortalNotConnected' });
     this.#formerExternalAccountId = this.#connection.externalAccountId;
     this.#connection = undefined;
-    this.#isEnabled = false;
     return ok(undefined);
   }
 

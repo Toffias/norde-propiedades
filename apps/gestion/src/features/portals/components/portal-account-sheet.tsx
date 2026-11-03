@@ -168,13 +168,17 @@ function SheetContents({
                 <Fact label="Conectada el">
                   <span className="font-semibold">{formatDateTime(account.connectedAt)}</span>
                 </Fact>
-                <Fact label="Cómo se conecta" className="sm:col-span-2">
-                  <span>
-                    {byCode
-                      ? `Con el código de inmobiliaria de Norde en ${portalLabel}.`
-                      : 'Con el usuario de MercadoLibre de Norde, que autorizó al sistema a publicar.'}
-                  </span>
-                </Fact>
+                {byCode ? (
+                  <Fact label="Código de inmobiliaria" className="sm:col-span-2">
+                    <span className="font-semibold">{account.externalAccountId}</span>
+                  </Fact>
+                ) : (
+                  <Fact label="Cómo se conecta" className="sm:col-span-2">
+                    <span>
+                      Con el usuario de MercadoLibre de Norde, que autorizó al sistema a publicar.
+                    </span>
+                  </Fact>
+                )}
               </dl>
             </Section>
 

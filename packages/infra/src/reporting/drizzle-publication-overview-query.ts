@@ -84,7 +84,8 @@ export class DrizzlePublicationOverviewQuery implements PublicationOverviewQuery
     const rows = await this.db
       .select({ portal: portalAccounts.portal })
       .from(portalAccounts)
-      .where(eq(portalAccounts.isEnabled, true));
+      // Desconectada no publica, aunque recuerde que estaba activa.
+      .where(and(eq(portalAccounts.isEnabled, true), isNotNull(portalAccounts.connectedAt)));
     return rows.flatMap((row) => {
       const parsed = Portal.safeParse(row.portal);
       return parsed.success ? [parsed.data] : [];

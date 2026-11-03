@@ -55,6 +55,8 @@ export const DETAIL_ERROR_MESSAGES = {
   InvalidInput: 'Revisá los datos marcados y probá de nuevo.',
   PropertyNotFound: 'No encontramos esa propiedad. Puede que la hayan borrado.',
   PropertyInTrash: 'La propiedad está en la papelera: restaurala para editarla.',
+  DescriptionTooShort: (error) =>
+    `La descripción lleva al menos ${error.minimum.toString()} caracteres: es lo que piden los portales para publicar.`,
   InvalidCoordinates: 'La latitud o la longitud no son válidas.',
   LocationNotFound: 'No encontramos esa ubicación. Elegila de nuevo en el buscador.',
   InvalidReferenceCode: 'El código lleva de 2 a 20 letras, números o guiones.',

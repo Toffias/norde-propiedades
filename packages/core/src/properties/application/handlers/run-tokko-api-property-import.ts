@@ -409,7 +409,7 @@ export class RunTokkoApiPropertyImport {
     if (s.description.trim() === '' && row.description !== undefined) {
       changed =
         expectOk(
-          property.updateDescription(
+          property.importDescription(
             { portalTitle: row.portalTitle ?? s.portalTitle, description: row.description },
             now,
           ),

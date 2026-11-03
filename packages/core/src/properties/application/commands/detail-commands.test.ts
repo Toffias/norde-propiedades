@@ -425,14 +425,28 @@ describe('UpdatePropertyDeal and UpdatePropertyDescription', () => {
     const { uow, clock } = setup();
     unwrap(
       await new UpdatePropertyDescription({ uow, clock }).execute(
-        { propertyId: PROPERTY_ID, portalTitle: 'Luminoso 3 ambientes', description: 'Al frente.' },
+        {
+          propertyId: PROPERTY_ID,
+          portalTitle: 'Luminoso 3 ambientes',
+          description: 'Luminoso tres ambientes al frente, con balcón corrido y cocina.',
+        },
         EDITOR,
       ),
     );
     expect(stored(uow)).toMatchObject({
       portalTitle: 'Luminoso 3 ambientes',
-      description: 'Al frente.',
+      description: 'Luminoso tres ambientes al frente, con balcón corrido y cocina.',
     });
+  });
+
+  it('rejects a description shorter than the portals ask for', async () => {
+    const { uow, clock } = setup();
+    const result = await new UpdatePropertyDescription({ uow, clock }).execute(
+      { propertyId: PROPERTY_ID, portalTitle: undefined, description: 'Al frente.' },
+      EDITOR,
+    );
+    expect(unwrapErr(result).type).toBe('InvalidInput');
+    expect(stored(uow).description).toBe('');
   });
 });
 

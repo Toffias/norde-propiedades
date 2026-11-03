@@ -170,16 +170,18 @@ describe('ZonapropListingCatalog.onlineByReference', () => {
   } as const;
 
   it('reads every page and keeps the listings with that internal key', async () => {
-    const { catalog, requests } = setup([json(TOKEN), json(SUMMARY), json(SUMMARY)]);
+    const { catalog, requests } = setup([json(TOKEN), json(SUMMARY), json(SUMMARY), json(SUMMARY)]);
 
     const found = unwrap(await catalog.onlineByReference(BY_REFERENCE));
 
+    // 120 avisos de a 50: tres páginas.
     expect(requests.slice(1).map((r) => r.url.searchParams.get('pageable.page'))).toEqual([
       '0',
       '1',
+      '2',
     ]);
-    expect(requests[1]?.url.searchParams.get('pageable.size')).toBe('100');
-    expect(found.map((r) => r.remoteId)).toEqual(['50044229', '50044229']);
+    expect(requests[1]?.url.searchParams.get('pageable.size')).toBe('50');
+    expect(found.map((r) => r.remoteId)).toEqual(['50044229', '50044229', '50044229']);
   });
 
   it('finds none when no listing has the key', async () => {
@@ -187,8 +189,32 @@ describe('ZonapropListingCatalog.onlineByReference', () => {
     expect(unwrap(await catalog.onlineByReference(BY_REFERENCE))).toEqual([]);
   });
 
-  it('reports a portal that does not answer', async () => {
-    const { catalog } = setup([json(TOKEN), () => new Response('down', { status: 503 })]);
+  it('rereads a page Zonaprop cannot build in small ranges and skips only the broken one', async () => {
+    const down = () => new Response('down', { status: 503 });
+    const one = { total: 30, content: [SUMMARY.content[0]] };
+    const { catalog, requests } = setup([json(TOKEN), down, json(one), down, json(one)]);
+
+    const found = unwrap(await catalog.onlineByReference(BY_REFERENCE));
+
+    expect(
+      requests
+        .slice(1)
+        .map((r) => [
+          r.url.searchParams.get('pageable.page'),
+          r.url.searchParams.get('pageable.size'),
+        ]),
+    ).toEqual([
+      ['0', '50'],
+      ['0', '10'],
+      ['1', '10'],
+      ['2', '10'],
+    ]);
+    expect(found.map((r) => r.remoteId)).toEqual(['50044229', '50044229']);
+  });
+
+  it('reports a portal that does not answer at all', async () => {
+    const down = () => new Response('down', { status: 503 });
+    const { catalog } = setup([json(TOKEN), down, down, down, down, down, down]);
     expect(unwrapErr(await catalog.onlineByReference(BY_REFERENCE))).toEqual({
       type: 'PortalUnavailable',
     });

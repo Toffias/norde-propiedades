@@ -605,6 +605,20 @@ export class FakePortalListingCatalog implements PortalListingCatalog {
     );
   }
 
+  onlineByReference(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly reference: string;
+  }) {
+    if (this.failWith) return Promise.resolve(err(this.failWith));
+    const wanted = input.reference.toUpperCase();
+    return Promise.resolve(
+      ok(
+        this.listings.filter((r) => [r.reference, r.code].some((c) => c?.toUpperCase() === wanted)),
+      ),
+    );
+  }
+
   link(input: {
     readonly portal: PortalId;
     readonly externalAccountId: string;

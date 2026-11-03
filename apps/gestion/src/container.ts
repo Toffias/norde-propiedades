@@ -868,7 +868,7 @@ function createPortalsUseCases(
       accounts,
       counter: new DrizzlePortalListingCountsQuery(db),
     }),
-    // Solo para mostrar: recordados unos minutos (lo que consume créditos lee en vivo).
+    // Solo para mostrar: recordados unos segundos (lo que consume créditos lee en vivo).
     getCredits: new GetPortalCredits({
       accounts,
       directory: new CachedPortalCredits(directory, () => clock.now().getTime()),
@@ -881,7 +881,15 @@ function createPortalsUseCases(
     disconnectAccount: new DisconnectPortalAccount({ uow }),
     setAccountEnabled: new SetPortalAccountEnabled({ uow }),
     getPropertyListings: new GetPropertyListings({ uow }),
-    requestPublication: new RequestPublication({ uow, reader, connector, directory, ids, clock }),
+    requestPublication: new RequestPublication({
+      uow,
+      reader,
+      connector,
+      directory,
+      catalog,
+      ids,
+      clock,
+    }),
     listRemoteListings: new ListRemoteListings({ uow, catalog, properties: codes }),
     linkListing: new LinkPortalListing({ uow, catalog, reader, ids, clock }),
     getDevelopmentListings: new GetDevelopmentListings({ uow }),

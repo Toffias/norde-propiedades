@@ -126,6 +126,11 @@ const NO_LINK_PERMISSION: PortalSyncError = {
     'Zonaprop no le da permiso a Norde para vincular avisos. Hay que pedirle a Zonaprop (integracion@ar.quintoandar.com) que habilite "asociar avisos" para el integrador.',
 };
 
+/** Avisos por página al buscar por clave interna. */
+const REFERENCE_PAGE_SIZE = 100;
+/** Hasta 2.000 avisos online: muchos más de los que tiene la inmobiliaria. */
+const REFERENCE_MAX_PAGES = 20;
+
 function readError(error: ZonapropApiError): PortalNotConfiguredError | PortalUnavailableError {
   return error.type === 'not_configured' || error.type === 'forbidden'
     ? { type: 'PortalNotConfigured' }
@@ -162,6 +167,35 @@ export class ZonapropListingCatalog implements PortalListingCatalog {
     // 204: no hay avisos online.
     const page = result.value ?? { total: 0, content: [] };
     return ok({ items: page.content.map(toRemote), total: page.total });
+  }
+
+  /**
+   * El resumen de Zonaprop solo filtra por `idAvisoNavplat`: para buscar por clave interna se
+   * recorren las páginas de a {@link REFERENCE_PAGE_SIZE}, hasta {@link REFERENCE_MAX_PAGES}.
+   */
+  async onlineByReference(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly reference: string;
+  }): Promise<Result<readonly RemoteListing[], PortalNotConfiguredError | PortalUnavailableError>> {
+    const wanted = input.reference.trim().toUpperCase();
+    const found: RemoteListing[] = [];
+    for (let page = 0; page < REFERENCE_MAX_PAGES; page += 1) {
+      const slice = await this.online({
+        portal: input.portal,
+        externalAccountId: input.externalAccountId,
+        offset: page * REFERENCE_PAGE_SIZE,
+        limit: REFERENCE_PAGE_SIZE,
+      });
+      if (slice.isErr()) return err(slice.error);
+      found.push(
+        ...slice.value.items.filter((r) =>
+          [r.reference, r.code].some((c) => c?.toUpperCase() === wanted),
+        ),
+      );
+      if ((page + 1) * REFERENCE_PAGE_SIZE >= slice.value.total) break;
+    }
+    return ok(found);
   }
 
   async link(input: {

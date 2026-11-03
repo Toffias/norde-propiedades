@@ -16,6 +16,10 @@ export class PortalListingCatalogsByProvider implements PortalListingCatalog {
     return this.#of(input.portal).online(input);
   }
 
+  onlineByReference(input: Parameters<PortalListingCatalog['onlineByReference']>[0]) {
+    return this.#of(input.portal).onlineByReference(input);
+  }
+
   link(input: Parameters<PortalListingCatalog['link']>[0]) {
     return this.#of(input.portal).link(input);
   }

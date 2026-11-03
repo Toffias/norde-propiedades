@@ -155,6 +155,14 @@ export class MercadoLibreListingCatalog implements PortalListingCatalog {
     return ok({ items: items.value.map(toRemote), total: search.data.paging.total });
   }
 
+  /**
+   * MercadoLibre no busca avisos de la cuenta por la clave de Tokko sin leerlos todos: no frena la
+   * publicación por duplicados (#199).
+   */
+  onlineByReference(): Promise<Result<readonly RemoteListing[], CatalogError>> {
+    return Promise.resolve(ok([]));
+  }
+
   /** En MercadoLibre el aviso ya tiene su ID: vincular no le cambia nada. */
   link(input: {
     readonly portal: PortalId;

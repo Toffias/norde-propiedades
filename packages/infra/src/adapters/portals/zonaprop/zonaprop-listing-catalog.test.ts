@@ -162,6 +162,39 @@ describe('ZonapropListingCatalog.online', () => {
   });
 });
 
+describe('ZonapropListingCatalog.onlineByReference', () => {
+  const BY_REFERENCE = {
+    portal: 'zonaprop',
+    externalAccountId: '17310373',
+    reference: 'nho1142594',
+  } as const;
+
+  it('reads every page and keeps the listings with that internal key', async () => {
+    const { catalog, requests } = setup([json(TOKEN), json(SUMMARY), json(SUMMARY)]);
+
+    const found = unwrap(await catalog.onlineByReference(BY_REFERENCE));
+
+    expect(requests.slice(1).map((r) => r.url.searchParams.get('pageable.page'))).toEqual([
+      '0',
+      '1',
+    ]);
+    expect(requests[1]?.url.searchParams.get('pageable.size')).toBe('100');
+    expect(found.map((r) => r.remoteId)).toEqual(['50044229', '50044229']);
+  });
+
+  it('finds none when no listing has the key', async () => {
+    const { catalog } = setup([json(TOKEN), json({ total: 1, content: [SUMMARY.content[1]] })]);
+    expect(unwrap(await catalog.onlineByReference(BY_REFERENCE))).toEqual([]);
+  });
+
+  it('reports a portal that does not answer', async () => {
+    const { catalog } = setup([json(TOKEN), () => new Response('down', { status: 503 })]);
+    expect(unwrapErr(await catalog.onlineByReference(BY_REFERENCE))).toEqual({
+      type: 'PortalUnavailable',
+    });
+  });
+});
+
 describe('ZonapropListingCatalog.link', () => {
   const LINK = {
     portal: 'zonaprop',

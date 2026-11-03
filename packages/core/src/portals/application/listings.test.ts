@@ -8,6 +8,7 @@ import {
   FakeListingSourceReader,
   FakePortalAccountDirectory,
   FakePortalConnector,
+  FakePortalListingCatalog,
   InMemoryPortalsUnitOfWork,
   LISTED_PROPERTY_ID,
   listingSource,
@@ -61,6 +62,7 @@ function setup() {
     request: new RequestPublication({
       ...deps,
       directory: new FakePortalAccountDirectory(),
+      catalog: new FakePortalListingCatalog(),
       ids: new SequentialIdGenerator(),
     }),
     sync: new SyncListing(deps),
@@ -256,12 +258,14 @@ describe('SyncListing', () => {
     });
   });
 
-  it('does not call the portal when nothing changed', async () => {
-    const { sync, connector, listingId, uow } = await published();
+  it('does not call the portal when nothing changed, but records the check', async () => {
+    const { sync, connector, listingId, uow, clock } = await published();
     const audits = uow.audit.entries.length;
+    clock.advance(60_000);
     expect(unwrap(await sync.execute({ listingId }, PORTAL_SYNC))).toBe('unchanged');
     expect(connector.calls).toEqual([]);
     expect(uow.audit.entries).toHaveLength(audits);
+    expect(uow.listings.rows.get(listingId)?.lastSyncedAt).toEqual(clock.now());
   });
 
   it('sends the new content when the property changed, without a new audit entry', async () => {

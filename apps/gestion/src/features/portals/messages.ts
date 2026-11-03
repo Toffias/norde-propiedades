@@ -208,6 +208,8 @@ export const PUBLICATION_ERROR_MESSAGES = {
   PlanRequired: 'Elegí el plan del aviso.',
   ...PLAN_MESSAGES,
   ListingAlreadyExists: 'Esa propiedad ya está publicada en ese portal.',
+  ListingAlreadyOnPortal: (error) =>
+    `El portal ya tiene online un aviso de esta propiedad (N.º ${error.remoteId}), publicado por otro sistema. Vinculalo con "Vincular un aviso existente" en vez de publicar otro: un aviso nuevo lo duplicaría y gastaría un crédito.`,
   ListingNotClosed: 'Esa propiedad ya está publicada en ese portal.',
 } satisfies ErrorMessages<RequestPublicationError>;
 

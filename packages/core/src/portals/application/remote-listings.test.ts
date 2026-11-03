@@ -78,6 +78,7 @@ function setup() {
       reader,
       connector,
       directory: new FakePortalAccountDirectory(),
+      catalog,
       ids,
       clock,
     }),

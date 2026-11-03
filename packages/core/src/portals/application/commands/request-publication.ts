@@ -11,7 +11,7 @@ import {
 } from '../../../shared';
 import { RequestPublicationInputSchema, type RequestPublicationInput } from '../../contracts';
 import { Listing, type ListingNotClosedError } from '../../domain/listing';
-import { portalPublishes, type PortalId } from '../../domain/portal';
+import { PORTAL_CATALOG, portalPublishes, type PortalId } from '../../domain/portal';
 import {
   checkListingShape,
   checkPlanCredits,
@@ -21,6 +21,8 @@ import {
 } from '../listing-plan';
 import { listingAuditTarget, listingAuditValue, lockExistingListing } from '../listing-support';
 import type { PortalAccountDirectory } from '../ports/portal-account-directory';
+import type { PortalNotConfiguredError, PortalUnavailableError } from '../ports/portal-authorizer';
+import type { PortalListingCatalog, RemoteListing } from '../ports/portal-listing-catalog';
 import type { ListingSourceReader } from '../ports/listing-source';
 import type { PortalConnector } from '../ports/portal-connector';
 import type { PortalsUnitOfWork } from '../ports/portals-transaction';
@@ -71,6 +73,16 @@ export interface ListingAlreadyExistsError {
   readonly type: 'ListingAlreadyExists';
 }
 
+/**
+ * El portal ya tiene online un aviso de la propiedad que publicó otro sistema (Tokko), con su
+ * código como clave interna: se vincula en vez de publicar otro, que duplicaría el aviso.
+ */
+export interface ListingAlreadyOnPortalError {
+  readonly type: 'ListingAlreadyOnPortal';
+  readonly remoteId: string;
+  readonly permalink: string | undefined;
+}
+
 export type RequestPublicationError =
   | ForbiddenError
   | ValidationFailedError
@@ -85,6 +97,9 @@ export type RequestPublicationError =
   | PlanRequiredError
   | ListingPlanError
   | ListingAlreadyExistsError
+  | ListingAlreadyOnPortalError
+  | PortalNotConfiguredError
+  | PortalUnavailableError
   | ListingNotClosedError;
 
 /**
@@ -100,6 +115,7 @@ export class RequestPublication {
       readonly reader: ListingSourceReader;
       readonly connector: PortalConnector;
       readonly directory: PortalAccountDirectory;
+      readonly catalog: Pick<PortalListingCatalog, 'onlineByReference'>;
       readonly ids: IdGenerator;
       readonly clock: Clock;
     },
@@ -141,9 +157,9 @@ export class RequestPublication {
     });
     if (problems.length > 0) return err({ type: 'MissingListingData', problems });
 
+    const account = await this.deps.uow.run((tx) => tx.accounts.get(portal));
+    const connection = account.toSnapshot().connection;
     if (plan !== undefined) {
-      const account = await this.deps.uow.run((tx) => tx.accounts.get(portal));
-      const connection = account.toSnapshot().connection;
       if (!account.canPublish || connection === undefined) {
         return err({ type: 'PortalNotEnabled', portal });
       }
@@ -154,6 +170,17 @@ export class RequestPublication {
         publishes: 'property',
       });
       if (credits.isErr()) return err(credits.error);
+    }
+    if (connection !== undefined && PORTAL_CATALOG[portal].linksExisting) {
+      const foreign = await this.#foreignListing(portal, connection.externalAccountId, source.code);
+      if (foreign.isErr()) return err(foreign.error);
+      if (foreign.value) {
+        return err({
+          type: 'ListingAlreadyOnPortal',
+          remoteId: foreign.value.remoteId,
+          permalink: foreign.value.permalink,
+        });
+      }
     }
 
     const now = this.deps.clock.now();
@@ -191,5 +218,24 @@ export class RequestPublication {
         return ok({ listingId: listing.id });
       },
     );
+  }
+
+  /** Un aviso online con el código de la propiedad que no es de ninguna publicación de Norde. */
+  async #foreignListing(
+    portal: PortalId,
+    externalAccountId: string,
+    code: string,
+  ): Promise<Result<RemoteListing | undefined, PortalNotConfiguredError | PortalUnavailableError>> {
+    const online = await this.deps.catalog.onlineByReference({
+      portal,
+      externalAccountId,
+      reference: code,
+    });
+    if (online.isErr()) return err(online.error);
+    if (online.value.length === 0) return ok(undefined);
+    const codes = online.value.flatMap((r) => (r.code === undefined ? [] : [r.code]));
+    const own = await this.deps.uow.run((tx) => tx.listings.findByExternalIds(portal, codes));
+    const ownCodes = new Set(own.map((l) => l.toSnapshot().externalId));
+    return ok(online.value.find((r) => r.code === undefined || !ownCodes.has(r.code)));
   }
 }

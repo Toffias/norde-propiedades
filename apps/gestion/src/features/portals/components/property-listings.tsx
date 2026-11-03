@@ -46,9 +46,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 
 import { runAction, type ActionResult } from '../../../lib/action-result';
+import { runPublication } from '../publication-result';
 import { formatDateTime } from '../../../lib/format';
 import { FormAlert } from '../../shared/components/form-alert';
 import {
@@ -72,6 +73,11 @@ import { PortalMark } from './portal-account-facts';
 /** Mientras haya avisos publicándose, la pestaña se refresca sola cada tanto. */
 const REFRESH_MS = 5000;
 const MAX_REFRESHES = 24;
+/**
+ * Sin avisos en camino, igual se refresca unas veces: al abrir la pestaña (la ficha pudo cambiar
+ * recién y el job tarda unos segundos en mandarla) y después de cada acción.
+ */
+const BURST_REFRESHES = 4;
 
 /** De qué es la pestaña: una propiedad o un emprendimiento. */
 interface ListingOwner {
@@ -104,8 +110,8 @@ export function PropertyListings({
   /** Visitas y contactos de cada aviso, por ID de publicación (los portales que los informan). */
   readonly stats?: Readonly<Record<string, ListingStatsResult>>;
 }) {
-  const pending = view.listings.some((listing) => listing.status === 'pending');
-  useAutoRefresh(pending);
+  const pending = view.listings.some((listing) => isInFlight(listing, isAvailable));
+  const onActed = useAutoRefresh(pending);
 
   if (isUnit) {
     // Una unidad va dentro del aviso de su emprendimiento. En MercadoLibre, Tokko publicó cada
@@ -139,6 +145,7 @@ export function PropertyListings({
           view={unitView}
           isAvailable={isAvailable}
           plans={plans}
+          onActed={onActed}
           stats={stats}
           publishes={false}
           wholeNote=""
@@ -157,6 +164,7 @@ export function PropertyListings({
       view={view}
       isAvailable={isAvailable}
       plans={plans}
+      onActed={onActed}
       stats={stats}
       publishes
       wholeNote="Un solo aviso con todas las operaciones con precio: usa un crédito mientras está online. Pausar lo saca del portal y libera el crédito; reactivarlo vuelve a usar uno."
@@ -185,8 +193,9 @@ export function DevelopmentListings({
   readonly plans: Readonly<Partial<Record<PortalValue, PortalCreditsResult>>>;
   readonly stats?: Readonly<Record<string, ListingStatsResult>>;
 }) {
-  const pending = view.listings.some((listing) => listing.status === 'pending');
-  useAutoRefresh(pending);
+  const isAvailable = isMarketing && publishableUnits > 0;
+  const pending = view.listings.some((listing) => isInFlight(listing, isAvailable));
+  const onActed = useAutoRefresh(pending);
   const units =
     publishableUnits === 1
       ? '1 unidad disponible'
@@ -198,8 +207,9 @@ export function DevelopmentListings({
       label={`Emprendimiento · ${units}`}
       operations={[]}
       view={view}
-      isAvailable={isMarketing && publishableUnits > 0}
+      isAvailable={isAvailable}
       plans={plans}
+      onActed={onActed}
       stats={stats}
       publishes
       wholeNote="Un solo aviso con todas las unidades disponibles con precio: las reservadas, vendidas o pausadas no van, y si no queda ninguna el aviso sale del portal hasta que haya una. Cada cambio del emprendimiento o de sus unidades actualiza el aviso."
@@ -223,6 +233,7 @@ function ListingsPanel({
   publishes,
   wholeNote,
   unavailableNote,
+  onActed,
 }: {
   readonly owner: ListingOwner;
   /** Qué lleva el aviso de todo el dueño (las operaciones, o las unidades). */
@@ -236,6 +247,8 @@ function ListingsPanel({
   readonly publishes: boolean;
   readonly wholeNote: string;
   readonly unavailableNote: string;
+  /** Después de una acción: la pestaña se refresca un rato para mostrar lo que hizo el job. */
+  readonly onActed: () => void;
 }) {
   const portals = [
     ...new Set<PortalValue>([
@@ -292,6 +305,7 @@ function ListingsPanel({
                     linksExisting={option.linksExisting}
                     isAvailable={isAvailable}
                     plans={option.choosesPlan ? (plans[portal] ?? NO_PLANS) : undefined}
+                    onActed={onActed}
                   />
                 );
               })}
@@ -396,6 +410,7 @@ function ListingRow({
   linksExisting,
   isAvailable,
   plans,
+  onActed,
 }: {
   readonly owner: ListingOwner;
   readonly label: string;
@@ -413,6 +428,7 @@ function ListingRow({
   readonly isAvailable: boolean;
   /** Solo en los portales con plan. */
   readonly plans: PortalCreditsResult | undefined;
+  readonly onActed: () => void;
 }) {
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
@@ -425,6 +441,8 @@ function ListingRow({
   const [plan, setPlan] = useState<string | undefined>(listing?.plan);
   const [confirming, setConfirming] = useState(false);
   const [linking, setLinking] = useState(false);
+  // El aviso que el portal ya tiene online de esta propiedad: se ofrece vincularlo.
+  const [existing, setExisting] = useState<string | undefined>();
 
   // Qué botón disparó la acción en curso, para mostrar su spinner.
   const [running, setRunning] = useState<ListingRowAction | undefined>();
@@ -440,11 +458,34 @@ function ListingRow({
         return;
       }
       toast.success(success);
+      onActed();
+    });
+  }
+
+  /** Publicar una propiedad: si el portal ya tiene su aviso online, se ofrece vincularlo. */
+  function publish(input: Parameters<typeof requestPublicationAction>[0]) {
+    setError(undefined);
+    setExisting(undefined);
+    setRunning('publish');
+    startTransition(async () => {
+      const result = await runPublication(() => requestPublicationAction(input));
+      if (!result.ok) {
+        setError(result.message);
+        setExisting(result.existingRemoteId);
+        return;
+      }
+      toast.success(PUBLISH_REQUESTED);
+      onActed();
     });
   }
 
   const closed = listing === undefined || listing.intent === 'closed';
   const status = listing ? LISTING_STATUS_LABELS[listing.status] : undefined;
+  const transition = listing ? transitionLabel(listing, isAvailable) : undefined;
+  // En pausa sin haberla pedido (la propiedad no está disponible, o le falta algo): no se pausa ni
+  // se reactiva desde acá, vuelve sola cuando se resuelve.
+  const pausedByOwner =
+    listing?.intent === 'active' && listing.status === 'paused' && transition === undefined;
 
   return (
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
@@ -464,9 +505,7 @@ function ListingRow({
                 : undefined}
           </span>
         )}
-        {listing?.intent === 'paused' && listing.status !== 'paused' && (
-          <span className="text-sm text-muted-foreground">Pausándose…</span>
-        )}
+        {transition && <span className="text-sm text-muted-foreground">{transition}</span>}
         {listing?.permalink && listing.status !== 'unpublished' && (
           <a
             href={listing.permalink}
@@ -494,6 +533,20 @@ function ListingRow({
       )}
       {stats && <ListingStatsLine stats={stats} />}
       <FormAlert message={error} />
+      {existing !== undefined && linksExisting && (
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setLinking(true);
+            }}
+          >
+            <Link2Icon className="h-4 w-4" aria-hidden />
+            Vincular el aviso N.º {existing}
+          </Button>
+        </div>
+      )}
       {canPublish && plans !== undefined && !plans.ok && <FormAlert message={plans.message} />}
 
       {canPublish && (
@@ -533,24 +586,26 @@ function ListingRow({
                     disabled={busy || !isAvailable || (choosesPlan && plan === undefined)}
                     onClick={() => {
                       const chosen = choosesPlan && plan !== undefined ? { plan } : {};
-                      run(
-                        'publish',
-                        () =>
-                          owner.kind === 'development'
-                            ? requestDevelopmentPublicationAction({
-                                developmentId: owner.id,
-                                portal,
-                                ...chosen,
-                              })
-                            : requestPublicationAction({
-                                propertyId: owner.id,
-                                portal,
-                                ...(operation === undefined ? {} : { operation }),
-                                listingType: type,
-                                ...chosen,
-                              }),
-                        'Publicación pedida: el aviso se crea en unos segundos',
-                      );
+                      if (owner.kind === 'development') {
+                        run(
+                          'publish',
+                          () =>
+                            requestDevelopmentPublicationAction({
+                              developmentId: owner.id,
+                              portal,
+                              ...chosen,
+                            }),
+                          PUBLISH_REQUESTED,
+                        );
+                        return;
+                      }
+                      publish({
+                        propertyId: owner.id,
+                        portal,
+                        ...(operation === undefined ? {} : { operation }),
+                        listingType: type,
+                        ...chosen,
+                      });
                     }}
                   >
                     {spinning('publish') ? (
@@ -580,6 +635,7 @@ function ListingRow({
                   owner={owner}
                   portal={portal}
                   plans={choosesPlan ? offeredPlans : undefined}
+                  initialRemote={existing}
                   onClose={() => {
                     setLinking(false);
                   }}
@@ -588,7 +644,7 @@ function ListingRow({
             </>
           ) : (
             <>
-              {listing.intent === 'paused' ? (
+              {pausedByOwner || transition !== undefined ? null : listing.intent === 'paused' ? (
                 <Button
                   size="sm"
                   variant="outline"
@@ -736,6 +792,8 @@ function ListingRow({
 
 type ListingRowAction = 'publish' | 'resume' | 'pause' | 'plan' | 'type' | 'resync' | 'unpublish';
 
+const PUBLISH_REQUESTED = 'Publicación pedida: el aviso se crea en unos segundos';
+
 function UnpublishDialog({
   portal,
   open,
@@ -777,9 +835,14 @@ function UnpublishDialog({
   );
 }
 
-/** Refresca la ficha mientras hay avisos publicándose (los crea un job), con un tope. */
-function useAutoRefresh(active: boolean) {
+/**
+ * Refresca la ficha mientras hay avisos en camino (los manda un job), con un tope, y unas veces más
+ * al abrirla y después de cada acción. Devuelve con qué avisar que se hizo una acción.
+ */
+function useAutoRefresh(inFlight: boolean): () => void {
   const router = useRouter();
+  const [burst, setBurst] = useState(BURST_REFRESHES);
+  const active = inFlight || burst > 0;
   useEffect(() => {
     if (!active) return;
     let count = 0;
@@ -789,12 +852,39 @@ function useAutoRefresh(active: boolean) {
         clearInterval(timer);
         return;
       }
+      setBurst((left) => Math.max(0, left - 1));
       router.refresh();
     }, REFRESH_MS);
     return () => {
       clearInterval(timer);
     };
   }, [active, router]);
+  return useCallback(() => {
+    setBurst(BURST_REFRESHES);
+  }, []);
+}
+
+/**
+ * Lo que se pidió y el job todavía no hizo en el portal. Un aviso en pausa con motivo (la propiedad
+ * quedó sin precio) no está en camino: espera que se corrija.
+ */
+function transitionLabel(listing: PropertyListingView, isAvailable: boolean): string | undefined {
+  if (listing.status === 'pending') return undefined;
+  if (listing.intent === 'paused' && listing.status !== 'paused') return 'Pausándose…';
+  if (listing.intent === 'closed' && listing.status !== 'unpublished') return 'Dándose de baja…';
+  if (
+    listing.intent === 'active' &&
+    listing.status === 'paused' &&
+    isAvailable &&
+    listing.lastError === undefined
+  ) {
+    return 'Reactivándose…';
+  }
+  return undefined;
+}
+
+function isInFlight(listing: PropertyListingView, isAvailable: boolean): boolean {
+  return listing.status === 'pending' || transitionLabel(listing, isAvailable) !== undefined;
 }
 
 /** Vincula un aviso que ya está online en el portal (lo publicó Tokko), pegando su link. */
@@ -802,15 +892,18 @@ function LinkListingDialog({
   owner,
   portal,
   plans,
+  initialRemote,
   onClose,
 }: {
   readonly owner: ListingOwner;
   readonly portal: PortalValue;
   /** Los planes, en los portales con plan; si no, no se elige. */
   readonly plans: readonly PortalCreditView[] | undefined;
+  /** El aviso a vincular, si ya se sabe cuál es (lo encontró Publicar). */
+  readonly initialRemote: string | undefined;
   readonly onClose: () => void;
 }) {
-  const [remote, setRemote] = useState('');
+  const [remote, setRemote] = useState(initialRemote ?? '');
   const [plan, setPlan] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();

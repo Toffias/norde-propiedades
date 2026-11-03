@@ -207,6 +207,7 @@ function SheetContents({
             <Section
               title="Avisos"
               action={
+                canManage &&
                 account.linksExisting && (
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/mi-empresa/portales/avisos?portal=${account.portal}`}>
@@ -220,7 +221,7 @@ function SheetContents({
               <dl className="grid gap-3 sm:grid-cols-2">
                 <LinkedFacts account={account} />
               </dl>
-              {account.linksExisting && (
+              {canManage && account.linksExisting && (
                 <p className="text-xs text-muted-foreground">
                   Si hay avisos que se cargaron directo en {portalLabel}, vinculalos con su
                   propiedad para seguirlos desde el sistema.

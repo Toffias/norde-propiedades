@@ -552,96 +552,99 @@ function ListingRow({
       {canPublish && (
         <div className="flex flex-wrap items-center gap-2">
           {closed ? (
-            <>
-              {publishes && (
-                <>
-                  {choosesPlan ? (
-                    <PlanSelect
-                      plans={offeredPlans}
-                      value={plan}
-                      onChange={setPlan}
-                      disabled={busy}
-                    />
-                  ) : (
-                    choosesType && (
-                      <Select
-                        value={type}
-                        onValueChange={(next) => {
-                          setType(next === 'featured' ? 'featured' : 'simple');
-                        }}
+            // Dándose de baja: hasta que el portal lo baje no se vuelve a publicar ni se vincula.
+            transition === undefined && (
+              <>
+                {publishes && (
+                  <>
+                    {choosesPlan ? (
+                      <PlanSelect
+                        plans={offeredPlans}
+                        value={plan}
+                        onChange={setPlan}
                         disabled={busy}
-                      >
-                        <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
-                          <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )
-                  )}
+                      />
+                    ) : (
+                      choosesType && (
+                        <Select
+                          value={type}
+                          onValueChange={(next) => {
+                            setType(next === 'featured' ? 'featured' : 'simple');
+                          }}
+                          disabled={busy}
+                        >
+                          <SelectTrigger className="w-[150px]" aria-label="Tipo de aviso">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="simple">{LISTING_TYPE_LABELS.simple}</SelectItem>
+                            <SelectItem value="featured">{LISTING_TYPE_LABELS.featured}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )
+                    )}
+                    <Button
+                      size="sm"
+                      disabled={busy || !isAvailable || (choosesPlan && plan === undefined)}
+                      onClick={() => {
+                        const chosen = choosesPlan && plan !== undefined ? { plan } : {};
+                        if (owner.kind === 'development') {
+                          run(
+                            'publish',
+                            () =>
+                              requestDevelopmentPublicationAction({
+                                developmentId: owner.id,
+                                portal,
+                                ...chosen,
+                              }),
+                            PUBLISH_REQUESTED,
+                          );
+                          return;
+                        }
+                        publish({
+                          propertyId: owner.id,
+                          portal,
+                          ...(operation === undefined ? {} : { operation }),
+                          listingType: type,
+                          ...chosen,
+                        });
+                      }}
+                    >
+                      {spinning('publish') ? (
+                        <Loader2Icon className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <SendIcon className="h-4 w-4" aria-hidden />
+                      )}
+                      {listing ? 'Volver a publicar' : 'Publicar'}
+                    </Button>
+                  </>
+                )}
+                {linksExisting && (
                   <Button
                     size="sm"
-                    disabled={busy || !isAvailable || (choosesPlan && plan === undefined)}
+                    variant="outline"
+                    disabled={busy}
                     onClick={() => {
-                      const chosen = choosesPlan && plan !== undefined ? { plan } : {};
-                      if (owner.kind === 'development') {
-                        run(
-                          'publish',
-                          () =>
-                            requestDevelopmentPublicationAction({
-                              developmentId: owner.id,
-                              portal,
-                              ...chosen,
-                            }),
-                          PUBLISH_REQUESTED,
-                        );
-                        return;
-                      }
-                      publish({
-                        propertyId: owner.id,
-                        portal,
-                        ...(operation === undefined ? {} : { operation }),
-                        listingType: type,
-                        ...chosen,
-                      });
+                      setLinking(true);
                     }}
                   >
-                    {spinning('publish') ? (
-                      <Loader2Icon className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <SendIcon className="h-4 w-4" aria-hidden />
-                    )}
-                    {listing ? 'Volver a publicar' : 'Publicar'}
+                    <Link2Icon className="h-4 w-4" aria-hidden />
+                    Vincular un aviso existente
                   </Button>
-                </>
-              )}
-              {linksExisting && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    setLinking(true);
-                  }}
-                >
-                  <Link2Icon className="h-4 w-4" aria-hidden />
-                  Vincular un aviso existente
-                </Button>
-              )}
-              {linking && (
-                <LinkListingDialog
-                  owner={owner}
-                  portal={portal}
-                  plans={choosesPlan ? offeredPlans : undefined}
-                  initialRemote={existing}
-                  onClose={() => {
-                    setLinking(false);
-                  }}
-                />
-              )}
-            </>
+                )}
+                {linking && (
+                  <LinkListingDialog
+                    owner={owner}
+                    portal={portal}
+                    plans={choosesPlan ? offeredPlans : undefined}
+                    initialRemote={existing}
+                    onClose={() => {
+                      setLinking(false);
+                    }}
+                  />
+                )}
+              </>
+            )
           ) : (
             <>
               {pausedByOwner || transition !== undefined ? null : listing.intent === 'paused' ? (
@@ -866,12 +869,16 @@ function useAutoRefresh(inFlight: boolean): () => void {
 
 /**
  * Lo que se pidió y el job todavía no hizo en el portal. Un aviso en pausa con motivo (la propiedad
- * quedó sin precio) no está en camino: espera que se corrija.
+ * quedó sin precio) no está en camino: espera que se corrija. Si la propiedad dejó de estar
+ * disponible (reservada, vendida), el aviso todavía online sale del portal en cuanto corre el job.
  */
 function transitionLabel(listing: PropertyListingView, isAvailable: boolean): string | undefined {
   if (listing.status === 'pending') return undefined;
   if (listing.intent === 'paused' && listing.status !== 'paused') return 'Pausándose…';
   if (listing.intent === 'closed' && listing.status !== 'unpublished') return 'Dándose de baja…';
+  if (listing.intent === 'active' && listing.status === 'published' && !isAvailable) {
+    return 'Saliendo del portal…';
+  }
   if (
     listing.intent === 'active' &&
     listing.status === 'paused' &&

@@ -157,12 +157,13 @@ export function LocationSection({
   );
 }
 
+/** Lo que agrega la búsqueda en el mapa al "Ubicación guardada." (sin nada que agregar, no avisa). */
 const GEOCODING_MESSAGES = {
-  manual: 'Ubicación guardada.',
+  manual: undefined,
   found: 'Ubicación guardada. La ubicamos de nuevo en el mapa.',
   not_found: 'Ubicación guardada, pero no la encontramos en el mapa: cargá las coordenadas.',
   failed: 'Ubicación guardada. El mapa no respondió: quedaron las coordenadas anteriores.',
-  unchanged: 'Ubicación guardada.',
+  unchanged: undefined,
 } as const;
 
 function LocationForm({
@@ -197,12 +198,14 @@ function LocationForm({
     <Form {...form}>
       <form
         className="flex flex-col gap-4"
-        onSubmit={submitWith(form, () => {
+        onSubmit={submitWith(form, (values) => {
           controls.save(async () => {
-            const result = await updatePropertyLocationAction(form.getValues());
-            if (result.ok && result.geocoding !== undefined && result.geocoding !== 'unchanged') {
-              toast.info(GEOCODING_MESSAGES[result.geocoding]);
-            }
+            const result = await updatePropertyLocationAction(values);
+            const geocoding =
+              result.ok && result.geocoding !== undefined
+                ? GEOCODING_MESSAGES[result.geocoding]
+                : undefined;
+            if (geocoding !== undefined) toast.info(geocoding);
             return result;
           }, 'Ubicación guardada.');
         })}

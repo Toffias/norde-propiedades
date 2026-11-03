@@ -813,7 +813,8 @@ Diseño propuesto:
    - Mi empresa → Portales suma la tarjeta **Zonaprop**. Se conecta con el **código de inmobiliaria**; el sistema lo busca entre las inmobiliarias que Zonaprop asoció a Norde.
    - Un código que no está asociado, o una inmobiliaria bloqueada por Zonaprop, no se conecta y se explica por qué.
    - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta. En la ficha, los créditos se recuerdan 2 minutos.
-   - Se activa para publicar como las cuentas de ML.
+   - Se activa para publicar como las cuentas de ML. Desconectar y volver a conectar la misma inmobiliaria la deja como estaba (activa o no); otra inmobiliaria empieza desactivada. El panel de la cuenta muestra el código de inmobiliaria.
+   - La difusión (pestaña, resumen y cuentas) la ve quien tiene **Ver la difusión en portales** (`portals:read`, lo tienen administrador, gerente y agente); publicar sigue pidiendo `portals:publish`. Las publicaciones aparecen en "Míos" de la campanita de quien las pidió.
 2. **Publicar propiedades** (hecha):
    - Se publica **a pedido**, desde la pestaña Difusión de la ficha. Después, los cambios de precio, datos, fotos y estado se sincronizan solos, como en ML.
    - **Un solo aviso por propiedad**, con todas las operaciones que tienen precio (consume un crédito). Las operaciones "a consultar" no se publican; sin ninguna con precio, no se publica.
@@ -825,7 +826,10 @@ Diseño propuesto:
    - Las publicaciones que quedan **con error** porque Zonaprop no respondió se vuelven a intentar solas una vez por día. Las que fallaron por falta de créditos, cuando cambia la propiedad o con "Sincronizar".
    - **Conciliación diaria**: a la mañana se lee de Zonaprop si cada aviso está online. Uno que Zonaprop puso offline por su cuenta (plan vencido, calidad, fotos) queda pausado con el motivo, para resolverlo y sincronizar. De paso se guarda el link de los avisos que no lo tenían.
    - **Reservada o pausada**, el aviso pasa a offline en Zonaprop, y vuelve online cuando la propiedad está disponible otra vez. El crédito se usa mientras el aviso está online: offline lo libera. Vendida, alquilada o dada de baja, sale de Zonaprop.
-   - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección.
+   - Pide **coordenadas** (latitud y longitud): de ahí sale la ubicación en Zonaprop. Las propiedades se ubican en el mapa al guardar la dirección. Sin coordenadas la propiedad se guarda igual, pero la tarjeta Ubicación avisa que los portales las piden.
+   - Pide una **descripción de al menos 50 caracteres**: el sistema la exige al guardar cualquier propiedad (las importadas de Tokko la conservan como venga hasta que se edite).
+   - **No duplica avisos de Tokko**: si Zonaprop ya tiene online un aviso con la clave interna de la propiedad, Publicar no crea otro y ofrece vincular ese número.
+   - La pestaña Difusión se refresca sola un rato al abrirla, después de cada acción y mientras un aviso se pausa, se reactiva o se da de baja. "Sincronizar" sin cambios igual deja la hora de la revisión.
    - Galpón se publica como Bodega-Galpón y Depósito como Depósito.
    - La ficha muestra **"Ver en Zonaprop"** con el link del aviso.
 3. **Vincular los avisos que hoy publica Tokko** (hecha), sin republicarlos: conservan su antigüedad, sus visitas y sus consultas.
@@ -837,6 +841,7 @@ Diseño propuesto:
    - **Pendiente:** Zonaprop tiene que habilitar "asociar avisos" para el integrador de Norde. En el sandbox responde que no hay permiso.
 4. **Consultas**: los contactos de los avisos entran a la **bandeja de consultas** con canal Zonaprop.
    - Entran solos **cada 10 minutos**, leídos de Zonaprop (los de los últimos 2 días, o desde la última lectura completa si el sistema estuvo caído, hasta 14 días; los que ya estaban no se repiten).
+   - La fecha de cada contacto se acepta como texto o como número (el sandbox la manda como número).
    - **Al instante**, si se activan los avisos desde Mi empresa → Portales ("Recibir las consultas al instante"). Zonaprop avisa por cada contacto y el sistema los vuelve a leer de la API.
    - Entran los que traen teléfono o email: mensajes, "que me llamen", visitas, tasaciones y "ver teléfono" o "ver WhatsApp" de usuarios con sesión. Los anónimos sin datos no entran.
    - Sin texto, la consulta dice qué pidió la persona ("Pidió que lo llamen"). Si el aviso es del sistema, la consulta queda con su propiedad. Si es de Tokko y todavía no se vinculó, queda con la propiedad cuyo código es la clave interna del aviso.

@@ -26,7 +26,8 @@ const MessageSchema = z.object({
   email: z.string().nullish(),
   telefono: z.string().nullish(),
   textoMensaje: z.string().nullish(),
-  fecha: z.string().nullish(),
+  // El sandbox la manda como epoch (número); la documentación, como texto ISO.
+  fecha: z.union([z.string(), z.number()]).nullish(),
 });
 
 const MessagePageSchema = z.object({
@@ -67,11 +68,18 @@ function fromDate(date: Date): string {
 /** Termina en `Z` o en un offset (`-03:00`, `-0300`). */
 const HAS_OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/i;
 
+/** Un epoch por debajo de este valor está en segundos; por encima, en milisegundos. */
+const EPOCH_MILLIS_FROM = 100_000_000_000;
+
 /**
  * `fecha`: con offset, tal cual; sin offset (`2026-10-16T12:30:00`), es hora de Buenos Aires (UTC-3
- * todo el año), no la del servidor.
+ * todo el año), no la del servidor. Un número es un epoch, en segundos o en milisegundos.
  */
-export function receivedAt(value: string | null | undefined): Date | undefined {
+export function receivedAt(value: string | number | null | undefined): Date | undefined {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return undefined;
+    return new Date(value < EPOCH_MILLIS_FROM ? value * 1000 : value);
+  }
   const trimmed = value?.trim();
   if (trimmed === undefined || trimmed === '') return undefined;
   const dated = trimmed.includes('T') && !HAS_OFFSET.test(trimmed) ? `${trimmed}-03:00` : trimmed;

@@ -20,6 +20,7 @@ const query = new DrizzlePublicationOverviewQuery(db);
 const NOW = new Date('2026-10-01T12:00:00Z');
 const stamps = { createdBy: 'system:import', updatedBy: 'system:import' };
 const PUBLISHABLE = { property: 'available', development: 'marketing' };
+const connected = { connectedAt: NOW, connectedBy: 'admin-1', createdAt: NOW, updatedAt: NOW };
 
 const id = (group: string, n: number) =>
   `00000000-0000-7000-${group}-${n.toString().padStart(12, '0')}`;
@@ -82,9 +83,16 @@ const listing = (
  */
 async function seed() {
   await db.insert(portalAccounts).values([
-    { portal: 'mercadolibre', isEnabled: true, createdAt: NOW, updatedAt: NOW, ...stamps },
-    { portal: 'mercadolibre_developments', createdAt: NOW, updatedAt: NOW, ...stamps },
-    { portal: 'zonaprop', isEnabled: true, createdAt: NOW, updatedAt: NOW, ...stamps },
+    { portal: 'mercadolibre', isEnabled: true, ...connected, ...stamps },
+    // Desconectada: recuerda que estaba activa, pero no publica.
+    {
+      portal: 'mercadolibre_developments',
+      isEnabled: true,
+      createdAt: NOW,
+      updatedAt: NOW,
+      ...stamps,
+    },
+    { portal: 'zonaprop', isEnabled: true, ...connected, ...stamps },
   ]);
   await insertDevelopment(1, { publishedOnWeb: true });
   await insertDevelopment(2);

@@ -268,6 +268,22 @@ test.describe('ficha', () => {
     ).toBeVisible();
   });
 
+  test('guarda la ubicación aunque piso y unidad queden vacíos (#203)', async ({ page }) => {
+    const created = await createProperty(page);
+    await openProperty(page, created.code);
+
+    const location = detailSection(page, 'Ubicación');
+    await location.getByRole('button', { name: 'Editar' }).click();
+    await expect(location.getByLabel('Piso', { exact: true })).toHaveValue('');
+    await expect(location.getByLabel('Unidad', { exact: true })).toHaveValue('');
+    await location.getByLabel('Latitud', { exact: true }).fill('-34.6036');
+    await location.getByLabel('Longitud', { exact: true }).fill('-58.4206');
+    await location.getByRole('button', { name: 'Guardar' }).click();
+
+    await expect(page.getByText('Ubicación guardada.')).toBeVisible();
+    await expect(location.getByText('-34.60360, -58.42060')).toBeVisible();
+  });
+
   test('sube una foto', async ({ page }) => {
     const created = await createProperty(page);
     await openProperty(page, created.code);

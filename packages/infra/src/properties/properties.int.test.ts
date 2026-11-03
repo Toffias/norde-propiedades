@@ -216,7 +216,13 @@ describe('DrizzlePropertyRepository', () => {
       ),
     );
     unwrap(
-      property.updateDescription({ portalTitle: 'Luminoso', description: 'Al frente.' }, later),
+      property.updateDescription(
+        {
+          portalTitle: 'Luminoso',
+          description: 'Al frente, luminoso, con balcón corrido y cocina integrada.',
+        },
+        later,
+      ),
     );
     unwrap(property.updatePublication({ publishedOnWeb: true, showPriceOnWeb: false }, later));
     unwrap(property.changeCode('DEP-0300', later));

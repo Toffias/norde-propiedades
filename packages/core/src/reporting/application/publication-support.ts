@@ -1,3 +1,4 @@
+import { canSeePortals } from '../../portals';
 import type { Actor } from '../../shared';
 import {
   PUBLISHABLE_DEVELOPMENT_STATUS,
@@ -5,9 +6,9 @@ import {
 } from '../domain/publication-buckets';
 import type { PublishableStatuses } from './ports/publication-overview-query';
 
-/** Difusión la ve quien publica o administra los portales. */
+/** Difusión la ve quien puede ver los portales: quien solo mira, publica o los administra. */
 export function canSeePublications(actor: Actor): boolean {
-  return actor.can('portals:publish') || actor.can('portals:manage');
+  return canSeePortals(actor);
 }
 
 export const PUBLISHABLE: PublishableStatuses = {

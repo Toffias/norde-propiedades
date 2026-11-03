@@ -27,7 +27,8 @@ export default async function PortalsSettingsPage({
     loadPortalAccounts(),
     searchParams,
   ]);
-  if (!loaded.ok) {
+  // Quien solo ve la difusión (un agente) ve las cuentas, pero no el pie, que es de la empresa.
+  if (!loaded.ok && accounts.kind !== 'ok') {
     return <ErrorState title="No podés ver esta sección" description={loaded.message} />;
   }
   const connected = (method: 'account_code' | 'oauth') =>
@@ -52,12 +53,14 @@ export default async function PortalsSettingsPage({
         <PortalAccounts view={accounts.view} credits={credits} packages={packages} />
       )}
       {accounts.kind === 'error' && <FormAlert message={accounts.message} />}
-      <SectionCard title="Descripción en portales" icon={FileTextIcon}>
-        <PortalFooterForm
-          footer={loaded.settings.portalDescriptionFooter}
-          disabled={!loaded.canUpdate}
-        />
-      </SectionCard>
+      {loaded.ok && (
+        <SectionCard title="Descripción en portales" icon={FileTextIcon}>
+          <PortalFooterForm
+            footer={loaded.settings.portalDescriptionFooter}
+            disabled={!loaded.canUpdate}
+          />
+        </SectionCard>
+      )}
     </div>
   );
 }

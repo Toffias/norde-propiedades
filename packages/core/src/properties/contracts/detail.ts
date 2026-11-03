@@ -184,12 +184,20 @@ export const UpdatePropertyFeaturesInputSchema = z.object({
 export type UpdatePropertyFeaturesInput = z.input<typeof UpdatePropertyFeaturesInputSchema>;
 
 export const MAX_DESCRIPTION_LENGTH = 10_000;
+/** El mínimo que exige el dominio (`MIN_DESCRIPTION_LENGTH`), para avisarlo en el formulario. */
+export const MIN_PROPERTY_DESCRIPTION_LENGTH = 50;
 
 export const UpdatePropertyDescriptionInputSchema = z.object({
   ...PropertyId,
   /** Vacío: se sugiere a partir del tipo, la operación y el barrio. */
   portalTitle: OptionalText(120),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).default(''),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .refine((text) => text.trim().length >= MIN_PROPERTY_DESCRIPTION_LENGTH, {
+      message: `La descripción lleva al menos ${String(MIN_PROPERTY_DESCRIPTION_LENGTH)} caracteres.`,
+    })
+    .default(''),
 });
 export type UpdatePropertyDescriptionInput = z.input<typeof UpdatePropertyDescriptionInputSchema>;
 

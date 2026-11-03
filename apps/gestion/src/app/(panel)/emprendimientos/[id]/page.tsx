@@ -1,4 +1,5 @@
 import { canActOn, OWNERSHIP_RULES, type SessionActor } from '@norde/core/identity';
+import { canSeePortals } from '@norde/core/portals';
 import {
   ListAttachmentsQuerySchema,
   ListDevelopmentHistoryQuerySchema,
@@ -67,12 +68,9 @@ function permissionsFor(
   };
 }
 
-/** La pestaña Difusión: con la difusión activa y permiso para publicar o administrar cuentas. */
-function canSeePortals(actor: SessionActor['actor']): boolean {
-  return (
-    getContainer().portals !== undefined &&
-    (actor.can('portals:publish') || actor.can('portals:manage'))
-  );
+/** La pestaña Difusión: con la difusión activa y permiso para ver los portales. */
+function showsPortals(actor: SessionActor['actor']): boolean {
+  return getContainer().portals !== undefined && canSeePortals(actor);
 }
 
 export async function generateMetadata({
@@ -138,7 +136,7 @@ export default async function DevelopmentDetailPage({
         active={tab}
         unitCount={detail.unitCount}
         showHistory={permissions.history}
-        showDiffusion={canSeePortals(actor)}
+        showDiffusion={showsPortals(actor)}
       />
 
       {await renderTab(tab, detail, permissions, actor, query)}
@@ -248,7 +246,7 @@ async function renderTab(
       return <DevelopmentChancesSection detail={detail} canEdit={permissions.edit} />;
     case 'difusion': {
       const { portals } = getContainer();
-      if (!portals || !canSeePortals(actor)) {
+      if (!portals || !showsPortals(actor)) {
         return (
           <Card className="gap-0 overflow-hidden p-0">
             <DataTableError

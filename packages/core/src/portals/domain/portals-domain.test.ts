@@ -140,18 +140,39 @@ describe('PortalAccount', () => {
     expect(account.toSnapshot().isEnabled).toBe(false);
   });
 
-  it('disables the account when it disconnects', () => {
+  it('does not publish while disconnected, but remembers it was enabled', () => {
     const account = connected('mercadolibre', '123');
     unwrap(account.enable());
 
     unwrap(account.disconnect());
 
+    expect(account.canPublish).toBe(false);
     expect(account.toSnapshot()).toEqual({
       portal: 'mercadolibre',
-      isEnabled: false,
+      isEnabled: true,
       connection: undefined,
       formerExternalAccountId: '123',
     });
+  });
+
+  it('comes back enabled when it reconnects the same portal account', () => {
+    const account = connected('mercadolibre', '123');
+    unwrap(account.enable());
+    unwrap(account.disconnect());
+
+    unwrap(account.connect(connection('123'), [], true));
+
+    expect(account.canPublish).toBe(true);
+  });
+
+  it('starts disabled when it connects another portal account', () => {
+    const account = connected('mercadolibre', '123');
+    unwrap(account.enable());
+    unwrap(account.disconnect());
+
+    unwrap(account.connect(connection('456'), [], false));
+
+    expect(account.canPublish).toBe(false);
   });
 
   it('cannot disconnect an account that is not connected', () => {

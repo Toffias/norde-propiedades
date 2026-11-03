@@ -9,8 +9,8 @@ export type BackgroundTaskScopeError = ForbiddenError;
 export const READ_OTHERS_BACKGROUND_TASKS = 'background-tasks:read-others';
 
 /**
- * Qué alcanza a ver el actor. Cualquier usuario del panel ve los procesos que pidió; los de todos,
- * con las publicaciones en los portales, piden el permiso.
+ * Qué alcanza a ver el actor. Cualquier usuario del panel ve los procesos que pidió, con las
+ * publicaciones en los portales que pidió él; los de todos piden el permiso.
  */
 export function backgroundTaskCriteria(
   scope: BackgroundTaskScope,
@@ -18,7 +18,7 @@ export function backgroundTaskCriteria(
   finishedSince: Date,
 ): Result<BackgroundTaskCriteria, ForbiddenError> {
   if (actor.kind !== 'user') return err({ type: 'Forbidden' });
-  if (scope === 'mine') return ok({ requesterId: actor.id, includePortals: false, finishedSince });
+  if (scope === 'mine') return ok({ requesterId: actor.id, includePortals: true, finishedSince });
   if (!actor.can(READ_OTHERS_BACKGROUND_TASKS)) return err({ type: 'Forbidden' });
   return ok({ requesterId: undefined, includePortals: true, finishedSince });
 }

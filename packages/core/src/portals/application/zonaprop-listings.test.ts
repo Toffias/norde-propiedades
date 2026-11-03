@@ -8,9 +8,11 @@ import {
   FakeListingSourceReader,
   FakePortalAccountDirectory,
   FakePortalConnector,
+  FakePortalListingCatalog,
   InMemoryPortalsUnitOfWork,
   LISTED_PROPERTY_ID,
   listingSource,
+  remoteListing,
 } from '../testing';
 import { ChangeListingPlan } from './commands/change-listing-plan';
 import { PauseListing } from './commands/pause-listing';
@@ -51,13 +53,20 @@ function setup() {
   reader.sources.set(LISTED_PROPERTY_ID, listingSource());
   const connector = new FakePortalConnector();
   const directory = new FakePortalAccountDirectory();
+  const catalog = new FakePortalListingCatalog();
   const clock = new FixedClock(NOW);
   const developments = new FakeDevelopmentListingSourceReader();
   const deps = { uow, reader, developments, connector, clock };
   return {
     ...deps,
     directory,
-    request: new RequestPublication({ ...deps, directory, ids: new SequentialIdGenerator() }),
+    catalog,
+    request: new RequestPublication({
+      ...deps,
+      directory,
+      catalog,
+      ids: new SequentialIdGenerator(),
+    }),
     sync: new SyncListing(deps),
     pause: new PauseListing({ uow, clock }),
     resume: new ResumeListing({ uow, directory, clock }),
@@ -193,6 +202,42 @@ describe('RequestPublication on Zonaprop', () => {
     expect(unwrapErr(await request.execute(ZONAPROP, AGENT))).toEqual({
       type: 'ListingAlreadyExists',
     });
+  });
+
+  it('does not publish over a listing another system has online with the property code', async () => {
+    const { request, catalog, uow, connector } = setup();
+    catalog.listings = [
+      remoteListing({ remoteId: '59143516', code: 'NAP1', reference: 'DEP0001' }),
+    ];
+
+    expect(unwrapErr(await request.execute(ZONAPROP, AGENT))).toEqual({
+      type: 'ListingAlreadyOnPortal',
+      remoteId: '59143516',
+      permalink: remoteListing().permalink,
+    });
+    expect(uow.listings.rows.size).toBe(0);
+    expect(connector.calls).toHaveLength(0);
+  });
+
+  it('does not take its own online listing for one of another system', async () => {
+    const { request, catalog, uow } = await published();
+    const [own] = [...uow.listings.rows.values()];
+    catalog.listings = [
+      remoteListing({ remoteId: '60598380', code: own?.externalId, reference: 'DEP0001' }),
+    ];
+
+    expect(unwrapErr(await request.execute(ZONAPROP, AGENT))).toEqual({
+      type: 'ListingAlreadyExists',
+    });
+  });
+
+  it('returns the portal error when it cannot read the online listings', async () => {
+    const { request, catalog, uow } = setup();
+    catalog.failWith = { type: 'PortalUnavailable' };
+    expect(unwrapErr(await request.execute(ZONAPROP, AGENT))).toEqual({
+      type: 'PortalUnavailable',
+    });
+    expect(uow.listings.rows.size).toBe(0);
   });
 
   it('still asks for the operation and rejects a plan on MercadoLibre', async () => {

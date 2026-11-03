@@ -214,6 +214,24 @@ describe('ZonapropLeads.recent', () => {
     expect(text).not.toContain('1165889654');
   });
 
+  it('reads a date sent as an epoch number, as the sandbox does', async () => {
+    const epoch = {
+      total: 2,
+      content: [
+        { idMensaje: 10, idContactoAccion: 1, fecha: 1793712023340 },
+        { idMensaje: 11, idContactoAccion: 1, fecha: 1793712023 },
+      ],
+    };
+    const { leads } = setup([json(TOKEN), json(epoch)]);
+
+    const page = unwrap(await leads.recent(RECENT));
+
+    expect(page.items.map((l) => l.receivedAt)).toEqual([
+      new Date(1793712023340),
+      new Date(1793712023000),
+    ]);
+  });
+
   it('reads no contacts (204) as an empty page', async () => {
     const { leads } = setup([json(TOKEN), () => new Response(null, { status: 204 })]);
     expect(unwrap(await leads.recent(RECENT))).toEqual({ items: [], total: 0 });

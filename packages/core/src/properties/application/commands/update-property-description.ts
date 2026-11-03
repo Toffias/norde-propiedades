@@ -3,7 +3,7 @@ import {
   UpdatePropertyDescriptionInputSchema,
   type UpdatePropertyDescriptionInput,
 } from '../../contracts';
-import type { PropertyInTrashError } from '../../domain/property';
+import type { DescriptionTooShortError, PropertyInTrashError } from '../../domain/property';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import {
   canEditProperties,
@@ -12,7 +12,8 @@ import {
   type EditPropertyError,
 } from '../property-support';
 
-export type UpdatePropertyDescriptionError = EditPropertyError | PropertyInTrashError;
+export type UpdatePropertyDescriptionError =
+  EditPropertyError | PropertyInTrashError | DescriptionTooShortError;
 
 /** Título para portales y descripción. */
 export class UpdatePropertyDescription {

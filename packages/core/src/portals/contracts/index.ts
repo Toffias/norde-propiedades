@@ -93,6 +93,8 @@ export interface PortalAccountView {
   /** El portal rechazó las credenciales: no sincroniza nada hasta volver a conectarla. */
   readonly needsReconnect: boolean;
   readonly accountName: string | undefined;
+  /** El ID de la cuenta en el portal: en Zonaprop, el código de inmobiliaria. */
+  readonly externalAccountId: string | undefined;
   readonly connectedAt: Date | undefined;
   /** Las publicaciones vinculadas a la cuenta (con aviso vivo), por tipo de aviso y estado. */
   readonly linked: Readonly<Record<ListingOwnerKindValue, LinkedListingCountsView>>;

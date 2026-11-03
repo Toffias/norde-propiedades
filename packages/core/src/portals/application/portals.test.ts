@@ -257,7 +257,8 @@ describe('DisconnectPortalAccount', () => {
 
     expect(uow.accounts.rows.get('mercadolibre')).toEqual({
       portal: 'mercadolibre',
-      isEnabled: false,
+      // Recuerda que estaba activa: vuelve así si se reconecta la misma cuenta.
+      isEnabled: true,
       connection: undefined,
       formerExternalAccountId: '123456789',
     });
@@ -352,6 +353,7 @@ describe('ListPortalAccounts', () => {
           isConnected: true,
           needsReconnect: false,
           accountName: 'NORDEPROPIEDADES',
+          externalAccountId: '123456789',
           connectedAt: new Date(NOW),
           linked: { property: NO_LINKED, development: NO_LINKED },
         },
@@ -365,6 +367,7 @@ describe('ListPortalAccounts', () => {
           isConnected: false,
           needsReconnect: false,
           accountName: undefined,
+          externalAccountId: undefined,
           connectedAt: undefined,
           linked: { property: NO_LINKED, development: NO_LINKED },
         },
@@ -378,6 +381,7 @@ describe('ListPortalAccounts', () => {
           isConnected: false,
           needsReconnect: false,
           accountName: undefined,
+          externalAccountId: undefined,
           connectedAt: undefined,
           linked: { property: NO_LINKED, development: NO_LINKED },
         },

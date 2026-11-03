@@ -69,6 +69,17 @@ export interface PortalListingCatalog {
   }): Promise<Result<PageSlice<RemoteListing>, PortalNotConfiguredError | PortalUnavailableError>>;
 
   /**
+   * Los avisos online cuya clave interna o código es `reference` (el código de una propiedad):
+   * los que ya publicó otro sistema, para no duplicarlos. Incluye los de Norde; el caso de uso los
+   * distingue por su código.
+   */
+  onlineByReference(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly reference: string;
+  }): Promise<Result<readonly RemoteListing[], PortalNotConfiguredError | PortalUnavailableError>>;
+
+  /**
    * Toma el aviso para la publicación `listingId`: desde ahí, Norde lo maneja con el código que usa
    * para sus avisos. Devuelve ese código (el `externalId` de la publicación) y el link del aviso.
    */

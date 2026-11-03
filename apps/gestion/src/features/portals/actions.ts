@@ -40,6 +40,7 @@ import {
   PUBLICATION_ERROR_MESSAGES,
 } from './messages';
 import { PORTALS_SETTINGS_PATH } from './oauth-flow';
+import type { PublicationResult } from './publication-result';
 
 // Server Actions de las cuentas de portales. Cada una: actor de la sesión → contract → un caso de
 // uso → mensaje → revalidar. La autorización la decide el caso de uso.
@@ -112,19 +113,24 @@ function revalidateProperty() {
 
 export async function requestPublicationAction(
   input: RequestPublicationInput,
-): Promise<ActionResult> {
+): Promise<PublicationResult> {
   const { actor } = await requireSession();
   const portals = getContainer().portals;
-  if (!portals) return actionFailed(HIDDEN);
+  if (!portals) return { ok: false, message: HIDDEN, existingRemoteId: undefined };
   const parsed = RequestPublicationInputSchema.safeParse(input);
-  if (!parsed.success) return actionFailed(INVALID);
+  if (!parsed.success) return { ok: false, message: INVALID, existingRemoteId: undefined };
 
   const result = await portals.requestPublication.execute(parsed.data, actor);
   if (result.isErr()) {
-    return actionFailed(messageForError(result.error, PUBLICATION_ERROR_MESSAGES));
+    return {
+      ok: false,
+      message: messageForError(result.error, PUBLICATION_ERROR_MESSAGES),
+      existingRemoteId:
+        result.error.type === 'ListingAlreadyOnPortal' ? result.error.remoteId : undefined,
+    };
   }
   revalidateProperty();
-  return ACTION_OK;
+  return { ok: true };
 }
 
 /** Publicar un emprendimiento con sus unidades disponibles (Zonaprop). */

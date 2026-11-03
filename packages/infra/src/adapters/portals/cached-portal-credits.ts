@@ -1,11 +1,14 @@
 import type { PortalAccountDirectory, PortalCredit } from '@norde/core/portals';
 import { ok } from '@norde/core/shared';
 
-/** Cuánto se recuerdan los créditos leídos para mostrarlos. */
-export const CREDITS_DISPLAY_TTL_MS = 2 * 60_000;
+/**
+ * Cuánto se recuerdan los créditos leídos para mostrarlos: poco, porque la pestaña Difusión se
+ * refresca sola después de publicar, reactivar o cambiar el plan, y tiene que ver lo que se consumió.
+ */
+export const CREDITS_DISPLAY_TTL_MS = 15_000;
 
 /**
- * Los créditos de la cuenta para mostrar (la pestaña Difusión), recordados unos minutos: abrir una
+ * Los créditos de la cuenta para mostrar (la pestaña Difusión), recordados unos segundos: abrir una
  * ficha no llama al portal cada vez, ni espera a un portal lento. Solo se recuerdan las lecturas
  * buenas. Lo que consume un crédito (publicar, reactivar, cambiar de plan) usa el directorio sin
  * cache: tiene que ver lo que queda ahora.

@@ -110,6 +110,17 @@ export interface NegativePriceError {
 export interface PropertyInTrashError {
   readonly type: 'PropertyInTrash';
 }
+
+/**
+ * Lo mínimo que se escribe de descripción: lo que piden los portales para publicar (Zonaprop exige
+ * 50 caracteres). Una descripción más corta no se guarda.
+ */
+export const MIN_DESCRIPTION_LENGTH = 50;
+
+export interface DescriptionTooShortError {
+  readonly type: 'DescriptionTooShort';
+  readonly minimum: number;
+}
 export interface InvalidStatusTransitionError {
   readonly type: 'InvalidStatusTransition';
   readonly from: PropertyStatus;
@@ -602,8 +613,25 @@ export class Property extends AggregateRoot<PropertyId, PropertyEvent> {
     return ok(true);
   }
 
-  /** Título para portales y descripción. Sin título, se vuelve a sugerir. */
+  /**
+   * Título para portales y descripción. Sin título, se vuelve a sugerir. La descripción lleva al
+   * menos {@link MIN_DESCRIPTION_LENGTH} caracteres.
+   */
   updateDescription(
+    change: { readonly portalTitle: string | undefined; readonly description: string },
+    now: Date,
+  ): Result<boolean, PropertyInTrashError | DescriptionTooShortError> {
+    if (change.description.trim().length < MIN_DESCRIPTION_LENGTH) {
+      return err({ type: 'DescriptionTooShort', minimum: MIN_DESCRIPTION_LENGTH });
+    }
+    return this.importDescription(change, now);
+  }
+
+  /**
+   * Título y descripción tal como vienen de Tokko al importar: se guardan aunque la descripción sea
+   * más corta que el mínimo (se completa después, al editarla).
+   */
+  importDescription(
     change: { readonly portalTitle: string | undefined; readonly description: string },
     now: Date,
   ): Result<boolean, PropertyInTrashError> {

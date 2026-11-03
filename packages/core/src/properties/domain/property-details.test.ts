@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { parseId } from '../../shared';
 import { unwrap, unwrapErr } from '../../shared/testing';
-import { Property, type NewProperty } from './property';
+import { MIN_PROPERTY_DESCRIPTION_LENGTH } from '../contracts';
+import { MIN_DESCRIPTION_LENGTH, Property, type NewProperty } from './property';
 import {
   CONDITIONS,
   CUSTOM_ATTRIBUTE_KINDS,
@@ -267,16 +268,45 @@ describe('Property.updateLocation', () => {
   });
 });
 
+const DESCRIPTION = 'Luminoso tres ambientes al frente, con balcón corrido y cocina.';
+
 describe('Property.updateDescription', () => {
   it('trims the description and suggests the title when empty', () => {
     const property = aProperty();
     expect(
-      unwrap(property.updateDescription({ portalTitle: '', description: '  Luminoso.  ' }, LATER)),
+      unwrap(
+        property.updateDescription({ portalTitle: '', description: `  ${DESCRIPTION}  ` }, LATER),
+      ),
     ).toBe(true);
     expect(property.toSnapshot()).toMatchObject({
-      description: 'Luminoso.',
+      description: DESCRIPTION,
       portalTitle: 'Departamento en venta en Palermo',
     });
+  });
+
+  it('requires at least the minimum the portals ask for', () => {
+    const property = aProperty();
+    expect(
+      unwrapErr(property.updateDescription({ portalTitle: '', description: 'Luminoso.' }, LATER)),
+    ).toEqual({ type: 'DescriptionTooShort', minimum: MIN_DESCRIPTION_LENGTH });
+    expect(
+      unwrapErr(property.updateDescription({ portalTitle: '', description: '' }, LATER)).type,
+    ).toBe('DescriptionTooShort');
+    expect(property.toSnapshot().description).toBe('');
+  });
+
+  it('keeps a short description imported from Tokko', () => {
+    const property = aProperty();
+    expect(
+      unwrap(
+        property.importDescription({ portalTitle: undefined, description: 'Luminoso.' }, LATER),
+      ),
+    ).toBe(true);
+    expect(property.toSnapshot().description).toBe('Luminoso.');
+  });
+
+  it('asks the form for the same minimum as the domain', () => {
+    expect(MIN_PROPERTY_DESCRIPTION_LENGTH).toBe(MIN_DESCRIPTION_LENGTH);
   });
 });
 

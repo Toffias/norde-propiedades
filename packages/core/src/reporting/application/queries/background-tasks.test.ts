@@ -86,7 +86,7 @@ describe('ListBackgroundTasks', () => {
     expect(page.items[0]?.requester).toEqual({ id: CAMILA, name: 'Camila Pérez' });
     expect(tasks.criteria[0]).toEqual({
       requesterId: CAMILA,
-      includePortals: false,
+      includePortals: true,
       finishedSince: new Date('2026-10-14T12:00:00Z'),
     });
   });

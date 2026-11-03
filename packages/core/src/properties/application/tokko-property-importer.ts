@@ -200,7 +200,7 @@ export class TokkoPropertyImporter {
     expectOk(property.updateCharacteristics(row.characteristics, now));
     if (row.description !== undefined) {
       expectOk(
-        property.updateDescription(
+        property.importDescription(
           { portalTitle: row.portalTitle, description: row.description },
           now,
         ),

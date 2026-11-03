@@ -183,6 +183,17 @@ describe('Listing results', () => {
     ]);
   });
 
+  it('records when an up-to-date listing was checked, but not over a failure', () => {
+    const listing = published();
+    expect(listing.recordUpToDate(LATER)).toBe(true);
+    expect(listing.toSnapshot().lastSyncedAt).toEqual(LATER);
+
+    const failed = published();
+    failed.recordFailure('Falta el WhatsApp', NOW);
+    expect(failed.recordUpToDate(LATER)).toBe(false);
+    expect(failed.toSnapshot().lastSyncedAt).toEqual(NOW);
+  });
+
   it('closes for good when the portal closed it', () => {
     const listing = published();
     listing.recordClosed(NOW);

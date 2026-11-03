@@ -126,6 +126,13 @@ const NO_LINK_PERMISSION: PortalSyncError = {
     'Zonaprop no le da permiso a Norde para vincular avisos. Hay que pedirle a Zonaprop (integracion@ar.quintoandar.com) que habilite "asociar avisos" para el integrador.',
 };
 
+/** Avisos por página al buscar por clave interna: con 100, el sandbox responde 500. */
+const REFERENCE_PAGE_SIZE = 50;
+/** Hasta 2.000 avisos online: muchos más de los que tiene la inmobiliaria. */
+const REFERENCE_MAX_PAGES = 40;
+/** De a cuántos se relee una página que Zonaprop no pudo armar. */
+const REFERENCE_RETRY_SIZE = 10;
+
 function readError(error: ZonapropApiError): PortalNotConfiguredError | PortalUnavailableError {
   return error.type === 'not_configured' || error.type === 'forbidden'
     ? { type: 'PortalNotConfigured' }
@@ -162,6 +169,77 @@ export class ZonapropListingCatalog implements PortalListingCatalog {
     // 204: no hay avisos online.
     const page = result.value ?? { total: 0, content: [] };
     return ok({ items: page.content.map(toRemote), total: page.total });
+  }
+
+  /**
+   * El resumen de Zonaprop solo filtra por `idAvisoNavplat`: para buscar por clave interna se
+   * recorren las páginas de a {@link REFERENCE_PAGE_SIZE}, hasta {@link REFERENCE_MAX_PAGES}.
+   */
+  async onlineByReference(input: {
+    readonly portal: PortalId;
+    readonly externalAccountId: string;
+    readonly reference: string;
+  }): Promise<Result<readonly RemoteListing[], PortalNotConfiguredError | PortalUnavailableError>> {
+    const wanted = input.reference.trim().toUpperCase();
+    const found: RemoteListing[] = [];
+    let total: number | undefined;
+    for (let page = 0; page < REFERENCE_MAX_PAGES; page += 1) {
+      const offset = page * REFERENCE_PAGE_SIZE;
+      if (total !== undefined && offset >= total) break;
+      const range = await this.#referenceRange(input, offset, wanted);
+      if (range.isErr()) return err(range.error);
+      total = range.value.total;
+      found.push(...range.value.found);
+    }
+    return ok(found);
+  }
+
+  /**
+   * Una página del recorrido por clave interna. Un aviso roto hace que Zonaprop responda 500 a toda
+   * la página que lo trae (pasa en el sandbox): entonces se relee de a {@link REFERENCE_RETRY_SIZE}
+   * y se saltean, con un aviso en el log, solo los tramos que siguen fallando.
+   */
+  async #referenceRange(
+    input: { readonly portal: PortalId; readonly externalAccountId: string },
+    offset: number,
+    wanted: string,
+  ): Promise<
+    Result<
+      { readonly found: readonly RemoteListing[]; readonly total: number },
+      PortalNotConfiguredError | PortalUnavailableError
+    >
+  > {
+    const matches = (items: readonly RemoteListing[]) =>
+      items.filter((r) => [r.reference, r.code].some((c) => c?.toUpperCase() === wanted));
+    const read = (from: number, limit: number) => this.online({ ...input, offset: from, limit });
+
+    const page = await read(offset, REFERENCE_PAGE_SIZE);
+    if (page.isOk()) return ok({ found: matches(page.value.items), total: page.value.total });
+    if (page.error.type !== 'PortalUnavailable') return err(page.error);
+
+    const found: RemoteListing[] = [];
+    let total: number | undefined;
+    let skipped = 0;
+    for (let from = offset; from < offset + REFERENCE_PAGE_SIZE; from += REFERENCE_RETRY_SIZE) {
+      if (total !== undefined && from >= total) break;
+      const small = await read(from, REFERENCE_RETRY_SIZE);
+      if (small.isErr()) {
+        if (small.error.type !== 'PortalUnavailable') return err(small.error);
+        skipped += REFERENCE_RETRY_SIZE;
+        continue;
+      }
+      total = small.value.total;
+      found.push(...matches(small.value.items));
+    }
+    // Nada se pudo leer: Zonaprop no está respondiendo.
+    if (total === undefined) return err({ type: 'PortalUnavailable' });
+    if (skipped > 0) {
+      this.deps.logger.warn(
+        { portal: input.portal, offset, skipped },
+        'Zonaprop listings skipped while looking for an internal key',
+      );
+    }
+    return ok({ found, total });
   }
 
   async link(input: {

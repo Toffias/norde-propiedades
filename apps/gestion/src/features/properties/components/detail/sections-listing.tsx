@@ -28,6 +28,7 @@ import { Badge } from '@norde/ui/components/badge';
 import { SectionCard } from '@norde/ui/components/section-card';
 import { cn } from '@norde/ui/lib/utils';
 import {
+  AlertTriangleIcon,
   BanknoteIcon,
   CalendarDaysIcon,
   FileTextIcon,
@@ -90,6 +91,19 @@ export function MapSection({ detail }: { readonly detail: PanelPropertyDetail })
 
 // ---------- Ubicación ----------
 
+/**
+ * Sin coordenadas la propiedad se guarda igual (al principio puede no tenerlas), pero los portales
+ * las piden para publicar (Zonaprop rechaza el aviso): se avisa de antemano.
+ */
+function MissingCoordinates() {
+  return (
+    <span className="inline-flex items-start gap-1.5 text-warning-700 dark:text-warning-300">
+      <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      Sin ubicar en el mapa: los portales la piden para publicar.
+    </span>
+  );
+}
+
 export function LocationSection({
   detail,
   canEdit,
@@ -129,9 +143,11 @@ export function LocationSection({
             {
               label: 'Coordenadas',
               value:
-                detail.coordinates === undefined
-                  ? 'Sin ubicar en el mapa'
-                  : `${detail.coordinates.latitude.toFixed(5)}, ${detail.coordinates.longitude.toFixed(5)}`,
+                detail.coordinates === undefined ? (
+                  <MissingCoordinates />
+                ) : (
+                  `${detail.coordinates.latitude.toFixed(5)}, ${detail.coordinates.longitude.toFixed(5)}`
+                ),
             },
           ]}
         />

@@ -1,4 +1,5 @@
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
+import { canSeePortals } from '../portals-access';
 import { PortalInputSchema, type PortalCreditView, type PortalInput } from '../../contracts';
 import type { PortalNotConnectedError } from '../../domain/portal-account';
 import type { PortalAccountRepository } from '../../domain/portals.repository';
@@ -31,7 +32,7 @@ export class GetPortalCredits {
     input: PortalInput,
     actor: Actor,
   ): Promise<Result<readonly PortalCreditView[], GetPortalCreditsError>> {
-    if (!actor.can('portals:manage') && !actor.can('portals:publish')) {
+    if (!canSeePortals(actor)) {
       return err({ type: 'Forbidden' });
     }
     const parsed = parseInput(PortalInputSchema, input);

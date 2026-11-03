@@ -407,6 +407,13 @@
       "when": 1793585515344,
       "tag": "0057_agent_property_references",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793716452805,
+      "tag": "0058_portals_read_permission",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
+import { canSeePortals } from '../portals-access';
 import type { LinkedListingCountsView, PortalAccountsView } from '../../contracts';
 import { PORTAL_CATALOG, type ListingOwnerKind } from '../../domain/portal';
 import type { PortalAccountRepository } from '../../domain/portals.repository';
@@ -6,7 +7,7 @@ import type { PortalListingCount, PortalListingCounter } from '../ports/portal-l
 
 export type ListPortalAccountsError = ForbiddenError;
 
-/** Las cuentas de portales para Mi empresa → Portales. Las ve quien conecta o quien publica. */
+/** Las cuentas de portales para Mi empresa → Portales. Las ve quien puede ver la difusión. */
 export class ListPortalAccounts {
   constructor(
     private readonly deps: {
@@ -20,7 +21,7 @@ export class ListPortalAccounts {
     actor: Actor,
   ): Promise<Result<PortalAccountsView, ListPortalAccountsError>> {
     const canManage = actor.can('portals:manage');
-    if (!canManage && !actor.can('portals:publish')) return err({ type: 'Forbidden' });
+    if (!canSeePortals(actor)) return err({ type: 'Forbidden' });
 
     const [accounts, counts] = await Promise.all([
       this.deps.accounts.all(),

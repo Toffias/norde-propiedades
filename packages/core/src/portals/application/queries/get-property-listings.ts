@@ -1,4 +1,5 @@
 import { err, ok, type Actor, type ForbiddenError, type Result } from '../../../shared';
+import { canSeePortals } from '../portals-access';
 import {
   PropertyListingsInputSchema,
   type PropertyListingsInput,
@@ -23,7 +24,7 @@ export class GetPropertyListings {
     actor: Actor,
   ): Promise<Result<PropertyListingsView, GetPropertyListingsError>> {
     const canPublish = actor.can('portals:publish');
-    if (!canPublish && !actor.can('portals:manage')) return err({ type: 'Forbidden' });
+    if (!canSeePortals(actor)) return err({ type: 'Forbidden' });
     const parsed = parseInput(PropertyListingsInputSchema, input);
     if (parsed.isErr()) return err(parsed.error);
 

@@ -1,4 +1,5 @@
 import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
+import { canSeePortals } from '../portals-access';
 import { ListingIdInputSchema, type ListingIdInput, type ListingStatsView } from '../../contracts';
 import { PORTAL_CATALOG } from '../../domain/portal';
 import { listingIdOf, type ListingNotFoundError } from '../listing-support';
@@ -41,7 +42,7 @@ export class GetListingStats {
     input: ListingIdInput,
     actor: Actor,
   ): Promise<Result<ListingStatsView, GetListingStatsError>> {
-    if (!actor.can('portals:publish') && !actor.can('portals:manage')) {
+    if (!canSeePortals(actor)) {
       return err({ type: 'Forbidden' });
     }
     const parsed = parseInput(ListingIdInputSchema, input);

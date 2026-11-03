@@ -1,4 +1,5 @@
 import { accessScope, canActOn, OWNERSHIP_RULES } from '@norde/core/identity';
+import { canSeePortals } from '@norde/core/portals';
 import {
   ListAttachmentsQuerySchema,
   ListPropertyHistoryQuerySchema,
@@ -85,9 +86,7 @@ function permissionsFor(
     reserve: detail.deletedAt === undefined && actor.can('reservations:create'),
     manageReservations: actor.can('reservations:update'),
     reservations: actor.can('reservations:read'),
-    portals:
-      getContainer().portals !== undefined &&
-      (actor.can('portals:publish') || actor.can('portals:manage')),
+    portals: getContainer().portals !== undefined && canSeePortals(actor),
   };
 }
 

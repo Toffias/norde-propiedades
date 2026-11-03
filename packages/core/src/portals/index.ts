@@ -31,6 +31,7 @@ export type { PortalAccountRepository } from './domain/portals.repository';
 
 export type { ValidationFailedError } from './application/portals-input';
 export type { WrongConnectionMethodError } from './application/connection-method';
+export { canSeePortals } from './application/portals-access';
 export type {
   PortalAuthorizationError,
   PortalAuthorizationGrant,

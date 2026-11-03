@@ -671,6 +671,14 @@ describe('GetPropertyListings', () => {
     );
   });
 
+  it('lets whoever only reads the portals see it without publishing', async () => {
+    const { list } = setup();
+    const reader = Actor.user('agent-3', ['portals:read']);
+    expect(unwrap(await list.execute({ propertyId: LISTED_PROPERTY_ID }, reader)).canPublish).toBe(
+      false,
+    );
+  });
+
   it('requires a portals permission', async () => {
     const { list } = setup();
     expect(unwrapErr(await list.execute({ propertyId: LISTED_PROPERTY_ID }, VIEWER))).toEqual({

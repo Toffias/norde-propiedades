@@ -33,7 +33,7 @@ const id = (group: string, n: number) =>
 
 const MINE: BackgroundTaskCriteria = {
   requesterId: CAMILA,
-  includePortals: false,
+  includePortals: true,
   finishedSince: SINCE,
 };
 const ALL: BackgroundTaskCriteria = {
@@ -351,7 +351,7 @@ describe('DrizzleBackgroundTaskQuery', () => {
     expect(cleared.items.map((row) => row.sourceId)).toEqual([id('f000', 1)]);
   });
 
-  it('shows the portal listings only with everyone, with the error of the portal', async () => {
+  it('shows the portal listings to whoever asked for them, with the error of the portal', async () => {
     await seedOwners();
     await db
       .insert(portalAccounts)
@@ -366,6 +366,7 @@ describe('DrizzleBackgroundTaskQuery', () => {
         lastError: 'Faltan fotos.',
         lastSyncedAt: at('21T11:00:00'),
         ...stamps(CAMILA, at('10T10:00:00'), at('21T11:00:00')),
+        updatedBy: 'system:portal-sync',
       },
       {
         id: id('c100', 2),
@@ -377,7 +378,9 @@ describe('DrizzleBackgroundTaskQuery', () => {
       },
     ]);
 
-    expect((await query.list(MINE, PAGE)).total).toBe(0);
+    // La de Camila es suya aunque el último en tocarla fue la sincronización.
+    const mine = await query.list(MINE, PAGE);
+    expect(mine.items.map((row) => row.sourceId)).toEqual([id('c100', 1)]);
     const all = await query.list(ALL, PAGE);
     expect(all.items.map((row) => [row.status, row.detail, row.failure, row.finishedAt])).toEqual([
       ['running', 'mercadolibre', undefined, undefined],

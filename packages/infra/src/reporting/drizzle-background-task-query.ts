@@ -256,11 +256,12 @@ export class DrizzleBackgroundTaskQuery implements BackgroundTaskQuery {
             as status,
           pl.property_id::text as property_id, pl.development_id::text as development_id,
           pl.portal as detail, null::int as done, null::int as total, 0 as problems,
-          pl.last_error as failure, pl.updated_by as requester_id, pl.created_at,
+          pl.last_error as failure, pl.created_by as requester_id, pl.created_at,
           case when pl.status <> 'pending' then coalesce(pl.last_synced_at, pl.updated_at) end
             as finished_at
         from ${portalListings} pl
-        where pl.status = 'pending' or pl.updated_at > ${since}::timestamptz
+        where ${by(sql`pl.created_by`)}
+          and (pl.status = 'pending' or pl.updated_at > ${since}::timestamptz)
       `);
     }
     return sql.join(sources, sql` union all `);

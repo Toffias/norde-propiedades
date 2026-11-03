@@ -95,7 +95,13 @@ export class SyncListing {
       const before = listing.toSnapshot().status;
       const account = await tx.accounts.get(listing.portal);
       const outcome = await this.#sync(listing, account.canPublish);
-      if (outcome === 'unchanged') return ok(outcome);
+      if (outcome === 'unchanged') {
+        // Sin cambio de estado: no se audita, solo queda la hora de la revisión.
+        if (listing.recordUpToDate(this.deps.clock.now())) {
+          await tx.listings.save(listing, actor.id);
+        }
+        return ok(outcome);
+      }
 
       await tx.listings.save(listing, actor.id);
       await tx.events.publish(listing.pullEvents());

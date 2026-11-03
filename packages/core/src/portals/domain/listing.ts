@@ -401,6 +401,17 @@ export class Listing extends AggregateRoot<ListingId, ListingEvent> {
   }
 
   /**
+   * Se revisó el aviso y el portal ya estaba al día: no había nada que mandar. Queda la hora de la
+   * revisión, para que el equipo vea que se sincronizó. Solo en un aviso sano (publicado o pausado):
+   * uno con error sigue mostrando cuándo falló. Devuelve si cambió algo.
+   */
+  recordUpToDate(now: Date): boolean {
+    if (this.#state.status !== 'published' && this.#state.status !== 'paused') return false;
+    this.#state = { ...this.#state, lastSyncedAt: now };
+    return true;
+  }
+
+  /**
    * El aviso quedó pausado (o nunca se creó y queda en pausa). Con `reason`, queda el motivo a la
    * vista: Norde lo pausó por algo que el equipo tiene que resolver (la propiedad quedó sin precio)
    * o el portal lo dejó pausado aunque se pidió activarlo (lo está moderando).

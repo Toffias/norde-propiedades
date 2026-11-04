@@ -35,6 +35,9 @@ import { DrizzleClientListQuery } from './drizzle-client-list-query';
 import { DrizzleClientRecordQuery } from './drizzle-client-record-query';
 import { DrizzleOpportunityPipelineQuery } from './drizzle-opportunity-pipeline-query';
 
+// La propiedad consultada no importa acá: la consulta del agente entra sin etiquetas ni sucursal.
+const noProperties = { facts: () => Promise.resolve(undefined) };
+
 const db = useTestDatabase();
 const clock = new FixedClock('2026-03-01T10:00:00Z');
 const ids = new UuidV7IdGenerator();
@@ -407,7 +410,7 @@ describe('DrizzleOpportunityPipelineQuery', () => {
 
 describe('opportunity actions persistence', () => {
   const uow = createClientsUnitOfWork(db, { ids, clock });
-  const system = Actor.system('agent-ia', ['clients:create']);
+  const system = Actor.system('agent-ia', ['clients:create', 'inquiries:receive']);
   const manager = Actor.user(AGENT, ['opportunities:*']).withBranch(BRANCH);
 
   function unwrap<T, E>(result: Result<T, E>): T {
@@ -417,7 +420,7 @@ describe('opportunity actions persistence', () => {
 
   async function registerAna() {
     return unwrap(
-      await new RegisterContact({ uow, ids, clock }).execute(
+      await new RegisterContact({ uow, properties: noProperties, ids, clock }).execute(
         {
           channel: 'whatsapp',
           channelExternalId: '5491166899124',

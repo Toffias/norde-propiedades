@@ -435,7 +435,7 @@ Permisos nuevos de oportunidades, para las etapas siguientes: ver las de su sucu
 
 ### 3.3.9 Bandeja de consultas (#10)
 
-Las **consultas** son los mensajes que llegan de los portales y del formulario de la web. Entran **pendientes** a una bandeja y terminan asignadas a un contacto (existente o nuevo) o en "Borradas". Las del agente de IA (WhatsApp, web chat) no pasan por la bandeja: ya entran por `RegisterContact`.
+Las **consultas** son los mensajes que llegan de los portales y del formulario de la web. Entran **pendientes** a una bandeja y terminan asignadas a un contacto (existente o nuevo) o en "Borradas". Las del agente de IA (WhatsApp, web chat) también llegan a la bandeja (#45): `RegisterContact` crea el contacto y la oportunidad y además deja la consulta, una por oportunidad (ver "Consultas del agente de IA" abajo).
 
 #10 se construye en cuatro etapas:
 
@@ -531,7 +531,11 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 **Diferencias con Tokko**:
 
 - Las consultas de visitas sin contacto no existen: Calendario está fuera de alcance.
-- La bandeja no muestra las conversaciones del agente de IA, que ya son contactos. Que el agente mande a la bandeja lo que no pudo registrar queda para otra issue.
+- **Consultas del agente de IA** (#45): cada vez que el agente registra a alguien, `RegisterContact` crea o encuentra el contacto, abre la oportunidad (o suma el pedido a la abierta por lo mismo) y deja la consulta en la bandeja, con canal WhatsApp o Chat de la web, el resumen del agente como mensaje y la oportunidad ya vinculada.
+  - Hay **una consulta por oportunidad** (el ID externo es el de la oportunidad): otro pedido por lo mismo no suma otra.
+  - Si la oportunidad no tiene agente (contacto nuevo, o sin agente), queda **pendiente**. Asignarla (a mano, por chances o por reglas) le pone agente a **esa** oportunidad, sin sumarle otro pedido. Si la oportunidad se cerró o se asigna a otro contacto, se registra como cualquier consulta.
+  - Si la oportunidad ya tiene agente, la consulta entra **asignada** a él (va a "Asignadas"): no hay nada que repartir.
+  - El agente necesita `inquiries:receive`. Lo que el agente no pudo registrar (sin teléfono ni email) no llega a la bandeja.
 - Las grillas son paginadas en el servidor, también las coincidencias.
 - "Crear cliente nuevo" no está disponible si el teléfono o el email ya son de un contacto.
 - Cliente y oportunidad están separados: asignar una consulta abre o actualiza una oportunidad del contacto.

@@ -2,10 +2,13 @@ import {
   auditAction,
   diffChanges,
   Email,
+  ok,
+  parseId,
   Phone,
   type Actor,
   type AuditChanges,
   type IdGenerator,
+  type Result,
 } from '../../shared';
 import type { AssignInquiryOutput } from '../contracts';
 import type { Client } from '../domain/client';
@@ -14,7 +17,7 @@ import type { Inquiry } from '../domain/inquiry';
 import type { OpportunityType } from '../domain/opportunity';
 
 import { clientAuditState, clientTarget } from './client-support';
-import { recordIncomingContact } from './incoming-contact';
+import { recordIncomingContact, type RecordedContact } from './incoming-contact';
 import { inquiryTarget } from './inquiry-support';
 import { reassignOpportunityTo } from './opportunity-support';
 import type { ClientsTransaction } from './ports/clients-transaction';
@@ -57,7 +60,7 @@ export function senderKeys(inquiry: Inquiry): ContactKeys {
 }
 
 /** Lo que se audita de la asignación: a quién quedó, sin los datos del remitente. */
-function assignmentState(inquiry: Inquiry) {
+export function assignmentState(inquiry: Inquiry) {
   const s = inquiry.toSnapshot();
   return {
     status: s.status,
@@ -94,6 +97,25 @@ async function takeCharge(
 }
 
 /**
+ * La consulta que dejó el agente de IA ya abrió (o actualizó) su oportunidad: si sigue abierta y es
+ * del cliente al que se asigna, se usa esa, sin sumarle otro pedido. Si no (se cerró, o se asigna
+ * a otro cliente), `undefined`: se registra como cualquier consulta.
+ */
+async function alreadyRegistered(
+  tx: ClientsTransaction,
+  inquiry: Inquiry,
+  existing: Client | undefined,
+): Promise<Result<RecordedContact, never> | undefined> {
+  if (inquiry.opportunityId === undefined || existing === undefined || existing.isDeleted) {
+    return undefined;
+  }
+  const id = parseId<'Opportunity'>(inquiry.opportunityId);
+  const opportunity = id.isOk() ? await tx.opportunities.findById(id.value) : undefined;
+  if (!opportunity?.isOpen() || opportunity.clientId !== existing.id) return undefined;
+  return ok({ client: existing, opportunity, clientCreated: false, opportunityCreated: false });
+}
+
+/**
  * Asigna una consulta pendiente (ya bloqueada) a un cliente: registra el contacto con la misma regla
  * que `RegisterContact` (agrega el canal o crea el cliente, y abre una oportunidad por la propiedad
  * consultada o suma el pedido a la abierta por lo mismo), deja la oportunidad a cargo del agente que
@@ -117,19 +139,21 @@ export async function assignInquiryIn(
 ): Promise<AssignInquiryOutput> {
   const { inquiry, existing } = input;
   const { now } = deps;
-  const recorded = await recordIncomingContact(tx, actor, deps, {
-    existing,
-    contact: senderContact(inquiry),
-    channel: inquiry.channel,
-    channelExternalId: inquiry.senderChannelId,
-    opportunity: {
-      type: input.type,
-      intent: 'contact',
-      propertyId: inquiry.propertyId,
-      note: inquiry.opportunityNote,
-      noMatchingStock: false,
-    },
-  });
+  const recorded =
+    (await alreadyRegistered(tx, inquiry, existing)) ??
+    (await recordIncomingContact(tx, actor, deps, {
+      existing,
+      contact: senderContact(inquiry),
+      channel: inquiry.channel,
+      channelExternalId: inquiry.senderChannelId,
+      opportunity: {
+        type: input.type,
+        intent: 'contact',
+        propertyId: inquiry.propertyId,
+        note: inquiry.opportunityNote,
+        noMatchingStock: false,
+      },
+    }));
   // `receive` exige un teléfono o un email: el registro no puede quedar sin datos de contacto.
   if (recorded.isErr()) throw new Error(`Inquiry ${inquiry.id} has no contact info`);
   const { client, opportunity, clientCreated, opportunityCreated } = recorded.value;

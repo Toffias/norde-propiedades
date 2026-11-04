@@ -17,12 +17,17 @@ import {
   DrizzleOpportunityRepository,
 } from './drizzle-client-repositories';
 
+// La propiedad consultada no importa acá: la consulta del agente entra sin etiquetas ni sucursal.
+const noProperties = { facts: () => Promise.resolve(undefined) };
+
 const db = useTestDatabase();
 const clock = new FixedClock('2026-03-01T10:00:00Z');
 const ids = new UuidV7IdGenerator();
 const uow = createClientsUnitOfWork(db, { ids, clock });
-const registerContact = new RegisterContact({ uow, ids, clock });
-const agent = Actor.system('agent-ia', ['clients:create']).withCorrelation('wamid.1');
+const registerContact = new RegisterContact({ uow, properties: noProperties, ids, clock });
+const agent = Actor.system('agent-ia', ['clients:create', 'inquiries:receive']).withCorrelation(
+  'wamid.1',
+);
 const TEST_ENTRY: AuditEntry = {
   kind: 'action',
   actorId: 'test',
@@ -57,6 +62,7 @@ describe('clients persistence', () => {
     ]);
     expect((await db.select().from(outbox)).map((e) => e.eventType).sort()).toEqual([
       'clients.client_registered',
+      'clients.inquiry_received',
       'clients.opportunity_created',
     ]);
     const entries = await db.select().from(auditLog).orderBy(auditLog.entityType);
@@ -70,6 +76,8 @@ describe('clients persistence', () => {
           phones: { before: null, after: [{ kind: 'mobile', number: '+5491166899124' }] },
         },
       },
+      // La consulta que deja el agente en la bandeja (#45).
+      { action: 'inquiry.received', clientIds: [] },
       {
         action: 'opportunity.opened',
         clientIds: [result.value.clientId],

@@ -1,20 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../../shared';
-import { FixedClock, SequentialIdGenerator } from '../../../shared/testing';
+import { FixedClock, SequentialIdGenerator, unwrap } from '../../../shared/testing';
 import type { RegisterContactInput } from '../../contracts';
-import { InMemoryClientsUnitOfWork, seedClient, stageFixtureId } from '../../testing';
+import {
+  AGENT_ID,
+  BRANCH_ID,
+  InMemoryClientsUnitOfWork,
+  InMemoryInquiryPropertyLookup,
+  seedClient,
+  stageFixtureId,
+} from '../../testing';
 
 import { RegisterContact } from './register-contact';
 
-const agent = Actor.system('agent-ia', ['clients:create']);
+const agent = Actor.system('agent-ia', ['clients:create', 'inquiries:receive']);
 const PROPERTY_ID = '00000000-0000-7000-8000-0000000000aa';
 
 function setup() {
   const uow = new InMemoryClientsUnitOfWork();
   const clock = new FixedClock('2026-03-01T10:00:00Z');
-  const useCase = new RegisterContact({ uow, ids: new SequentialIdGenerator(), clock });
-  return { uow, clock, useCase };
+  const properties = new InMemoryInquiryPropertyLookup();
+  const useCase = new RegisterContact({ uow, properties, ids: new SequentialIdGenerator(), clock });
+  return { uow, clock, properties, useCase };
 }
 
 function whatsappContact(overrides: Partial<RegisterContactInput> = {}): RegisterContactInput {
@@ -50,10 +58,12 @@ describe('RegisterContact', () => {
     expect(uow.events.published.map((e) => e.type)).toEqual([
       'clients.client_registered',
       'clients.opportunity_created',
+      'clients.inquiry_received',
     ]);
     expect(uow.audit.entries.map((e) => e.action)).toEqual([
       'client.registered',
       'opportunity.opened',
+      'inquiry.received',
     ]);
     const [clientEntry, opportunityEntry] = uow.audit.entries;
     const clientId = result.isOk() ? result.value.clientId : '';
@@ -275,6 +285,97 @@ describe('RegisterContact', () => {
     expect(uow.clients.rows.size).toBe(0);
   });
 
+  it('requires inquiries:receive, to leave the inquiry in the inbox', async () => {
+    const { uow, useCase } = setup();
+
+    const result = await useCase.execute(
+      whatsappContact(),
+      Actor.system('agent-ia', ['clients:create']),
+    );
+
+    expect(result.isErr() && result.error).toEqual({ type: 'Forbidden' });
+    expect(uow.clients.rows.size).toBe(0);
+  });
+});
+
+describe('RegisterContact leaves the inquiry in the inbox (#45)', () => {
+  it('leaves a pending inquiry linked to the new opportunity, without an agent', async () => {
+    const { uow, properties, useCase } = setup();
+    properties.known.set(PROPERTY_ID, {
+      branchId: BRANCH_ID,
+      propertyType: 'house',
+      operations: ['rent'],
+      neighborhood: 'Mataderos',
+    });
+
+    const { opportunityId } = unwrap(
+      await useCase.execute(
+        whatsappContact({
+          opportunity: {
+            type: 'rent',
+            intent: 'visit',
+            propertyId: PROPERTY_ID,
+            note: 'Quiere visitar. Tarjeta 4509 9535 6623 3704',
+          },
+        }),
+        agent,
+      ),
+    );
+
+    const [inquiry] = [...uow.inquiries.rows.values()];
+    expect(uow.inquiries.rows.size).toBe(1);
+    expect(inquiry).toMatchObject({
+      channel: 'whatsapp',
+      externalId: opportunityId,
+      status: 'pending',
+      clientId: undefined,
+      opportunityId,
+      propertyId: PROPERTY_ID,
+      branchId: BRANCH_ID,
+      autoTags: ['channel:whatsapp', 'operation:rent', 'type:house', 'neighborhood:Mataderos'],
+      sender: { name: 'Ana', phoneE164: '+5491166899124' },
+    });
+    expect(inquiry?.message).not.toContain('4509 9535 6623 3704');
+  });
+
+  it('does not add another inquiry when the request goes to the same open opportunity', async () => {
+    const { uow, useCase } = setup();
+
+    unwrap(await useCase.execute(whatsappContact(), agent));
+    uow.events.published.length = 0;
+    unwrap(await useCase.execute(whatsappContact({ name: 'Ana Pérez' }), agent));
+
+    expect(uow.inquiries.rows.size).toBe(1);
+    expect(uow.events.published.map((e) => e.type)).not.toContain('clients.inquiry_received');
+  });
+
+  it('leaves it assigned to the agent of the opportunity, when it has one', async () => {
+    const { uow, useCase } = setup();
+    const client = await seedClient(uow, {
+      phones: ['+541166899124'],
+      agentId: AGENT_ID,
+      branchId: BRANCH_ID,
+    });
+
+    const { opportunityId } = unwrap(await useCase.execute(whatsappContact(), agent));
+
+    const [inquiry] = [...uow.inquiries.rows.values()];
+    expect(inquiry).toMatchObject({
+      status: 'assigned',
+      clientId: client.id,
+      opportunityId,
+      assignedAgentId: AGENT_ID,
+      assignedBy: 'system:agent-ia',
+    });
+    expect(uow.audit.entries.find((e) => e.action === 'inquiry.assigned')).toMatchObject({
+      clientIds: [client.id],
+      changes: {
+        status: { before: 'pending', after: 'assigned' },
+        assignedAgentId: { before: null, after: AGENT_ID },
+      },
+    });
+  });
+
   it('restores a client in the trash that writes again, instead of duplicating it', async () => {
     const { uow, useCase } = setup();
     const trashed = await seedClient(uow, { phones: ['+541166899124'], deleted: true });
@@ -290,6 +391,8 @@ describe('RegisterContact', () => {
       'client.restored',
       'client.contact_recorded',
       'opportunity.opened',
+      'inquiry.received',
+      'inquiry.assigned',
     ]);
   });
 });

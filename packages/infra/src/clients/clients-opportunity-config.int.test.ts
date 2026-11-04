@@ -29,12 +29,15 @@ import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
 import { createClientsUnitOfWork } from './clients-unit-of-work';
 
+// La propiedad consultada no importa acá: la consulta del agente entra sin etiquetas ni sucursal.
+const noProperties = { facts: () => Promise.resolve(undefined) };
+
 const db = useTestDatabase();
 const clock = new FixedClock('2026-03-01T10:00:00Z');
 const ids = new UuidV7IdGenerator();
 const uow = createClientsUnitOfWork(db, { ids, clock });
 const admin = Actor.user('01920000-0000-7000-8000-0000000000a1', ['settings:*']);
-const agent = Actor.system('agent-ia', ['clients:create']);
+const agent = Actor.system('agent-ia', ['clients:create', 'inquiries:receive']);
 
 function unwrap<T, E>(result: Result<T, E>): T {
   if (result.isErr()) throw new Error(JSON.stringify(result.error));
@@ -43,7 +46,7 @@ function unwrap<T, E>(result: Result<T, E>): T {
 
 async function registerAna() {
   return unwrap(
-    await new RegisterContact({ uow, ids, clock }).execute(
+    await new RegisterContact({ uow, properties: noProperties, ids, clock }).execute(
       {
         channel: 'whatsapp',
         channelExternalId: '5491166899124',

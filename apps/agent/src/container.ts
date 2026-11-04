@@ -2,7 +2,7 @@
 // Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app. Los procesos
 // en segundo plano (relay del outbox y jobs) corren en apps/gestion (ADR 0021).
 
-import { RegisterContact } from '@norde/core/clients';
+import { RegisterContact, type InquiryPropertyLookup } from '@norde/core/clients';
 import {
   ReceiveInboundMessages,
   SendReply,
@@ -12,20 +12,24 @@ import {
   type ConversationPolicy,
 } from '@norde/core/conversations';
 import { FindPropertyByPortalAd } from '@norde/core/portals';
-import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
+import { GetPropertyDetail, GetPropertySummaries, SearchProperties } from '@norde/core/properties';
 import { Actor } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
   createConversationsUnitOfWork,
   createDatabase,
+  DrizzleDirectory,
+  DrizzlePanelPropertyListQuery,
   DrizzlePortalAdLookup,
   DrizzlePropertySearchQuery,
+  DrizzleUserAccessQuery,
   MetaWhatsAppMessenger,
   openAIModeration,
   SystemClock,
   UuidV7IdGenerator,
   WebChatMessenger,
   WhatsAppAudioTranscriber,
+  type Database,
 } from '@norde/infra';
 import type { Logger } from 'pino';
 
@@ -49,6 +53,8 @@ const HOUR_MS = 3_600_000;
 const AGENT_ACTOR = Actor.system('agent-ia', [
   'properties:read',
   'clients:create',
+  // Lo que registra queda también en la bandeja de consultas (#45).
+  'inquiries:receive',
   'conversations:receive',
   'conversations:reply',
 ]);
@@ -89,6 +95,7 @@ export function createContainer(
   const findPropertyByPortalAd = new FindPropertyByPortalAd({ ads: new DrizzlePortalAdLookup(db) });
   const registerContact = new RegisterContact({
     uow: createClientsUnitOfWork(db, { ids, clock }),
+    properties: inquiryPropertyLookup(db),
     ids,
     clock,
   });
@@ -270,6 +277,34 @@ export function createContainer(
       await batcher?.drain();
       await queue.idle();
       await database.close();
+    },
+  };
+}
+
+/**
+ * Lo que la consulta de la bandeja toma de la propiedad (sucursal del captador, tipo, operaciones,
+ * barrio), por la API pública de properties. Igual que la entrada de consultas de `apps/gestion`.
+ */
+function inquiryPropertyLookup(db: Database): InquiryPropertyLookup {
+  const directory = new DrizzleDirectory(db);
+  const userAccess = new DrizzleUserAccessQuery(db);
+  const summaries = new GetPropertySummaries({
+    properties: new DrizzlePanelPropertyListQuery(db),
+    users: { names: (userIds) => directory.names('user', userIds) },
+  });
+  return {
+    async facts(propertyId) {
+      const rows = await summaries.execute({ ids: [propertyId] }, AGENT_ACTOR);
+      const row = rows.isOk() ? rows.value[0] : undefined;
+      if (!row) return undefined;
+      const producer = row.producer && (await userAccess.findByUserId(row.producer.id));
+      return {
+        branchId: producer?.branchId,
+        propertyType: row.propertyType,
+        operations: row.operations.map((o) => o.operation),
+        neighborhood: row.neighborhood,
+        developmentId: row.developmentId,
+      };
     },
   };
 }

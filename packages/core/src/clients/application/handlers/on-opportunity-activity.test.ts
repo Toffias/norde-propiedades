@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../../shared';
 import { FixedClock, SequentialIdGenerator } from '../../../shared/testing';
-import { InMemoryClientsUnitOfWork, RecordingTeamNotifier } from '../../testing';
+import {
+  InMemoryClientsUnitOfWork,
+  InMemoryInquiryPropertyLookup,
+  RecordingTeamNotifier,
+} from '../../testing';
 import { RegisterContact } from '../commands/register-contact';
 
 import { NotifyTeamOfOpportunity } from './on-opportunity-activity';
@@ -19,6 +23,7 @@ async function setup() {
   });
   const registered = await new RegisterContact({
     uow,
+    properties: new InMemoryInquiryPropertyLookup(),
     ids: new SequentialIdGenerator(),
     clock: new FixedClock('2026-03-01T10:00:00Z'),
   }).execute(
@@ -29,7 +34,7 @@ async function setup() {
       name: 'Ana',
       opportunity: { type: 'rent', intent: 'visit', note: 'Quiere visitar el sábado' },
     },
-    Actor.system('agent-ia', ['clients:create']),
+    Actor.system('agent-ia', ['clients:create', 'inquiries:receive']),
   );
   if (registered.isErr()) throw new Error('setup failed');
   const [event] = uow.events.published.filter((e) => e.type === 'clients.opportunity_created');

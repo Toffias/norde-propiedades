@@ -35,6 +35,9 @@ import { DrizzleClientRelationQuery } from './drizzle-client-relation-query';
 import { DrizzleClientRepository } from './drizzle-client-repositories';
 import { DrizzleClientTagQuery } from './drizzle-client-tag-query';
 
+// La propiedad consultada no importa acá: la consulta del agente entra sin etiquetas ni sucursal.
+const noProperties = { facts: () => Promise.resolve(undefined) };
+
 const db = useTestDatabase();
 const clock = new FixedClock('2026-03-01T10:00:00Z');
 const ids = new UuidV7IdGenerator();
@@ -299,7 +302,12 @@ describe('MergeClients (Postgres)', () => {
   it('moves channels, tags, relations, opportunities, activity and the rest to the principal', async () => {
     const primary = await createClient('Ana Pérez', '+5491166899101', { email: 'ana@mail.com' });
     // El duplicado llegó por WhatsApp, con otro teléfono.
-    const registered = await new RegisterContact({ uow, ids, clock }).execute(
+    const registered = await new RegisterContact({
+      uow,
+      properties: noProperties,
+      ids,
+      clock,
+    }).execute(
       {
         channel: 'whatsapp',
         channelExternalId: '5491166899199',
@@ -308,7 +316,7 @@ describe('MergeClients (Postgres)', () => {
         email: 'ana.p@mail.com',
         opportunity: { type: 'sale', intent: 'info' },
       },
-      Actor.system('agent-ia', ['clients:create']),
+      Actor.system('agent-ia', ['clients:create', 'inquiries:receive']),
     );
     if (registered.isErr()) throw new Error(registered.error.type);
     const duplicate = registered.value.clientId;

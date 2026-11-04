@@ -138,6 +138,11 @@ export class Inquiry extends AggregateRoot<InquiryId, InquiryEvent> {
     readonly developmentId: string | undefined;
     readonly branchId: string | undefined;
     readonly autoTags: readonly string[];
+    /**
+     * La oportunidad que ya se abrió (o actualizó) por esta consulta, como hace el agente de IA:
+     * asignarla le pone agente a esa oportunidad en vez de sumarle otro pedido.
+     */
+    readonly opportunityId?: string;
     readonly now: Date;
   }): Result<Inquiry, MissingContactInfoError> {
     if (!input.phone && !input.email) return err({ type: 'MissingContactInfo' });
@@ -162,7 +167,7 @@ export class Inquiry extends AggregateRoot<InquiryId, InquiryEvent> {
       autoTags: [...input.autoTags],
       status: 'pending',
       clientId: undefined,
-      opportunityId: undefined,
+      opportunityId: input.opportunityId,
       assignedAgentId: undefined,
       assignedAt: undefined,
       assignedBy: undefined,
@@ -211,6 +216,11 @@ export class Inquiry extends AggregateRoot<InquiryId, InquiryEvent> {
 
   get propertyId(): string | undefined {
     return this.#state.propertyId;
+  }
+
+  /** La oportunidad a la que quedó asignada o, pendiente, la que ya se abrió por ella. */
+  get opportunityId(): string | undefined {
+    return this.#state.opportunityId;
   }
 
   get branchId(): string | undefined {

@@ -5,7 +5,10 @@ import {
   ScriptedModel,
 } from '@norde/agent-kit/testing';
 import { RegisterContact } from '@norde/core/clients';
-import { InMemoryClientsUnitOfWork } from '@norde/core/clients/testing';
+import {
+  InMemoryClientsUnitOfWork,
+  InMemoryInquiryPropertyLookup,
+} from '@norde/core/clients/testing';
 import { ReceiveInboundMessages, SendReply, type UsageLimits } from '@norde/core/conversations';
 import {
   InMemoryConversationsUnitOfWork,
@@ -47,6 +50,7 @@ const HOUR = 3_600_000;
 const actor = Actor.system('agent-ia', [
   'properties:read',
   'clients:create',
+  'inquiries:receive',
   'conversations:receive',
   'conversations:reply',
 ]);
@@ -101,7 +105,12 @@ function setup(
     searchProperties: new SearchProperties({ properties }),
     getPropertyDetail: new GetPropertyDetail({ properties }),
     findPropertyByPortalAd: new FindPropertyByPortalAd({ ads }),
-    registerContact: new RegisterContact({ uow: clients, ids, clock }),
+    registerContact: new RegisterContact({
+      uow: clients,
+      properties: new InMemoryInquiryPropertyLookup(),
+      ids,
+      clock,
+    }),
   });
   const handler = new WebChatTurnHandler({
     receiveInbound: new ReceiveInboundMessages({
@@ -281,11 +290,21 @@ describe('WebChatTurnHandler', () => {
     const [client] = [...ctx.clients.clients.rows.values()];
     expect(client).toMatchObject({ name: 'Ana' });
     expect(client?.channels).toMatchObject([{ channel: 'web_chat', externalId: SESSION }]);
-    expect([...ctx.clients.opportunities.rows.values()][0]).toMatchObject({
+    const [opportunity] = [...ctx.clients.opportunities.rows.values()];
+    expect(opportunity).toMatchObject({
       originChannel: 'web_chat',
       propertyId: palermo.id,
     });
     expect(ctx.conversation()?.clientId).toBe(client?.id);
+    // También queda en la bandeja de consultas, pendiente de asignar (#45).
+    expect([...ctx.clients.inquiries.rows.values()]).toMatchObject([
+      {
+        channel: 'web_chat',
+        status: 'pending',
+        opportunityId: opportunity?.id,
+        message: 'Quiere visitarla',
+      },
+    ]);
   });
 
   it('registers once per turn and never tells the model whether the client existed', async () => {

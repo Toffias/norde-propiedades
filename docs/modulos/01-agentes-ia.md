@@ -168,13 +168,13 @@ Qué hay que construir:
 
 **No hay API HTTP entre el agente y la gestión.** Son dos procesos separados (`apps/agent` y `apps/gestion`) que usan los **mismos casos de uso** de `@norde/core`, contra la misma base.
 
-| Necesidad                          | Caso de uso (módulo)                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------------- |
-| Buscar propiedades                 | `SearchProperties`, `GetPropertyDetail` (`properties`)                          |
-| Registrar cliente y oportunidad    | `RegisterContact` (`clients`): deduplica por teléfono o email y agrega el canal |
-| Pedir tasación                     | `RequestAppraisal` (`appraisals`)                                               |
-| Derivar a humano o devolver al bot | `HandOffConversation`, `ReturnConversationToBot` (`conversations`)              |
-| Asignar agente y notificar         | Handler del evento `OpportunityCreated` (`clients`), en un job                  |
+| Necesidad                          | Caso de uso (módulo)                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Buscar propiedades                 | `SearchProperties`, `GetPropertyDetail` (`properties`)                                                                |
+| Registrar cliente y oportunidad    | `RegisterContact` (`clients`): deduplica por teléfono o email, agrega el canal y deja la consulta en la bandeja (#45) |
+| Pedir tasación                     | `RequestAppraisal` (`appraisals`)                                                                                     |
+| Derivar a humano o devolver al bot | `HandOffConversation`, `ReturnConversationToBot` (`conversations`)                                                    |
+| Asignar agente y notificar         | Handler del evento `OpportunityCreated` (`clients`), en un job                                                        |
 
 - Las tools del agente llaman a estos casos de uso con `actor = system:agent-ia`, que tiene permisos acotados.
 - La bandeja de conversaciones del panel usa las queries del módulo `conversations`.

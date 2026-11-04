@@ -1,7 +1,5 @@
 import {
-  auditCreated,
   err,
-  nextId,
   ok,
   type Actor,
   type Clock,
@@ -17,10 +15,9 @@ import {
   type ReceiveInquiryOutput,
 } from '../../contracts';
 import type { MissingContactInfoError } from '../../domain/client';
-import { Inquiry, inquiryContact } from '../../domain/inquiry';
-import { inquiryAutoTags } from '../../domain/inquiry-tags';
+import { inquiryContact } from '../../domain/inquiry';
 import { invalidInput, type InvalidInputError } from '../client-support';
-import { inquiryAuditState, inquiryTarget } from '../inquiry-support';
+import { receiveInquiryIn } from '../inquiry-intake';
 import type { ClientsUnitOfWork } from '../ports/clients-transaction';
 import type { InquiryPropertyLookup } from '../ports/inquiry-property-lookup';
 
@@ -71,43 +68,25 @@ export class ReceiveInquiry {
 
     return this.deps.uow.run(
       async (tx): Promise<Result<ReceiveInquiryOutput, ReceiveInquiryError>> => {
-        const existing = await tx.inquiries.findByExternal(data.channel, data.externalId);
-        if (existing) return ok({ inquiryId: existing.id, duplicate: true });
-
-        const received = Inquiry.receive({
-          id: nextId<'Inquiry'>(this.deps.ids),
-          channel: data.channel,
-          externalId: data.externalId,
-          receivedAt: data.receivedAt,
-          name: data.name,
-          phone,
-          email,
-          message,
-          propertyId: data.propertyId,
-          // Una consulta por una unidad es también una consulta por su emprendimiento.
-          developmentId: data.developmentId ?? property?.developmentId,
-          branchId: property?.branchId,
-          autoTags: inquiryAutoTags(data.channel, property),
-          now,
-        });
-        if (received.isErr()) return err(received.error);
-        const inquiry = received.value;
-
-        if (!(await tx.inquiries.insert(inquiry, actor.id))) {
-          // Otra entrega del mismo envío entró mientras tanto: se devuelve esa.
-          const winner = await tx.inquiries.findByExternal(data.channel, data.externalId);
-          if (!winner) throw new Error('Inquiry insert conflicted but no inquiry was found');
-          return ok({ inquiryId: winner.id, duplicate: true });
-        }
-        await tx.events.publish(inquiry.pullEvents());
-        await tx.audit.record(
-          auditCreated(
-            actor,
-            inquiryTarget('inquiry.received', inquiry),
-            inquiryAuditState(inquiry),
-          ),
+        const received = await receiveInquiryIn(
+          tx,
+          actor,
+          { ids: this.deps.ids, now },
+          {
+            channel: data.channel,
+            externalId: data.externalId,
+            receivedAt: data.receivedAt,
+            name: data.name,
+            phone,
+            email,
+            message,
+            propertyId: data.propertyId,
+            developmentId: data.developmentId,
+            property,
+          },
         );
-        return ok({ inquiryId: inquiry.id, duplicate: false });
+        if (received.isErr()) return err(received.error);
+        return ok({ inquiryId: received.value.inquiry.id, duplicate: received.value.duplicate });
       },
     );
   }

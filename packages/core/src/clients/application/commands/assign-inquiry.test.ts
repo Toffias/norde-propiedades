@@ -17,6 +17,7 @@ import {
 } from '../../testing';
 
 import { AssignInquiry } from './assign-inquiry';
+import { RegisterContact } from './register-contact';
 import { DeleteInquiry } from './delete-inquiry';
 import { ReceiveInquiry } from './receive-inquiry';
 
@@ -368,5 +369,73 @@ describe('AssignInquiry errors', () => {
     });
     expect(uow.inquiries.rows.get(inquiryId)?.status).toBe('pending');
     expect(uow.audit.entries).toEqual([]);
+  });
+});
+
+describe('AssignInquiry of an inquiry left by the AI agent (#45)', () => {
+  async function agentSetup() {
+    const uow = new InMemoryClientsUnitOfWork();
+    const clock = new FixedClock('2026-03-01T10:00:00Z');
+    const ids = new SequentialIdGenerator();
+    const register = new RegisterContact({
+      uow,
+      properties: new InMemoryInquiryPropertyLookup(),
+      ids,
+      clock,
+    });
+    const registered = unwrap(
+      await register.execute(
+        {
+          channel: 'web_chat',
+          channelExternalId: 'web-session-1',
+          phone: '1166899124',
+          opportunity: { type: 'sale', intent: 'contact', note: 'Casa en Mataderos, USD 150.000' },
+        },
+        Actor.system('agent-ia', ['clients:create', 'inquiries:receive']),
+      ),
+    );
+    const [inquiry] = [...uow.inquiries.rows.values()];
+    if (!inquiry) throw new Error('setup failed');
+    uow.events.published.length = 0;
+    uow.audit.entries.length = 0;
+    return {
+      uow,
+      registered,
+      inquiryId: inquiry.id,
+      assign: new AssignInquiry({ uow, agents: new InMemoryClientAgents(), ids, clock }),
+    };
+  }
+
+  it('gives an agent to the opportunity the AI agent opened, without adding a request', async () => {
+    const { uow, registered, inquiryId, assign } = await agentSetup();
+    const notesBefore = uow.opportunities.rows.get(registered.opportunityId)?.notes.length;
+
+    const output = unwrap(
+      await assign.execute(
+        { inquiryId, target: { kind: 'client', clientId: registered.clientId } },
+        MANAGER,
+      ),
+    );
+
+    expect(output).toEqual({
+      clientId: registered.clientId,
+      opportunityId: registered.opportunityId,
+      clientCreated: false,
+      opportunityCreated: false,
+    });
+    expect(uow.opportunities.rows.size).toBe(1);
+    const opportunity = uow.opportunities.rows.get(registered.opportunityId);
+    expect(opportunity).toMatchObject({ type: 'sale', agentId: AGENT_ID, branchId: BRANCH_ID });
+    expect(opportunity?.notes).toHaveLength(notesBefore ?? -1);
+    expect(uow.events.published.map((e) => e.type)).not.toContain(
+      'clients.opportunity_request_added',
+    );
+    expect(uow.clients.rows.get(registered.clientId)?.agentId).toBe(AGENT_ID);
+    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({
+      status: 'assigned',
+      clientId: registered.clientId,
+      opportunityId: registered.opportunityId,
+      assignedAgentId: AGENT_ID,
+    });
   });
 });

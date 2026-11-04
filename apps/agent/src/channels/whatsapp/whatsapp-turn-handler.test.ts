@@ -5,7 +5,10 @@ import {
   ScriptedModel,
 } from '@norde/agent-kit/testing';
 import { RegisterContact } from '@norde/core/clients';
-import { InMemoryClientsUnitOfWork } from '@norde/core/clients/testing';
+import {
+  InMemoryClientsUnitOfWork,
+  InMemoryInquiryPropertyLookup,
+} from '@norde/core/clients/testing';
 import {
   ReceiveInboundMessages,
   SendReply,
@@ -55,6 +58,7 @@ const HOUR = 3_600_000;
 const actor = Actor.system('agent-ia', [
   'properties:read',
   'clients:create',
+  'inquiries:receive',
   'conversations:receive',
   'conversations:reply',
 ]);
@@ -118,7 +122,12 @@ function setup(
     searchProperties: new SearchProperties({ properties }),
     getPropertyDetail: new GetPropertyDetail({ properties }),
     findPropertyByPortalAd: new FindPropertyByPortalAd({ ads }),
-    registerContact: new RegisterContact({ uow: clients, ids, clock }),
+    registerContact: new RegisterContact({
+      uow: clients,
+      properties: new InMemoryInquiryPropertyLookup(),
+      ids,
+      clock,
+    }),
   });
   const handler = new WhatsAppTurnHandler({
     receiveInbound: new ReceiveInboundMessages({

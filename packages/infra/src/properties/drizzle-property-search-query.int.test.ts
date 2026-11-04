@@ -218,8 +218,9 @@ describe('DrizzlePropertySearchQuery', () => {
     await insertProperty({ title: 'Mataderos', locationId: mataderos.id });
     await insertProperty({ title: 'Ramos', locationId: ramos.id });
 
-    expect(await titles({ locationId: caba.id })).toEqual(['Mataderos']);
-    expect(await titles({ locationId: mataderos.id })).toEqual(['Mataderos']);
+    expect(await titles({ locationIds: [caba.id] })).toEqual(['Mataderos']);
+    expect(await titles({ locationIds: [mataderos.id] })).toEqual(['Mataderos']);
+    expect(await titles({ locationIds: [mataderos.id, ramos.id] })).toEqual(['Ramos', 'Mataderos']);
   });
 
   it('keeps only properties with coordinates, inside the area by their public position', async () => {
@@ -278,12 +279,37 @@ describe('DrizzlePropertySearchQuery', () => {
     ]);
 
     expect(
-      await titles({ operation: 'rent', currency: 'ARS', maxPriceCents: 70_000_000n }),
+      await titles({
+        operation: 'rent',
+        priceBounds: [{ currency: 'ARS', maxCents: 70_000_000n }],
+      }),
     ).toEqual(['Venta y alquiler', 'Alquiler barato']);
     expect(await titles({ operation: 'sale' })).toEqual(['Venta', 'Venta y alquiler']);
-    expect(await titles({ currency: 'USD', minPriceCents: 12_000_000n })).toEqual([
+    expect(await titles({ priceBounds: [{ currency: 'USD', minCents: 12_000_000n }] })).toEqual([
       'Venta y alquiler',
     ]);
+  });
+
+  it('matches a price in any of the ranges, each in its currency', async () => {
+    await insertProperty({ title: 'En dólares' }, [
+      { operation: 'sale', priceCents: 6_000_000n, currency: 'USD' },
+    ]);
+    await insertProperty({ title: 'En pesos' }, [
+      { operation: 'sale', priceCents: 9_000_000_000n, currency: 'ARS' },
+    ]);
+    await insertProperty({ title: 'Cara en dólares' }, [
+      { operation: 'sale', priceCents: 20_000_000n, currency: 'USD' },
+    ]);
+
+    expect(
+      await titles({
+        operation: 'sale',
+        priceBounds: [
+          { currency: 'ARS', maxCents: 10_000_000_000n },
+          { currency: 'USD', maxCents: 6_896_551n },
+        ],
+      }),
+    ).toEqual(['En pesos', 'En dólares']);
   });
 
   it('never matches a price filter with a hidden price', async () => {
@@ -295,7 +321,9 @@ describe('DrizzlePropertySearchQuery', () => {
       { priceCents: 50_000_000n, priceOnRequest: true },
     ]);
 
-    expect(await titles({ currency: 'ARS', maxPriceCents: 60_000_000n })).toEqual(['Visible']);
+    expect(await titles({ priceBounds: [{ currency: 'ARS', maxCents: 60_000_000n }] })).toEqual([
+      'Visible',
+    ]);
     expect(await titles({})).toHaveLength(3);
   });
 
@@ -325,6 +353,83 @@ describe('DrizzlePropertySearchQuery', () => {
       }),
     ).toEqual(['Completa']);
     expect(await titles({ minSurfaceM2: 25, maxRooms: 1 })).toEqual(['Mono']);
+  });
+
+  it('filters by the web options: any of the room ranges, surface range, age and flags', async () => {
+    await insertProperty({
+      title: 'Mono',
+      rooms: 1,
+      bathrooms: 1,
+      surfaceTotalM2: 30,
+      ageYears: 0,
+    });
+    await insertProperty({
+      title: 'Dos',
+      rooms: 2,
+      bedrooms: 1,
+      bathrooms: 1,
+      surfaceCoveredM2: 50,
+      ageYears: 8,
+      isFurnished: true,
+    });
+    await insertProperty({
+      title: 'Casa',
+      rooms: 5,
+      bedrooms: 3,
+      bathrooms: 2,
+      surfaceTotalM2: 200,
+      ageYears: 40,
+      parkingSpaces: 2,
+    });
+    await insertProperty({ title: 'Nueva sin años', rooms: 3, condition: 'brand_new' });
+
+    expect(await titles({ roomRanges: [{ min: 1, max: 1 }, { min: 4 }] })).toEqual([
+      'Casa',
+      'Mono',
+    ]);
+    expect(await titles({ bedroomRanges: [{ min: 1, max: 1 }] })).toEqual(['Dos']);
+    expect(await titles({ bathroomRanges: [{ min: 2 }] })).toEqual(['Casa']);
+    expect(await titles({ minSurfaceM2: 40, maxSurfaceM2: 100 })).toEqual(['Dos']);
+    expect(await titles({ age: { kind: 'brand_new' } })).toEqual(['Nueva sin años', 'Mono']);
+    expect(await titles({ age: { kind: 'years', max: 10 } })).toEqual(['Dos', 'Mono']);
+    expect(await titles({ age: { kind: 'years', min: 21 } })).toEqual(['Casa']);
+    expect(await titles({ furnished: true })).toEqual(['Dos']);
+    expect(await titles({ withParking: true })).toEqual(['Casa']);
+  });
+
+  it('counts the matches per range, furnished and with parking', async () => {
+    await insertProperty({ rooms: 1, isFurnished: true });
+    await insertProperty({ rooms: 2, parkingSpaces: 1 });
+    await insertProperty({ rooms: 6, parkingSpaces: 1 });
+    await insertProperty({ rooms: 2, publishedOnWeb: false });
+
+    expect(
+      await query.countByRanges(listed, 'rooms', [
+        { min: 1, max: 1 },
+        { min: 2, max: 2 },
+        { min: 3, max: 3 },
+        { min: 4 },
+      ]),
+    ).toEqual([1, 1, 0, 1]);
+    expect(await query.countFlags(listed)).toEqual({ furnished: 1, withParking: 2 });
+  });
+
+  it('counts the most frequent active features among the matches, plus the chosen ones', async () => {
+    const a = await insertProperty();
+    const b = await insertProperty();
+    const hidden = await insertProperty({ publishedOnWeb: false });
+    await addFeatures(a.id, [POOL, GRILL]);
+    await addFeatures(b.id, [POOL]);
+    await addFeatures(hidden.id, [GAS]);
+
+    expect(await query.countFeatures(listed, { limit: 1, includeIds: [GAS] })).toEqual([
+      { id: POOL, name: 'Pileta', count: 2 },
+      { id: GAS, name: 'Gas natural', count: 0 },
+    ]);
+    expect(await query.countFeatures(listed, { limit: 5, includeIds: [] })).toEqual([
+      { id: POOL, name: 'Pileta', count: 2 },
+      { id: GRILL, name: 'Parrilla', count: 1 },
+    ]);
   });
 
   it('requires every feature, by id or by partial accent-insensitive name', async () => {

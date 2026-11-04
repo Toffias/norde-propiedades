@@ -17,6 +17,8 @@ import { locationContext } from '../../domain/location';
 import { PUBLICLY_LISTED_STATUSES } from '../../domain/property-status';
 import type { PublicLocationQuery } from '../ports/public-location-query';
 
+const BROWSABLE_LOCATION_KINDS = ['city', 'neighborhood', 'subneighborhood'] as const;
+
 export type SearchPublicLocationsError =
   ForbiddenError | { readonly type: 'InvalidSearch'; readonly issues: readonly string[] };
 
@@ -37,10 +39,14 @@ export class SearchPublicLocations {
     if (!parsed.success) {
       return err({ type: 'InvalidSearch', issues: parsed.error.issues.map((i) => i.message) });
     }
-    const { q, ids, page, pageSize } = parsed.data;
+    const { q, ids, operation, page, pageSize } = parsed.data;
     const slice = await this.deps.locations.search({
       text: q,
       ids,
+      operation,
+      // Sin texto ni elegidas, el desplegable abre con los barrios y localidades con más
+      // propiedades: las provincias juntan todo y no ayudan a elegir.
+      kinds: q === undefined && ids === undefined ? BROWSABLE_LOCATION_KINDS : undefined,
       statuses: PUBLICLY_LISTED_STATUSES,
       ...toOffsetLimit({ page, pageSize }),
     });

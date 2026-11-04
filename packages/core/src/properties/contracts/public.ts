@@ -39,16 +39,44 @@ export const MapAreaSchema = z
   });
 export type MapArea = z.infer<typeof MapAreaSchema>;
 
+/**
+ * Opciones de ambientes, dormitorios y baños del buscador de la web: de 1 al tope, y el tope es
+ * "o más" (la regla vive en `domain/public-search.ts`).
+ */
+export const PUBLIC_COUNT_OPTION_LIMITS = { rooms: 4, bedrooms: 3, bathrooms: 3 } as const;
+export type PublicCountFacet = keyof typeof PUBLIC_COUNT_OPTION_LIMITS;
+
+/** Antigüedad del buscador de la web. */
+export const PUBLIC_AGE_VALUES = [
+  'brand_new',
+  'up_to_5',
+  'up_to_10',
+  'up_to_20',
+  'over_20',
+] as const;
+export type PublicAge = (typeof PUBLIC_AGE_VALUES)[number];
+
+function countOptionsSchema(facet: PublicCountFacet) {
+  const limit = PUBLIC_COUNT_OPTION_LIMITS[facet];
+  return z.array(z.int().min(1).max(limit)).min(1).max(limit).optional();
+}
+
+/** Tope de ubicaciones elegidas a la vez en el buscador de la web. */
+export const MAX_PUBLIC_LOCATIONS = 10;
+
 export const SearchPropertiesInputSchema = z.object({
   operation: z.enum(OPERATIONS).optional(),
   propertyType: z.enum(PROPERTY_TYPES).optional(),
   /** Barrio, localidad o zona en texto libre (agente). */
   location: z.string().trim().min(1).max(100).optional(),
-  /** Ubicación del catálogo (web): incluye sus barrios y sub-barrios. */
-  locationId: z.uuid().optional(),
+  /** Ubicaciones del catálogo (web): alguna de ellas, con sus barrios y sub-barrios. */
+  locationIds: z.array(z.uuid()).min(1).max(MAX_PUBLIC_LOCATIONS).optional(),
   /** Solo las que caen en esta área del mapa (con su ubicación pública, no la exacta). */
   area: MapAreaSchema.optional(),
-  /** Moneda del filtro de precio. */
+  /**
+   * Moneda del filtro de precio. Con la cotización de la empresa, también entran las publicadas
+   * en la otra moneda cuyo precio convertido cae en el rango.
+   */
   currency: z.enum(CURRENCIES).optional(),
   minPriceCents: z.bigint().nonnegative().optional(),
   maxPriceCents: z.bigint().nonnegative().optional(),
@@ -56,7 +84,17 @@ export const SearchPropertiesInputSchema = z.object({
   maxRooms: z.int().min(0).max(50).optional(),
   minBedrooms: z.int().min(0).max(50).optional(),
   minBathrooms: z.int().min(0).max(50).optional(),
+  /** Opciones de la web (`PUBLIC_COUNT_OPTION_LIMITS`): alguna de ellas; la última es "o más". */
+  rooms: countOptionsSchema('rooms'),
+  bedrooms: countOptionsSchema('bedrooms'),
+  bathrooms: countOptionsSchema('bathrooms'),
+  /** Superficie total (o cubierta, si no tiene total). */
   minSurfaceM2: z.number().positive().max(1_000_000).optional(),
+  maxSurfaceM2: z.number().positive().max(1_000_000).optional(),
+  age: z.enum(PUBLIC_AGE_VALUES).optional(),
+  furnished: z.literal(true).optional(),
+  /** Con al menos una cochera. */
+  withParking: z.literal(true).optional(),
   /** Servicios, ambientes o amenities en texto libre (agente): tiene que tener todos. */
   amenities: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
   /** Características del catálogo (web): tiene que tener todas. */
@@ -82,27 +120,72 @@ export const GetPublicPropertyMapInputSchema = SearchPropertiesInputSchema.pick(
   operation: true,
   propertyType: true,
   location: true,
-  locationId: true,
+  locationIds: true,
   area: true,
   currency: true,
   minPriceCents: true,
   maxPriceCents: true,
   minRooms: true,
   minBedrooms: true,
+  rooms: true,
+  bedrooms: true,
+  bathrooms: true,
+  minSurfaceM2: true,
+  maxSurfaceM2: true,
+  age: true,
+  furnished: true,
+  withParking: true,
+  featureIds: true,
 });
 export type GetPublicPropertyMapInput = z.input<typeof GetPublicPropertyMapInputSchema>;
 
-/** Tope del autocompletado de ubicaciones de la web. */
-export const PUBLIC_LOCATIONS_MAX_PAGE_SIZE = 10;
+/** Las opciones del buscador de la web con cuántas propiedades daría cada una. */
+export const GetPublicSearchFacetsInputSchema = GetPublicPropertyMapInputSchema;
+export type GetPublicSearchFacetsInput = GetPublicPropertyMapInput;
+
+/** Características del catálogo que se ofrecen como filtro (las más frecuentes). */
+export const PUBLIC_FEATURE_FACET_LIMIT = 12;
+
+export interface PublicCountOption {
+  /** La opción (1, 2, …); la última es "o más". */
+  readonly value: number;
+  readonly count: number;
+}
+
+export interface PublicFeatureOption {
+  readonly id: string;
+  readonly name: string;
+  readonly count: number;
+}
 
 /**
- * Ubicaciones del catálogo con propiedades publicadas: el autocompletado del buscador (`q`) o
- * las elegidas, para mostrar su nombre (`ids`).
+ * Cuántas propiedades daría cada opción con los demás filtros puestos. En ambientes, dormitorios
+ * y baños, el propio filtro no cuenta (se elige más de una); en características y en "amoblado" o
+ * "con cochera", sí (se suman).
+ */
+export interface PublicSearchFacets {
+  readonly rooms: readonly PublicCountOption[];
+  readonly bedrooms: readonly PublicCountOption[];
+  readonly bathrooms: readonly PublicCountOption[];
+  /** Las más frecuentes y las elegidas. */
+  readonly features: readonly PublicFeatureOption[];
+  readonly furnished: number;
+  readonly withParking: number;
+}
+
+/** Tope del buscador de ubicaciones de la web. */
+export const PUBLIC_LOCATIONS_MAX_PAGE_SIZE = 20;
+
+/**
+ * Ubicaciones del catálogo con propiedades publicadas: el buscador (`q`; sin texto, los barrios y
+ * localidades con más propiedades) o las elegidas, para mostrar su nombre (`ids`).
  */
 export const SearchPublicLocationsInputSchema = z.object({
   /** Nombre, sin distinguir mayúsculas ni acentos. */
   q: z.string().trim().min(2).max(80).optional(),
-  ids: z.array(z.uuid()).min(1).max(10).optional(),
+  ids: z.array(z.uuid()).min(1).max(MAX_PUBLIC_LOCATIONS).optional(),
+  /** Cuenta solo las propiedades que ofrecen esta operación. */
+  operation: z.enum(OPERATIONS).optional(),
   page: z.int().min(1).max(100).default(1),
   pageSize: z.int().min(1).max(PUBLIC_LOCATIONS_MAX_PAGE_SIZE).default(8),
 });

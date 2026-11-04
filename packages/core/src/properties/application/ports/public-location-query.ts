@@ -1,5 +1,5 @@
 import type { PageSlice } from '../../../shared';
-import type { LocationKindValue } from '../../contracts';
+import type { LocationKindValue, Operation } from '../../contracts';
 import type { PropertyStatus } from '../../domain/property-status';
 
 export interface PublicLocationRecord {
@@ -16,6 +16,10 @@ export interface PublicLocationCriteria {
   /** Nombre normalizado o no: lo normaliza infra. */
   readonly text?: string | undefined;
   readonly ids?: readonly string[] | undefined;
+  /** Solo estos tipos de ubicación. */
+  readonly kinds?: readonly LocationKindValue[] | undefined;
+  /** Cuenta solo las propiedades que ofrecen esta operación. */
+  readonly operation?: Operation | undefined;
   /** Qué cuenta como publicada (lo decide el dominio). */
   readonly statuses: readonly PropertyStatus[];
   readonly offset: number;

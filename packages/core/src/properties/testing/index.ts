@@ -72,11 +72,14 @@ import type {
   PropertiesUnitOfWork,
 } from '../application/ports/properties-transaction';
 import type {
+  FeatureCount,
+  PropertyFilterCriteria,
   PropertyMediaRecord,
   PropertyRecord,
   PropertySearchCriteria,
   PropertySearchQuery,
 } from '../application/ports/property-search-query';
+import type { CountFacet, CountRange } from '../domain/public-search';
 import type {
   PublicLocationCriteria,
   PublicLocationQuery,
@@ -285,13 +288,65 @@ export function aPropertyMediaRecord(
 
 /** Implementación simple en memoria: suficiente para probar casos de uso, no la búsqueda SQL. */
 export class InMemoryPropertySearchQuery implements PropertySearchQuery {
-  readonly criteria: PropertySearchCriteria[] = [];
+  readonly criteria: PropertyFilterCriteria[] = [];
 
   constructor(readonly records: PropertyRecord[] = []) {}
 
   search(criteria: PropertySearchCriteria) {
     this.criteria.push(criteria);
-    const matches = this.records.filter(
+    const matches = this.matching(criteria);
+    return Promise.resolve({
+      items: matches.slice(criteria.offset, criteria.offset + criteria.limit),
+      total: matches.length,
+    });
+  }
+
+  countByRanges(
+    criteria: PropertyFilterCriteria,
+    facet: CountFacet,
+    ranges: readonly CountRange[],
+  ): Promise<number[]> {
+    this.criteria.push(criteria);
+    const matches = this.matching(criteria);
+    const column = { rooms: 'rooms', bedrooms: 'bedrooms', bathrooms: 'bathrooms' } as const;
+    return Promise.resolve(
+      ranges.map((range) => matches.filter((r) => inRange(r[column[facet]], range)).length),
+    );
+  }
+
+  countFeatures(
+    criteria: PropertyFilterCriteria,
+    options: { readonly limit: number; readonly includeIds: readonly string[] },
+  ): Promise<FeatureCount[]> {
+    this.criteria.push(criteria);
+    // Los registros guardan el nombre, no el ID: el fake usa el nombre como ID.
+    const counts = new Map<string, number>();
+    for (const record of this.matching(criteria)) {
+      for (const feature of record.features) {
+        counts.set(feature.name, (counts.get(feature.name) ?? 0) + 1);
+      }
+    }
+    const top = [...counts]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, options.limit)
+      .map(([name, count]) => ({ id: name, name, count }));
+    const missing = options.includeIds
+      .filter((id) => !top.some((f) => f.id === id))
+      .map((id) => ({ id, name: id, count: counts.get(id) ?? 0 }));
+    return Promise.resolve([...top, ...missing]);
+  }
+
+  countFlags(criteria: PropertyFilterCriteria) {
+    this.criteria.push(criteria);
+    const matches = this.matching(criteria);
+    return Promise.resolve({
+      furnished: matches.filter((r) => r.isFurnished).length,
+      withParking: matches.filter((r) => (r.parkingSpaces ?? 0) > 0).length,
+    });
+  }
+
+  private matching(criteria: PropertyFilterCriteria): PropertyRecord[] {
+    return this.records.filter(
       (r) =>
         r.operations.length > 0 &&
         criteria.statuses.includes(r.status) &&
@@ -302,12 +357,25 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
         (criteria.developmentId === undefined || r.developmentId === criteria.developmentId) &&
         (criteria.location === undefined ||
           `${r.neighborhood} ${r.city}`.toLowerCase().includes(criteria.location.toLowerCase())) &&
-        (criteria.withCoordinates !== true || (r.latitude !== null && r.longitude !== null)),
+        (criteria.withCoordinates !== true || (r.latitude !== null && r.longitude !== null)) &&
+        (criteria.priceBounds === undefined ||
+          r.operations.some(
+            (o) =>
+              (criteria.operation === undefined || o.operation === criteria.operation) &&
+              o.priceCents !== null &&
+              criteria.priceBounds?.some(
+                (b) =>
+                  b.currency === o.currency &&
+                  (b.minCents === undefined || (o.priceCents ?? 0n) >= b.minCents) &&
+                  (b.maxCents === undefined || (o.priceCents ?? 0n) <= b.maxCents),
+              ),
+          )) &&
+        matchesRanges(r.rooms, criteria.roomRanges) &&
+        matchesRanges(r.bedrooms, criteria.bedroomRanges) &&
+        matchesRanges(r.bathrooms, criteria.bathroomRanges) &&
+        (criteria.furnished !== true || r.isFurnished) &&
+        (criteria.withParking !== true || (r.parkingSpaces ?? 0) > 0),
     );
-    return Promise.resolve({
-      items: matches.slice(criteria.offset, criteria.offset + criteria.limit),
-      total: matches.length,
-    });
   }
 
   findById(id: string) {
@@ -325,6 +393,14 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
   findByMediaId(mediaId: string) {
     return Promise.resolve(this.records.find((r) => r.media.some((m) => m.id === mediaId)));
   }
+}
+
+function inRange(value: number | null, range: CountRange): boolean {
+  return value !== null && value >= range.min && (range.max === undefined || value <= range.max);
+}
+
+function matchesRanges(value: number | null, ranges: readonly CountRange[] | undefined): boolean {
+  return ranges === undefined || ranges.some((range) => inRange(value, range));
 }
 
 /** Ubicaciones con propiedades publicadas, ya resueltas; guarda los criterios de cada pedido. */

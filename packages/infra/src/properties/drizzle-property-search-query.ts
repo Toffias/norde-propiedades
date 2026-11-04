@@ -10,9 +10,15 @@ import {
   type PropertyMediaRecord,
   type PropertyOperationRecord,
   type PropertyRecord,
+  type AgeRange,
+  type CountFacet,
+  type CountRange,
+  type FeatureCount,
+  type PropertyFilterCriteria,
   type PropertySearchCriteria,
   type PropertySearchQuery,
   type MapArea,
+  type PriceBounds,
 } from '@norde/core/properties';
 import {
   type AnyColumn,
@@ -99,6 +105,69 @@ const OPERATION_ORDER = sql`array_position(${textArray(OPERATIONS)}, ${propertyO
 export class DrizzlePropertySearchQuery implements PropertySearchQuery {
   constructor(private readonly db: DbExecutor) {}
 
+  /** Una sola consulta con un `count(*) filter` por rango. */
+  async countByRanges(
+    criteria: PropertyFilterCriteria,
+    facet: CountFacet,
+    ranges: readonly CountRange[],
+  ): Promise<number[]> {
+    if (ranges.length === 0) return [];
+    const column = COUNT_COLUMNS[facet];
+    const [row] = await this.db
+      .select({
+        counts: sql<number[]>`array[${sql.join(
+          ranges.map((range) => sql`count(*) filter (where ${inCountRange(column, range)})::int`),
+          sql`, `,
+        )}]`,
+      })
+      .from(properties)
+      .where(and(...this.filters(criteria)));
+    return z.array(z.number()).parse(row?.counts ?? ranges.map(() => 0));
+  }
+
+  async countFeatures(
+    criteria: PropertyFilterCriteria,
+    options: { readonly limit: number; readonly includeIds: readonly string[] },
+  ): Promise<FeatureCount[]> {
+    const matching = this.db
+      .select({ id: properties.id })
+      .from(properties)
+      .where(and(...this.filters(criteria)));
+    const total = sql<number>`count(${propertyFeatures.propertyId})::int`;
+    const countOf = (where: SQL | undefined, limit: number) =>
+      this.db
+        .select({ id: features.id, name: features.name, count: total })
+        .from(features)
+        .leftJoin(
+          propertyFeatures,
+          and(
+            eq(propertyFeatures.featureId, features.id),
+            inArray(propertyFeatures.propertyId, matching),
+          ),
+        )
+        .where(and(eq(features.isActive, true), where))
+        .groupBy(features.id)
+        .orderBy(sql`${total} desc`, asc(features.name), asc(features.id))
+        .limit(limit);
+
+    const top = (await countOf(undefined, options.limit)).filter((f) => f.count > 0);
+    const missing = options.includeIds.filter((id) => !top.some((f) => f.id === id));
+    const chosen =
+      missing.length === 0 ? [] : await countOf(inArray(features.id, missing), missing.length);
+    return [...top, ...chosen];
+  }
+
+  async countFlags(criteria: PropertyFilterCriteria) {
+    const [row] = await this.db
+      .select({
+        furnished: sql<number>`count(*) filter (where ${properties.isFurnished})::int`,
+        withParking: sql<number>`count(*) filter (where ${properties.parkingSpaces} > 0)::int`,
+      })
+      .from(properties)
+      .where(and(...this.filters(criteria)));
+    return { furnished: row?.furnished ?? 0, withParking: row?.withParking ?? 0 };
+  }
+
   async search(criteria: PropertySearchCriteria) {
     const where = and(...this.filters(criteria));
     const [rows, totals] = await Promise.all([
@@ -147,7 +216,7 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     return record;
   }
 
-  private filters(c: PropertySearchCriteria): (SQL | undefined)[] {
+  private filters(c: PropertyFilterCriteria): (SQL | undefined)[] {
     const location = c.location === undefined ? [] : this.locationWords(c.location);
     // La dirección que se publica (`publicAddress`): con la exacta oculta, buscar una calle o una
     // altura no tiene que confirmar dónde está la propiedad.
@@ -167,6 +236,13 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
       c.minBedrooms === undefined ? undefined : gte(properties.bedrooms, c.minBedrooms),
       c.minBathrooms === undefined ? undefined : gte(properties.bathrooms, c.minBathrooms),
       c.minSurfaceM2 === undefined ? undefined : sql`${surface} >= ${c.minSurfaceM2}`,
+      c.maxSurfaceM2 === undefined ? undefined : sql`${surface} <= ${c.maxSurfaceM2}`,
+      anyCountRange(properties.rooms, c.roomRanges),
+      anyCountRange(properties.bedrooms, c.bedroomRanges),
+      anyCountRange(properties.bathrooms, c.bathroomRanges),
+      c.age === undefined ? undefined : withinAge(c.age),
+      c.furnished === true ? eq(properties.isFurnished, true) : undefined,
+      c.withParking === true ? sql`${properties.parkingSpaces} > 0` : undefined,
       c.creditEligible === undefined ? undefined : eq(properties.creditEligible, c.creditEligible),
       c.featuredOnly === true ? eq(properties.featured, true) : undefined,
       c.excludePropertyId === undefined ? undefined : ne(properties.id, c.excludePropertyId),
@@ -174,7 +250,9 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
       c.developmentId === undefined ? undefined : eq(properties.developmentId, c.developmentId),
       // "Palermo Soho", "Vicente López": alcanza con que coincida alguna palabra.
       location.length === 0 ? undefined : or(...location.map((w) => contains(place, w))),
-      c.locationId === undefined ? undefined : this.withinLocation(c.locationId),
+      c.locationIds === undefined || c.locationIds.length === 0
+        ? undefined
+        : or(...c.locationIds.map((id) => this.withinLocation(id))),
       c.withCoordinates === true
         ? sql`${properties.latitude} is not null and ${properties.longitude} is not null`
         : undefined,
@@ -193,23 +271,19 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
   }
 
   /**
-   * Ofrece la operación buscada (o alguna), en la moneda y el rango de precio pedidos. El
-   * filtro de precio deja afuera los precios ocultos: no puede revelar un precio que no se muestra.
+   * Ofrece la operación buscada (o alguna), con el precio en alguno de los rangos pedidos (cada
+   * uno en su moneda). El filtro de precio deja afuera los precios ocultos: no puede revelar un
+   * precio que no se muestra.
    */
-  private offersOperation(c: PropertySearchCriteria): SQL {
-    const filtersPrice = c.minPriceCents !== undefined || c.maxPriceCents !== undefined;
+  private offersOperation(c: PropertyFilterCriteria): SQL {
+    const bounds = c.priceBounds ?? [];
+    const filtersPrice = bounds.length > 0;
     const conditions = and(
       sql`${propertyOperations.propertyId} = ${properties.id}`,
       c.operation === undefined ? undefined : eq(propertyOperations.operation, c.operation),
-      c.currency === undefined ? undefined : eq(propertyOperations.currency, c.currency),
       filtersPrice ? eq(properties.priceOnWeb, true) : undefined,
       filtersPrice ? eq(propertyOperations.priceOnRequest, false) : undefined,
-      c.minPriceCents === undefined
-        ? undefined
-        : gte(propertyOperations.priceCents, c.minPriceCents),
-      c.maxPriceCents === undefined
-        ? undefined
-        : lte(propertyOperations.priceCents, c.maxPriceCents),
+      filtersPrice ? or(...bounds.map(inPriceBounds)) : undefined,
     );
     return sql`exists (select 1 from ${propertyOperations} where ${conditions})`;
   }
@@ -324,6 +398,43 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
       ];
     });
   }
+}
+
+const COUNT_COLUMNS = {
+  rooms: properties.rooms,
+  bedrooms: properties.bedrooms,
+  bathrooms: properties.bathrooms,
+} as const satisfies Record<CountFacet, AnyColumn>;
+
+function inCountRange(column: AnyColumn, range: CountRange): SQL {
+  return range.max === undefined
+    ? sql`${column} >= ${range.min}`
+    : sql`${column} between ${range.min} and ${range.max}`;
+}
+
+function anyCountRange(column: AnyColumn, ranges: readonly CountRange[] | undefined) {
+  if (ranges === undefined || ranges.length === 0) return undefined;
+  return or(...ranges.map((range) => inCountRange(column, range)));
+}
+
+/** "A estrenar": 0 años o en estado a estrenar. Por años: las que no la cargaron quedan afuera. */
+function withinAge(age: AgeRange): SQL | undefined {
+  if (age.kind === 'brand_new') {
+    return or(eq(properties.ageYears, 0), eq(properties.condition, 'brand_new'));
+  }
+  return and(
+    age.min === undefined ? undefined : gte(properties.ageYears, age.min),
+    age.max === undefined ? undefined : lte(properties.ageYears, age.max),
+  );
+}
+
+/** Usa `property_operations_price_idx` (operación, moneda y precio). */
+function inPriceBounds(bounds: PriceBounds): SQL | undefined {
+  return and(
+    eq(propertyOperations.currency, bounds.currency),
+    bounds.minCents === undefined ? undefined : gte(propertyOperations.priceCents, bounds.minCents),
+    bounds.maxCents === undefined ? undefined : lte(propertyOperations.priceCents, bounds.maxCents),
+  );
 }
 
 function groupByProperty<T extends { readonly propertyId: string | null }>(

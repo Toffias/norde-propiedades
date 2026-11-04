@@ -66,7 +66,7 @@ describe('GetPublicPropertyMap', () => {
     const locationId = '00000000-0000-7000-8000-0000000000d1';
 
     await new GetPublicPropertyMap({ properties }).execute(
-      { operation: 'rent', locationId, area, minRooms: 2 },
+      { operation: 'rent', locationIds: [locationId], area, minRooms: 2 },
       reader,
     );
 
@@ -75,7 +75,7 @@ describe('GetPublicPropertyMap', () => {
       publishedOnWebOnly: true,
       withCoordinates: true,
       operation: 'rent',
-      locationId,
+      locationIds: [locationId],
       area,
       minRooms: 2,
       offset: 0,
@@ -115,6 +115,20 @@ describe('SearchPublicLocations', () => {
     ancestors: ['Argentina', 'Buenos Aires', 'La Matanza'],
     listingCount: 4,
   } as const;
+
+  it('opens with the neighborhoods and cities, counting the chosen operation', async () => {
+    const locations = new InMemoryPublicLocationQuery([palermo, ramos]);
+
+    await new SearchPublicLocations({ locations }).execute({ operation: 'rent' }, reader);
+    await new SearchPublicLocations({ locations }).execute({ q: 'ramos' }, reader);
+
+    expect(locations.criteria[0]).toMatchObject({
+      operation: 'rent',
+      kinds: ['city', 'neighborhood', 'subneighborhood'],
+    });
+    // Escribiendo, también las provincias.
+    expect(locations.criteria[1]?.kinds).toBeUndefined();
+  });
 
   it('returns matching locations with their context and listing count', async () => {
     const locations = new InMemoryPublicLocationQuery([palermo, ramos]);

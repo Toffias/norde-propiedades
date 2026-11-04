@@ -1092,7 +1092,7 @@ En el reporte de una importación desde la API, los emprendimientos tienen sus p
 
 ## 6. Tasaciones
 
-La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y papelera, (2) resultado (valores sugeridos y comparables), fotos y convertir en propiedad, (3) informe en PDF con la marca de Norde. El ingreso desde el agente de IA (`request_appraisal`) y desde el formulario de la web queda para después (depende de #53). Esta sección describe las tres etapas.
+La issue #12 se parte en tres etapas: (1) listado, alta, edición, estados y papelera, (2) resultado (valores sugeridos y comparables), fotos y convertir en propiedad, (3) informe en PDF con la marca de Norde. Las tasaciones se cargan solo en el panel: el pedido que llega por la web o por el agente de IA es un pedido de contacto (consulta u oportunidad de tipo tasación) y no crea la tasación (decisión del 2026-11-04, #111). Esta sección describe las tres etapas.
 
 ### 6.1 Listado (`/tasaciones`)
 

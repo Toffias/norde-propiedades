@@ -9,7 +9,7 @@ import { cn } from '@norde/ui/lib/utils';
 import { SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
 import {
   activeFilterCount,
@@ -344,13 +344,16 @@ function FiltersForm({
       </fieldset>
 
       {COUNT_FACETS.map((facet) => (
-        <CountOptions
+        <CountSelect
           key={facet}
           facet={facet}
-          idPrefix={id(facet)}
+          id={id(facet)}
           name={P[facet]}
           chosen={filters[facet] ?? []}
           counts={facets[facet]}
+          onChange={(values) => {
+            apply({ [P[facet]]: values });
+          }}
         />
       ))}
 
@@ -471,79 +474,48 @@ function NumberInput({
   );
 }
 
-function CountOptions({
+/** Ambientes, dormitorios o baños: desplegable de selección múltiple, con cuántas da cada opción. */
+function CountSelect({
   facet,
-  idPrefix,
+  id,
   name,
   chosen,
   counts,
+  onChange,
 }: {
   readonly facet: PublicCountFacet;
-  readonly idPrefix: string;
+  readonly id: string;
   readonly name: string;
   readonly chosen: readonly number[];
   readonly counts: PublicSearchFacets[PublicCountFacet];
+  readonly onChange: (values: readonly string[]) => void;
 }) {
-  return (
-    <fieldset>
-      <legend className={LABEL}>{COUNT_TITLES[facet]}</legend>
-      <div className="flex flex-wrap gap-1.5">
-        {counts.map(({ value, count }) => {
-          const isChosen = chosen.includes(value);
-          return (
-            <Toggle
-              key={value}
-              id={`${idPrefix}-${value}`}
-              name={name}
-              value={String(value)}
-              checked={isChosen}
-              muted={count === 0 && !isChosen}
-            >
-              {countOptionLabel(facet, value)}
-              <span className="ml-1 tabular-nums opacity-70">({count})</span>
-            </Toggle>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
+  const choice = (value: number): MultiSelectChoice => ({
+    value: String(value),
+    label: countOptionLabel(facet, value),
+  });
+  const [selected, setSelected] = useState<readonly MultiSelectChoice[]>(() => chosen.map(choice));
 
-/** Opción que se prende y se apaga, con forma de pastilla. */
-function Toggle({
-  id,
-  name,
-  value,
-  checked,
-  muted,
-  children,
-}: {
-  readonly id: string;
-  readonly name: string;
-  readonly value: string;
-  readonly checked: boolean;
-  readonly muted: boolean;
-  readonly children: ReactNode;
-}) {
   return (
-    <label htmlFor={id} className="relative">
-      <input
+    <div>
+      <label className={LABEL} htmlFor={id}>
+        {COUNT_TITLES[facet]}
+      </label>
+      <FilterMultiSelect
         id={id}
-        type="checkbox"
         name={name}
-        value={value}
-        defaultChecked={checked}
-        className="peer sr-only"
+        selected={selected}
+        placeholder="Cualquiera"
+        listLabel={COUNT_TITLES[facet]}
+        options={counts.map(({ value, count }) => ({ ...choice(value), count }))}
+        onChange={(next) => {
+          // De menor a mayor, para que el resumen diga "1 ambiente y 2 ambientes".
+          const sorted = [...next].sort((x, y) => Number(x.value) - Number(y.value));
+          setSelected(sorted);
+          onChange(sorted.map((c) => c.value));
+        }}
       />
-      <span
-        className={cn(
-          'peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-foreground peer-focus-visible:ring-ring/50 hover:border-foreground/30 flex h-9 cursor-pointer items-center rounded-full border px-3 text-xs font-semibold transition-colors peer-focus-visible:ring-[3px]',
-          muted && 'opacity-50',
-        )}
-      >
-        {children}
-      </span>
-    </label>
+    </div>
   );
 }
 

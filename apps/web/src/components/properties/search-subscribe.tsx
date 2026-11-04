@@ -72,21 +72,18 @@ export function SearchSubscribe({
   return (
     <aside
       aria-labelledby="search-subscribe-title"
-      className={cn(
-        'bg-card flex flex-col gap-4 rounded-3xl border p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6',
-        empty ? 'mt-6' : 'mt-8',
-      )}
+      className="bg-card mb-5 flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"
     >
-      <div className="flex gap-3">
-        <span className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-full">
-          <BellRing aria-hidden className="size-5" />
+      <div className="flex items-center gap-3">
+        <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-full">
+          <BellRing aria-hidden className="size-4" />
         </span>
         <div>
-          <h2 id="search-subscribe-title" className="font-bold">
-            ¿No encontraste lo que buscabas?
+          <h2 id="search-subscribe-title" className="text-sm font-bold">
+            {empty ? '¿No encontraste lo que buscabas?' : 'Recibí las novedades de esta búsqueda'}
           </h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Suscribite y recibí antes que nadie las propiedades que se ajusten a tu búsqueda.
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Te avisamos por email cuando entren propiedades que se ajusten a tu búsqueda.
           </p>
         </div>
       </div>
@@ -97,7 +94,7 @@ export function SearchSubscribe({
           if (next) setAttempt((value) => value + 1);
         }}
       >
-        <DialogTrigger className={cn(PRIMARY, 'h-11 shrink-0 px-5')}>
+        <DialogTrigger className={cn(PRIMARY, 'h-10 shrink-0 px-4')}>
           Suscribirme a esta búsqueda
         </DialogTrigger>
         <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto rounded-3xl sm:max-w-md">

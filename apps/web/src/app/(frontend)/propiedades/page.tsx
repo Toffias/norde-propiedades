@@ -210,6 +210,8 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
             </ul>
           )}
 
+          {subscription && <SearchSubscribe {...subscription} empty={total === 0} />}
+
           {map && <ListingMap pins={map.pins} truncated={map.truncated} filters={filters} />}
 
           {result &&
@@ -239,8 +241,6 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
               hrefFor={(page) => listingHref(filters, { page })}
             />
           )}
-
-          {subscription && <SearchSubscribe {...subscription} empty={total === 0} />}
         </section>
       </div>
     </div>

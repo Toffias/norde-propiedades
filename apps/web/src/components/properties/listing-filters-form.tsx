@@ -1,11 +1,15 @@
 'use client';
 
-import type { PublicCountFacet, PublicSearchFacets } from '@norde/core/properties/contracts';
+import {
+  MAX_PUBLIC_LOCATIONS,
+  type PublicCountFacet,
+  type PublicSearchFacets,
+} from '@norde/core/properties/contracts';
 import { cn } from '@norde/ui/lib/utils';
 import { SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 
 import {
   activeFilterCount,
@@ -26,7 +30,12 @@ import {
   type ListingFilters,
 } from '../../lib/properties/listing-filters';
 import { OPERATION_OPTIONS, PROPERTY_TYPE_OPTIONS } from '../../lib/properties/search-params';
-import { LocationMultiSelect, type ChosenLocation } from '../forms/location-multi-select';
+import type { LocationOption } from '../../lib/properties/view';
+import {
+  FilterMultiSelect,
+  type MultiSelectChoice,
+  type MultiSelectOption,
+} from '../forms/filter-multi-select';
 import { SiteSelect } from '../forms/site-select';
 
 const LABEL = 'mb-1.5 block text-xs font-bold';
@@ -82,7 +91,7 @@ export interface ListingFiltersPanelProps {
   readonly filters: ListingFilters;
   readonly facets: PublicSearchFacets;
   /** Las ubicaciones del catálogo elegidas, con su nombre. */
-  readonly locations: readonly ChosenLocation[];
+  readonly locations: readonly MultiSelectChoice[];
 }
 
 /**
@@ -139,11 +148,40 @@ function FiltersForm({
 }: ListingFiltersPanelProps & { readonly idPrefix: string }) {
   const router = useRouter();
   const form = useRef<HTMLFormElement>(null);
+  const operationParam = paramOf(OPERATION_OPTIONS, filters.operation);
   const [locations, setLocations] = useState(initialLocations);
+  const [types, setTypes] = useState<readonly MultiSelectChoice[]>(() =>
+    (filters.propertyTypes ?? []).flatMap((type) => {
+      const option = PROPERTY_TYPE_OPTIONS.find((o) => o.value === type);
+      return option ? [{ value: option.param, label: option.label }] : [];
+    }),
+  );
+  // Todos los tipos, con cuántas propiedades daría cada uno; los que no tienen ninguna, al final.
+  const typeOptions = PROPERTY_TYPE_OPTIONS.map((o) => ({
+    value: o.param,
+    label: o.label,
+    count: facets.propertyTypes.find((t) => t.value === o.value)?.count ?? 0,
+  })).sort((a, b) => b.count - a.count);
+  const loadLocations = useCallback(
+    async (q: string, signal: AbortSignal): Promise<readonly MultiSelectOption[]> => {
+      const params = new URLSearchParams();
+      if (q !== '') params.set('q', q);
+      if (operationParam !== '') params.set('operacion', operationParam);
+      const response = await fetch(`/api/ubicaciones?${params.toString()}`, { signal });
+      if (!response.ok) return [];
+      const body = (await response.json()) as { options?: LocationOption[] };
+      return (body.options ?? []).map((o) => ({
+        value: o.id,
+        label: o.name,
+        description: o.description,
+        count: o.listingCount,
+      }));
+    },
+    [operationParam],
+  );
   const [pending, startTransition] = useTransition();
   const count = activeFilterCount(filters);
   const currency = priceCurrency(filters);
-  const operationParam = paramOf(OPERATION_OPTIONS, filters.operation);
   const id = (name: string) => `${idPrefix}-filter-${name}`;
 
   // Si el formulario se rearmó, el foco vuelve al campo donde estaba.
@@ -236,17 +274,17 @@ function FiltersForm({
         <label className={LABEL} htmlFor={id('type')}>
           Tipo de propiedad
         </label>
-        <SiteSelect
+        <FilterMultiSelect
           id={id('type')}
           name={P.propertyType}
-          defaultValue={paramOf(PROPERTY_TYPE_OPTIONS, filters.propertyType)}
-          onValueChange={(value) => {
-            apply({ [P.propertyType]: [value] });
+          selected={types}
+          placeholder="Todos"
+          listLabel="Tipos de propiedad"
+          options={typeOptions}
+          onChange={(next) => {
+            setTypes(next);
+            apply({ [P.propertyType]: next.map((t) => t.value) });
           }}
-          options={[
-            { value: '', label: 'Todos' },
-            ...PROPERTY_TYPE_OPTIONS.map((o) => ({ value: o.param, label: o.label })),
-          ]}
         />
       </div>
 
@@ -254,14 +292,18 @@ function FiltersForm({
         <label className={LABEL} htmlFor={id('location')}>
           Barrio o localidad
         </label>
-        <LocationMultiSelect
+        <FilterMultiSelect
           id={id('location')}
+          name={P.locationId}
           selected={locations}
-          operation={operationParam === '' ? undefined : operationParam}
-          placeholder="Mataderos, Ramos Mejía…"
+          placeholder="Todos"
+          listLabel="Barrios y localidades"
+          loadOptions={loadLocations}
+          searchPlaceholder="Buscar barrio o localidad"
+          max={MAX_PUBLIC_LOCATIONS}
           onChange={(next) => {
             setLocations(next);
-            apply({ [P.locationId]: next.map((l) => l.id) });
+            apply({ [P.locationId]: next.map((l) => l.value) });
           }}
         />
         {/* Sin ubicaciones del catálogo, el texto libre de un link viejo sigue valiendo. */}

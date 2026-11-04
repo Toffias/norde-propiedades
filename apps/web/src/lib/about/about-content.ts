@@ -31,6 +31,8 @@ export interface AboutContent {
   readonly intro: string;
   readonly milestones: readonly Milestone[];
   readonly stats: readonly AboutStat[];
+  /** Ficha de Norde en Google Maps, para "Ver todas en Google". */
+  readonly googleReviewsUrl: string | null;
 }
 
 export interface TeamMemberCard {
@@ -71,6 +73,7 @@ export function toAboutContent(page: AboutPage | null): AboutContent {
       label: s.label.trim(),
       icon: s.icon ?? null,
     })),
+    googleReviewsUrl: clean(page?.googleReviewsUrl),
   };
 }
 

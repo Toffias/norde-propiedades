@@ -150,7 +150,6 @@ Las tablas del MVP se reparten entre los módulos de `@norde/core` (ver [arquite
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `search_properties`            | Busca en el **Sistema de Gestión**, solo propiedades publicadas y disponibles. Reemplaza al `mock.provider.ts` y al stub `http.provider.ts` del MVP |
 | `create_lead`                  | Se amplía con los campos de catalogación y se renombra a algo como `register_client`. Crea o actualiza el cliente en el Sistema de Gestión          |
-| `request_appraisal` (nueva)    | Para propietarios que quieren tasar: dirección, tipo, superficie aproximada y datos de contacto. Crea una tasación en el módulo Tasaciones          |
 | `list_owner_intent` (opcional) | Para propietarios que quieren vender o alquilar con Norde. Se puede cubrir con `register_client`                                                    |
 
 ### 4.3 Toma de control humana (handoff)
@@ -172,7 +171,6 @@ Qué hay que construir:
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Buscar propiedades                 | `SearchProperties`, `GetPropertyDetail` (`properties`)                                                                |
 | Registrar cliente y oportunidad    | `RegisterContact` (`clients`): deduplica por teléfono o email, agrega el canal y deja la consulta en la bandeja (#45) |
-| Pedir tasación                     | `RequestAppraisal` (`appraisals`)                                                                                     |
 | Derivar a humano o devolver al bot | `HandOffConversation`, `ReturnConversationToBot` (`conversations`)                                                    |
 | Asignar agente y notificar         | Handler del evento `OpportunityCreated` (`clients`), en un job                                                        |
 
@@ -224,7 +222,7 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 | **F3: WhatsApp en producción** | Número de Norde, app de Meta en Live, token de System User, deploy en el VPS                                           |
 | **F4: Handoff**                | Estado respetado por el bot, bandeja en el panel, responder desde el panel, devolver al bot                            |
 | **F5: Web Chat** ◐             | Endpoint, widget React en el sitio y sesión anónima (ADR 0037). Falta streaming y contexto de propiedad                |
-| **F6: Mejoras**                | Tasaciones por chat, audios, templates de seguimiento, alertas de propiedades nuevas                                   |
+| **F6: Mejoras**                | Audios, templates de seguimiento, alertas de propiedades nuevas                                                        |
 
 ---
 
@@ -266,7 +264,7 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
   - Hoy nada la pone en ese estado: registrar al cliente **no** silencia al bot, así el cliente sigue atendido hasta que exista la bandeja (F4).
   - Tras 24 h de inactividad, la conversación arranca de cero y vuelve al bot.
 - **Deduplicación por teléfono**: el mismo celular con o sin el 9 de móvil (`+54 9 11…` en WhatsApp, `11…` en un formulario) es el mismo cliente (`Phone.matchKey`). La base lo garantiza con índices únicos.
-- **Tasaciones**: por ahora se registran como oportunidad de tipo `appraisal`. Cuando exista el módulo `appraisals`, una tool `request_appraisal` va a crear la tasación.
+- **Tasaciones**: se registran como oportunidad de tipo `appraisal` (`register_client`) con los datos de contacto y la descripción de la propiedad. El agente no crea la tasación: se hace a mano y se carga en el panel (decisión del 2026-11-04, #111).
 - **Topes de uso**: ventanas móviles (última hora y últimas 24 h) en lugar del día calendario UTC del MVP.
 - **Auditoría**: se auditan los cambios de estado (conversación iniciada o vinculada a un cliente, cliente registrado, oportunidad abierta o actualizada). Cada mensaje no se audita: el registro de mensajes ya es su traza.
 - **Memoria del agente**: se guarda en la conversación y es opaca para el core. Si el turno falla, no se guarda.

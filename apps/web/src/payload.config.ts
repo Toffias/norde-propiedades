@@ -9,6 +9,7 @@ import sharp from 'sharp';
 
 import { getEnv } from './config/env';
 import { Categories } from './payload/collections/categories';
+import { GoogleReviews } from './payload/collections/google-reviews';
 import { Media } from './payload/collections/media';
 import { Posts } from './payload/collections/posts';
 import { TeamMembers } from './payload/collections/team-members';
@@ -38,7 +39,7 @@ export default buildConfig({
     },
   },
   i18n: { supportedLanguages: { es }, fallbackLanguage: 'es' },
-  collections: [Posts, Categories, TeamMembers, Media, Users],
+  collections: [Posts, Categories, TeamMembers, GoogleReviews, Media, Users],
   globals: [AboutPage, SiteAppearance],
   plugins,
   // Ejecuta la cola de jobs (publicación programada de posts). El sitio corre en un VPS

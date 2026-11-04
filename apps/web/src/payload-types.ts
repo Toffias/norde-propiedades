@@ -70,6 +70,7 @@ export interface Config {
     posts: Post;
     categories: Category;
     'team-members': TeamMember;
+    'google-reviews': GoogleReview;
     media: Media;
     users: User;
     redirects: Redirect;
@@ -84,6 +85,7 @@ export interface Config {
     posts: PostsSelect<false> | PostsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     'team-members': TeamMembersSelect<false> | TeamMembersSelect<true>;
+    'google-reviews': GoogleReviewsSelect<false> | GoogleReviewsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
@@ -357,6 +359,41 @@ export interface TeamMember {
   createdAt: string;
 }
 /**
+ * Copiá las reseñas de la ficha de Google de Norde que quieras mostrar en el sitio.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "google-reviews".
+ */
+export interface GoogleReview {
+  id: number;
+  authorName: string;
+  /**
+   * Cuadrada. Sin foto, se muestra la inicial del nombre, como en Google.
+   */
+  authorPhoto?: (number | null) | Media;
+  /**
+   * Opcional. Ej.: "Local Guide · 45 reseñas".
+   */
+  authorDetail?: string | null;
+  rating: number;
+  text: string;
+  /**
+   * Se muestra como en Google: "hace 3 meses".
+   */
+  reviewedAt: string;
+  /**
+   * Opcional. El link a la reseña en Google Maps ("Compartir reseña").
+   */
+  reviewUrl?: string | null;
+  /**
+   * Menor número, más arriba.
+   */
+  order?: number | null;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Redirecciones 301 para URLs que cambiaron (ej. un slug editado o URLs del sitio anterior).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -505,6 +542,10 @@ export interface PayloadLockedDocument {
         value: number | TeamMember;
       } | null)
     | ({
+        relationTo: 'google-reviews';
+        value: number | GoogleReview;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -613,6 +654,23 @@ export interface TeamMembersSelect<T extends boolean = true> {
   license?: T;
   photo?: T;
   whatsapp?: T;
+  order?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "google-reviews_select".
+ */
+export interface GoogleReviewsSelect<T extends boolean = true> {
+  authorName?: T;
+  authorPhoto?: T;
+  authorDetail?: T;
+  rating?: T;
+  text?: T;
+  reviewedAt?: T;
+  reviewUrl?: T;
   order?: T;
   active?: T;
   updatedAt?: T;
@@ -844,6 +902,10 @@ export interface AboutPage {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Opcional. El link a la ficha de Norde en Google Maps: suma "Ver todas en Google" a las reseñas.
+   */
+  googleReviewsUrl?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -889,6 +951,7 @@ export interface AboutPageSelect<T extends boolean = true> {
         icon?: T;
         id?: T;
       };
+  googleReviewsUrl?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

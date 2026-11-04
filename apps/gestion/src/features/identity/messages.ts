@@ -68,6 +68,8 @@ export const USER_ERROR_MESSAGES = {
   CannotChangeOwnPermissions:
     'No podés cambiar tus propios permisos: pedíselo a otro administrador.',
   CannotChangeOwnRoles: 'No podés cambiar tus propios roles: pedíselo a otro administrador.',
+  SuspendedDefaultAssignee:
+    'Un usuario suspendido no puede ser el asesor por defecto: reactivalo primero.',
 } satisfies ErrorMessages<UserError>;
 
 export const TOKKO_USERS_IMPORT_ERROR_MESSAGES = {

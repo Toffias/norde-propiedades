@@ -10,6 +10,7 @@ import {
 import { EMPTY_VALUE, formatDateOnly } from '../../lib/format';
 import { CURRENCY_LABELS, OPERATION_LABELS, PROPERTY_TYPE_LABELS } from '../properties/labels';
 import { formatPhone } from './client-format';
+import { FOLLOW_UP_FREQUENCY_LABELS } from './follow-up-labels';
 
 // El historial guarda valores crudos (E.164, IDs, enums): acá se pasan a texto para mostrarlos.
 
@@ -80,6 +81,8 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   locationIds: 'Ubicaciones',
   minRooms: 'Ambientes mínimos',
   autoSend: 'Envío automático',
+  frequency: 'Frecuencia',
+  searchSubscriptionId: 'Suscripción desde la web',
   followUpMatchId: 'Coincidencia',
   reason: 'Motivo',
   featuredListingId: 'Destacada',
@@ -204,6 +207,10 @@ export function formatClientHistoryValue(field: string, value: HistoryValue): st
       return 'la oportunidad';
     case 'savedSearchId':
       return 'una búsqueda';
+    case 'searchSubscriptionId':
+      return 'la confirmó desde su email';
+    case 'frequency':
+      return label(FOLLOW_UP_FREQUENCY_LABELS, value);
     // Los montos de una búsqueda van en centavos; la moneda es otro campo.
     case 'minPriceCents':
     case 'maxPriceCents':

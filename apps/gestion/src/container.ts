@@ -169,6 +169,7 @@ import {
   UpdateInquiryRule,
   ApplyOpportunityRules,
   MatchFollowUps,
+  PurgeExpiredSearchSubscriptions,
   SendFollowUpDigests,
   NotifyTeamOfOpportunity,
   FindReceivedInquiries,
@@ -187,7 +188,11 @@ import {
   type ReceiveInquiryError,
   type ReceiveInquiryInput,
   type ReceiveInquiryOutput,
+  RequestSearchSubscription,
+  type RequestSearchSubscriptionError,
+  type RequestSearchSubscriptionInput,
 } from '@norde/core/clients';
+import type { RequestSearchSubscriptionOutput } from '@norde/core/clients/contracts';
 import { EraseClientConversations, MoveMergedClientConversations } from '@norde/core/conversations';
 import {
   CountUnreadNotifications,
@@ -438,6 +443,7 @@ import {
   DrizzleClientSendsQuery,
   DrizzlePropertySearchQuery,
   HtmlSharedListingEmails,
+  HtmlSubscriptionConfirmationEmails,
   RandomSharedListingTokens,
   DrizzleClientTagQuery,
   DrizzleCompanyFileRepository,
@@ -558,6 +564,7 @@ import {
   eventSubscriptions,
   pullPortalLeads,
   reconcilePortalListings,
+  purgeExpiredSearchSubscriptions,
   sendFollowUpDigests,
 } from './jobs/event-subscriptions';
 
@@ -621,6 +628,15 @@ export interface Container {
     readonly receive: (
       input: ReceiveInquiryInput,
     ) => Promise<Result<ReceiveInquiryOutput, ReceiveInquiryError>>;
+  };
+  /**
+   * Entrada de las suscripciones a búsquedas del sitio (#208): `RequestSearchSubscription` como
+   * `system:web`, que manda el email de confirmación.
+   */
+  readonly webSubscriptions: {
+    readonly request: (
+      input: RequestSearchSubscriptionInput,
+    ) => Promise<Result<RequestSearchSubscriptionOutput, RequestSearchSubscriptionError>>;
   };
   /** Buscador de la barra superior: contactos, propiedades, emprendimientos y agentes. */
   readonly search: { readonly globalSearch: GlobalSearch };
@@ -1772,6 +1788,7 @@ function createContainer(): Container {
     properties,
     inquiries: createInquiriesUseCases(database.db, properties, { ids, clock }),
     webInquiries: createInquiryIntake(database.db, { ids, clock }, WEB_ACTOR),
+    webSubscriptions: createSubscriptionIntake(database.db, env, { ids, clock }, getLogger()),
     appraisals: createAppraisalsUseCases(database.db, { ids, clock, storage: createStorage(env) }),
     ...withAgenda,
     search: {
@@ -1976,6 +1993,31 @@ function importAgents(db: Database): ClientImportAgents {
       );
     },
   };
+}
+
+/** Las suscripciones a búsquedas de la web (#208): `system:web` solo puede pedirlas. */
+const WEB_SUBSCRIPTION_ACTOR = Actor.system('web', ['clients:subscribe-searches']);
+
+function createSubscriptionIntake(
+  db: Database,
+  env: Env,
+  deps: { readonly ids: IdGenerator; readonly clock: Clock },
+  logger: Logger,
+): Container['webSubscriptions'] {
+  const request = new RequestSearchSubscription({
+    uow: createClientsUnitOfWork(db, deps),
+    tokens: new RandomSharedListingTokens(),
+    emails: new HtmlSubscriptionConfirmationEmails(),
+    mailer: new ResendMailer({
+      apiKey: env.RESEND_API_KEY,
+      fromAddress: env.MAIL_FROM_ADDRESS,
+      logger,
+    }),
+    settings: new DrizzleCompanySettingsRepository(db, deps.clock),
+    siteUrl: env.PUBLIC_SITE_URL,
+    ...deps,
+  });
+  return { request: (input) => request.execute(input, WEB_SUBSCRIPTION_ACTOR) };
 }
 
 /** Los agentes activos (con su sucursal), para el reparto de consultas y las acciones masivas. */
@@ -2325,11 +2367,16 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     ids,
     clock,
   });
+  const purgeSubscriptions = new PurgeExpiredSearchSubscriptions({
+    uow: createClientsUnitOfWork(db, deps),
+    clock,
+  });
   bus.schedule({
     name: 'clients.send-follow-up-digests',
     cron: '0 10 * * *',
     run: async () => {
       await sendFollowUpDigests(followUpDigests, SCHEDULER_ACTOR, logger);
+      await purgeExpiredSearchSubscriptions(purgeSubscriptions, SCHEDULER_ACTOR, logger);
     },
   });
   if (portalJobs) {

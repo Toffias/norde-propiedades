@@ -12,6 +12,7 @@ import type {
   RouteInquiry,
   RunClientImport,
   RunOpportunityBulkOperation,
+  PurgeExpiredSearchSubscriptions,
   SendFollowUpDigests,
 } from '@norde/core/clients';
 import type {
@@ -338,7 +339,16 @@ const InquiryAssignedPayloadSchema = z.object({
   assignedBy: z.string().nullish(),
 });
 
-/** Le avisa al agente nuevo, en la campana, que le asignaron un contacto, una oportunidad o una consulta. */
+const SearchSubscribedPayloadSchema = z.object({
+  savedSearchId: z.uuid(),
+  clientId: z.uuid(),
+  agentId: z.string().nullish(),
+});
+
+/**
+ * Le avisa al agente nuevo, en la campana, que le asignaron un contacto, una oportunidad o una
+ * consulta, y al asesor de un contacto que se suscribió a una búsqueda desde la web.
+ */
 function notificationSubscriptions(
   notify: Pick<NotifyAssignment, 'execute'>,
   actor: Actor,
@@ -405,6 +415,22 @@ function notificationSubscriptions(
           clientId: payload.clientId,
           toAgentId: optional(payload.agentId),
           assignedBy: optional(payload.assignedBy),
+          occurredAt: event.occurredAt,
+        });
+      },
+    },
+    {
+      // Se suscribió desde la web (#208): lo hizo el contacto, así que siempre se avisa al asesor.
+      eventType: 'clients.search_subscribed',
+      name: 'notify-assignee',
+      handle: async (event) => {
+        const payload = SearchSubscribedPayloadSchema.parse(event.payload);
+        await run(event, {
+          sourceEventId: event.id,
+          type: 'search.subscribed',
+          entityId: payload.savedSearchId,
+          clientId: payload.clientId,
+          toAgentId: optional(payload.agentId),
           occurredAt: event.occurredAt,
         });
       },
@@ -627,6 +653,23 @@ export async function sendFollowUpDigests(
   for (const failure of failures) {
     logger.error(failure, 'Follow-up digest failed');
   }
+}
+
+/**
+ * Borra las suscripciones a búsquedas desde la web que vencieron sin confirmar (#208): corre con el
+ * resumen diario.
+ */
+export async function purgeExpiredSearchSubscriptions(
+  purge: Pick<PurgeExpiredSearchSubscriptions, 'execute'>,
+  actor: Actor,
+  logger: Logger,
+): Promise<void> {
+  const result = await purge.execute(actor);
+  if (result.isErr()) {
+    logger.error({ error: result.error }, 'Expired search subscriptions not purged');
+    return;
+  }
+  logger.info(result.value, 'Expired search subscriptions purged');
 }
 
 const RECONCILED_PORTALS = PORTALS.filter((portal) => PORTAL_CATALOG[portal].reconciles);

@@ -157,6 +157,22 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     return [...top, ...chosen];
   }
 
+  /** Agrupa el stock que cumple los filtros (unas centenas de filas) por tipo. */
+  async countByType(criteria: PropertyFilterCriteria) {
+    const total = sql<number>`count(*)::int`;
+    const rows = await this.db
+      .select({ propertyType: properties.propertyType, count: total })
+      .from(properties)
+      .where(and(...this.filters(criteria)))
+      .groupBy(properties.propertyType)
+      .orderBy(sql`${total} desc`, asc(properties.propertyType))
+      .limit(PROPERTY_TYPES.length);
+    return rows.map((row) => ({
+      propertyType: z.enum(PROPERTY_TYPES).parse(row.propertyType),
+      count: row.count,
+    }));
+  }
+
   async countFlags(criteria: PropertyFilterCriteria) {
     const [row] = await this.db
       .select({
@@ -231,6 +247,9 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
       c.publishedOnWebOnly ? eq(properties.publishedOnWeb, true) : undefined,
       this.offersOperation(c),
       c.propertyType === undefined ? undefined : eq(properties.propertyType, c.propertyType),
+      c.propertyTypes === undefined || c.propertyTypes.length === 0
+        ? undefined
+        : inArray(properties.propertyType, [...c.propertyTypes]),
       c.minRooms === undefined ? undefined : gte(properties.rooms, c.minRooms),
       c.maxRooms === undefined ? undefined : lte(properties.rooms, c.maxRooms),
       c.minBedrooms === undefined ? undefined : gte(properties.bedrooms, c.minBedrooms),

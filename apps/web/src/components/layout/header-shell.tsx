@@ -15,6 +15,9 @@ const OVERLAY_PATHS: readonly string[] = [routes.home(), routes.appraisals(), ro
 /**
  * El `<header>` del sitio. En las páginas con foto de portada arranca transparente, sobre la foto,
  * y se vuelve sólido al bajar. Los hijos se adaptan con `group-data-[overlay=true]/header:`.
+ *
+ * Tiene su propio `view-transition-name`: sin él, al navegar (por ejemplo, al aplicar un filtro con
+ * el scroll abajo) la captura del contenido se dibuja encima y el header desaparece un instante.
  */
 export function HeaderShell({ children }: { readonly children: ReactNode }) {
   const overHero = OVERLAY_PATHS.includes(usePathname());
@@ -38,7 +41,7 @@ export function HeaderShell({ children }: { readonly children: ReactNode }) {
     <header
       data-overlay={overlay}
       className={cn(
-        'group/header sticky top-0 z-(--z-sticky) border-b transition-[background-color,border-color,box-shadow] duration-300 motion-reduce:transition-none',
+        'group/header sticky top-0 z-(--z-sticky) border-b [view-transition-name:site-header] transition-[background-color,border-color,box-shadow] duration-300 motion-reduce:transition-none',
         // La portada sube por debajo del header (mismo alto: h-16 / sm:h-20).
         overHero && '-mb-16 sm:-mb-20',
         overlay

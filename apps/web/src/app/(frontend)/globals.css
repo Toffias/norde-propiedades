@@ -32,7 +32,8 @@
  * - Los anclas (#proceso, #pedir-tasacion) bajan con scroll suave, sin quedar debajo del header.
  *   Al cambiar de página el salto es instantáneo (`data-scroll-behavior` en <html>).
  * - Los `<details>` con `.details-smooth` se abren y se cierran animando el alto.
- * - Entre páginas, el contenido se funde (`<ViewTransition>` en el layout).
+ * - Entre páginas, el contenido se funde (`<ViewTransition>` en el layout). El header y los botones
+ *   flotantes se capturan aparte (`view-transition-name`) y quedan quietos, encima del contenido.
  */
 html {
   scroll-padding-top: 6rem;
@@ -65,6 +66,24 @@ html {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 280ms;
+  }
+
+  ::view-transition-group(site-header),
+  ::view-transition-old(site-header),
+  ::view-transition-new(site-header),
+  ::view-transition-group(site-float),
+  ::view-transition-old(site-float),
+  ::view-transition-new(site-float),
+  ::view-transition-group(site-float-orbit),
+  ::view-transition-old(site-float-orbit),
+  ::view-transition-new(site-float-orbit) {
+    animation: none;
+  }
+
+  ::view-transition-old(site-header),
+  ::view-transition-old(site-float),
+  ::view-transition-old(site-float-orbit) {
+    display: none;
   }
 }
 

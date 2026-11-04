@@ -45,13 +45,13 @@ type Phase = 'closed' | 'open' | 'closing';
 // El mismo contenedor es la burbuja y el panel: se anima entre los dos tamaños. `overflow-clip`
 // (no `hidden`): mientras crece, enfocar el campo de texto no puede desplazar su contenido.
 const SHELL =
-  'fixed z-(--z-float) overflow-clip transition-[right,bottom,width,height,border-radius,background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none';
+  'fixed z-(--z-float) [view-transition-name:site-float] overflow-clip transition-[right,bottom,width,height,border-radius,background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none';
 // Radio en px (no `rounded-full`, que es enorme): así el borde se anima parejo hasta el panel.
 const SHELL_CLOSED =
   'peer bg-primary right-4 bottom-4 size-14 rounded-[28px] shadow-lg hover:scale-105 sm:right-6 sm:bottom-6';
 // Debajo de la burbuja, en su mismo lugar, y crece con ella al pasar el mouse.
 const ORBIT =
-  'fixed right-4 bottom-4 z-[calc(var(--z-float)-1)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] peer-hover:scale-105 animate-in fade-in sm:right-6 sm:bottom-6';
+  'fixed right-4 bottom-4 z-[calc(var(--z-float)-1)] [view-transition-name:site-float-orbit] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] peer-hover:scale-105 animate-in fade-in sm:right-6 sm:bottom-6';
 const SHELL_OPEN =
   'bg-card right-0 bottom-0 h-dvh w-full rounded-none sm:right-6 sm:bottom-6 sm:rounded-3xl sm:shadow-2xl';
 // Las alturas dejan libre el encabezado del sitio.

@@ -28,7 +28,10 @@ async function createUser(page: Page, name: string): Promise<string> {
 /** Abre la edición de un usuario buscándolo en la grilla. */
 async function editUser(page: Page, email: string) {
   await page.goto(`/mi-empresa/usuarios?q=${encodeURIComponent(email)}`);
-  await page.getByRole('cell', { name: email }).first().click();
+  await page
+    .getByRole('row', { name: new RegExp(email.replace(/\./g, '\\.')) })
+    .getByRole('button', { name: 'Editar' })
+    .click();
   return page.getByRole('dialog', { name: 'Editar usuario' });
 }
 

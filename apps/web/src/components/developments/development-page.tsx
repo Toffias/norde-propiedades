@@ -90,7 +90,12 @@ export async function DevelopmentPage({
 
       {development.photos.length > 0 && (
         <div className="mt-5">
-          <PropertyGallery title={development.name} photos={development.photos} />
+          <PropertyGallery
+            title={development.name}
+            photos={development.photos}
+            floorPlans={development.floorPlans}
+            whatsappHref={developmentWhatsapp(development)}
+          />
         </div>
       )}
 
@@ -312,10 +317,15 @@ function Media({ development }: { readonly development: DevelopmentDetailView })
   );
 }
 
-function ContactCard({ development }: { readonly development: DevelopmentDetailView }) {
-  const whatsapp = whatsappHref(
+/** El WhatsApp del emprendimiento, con su nombre ya en el mensaje. */
+function developmentWhatsapp(development: DevelopmentDetailView): string | null {
+  return whatsappHref(
     `Hola, me interesa el emprendimiento ${development.code}: ${development.name}. ${getSiteUrl()}${development.href}`,
   );
+}
+
+function ContactCard({ development }: { readonly development: DevelopmentDetailView }) {
+  const whatsapp = developmentWhatsapp(development);
   const formEnabled = getContainer().inquiries !== undefined;
 
   return (

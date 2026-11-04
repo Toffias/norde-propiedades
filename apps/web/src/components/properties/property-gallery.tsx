@@ -4,13 +4,43 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@norde/ui
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@norde/ui/components/tabs';
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import { cn } from '@norde/ui/lib/utils';
-import { ChevronLeft, ChevronRight, Grid2X2, House } from 'lucide-react';
+import {
+  Bath,
+  BedDouble,
+  Building2,
+  CalendarCheck,
+  Car,
+  ChevronLeft,
+  ChevronRight,
+  DoorOpen,
+  Grid2X2,
+  House,
+  type LucideIcon,
+  MapPin,
+  Ruler,
+} from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 
 import { isExternal } from '../../lib/properties/images';
-import type { ListingImage } from '../../lib/properties/view';
+import type { ListingFactKind, ListingImage } from '../../lib/properties/view';
 import { SkeletonImage } from '../layout/skeleton-image';
+
+/** Un dato principal de la unidad o del emprendimiento para el costado de "todas las fotos". */
+export interface GalleryHighlight {
+  readonly kind: ListingFactKind | 'delivery' | 'units';
+  readonly label: string;
+}
+
+const HIGHLIGHT_ICONS: Record<GalleryHighlight['kind'], LucideIcon> = {
+  surface: Ruler,
+  rooms: DoorOpen,
+  bedrooms: BedDouble,
+  bathrooms: Bath,
+  parking: Car,
+  delivery: CalendarCheck,
+  units: Building2,
+};
 
 /**
  * Ancho de cada foto del mosaico (4 columnas × 2 filas) según cuántas hay, para que nunca quede
@@ -32,6 +62,10 @@ interface PropertyGalleryProps {
   readonly floorPlans?: readonly ListingImage[];
   /** Precio que acompaña al título en la vista con todas las fotos ("US$ 115.000"). */
   readonly priceLabel?: string | null;
+  /** Barrio o zona ("Liniers, CABA"), debajo del título. */
+  readonly location?: string | null;
+  /** Los datos principales (m², ambientes, dormitorios…), para que el costado no quede vacío. */
+  readonly highlights?: readonly GalleryHighlight[];
   /** Link a WhatsApp ya armado, o `null` si Norde todavía no tiene el número. */
   readonly whatsappHref?: string | null;
 }
@@ -47,6 +81,8 @@ export function PropertyGallery({
   photos,
   floorPlans = [],
   priceLabel = null,
+  location = null,
+  highlights = [],
   whatsappHref = null,
 }: PropertyGalleryProps) {
   const [allTab, setAllTab] = useState<AllTab | null>(null);
@@ -111,6 +147,8 @@ export function PropertyGallery({
         photos={photos}
         floorPlans={floorPlans}
         priceLabel={priceLabel}
+        location={location}
+        highlights={highlights}
         whatsappHref={whatsappHref}
         onTabChange={setAllTab}
         onPick={setViewer}
@@ -128,6 +166,8 @@ interface AllPhotosProps {
   readonly photos: readonly ListingImage[];
   readonly floorPlans: readonly ListingImage[];
   readonly priceLabel: string | null;
+  readonly location: string | null;
+  readonly highlights: readonly GalleryHighlight[];
   readonly whatsappHref: string | null;
   readonly onTabChange: (tab: AllTab | null) => void;
   readonly onPick: (index: number) => void;
@@ -135,7 +175,8 @@ interface AllPhotosProps {
 
 /**
  * Todas las fotos juntas, una debajo de la otra, a pantalla completa. Al costado (abajo en
- * mobile) quedan el título, el precio y el WhatsApp, para consultar sin volver a la ficha.
+ * mobile) quedan el título, el precio, el WhatsApp y los datos principales, para consultar sin
+ * volver a la ficha.
  */
 function AllPhotos({
   tab,
@@ -143,6 +184,8 @@ function AllPhotos({
   photos,
   floorPlans,
   priceLabel,
+  location,
+  highlights,
   whatsappHref,
   onTabChange,
   onPick,
@@ -189,9 +232,25 @@ function AllPhotos({
             <DialogTitle className="line-clamp-1 text-sm leading-snug font-bold lg:line-clamp-none lg:text-xl lg:font-extrabold">
               {title}
             </DialogTitle>
-            <DialogDescription className="text-foreground text-base font-extrabold tracking-tight lg:mt-2 lg:text-2xl">
+            {location && (
+              <p className="text-muted-foreground mt-1.5 hidden items-center gap-1.5 text-sm lg:flex">
+                <MapPin aria-hidden className="size-4 shrink-0" />
+                {location}
+              </p>
+            )}
+            <DialogDescription
+              className={cn(
+                'text-foreground text-base font-extrabold tracking-tight lg:mt-3 lg:text-2xl',
+                priceLabel === null && 'sr-only',
+              )}
+            >
               {priceLabel ?? `${photos.length} fotos`}
             </DialogDescription>
+            {highlights.length > 0 && (
+              <p className="text-muted-foreground truncate text-xs lg:hidden">
+                {highlights.map((highlight) => highlight.label).join(' · ')}
+              </p>
+            )}
           </div>
           {whatsappHref && (
             <a
@@ -206,6 +265,27 @@ function AllPhotos({
                 Consultar por WhatsApp
               </span>
             </a>
+          )}
+          {highlights.length > 0 && (
+            <section aria-labelledby="gallery-highlights" className="hidden border-t pt-5 lg:block">
+              <h2 id="gallery-highlights" className="text-sm font-bold">
+                Características principales
+              </h2>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {highlights.map((highlight) => {
+                  const Icon = HIGHLIGHT_ICONS[highlight.kind];
+                  return (
+                    <li
+                      key={highlight.kind}
+                      className="bg-background flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold"
+                    >
+                      <Icon aria-hidden className="text-muted-foreground size-4 shrink-0" />
+                      {highlight.label}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           )}
         </aside>
       </DialogContent>

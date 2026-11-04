@@ -99,6 +99,8 @@ export default async function PropertyPage({ params }: Props) {
           photos={listing.photos}
           floorPlans={listing.floorPlans}
           priceLabel={listing.priceLabel}
+          location={listing.location}
+          highlights={listing.facts}
           whatsappHref={listingWhatsapp(listing)}
         />
       </div>

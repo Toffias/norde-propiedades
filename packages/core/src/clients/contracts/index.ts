@@ -64,4 +64,5 @@ export * from './inquiries';
 export * from './inquiry-rules';
 export * from './saved-searches';
 export * from './shared-listings';
+export * from './search-subscriptions';
 export * from './quick-replies';

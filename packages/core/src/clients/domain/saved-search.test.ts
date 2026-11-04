@@ -26,6 +26,7 @@ const fields: SavedSearchFields = {
   locationIds: [LOCATION, LOCATION.toUpperCase()],
   minRooms: 2,
   autoSend: false,
+  frequency: 'weekly',
 };
 
 function create(overrides: Partial<SavedSearchFields> = {}) {

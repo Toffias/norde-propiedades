@@ -184,6 +184,11 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
     readonly email?: Email | undefined;
     readonly channel: ContactChannel;
     readonly channelExternalId: string;
+    /**
+     * El agente que lo atiende desde el alta (la suscripción desde la web, #208, va al asesor por
+     * defecto). Sin él, queda sin agente hasta que alguien lo asigne.
+     */
+    readonly agent?: { readonly agentId: string; readonly branchId: string | undefined };
     readonly now: Date;
   }): Result<Client, MissingContactInfoError> {
     // Sin teléfono ni email no hay cómo volver a contactarlo ni deduplicarlo.
@@ -204,8 +209,8 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
         : [],
       emails: input.email ? [{ kind: 'main', email: input.email }] : [],
       clientTypes: [],
-      agentId: undefined,
-      branchId: undefined,
+      agentId: input.agent?.agentId,
+      branchId: input.agent?.branchId,
       profile: EMPTY_PROFILE,
       channels: [
         {

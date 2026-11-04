@@ -7,6 +7,8 @@ export interface UserRepository {
   findByEmail(email: Email): Promise<User | undefined>;
   /** Mismo nombre sin distinguir mayúsculas ni acentos (también los suspendidos). */
   findByName(name: string): Promise<User | undefined>;
+  /** El que está marcado como asesor por defecto (#208), si hay. */
+  findDefaultAssignee(): Promise<User | undefined>;
   /** `actorId` queda como autor del alta o de la edición (`created_by` / `updated_by`). */
   save(user: User, actorId: string): Promise<void>;
 }

@@ -183,4 +183,79 @@ describe('UpdateUser', () => {
     expect(result.isErr() && result.error).toEqual({ type: 'Forbidden' });
     expect(uow.users.rows.get(CAMILA.id)?.name).toBe('Camila Pérez');
   });
+
+  describe('default assignee (#208)', () => {
+    const MARTIN = userSnapshot({
+      id: testUserId('00000000-0000-7000-8000-000000000002'),
+      name: 'Martín Gómez',
+      email: emailOf('martin@norde.com.ar'),
+      defaultAssignee: true,
+    });
+
+    it('marks the user and unmarks the previous one, auditing both', async () => {
+      const { uow, useCase } = setup();
+      seedUser(uow, MARTIN);
+
+      const result = await useCase.execute({ ...UNCHANGED, defaultAssignee: true }, TEST_ADMIN);
+
+      expect(result.isOk()).toBe(true);
+      expect(uow.users.rows.get(CAMILA.id)?.defaultAssignee).toBe(true);
+      expect(uow.users.rows.get(MARTIN.id)?.defaultAssignee).toBe(false);
+      expect(uow.audit.entries.map((e) => [e.entityId, e.changes])).toEqual([
+        [MARTIN.id, { defaultAssignee: { before: true, after: null } }],
+        [CAMILA.id, { defaultAssignee: { before: null, after: true } }],
+      ]);
+    });
+
+    it('unmarks without touching anyone else', async () => {
+      const { uow, useCase } = setup();
+      seedUser(uow, MARTIN);
+
+      const result = await useCase.execute(
+        {
+          ...UNCHANGED,
+          userId: MARTIN.id,
+          name: MARTIN.name,
+          email: 'martin@norde.com.ar',
+          defaultAssignee: false,
+        },
+        TEST_ADMIN,
+      );
+
+      expect(result.isOk()).toBe(true);
+      expect(uow.users.rows.get(MARTIN.id)?.defaultAssignee).toBe(false);
+      expect(uow.audit.entries).toHaveLength(1);
+    });
+
+    it('leaves it as it was when the field is not sent', async () => {
+      const { uow, useCase } = setup();
+      seedUser(uow, MARTIN);
+
+      await useCase.execute(
+        { ...UNCHANGED, userId: MARTIN.id, name: MARTIN.name, email: 'martin@norde.com.ar' },
+        TEST_ADMIN,
+      );
+
+      expect(uow.users.rows.get(MARTIN.id)?.defaultAssignee).toBe(true);
+      expect(uow.audit.entries).toEqual([]);
+    });
+
+    it('does not mark a suspended user', async () => {
+      const { uow, useCase } = setup();
+      seedUser(uow, { ...CAMILA, status: 'suspended' });
+
+      const result = await useCase.execute({ ...UNCHANGED, defaultAssignee: true }, TEST_ADMIN);
+
+      expect(result.isErr() && result.error).toEqual({ type: 'SuspendedDefaultAssignee' });
+      expect(uow.users.rows.get(CAMILA.id)?.defaultAssignee).toBe(false);
+    });
+
+    it('needs users:update', async () => {
+      const { useCase } = setup();
+
+      const result = await useCase.execute({ ...UNCHANGED, defaultAssignee: true }, TEST_AGENT);
+
+      expect(result.isErr() && result.error).toEqual({ type: 'Forbidden' });
+    });
+  });
 });

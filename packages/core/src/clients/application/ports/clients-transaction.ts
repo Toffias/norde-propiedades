@@ -16,6 +16,7 @@ import type {
   OpportunityStageRepository,
   QuickReplyRepository,
   SavedSearchRepository,
+  SearchSubscriptionRepository,
   SharedListingRepository,
 } from '../../domain/client.repository';
 
@@ -38,6 +39,8 @@ export interface ClientsTransaction {
   readonly featured: FeaturedListingRepository;
   readonly followUpMatches: FollowUpMatchRepository;
   readonly savedSearches: SavedSearchRepository;
+  /** Las suscripciones a búsquedas pedidas desde la web (#208). */
+  readonly searchSubscriptions: SearchSubscriptionRepository;
   readonly sharedListings: SharedListingRepository;
   readonly erasure: ClientErasure;
   readonly imports: ClientImportRepository;

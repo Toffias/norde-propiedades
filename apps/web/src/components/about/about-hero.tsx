@@ -18,16 +18,11 @@ export function AboutHero({ intro }: { readonly intro: string }) {
           </p>
           <h1
             id="about-title"
-            className="rise-in text-5xl leading-none font-extrabold text-white sm:text-7xl lg:text-8xl"
+            className="rise-in text-white font-display text-[2.5rem] leading-[0.95] font-normal tracking-normal sm:text-6xl lg:text-[clamp(3.5rem,5.2vw,6rem)]"
             style={{ animationDelay: '120ms' }}
           >
             Somos Norde
           </h1>
-          <div
-            aria-hidden
-            className="about-deco-on-photo rise-in"
-            style={{ animationDelay: '220ms' }}
-          />
           <p
             className="rise-in max-w-2xl text-lg text-white/90 sm:text-xl"
             style={{ animationDelay: '300ms' }}

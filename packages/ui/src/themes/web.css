@@ -4,7 +4,7 @@
  * la línea escalonada del logo como separador.
  * Usar SIEMPRE tokens (bg-card, text-muted-foreground, bg-brand-50): nunca hex sueltos en el .tsx.
  *
- * Las fuentes las carga la app (@fontsource) y las publica en `--font-sans-web` y `--font-wordmark`.
+ * Las fuentes las carga la app (@fontsource) y las publica en `--font-sans-web`, `--font-wordmark-web`, `--font-display-web` y `--font-accent-web`.
  */
 
 @import 'tailwindcss';
@@ -87,6 +87,10 @@
 @theme inline {
   --font-sans: var(--font-sans-web), ui-sans-serif, system-ui, sans-serif;
   --font-wordmark: var(--font-wordmark-web), 'Times New Roman', serif;
+  /* Serif de portada (Italiana): solo títulos grandes sobre foto. */
+  --font-display: var(--font-display-web), Didot, 'Times New Roman', serif;
+  /* Serif en itálica (Instrument Serif): la palabra destacada de los títulos de sección. */
+  --font-accent: var(--font-accent-web), Georgia, serif;
   /* Hover del botón primario. */
   --color-primary-700: color-mix(in oklab, var(--primary) 88%, black);
   /* Redondeado sobrio, estilo MercadoLibre: casi todo a 6px (cards, inputs, selects, botones). */
@@ -159,8 +163,8 @@
 }
 
 /*
- * La línea escalonada del logo: tres trazos que se acortan hacia el centro. Separa secciones y
- * subraya títulos. `.deco-steps` ocupa el ancho del contenedor; `.deco-steps-sm`, 120 px.
+ * La línea escalonada del logo: tres trazos que se acortan hacia el centro. Hoy solo la usa el
+ * wordmark. `.deco-steps` ocupa el ancho del contenedor; `.deco-steps-sm`, 120 px.
  */
 @utility deco-steps {
   height: 9px;

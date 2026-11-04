@@ -1,6 +1,7 @@
 import { ChartLine, ClipboardCheck, House, MessageSquareText, type LucideIcon } from 'lucide-react';
 
 import { Reveal } from '../about/reveal';
+import { TitleAccent } from '../layout/section-heading';
 import { TimelineRail } from '../about/timeline-rail';
 import { StepNumber } from './step-number';
 
@@ -52,16 +53,15 @@ export function AppraisalProcess() {
           <Reveal className="space-y-4">
             <p className="text-primary text-sm font-bold tracking-[0.14em] uppercase">El proceso</p>
             <h2 id="process-title" className="text-4xl leading-tight font-extrabold sm:text-5xl">
-              Cómo tasamos con Norde
+              Cómo tasamos <TitleAccent>con Norde</TitleAccent>
             </h2>
-            <div aria-hidden className="deco-steps-sm" />
             <p className="text-muted-foreground text-lg">
               Una tasación bien hecha es el primer paso para vender o alquilar en menos tiempo y sin
               bajas de precio sucesivas.
             </p>
             <a
               href="#pedir-tasacion"
-              className="text-primary inline-flex items-center gap-1 text-sm font-bold hover:underline"
+              className="text-primary inline-flex items-center gap-1 text-sm font-bold link-underline"
             >
               Empezá ahora →
             </a>

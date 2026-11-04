@@ -6,6 +6,7 @@ import { AppraisalHero } from '../../../components/appraisals/appraisal-hero';
 import { AppraisalProcess } from '../../../components/appraisals/appraisal-process';
 import { FaqSection } from '../../../components/blog/faq-section';
 import { ContactChannels } from '../../../components/layout/contact-channels';
+import { TitleAccent } from '../../../components/layout/section-heading';
 import { InquiryForm } from '../../../components/properties/inquiry-form';
 import { JsonLdScript } from '../../../components/seo/json-ld-script';
 import { getContainer } from '../../../container';
@@ -90,9 +91,8 @@ export default function AppraisalPage() {
                 id="appraisal-form-title"
                 className="text-4xl leading-tight font-extrabold sm:text-5xl"
               >
-                Pedí tu tasación
+                Pedí tu <TitleAccent>tasación</TitleAccent>
               </h2>
-              <div aria-hidden className="deco-steps-sm" />
               <p className="text-muted-foreground text-lg">
                 Dejanos tus datos y contanos de tu propiedad: dónde está, qué tipo es y si la querés
                 vender o alquilar.

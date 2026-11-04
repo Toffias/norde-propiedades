@@ -74,7 +74,7 @@ function ReviewCard({ review, now }: { readonly review: GoogleReviewCard; readon
           href={review.reviewUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-muted-foreground hover:text-foreground mt-auto inline-flex items-center gap-1 self-start pt-1 text-xs font-bold hover:underline"
+          className="text-muted-foreground hover:text-foreground mt-auto inline-flex items-center gap-1 self-start pt-1 text-xs font-bold link-underline"
         >
           Ver en Google
           <ArrowUpRight aria-hidden className="size-3.5" />
@@ -105,7 +105,8 @@ export function GoogleReviewsSection({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <SectionHeading
             id="reviews-title"
-            title="Lo que dicen de nosotros"
+            title="Lo que dicen"
+            accent="de nosotros"
             description={
               <span className="inline-flex items-center gap-2">
                 <GoogleIcon aria-hidden className="size-4" />
@@ -118,7 +119,7 @@ export function GoogleReviewsSection({
               href={googleReviewsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary inline-flex items-center gap-1 text-sm font-bold hover:underline"
+              className="text-primary inline-flex items-center gap-1 text-sm font-bold link-underline"
             >
               Ver todas en Google
               <ArrowUpRight aria-hidden className="size-4" />

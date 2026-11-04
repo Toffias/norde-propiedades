@@ -19,6 +19,8 @@
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "catalog:",
     "@fontsource/cinzel": "catalog:",
+    "@fontsource/instrument-serif": "catalog:",
+    "@fontsource/italiana": "catalog:",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",
     "@norde/ui": "workspace:*",

@@ -127,7 +127,7 @@ export function ContactSection({ formEnabled }: { readonly formEnabled: boolean 
                     href={maps}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary mt-1 inline-flex w-fit items-center gap-1 text-sm font-bold hover:underline"
+                    className="text-primary mt-1 inline-flex w-fit items-center gap-1 text-sm font-bold link-underline"
                   >
                     Cómo llegar
                     <ExternalLink aria-hidden className="size-3.5" />

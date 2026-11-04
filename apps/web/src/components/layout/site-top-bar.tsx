@@ -7,7 +7,7 @@ import { socialProfiles } from '../../lib/business/social-profiles';
 import { routes } from '../../lib/seo/routes';
 import { SocialIcon } from '../brand/social-icon';
 
-const LINK = 'inline-flex items-center gap-2 underline-offset-4 hover:underline';
+const LINK = 'link-underline inline-flex items-center gap-2';
 const ICON_LINK =
   'hover:bg-background/10 dark:hover:bg-accent flex size-8 items-center justify-center rounded-full transition-colors';
 

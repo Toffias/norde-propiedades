@@ -28,10 +28,7 @@ export function PhotoHero({
   return (
     <section
       aria-labelledby={labelledBy}
-      className={cn(
-        'relative isolate flex min-h-[calc(100svh-2.5rem)] flex-col overflow-hidden bg-black',
-        className,
-      )}
+      className={cn('relative isolate flex min-h-svh flex-col overflow-hidden bg-black', className)}
     >
       <Parallax speed={0.25} className="absolute inset-x-0 -inset-y-[20%] -z-10">
         <Image

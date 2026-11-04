@@ -11,7 +11,8 @@ export function FeaturedListings({ listings }: { readonly listings: readonly Lis
     <section aria-labelledby="featured-title" className="mx-auto max-w-7xl px-4 sm:px-6">
       <SectionHeading
         id="featured-title"
-        title="Propiedades destacadas"
+        title="Propiedades"
+        accent="destacadas"
         description="Una selección de lo que tenemos hoy en venta y alquiler."
         link={{ href: routes.properties(), label: 'Ver todas las propiedades' }}
       />

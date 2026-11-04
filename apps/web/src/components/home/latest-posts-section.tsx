@@ -11,7 +11,8 @@ export function LatestPostsSection({ posts }: { readonly posts: readonly PostCar
     <section aria-labelledby="latest-posts-title" className="mx-auto max-w-7xl px-4 sm:px-6">
       <SectionHeading
         id="latest-posts-title"
-        title="Guías y novedades"
+        title="Guías y"
+        accent="novedades"
         description="Todo lo que conviene saber antes de comprar, vender o alquilar."
         link={{ href: routes.blog(), label: 'Ver todos los artículos' }}
       />

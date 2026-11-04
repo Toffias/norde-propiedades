@@ -2,6 +2,7 @@ import { ThemeSwitcher } from '@norde/ui/components/theme-switcher';
 import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
 import { Menu } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { BUSINESS } from '../../constants/business';
 import { SITE_NAV } from '../../lib/layout/site-nav';
@@ -15,11 +16,12 @@ const LINK = 'text-muted-foreground hover:text-foreground rounded-lg px-3 py-2 t
 const ON_PHOTO =
   'group-data-[overlay=true]/header:text-white/90 group-data-[overlay=true]/header:hover:text-white';
 
-export function SiteHeader() {
+/** El header del sitio; `topBar` es la barra de contacto que va arriba (ver `HeaderShell`). */
+export function SiteHeader({ topBar }: { readonly topBar: ReactNode }) {
   const whatsapp = whatsappHref('Hola, quiero hacer una consulta.');
 
   return (
-    <HeaderShell>
+    <HeaderShell topBar={topBar}>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6">
         <Link
           href={routes.home()}

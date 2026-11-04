@@ -52,7 +52,8 @@ export function ServicesSection() {
     >
       <SectionHeading
         id="services-title"
-        title="Cómo te ayudamos"
+        title="Cómo"
+        accent="te ayudamos"
         description="Ya sea que quieras mudarte, invertir o poner tu propiedad en el mercado."
       />
       <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

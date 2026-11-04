@@ -54,8 +54,7 @@ export default function FrontendLayout({ children }: { readonly children: ReactN
           >
             Saltar al contenido
           </a>
-          <SiteTopBar />
-          <SiteHeader />
+          <SiteHeader topBar={<SiteTopBar />} />
           <main id="contenido" className="flex-1">
             {/* Al navegar, el contenido viejo se funde con el nuevo en vez de cortar de golpe. */}
             <ViewTransition>{children}</ViewTransition>

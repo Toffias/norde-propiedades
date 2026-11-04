@@ -204,7 +204,6 @@ function Summary({ development }: { readonly development: DevelopmentDetailView 
           </li>
         </ul>
       )}
-      <div aria-hidden className="deco-steps" />
     </section>
   );
 }

@@ -9,6 +9,7 @@ import estado from '../../assets/appraisal-factors/estado.jpg';
 import superficie from '../../assets/appraisal-factors/superficie.jpg';
 import ubicacion from '../../assets/appraisal-factors/ubicacion.jpg';
 import { Reveal } from '../about/reveal';
+import { TitleAccent } from '../layout/section-heading';
 
 interface Factor {
   readonly title: string;
@@ -57,9 +58,8 @@ export function AppraisalFactors() {
     <section aria-labelledby="factors-title" className="mx-auto max-w-7xl px-4 sm:px-6">
       <Reveal className="max-w-2xl space-y-3">
         <h2 id="factors-title" className="text-3xl font-extrabold sm:text-4xl">
-          Qué tenemos en cuenta
+          Qué tenemos <TitleAccent>en cuenta</TitleAccent>
         </h2>
-        <div aria-hidden className="deco-steps-sm" />
       </Reveal>
       <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {FACTORS.map((factor, index) => (

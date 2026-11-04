@@ -27,16 +27,11 @@ export function AppraisalHero({ description }: { readonly description: string })
           </p>
           <h1
             id="appraisal-title"
-            className="rise-in max-w-4xl text-[2.75rem] leading-[0.95] font-extrabold text-balance text-white sm:text-7xl lg:text-8xl"
+            className="rise-in max-w-4xl text-balance text-white font-display text-[2.5rem] leading-[0.95] font-normal tracking-normal sm:text-6xl lg:text-[clamp(3.5rem,5.2vw,6rem)]"
             style={{ animationDelay: '120ms' }}
           >
             ¿Cuánto vale hoy tu propiedad?
           </h1>
-          <div
-            aria-hidden
-            className="about-deco-on-photo rise-in"
-            style={{ animationDelay: '220ms' }}
-          />
           <p
             className="rise-in max-w-2xl text-base text-white/90 sm:text-xl"
             style={{ animationDelay: '300ms' }}

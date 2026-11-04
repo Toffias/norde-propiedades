@@ -150,7 +150,8 @@ export default async function PropertyPage({ params }: Props) {
         <section aria-labelledby="similar-title" className="mt-20">
           <SectionHeading
             id="similar-title"
-            title="Propiedades similares"
+            title="Propiedades"
+            accent="similares"
             link={{
               href: listingHref(parseListingFilters({ operacion: operationParam })),
               label: 'Ver más',
@@ -211,7 +212,6 @@ function PropertySummary({ listing }: { readonly listing: ListingDetail }) {
           ))}
         </ul>
       )}
-      <div aria-hidden className="deco-steps" />
     </section>
   );
 }

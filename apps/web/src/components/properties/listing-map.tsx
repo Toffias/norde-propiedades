@@ -97,7 +97,7 @@ export function ListingMap({ pins, truncated, filters }: ListingMapProps) {
             <p className="text-primary text-xs font-bold">{selected.operationLabel}</p>
             <p className="text-lg leading-tight font-extrabold">{selected.priceLabel}</p>
             <h2 className="mt-1 line-clamp-2 text-sm leading-snug font-semibold">
-              <Link href={selected.href} className="hover:underline">
+              <Link href={selected.href} className="link-underline">
                 {selected.title}
               </Link>
             </h2>

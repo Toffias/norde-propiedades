@@ -62,7 +62,6 @@ export default async function DevelopmentsPage({ searchParams }: PageProps<'/emp
       />
       <div className="mt-4 space-y-3">
         <h1 className="text-3xl font-extrabold sm:text-4xl">{developmentsTitle(filters)}</h1>
-        <div aria-hidden className="deco-steps-sm" />
       </div>
 
       <section aria-labelledby="results-count" className="mt-8">

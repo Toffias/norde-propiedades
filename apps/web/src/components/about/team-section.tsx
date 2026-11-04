@@ -41,7 +41,7 @@ function MemberCard({ member }: { readonly member: TeamMemberCard }) {
             href={whatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-whatsapp mt-auto inline-flex items-center gap-1.5 self-start pt-2 text-sm font-bold hover:underline"
+            className="text-whatsapp mt-auto inline-flex items-center gap-1.5 self-start pt-2 text-sm font-bold link-underline"
           >
             <WhatsAppIcon aria-hidden className="size-4" />
             Escribile
@@ -61,7 +61,8 @@ export function TeamSection({ members }: { readonly members: readonly TeamMember
       <div className="mx-auto max-w-7xl space-y-8 px-4 py-14 sm:px-6 sm:py-16">
         <SectionHeading
           id="team-title"
-          title="Las personas que te van a atender"
+          title="Las personas que"
+          accent="te van a atender"
           description="Cada uno se especializa en una parte del trabajo. Escribile directo a quien te corresponda o pasá por la oficina."
         />
         <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

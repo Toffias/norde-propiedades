@@ -126,7 +126,6 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
       />
       <div className="mt-4 space-y-3">
         <h1 className="text-3xl font-extrabold sm:text-4xl">{title}</h1>
-        <div aria-hidden className="deco-steps-sm" />
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[18rem_1fr]">
@@ -201,7 +200,7 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
                   <Link
                     href={clearHref}
                     scroll={false}
-                    className="text-muted-foreground hover:text-foreground px-1 text-xs font-semibold underline-offset-2 hover:underline"
+                    className="text-muted-foreground hover:text-foreground px-1 text-xs font-semibold link-underline"
                   >
                     Limpiar todo
                   </Link>

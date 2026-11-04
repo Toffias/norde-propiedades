@@ -85,6 +85,8 @@ export interface PropertySearchCriteria {
   readonly publishedOnWebOnly: boolean;
   readonly operation?: Operation | undefined;
   readonly propertyType?: PropertyType | undefined;
+  /** Alguno de estos tipos. */
+  readonly propertyTypes?: readonly PropertyType[] | undefined;
   /** Coincide si alguna palabra aparece en barrio, localidad o dirección (sin acentos). */
   readonly location?: string | undefined;
   /** Alguna de estas ubicaciones o cualquiera de sus descendientes. */
@@ -162,6 +164,10 @@ export interface PropertySearchQuery {
     criteria: PropertyFilterCriteria,
     options: { readonly limit: number; readonly includeIds: readonly string[] },
   ): Promise<FeatureCount[]>;
+  /** Cuántas cumplen los filtros por tipo, solo los que tienen alguna, de más a menos. */
+  countByType(
+    criteria: PropertyFilterCriteria,
+  ): Promise<{ readonly propertyType: PropertyType; readonly count: number }[]>;
   /** Cuántas de las que cumplen los filtros están amobladas y cuántas tienen cochera. */
   countFlags(
     criteria: PropertyFilterCriteria,

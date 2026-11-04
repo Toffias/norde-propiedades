@@ -34,13 +34,14 @@ import { routes } from '../../../lib/seo/routes';
 // Por request: los filtros vienen en la URL. Los datos salen del caché de propiedades.
 export const dynamic = 'force-dynamic';
 
-/** La URL canónica: los filtros que se indexan (una sola zona), sin orden ni filtros finos. */
+/** La URL canónica: lo que se indexa (un tipo y una zona), sin orden ni filtros finos. */
 function canonicalOf(filters: ListingFilters): string {
   const [locationId] = filters.locationIds ?? [];
+  const [propertyType] = filters.propertyTypes ?? [];
   return listingHref(
     {
       ...(filters.operation && { operation: filters.operation }),
-      ...(filters.propertyType && { propertyType: filters.propertyType }),
+      ...(propertyType && { propertyTypes: [propertyType] }),
       ...(filters.location && { location: filters.location }),
       ...(locationId && { locationIds: [locationId] }),
       sort: 'featured',
@@ -133,7 +134,7 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
           <ListingFiltersPanel
             filters={filters}
             facets={facets}
-            locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+            locations={locations.map((l) => ({ value: l.id, label: l.name }))}
           />
         </aside>
 

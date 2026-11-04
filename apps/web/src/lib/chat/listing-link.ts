@@ -25,7 +25,7 @@ export function chatListingHref(search: WebChatListingSearch): string {
   const currency = CURRENCY_OPTIONS.find((o) => o.value === search.currency)?.value;
   const location = search.location?.trim().slice(0, 100);
   if (operation) filters.operation = operation;
-  if (propertyType) filters.propertyType = propertyType;
+  if (propertyType) filters.propertyTypes = [propertyType];
   if (location) filters.location = location;
   if (currency) filters.currency = currency;
   if (isPositive(search.minPrice)) filters.minPrice = search.minPrice;

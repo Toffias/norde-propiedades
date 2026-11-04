@@ -103,7 +103,8 @@ export function countOptions(facet: PublicCountFacet): number[] {
 
 export interface ListingFilters {
   readonly operation?: Operation;
-  readonly propertyType?: PropertyType;
+  /** Tipos elegidos (alguno de ellos). */
+  readonly propertyTypes?: readonly PropertyType[];
   /** Texto libre: solo si no coincidió con ninguna ubicación del catálogo. */
   readonly location?: string;
   /** Ubicaciones del catálogo (alguna de ellas): incluyen sus barrios. */
@@ -222,7 +223,12 @@ export function parseListingFilters(params: SearchParamsRecord): ListingFilters 
     page: wholeNumber(single(params, n.page), 1000) ?? 1,
   };
   const operation = operationFromParam(single(params, n.operation));
-  const propertyType = propertyTypeFromParam(single(params, n.propertyType));
+  const propertyTypes = many(
+    params,
+    n.propertyType,
+    propertyTypeFromParam,
+    PROPERTY_TYPE_OPTIONS.length,
+  );
   const location = single(params, n.location)?.slice(0, 100);
   const locationIds = many(params, n.locationId, uuid, MAX_PUBLIC_LOCATIONS);
   const area = parseArea(single(params, n.area));
@@ -238,7 +244,7 @@ export function parseListingFilters(params: SearchParamsRecord): ListingFilters 
   const featureIds = many(params, n.feature, uuid, PUBLIC_FEATURE_FACET_LIMIT);
 
   if (operation) filters.operation = operation;
-  if (propertyType) filters.propertyType = propertyType;
+  if (propertyTypes) filters.propertyTypes = propertyTypes;
   if (locationIds) filters.locationIds = locationIds;
   // Con ubicaciones del catálogo, el texto sobra: es su nombre.
   else if (location) filters.location = location;
@@ -272,6 +278,7 @@ function nonEmpty<T>(values: readonly T[] | undefined): T[] | undefined {
 /** Los filtros de la URL como input del mapa: los mismos que la grilla, sin orden ni página. */
 export function toMapInput(filters: ListingFilters): GetPublicPropertyMapInput {
   const hasPrice = filters.minPrice !== undefined || filters.maxPrice !== undefined;
+  const propertyTypes = nonEmpty(filters.propertyTypes);
   const locationIds = nonEmpty(filters.locationIds);
   const rooms = nonEmpty(filters.rooms);
   const bedrooms = nonEmpty(filters.bedrooms);
@@ -279,7 +286,7 @@ export function toMapInput(filters: ListingFilters): GetPublicPropertyMapInput {
   const featureIds = nonEmpty(filters.featureIds);
   return {
     ...(filters.operation && { operation: filters.operation }),
-    ...(filters.propertyType && { propertyType: filters.propertyType }),
+    ...(propertyTypes && { propertyTypes }),
     ...(filters.location && { location: filters.location }),
     ...(locationIds && { locationIds }),
     ...(filters.area && { area: filters.area }),
@@ -322,7 +329,13 @@ export function listingHref(filters: ListingFilters, changes: ListingFilterChang
     for (const value of values ?? []) query.append(name, String(value));
   };
   set(n.operation, OPERATION_OPTIONS.find((o) => o.value === next.operation)?.param);
-  set(n.propertyType, PROPERTY_TYPE_OPTIONS.find((o) => o.value === next.propertyType)?.param);
+  append(
+    n.propertyType,
+    next.propertyTypes?.flatMap((type) => {
+      const param = PROPERTY_TYPE_OPTIONS.find((o) => o.value === type)?.param;
+      return param === undefined ? [] : [param];
+    }),
+  );
   set(n.location, next.location);
   append(n.locationId, next.locationIds);
   // La moneda solo dice algo con un precio: sin precio no se escribe (una URL por búsqueda).
@@ -416,9 +429,10 @@ export function activeFilters(
     chips.push({ key, label, removeHref: listingHref(filters, changes) });
   };
 
-  if (filters.propertyType) {
-    const label = PROPERTY_TYPE_OPTIONS.find((o) => o.value === filters.propertyType)?.label;
-    add('type', label ?? filters.propertyType, { propertyType: undefined });
+  for (const type of filters.propertyTypes ?? []) {
+    add(`type-${type}`, PROPERTY_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type, {
+      propertyTypes: without(filters.propertyTypes, type),
+    });
   }
   for (const id of filters.locationIds ?? []) {
     add(`location-${id}`, names.locations.get(id) ?? 'Ubicación', {
@@ -477,13 +491,25 @@ export function listingTitle(
   filters: ListingFilters,
   locationNames: readonly string[] = [],
 ): string {
-  const what = filters.propertyType ? PROPERTY_TYPE_PLURALS[filters.propertyType] : 'Propiedades';
+  const what =
+    joinNames(
+      (filters.propertyTypes ?? []).map((type, index) =>
+        index === 0 ? PROPERTY_TYPE_PLURALS[type] : lowerFirst(PROPERTY_TYPE_PLURALS[type]),
+      ),
+    ) ?? 'Propiedades';
   const operation = filters.operation
     ? OPERATION_PHRASES[filters.operation]
     : 'en venta y alquiler';
   const place = joinNames(locationNames) ?? (filters.location && capitalizeWords(filters.location));
   const where = place && `en ${place}`;
   return [what, operation, where].filter(Boolean).join(' ');
+}
+
+/** "Casas" → "casas" para seguir una lista; las siglas ("PH") quedan como están. */
+function lowerFirst(text: string): string {
+  return text === text.toLocaleUpperCase('es-AR')
+    ? text
+    : `${text.charAt(0).toLocaleLowerCase('es-AR')}${text.slice(1)}`;
 }
 
 /** "Mataderos", "Mataderos y Liniers", "Mataderos, Liniers y Floresta". */
@@ -502,15 +528,17 @@ function capitalizeWords(text: string): string {
 
 /**
  * Un listado con filtros finos (precio, ambientes, características, área del mapa, orden, más de
- * una ubicación) o en la vista de mapa no se indexa: son infinitas URLs con el mismo contenido.
- * Operación, tipo, una zona y página sí.
+ * una ubicación o un tipo) o en la vista de mapa no se indexa: son infinitas URLs con el mismo contenido.
+ * Operación, un tipo, una zona y página sí.
  */
 export function isIndexable(filters: ListingFilters): boolean {
   const fine = activeFilters(filters).filter(
-    (chip) => chip.key !== 'type' && chip.key !== 'zone' && !chip.key.startsWith('location-'),
+    (chip) =>
+      !chip.key.startsWith('type-') && chip.key !== 'zone' && !chip.key.startsWith('location-'),
   );
   return (
     fine.length === 0 &&
+    (filters.propertyTypes?.length ?? 0) <= 1 &&
     (filters.locationIds?.length ?? 0) <= 1 &&
     filters.view === undefined &&
     filters.sort === 'featured'

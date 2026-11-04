@@ -36,7 +36,7 @@ describe('parseListingFilters', () => {
       }),
     ).toEqual({
       operation: 'sale',
-      propertyType: 'apartment',
+      propertyTypes: ['apartment'],
       location: 'Mataderos',
       currency: 'USD',
       minPrice: 80_000,
@@ -58,7 +58,7 @@ describe('parseListingFilters', () => {
     expect(
       parseListingFilters({
         operacion: 'permuta',
-        tipo: ['casa', 'ph'],
+        tipo: ['castillo', 'casa', 'casa'],
         desde: '-5',
         hasta: 'mucho',
         ambientes: ['0', '5'],
@@ -69,7 +69,7 @@ describe('parseListingFilters', () => {
         orden: 'random',
         pagina: '9999',
       }),
-    ).toEqual({ propertyType: 'house', sort: 'featured', page: 1 });
+    ).toEqual({ propertyTypes: ['house'], sort: 'featured', page: 1 });
   });
 });
 
@@ -319,5 +319,34 @@ describe('several locations, web options and chips', () => {
       '/propiedades?operacion=alquiler&orden=recientes&vista=mapa',
     );
     expect(operationHref(filters, undefined)).toBe('/propiedades?orden=recientes&vista=mapa');
+  });
+});
+
+describe('several property types', () => {
+  it('reads, writes, searches and titles every chosen type', () => {
+    const filters = parseListingFilters({
+      operacion: 'venta',
+      tipo: ['casa', 'ph', 'departamento'],
+    });
+
+    expect(filters.propertyTypes).toEqual(['house', 'ph', 'apartment']);
+    expect(listingHref(filters)).toBe(
+      '/propiedades?operacion=venta&tipo=casa&tipo=ph&tipo=departamento',
+    );
+    expect(toMapInput(filters)).toEqual({
+      operation: 'sale',
+      propertyTypes: ['house', 'ph', 'apartment'],
+    });
+    expect(listingTitle(filters)).toBe('Casas, PH y departamentos en venta');
+    expect(isIndexable(filters)).toBe(false);
+    expect(isIndexable(parseListingFilters({ tipo: 'casa' }))).toBe(true);
+  });
+
+  it('shows a chip per type that removes only that one', () => {
+    const filters = parseListingFilters({ tipo: ['casa', 'ph'] });
+    const chips = activeFilters(filters);
+
+    expect(chips.map((c) => c.label)).toEqual(['Casa', 'PH']);
+    expect(chips[0]?.removeHref).toBe('/propiedades?tipo=ph');
   });
 });

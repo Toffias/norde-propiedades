@@ -99,7 +99,7 @@ El sitio público de Norde Propiedades:
 | **Tasaciones** `/tasar-mi-propiedad`                               | Formulario de solicitud, que crea la tasación en el sistema de gestión                                                                                                             | Formulario → core           |
 | **Vender o alquilar con Norde**                                    | Propuesta de valor para propietarios                                                                                                                                               | Payload                     |
 | **Blog** `/blog`                                                   | Listado, categorías, artículo, autor                                                                                                                                               | Payload                     |
-| **Nosotros y contacto** `/contacto`                                | Historia (línea de tiempo), cifras, equipo con foto y matrícula (señal E-E-A-T), formulario, WhatsApp y canales                                                                    | Payload + formulario → core |
+| **Nosotros y contacto** `/contacto`                                | Historia (línea de tiempo), cifras, equipo con foto y matrícula (señal E-E-A-T), reseñas de Google elegidas, formulario, WhatsApp y canales                                        | Payload + formulario → core |
 
 **Transversal a todo el sitio:**
 
@@ -317,6 +317,7 @@ La web **no consume una API de la gestión**. Llama directamente a los casos de 
   - Portada con la foto de la fachada (`src/assets/fachada-norde.jpg`) en parallax y el H1 "Somos Norde".
   - Historia como línea de tiempo que se pinta al bajar, con fotos en parallax, y cifras que cuentan al aparecer. Salen del global de Payload **Nosotros** (presentación, hasta 8 hitos y hasta 4 cifras); una sección sin datos no se muestra.
   - Equipo: colección de Payload **Equipo** (nombre, cargo, área, matrícula, foto, WhatsApp propio opcional, orden y "mostrar en el sitio"), hasta 24 tarjetas. Cada integrante sale en el JSON-LD como `Person` con `worksFor`. Sin WhatsApp propio, el botón usa el de la inmobiliaria.
+  - Reseñas de Google: colección de Payload **Reseñas de Google**, cargadas a mano (autor, foto opcional, detalle tipo "Local Guide · 45 reseñas", estrellas, texto, fecha, link a la reseña, orden y "mostrar en el sitio"), hasta 12 tarjetas con el formato de Google ("hace 3 meses", "Más" para textos largos). El global **Nosotros** suma un link opcional a la ficha de Google para "Ver todas en Google". Sin JSON-LD `Review`: Google no muestra reseñas propias de un negocio (self-serving) como rich results.
   - Contacto: el formulario de consulta (el mismo de la ficha, sin propiedad) y los canales de `BUSINESS`, con teléfono y WhatsApp en dos tarjetas lado a lado.
   - El movimiento es un extra: el HTML del servidor ya muestra todo, y con "reducir movimiento" no hay parallax, animaciones ni conteo.
 - **Tasaciones** `/tasar-mi-propiedad`: formulario de consulta (el mismo de la ficha, sin propiedad) y los canales que Norde haya confirmado en `BUSINESS`. Tasaciones suma los pasos, preguntas frecuentes (`FAQPage`) y JSON-LD `Service`. Hasta F6, el pedido de tasación entra como **consulta** en la bandeja del panel, no como tasación.

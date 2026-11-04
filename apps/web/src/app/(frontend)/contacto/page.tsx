@@ -3,11 +3,12 @@ import type { Metadata } from 'next';
 import { AboutHero } from '../../../components/about/about-hero';
 import { AboutStats } from '../../../components/about/about-stats';
 import { ContactSection } from '../../../components/about/contact-section';
+import { GoogleReviewsSection } from '../../../components/about/google-reviews-section';
 import { HistoryTimeline } from '../../../components/about/history-timeline';
 import { TeamSection } from '../../../components/about/team-section';
 import { JsonLdScript } from '../../../components/seo/json-ld-script';
 import { getContainer } from '../../../container';
-import { findAboutContent, listTeamMembers } from '../../../lib/about/queries';
+import { findAboutContent, listGoogleReviews, listTeamMembers } from '../../../lib/about/queries';
 import { mediaAbsoluteUrl } from '../../../lib/blog/media';
 import { breadcrumbSchema, teamSchema } from '../../../lib/seo/json-ld';
 import { buildMetadata, withBrand } from '../../../lib/seo/metadata';
@@ -31,7 +32,11 @@ export function generateMetadata(): Metadata {
 /** Nosotros y contacto: la historia de Norde, el equipo y, al final, cómo escribirnos. */
 export default async function ContactPage() {
   const formEnabled = getContainer().inquiries !== undefined;
-  const [about, team] = await Promise.all([findAboutContent(), listTeamMembers()]);
+  const [about, team, reviews] = await Promise.all([
+    findAboutContent(),
+    listTeamMembers(),
+    listGoogleReviews(),
+  ]);
   const siteUrl = getSiteUrl();
 
   return (
@@ -61,6 +66,12 @@ export default async function ContactPage() {
         />
       )}
       <TeamSection members={team} />
+
+      <GoogleReviewsSection
+        reviews={reviews}
+        googleReviewsUrl={about.googleReviewsUrl}
+        now={new Date()}
+      />
 
       <ContactSection formEnabled={formEnabled} />
     </div>

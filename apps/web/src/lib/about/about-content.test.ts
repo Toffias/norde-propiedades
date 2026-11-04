@@ -16,6 +16,7 @@ describe('toAboutContent', () => {
       intro: DEFAULT_ABOUT_INTRO,
       milestones: [],
       stats: [],
+      googleReviewsUrl: null,
     });
   });
 
@@ -23,6 +24,7 @@ describe('toAboutContent', () => {
     const page: AboutPage = {
       id: 1,
       intro: '  Somos de Mataderos.  ',
+      googleReviewsUrl: ' https://maps.app.goo.gl/norde ',
       milestones: [
         { id: 'a', label: '2012', title: ' Abrimos ', text: 'Texto', image: 3 },
         { id: 'b', label: 'Hoy', title: 'Equipo', text: 'Texto', image: photo },
@@ -37,6 +39,7 @@ describe('toAboutContent', () => {
     const content = toAboutContent(page);
 
     expect(content.intro).toBe('Somos de Mataderos.');
+    expect(content.googleReviewsUrl).toBe('https://maps.app.goo.gl/norde');
     expect(content.milestones.map((m) => [m.label, m.title, m.image])).toEqual([
       ['2012', 'Abrimos', null],
       ['Hoy', 'Equipo', photo],

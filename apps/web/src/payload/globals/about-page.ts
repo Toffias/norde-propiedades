@@ -2,6 +2,7 @@ import type { GlobalConfig } from 'payload';
 
 import { ABOUT_STAT_ICONS } from '../../lib/about/stat-icons';
 import { anyone, authenticated } from '../access';
+import { validateHttpsUrl } from '../fields/validate-https-url';
 import { revalidateGlobal } from '../hooks/revalidate-blog';
 
 /** Máximos que la página puede mostrar sin romper el diseño. */
@@ -81,6 +82,16 @@ export const AboutPage: GlobalConfig<'about-page'> = {
           admin: { description: 'Opcional. Sin elegir, se deduce del texto de la cifra.' },
         },
       ],
+    },
+    {
+      name: 'googleReviewsUrl',
+      label: 'Link a las reseñas en Google',
+      type: 'text',
+      validate: validateHttpsUrl,
+      admin: {
+        description:
+          'Opcional. El link a la ficha de Norde en Google Maps: suma "Ver todas en Google" a las reseñas.',
+      },
     },
   ],
   hooks: { afterChange: [revalidateGlobal] },

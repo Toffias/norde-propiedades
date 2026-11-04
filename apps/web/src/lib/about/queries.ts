@@ -11,6 +11,7 @@ import {
   type AboutContent,
   type TeamMemberCard,
 } from './about-content';
+import { toGoogleReviewCard, type GoogleReviewCard } from './google-reviews';
 
 // Lecturas de Nosotros con la Local API de Payload, cacheadas con el tag del contenido editorial
 // (lo invalidan los hooks de la colección del equipo y del global).
@@ -19,6 +20,9 @@ const CACHE_OPTIONS = { tags: [BLOG_CACHE_TAG], revalidate: BLOG_REVALIDATE_SECO
 
 /** El equipo entra en una sola pantalla: más integrantes no se muestran. */
 export const MAX_TEAM_MEMBERS = 24;
+
+/** Las reseñas elegidas: una selección, no el listado completo de Google. */
+export const MAX_GOOGLE_REVIEWS = 12;
 
 const payload = () => getPayload({ config });
 
@@ -49,5 +53,32 @@ export const listTeamMembers = unstable_cache(
     return result.docs.map((member) => toTeamMemberCard(member));
   },
   ['about:team'],
+  CACHE_OPTIONS,
+);
+
+export const listGoogleReviews = unstable_cache(
+  async (): Promise<GoogleReviewCard[]> => {
+    const result = await (
+      await payload()
+    ).find({
+      collection: 'google-reviews',
+      overrideAccess: false,
+      depth: 1,
+      limit: MAX_GOOGLE_REVIEWS,
+      sort: ['order', '-reviewedAt'],
+      where: { active: { equals: true } },
+      select: {
+        authorName: true,
+        authorPhoto: true,
+        authorDetail: true,
+        rating: true,
+        text: true,
+        reviewedAt: true,
+        reviewUrl: true,
+      },
+    });
+    return result.docs.map((review) => toGoogleReviewCard(review));
+  },
+  ['about:google-reviews'],
   CACHE_OPTIONS,
 );

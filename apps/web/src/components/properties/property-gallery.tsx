@@ -174,7 +174,8 @@ interface AllPhotosProps {
 }
 
 /**
- * Todas las fotos juntas, una debajo de la otra, a pantalla completa. Al costado (abajo en
+ * Todas las fotos juntas, una debajo de la otra, en un modal grande sobre la ficha (casi toda la
+ * pantalla, con un margen que deja ver la ficha atrás). Al costado (abajo en
  * mobile) quedan el título, el precio, el WhatsApp y los datos principales, para consultar sin
  * volver a la ficha.
  */
@@ -197,7 +198,7 @@ function AllPhotos({
         if (!isOpen) onTabChange(null);
       }}
     >
-      <DialogContent className="top-0 left-0 flex h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 p-0 data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:max-w-none lg:flex-row">
+      <DialogContent className="flex h-[calc(100dvh-1.5rem)] max-w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 shadow-2xl sm:h-[min(60rem,calc(100dvh-4rem))] sm:max-w-[min(84rem,calc(100%-4rem))] sm:rounded-3xl lg:flex-row">
         <Tabs
           value={tab ?? 'photos'}
           onValueChange={(value) => {
@@ -227,7 +228,7 @@ function AllPhotos({
           )}
         </Tabs>
 
-        <aside className="bg-card flex shrink-0 items-center gap-4 border-t px-4 py-3 sm:px-6 lg:w-96 lg:flex-col lg:items-stretch lg:gap-5 lg:border-t-0 lg:border-l lg:pt-16 lg:pb-6">
+        <aside className="bg-card flex shrink-0 items-center gap-4 border-t px-4 py-3 sm:px-6 lg:w-88 lg:flex-col lg:items-stretch lg:gap-5 lg:border-t-0 lg:border-l lg:pt-16 lg:pb-6">
           <div className="min-w-0 flex-1 lg:flex-none">
             <DialogTitle className="line-clamp-1 text-sm leading-snug font-bold lg:line-clamp-none lg:text-xl lg:font-extrabold">
               {title}

@@ -15,6 +15,7 @@ const PROPERTY_LINKS = [
 ] as const;
 
 const SITE_LINKS = [
+  { label: 'Emprendimientos', href: routes.developments() },
   { label: 'Tasaciones', href: routes.appraisals() },
   { label: 'Blog', href: routes.blog() },
   { label: 'Nosotros y contacto', href: routes.contact() },

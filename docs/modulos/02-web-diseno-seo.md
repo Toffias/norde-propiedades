@@ -201,6 +201,8 @@ Al abrir la web, aparece un **modal con un emprendimiento o una unidad a la vent
 
 Alertas de propiedades nuevas que coinciden con la búsqueda de cada persona.
 
+**Implementado (#208, ADR 0054)**: el listado ofrece "Suscribirme a esta búsqueda" (nombre, email y frecuencia: cada 3 días, semanal o mensual), con doble confirmación en `/suscripcion/<token>`. El contacto queda en el panel con una búsqueda con envío automático y el resumen lo manda el panel (módulo 3, §3.4). Lo de abajo es el planteo original: la ficha, el web chat y el blog todavía no ofrecen suscribirse, y no hay envío inmediato.
+
 1. **Suscripción**: el visitante deja su email y su búsqueda desde:
    - Un formulario "Avisame cuando haya algo así" en el listado o en la ficha.
    - El web chat (el agente puede ofrecerlo).

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Operation, PropertyType } from '@norde/core/properties/contracts';
+import type { Operation, PropertyType, PublicSearchFacets } from '@norde/core/properties/contracts';
 import { unstable_cache } from 'next/cache';
 
 import { getContainer } from '../../container';
@@ -74,35 +74,53 @@ export const listingMap = unstable_cache(
   CACHE_OPTIONS,
 );
 
-/** Mínimo de letras para sugerir ubicaciones: con una sola, sale medio catálogo. */
+/** Cuántas propiedades daría cada opción del buscador con los filtros de la URL. */
+export const searchFacets = unstable_cache(
+  async (filters: ListingFilters): Promise<PublicSearchFacets> => {
+    const result = await getContainer().properties.facets(toMapInput(filters));
+    if (result.isErr()) throw new Error(`Public facets failed: ${result.error.type}`);
+    return result.value;
+  },
+  ['properties:facets'],
+  CACHE_OPTIONS,
+);
+
+/** Mínimo de letras para buscar ubicaciones: con una sola, sale medio catálogo. */
 export const LOCATION_QUERY_MIN_LENGTH = 2;
 
-const LOCATION_SUGGESTIONS = 8;
+/** Las del desplegable: sin texto, las de más propiedades; escribiendo, las que coinciden. */
+const LOCATION_OPTIONS = 20;
 
 async function locations(
-  input: { readonly q: string } | { readonly ids: string[] },
+  input: { readonly q?: string; readonly ids?: string[]; readonly operation?: Operation },
+  pageSize: number,
 ): Promise<readonly LocationOption[]> {
-  const result = await getContainer().properties.locations({
-    ...input,
-    pageSize: LOCATION_SUGGESTIONS,
-  });
+  const result = await getContainer().properties.locations({ ...input, pageSize });
   if (result.isErr()) throw new Error(`Public locations failed: ${result.error.type}`);
   return result.value.items.map(toLocationOption);
 }
 
-/** Barrios y localidades con propiedades publicadas que coinciden con lo que se escribe. */
+/**
+ * Barrios y localidades con propiedades publicadas: los que coinciden con lo que se escribe o,
+ * sin texto, los que más tienen. Con operación, cuenta solo las de esa operación.
+ */
 export const suggestLocations = unstable_cache(
-  async (text: string): Promise<readonly LocationOption[]> => {
+  async (text: string, operation?: Operation): Promise<readonly LocationOption[]> => {
     const q = text.trim().slice(0, 80);
-    return q.length < LOCATION_QUERY_MIN_LENGTH ? [] : locations({ q });
+    if (q.length > 0 && q.length < LOCATION_QUERY_MIN_LENGTH) return [];
+    return locations(
+      { ...(q.length > 0 && { q }), ...(operation && { operation }) },
+      LOCATION_OPTIONS,
+    );
   },
   ['properties:locations'],
   CACHE_OPTIONS,
 );
 
-/** La ubicación elegida (para el título y el buscador). `undefined` si ya no tiene propiedades. */
-export const findLocation = unstable_cache(
-  async (id: string): Promise<LocationOption | undefined> => (await locations({ ids: [id] }))[0],
+/** Las ubicaciones elegidas (título, chips y buscador): las que ya no tienen propiedades no están. */
+export const findLocations = unstable_cache(
+  async (ids: readonly string[]): Promise<readonly LocationOption[]> =>
+    ids.length === 0 ? [] : locations({ ids: [...ids] }, ids.length),
   ['properties:location'],
   CACHE_OPTIONS,
 );

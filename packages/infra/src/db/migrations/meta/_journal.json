@@ -414,6 +414,13 @@
       "when": 1793716452805,
       "tag": "0058_portals_read_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793761883038,
+      "tag": "0059_usd_exchange_rate",
+      "breakpoints": true
     }
   ]
 }

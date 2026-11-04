@@ -15,6 +15,7 @@ import {
   GetPropertyDetail,
   GetPublicPhoto,
   GetPublicPropertyMap,
+  GetPublicSearchFacets,
   GetPublishedDevelopment,
   SearchProperties,
   SearchPublicLocations,
@@ -67,6 +68,10 @@ export interface PropertiesUseCases {
   map(
     input: Parameters<GetPublicPropertyMap['execute']>[0],
   ): ReturnType<GetPublicPropertyMap['execute']>;
+  /** Cuántas propiedades daría cada opción del buscador ("2 ambientes (14)"). */
+  facets(
+    input: Parameters<GetPublicSearchFacets['execute']>[0],
+  ): ReturnType<GetPublicSearchFacets['execute']>;
   /** Barrios y localidades con propiedades publicadas (autocompletado del buscador). */
   locations(
     input: Parameters<SearchPublicLocations['execute']>[0],
@@ -139,19 +144,18 @@ function createContainer(): Container {
   const env = getEnv();
   const database = createDatabase({ url: env.DATABASE_URL, applicationName: 'norde-web' });
   const properties = new DrizzlePropertySearchQuery(database.db);
-  const search = new SearchProperties({ properties });
+  const settings = new DrizzleCompanySettingsRepository(database.db, new SystemClock());
+  const search = new SearchProperties({ properties, settings });
   const detail = new GetPropertyDetail({ properties });
-  const map = new GetPublicPropertyMap({ properties });
+  const map = new GetPublicPropertyMap({ properties, settings });
+  const facets = new GetPublicSearchFacets({ properties, settings });
   const locations = new SearchPublicLocations({
     locations: new DrizzlePublicLocationQuery(database.db),
   });
   const developments = new DrizzlePublishedDevelopmentQuery(database.db);
   const storage = createStorage(env);
   const photo = new GetPublicPhoto({ properties, developments, storage });
-  const companyLogo = new GetCompanyLogo({
-    settings: new DrizzleCompanySettingsRepository(database.db, new SystemClock()),
-    storage,
-  });
+  const companyLogo = new GetCompanyLogo({ settings, storage });
   const searchDevelopments = new SearchPublishedDevelopments({ developments });
   const developmentDetail = new GetPublishedDevelopment({ developments });
   const sharedListings = createSharedListings(database);
@@ -163,6 +167,7 @@ function createContainer(): Container {
       detail: (input) => detail.execute(input, WEB_ACTOR),
       photo: (input) => photo.execute(input, WEB_ACTOR),
       map: (input) => map.execute(input, WEB_ACTOR),
+      facets: (input) => facets.execute(input, WEB_ACTOR),
       locations: (input) => locations.execute(input, WEB_ACTOR),
     },
     developments: {

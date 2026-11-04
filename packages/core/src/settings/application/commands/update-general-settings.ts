@@ -1,6 +1,7 @@
 import { err, ok, type Actor, type Clock, type ForbiddenError, type Result } from '../../../shared';
 import { UpdateGeneralSettingsInputSchema, type UpdateGeneralSettingsInput } from '../../contracts';
 import type { InvalidCompanySettingsError } from '../../domain/company-settings';
+import { UsdExchangeRate, type InvalidExchangeRateError } from '../../domain/usd-exchange-rate';
 import { WebUrlTemplate, type InvalidWebUrlTemplateError } from '../../domain/web-url-template';
 import { companySettingsAuditState, saveCompanySettingsChange } from '../company-settings-changes';
 import type { SettingsUnitOfWork } from '../ports/settings-transaction';
@@ -10,6 +11,7 @@ export type UpdateGeneralSettingsError =
   | ForbiddenError
   | ValidationFailedError
   | InvalidCompanySettingsError
+  | InvalidExchangeRateError
   | (InvalidWebUrlTemplateError & { readonly field: 'property' | 'development' });
 
 function template(
@@ -21,7 +23,14 @@ function template(
   return created.isErr() ? err({ ...created.error, field }) : ok(created.value);
 }
 
-/** Nombre, zona horaria, URLs de la web y alcance de Noticias. */
+function exchangeRate(
+  raw: string | undefined,
+): Result<UsdExchangeRate | undefined, InvalidExchangeRateError> {
+  if (raw === undefined || raw === '') return ok(undefined);
+  return UsdExchangeRate.fromText(raw);
+}
+
+/** Nombre, zona horaria, URLs de la web, alcance de Noticias y cotización del dólar. */
 export class UpdateGeneralSettings {
   constructor(private readonly deps: { readonly uow: SettingsUnitOfWork; readonly clock: Clock }) {}
 
@@ -38,6 +47,8 @@ export class UpdateGeneralSettings {
     if (property.isErr()) return err(property.error);
     const development = template(data.webDevelopmentUrlTemplate, 'development');
     if (development.isErr()) return err(development.error);
+    const rate = exchangeRate(data.usdExchangeRate);
+    if (rate.isErr()) return err(rate.error);
 
     return this.deps.uow.run(async (tx): Promise<Result<void, UpdateGeneralSettingsError>> => {
       const settings = await tx.companySettings.get();
@@ -49,6 +60,7 @@ export class UpdateGeneralSettings {
           webPropertyUrlTemplate: property.value,
           webDevelopmentUrlTemplate: development.value,
           newsScope: data.newsScope,
+          usdExchangeRate: rate.value,
         },
         this.deps.clock.now(),
       );

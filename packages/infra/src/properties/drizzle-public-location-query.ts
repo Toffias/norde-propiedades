@@ -28,7 +28,11 @@ export class DrizzlePublicLocationQuery implements PublicLocationQuery {
       isNull(properties.deletedAt),
       eq(properties.publishedOnWeb, true),
       inArray(properties.status, [...criteria.statuses]),
-      sql`exists (select 1 from ${propertyOperations} where ${propertyOperations.propertyId} = ${properties.id})`,
+      sql`exists (select 1 from ${propertyOperations} where ${propertyOperations.propertyId} = ${properties.id}${
+        criteria.operation === undefined
+          ? sql``
+          : sql` and ${propertyOperations.operation} = ${criteria.operation}`
+      })`,
     );
     const text =
       criteria.text === undefined ? undefined : sql`core.search_normalize(${criteria.text})`;
@@ -42,6 +46,7 @@ export class DrizzlePublicLocationQuery implements PublicLocationQuery {
         ? undefined
         : sql`${locations.normalizedName} like '%' || ${escapeLikeSql(text)} || '%'`,
       criteria.ids === undefined ? undefined : inArray(locations.id, [...criteria.ids]),
+      criteria.kinds === undefined ? undefined : inArray(locations.kind, [...criteria.kinds]),
     );
     const listingCount = sql<number>`count(distinct ${properties.id})::int`;
 

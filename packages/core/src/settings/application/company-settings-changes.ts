@@ -14,6 +14,7 @@ export function companySettingsAuditState(settings: CompanySettings): AuditState
     webPropertyUrlTemplate: s.webPropertyUrlTemplate?.value,
     webDevelopmentUrlTemplate: s.webDevelopmentUrlTemplate?.value,
     newsScope: s.newsScope,
+    usdExchangeRateCents: s.usdExchangeRate?.arsCentsPerUsd,
     watermark: toAuditValue(s.watermark.toProps()),
     portalDescriptionFooter: s.portalDescriptionFooter?.value,
     pdfOptions: toAuditValue(s.pdfOptions),
@@ -66,6 +67,7 @@ export function toCompanySettingsView(settings: CompanySettings): CompanySetting
     webPropertyUrlTemplate: s.webPropertyUrlTemplate?.value,
     webDevelopmentUrlTemplate: s.webDevelopmentUrlTemplate?.value,
     newsScope: s.newsScope,
+    usdExchangeRate: s.usdExchangeRate?.toText(),
     watermark: {
       enabled: s.watermark.enabled,
       hasLogo: s.watermark.logoKey !== undefined,

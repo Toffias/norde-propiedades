@@ -89,6 +89,8 @@ export const UpdateGeneralSettingsInputSchema = z.object({
   webPropertyUrlTemplate: optionalText(300),
   webDevelopmentUrlTemplate: optionalText(300),
   newsScope: z.enum(NEWS_SCOPE_VALUES),
+  /** Pesos por dólar ("1.450" o "1.450,50"); vacío, sin cotización. Lo valida el dominio. */
+  usdExchangeRate: optionalText(20),
 });
 export type UpdateGeneralSettingsInput = z.input<typeof UpdateGeneralSettingsInputSchema>;
 
@@ -163,6 +165,8 @@ export interface CompanySettingsView {
   readonly webPropertyUrlTemplate: string | undefined;
   readonly webDevelopmentUrlTemplate: string | undefined;
   readonly newsScope: NewsScopeValue;
+  /** Pesos por dólar con formato argentino ("1.450,50"). */
+  readonly usdExchangeRate: string | undefined;
   readonly watermark: {
     readonly enabled: boolean;
     readonly hasLogo: boolean;

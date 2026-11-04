@@ -14,6 +14,7 @@ import {
   ReferenceCodeSequence,
   WATERMARK_POSITIONS,
   Watermark,
+  UsdExchangeRate,
   WebUrlTemplate,
   type CompanyFileId,
   type CompanyFileRepository,
@@ -41,7 +42,7 @@ function storedId<TBrand extends string>(value: string) {
   return stored(parseId<TBrand>(value), 'id');
 }
 
-function optional<T>(value: string | null, create: (raw: string) => T): T | undefined {
+function optional<V, T>(value: V | null, create: (raw: V) => T): T | undefined {
   return value === null ? undefined : create(value);
 }
 
@@ -104,6 +105,9 @@ export class DrizzleCompanySettingsRepository
         stored(WebUrlTemplate.create(v), 'url template'),
       ),
       newsScope: z.enum(NEWS_SCOPES).parse(row.newsScope),
+      usdExchangeRate: optional(row.usdExchangeRateCents, (v) =>
+        stored(UsdExchangeRate.fromCents(v), 'exchange rate'),
+      ),
       watermark: watermark
         ? stored(
             Watermark.create({ ...watermark, logoKey: watermark.logoKey ?? undefined }),
@@ -132,6 +136,7 @@ export class DrizzleCompanySettingsRepository
         webPropertyUrlTemplate: s.webPropertyUrlTemplate?.value ?? null,
         webDevelopmentUrlTemplate: s.webDevelopmentUrlTemplate?.value ?? null,
         newsScope: s.newsScope,
+        usdExchangeRateCents: s.usdExchangeRate?.arsCentsPerUsd ?? null,
         watermark: s.watermark.toProps(),
         portalDescriptionFooter: s.portalDescriptionFooter?.value ?? null,
         pdfSettings: s.pdfOptions,

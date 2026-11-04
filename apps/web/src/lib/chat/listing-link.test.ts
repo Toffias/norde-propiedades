@@ -27,7 +27,7 @@ describe('chatListingHref', () => {
     });
 
     expect(href).toBe(
-      '/propiedades?operacion=venta&tipo=departamento&zona=Villa+Urquiza&moneda=usd&hasta=200000&ambientes=2',
+      '/propiedades?operacion=venta&tipo=departamento&zona=Villa+Urquiza&moneda=usd&hasta=200000&ambientes=2&ambientes=3&ambientes=4',
     );
   });
 

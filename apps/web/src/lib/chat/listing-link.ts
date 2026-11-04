@@ -1,6 +1,13 @@
 import type { WebChatListingSearch } from '../../container';
 
-import { CURRENCY_OPTIONS, listingHref, type ListingFilters } from '../properties/listing-filters';
+import { PUBLIC_COUNT_OPTION_LIMITS } from '@norde/core/properties/contracts';
+
+import {
+  countOptions,
+  CURRENCY_OPTIONS,
+  listingHref,
+  type ListingFilters,
+} from '../properties/listing-filters';
 import { OPERATION_OPTIONS, PROPERTY_TYPE_OPTIONS } from '../properties/search-params';
 
 /**
@@ -23,9 +30,18 @@ export function chatListingHref(search: WebChatListingSearch): string {
   if (currency) filters.currency = currency;
   if (isPositive(search.minPrice)) filters.minPrice = search.minPrice;
   if (isPositive(search.maxPrice)) filters.maxPrice = search.maxPrice;
-  if (isPositive(search.minRooms)) filters.minRooms = search.minRooms;
-  if (isPositive(search.minBedrooms)) filters.minBedrooms = search.minBedrooms;
+  if (isPositive(search.minRooms)) filters.rooms = fromMinimum('rooms', search.minRooms);
+  if (isPositive(search.minBedrooms)) {
+    filters.bedrooms = fromMinimum('bedrooms', search.minBedrooms);
+  }
   return listingHref(filters);
+}
+
+/** "Desde 2 ambientes" como opciones del listado: 2, 3 y "4 o más". */
+function fromMinimum(facet: 'rooms' | 'bedrooms', minimum: number): number[] {
+  return countOptions(facet).filter(
+    (option) => option >= Math.min(minimum, PUBLIC_COUNT_OPTION_LIMITS[facet]),
+  );
 }
 
 function isPositive(value: number | null): value is number {

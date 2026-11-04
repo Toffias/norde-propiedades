@@ -43,6 +43,7 @@ export const COMPANY_SETTINGS_ERROR_MESSAGES = {
   ValidationFailed: INVALID,
   InvalidCompanyName: 'El nombre de la empresa no puede quedar vacío.',
   InvalidTimezone: 'Elegí una zona horaria.',
+  InvalidExchangeRate: 'Escribí la cotización en pesos, por ejemplo 1.450 o 1.450,50.',
   InvalidSenderName: 'El nombre del remitente es demasiado largo.',
   InvalidWebUrlTemplate: (error) =>
     `La URL de ${error.field === 'property' ? 'propiedades' : 'emprendimientos'} tiene que empezar con https:// y llevar {id} o {slug} una sola vez.`,

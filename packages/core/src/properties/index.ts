@@ -13,6 +13,8 @@ export type {
   PropertyOperationRecord,
   PropertyRecord,
   PropertySearchCriteria,
+  PropertyFilterCriteria,
+  FeatureCount,
   PropertySearchQuery,
 } from './application/ports/property-search-query';
 export {
@@ -32,6 +34,17 @@ export {
   SearchPublicLocations,
   type SearchPublicLocationsError,
 } from './application/queries/search-public-locations';
+export {
+  GetPublicSearchFacets,
+  type GetPublicSearchFacetsError,
+} from './application/queries/get-public-search-facets';
+export {
+  COUNT_OPTION_LIMITS,
+  type AgeRange,
+  type CountFacet,
+  type CountRange,
+  type PriceBounds,
+} from './domain/public-search';
 export type {
   PublicLocationCriteria,
   PublicLocationQuery,

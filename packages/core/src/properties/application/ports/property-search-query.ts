@@ -2,6 +2,7 @@ import type { Currency, MapArea, Operation, PropertyType, PublicSort } from '../
 import type { FeatureKind } from '../../domain/feature';
 import type { MediaKind, MediaProcessingStatus, MediaVariants } from '../../domain/media-item';
 import type { PropertyStatus } from '../../domain/property-status';
+import type { AgeRange, CountFacet, CountRange, PriceBounds } from '../../domain/public-search';
 
 export interface PropertyOperationRecord {
   readonly operation: Operation;
@@ -86,8 +87,8 @@ export interface PropertySearchCriteria {
   readonly propertyType?: PropertyType | undefined;
   /** Coincide si alguna palabra aparece en barrio, localidad o dirección (sin acentos). */
   readonly location?: string | undefined;
-  /** La ubicación o cualquiera de sus descendientes. */
-  readonly locationId?: string | undefined;
+  /** Alguna de estas ubicaciones o cualquiera de sus descendientes. */
+  readonly locationIds?: readonly string[] | undefined;
   /**
    * Dentro de esta área del mapa, comparando las coordenadas públicas: las exactas si la
    * propiedad muestra la dirección; si no, redondeadas a `APPROXIMATE_DECIMALS`.
@@ -96,17 +97,25 @@ export interface PropertySearchCriteria {
   /** Solo las que tienen coordenadas (el mapa). */
   readonly withCoordinates?: boolean | undefined;
   /**
-   * Filtro de precio sobre la operación buscada (o cualquiera) en esta moneda. Las que no
-   * muestran el precio en la web quedan afuera: el filtro no puede revelarlo.
+   * Filtro de precio sobre la operación buscada (o cualquiera): el precio cae en alguno de estos
+   * rangos, cada uno en su moneda (la pedida y, con cotización, la otra). Las que no muestran el
+   * precio en la web quedan afuera: el filtro no puede revelarlo.
    */
-  readonly currency?: Currency | undefined;
-  readonly minPriceCents?: bigint | undefined;
-  readonly maxPriceCents?: bigint | undefined;
+  readonly priceBounds?: readonly PriceBounds[] | undefined;
   readonly minRooms?: number | undefined;
   readonly maxRooms?: number | undefined;
   readonly minBedrooms?: number | undefined;
   readonly minBathrooms?: number | undefined;
+  /** Alguno de estos rangos (opciones de la web). */
+  readonly roomRanges?: readonly CountRange[] | undefined;
+  readonly bedroomRanges?: readonly CountRange[] | undefined;
+  readonly bathroomRanges?: readonly CountRange[] | undefined;
+  /** Sobre la superficie total o, si no tiene, la cubierta. */
   readonly minSurfaceM2?: number | undefined;
+  readonly maxSurfaceM2?: number | undefined;
+  readonly age?: AgeRange | undefined;
+  readonly furnished?: boolean | undefined;
+  readonly withParking?: boolean | undefined;
   /** Tiene que tener todas (coincidencia parcial y sin acentos con el nombre). */
   readonly amenities?: readonly string[] | undefined;
   /** Tiene que tener todas. */
@@ -121,6 +130,15 @@ export interface PropertySearchCriteria {
   readonly limit: number;
 }
 
+/** Los filtros, sin orden ni página: para contar. */
+export type PropertyFilterCriteria = Omit<PropertySearchCriteria, 'sort' | 'offset' | 'limit'>;
+
+export interface FeatureCount {
+  readonly id: string;
+  readonly name: string;
+  readonly count: number;
+}
+
 /**
  * Puerto de lectura de propiedades (CQRS liviano): infra lo implementa con SQL optimizado.
  * Solo filtra; qué es visible al público lo decide el dominio y llega en `statuses`. Una
@@ -130,6 +148,24 @@ export interface PropertySearchQuery {
   search(
     criteria: PropertySearchCriteria,
   ): Promise<{ readonly items: readonly PropertyRecord[]; readonly total: number }>;
+  /** Cuántas cumplen los filtros y caen en cada rango de `facet`, en el orden de `ranges`. */
+  countByRanges(
+    criteria: PropertyFilterCriteria,
+    facet: CountFacet,
+    ranges: readonly CountRange[],
+  ): Promise<number[]>;
+  /**
+   * Las características activas más frecuentes entre las que cumplen los filtros (a lo sumo
+   * `limit`, de más a menos), más las de `includeIds` aunque no tengan ninguna.
+   */
+  countFeatures(
+    criteria: PropertyFilterCriteria,
+    options: { readonly limit: number; readonly includeIds: readonly string[] },
+  ): Promise<FeatureCount[]>;
+  /** Cuántas de las que cumplen los filtros están amobladas y cuántas tienen cochera. */
+  countFlags(
+    criteria: PropertyFilterCriteria,
+  ): Promise<{ readonly furnished: number; readonly withParking: number }>;
   findById(id: string): Promise<PropertyRecord | undefined>;
   findBySlug(slug: string): Promise<PropertyRecord | undefined>;
   /** Por el código que muestra la web (`DEP0001`), ya normalizado. */

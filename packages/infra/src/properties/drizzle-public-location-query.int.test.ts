@@ -122,6 +122,53 @@ describe('DrizzlePublicLocationQuery', () => {
     });
   });
 
+  it('keeps only the requested kinds and counts only the properties with the operation', async () => {
+    const tree = await insertTree();
+    await insertProperty(tree.palermo.id);
+    await insertProperty(tree.ramos.id);
+    const rented = nextId('8000');
+    await db.insert(properties).values({
+      id: rented,
+      code: `P-${sequence}`,
+      slug: `propiedad-${sequence}`,
+      title: 'En alquiler',
+      propertyType: 'apartment',
+      status: 'available',
+      publishedOnWeb: true,
+      neighborhood: '',
+      city: '',
+      province: '',
+      locationId: tree.soho.id,
+      createdAt: AT,
+      updatedAt: AT,
+    });
+    await db.insert(propertyOperations).values({
+      id: nextId('8001'),
+      propertyId: rented,
+      operation: 'rent',
+      priceCents: 60_000_000n,
+      currency: 'ARS',
+      priceOnRequest: false,
+      createdAt: AT,
+      updatedAt: AT,
+      createdBy: AUTHOR,
+      updatedBy: AUTHOR,
+    });
+
+    const sale = await query.search({
+      ...listed,
+      operation: 'sale',
+      kinds: ['city', 'neighborhood', 'subneighborhood'],
+    });
+    expect(Object.fromEntries(sale.items.map((l) => [l.name, l.listingCount]))).toEqual({
+      Palermo: 1,
+      'Ramos Mejía': 1,
+    });
+
+    const rent = await query.search({ ...listed, operation: 'rent', kinds: ['neighborhood'] });
+    expect(rent.items.map((l) => [l.name, l.listingCount])).toEqual([['Palermo', 1]]);
+  });
+
   it('matches the name without accents and ranks exact, prefix, word and then the rest', async () => {
     const tree = await insertTree();
     await insertProperty(tree.soho.id);

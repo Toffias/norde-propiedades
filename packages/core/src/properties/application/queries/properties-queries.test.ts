@@ -46,14 +46,14 @@ describe('SearchProperties', () => {
     const locationId = '00000000-0000-7000-8000-0000000000d1';
 
     await new SearchProperties({ properties }).execute(
-      { page: 3, pageSize: 5, locationId, sort: 'price_asc', creditEligible: true },
+      { page: 3, pageSize: 5, locationIds: [locationId], sort: 'price_asc', creditEligible: true },
       reader,
     );
 
     expect(properties.criteria[0]).toMatchObject({
       offset: 10,
       limit: 5,
-      locationId,
+      locationIds: [locationId],
       sort: 'price_asc',
       creditEligible: true,
     });

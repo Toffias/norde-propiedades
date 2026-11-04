@@ -21,6 +21,7 @@ import {
   type ReferenceCodeScopeKey,
 } from './reference-code';
 import { ReferenceCodeSequence } from './reference-code-sequence';
+import { UsdExchangeRate } from './usd-exchange-rate';
 import { Watermark, type WatermarkProps } from './watermark';
 import { WebUrlTemplate } from './web-url-template';
 
@@ -184,6 +185,7 @@ describe('CompanySettings', () => {
         webPropertyUrlTemplate: undefined,
         webDevelopmentUrlTemplate: undefined,
         newsScope: 'branch',
+        usdExchangeRate: undefined,
       },
       NOW,
     );
@@ -208,6 +210,7 @@ describe('CompanySettings', () => {
         webPropertyUrlTemplate: undefined,
         webDevelopmentUrlTemplate: undefined,
         newsScope: 'all',
+        usdExchangeRate: undefined,
       },
       NOW,
     );
@@ -461,5 +464,30 @@ describe('CompanyFile', () => {
     expect(file.restoreFromTrash().isOk()).toBe(true);
     expect(file.isInTrash).toBe(false);
     expect(unwrapErr(file.restoreFromTrash())).toEqual({ type: 'FileNotInTrash' });
+  });
+});
+
+describe('UsdExchangeRate', () => {
+  it.each([
+    ['1450', 145_000n],
+    ['1.450', 145_000n],
+    ['1.450,5', 145_050n],
+    ['1450,05', 145_005n],
+    [' 980 ', 98_000n],
+  ])('reads "%s" in pesos', (text, cents) => {
+    expect(unwrap(UsdExchangeRate.fromText(text)).arsCentsPerUsd).toBe(cents);
+  });
+
+  it.each(['', '0', 'abc', '1,450.50', '14.50', '1.450,505', '2.000.000'])(
+    'rejects "%s"',
+    (text) => {
+      expect(unwrapErr(UsdExchangeRate.fromText(text))).toEqual({ type: 'InvalidExchangeRate' });
+    },
+  );
+
+  it('formats the rate back as Argentine pesos', () => {
+    expect(unwrap(UsdExchangeRate.fromCents(145_000n)).toText()).toBe('1.450');
+    expect(unwrap(UsdExchangeRate.fromCents(145_050n)).toText()).toBe('1.450,50');
+    expect(unwrap(UsdExchangeRate.fromCents(98_005n)).toText()).toBe('980,05');
   });
 });

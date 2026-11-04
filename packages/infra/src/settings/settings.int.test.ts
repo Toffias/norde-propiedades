@@ -5,6 +5,7 @@ import {
   FileName,
   ReferenceCodePrefix,
   ReferenceCodeSequence,
+  UsdExchangeRate,
   WebUrlTemplate,
   Watermark,
 } from '@norde/core/settings';
@@ -119,6 +120,7 @@ describe('DrizzleCompanySettingsRepository', () => {
           webPropertyUrlTemplate: unwrap(WebUrlTemplate.create('https://norde.com.ar/p/{slug}')),
           webDevelopmentUrlTemplate: undefined,
           newsScope: 'branch',
+          usdExchangeRate: unwrap(UsdExchangeRate.fromText('1.450,50')),
         },
         clock.now(),
       ),
@@ -173,6 +175,7 @@ describe('DrizzleCompanySettingsRepository', () => {
       emailSender: { fromName: 'Norde' },
     });
     expect(read.webPropertyUrlTemplate?.value).toBe('https://norde.com.ar/p/{slug}');
+    expect(read.usdExchangeRate?.arsCentsPerUsd).toBe(145_050n);
     expect(read.watermark.toProps()).toEqual({
       enabled: true,
       logoKey: 'settings/watermark/1',

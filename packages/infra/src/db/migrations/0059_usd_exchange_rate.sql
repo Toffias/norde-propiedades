@@ -1,0 +1,1 @@
+ALTER TABLE "core"."company_settings" ADD COLUMN "usd_exchange_rate_cents" bigint;

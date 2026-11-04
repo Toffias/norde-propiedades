@@ -6,10 +6,11 @@ import {
   type PublicMapPin,
   type PublicMapResult,
 } from '../../contracts';
-import { PUBLICLY_LISTED_STATUSES } from '../../domain/property-status';
+import type { CompanySettingsReader } from '../../../settings';
 import { publicCoordinates } from '../../domain/public-listing';
 import type { PropertySearchQuery } from '../ports/property-search-query';
 import { toPropertySummary } from '../property-mapper';
+import { exchangeRateFor, toPublicFilterCriteria } from '../public-search-criteria';
 
 export type GetPublicPropertyMapError =
   ForbiddenError | { readonly type: 'InvalidSearch'; readonly issues: readonly string[] };
@@ -19,7 +20,12 @@ export type GetPublicPropertyMapError =
  * los filtros. Cada pin va donde lo pone la ficha: exacto o aproximado a la manzana.
  */
 export class GetPublicPropertyMap {
-  constructor(private readonly deps: { readonly properties: PropertySearchQuery }) {}
+  constructor(
+    private readonly deps: {
+      readonly properties: PropertySearchQuery;
+      readonly settings?: CompanySettingsReader;
+    },
+  ) {}
 
   async execute(
     input: GetPublicPropertyMapInput,
@@ -31,10 +37,9 @@ export class GetPublicPropertyMap {
     if (!parsed.success) {
       return err({ type: 'InvalidSearch', issues: parsed.error.issues.map((i) => i.message) });
     }
+    const rate = await exchangeRateFor(parsed.data, this.deps.settings);
     const result = await this.deps.properties.search({
-      ...parsed.data,
-      statuses: PUBLICLY_LISTED_STATUSES,
-      publishedOnWebOnly: true,
+      ...toPublicFilterCriteria(parsed.data, rate),
       withCoordinates: true,
       sort: 'featured',
       offset: 0,

@@ -40,6 +40,11 @@ const EnvSchema = z.object({
    */
   INQUIRY_WEBHOOK_URL: z.url({ protocol: /^https?$/ }).optional(),
   INQUIRY_WEBHOOK_SECRET: z.string().min(32).optional(),
+  /**
+   * Suscripciones a búsquedas del listado (#208): `https://<panel>/api/webhooks/subscriptions/web`.
+   * Firma con `INQUIRY_WEBHOOK_SECRET`, que la exige. Sin ella, el listado no ofrece suscribirse.
+   */
+  SUBSCRIPTION_WEBHOOK_URL: z.url({ protocol: /^https?$/ }).optional(),
 
   /**
    * Chat con el agente de IA (ADR 0037): `http://127.0.0.1:3100/chat/messages` de apps/agent y el
@@ -64,6 +69,13 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
       code: 'custom',
       path: [missing],
       message: 'Set both INQUIRY_WEBHOOK_* or none',
+    });
+  }
+  if (env.SUBSCRIPTION_WEBHOOK_URL !== undefined && env.INQUIRY_WEBHOOK_SECRET === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['INQUIRY_WEBHOOK_SECRET'],
+      message: 'Required with SUBSCRIPTION_WEBHOOK_URL',
     });
   }
   if ((env.AGENT_CHAT_URL === undefined) !== (env.AGENT_CHAT_SECRET === undefined)) {

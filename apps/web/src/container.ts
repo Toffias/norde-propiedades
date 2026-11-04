@@ -6,6 +6,8 @@ import 'server-only';
 // El contenido editorial NO pasa por acá: se lee con la Local API de Payload.
 
 import {
+  ConfirmSearchSubscription,
+  GetSearchSubscription,
   GetSharedListing,
   OpenSharedListing,
   ReactToSharedListing,
@@ -27,6 +29,7 @@ import {
   createClientsUnitOfWork,
   createDatabase,
   DrizzleCompanySettingsRepository,
+  DrizzleDefaultAssignee,
   DrizzleDirectory,
   DrizzlePropertySearchQuery,
   DrizzlePublicLocationQuery,
@@ -38,11 +41,14 @@ import {
   UuidV7IdGenerator,
   WebChatClient,
   WebInquiryClient,
+  WebSearchSubscriptionClient,
   type WebChatMessage,
   type WebChatOutcome,
   type DatabaseConnection,
   type WebInquiry,
   type WebInquiryOutcome,
+  type WebSearchSubscription,
+  type WebSearchSubscriptionOutcome,
 } from '@norde/infra';
 
 import { getEnv, type Env } from './config/env';
@@ -52,6 +58,9 @@ import { getEnv, type Env } from './config/env';
  * (ADR 0023). Los formularios suman sus permisos cuando lleguen (contacto, tasación).
  */
 const WEB_ACTOR = Actor.system('web', ['properties:read']);
+
+/** La página `/suscripcion/<token>`: confirma la suscripción a una búsqueda (#208). */
+const SUBSCRIPTION_ACTOR = Actor.system('web', ['clients:subscribe-searches']);
 
 /** La página `/e/<token>` de un envío: la lee y registra lo que hace el cliente (#104). */
 const SHARED_LISTING_ACTOR = Actor.system('web', ['clients:respond-to-listings']);
@@ -103,6 +112,24 @@ export interface SharedListingsUseCases {
   ): ReturnType<UnsubscribeFromFollowUps['execute']>;
 }
 
+/** La confirmación de una suscripción a una búsqueda (#208), ya con el actor de la web. */
+export interface SearchSubscriptionsUseCases {
+  get(
+    input: Parameters<GetSearchSubscription['execute']>[0],
+  ): ReturnType<GetSearchSubscription['execute']>;
+  confirm(
+    input: Parameters<ConfirmSearchSubscription['execute']>[0],
+  ): ReturnType<ConfirmSearchSubscription['execute']>;
+}
+
+/**
+ * Los pedidos de suscripción, que se mandan a apps/gestion (manda el email de confirmación).
+ * `undefined` si no está configurado.
+ */
+export interface SubscriptionSender {
+  send(subscription: WebSearchSubscription): Promise<WebSearchSubscriptionOutcome>;
+}
+
 /** Las consultas del formulario, que se mandan a apps/gestion. `undefined` si no está configurado. */
 export interface InquirySender {
   send(inquiry: WebInquiry): Promise<WebInquiryOutcome>;
@@ -124,6 +151,8 @@ export interface Container {
   readonly developments: DevelopmentsUseCases;
   readonly sharedListings: SharedListingsUseCases;
   readonly inquiries: InquirySender | undefined;
+  readonly searchSubscriptions: SearchSubscriptionsUseCases;
+  readonly subscriptions: SubscriptionSender | undefined;
   readonly chat: ChatSender | undefined;
 }
 
@@ -179,6 +208,14 @@ function createContainer(): Container {
       env.INQUIRY_WEBHOOK_URL && env.INQUIRY_WEBHOOK_SECRET
         ? new WebInquiryClient({ url: env.INQUIRY_WEBHOOK_URL, secret: env.INQUIRY_WEBHOOK_SECRET })
         : undefined,
+    searchSubscriptions: createSearchSubscriptions(database),
+    subscriptions:
+      env.SUBSCRIPTION_WEBHOOK_URL && env.INQUIRY_WEBHOOK_SECRET
+        ? new WebSearchSubscriptionClient({
+            url: env.SUBSCRIPTION_WEBHOOK_URL,
+            secret: env.INQUIRY_WEBHOOK_SECRET,
+          })
+        : undefined,
     chat:
       env.AGENT_CHAT_URL && env.AGENT_CHAT_SECRET
         ? new WebChatClient({ url: env.AGENT_CHAT_URL, secret: env.AGENT_CHAT_SECRET })
@@ -202,6 +239,25 @@ function createSharedListings(database: DatabaseConnection): SharedListingsUseCa
     open: (input) => open.execute(input, SHARED_LISTING_ACTOR),
     react: (input) => react.execute(input, SHARED_LISTING_ACTOR),
     unsubscribe: (input) => unsubscribe.execute(input, SHARED_LISTING_ACTOR),
+  };
+}
+
+function createSearchSubscriptions(database: DatabaseConnection): SearchSubscriptionsUseCases {
+  const ids = new UuidV7IdGenerator();
+  const clock = new SystemClock();
+  const uow = createClientsUnitOfWork(database.db, { ids, clock });
+  const tokens = new RandomSharedListingTokens();
+  const get = new GetSearchSubscription({ uow, tokens, clock });
+  const confirm = new ConfirmSearchSubscription({
+    uow,
+    tokens,
+    assignee: new DrizzleDefaultAssignee(database.db),
+    ids,
+    clock,
+  });
+  return {
+    get: (input) => get.execute(input, SUBSCRIPTION_ACTOR),
+    confirm: (input) => confirm.execute(input, SUBSCRIPTION_ACTOR),
   };
 }
 

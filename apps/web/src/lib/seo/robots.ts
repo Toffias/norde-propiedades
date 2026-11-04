@@ -17,11 +17,18 @@ export const AI_CRAWLERS: readonly string[] = [
 ];
 
 /**
- * Rutas que no se indexan: el admin, la API, el preview y los envíos a clientes (`/e/<token>`).
+ * Rutas que no se indexan: el admin, la API, el preview, los envíos a clientes (`/e/<token>`) y
+ * la confirmación de las suscripciones a búsquedas (`/suscripcion/<token>`, #208).
  * Con barra final, para no bloquear por prefijo páginas públicas como
  * `/administracion-de-alquileres`.
  */
-export const DISALLOWED_PATHS: readonly string[] = ['/admin/', '/api/', '/next/', '/e/'];
+export const DISALLOWED_PATHS: readonly string[] = [
+  '/admin/',
+  '/api/',
+  '/next/',
+  '/e/',
+  '/suscripcion/',
+];
 
 export function buildRobots(siteUrl: string): MetadataRoute.Robots {
   return {

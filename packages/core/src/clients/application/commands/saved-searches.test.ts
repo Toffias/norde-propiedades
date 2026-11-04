@@ -94,6 +94,7 @@ describe('CreateSavedSearch', () => {
           locationIds: { before: null, after: [PALERMO] },
           minRooms: { before: null, after: 2 },
           autoSend: { before: null, after: false },
+          frequency: { before: null, after: 'weekly' },
         },
       }),
     ]);
@@ -401,6 +402,7 @@ describe('GetSavedSearch', () => {
       locations: [{ id: PALERMO, name: 'Palermo', hint: undefined }],
       minRooms: 2,
       autoSend: false,
+      frequency: 'weekly',
       unsubscribed: false,
       deleted: false,
     });

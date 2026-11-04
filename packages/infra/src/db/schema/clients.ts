@@ -635,8 +635,15 @@ export const savedSearches = coreSchema.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     autoSend: boolean('auto_send').notNull().default(false),
+    /**
+     * `daily` / `every_3_days` / `weekly` / `monthly` (#208). Las de antes de la `0060` quedaron
+     * diarias, como funcionaban.
+     */
+    frequency: text('frequency').notNull().default('daily'),
     unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
     lastMatchedAt: timestamp('last_matched_at', { withTimezone: true }),
+    /** Último resumen que llevó coincidencias de la búsqueda: de acá cuenta la frecuencia. */
+    lastDigestAt: timestamp('last_digest_at', { withTimezone: true }),
     ...timestamps(),
     ...authorship(),
     ...trash(),
@@ -703,6 +710,59 @@ export const featuredListings = coreSchema.table(
 );
 
 /** Envío de propiedades a un cliente por link (mail o WhatsApp). */
+/**
+ * Suscripciones a búsquedas pedidas desde la web, con confirmación por email (#208). Pendiente,
+ * guarda el nombre y el email que dejó; al confirmar se borran (pasan al contacto) y queda atada a
+ * él. Las que vencen sin confirmar las borra el job diario.
+ */
+export const searchSubscriptions = coreSchema.table(
+  'search_subscriptions',
+  {
+    id: uuid('id').primaryKey(),
+    /** Hash del token del link de confirmación. */
+    tokenHash: text('token_hash').notNull(),
+    name: text('name'),
+    /** En minúsculas. */
+    email: text('email'),
+    summary: text('summary').notNull(),
+    frequency: text('frequency').notNull(),
+    operation: text('operation').notNull(),
+    propertyTypes: text('property_types')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    currency: text('currency'),
+    minPriceCents: bigint('min_price_cents', { mode: 'bigint' }),
+    maxPriceCents: bigint('max_price_cents', { mode: 'bigint' }),
+    /** Ubicaciones del módulo properties: solo los IDs, sin foreign key entre módulos. */
+    locationIds: uuid('location_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    minRooms: integer('min_rooms'),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    /** La supresión del contacto se lleva sus suscripciones. */
+    clientId: uuid('client_id').references(() => clients.id, { onDelete: 'cascade' }),
+    savedSearchId: uuid('saved_search_id').references(() => savedSearches.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps(),
+    ...authorship(),
+  },
+  (t) => [
+    uniqueIndex('search_subscriptions_token_hash_uq').on(t.tokenHash),
+    // El tope de pedidos por email y por día.
+    index('search_subscriptions_email_requested_idx').on(t.email, t.requestedAt),
+    // La limpieza de las que vencieron sin confirmar.
+    index('search_subscriptions_pending_expires_idx')
+      .on(t.expiresAt)
+      .where(sql`confirmed_at is null`),
+    index('search_subscriptions_client_idx').on(t.clientId),
+  ],
+);
+
 export const sharedListings = coreSchema.table(
   'shared_listings',
   {

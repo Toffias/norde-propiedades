@@ -59,6 +59,7 @@ import {
 import { usePanel } from '../../shared/components/entity-sheet';
 import { ServerDataTable, useListNavigation } from '../../shared/components/server-data-table';
 import { listingPrice, reactionLabel } from '../activity-format';
+import { FOLLOW_UP_FREQUENCY_LABELS } from '../follow-up-labels';
 import { setFeaturedAutoSendAction, unfeaturePropertyAction } from '../activity-actions';
 import { deleteSavedSearchAction, restoreSavedSearchAction } from '../saved-search-actions';
 import {
@@ -566,6 +567,9 @@ export function ClientSavedSearchesGrid({
           {row.name !== undefined && (
             <span className="text-xs text-muted-foreground">{searchSummary(row)}</span>
           )}
+          {row.fromWeb && (
+            <span className="text-xs text-muted-foreground">Se suscribió desde la web</span>
+          )}
         </div>
       ),
     },
@@ -587,7 +591,12 @@ export function ClientSavedSearchesGrid({
         row.unsubscribed ? (
           <StatusPill tone="gray">Se dio de baja</StatusPill>
         ) : row.autoSend ? (
-          <StatusPill tone="green">Activo</StatusPill>
+          <span className="flex flex-col items-start gap-0.5">
+            <StatusPill tone="green">Activo</StatusPill>
+            <span className="text-xs text-muted-foreground">
+              {FOLLOW_UP_FREQUENCY_LABELS[row.frequency]}
+            </span>
+          </span>
         ) : (
           <span className="text-muted-foreground">No</span>
         ),

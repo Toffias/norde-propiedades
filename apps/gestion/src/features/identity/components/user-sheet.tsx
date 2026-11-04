@@ -9,6 +9,7 @@ import {
   type UserPermissionsDetail,
 } from '@norde/core/identity/contracts';
 import { Button } from '@norde/ui/components/button';
+import { Checkbox } from '@norde/ui/components/checkbox';
 import {
   Form,
   FormControl,
@@ -246,6 +247,7 @@ function editValues(user: UserListItem): UpdateUserInput {
     phone: user.phone ?? '',
     branchId: user.branch?.id ?? '',
     roleIds: user.roles.map((role) => role.id),
+    defaultAssignee: user.defaultAssignee,
   };
 }
 
@@ -297,6 +299,7 @@ function EditUserForm({
                   : { value: user.branch.id, label: user.branch.name }
               }
             />
+            <DefaultAssigneeField suspended={user.status === 'suspended'} />
           </fieldset>
         </SheetBody>
         {!readOnly && (
@@ -312,6 +315,41 @@ function EditUserForm({
         )}
       </form>
     </Form>
+  );
+}
+
+/**
+ * Asesor por defecto (#208): recibe lo que se asigna solo, como los contactos que se suscriben a
+ * una búsqueda desde la web. Marcar a uno se lo saca al que lo era.
+ */
+function DefaultAssigneeField({ suspended }: { readonly suspended: boolean }) {
+  const { control } = useFormContext<UpdateUserInput>();
+  return (
+    <FormField
+      control={control}
+      name="defaultAssignee"
+      render={({ field }) => (
+        <FormItem className="flex flex-row items-start gap-3 rounded-lg border border-border p-3">
+          <FormControl>
+            <Checkbox
+              checked={field.value === true}
+              onCheckedChange={(checked) => {
+                field.onChange(checked === true);
+              }}
+              disabled={suspended && field.value !== true}
+            />
+          </FormControl>
+          <div className="flex flex-col gap-1">
+            <FormLabel>Asesor por defecto para asignaciones</FormLabel>
+            <FormDescription>
+              {suspended
+                ? 'Un usuario suspendido no puede ser el asesor por defecto.'
+                : 'Recibe los contactos nuevos que se suscriben a una búsqueda desde la web. Solo un usuario puede tenerlo: marcarlo acá se lo saca al que lo tenga.'}
+            </FormDescription>
+          </div>
+        </FormItem>
+      )}
+    />
   );
 }
 

@@ -28,6 +28,12 @@ import type {
   FollowUpSearchCandidate,
 } from '../application/ports/follow-up-ports';
 import type { FollowUpMatch, FollowUpMatchId } from '../domain/follow-up-match';
+import { SearchSubscription, type SearchSubscriptionSnapshot } from '../domain/search-subscription';
+import type { DefaultAssignee } from '../application/ports/default-assignee';
+import type {
+  SubscriptionConfirmationContent,
+  SubscriptionConfirmationEmails,
+} from '../application/ports/search-subscription-ports';
 import type { ClientAgents } from '../application/ports/client-agents';
 import type { ClientErasure } from '../application/ports/client-erasure';
 import type {
@@ -157,6 +163,7 @@ import {
   type OpportunitySettingsRepository,
   type OpportunityStageRepository,
   type SavedSearchRepository,
+  type SearchSubscriptionRepository,
 } from '../domain/client.repository';
 import {
   SavedSearch,
@@ -786,10 +793,71 @@ export class InMemorySavedSearchRepository implements SavedSearchRepository {
     return Promise.resolve();
   }
 
+  markDigestSent(ids: readonly SavedSearchId[], at: Date) {
+    for (const id of ids) {
+      const row = this.rows.get(id);
+      if (row) this.rows.set(id, { ...row, lastDigestAt: at });
+    }
+    return Promise.resolve();
+  }
+
   private activeRows(clientId: string) {
     return [...this.rows.values()].filter(
       (row) => row.clientId === clientId && row.deletedAt === undefined,
     );
+  }
+}
+
+export class InMemorySearchSubscriptionRepository implements SearchSubscriptionRepository {
+  readonly rows = new Map<string, SearchSubscriptionSnapshot>();
+
+  findByTokenHash(tokenHash: string) {
+    const row = [...this.rows.values()].find((r) => r.tokenHash === tokenHash);
+    return Promise.resolve(row ? SearchSubscription.restore(row) : undefined);
+  }
+
+  countRequestedSince(email: Email, since: Date) {
+    return Promise.resolve(
+      [...this.rows.values()].filter(
+        (r) => r.contact?.email.equals(email) === true && r.requestedAt >= since,
+      ).length,
+    );
+  }
+
+  save(subscription: SearchSubscription) {
+    this.rows.set(subscription.id, subscription.toSnapshot());
+    return Promise.resolve();
+  }
+
+  deleteExpired(before: Date, limit: number) {
+    const expired = [...this.rows.values()]
+      .filter((r) => r.confirmedAt === undefined && r.expiresAt < before)
+      .slice(0, limit);
+    for (const row of expired) this.rows.delete(row.id);
+    return Promise.resolve(expired.length);
+  }
+}
+
+/** El asesor por defecto de prueba: `undefined`, ninguno. */
+export class InMemoryDefaultAssignee implements DefaultAssignee {
+  constructor(public current: { userId: string; branchId: string } | undefined) {}
+
+  find() {
+    return Promise.resolve(this.current);
+  }
+}
+
+/** Arma el email de confirmación con lo que recibe, para verificarlo en los tests. */
+export class FakeSubscriptionConfirmationEmails implements SubscriptionConfirmationEmails {
+  readonly composed: SubscriptionConfirmationContent[] = [];
+
+  compose(content: SubscriptionConfirmationContent) {
+    this.composed.push(content);
+    return {
+      subject: `Confirmá tu suscripción a ${content.searchSummary}`,
+      text: content.confirmUrl,
+      html: `<a href="${content.confirmUrl}">Confirmar</a>`,
+    };
   }
 }
 
@@ -806,6 +874,7 @@ export function savedSearchFields(overrides: Partial<SavedSearchFields> = {}): S
     locationIds: [],
     minRooms: undefined,
     autoSend: false,
+    frequency: 'daily',
     ...overrides,
   };
 }
@@ -1175,6 +1244,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
   readonly followUpMatches = new InMemoryFollowUpMatchRepository();
   readonly sharedListings = new InMemorySharedListingRepository();
   readonly savedSearches = new InMemorySavedSearchRepository();
+  readonly searchSubscriptions = new InMemorySearchSubscriptionRepository();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   readonly idempotency = new InMemoryIdempotencyKeys();
@@ -1204,6 +1274,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       followUpResolved: new Map(this.followUpMatches.resolved),
       sharedListings: new Map(this.sharedListings.rows),
       savedSearches: new Map(this.savedSearches.rows),
+      searchSubscriptions: new Map(this.searchSubscriptions.rows),
       imports: new Map(this.imports.rows),
       externalIds: new Map(this.externalIds.rows),
       bulkOperations: new Map(this.bulkOperations.rows),
@@ -1236,6 +1307,7 @@ export class InMemoryClientsUnitOfWork implements ClientsUnitOfWork {
       restore(this.followUpMatches.resolved, backup.followUpResolved);
       restore(this.sharedListings.rows, backup.sharedListings);
       restore(this.savedSearches.rows, backup.savedSearches);
+      restore(this.searchSubscriptions.rows, backup.searchSubscriptions);
       restore(this.imports.rows, backup.imports);
       restore(this.externalIds.rows, backup.externalIds);
       restore(this.bulkOperations.rows, backup.bulkOperations);

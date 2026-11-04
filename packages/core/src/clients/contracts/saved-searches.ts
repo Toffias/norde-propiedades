@@ -4,6 +4,14 @@ import { z } from 'zod';
 
 import { AmountSchema, CURRENCIES, OPERATIONS, PROPERTY_TYPES } from '../../properties/contracts';
 
+/** Los mismos que `FOLLOW_UP_FREQUENCIES` del dominio (lo verifica un test). */
+export const FOLLOW_UP_FREQUENCY_VALUES = ['daily', 'every_3_days', 'weekly', 'monthly'] as const;
+export type FollowUpFrequencyValue = (typeof FOLLOW_UP_FREQUENCY_VALUES)[number];
+
+/** Las que ofrece la suscripción desde la web (sin la diaria). */
+export const WEB_FOLLOW_UP_FREQUENCY_VALUES = ['every_3_days', 'weekly', 'monthly'] as const;
+export type WebFollowUpFrequencyValue = (typeof WEB_FOLLOW_UP_FREQUENCY_VALUES)[number];
+
 /** Replican los topes del dominio (un test verifica que coincidan). */
 export const MAX_CLIENT_SAVED_SEARCHES = 20;
 export const MAX_SAVED_SEARCH_LOCATION_COUNT = 20;
@@ -20,6 +28,8 @@ const SavedSearchFieldsSchema = z.object({
   locationIds: z.array(z.uuid()).max(MAX_SAVED_SEARCH_LOCATION_COUNT).default([]),
   minRooms: z.coerce.number().int().min(1).max(MAX_SAVED_SEARCH_MIN_ROOMS).optional(),
   autoSend: z.boolean().default(false),
+  /** Las nuevas, semanales: las de antes de #208 quedaron diarias. */
+  frequency: z.enum(FOLLOW_UP_FREQUENCY_VALUES).default('weekly'),
   /** Oportunidad abierta del mismo cliente. */
   opportunityId: z.uuid().optional(),
 });
@@ -95,6 +105,7 @@ export interface SavedSearchDetail {
   readonly locations: readonly SavedSearchLocationLabel[];
   readonly minRooms: number | undefined;
   readonly autoSend: boolean;
+  readonly frequency: FollowUpFrequencyValue;
   readonly unsubscribed: boolean;
   readonly deleted: boolean;
 }

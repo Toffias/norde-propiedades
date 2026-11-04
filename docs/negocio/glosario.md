@@ -34,6 +34,7 @@ Términos del negocio inmobiliario tal como los usa Norde, con su nombre en el c
 | Propiedad destacada (para un cliente) | `FeaturedListing`           | Propiedad destacada              | Propiedad que un agente le marcó a un cliente puntual para ofrecérsela. **No** es la destacada de la web |
 | Envío de ficha                        | `SharedListing` (a definir) | Envío                            | Ficha mandada por email o WhatsApp con un link que mide aperturas y "me gusta"                           |
 | Seguimiento automático                | `FollowUpMatch`             | Seguimiento automático           | Envío automático de novedades que coinciden con búsquedas guardadas o destacadas                         |
+| Suscripción a una búsqueda            | `SearchSubscription`        | —                                | Pedido desde el listado de la web para recibir una búsqueda por email; se confirma por email (#208)      |
 | Respuesta rápida                      | —                           | Respuesta rápida                 | Plantilla de email con variables                                                                         |
 | Reserva                               | `Reservation`               | Reserva                          | Seña sobre una propiedad. Activa, caída o firmada. Una sola activa por propiedad                         |
 

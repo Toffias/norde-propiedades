@@ -70,6 +70,8 @@ const OTHER_ACTION_LABELS: Readonly<Record<string, string>> = {
   'conversation.started': 'inició una conversación',
   'inquiry.received': 'registró una consulta',
   'inquiry.assigned': 'asignó una consulta',
+  'search_subscription.requested': 'registró un pedido de suscripción a una búsqueda desde la web',
+  'search_subscription.confirmed': 'registró la confirmación de una suscripción desde la web',
   'opportunity_stage.reordered': 'reordenó las etapas de oportunidades',
   'opportunity_settings.updated': 'editó la configuración de oportunidades',
   'property_settings.updated': 'editó la configuración de propiedades',

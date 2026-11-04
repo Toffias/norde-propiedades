@@ -1,17 +1,19 @@
 import {
+  FOLLOW_UP_FREQUENCIES,
   SavedSearch,
   type ClientId,
   type SavedSearchId,
   type SavedSearchRepository,
 } from '@norde/core/clients';
 import { parseId } from '@norde/core/shared';
-import { and, count, desc, eq, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
 import { savedSearches } from '../db/schema';
 
 const ExtraCriteria = z.record(z.string(), z.unknown()).catch({});
+const Frequency = z.enum(FOLLOW_UP_FREQUENCIES);
 
 function storedId<TBrand extends string>(value: string) {
   const id = parseId<TBrand>(value);
@@ -33,9 +35,11 @@ function toDomain(row: typeof savedSearches.$inferSelect): SavedSearch {
     locationIds: row.locationIds,
     minRooms: row.minRooms ?? undefined,
     autoSend: row.autoSend,
+    frequency: Frequency.parse(row.frequency),
     extraCriteria: ExtraCriteria.parse(row.criteria),
     unsubscribedAt: row.unsubscribedAt ?? undefined,
     lastMatchedAt: row.lastMatchedAt ?? undefined,
+    lastDigestAt: row.lastDigestAt ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     deletedAt: row.deletedAt ?? undefined,
@@ -87,9 +91,11 @@ export class DrizzleSavedSearchRepository implements SavedSearchRepository {
       locationIds: [...s.locationIds],
       minRooms: s.minRooms ?? null,
       autoSend: s.autoSend,
+      frequency: s.frequency,
       criteria: s.extraCriteria,
       unsubscribedAt: s.unsubscribedAt ?? null,
       lastMatchedAt: s.lastMatchedAt ?? null,
+      lastDigestAt: s.lastDigestAt ?? null,
       updatedAt: s.updatedAt,
       updatedBy: actorId,
       deletedAt: s.deletedAt ?? null,
@@ -105,5 +111,13 @@ export class DrizzleSavedSearchRepository implements SavedSearchRepository {
         createdBy: actorId,
       })
       .onConflictDoUpdate({ target: savedSearches.id, set: values });
+  }
+
+  async markDigestSent(ids: readonly SavedSearchId[], at: Date): Promise<void> {
+    if (ids.length === 0) return;
+    await this.db
+      .update(savedSearches)
+      .set({ lastDigestAt: at })
+      .where(inArray(savedSearches.id, [...ids]));
   }
 }

@@ -64,6 +64,7 @@ export class GetSavedSearch {
       }),
       minRooms: s.minRooms,
       autoSend: s.autoSend,
+      frequency: s.frequency,
       unsubscribed: s.unsubscribedAt !== undefined,
       deleted: s.deletedAt !== undefined,
     });

@@ -80,8 +80,10 @@ interface Review {
 }
 
 /**
- * El resumen diario de los seguimientos automáticos (#106): un solo email por contacto con lo que
- * el cruce con el stock encontró desde el último. Cada resumen es un envío como los del asesor
+ * El resumen de los seguimientos automáticos (#106): corre una vez por día y manda un solo email
+ * por contacto con lo que el cruce con el stock encontró desde el último. Cada búsqueda entra según
+ * su frecuencia (#208): las que no cumplieron sus días esperan al resumen en que les toque. Las
+ * destacadas (bajas de precio) entran todos los días. Cada resumen es un envío como los del asesor
  * (link público que vence, aperturas y reacciones) con el link para darse de baja.
  *
  * Antes de mandar, descarta lo que ya no corresponde: el contacto se dio de baja o se apagó el
@@ -199,6 +201,13 @@ export class SendFollowUpDigests {
         now,
         actor.id,
       );
+      // Desde acá cuenta la frecuencia de cada búsqueda que entró en el resumen.
+      const searchIds = digest.matches.flatMap((match) =>
+        match.source.kind === 'saved_search' ? [match.source.savedSearchId] : [],
+      );
+      if (searchIds.length > 0) {
+        await tx.savedSearches.markDigestSent([...new Set(searchIds)], now);
+      }
       await tx.activities.add(
         listingSentActivity({
           id: this.deps.ids.next(),
@@ -267,8 +276,12 @@ export class SendFollowUpDigests {
       clientId,
       MAX_SAVED_SEARCHES_PER_CLIENT,
     );
-    const sendingSearches = new Set(
-      searches.filter((search) => search.sendsAutomatically).map((search) => search.id),
+    const sending = searches.filter((search) => search.sendsAutomatically);
+    const sendingSearches = new Set(sending.map((search) => search.id));
+    // Las que todavía no cumplieron su frecuencia (#208) esperan: no se mandan ni se descartan.
+    const now = this.deps.clock.now();
+    const dueSearches = new Set(
+      sending.filter((search) => search.isDigestDue(now)).map((search) => search.id),
     );
     const featuredIds = pending.flatMap((match) =>
       match.source.kind === 'featured' ? [match.source.featuredListingId] : [],
@@ -286,9 +299,11 @@ export class SendFollowUpDigests {
       match.source.kind === 'saved_search'
         ? sendingSearches.has(match.source.savedSearchId)
         : sendingFeatured.has(match.source.featuredListingId);
+    const due = (match: FollowUpMatch) =>
+      match.source.kind === 'featured' || dueSearches.has(match.source.savedSearchId);
     return {
       ...base,
-      live: pending.filter(stillWanted),
+      live: pending.filter((match) => stillWanted(match) && due(match)),
       stale: pending.filter((match) => !stillWanted(match)),
     };
   }

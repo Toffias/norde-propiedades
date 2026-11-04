@@ -253,6 +253,11 @@ export function UsersGrid({
         cell: (user) => (
           <div className="flex flex-col gap-1">
             <span>{user.name}</span>
+            {user.defaultAssignee && (
+              <Badge variant="secondary" className="w-fit">
+                Asesor por defecto
+              </Badge>
+            )}
             {/* En mobile el email va debajo del nombre. */}
             <span className="text-xs font-normal text-muted-foreground md:hidden">
               {user.email}

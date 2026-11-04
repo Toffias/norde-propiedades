@@ -9,6 +9,8 @@ export const NOTIFICATION_TYPE_VALUES = [
   'client.assigned',
   'opportunity.assigned',
   'inquiry.assigned',
+  /** Un contacto suyo se suscribió a una búsqueda desde la web (#208): avisa a su asesor. */
+  'search.subscribed',
 ] as const;
 export type NotificationTypeValue = (typeof NOTIFICATION_TYPE_VALUES)[number];
 

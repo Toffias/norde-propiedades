@@ -10,6 +10,8 @@ export const NOTIFICATION_TYPES = [
   'client.assigned',
   'opportunity.assigned',
   'inquiry.assigned',
+  /** Un contacto suyo se suscribió a una búsqueda desde la web (#208): avisa a su asesor. */
+  'search.subscribed',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

@@ -120,6 +120,30 @@ describe('User.assignRoles', () => {
   });
 });
 
+describe('User.setDefaultAssignee (#208)', () => {
+  it('marks and unmarks, reporting whether it changed', () => {
+    const user = newUser();
+
+    expect(user.setDefaultAssignee(true, LATER).isOk() && user.isDefaultAssignee).toBe(true);
+    expect(user.setDefaultAssignee(true, LATER).isOk()).toBe(true);
+    const unchanged = user.setDefaultAssignee(true, LATER);
+    expect(unchanged.isOk() && unchanged.value).toBe(false);
+    user.setDefaultAssignee(false, LATER);
+    expect(user.isDefaultAssignee).toBe(false);
+  });
+
+  it('a suspended user cannot be the default, and suspending removes it', () => {
+    const user = newUser();
+    user.setDefaultAssignee(true, LATER);
+
+    user.suspend(ADMIN_ID, LATER);
+
+    expect(user.isDefaultAssignee).toBe(false);
+    const marked = user.setDefaultAssignee(true, LATER);
+    expect(marked.isErr() && marked.error).toEqual({ type: 'SuspendedDefaultAssignee' });
+  });
+});
+
 describe('User.suspend and reactivate', () => {
   it('suspends and reactivates the user', () => {
     const user = newUser();

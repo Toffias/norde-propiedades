@@ -16,6 +16,7 @@ const ROW: UserListItem = {
   roles: [],
   mustChangePassword: false,
   twoFactorEnabled: false,
+  defaultAssignee: false,
   lastLoginAt: undefined,
   createdAt: new Date('2026-09-01T12:00:00Z'),
 };

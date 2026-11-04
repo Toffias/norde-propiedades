@@ -787,3 +787,39 @@ export {
   UnsubscribeFromFollowUps,
   type UnsubscribeFromFollowUpsError,
 } from './application/commands/unsubscribe-from-follow-ups';
+
+// Suscripción a búsquedas desde la web, con doble confirmación (#208).
+export type { SearchSubscriptionRepository } from './domain/client.repository';
+export {
+  FOLLOW_UP_FREQUENCIES,
+  WEB_FOLLOW_UP_FREQUENCIES,
+  isFollowUpDue,
+  type FollowUpFrequency,
+  type WebFollowUpFrequency,
+} from './domain/follow-up-frequency';
+export {
+  SearchSubscription,
+  type SearchSubscriptionExpiredError,
+  type SearchSubscriptionId,
+  type SearchSubscriptionSnapshot,
+  type SearchSubscribed,
+  type SubscriptionCriteria,
+} from './domain/search-subscription';
+export type { DefaultAssignee } from './application/ports/default-assignee';
+export type {
+  SubscriptionConfirmationContent,
+  SubscriptionConfirmationEmail,
+  SubscriptionConfirmationEmails,
+} from './application/ports/search-subscription-ports';
+export {
+  RequestSearchSubscription,
+  searchSubscriptionConfirmUrl,
+  type RequestSearchSubscriptionError,
+} from './application/commands/request-search-subscription';
+export {
+  ConfirmSearchSubscription,
+  type ConfirmSearchSubscriptionError,
+  type SearchSubscriptionNotFoundError,
+} from './application/commands/confirm-search-subscription';
+export { GetSearchSubscription } from './application/queries/get-search-subscription';
+export { PurgeExpiredSearchSubscriptions } from './application/handlers/purge-expired-search-subscriptions';

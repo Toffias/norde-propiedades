@@ -67,6 +67,8 @@ export const MAX_PUBLIC_LOCATIONS = 10;
 export const SearchPropertiesInputSchema = z.object({
   operation: z.enum(OPERATIONS).optional(),
   propertyType: z.enum(PROPERTY_TYPES).optional(),
+  /** Tipos de la web: alguno de ellos. */
+  propertyTypes: z.array(z.enum(PROPERTY_TYPES)).min(1).max(PROPERTY_TYPES.length).optional(),
   /** Barrio, localidad o zona en texto libre (agente). */
   location: z.string().trim().min(1).max(100).optional(),
   /** Ubicaciones del catálogo (web): alguna de ellas, con sus barrios y sub-barrios. */
@@ -119,6 +121,7 @@ export const MAX_PUBLIC_MAP_PINS = 300;
 export const GetPublicPropertyMapInputSchema = SearchPropertiesInputSchema.pick({
   operation: true,
   propertyType: true,
+  propertyTypes: true,
   location: true,
   locationIds: true,
   area: true,
@@ -152,6 +155,11 @@ export interface PublicCountOption {
   readonly count: number;
 }
 
+export interface PublicTypeOption {
+  readonly value: PropertyType;
+  readonly count: number;
+}
+
 export interface PublicFeatureOption {
   readonly id: string;
   readonly name: string;
@@ -160,10 +168,12 @@ export interface PublicFeatureOption {
 
 /**
  * Cuántas propiedades daría cada opción con los demás filtros puestos. En ambientes, dormitorios
- * y baños, el propio filtro no cuenta (se elige más de una); en características y en "amoblado" o
+ * y baños, y en el tipo, el propio filtro no cuenta (se elige más de una); en características y en "amoblado" o
  * "con cochera", sí (se suman).
  */
 export interface PublicSearchFacets {
+  /** Los tipos con alguna propiedad, contados sin el filtro de tipo, de más a menos. */
+  readonly propertyTypes: readonly PublicTypeOption[];
   readonly rooms: readonly PublicCountOption[];
   readonly bedrooms: readonly PublicCountOption[];
   readonly bathrooms: readonly PublicCountOption[];

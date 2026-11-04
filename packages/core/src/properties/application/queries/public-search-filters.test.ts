@@ -101,6 +101,23 @@ describe('SearchProperties price filter', () => {
     });
   });
 
+  it('matches any of the chosen types', async () => {
+    const properties = new InMemoryPropertySearchQuery([
+      aPropertyRecord({ title: 'Casa', propertyType: 'house' }),
+      aPropertyRecord({ title: 'PH', propertyType: 'ph' }),
+      aPropertyRecord({ title: 'Depto', propertyType: 'apartment' }),
+    ]);
+
+    const page = unwrap(
+      await new SearchProperties({ properties }).execute(
+        { propertyTypes: ['house', 'ph'] },
+        reader,
+      ),
+    );
+
+    expect(page.items.map((i) => i.title).sort()).toEqual(['Casa', 'PH']);
+  });
+
   it('rejects an option out of range', async () => {
     const properties = new InMemoryPropertySearchQuery();
     const result = await new SearchProperties({ properties }).execute({ rooms: [5] }, reader);
@@ -169,6 +186,25 @@ describe('GetPublicSearchFacets', () => {
     // Los baños se cuentan con "1 ambiente" puesto.
     expect(facets.bathrooms.map((o) => o.count)).toEqual([1, 0, 0]);
     expect(facets.furnished).toBe(1);
+  });
+
+  it('counts the types without the type filter, most frequent first', async () => {
+    const properties = new InMemoryPropertySearchQuery([
+      aPropertyRecord({ propertyType: 'house' }),
+      aPropertyRecord({ propertyType: 'apartment' }),
+      aPropertyRecord({ propertyType: 'apartment' }),
+    ]);
+
+    const facets = unwrap(
+      await new GetPublicSearchFacets({ properties }).execute({ propertyTypes: ['house'] }, reader),
+    );
+
+    expect(facets.propertyTypes).toEqual([
+      { value: 'apartment', count: 2 },
+      { value: 'house', count: 1 },
+    ]);
+    // Los demás conteos sí llevan el tipo elegido.
+    expect(facets.rooms.reduce((sum, o) => sum + o.count, 0)).toBe(1);
   });
 
   it('is only for who can read properties', async () => {

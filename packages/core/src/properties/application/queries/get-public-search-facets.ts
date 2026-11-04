@@ -22,7 +22,7 @@ const RANGE_CRITERIA = {
 
 /**
  * Las opciones del buscador de la web con cuántas propiedades daría cada una ("2 ambientes (14)").
- * Ambientes, dormitorios y baños se cuentan sin su propio filtro: se puede elegir más de una
+ * El tipo, los ambientes, los dormitorios y los baños se cuentan sin su propio filtro: se puede elegir más de una
  * opción y cada una muestra cuántas suma.
  */
 export class GetPublicSearchFacets {
@@ -57,7 +57,9 @@ export class GetPublicSearchFacets {
       return options.map((value, index) => ({ value, count: totals[index] ?? 0 }));
     };
 
-    const [rooms, bedrooms, bathrooms, features, flags] = await Promise.all([
+    const { propertyType: _type, propertyTypes: _types, ...withoutType } = criteria;
+    const [propertyTypes, rooms, bedrooms, bathrooms, features, flags] = await Promise.all([
+      this.deps.properties.countByType(withoutType),
       counts('rooms'),
       counts('bedrooms'),
       counts('bathrooms'),
@@ -67,6 +69,13 @@ export class GetPublicSearchFacets {
       }),
       this.deps.properties.countFlags(criteria),
     ]);
-    return ok({ rooms, bedrooms, bathrooms, features, ...flags });
+    return ok({
+      propertyTypes: propertyTypes.map((t) => ({ value: t.propertyType, count: t.count })),
+      rooms,
+      bedrooms,
+      bathrooms,
+      features,
+      ...flags,
+    });
   }
 }

@@ -336,6 +336,19 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
     return Promise.resolve([...top, ...missing]);
   }
 
+  countByType(criteria: PropertyFilterCriteria) {
+    this.criteria.push(criteria);
+    const counts = new Map<PropertyRecord['propertyType'], number>();
+    for (const record of this.matching(criteria)) {
+      counts.set(record.propertyType, (counts.get(record.propertyType) ?? 0) + 1);
+    }
+    return Promise.resolve(
+      [...counts]
+        .sort((a, b) => b[1] - a[1])
+        .map(([propertyType, count]) => ({ propertyType, count })),
+    );
+  }
+
   countFlags(criteria: PropertyFilterCriteria) {
     this.criteria.push(criteria);
     const matches = this.matching(criteria);
@@ -354,6 +367,7 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
         (criteria.operation === undefined ||
           r.operations.some((o) => o.operation === criteria.operation)) &&
         (criteria.propertyType === undefined || r.propertyType === criteria.propertyType) &&
+        (criteria.propertyTypes === undefined || criteria.propertyTypes.includes(r.propertyType)) &&
         (criteria.developmentId === undefined || r.developmentId === criteria.developmentId) &&
         (criteria.location === undefined ||
           `${r.neighborhood} ${r.city}`.toLowerCase().includes(criteria.location.toLowerCase())) &&

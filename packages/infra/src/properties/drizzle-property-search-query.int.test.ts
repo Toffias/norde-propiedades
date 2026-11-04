@@ -397,6 +397,21 @@ describe('DrizzlePropertySearchQuery', () => {
     expect(await titles({ withParking: true })).toEqual(['Casa']);
   });
 
+  it('filters by any of the types and counts the matches per type', async () => {
+    await insertProperty({ title: 'Casa', propertyType: 'house' });
+    await insertProperty({ title: 'PH', propertyType: 'ph' });
+    await insertProperty({ title: 'Depto 1' });
+    await insertProperty({ title: 'Depto 2' });
+    await insertProperty({ title: 'Oculto', propertyType: 'garage', publishedOnWeb: false });
+
+    expect(await titles({ propertyTypes: ['house', 'ph'] })).toEqual(['PH', 'Casa']);
+    expect(await query.countByType(listed)).toEqual([
+      { propertyType: 'apartment', count: 2 },
+      { propertyType: 'house', count: 1 },
+      { propertyType: 'ph', count: 1 },
+    ]);
+  });
+
   it('counts the matches per range, furnished and with parking', async () => {
     await insertProperty({ rooms: 1, isFurnished: true });
     await insertProperty({ rooms: 2, parkingSpaces: 1 });

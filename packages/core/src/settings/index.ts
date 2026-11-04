@@ -42,6 +42,7 @@ export {
   type WatermarkProps,
 } from './domain/watermark';
 export { WebUrlTemplate } from './domain/web-url-template';
+export { UsdExchangeRate, type InvalidExchangeRateError } from './domain/usd-exchange-rate';
 export {
   REFERENCE_CODE_SCOPES,
   ReferenceCode,

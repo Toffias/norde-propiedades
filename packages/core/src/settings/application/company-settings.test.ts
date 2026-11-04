@@ -119,6 +119,33 @@ describe('UpdateGeneralSettings', () => {
     expect(uow.audit.entries).toEqual([]);
   });
 
+  it('saves the dollar rate in cents and audits it raw', async () => {
+    const { uow, updateGeneral, getSettings } = setup();
+
+    unwrap(await updateGeneral.execute({ ...general, usdExchangeRate: '1.450,5' }, admin));
+
+    expect(unwrap(await getSettings.execute({}, admin)).usdExchangeRate).toBe('1.450,50');
+    expect(uow.audit.entries[0]).toMatchObject({
+      changes: { usdExchangeRateCents: { before: null, after: 145_050n } },
+    });
+  });
+
+  it('clears the dollar rate when left empty', async () => {
+    const { updateGeneral, getSettings } = setup();
+    unwrap(await updateGeneral.execute({ ...general, usdExchangeRate: '1450' }, admin));
+
+    unwrap(await updateGeneral.execute({ ...general, usdExchangeRate: '' }, admin));
+
+    expect(unwrap(await getSettings.execute({}, admin)).usdExchangeRate).toBeUndefined();
+  });
+
+  it('rejects a dollar rate that is not an amount in pesos', async () => {
+    const { uow, updateGeneral } = setup();
+    const result = await updateGeneral.execute({ ...general, usdExchangeRate: 'mil' }, admin);
+    expect(unwrapErr(result)).toEqual({ type: 'InvalidExchangeRate' });
+    expect(uow.audit.entries).toEqual([]);
+  });
+
   it('rejects an unknown timezone', async () => {
     const { updateGeneral } = setup();
     const result = await updateGeneral.execute({ ...general, timezone: 'Marte/Olympus' }, admin);

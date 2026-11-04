@@ -9,6 +9,7 @@ import { Button } from '@norde/ui/components/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -68,6 +69,7 @@ export function GeneralSettingsForm({
       webPropertyUrlTemplate: settings.webPropertyUrlTemplate ?? '',
       webDevelopmentUrlTemplate: settings.webDevelopmentUrlTemplate ?? '',
       newsScope: settings.newsScope,
+      usdExchangeRate: settings.usdExchangeRate ?? '',
     },
   });
 
@@ -147,6 +149,23 @@ export function GeneralSettingsForm({
                     <SelectItem value="branch">Cada agente ve las de su sucursal</SelectItem>
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="usdExchangeRate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cotización del dólar</FormLabel>
+                <FormControl>
+                  <Input inputMode="decimal" placeholder="Ej. 1.450" {...field} />
+                </FormControl>
+                <FormDescription>
+                  Pesos por dólar. La web la usa para que una búsqueda en pesos también muestre las
+                  propiedades en dólares que entran en el rango, y al revés. Vacía, no se convierte.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

@@ -28,6 +28,8 @@ export const companySettings = coreSchema.table(
     webDevelopmentUrlTemplate: text('web_development_url_template'),
     /** Qué ve cada usuario en Noticias: `branch` / `all`. */
     newsScope: text('news_scope').notNull().default('all'),
+    /** Centavos de peso por dólar, para el buscador de la web. `null`: sin cotización. */
+    usdExchangeRateCents: bigint('usd_exchange_rate_cents', { mode: 'bigint' }),
     /** Marca de agua de las fotos: logo, tamaño, posición, opacidad. */
     watermark: jsonb('watermark'),
     portalDescriptionFooter: text('portal_description_footer'),

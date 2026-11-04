@@ -78,6 +78,7 @@ function settingsReader(
         ),
         webDevelopmentUrlTemplate: undefined,
         newsScope: general.newsScope,
+        usdExchangeRate: undefined,
       },
       TEST_NOW,
     ),

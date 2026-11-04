@@ -5,6 +5,7 @@ import type { Email } from '../../shared/domain/value-objects/email';
 import type { CompanySettingsChanged, CompanySettingsSection } from './company-settings.events';
 import type { DescriptionFooterTemplate } from './description-footer-template';
 import { DEFAULT_PDF_OPTIONS, type PdfOptions } from './pdf-options';
+import type { UsdExchangeRate } from './usd-exchange-rate';
 import { Watermark } from './watermark';
 import type { WebUrlTemplate } from './web-url-template';
 
@@ -33,6 +34,8 @@ export interface CompanySettingsSnapshot {
   readonly webPropertyUrlTemplate: WebUrlTemplate | undefined;
   readonly webDevelopmentUrlTemplate: WebUrlTemplate | undefined;
   readonly newsScope: NewsScope;
+  /** Pesos por dólar para el buscador de la web; sin cargar, no se convierten precios. */
+  readonly usdExchangeRate: UsdExchangeRate | undefined;
   readonly watermark: Watermark;
   readonly portalDescriptionFooter: DescriptionFooterTemplate | undefined;
   readonly pdfOptions: PdfOptions;
@@ -50,6 +53,7 @@ export interface GeneralSettings {
   readonly webPropertyUrlTemplate: WebUrlTemplate | undefined;
   readonly webDevelopmentUrlTemplate: WebUrlTemplate | undefined;
   readonly newsScope: NewsScope;
+  readonly usdExchangeRate: UsdExchangeRate | undefined;
 }
 
 /**
@@ -74,6 +78,7 @@ export class CompanySettings extends AggregateRoot<CompanySettingsId, CompanySet
       webPropertyUrlTemplate: undefined,
       webDevelopmentUrlTemplate: undefined,
       newsScope: 'all',
+      usdExchangeRate: undefined,
       watermark: Watermark.disabled(),
       portalDescriptionFooter: undefined,
       pdfOptions: DEFAULT_PDF_OPTIONS,

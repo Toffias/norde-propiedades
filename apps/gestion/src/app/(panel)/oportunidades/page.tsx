@@ -23,7 +23,6 @@ import {
   OpportunityStageCards,
   type OpportunitySection,
 } from '../../../features/opportunities/components/opportunity-pipeline';
-import { ALL_AGENTS_PARAM } from '../../../features/opportunities/agent-filter';
 import { LIST_OPPORTUNITIES_ERROR_MESSAGES } from '../../../features/opportunities/messages';
 import { messageForError } from '../../../lib/errors';
 import { parseListParams, type SearchParams } from '../../../lib/list-params';
@@ -42,13 +41,13 @@ export default async function OpportunitiesPage({
   const { actor, profile } = await requireSession();
   const params = await searchParams;
   const canPickAgents = actor.can('users:read');
-  // Por defecto, las oportunidades de quien entra; `agentId=todos` muestra las de todos. Solo si
-  // puede elegir otro agente: si no, no tendría cómo quitar el filtro.
+  // Sin agente en la URL se ven todas las que el actor puede ver, también las sin agente (las que
+  // registra el agente de IA). Filtrar por agente solo si puede elegirlo.
   const { agentId: agentParam, ...otherParams } = params;
   const listParams: SearchParams =
-    agentParam === ALL_AGENTS_PARAM || !canPickAgents
-      ? otherParams
-      : { ...otherParams, agentId: agentParam ?? actor.id };
+    canPickAgents && agentParam !== undefined
+      ? { ...otherParams, agentId: agentParam }
+      : otherParams;
   const { clients } = getContainer();
 
   const config = await clients.getOpportunityConfiguration.execute(actor);

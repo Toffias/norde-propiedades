@@ -17,7 +17,6 @@ import { EntityPicker } from '../../identity/components/entity-picker';
 import { FilterMultiSelect, options } from '../../shared/components/list-filters';
 import { MoreFiltersButton } from '../../shared/components/more-filters-button';
 import { useListNavigation } from '../../shared/components/server-data-table';
-import { ALL_AGENTS_PARAM } from '../agent-filter';
 
 import { OpportunitySortSelect, type OpportunitySort } from './opportunity-view-controls';
 
@@ -90,7 +89,7 @@ function MoreFilters({
                   : { value: filters.agentId, label: agentLabel ?? 'Agente elegido' }
               }
               onChange={(agentId) => {
-                setParams({ agentId: agentId ?? ALL_AGENTS_PARAM });
+                setParams({ agentId });
               }}
               loadPage={loadUserOptions}
               placeholder="Todos los agentes"

@@ -8,7 +8,9 @@ import { BUSINESS } from '../../constants/business';
 import { SITE_NAV } from '../../lib/layout/site-nav';
 import { routes } from '../../lib/seo/routes';
 import { whatsappHref } from '../../lib/whatsapp';
+import { getContainer } from '../../container';
 import { CompanyLogo } from '../brand/company-logo';
+import { FavoritesSheet } from '../favorites/favorites-sheet';
 import { HeaderShell } from './header-shell';
 
 const LINK = 'text-muted-foreground hover:text-foreground rounded-lg px-3 py-2 transition-colors';
@@ -57,6 +59,10 @@ export function SiteHeader({ topBar }: { readonly topBar: ReactNode }) {
           )}
           <ThemeSwitcher
             className={`text-muted-foreground hover:text-foreground size-10 rounded-xl has-[>svg]:px-0 ${ON_PHOTO}`}
+          />
+          <FavoritesSheet
+            formEnabled={getContainer().inquiries !== undefined}
+            triggerClassName={`text-muted-foreground hover:text-foreground hover:bg-accent group-data-[overlay=true]/header:hover:bg-white/15 ${ON_PHOTO}`}
           />
           {/* Menú mobile sin JavaScript: `<details>` se abre y se cierra solo. */}
           <details className="group relative md:hidden">

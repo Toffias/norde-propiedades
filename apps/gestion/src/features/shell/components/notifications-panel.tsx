@@ -10,6 +10,7 @@ import {
 import { Button } from '@norde/ui/components/button';
 import { cn } from '@norde/ui/lib/utils';
 import {
+  BellRingIcon,
   BriefcaseIcon,
   InboxIcon,
   Loader2Icon,
@@ -34,6 +35,7 @@ const TYPE_ICONS: Readonly<Record<NotificationTypeValue, LucideIcon>> = {
   'client.assigned': UserRoundIcon,
   'opportunity.assigned': BriefcaseIcon,
   'inquiry.assigned': InboxIcon,
+  'search.subscribed': BellRingIcon,
 };
 
 type Loaded =

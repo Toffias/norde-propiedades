@@ -103,6 +103,7 @@ export function userSnapshot(overrides: Partial<UserSnapshot> = {}): UserSnapsho
     branchId: MAIN_BRANCH_ID,
     roleIds: [ROLE_AGENT_ID],
     permissions: [],
+    defaultAssignee: false,
     mustChangePassword: false,
     createdAt: new Date('2026-09-01T12:00:00Z'),
     updatedAt: new Date('2026-09-01T12:00:00Z'),

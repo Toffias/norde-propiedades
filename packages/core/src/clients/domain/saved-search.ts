@@ -2,6 +2,7 @@ import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { ClientId } from './client';
+import { isFollowUpDue, type FollowUpFrequency } from './follow-up-frequency';
 import type { MatchableSearch } from './saved-search-match';
 
 export type SavedSearchId = Id<'SavedSearch'>;
@@ -29,6 +30,8 @@ export interface SavedSearchFields {
   readonly minRooms: number | undefined;
   /** Si el cliente recibe por email las propiedades nuevas que coinciden (#11, etapa 4). */
   readonly autoSend: boolean;
+  /** Cada cuánto le llega el resumen de esta búsqueda (#208). */
+  readonly frequency: FollowUpFrequency;
 }
 
 export interface SavedSearchSnapshot extends SavedSearchFields {
@@ -39,6 +42,8 @@ export interface SavedSearchSnapshot extends SavedSearchFields {
   /** El cliente se dio de baja de los envíos automáticos. */
   readonly unsubscribedAt: Date | undefined;
   readonly lastMatchedAt: Date | undefined;
+  /** Último resumen que llevó coincidencias de esta búsqueda: de acá cuenta la frecuencia. */
+  readonly lastDigestAt: Date | undefined;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | undefined;
@@ -75,6 +80,13 @@ export function checkSavedSearchLimit(
   return activeCount >= MAX_SAVED_SEARCHES_PER_CLIENT
     ? err({ type: 'SavedSearchLimitReached', max: MAX_SAVED_SEARCHES_PER_CLIENT })
     : ok(undefined);
+}
+
+/** Valida y limpia los criterios: lo usan la búsqueda y la suscripción desde la web (#208). */
+export function normalizeSavedSearchFields(
+  fields: SavedSearchFields,
+): Result<SavedSearchFields, InvalidSavedSearchError> {
+  return normalize(fields);
 }
 
 function normalize(fields: SavedSearchFields): Result<SavedSearchFields, InvalidSavedSearchError> {
@@ -114,6 +126,7 @@ function normalize(fields: SavedSearchFields): Result<SavedSearchFields, Invalid
     locationIds,
     minRooms: fields.minRooms,
     autoSend: fields.autoSend,
+    frequency: fields.frequency,
   });
 }
 
@@ -130,7 +143,8 @@ function sameFields(a: SavedSearchFields, b: SavedSearchFields): boolean {
     a.maxPriceCents === b.maxPriceCents &&
     sameList(a.locationIds, b.locationIds) &&
     a.minRooms === b.minRooms &&
-    a.autoSend === b.autoSend
+    a.autoSend === b.autoSend &&
+    a.frequency === b.frequency
   );
 }
 
@@ -161,6 +175,7 @@ export class SavedSearch {
         extraCriteria: {},
         unsubscribedAt: undefined,
         lastMatchedAt: undefined,
+        lastDigestAt: undefined,
         createdAt: input.now,
         updatedAt: input.now,
         deletedAt: undefined,
@@ -198,16 +213,22 @@ export class SavedSearch {
       locationIds: s.locationIds,
       minRooms: s.minRooms,
       autoSend: s.autoSend,
+      frequency: s.frequency,
     };
   }
 
-  /** Lo que se compara con una propiedad. */
   /** Si el cliente recibe sus coincidencias por email: vigente, con envío y sin darse de baja. */
   get sendsAutomatically(): boolean {
     const s = this.#state;
     return s.autoSend && s.unsubscribedAt === undefined && !this.isDeleted;
   }
 
+  /** Si sus coincidencias entran en el resumen de hoy, según su frecuencia (#208). */
+  isDigestDue(now: Date): boolean {
+    return isFollowUpDue(this.#state.frequency, this.#state.lastDigestAt, now);
+  }
+
+  /** Lo que se compara con una propiedad. */
   get criteria(): MatchableSearch {
     const s = this.#state;
     return {

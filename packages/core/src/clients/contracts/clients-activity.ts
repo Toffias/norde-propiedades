@@ -312,6 +312,10 @@ export interface ClientSavedSearchRow {
   readonly locationCount: number;
   readonly minRooms: number | undefined;
   readonly autoSend: boolean;
+  /** Cada cuánto le llega el resumen (#208). */
+  readonly frequency: 'daily' | 'every_3_days' | 'weekly' | 'monthly';
+  /** Se suscribió el cliente desde la web (#208), no la cargó el asesor. */
+  readonly fromWeb: boolean;
   readonly unsubscribed: boolean;
   readonly lastMatchedAt: Date | undefined;
   readonly updatedAt: Date;

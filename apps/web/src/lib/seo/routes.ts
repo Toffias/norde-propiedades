@@ -24,6 +24,8 @@ export const routes = {
   /** Las propiedades que un asesor le mandó a un cliente (#104). Privada: no se indexa. */
   sharedListing: (token: string) => `/e/${encodeURIComponent(token)}`,
   followUpUnsubscribe: (token: string) => `/e/${encodeURIComponent(token)}/baja`,
+  /** La confirmación de una suscripción a una búsqueda, desde el email (#208). */
+  searchSubscription: (token: string) => `/suscripcion/${encodeURIComponent(token)}`,
   defaultOgImage: () => '/og-image.png',
   /** El logo de Mi empresa. La versión cambia con la imagen, así se cachea para siempre. */
   companyLogo: (version: string) => `/logo/${encodeURIComponent(version)}`,

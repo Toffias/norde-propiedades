@@ -8,7 +8,9 @@ describe('buildRobots', () => {
 
   it('blocks the admin, the API and the preview for every crawler', () => {
     for (const rule of rules) {
-      expect(rule.disallow).toEqual(expect.arrayContaining(['/admin/', '/api/', '/next/', '/e/']));
+      expect(rule.disallow).toEqual(
+        expect.arrayContaining(['/admin/', '/api/', '/next/', '/e/', '/suscripcion/']),
+      );
     }
   });
 

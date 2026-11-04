@@ -290,6 +290,7 @@ describe('eventSubscriptions', () => {
       'clients.client_reassigned.notify-assignee',
       'clients.opportunity_reassigned.notify-assignee',
       'clients.inquiry_assigned.notify-assignee',
+      'clients.search_subscribed.notify-assignee',
       'clients.import_requested.run-import',
       'properties.unit_import_requested.run-unit-import',
       'properties.import_requested.run-property-import',

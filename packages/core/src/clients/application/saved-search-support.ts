@@ -85,6 +85,7 @@ export function toSavedSearchFields(values: SavedSearchValues): SavedSearchField
     locationIds: values.locationIds,
     minRooms: values.minRooms,
     autoSend: values.autoSend,
+    frequency: values.frequency,
   };
 }
 
@@ -103,5 +104,6 @@ export function savedSearchAuditState(search: SavedSearch): AuditState {
     locationIds: list(f.locationIds),
     minRooms: f.minRooms,
     autoSend: f.autoSend,
+    frequency: f.frequency,
   };
 }

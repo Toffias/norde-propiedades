@@ -6,7 +6,8 @@ import type { User } from '../domain/user';
  * el blanqueo y el cambio quedan como acciones sin valores.
  */
 export function userAuditState(user: User): AuditState {
-  const { name, email, phone, status, branchId, roleIds, permissions } = user.toSnapshot();
+  const { name, email, phone, status, branchId, roleIds, permissions, defaultAssignee } =
+    user.toSnapshot();
   return {
     name,
     email: email.value,
@@ -17,6 +18,8 @@ export function userAuditState(user: User): AuditState {
     // `grant:clients:export`, `deny:rentals:delete`. Sin permisos propios no se registra el campo.
     permissions:
       permissions.length === 0 ? undefined : permissions.map((p) => `${p.effect}:${p.permission}`),
+    // Solo cuando lo es: el resto de los usuarios no suma el campo a su historial.
+    defaultAssignee: defaultAssignee ? true : undefined,
   };
 }
 

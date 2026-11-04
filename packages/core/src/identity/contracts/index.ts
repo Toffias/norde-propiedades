@@ -41,7 +41,12 @@ export const CreateUserInputSchema = z.object({
 });
 export type CreateUserInput = z.input<typeof CreateUserInputSchema>;
 
-export const UpdateUserInputSchema = z.object({ userId: z.uuid(), ...UserProfileFields });
+export const UpdateUserInputSchema = z.object({
+  userId: z.uuid(),
+  ...UserProfileFields,
+  /** Asesor por defecto de las asignaciones automáticas (#208). Sin valor, no cambia. */
+  defaultAssignee: z.boolean().optional(),
+});
 export type UpdateUserInput = z.input<typeof UpdateUserInputSchema>;
 
 export const UserIdInputSchema = z.object({ userId: z.uuid() });
@@ -182,6 +187,8 @@ export interface UserListItem {
   readonly mustChangePassword: boolean;
   /** Tiene activa la verificación en dos pasos. */
   readonly twoFactorEnabled: boolean;
+  /** Asesor por defecto de las asignaciones automáticas (#208): como mucho uno. */
+  readonly defaultAssignee: boolean;
   readonly lastLoginAt: Date | undefined;
   readonly createdAt: Date;
 }

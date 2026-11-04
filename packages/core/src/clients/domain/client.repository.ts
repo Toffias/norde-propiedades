@@ -1,3 +1,5 @@
+import type { Email } from '../../shared/domain/value-objects/email';
+
 import type { Client, ClientId } from './client';
 import type { ClientActivity } from './client-activity';
 import type { ClientImport, ClientImportId, ImportRowProblem } from './client-import';
@@ -17,6 +19,7 @@ import type { OpportunityRules } from './opportunity-settings';
 import type { OpportunityStage, OpportunityStageId } from './opportunity-stage';
 import type { QuickReply, QuickReplyId } from './quick-reply';
 import type { SavedSearch, SavedSearchId } from './saved-search';
+import type { SearchSubscription } from './search-subscription';
 import type { SharedListing, SharedListingId } from './shared-listing';
 
 /** Tope de coincidencias que devuelve una búsqueda de duplicados. */
@@ -222,6 +225,24 @@ export interface SavedSearchRepository {
   countActiveByClient(clientId: ClientId): Promise<number>;
   /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
   save(search: SavedSearch, actorId: string): Promise<void>;
+  /**
+   * Anota cuándo salió el último resumen con coincidencias de estas búsquedas (#208). No es una
+   * edición: no cambia `updated_at` (el orden de la ficha) ni `updated_by`.
+   */
+  markDigestSent(ids: readonly SavedSearchId[], at: Date): Promise<void>;
+}
+
+export interface SearchSubscriptionRepository {
+  findByTokenHash(tokenHash: string): Promise<SearchSubscription | undefined>;
+  /** Cuántas pidió este email desde `since`, confirmadas o no (el tope anti abuso). */
+  countRequestedSince(email: Email, since: Date): Promise<number>;
+  /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
+  save(subscription: SearchSubscription, actorId: string): Promise<void>;
+  /**
+   * Borra las que vencieron sin confirmar antes de `before`, de a `limit`: guardan un nombre y un
+   * email que nadie confirmó. Devuelve cuántas borró.
+   */
+  deleteExpired(before: Date, limit: number): Promise<number>;
 }
 
 export interface ClientImportRepository {

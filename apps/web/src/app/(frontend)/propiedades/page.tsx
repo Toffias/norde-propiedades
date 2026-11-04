@@ -8,6 +8,7 @@ import { Pagination } from '../../../components/blog/pagination';
 import { ListingFiltersPanel } from '../../../components/properties/listing-filters-form';
 import { ListingGrid } from '../../../components/properties/listing-card';
 import { ListingMap } from '../../../components/properties/listing-map';
+import { SearchSubscribe } from '../../../components/properties/search-subscribe';
 import { SortSelect } from '../../../components/properties/sort-select';
 import { Breadcrumbs } from '../../../components/seo/breadcrumbs';
 import {
@@ -29,6 +30,7 @@ import {
 } from '../../../lib/properties/queries';
 import { LOCATION_QUERY_MIN_LENGTH } from '../../../lib/properties/queries';
 import { buildMetadata, withBrand } from '../../../lib/seo/metadata';
+import { listingSubscription } from '../../../lib/subscriptions/listing-subscription';
 import { routes } from '../../../lib/seo/routes';
 
 // Por request: los filtros vienen en la URL. Los datos salen del caché de propiedades.
@@ -97,10 +99,9 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
     findLocations(filters.locationIds ?? []),
   ]);
   const total = result?.total ?? map?.total ?? 0;
-  const title = listingTitle(
-    filters,
-    locations.map((l) => l.name),
-  );
+  const locationNames = locations.map((l) => l.name);
+  const title = listingTitle(filters, locationNames);
+  const subscription = listingSubscription(filters, locationNames);
   const chips = activeFilters(filters, {
     locations: new Map(locations.map((l) => [l.id, l.name])),
     features: new Map(facets.features.map((f) => [f.id, f.name])),
@@ -238,6 +239,8 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
               hrefFor={(page) => listingHref(filters, { page })}
             />
           )}
+
+          {subscription && <SearchSubscribe {...subscription} empty={total === 0} />}
         </section>
       </div>
     </div>

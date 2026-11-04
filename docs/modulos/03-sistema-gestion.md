@@ -71,7 +71,8 @@ Roles propuestos (a validar con Norde):
   - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
 - **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.
 - **Cambiar la contraseña propia** cierra las demás sesiones del usuario y deja abierta la del cambio: quien haya entrado con la contraseña vieja o con la temporal no sigue adentro.
-- Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos y roles), `users:suspend` (suspender y reactivar), `users:reset-password`.
+- **Asesor por defecto para asignaciones** (#208): un checkbox de la edición del usuario. Recibe los contactos nuevos que entran solos, hoy los que se suscriben a una búsqueda desde la web (§3.4). Lo tiene **como mucho un usuario**: marcar a otro se lo saca al anterior (los dos cambios quedan en su historial). Un usuario suspendido no puede tenerlo y suspenderlo se lo saca. En la grilla aparece como "Asesor por defecto".
+- Permisos de cada acción: `users:read`, `users:create`, `users:update` (datos, roles y asesor por defecto), `users:suspend` (suspender y reactivar), `users:reset-password`.
 - Auditoría contra el usuario: `user.created` (nombre, email, teléfono, estado y roles), `user.updated` (solo lo que cambió), `user.suspended`, `user.reactivated`, `user.password-reset` y `user.password-changed` (sin valores: nunca se audita una contraseña ni su hash).
 - Se registra el **último ingreso** de cada usuario (hook de sesión de Better Auth).
 - Diferencias con Tokko: no hay "empresa" en el usuario (mono-tenant); la sucursal del usuario llega con el ABM de sucursales. La supervisión de ediciones de cartera queda fuera por ahora (pregunta abierta de #3); el 2FA llegó con #113.
@@ -621,6 +622,16 @@ Da soporte a las "Oportunidades por mail" del módulo 2. Se construye en dos eta
 - Si el email no sale, no queda nada y se reintenta al día siguiente.
 
 **Baja del cliente** (etapa 2). Cada email automático tiene al pie un link a `/e/<token>/baja`. La página pide confirmar con un botón (los lectores de correo abren los links para revisarlos). Al confirmar, todas las búsquedas del contacto quedan dadas de baja (el asesor no puede volver a prender su envío automático) y se apaga el auto-envío de sus destacadas. Queda en su historial (`client.follow_ups_unsubscribed`). Sirve aunque el link del envío haya vencido.
+
+**Frecuencia** (#208). Cada búsqueda con envío automático tiene su frecuencia: todos los días, cada 3 días, una vez por semana o una vez por mes (las de antes de #208 quedaron diarias; las nuevas del panel arrancan semanales). El resumen sigue corriendo todos los días a las 10 y es un email por contacto, pero las coincidencias de una búsqueda entran solo si nunca se le mandó un resumen o pasaron los días de su frecuencia; si no, esperan (no se descartan). Las bajas de precio de las destacadas entran todos los días. La grilla de búsquedas muestra la frecuencia junto al envío automático.
+
+**Suscripción desde la web** (#208, ADR 0054). En el listado del sitio, "¿No encontraste lo que buscabas?" ofrece "Suscribirme a esta búsqueda": nombre, email y frecuencia (cada 3 días, semanal o mensual; si el buscador no tiene operación, también la operación). Se guarda lo que cruza la búsqueda (operación, tipos, ubicaciones, precio y ambientes mínimos); los otros filtros no, y el formulario lo dice.
+
+- **Doble confirmación**: llega un email con un link a `/suscripcion/<token>` que vence a las 72 horas; la página pide un clic. Hasta confirmar no hay contacto ni búsqueda. Un mismo email puede pedir 3 por día; después no se mandan más emails (la web responde igual).
+- Al confirmar, si ya hay un contacto con ese email, la búsqueda se le suma y **mantiene su asesor** (si estaba en la papelera, vuelve). Si no, se registra como contacto nuevo con canal "Formulario web" a cargo del **asesor por defecto** (§2.1); sin asesor por defecto, queda sin agente.
+- La búsqueda se llama como la tituló la web ("Departamentos en venta en Palermo, hasta USD 150.000"), con envío automático y la frecuencia elegida. En la grilla dice "Se suscribió desde la web".
+- Su asesor recibe un aviso en la campana: "Ana Pérez se suscribió a una búsqueda desde la web", que lleva a la pestaña Búsquedas.
+- Las suscripciones que vencen sin confirmar se borran todos los días (guardaban un nombre y un email que nadie confirmó).
 
 **Diferencias con §3.4 original**: a las búsquedas sin envío automático no se le avisa al asesor (Norde no lo pidió, 2026-10-27).
 

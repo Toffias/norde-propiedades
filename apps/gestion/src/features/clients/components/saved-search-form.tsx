@@ -2,6 +2,7 @@
 
 import {
   CreateSavedSearchInputSchema,
+  FOLLOW_UP_FREQUENCY_VALUES,
   type CreateSavedSearchInput,
   type SavedSearchDetail,
 } from '@norde/core/clients/contracts';
@@ -15,7 +16,7 @@ import { toast } from '@norde/ui/components/sonner';
 import { Switch } from '@norde/ui/components/switch';
 import { Loader2Icon } from 'lucide-react';
 import { useEffect, useId, useState, type ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 
 import { runAction } from '../../../lib/action-result';
 import { contractResolver } from '../../../lib/form';
@@ -30,6 +31,7 @@ import {
   SwitchField,
   TextField,
 } from '../../shared/components/form-fields';
+import { FOLLOW_UP_FREQUENCY_LABELS } from '../follow-up-labels';
 import { createSavedSearchAction, updateSavedSearchAction } from '../saved-search-actions';
 
 type SavedSearchValues = CreateSavedSearchInput;
@@ -59,6 +61,7 @@ function initialValues(
       locationIds: (prefill.locations ?? []).map((location) => location.value),
       minRooms: undefined,
       autoSend: false,
+      frequency: 'weekly',
     };
   }
   return {
@@ -73,6 +76,7 @@ function initialValues(
     locationIds: search.locations.map((location) => location.id),
     minRooms: search.minRooms,
     autoSend: search.autoSend,
+    frequency: search.frequency,
   };
 }
 
@@ -137,6 +141,7 @@ export function SavedSearchForm({
   // Atada a una oportunidad que ya se cerró: se mantiene mientras no se destilde.
   const opportunityId = search?.opportunityId ?? activeOpportunityId;
   const autoSendLocked = !canTurnOnAutoSend && search?.autoSend !== true;
+  const autoSend = useWatch({ control: form.control, name: 'autoSend' });
 
   async function submit(values: SavedSearchValues) {
     setError(undefined);
@@ -263,9 +268,18 @@ export function SavedSearchForm({
                   ? 'El contacto se dio de baja de los envíos automáticos.'
                   : autoSendLocked
                     ? 'Prenderlo pide el permiso "Activar seguimientos automáticos".'
-                    : 'Le manda por email las propiedades nuevas que coinciden y las bajas de precio. Los envíos se activan próximamente.'
+                    : 'Le manda por email las propiedades nuevas que coinciden y las bajas de precio.'
               }
             />
+            {autoSend === true && (
+              <SelectField
+                control={form.control}
+                name="frequency"
+                label="Frecuencia del resumen"
+                options={FOLLOW_UP_FREQUENCY_VALUES}
+                labels={FOLLOW_UP_FREQUENCY_LABELS}
+              />
+            )}
             {opportunityId !== undefined && (
               <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
                 <span className="flex flex-col gap-0.5">

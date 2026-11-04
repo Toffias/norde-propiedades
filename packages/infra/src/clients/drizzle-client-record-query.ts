@@ -1,4 +1,5 @@
 import {
+  FOLLOW_UP_FREQUENCIES,
   OPPORTUNITY_STATUSES,
   type ClientActiveOpportunityItem,
   type ClientActivityItem,
@@ -41,6 +42,9 @@ import { storedActivityBody } from './drizzle-client-activity-repositories';
 
 const Status = z.enum(OPPORTUNITY_STATUSES);
 const Reaction = z.enum(['liked', 'disliked']).nullable();
+const Frequency = z.enum(FOLLOW_UP_FREQUENCIES);
+/** El actor con que el sitio público confirma las suscripciones (`Actor.system('web')`). */
+const WEB_ACTOR_ID = 'system:web';
 const CountRow = z.object({ total: z.coerce.number() });
 
 const stageColumns = {
@@ -278,6 +282,9 @@ export class DrizzleClientRecordQuery implements ClientRecordQuery {
         locationCount: row.locationIds.length,
         minRooms: row.minRooms ?? undefined,
         autoSend: row.autoSend,
+        frequency: Frequency.parse(row.frequency),
+        // La guardó la confirmación de una suscripción desde la web (#208).
+        fromWeb: row.createdBy === WEB_ACTOR_ID,
         unsubscribed: row.unsubscribedAt !== null,
         lastMatchedAt: row.lastMatchedAt ?? undefined,
         updatedAt: row.updatedAt,

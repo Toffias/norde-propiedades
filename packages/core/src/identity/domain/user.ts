@@ -27,6 +27,11 @@ export interface UserSnapshot {
   readonly permissions: readonly UserPermission[];
   /** Entra con una contraseña temporal (alta o blanqueo) y tiene que cambiarla. */
   readonly mustChangePassword: boolean;
+  /**
+   * Asesor por defecto de lo que se asigna solo, como las suscripciones desde la web (#208). Lo
+   * tiene como mucho un usuario, y activo: marcar a otro se lo saca al anterior.
+   */
+  readonly defaultAssignee: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -48,6 +53,10 @@ export interface CannotChangeOwnPermissionsError {
 }
 export interface CannotChangeOwnRolesError {
   readonly type: 'CannotChangeOwnRoles';
+}
+/** Un usuario suspendido no puede ser el asesor por defecto: no recibiría lo que se le asigna. */
+export interface SuspendedDefaultAssigneeError {
+  readonly type: 'SuspendedDefaultAssignee';
 }
 export interface DuplicatePermissionError {
   readonly type: 'DuplicatePermission';
@@ -94,6 +103,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
       roleIds: roleIds.value,
       permissions: [],
       mustChangePassword: true,
+      defaultAssignee: false,
       createdAt: input.now,
       updatedAt: input.now,
     });
@@ -129,6 +139,23 @@ export class User extends AggregateRoot<UserId, UserEvent> {
 
   get mustChangePassword(): boolean {
     return this.#state.mustChangePassword;
+  }
+
+  get isDefaultAssignee(): boolean {
+    return this.#state.defaultAssignee;
+  }
+
+  /**
+   * Lo marca o lo desmarca como asesor por defecto (#208). El caso de uso le saca la marca al que
+   * la tenía. Devuelve `false` si no cambió.
+   */
+  setDefaultAssignee(value: boolean, now: Date): Result<boolean, SuspendedDefaultAssigneeError> {
+    if (value === this.#state.defaultAssignee) return ok(false);
+    if (value && this.#state.status === 'suspended') {
+      return err({ type: 'SuspendedDefaultAssignee' });
+    }
+    this.#state = { ...this.#state, defaultAssignee: value, updatedAt: now };
+    return ok(true);
   }
 
   updateProfile(
@@ -217,7 +244,8 @@ export class User extends AggregateRoot<UserId, UserEvent> {
     if (by === this.id) return err({ type: 'CannotSuspendSelf' });
     if (this.#state.status === 'suspended') return err({ type: 'UserAlreadySuspended' });
 
-    this.#state = { ...this.#state, status: 'suspended', updatedAt: now };
+    // Suspendido no recibe asignaciones: deja de ser el asesor por defecto.
+    this.#state = { ...this.#state, status: 'suspended', defaultAssignee: false, updatedAt: now };
     this.record({
       type: 'identity.user_suspended',
       aggregateId: this.id,

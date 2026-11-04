@@ -270,4 +270,82 @@ describe('SendFollowUpDigests', () => {
       type: 'Forbidden',
     });
   });
+
+  describe('frequency (#208)', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+
+    it('holds the matches of a search whose interval has not passed', async () => {
+      const { uow, client, digests, mailer } = await setup();
+      uow.savedSearches.rows.set(SEARCH_ID, {
+        ...(uow.savedSearches.rows.get(SEARCH_ID) ?? unreachable()),
+        frequency: 'weekly',
+        // Hace 3 días: le faltan 4.
+        lastDigestAt: new Date(new Date('2026-10-27T13:00:00Z').getTime() - 3 * DAY),
+      });
+      const held = aMatch(client.id, PROPERTY_ID);
+      uow.followUpMatches.rows.push(held);
+
+      const outcome = unwrap(await digests.execute(JOBS));
+
+      expect(outcome).toEqual({ sent: 0, discarded: 0, failures: [] });
+      expect(mailer.sent).toEqual([]);
+      // Ni se manda ni se descarta: espera al resumen en que le toque.
+      expect(pendingOf(uow)).toEqual([held.id]);
+    });
+
+    it('sends once the interval passed and records when', async () => {
+      const { uow, client, digests, mailer } = await setup();
+      uow.savedSearches.rows.set(SEARCH_ID, {
+        ...(uow.savedSearches.rows.get(SEARCH_ID) ?? unreachable()),
+        frequency: 'weekly',
+        lastDigestAt: new Date(new Date('2026-10-27T13:00:00Z').getTime() - 7 * DAY),
+      });
+      uow.followUpMatches.rows.push(aMatch(client.id, PROPERTY_ID));
+
+      unwrap(await digests.execute(JOBS));
+
+      expect(mailer.sent).toHaveLength(1);
+      expect(uow.savedSearches.rows.get(SEARCH_ID)?.lastDigestAt).toEqual(
+        new Date('2026-10-27T13:00:00Z'),
+      );
+    });
+
+    it('sends the first match of a search right away', async () => {
+      const { uow, client, digests, mailer } = await setup();
+      uow.savedSearches.rows.set(SEARCH_ID, {
+        ...(uow.savedSearches.rows.get(SEARCH_ID) ?? unreachable()),
+        frequency: 'monthly',
+      });
+      uow.followUpMatches.rows.push(aMatch(client.id, PROPERTY_ID));
+
+      unwrap(await digests.execute(JOBS));
+
+      expect(mailer.sent).toHaveLength(1);
+    });
+
+    it('sends the due search and holds the other one in the same digest', async () => {
+      const { uow, client, digests, emails } = await setup();
+      seedSavedSearch(uow, {
+        id: OTHER_SEARCH_ID,
+        clientId: client.id,
+        fields: { autoSend: true, frequency: 'every_3_days' },
+        snapshot: { lastDigestAt: new Date('2026-10-26T13:00:00Z') },
+      });
+      const due = aMatch(client.id, PROPERTY_ID);
+      const held = aMatch(client.id, OTHER_PROPERTY_ID, { source: searchSource(OTHER_SEARCH_ID) });
+      uow.followUpMatches.rows.push(due, held);
+
+      unwrap(await digests.execute(JOBS));
+
+      expect(emails.composed[0]?.listings.map((listing) => listing.id)).toEqual([PROPERTY_ID]);
+      expect(pendingOf(uow)).toEqual([held.id]);
+      expect(uow.savedSearches.rows.get(OTHER_SEARCH_ID)?.lastDigestAt).toEqual(
+        new Date('2026-10-26T13:00:00Z'),
+      );
+    });
+  });
 });
+
+function unreachable(): never {
+  throw new Error('Búsqueda de prueba faltante');
+}

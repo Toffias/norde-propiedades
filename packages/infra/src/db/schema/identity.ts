@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -41,6 +42,8 @@ export const users = coreSchema.table(
     mustChangePassword: boolean('must_change_password').notNull().default(false),
     /** Verificación en dos pasos activa (la escribe el plugin `twoFactor` de Better Auth). */
     twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+    /** Asesor por defecto de lo que se asigna solo (#208): como mucho uno (índice parcial único). */
+    defaultAssignee: boolean('default_assignee').notNull().default(false),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     ...timestamps(),
     /** Nullable: el primer usuario lo crea el setup, sin actor. */
@@ -51,6 +54,9 @@ export const users = coreSchema.table(
   },
   (t) => [
     uniqueIndex('users_email_uq').on(t.email),
+    uniqueIndex('users_default_assignee_uq')
+      .on(t.defaultAssignee)
+      .where(sql`default_assignee`),
     // Un índice por cada orden del listado, que siempre filtra por estado.
     index('users_status_name_idx').on(t.status, t.name),
     index('users_status_email_idx').on(t.status, t.email),

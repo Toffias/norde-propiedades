@@ -39,6 +39,11 @@ export class DrizzleUserRepository implements UserRepository {
     );
   }
 
+  /** Como mucho uno: lo garantiza `users_default_assignee_uq`. */
+  findDefaultAssignee() {
+    return this.findOneWhere(eq(users.defaultAssignee, true));
+  }
+
   async save(user: User, actorId: string): Promise<void> {
     const s = user.toSnapshot();
     const row = {
@@ -49,6 +54,7 @@ export class DrizzleUserRepository implements UserRepository {
       branchId: s.branchId,
       status: s.status,
       mustChangePassword: s.mustChangePassword,
+      defaultAssignee: s.defaultAssignee,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
       createdBy: actorId,
@@ -66,6 +72,7 @@ export class DrizzleUserRepository implements UserRepository {
           branchId: row.branchId,
           status: row.status,
           mustChangePassword: row.mustChangePassword,
+          defaultAssignee: row.defaultAssignee,
           updatedAt: row.updatedAt,
           updatedBy: row.updatedBy,
         },
@@ -133,6 +140,7 @@ export class DrizzleUserRepository implements UserRepository {
         return { permission, effect: Effect.parse(effect) };
       }),
       mustChangePassword: row.mustChangePassword,
+      defaultAssignee: row.defaultAssignee,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

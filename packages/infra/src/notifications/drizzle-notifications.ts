@@ -32,6 +32,7 @@ const ENTITY_TYPES: Readonly<Record<NotificationType, string>> = {
   'client.assigned': 'client',
   'opportunity.assigned': 'opportunity',
   'inquiry.assigned': 'inquiry',
+  'search.subscribed': 'saved_search',
 };
 
 /** El contacto de la ficha: el primero de `client_ids` (en Postgres los arrays empiezan en 1). */

@@ -86,6 +86,11 @@ export class InMemoryUserRepository implements UserRepository {
     return Promise.resolve(row && User.restore(row));
   }
 
+  findDefaultAssignee() {
+    const row = [...this.rows.values()].find((r) => r.defaultAssignee);
+    return Promise.resolve(row && User.restore(row));
+  }
+
   save(user: User, actorId: string) {
     this.rows.set(user.id, user.toSnapshot());
     this.updatedBy.set(user.id, actorId);

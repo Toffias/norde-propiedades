@@ -12,7 +12,11 @@ import {
   type Result,
 } from '../../../shared';
 import { UpdateUserInputSchema, type UpdateUserInput } from '../../contracts';
-import type { CannotChangeOwnRolesError, UserNeedsRoleError } from '../../domain/user';
+import type {
+  CannotChangeOwnRolesError,
+  SuspendedDefaultAssigneeError,
+  UserNeedsRoleError,
+} from '../../domain/user';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
@@ -35,9 +39,14 @@ export type UpdateUserError =
   | RoleNotFoundError
   | BranchNotFoundError
   | UserNeedsRoleError
-  | CannotChangeOwnRolesError;
+  | CannotChangeOwnRolesError
+  | SuspendedDefaultAssigneeError;
 
-/** Edita los datos de un usuario y sus roles. Sin cambios, no se guarda ni se audita nada. */
+/**
+ * Edita los datos de un usuario, sus roles y si es el asesor por defecto (#208). Marcarlo como
+ * asesor por defecto se lo saca al que lo era, que también queda en su historial. Sin cambios, no
+ * se guarda ni se audita nada.
+ */
 export class UpdateUser {
   constructor(private readonly deps: { readonly uow: IdentityUnitOfWork; readonly clock: Clock }) {}
 
@@ -80,6 +89,25 @@ export class UpdateUser {
       );
       const assigned = user.assignRoles(data.roleIds, actor.id, now);
       if (assigned.isErr()) return err(assigned.error);
+      if (data.defaultAssignee !== undefined) {
+        const marked = user.setDefaultAssignee(data.defaultAssignee, now);
+        if (marked.isErr()) return err(marked.error);
+        if (marked.value && data.defaultAssignee) {
+          const previous = await tx.users.findDefaultAssignee();
+          if (previous && previous.id !== user.id) {
+            const previousBefore = userAuditState(previous);
+            previous.setDefaultAssignee(false, now);
+            await tx.users.save(previous, actor.id);
+            const unmarked = auditUpdated(
+              actor,
+              userTarget('user.updated', previous.id),
+              previousBefore,
+              userAuditState(previous),
+            );
+            if (unmarked) await tx.audit.record(unmarked);
+          }
+        }
+      }
 
       const entry = auditUpdated(
         actor,

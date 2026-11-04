@@ -18,7 +18,7 @@ export function OwnersCta() {
   return (
     <section aria-labelledby="owners-cta-title" className="mx-auto max-w-7xl px-4 sm:px-6">
       {/* Sobre una foto oscurecida: el texto va en blanco en los dos temas. */}
-      <div className="relative isolate flex flex-col items-start gap-6 overflow-hidden rounded-[28px] bg-black px-6 py-12 text-white sm:flex-row sm:items-center sm:justify-between sm:px-10">
+      <div className="relative isolate flex flex-col items-start gap-6 overflow-hidden rounded-3xl bg-black px-6 py-12 text-white sm:flex-row sm:items-center sm:justify-between sm:px-10">
         <Image
           src={keys}
           alt=""

@@ -81,7 +81,7 @@ export default function AppraisalPage() {
           aria-labelledby="appraisal-form-title"
           className="mx-auto max-w-7xl scroll-mt-24 px-4 sm:px-6"
         >
-          <div className="bg-card grid gap-10 rounded-[28px] border p-6 shadow-sm sm:p-10 lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-16 lg:p-14">
+          <div className="bg-card grid gap-10 rounded-3xl border p-6 shadow-sm sm:p-10 lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-16 lg:p-14">
             <Reveal className="space-y-6">
               <p className="text-primary text-sm font-bold tracking-[0.14em] uppercase">
                 Tasá tu propiedad

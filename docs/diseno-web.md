@@ -17,7 +17,7 @@ El 5 de octubre de 2026 se compararon tres direcciones y Norde eligió la más c
 1. **Buscar sin vueltas.** El hero de la home lleva directo al listado ("Ver propiedades") y los filtros del listado están a la vista. Todo se puede usar sin JavaScript (formularios `GET`, `<details>`).
 2. **Las fotos mandan.** Tarjetas y ficha dan el espacio a la foto. El hero usa la foto real de la oficina (la fachada de Emilio Castro 7250), nunca una foto de stock.
 3. **Un solo rojo.** El de la marca: botón principal, etiqueta de operación y foco. No decora.
-4. **Cálido y redondeado.** Fondo arena (`bg-background`), tarjetas blancas (`bg-card`) con borde fino y radios grandes (`rounded-3xl` en tarjetas, `rounded-xl` en controles).
+4. **Cálido y sobrio.** Fondo arena (`bg-background`), tarjetas blancas (`bg-card`) con borde fino y redondeado chico, estilo MercadoLibre: toda la escala `rounded-md` a `rounded-3xl` vale 6px (`--radius`), `rounded-sm` 4px. Solo los círculos usan `rounded-full`.
 5. **El logo como firma.** El wordmark "NORDE" en serif ancha y la línea escalonada (`deco-steps`) separan secciones y subrayan títulos. Nada más usa la serif.
 6. **WhatsApp siempre a mano**, con su verde, solo en sus botones. Si Norde no confirmó el número (`BUSINESS.whatsapp`), no se muestra.
 

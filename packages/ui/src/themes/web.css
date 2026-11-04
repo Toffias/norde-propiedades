@@ -1,6 +1,6 @@
 /*
  * Tema del sitio público. Dirección "Barrio claro" con detalles deco del logo (ver
- * docs/diseno-web.md): fondo arena cálido, tarjetas blancas redondeadas, un único rojo de marca y
+ * docs/diseno-web.md): fondo arena cálido, tarjetas blancas con redondeado sobrio (6px), un único rojo de marca y
  * la línea escalonada del logo como separador.
  * Usar SIEMPRE tokens (bg-card, text-muted-foreground, bg-brand-50): nunca hex sueltos en el .tsx.
  *
@@ -17,7 +17,7 @@
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.375rem;
   --background: #faf7f2;
   --foreground: #2a2522;
   --card: #ffffff;
@@ -89,12 +89,13 @@
   --font-wordmark: var(--font-wordmark-web), 'Times New Roman', serif;
   /* Hover del botón primario. */
   --color-primary-700: color-mix(in oklab, var(--primary) 88%, black);
-  --radius-sm: calc(var(--radius) - 8px);
-  --radius-md: calc(var(--radius) - 4px);
+  /* Redondeado sobrio, estilo MercadoLibre: casi todo a 6px (cards, inputs, selects, botones). */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

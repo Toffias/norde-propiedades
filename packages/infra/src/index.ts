@@ -32,6 +32,7 @@ export {
   type AuthOptions,
 } from './identity/better-auth';
 export { DrizzleUserAccessQuery } from './identity/drizzle-user-access-query';
+export { DrizzleDefaultAssignee } from './identity/drizzle-default-assignee';
 export { BetterAuthPasswordHasher } from './identity/better-auth-password-hasher';
 export { createIdentityUnitOfWork } from './identity/identity-unit-of-work';
 export { DrizzleUserListQuery } from './identity/drizzle-user-list-query';
@@ -209,6 +210,11 @@ export {
   type WebInquiryOutcome,
 } from './adapters/inquiries/web-inquiry-client';
 export {
+  WebSearchSubscriptionClient,
+  type WebSearchSubscription,
+  type WebSearchSubscriptionOutcome,
+} from './adapters/subscriptions/web-search-subscription-client';
+export {
   WebChatClient,
   type WebChatMessage,
   type WebChatListingSearch,
@@ -221,6 +227,7 @@ export { S3FileStorage, type S3FileStorageOptions } from './adapters/storage/s3-
 export { LocalFileStorage } from './adapters/storage/local-file-storage';
 export { ResendMailer, type ResendMailerOptions } from './adapters/mail/resend-mailer';
 export { HtmlSharedListingEmails } from './adapters/mail/html-shared-listing-emails';
+export { HtmlSubscriptionConfirmationEmails } from './adapters/mail/html-subscription-confirmation-emails';
 export { SharpImageWatermarker } from './adapters/images/sharp-image-watermarker';
 export { SharpImageVariantGenerator } from './adapters/images/sharp-image-variant-generator';
 

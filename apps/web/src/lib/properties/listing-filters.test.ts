@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  activeFilters,
   activeFilterCount,
   isIndexable,
   listingHref,
   listingTitle,
+  operationHref,
   parseListingFilters,
   priceCurrency,
   toMapInput,
@@ -21,8 +23,14 @@ describe('parseListingFilters', () => {
         moneda: 'usd',
         desde: '80.000',
         hasta: '150000',
-        ambientes: '3',
+        ambientes: ['3', '1', '3'],
         dormitorios: '2',
+        banos: '3',
+        'm2-desde': '40',
+        'm2-hasta': '1.200',
+        antiguedad: 'hasta-10',
+        amoblado: 'si',
+        cochera: 'si',
         orden: 'menor-precio',
         pagina: '2',
       }),
@@ -33,8 +41,14 @@ describe('parseListingFilters', () => {
       currency: 'USD',
       minPrice: 80_000,
       maxPrice: 150_000,
-      minRooms: 3,
-      minBedrooms: 2,
+      rooms: [3, 1],
+      bedrooms: [2],
+      bathrooms: [3],
+      minArea: 40,
+      maxArea: 1_200,
+      age: 'up_to_10',
+      furnished: true,
+      parking: true,
       sort: 'price_asc',
       page: 2,
     });
@@ -47,7 +61,11 @@ describe('parseListingFilters', () => {
         tipo: ['casa', 'ph'],
         desde: '-5',
         hasta: 'mucho',
-        ambientes: '0',
+        ambientes: ['0', '5'],
+        dormitorios: '4',
+        antiguedad: 'vieja',
+        amoblado: 'no',
+        caracteristica: 'pileta',
         orden: 'random',
         pagina: '9999',
       }),
@@ -75,6 +93,8 @@ describe('toSearchInput', () => {
       page: 1,
       pageSize: 12,
     });
+    // Sin precio, la moneda tampoco va en el link: una sola URL por búsqueda.
+    expect(listingHref(parseListingFilters({ moneda: 'usd' }))).toBe('/propiedades');
   });
 });
 
@@ -82,8 +102,8 @@ describe('listingHref', () => {
   const filters = parseListingFilters({ operacion: 'venta', zona: 'Liniers', pagina: '3' });
 
   it('keeps the filters and goes back to the first page when one changes', () => {
-    expect(listingHref(filters, { minRooms: 2 })).toBe(
-      '/propiedades?operacion=venta&zona=Liniers&ambientes=2',
+    expect(listingHref(filters, { rooms: [2, 4] })).toBe(
+      '/propiedades?operacion=venta&zona=Liniers&ambientes=2&ambientes=4',
     );
   });
 
@@ -129,7 +149,7 @@ describe('catalog location, map area and view', () => {
 
   it('prefers the catalog location over the free text, and ignores an invalid id', () => {
     expect(parseListingFilters({ ubicacion: PALERMO, zona: 'palermo' })).toMatchObject({
-      locationId: PALERMO,
+      locationIds: [PALERMO],
     });
     expect(parseListingFilters({ ubicacion: PALERMO }).location).toBeUndefined();
     expect(parseListingFilters({ ubicacion: 'palermo', zona: 'palermo' })).toEqual({
@@ -176,11 +196,11 @@ describe('catalog location, map area and view', () => {
     });
     const area = { south: -34.6, west: -58.5, north: -34.5, east: -58.4 };
 
-    expect(toMapInput(filters)).toEqual({ locationId: PALERMO, area, minRooms: 2 });
+    expect(toMapInput(filters)).toEqual({ locationIds: [PALERMO], area, rooms: [2] });
     expect(toSearchInput(filters, 12)).toEqual({
-      locationId: PALERMO,
+      locationIds: [PALERMO],
       area,
-      minRooms: 2,
+      rooms: [2],
       sort: 'newest',
       page: 1,
       pageSize: 12,
@@ -188,11 +208,116 @@ describe('catalog location, map area and view', () => {
   });
 
   it('titles the listing with the catalog name and does not index the map', () => {
-    expect(listingTitle(parseListingFilters({ ubicacion: PALERMO }), 'Palermo')).toBe(
+    expect(listingTitle(parseListingFilters({ ubicacion: PALERMO }), ['Palermo'])).toBe(
       'Propiedades en venta y alquiler en Palermo',
     );
     expect(isIndexable(parseListingFilters({ ubicacion: PALERMO }))).toBe(true);
     expect(isIndexable(parseListingFilters({ vista: 'mapa' }))).toBe(false);
     expect(isIndexable(parseListingFilters({ area: '-34.6,-58.5,-34.5,-58.4' }))).toBe(false);
+  });
+});
+
+describe('several locations, web options and chips', () => {
+  const MATADEROS = '0192aaaa-0000-7000-8001-0000000000a1';
+  const LINIERS = '0192aaaa-0000-7000-8001-0000000000a2';
+  const POOL = '0192aaaa-0000-7000-8002-0000000000b1';
+
+  it('reads several locations and features, and round-trips them', () => {
+    const filters = parseListingFilters({
+      ubicacion: [MATADEROS, LINIERS, 'x'],
+      caracteristica: [POOL],
+    });
+
+    expect(filters).toMatchObject({ locationIds: [MATADEROS, LINIERS], featureIds: [POOL] });
+    expect(listingHref(filters)).toBe(
+      `/propiedades?ubicacion=${MATADEROS}&ubicacion=${LINIERS}&caracteristica=${POOL}`,
+    );
+    expect(toMapInput(filters)).toEqual({
+      locationIds: [MATADEROS, LINIERS],
+      featureIds: [POOL],
+    });
+  });
+
+  it('titles with every location and indexes only one', () => {
+    const two = parseListingFilters({ operacion: 'venta', ubicacion: [MATADEROS, LINIERS] });
+    expect(listingTitle(two, ['Mataderos', 'Liniers'])).toBe(
+      'Propiedades en venta en Mataderos y Liniers',
+    );
+    expect(isIndexable(two)).toBe(false);
+    expect(isIndexable(parseListingFilters({ ubicacion: MATADEROS }))).toBe(true);
+    expect(isIndexable(parseListingFilters({ amoblado: 'si' }))).toBe(false);
+  });
+
+  it('sends the web options to the search', () => {
+    const filters = parseListingFilters({
+      ambientes: ['1', '4'],
+      banos: '2',
+      'm2-desde': '50',
+      antiguedad: 'a-estrenar',
+      amoblado: 'si',
+      cochera: 'si',
+    });
+    expect(toMapInput(filters)).toEqual({
+      rooms: [1, 4],
+      bathrooms: [2],
+      minSurfaceM2: 50,
+      age: 'brand_new',
+      furnished: true,
+      withParking: true,
+    });
+  });
+
+  it('lists the applied filters with a link that removes each one', () => {
+    const filters = parseListingFilters({
+      operacion: 'venta',
+      tipo: 'ph',
+      ubicacion: [MATADEROS, LINIERS],
+      desde: '80000',
+      ambientes: ['2', '4'],
+      'm2-hasta': '120',
+      amoblado: 'si',
+      caracteristica: POOL,
+    });
+    const names = {
+      locations: new Map([
+        [MATADEROS, 'Mataderos'],
+        [LINIERS, 'Liniers'],
+      ]),
+      features: new Map([[POOL, 'Pileta']]),
+    };
+
+    const chips = activeFilters(filters, names);
+
+    expect(chips.map((c) => c.label)).toEqual([
+      'PH',
+      'Mataderos',
+      'Liniers',
+      'Desde USD 80.000',
+      '2 ambientes',
+      '4 ambientes o más',
+      'Hasta 120 m²',
+      'Amoblado',
+      'Pileta',
+    ]);
+    expect(chips.find((c) => c.label === 'Mataderos')?.removeHref).toBe(
+      `/propiedades?operacion=venta&tipo=ph&ubicacion=${LINIERS}&desde=80000&ambientes=2&ambientes=4&m2-hasta=120&amoblado=si&caracteristica=${POOL}`,
+    );
+    expect(chips.find((c) => c.key === 'rooms-2')?.removeHref).toContain('ambientes=4');
+    expect(chips.find((c) => c.key === 'rooms-2')?.removeHref).not.toContain('ambientes=2');
+    expect(activeFilterCount(filters)).toBe(10);
+  });
+
+  it('clears the search when the operation changes, keeping the view and the sort', () => {
+    const filters = parseListingFilters({
+      operacion: 'venta',
+      ubicacion: MATADEROS,
+      desde: '80000',
+      orden: 'recientes',
+      vista: 'mapa',
+    });
+    expect(operationHref(filters, 'rent')).toBe(
+      '/propiedades?operacion=alquiler&orden=recientes&vista=mapa',
+    );
+    expect(operationHref(filters, undefined)).toBe('/propiedades?orden=recientes&vista=mapa');
   });
 });

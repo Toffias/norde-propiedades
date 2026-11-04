@@ -1,25 +1,69 @@
+'use client';
+
+import type { PublicCountFacet, PublicSearchFacets } from '@norde/core/properties/contracts';
+import { cn } from '@norde/ui/lib/utils';
 import { SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 
 import {
   activeFilterCount,
+  AGE_OPTIONS,
+  COUNT_FACETS,
+  countOptionLabel,
   CURRENCY_OPTIONS,
   formatArea,
-  MAP_VIEW_PARAM,
+  formatThousands,
+  listingHref,
   LISTING_PARAM_NAMES as P,
+  MAP_VIEW_PARAM,
+  operationHref,
+  parseListingFilters,
   priceCurrency,
-  ROOM_OPTIONS,
   SORT_OPTIONS,
+  YES_PARAM,
   type ListingFilters,
 } from '../../lib/properties/listing-filters';
 import { OPERATION_OPTIONS, PROPERTY_TYPE_OPTIONS } from '../../lib/properties/search-params';
-import { routes } from '../../lib/seo/routes';
-import { LocationCombobox } from '../forms/location-combobox';
+import { LocationMultiSelect, type ChosenLocation } from '../forms/location-multi-select';
 import { SiteSelect } from '../forms/site-select';
 
 const LABEL = 'mb-1.5 block text-xs font-bold';
 const FIELD =
   'border-input bg-card h-11 w-full rounded-xl border px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
+const CHECK =
+  'border-input accent-primary size-4 shrink-0 cursor-pointer rounded focus-visible:ring-[3px] focus-visible:ring-ring/50';
+
+/** Campos de texto con número: se aplican al salir del campo o con Enter, no a cada tecla. */
+const NUMBER_FIELDS: readonly string[] = [P.minPrice, P.maxPrice, P.minArea, P.maxArea];
+
+const COUNT_TITLES: Readonly<Record<PublicCountFacet, string>> = {
+  rooms: 'Ambientes',
+  bedrooms: 'Dormitorios',
+  bathrooms: 'Baños',
+};
+
+/**
+ * La última búsqueda que mandó el propio formulario. Si la URL cambia por otra cosa (un chip, el
+ * orden, "Limpiar"), el formulario se vuelve a armar con los valores nuevos; si la cambió él, no:
+ * así no pierde el foco ni el desplegable abierto.
+ */
+const memory = createNavigationMemory();
+
+function createNavigationMemory() {
+  let lastPushed: string | undefined;
+  /** El campo que tenía el foco al buscar: si el formulario se rearma, lo recupera. */
+  let lastFocusedId: string | undefined;
+  return {
+    remember(href: string | undefined, focusedId: string | undefined) {
+      lastPushed = href;
+      lastFocusedId = focusedId;
+    },
+    lastPushed: () => lastPushed,
+    lastFocusedId: () => lastFocusedId,
+  };
+}
 
 function paramOf<T extends string>(
   options: readonly { value: T; param: string }[],
@@ -28,24 +72,26 @@ function paramOf<T extends string>(
   return options.find((o) => o.value === value)?.param ?? '';
 }
 
-/**
- * Filtros del listado: un `<form method="get">` que reescribe la URL y funciona sin JavaScript.
- * En desktop van siempre a la vista; en mobile, plegados para que los resultados se vean primero.
- */
-/** La ubicación del catálogo elegida, con su nombre. */
-export interface SelectedLocation {
-  readonly id: string;
-  readonly name: string;
+/** 1500000 → "1.500.000" mientras se escribe; sin dígitos, vacío. */
+function withThousands(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 12);
+  return digits === '' ? '' : formatThousands(Number(digits));
 }
 
-export function ListingFiltersPanel({
-  filters,
-  location,
-}: {
+export interface ListingFiltersPanelProps {
   readonly filters: ListingFilters;
-  readonly location?: SelectedLocation | undefined;
-}) {
-  const count = activeFilterCount(filters);
+  readonly facets: PublicSearchFacets;
+  /** Las ubicaciones del catálogo elegidas, con su nombre. */
+  readonly locations: readonly ChosenLocation[];
+}
+
+/**
+ * Filtros del listado. Cada cambio busca solo (sin botón); los campos de número, al salir del
+ * campo o con Enter. Sin JavaScript es un `<form method="get">` común con su botón.
+ * En desktop van siempre a la vista; en mobile, plegados para que los resultados se vean primero.
+ */
+export function ListingFiltersPanel(props: ListingFiltersPanelProps) {
+  const count = activeFilterCount(props.filters);
 
   return (
     <>
@@ -63,36 +109,103 @@ export function ListingFiltersPanel({
           </span>
         </summary>
         <div className="px-5 pb-5">
-          <FiltersForm filters={filters} location={location} idPrefix="mobile" />
+          <SyncedForm {...props} idPrefix="mobile" />
         </div>
       </details>
       <div className="hidden lg:block">
-        <FiltersForm filters={filters} location={location} idPrefix="desktop" />
+        <SyncedForm {...props} idPrefix="desktop" />
       </div>
     </>
   );
 }
 
-/** `idPrefix`: el formulario se dibuja dos veces (mobile y desktop) y los IDs no se repiten. */
+/** Rearma el formulario solo si la URL cambió por fuera de él (ver `memory`). */
+function SyncedForm(props: ListingFiltersPanelProps & { readonly idPrefix: string }) {
+  const href = listingHref(props.filters);
+  const [shown, setShown] = useState({ href, version: 0 });
+  if (shown.href !== href) {
+    // Cada cambio de URL que no hizo el formulario lo rearma, aunque vuelva a una URL anterior.
+    const external = href !== memory.lastPushed();
+    setShown({ href, version: external ? shown.version + 1 : shown.version });
+  }
+  return <FiltersForm key={shown.version} {...props} />;
+}
+
 function FiltersForm({
   filters,
-  location,
+  facets,
+  locations: initialLocations,
   idPrefix,
-}: {
-  readonly filters: ListingFilters;
-  readonly location: SelectedLocation | undefined;
-  readonly idPrefix: string;
-}) {
+}: ListingFiltersPanelProps & { readonly idPrefix: string }) {
+  const router = useRouter();
+  const form = useRef<HTMLFormElement>(null);
+  const [locations, setLocations] = useState(initialLocations);
+  const [pending, startTransition] = useTransition();
   const count = activeFilterCount(filters);
   const currency = priceCurrency(filters);
+  const operationParam = paramOf(OPERATION_OPTIONS, filters.operation);
   const id = (name: string) => `${idPrefix}-filter-${name}`;
+
+  // Si el formulario se rearmó, el foco vuelve al campo donde estaba.
+  useEffect(() => {
+    const focusedId = memory.lastFocusedId();
+    if (focusedId === undefined) return;
+    const element = document.getElementById(focusedId);
+    if (element && form.current?.contains(element)) element.focus({ preventScroll: true });
+  }, []);
+
+  function navigate(href: string, remember: boolean) {
+    const focused = document.activeElement?.id;
+    memory.remember(remember ? href : undefined, focused === '' ? undefined : focused);
+    startTransition(() => {
+      router.push(href, { scroll: false });
+    });
+  }
+
+  /**
+   * Busca con lo que tiene el formulario. `overrides` pisa campos que todavía no se dibujaron
+   * (el valor recién elegido en un desplegable).
+   */
+  function apply(overrides: Readonly<Record<string, readonly string[]>> = {}) {
+    const element = form.current;
+    if (!element) return;
+    const params: Record<string, string[]> = {};
+    for (const [name, value] of new FormData(element)) {
+      if (typeof value !== 'string' || name in overrides) continue;
+      (params[name] ??= []).push(value);
+    }
+    for (const [name, values] of Object.entries(overrides)) params[name] = [...values];
+    // Leer y volver a escribir la URL la deja en su forma única (orden, sin vacíos ni puntos).
+    const href = listingHref(parseListingFilters(params));
+    if (href !== listingHref(filters)) navigate(href, true);
+  }
+
+  const clearHref = listingHref({
+    sort: filters.sort,
+    page: 1,
+    ...(filters.view && { view: filters.view }),
+  });
 
   return (
     <form
-      action={routes.properties()}
+      ref={form}
+      action={listingHref({ sort: 'featured', page: 1 })}
       method="get"
       aria-label="Filtrar propiedades"
+      aria-busy={pending}
       className="space-y-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        apply();
+      }}
+      onChange={(event) => {
+        const target = event.target;
+        // Los números se aplican al salir del campo; el buscador de zonas, al elegir; la
+        // operación tiene su propio manejo.
+        if (!(target instanceof HTMLInputElement) || target.type === 'search') return;
+        if (NUMBER_FIELDS.includes(target.name) || target.name === P.operation) return;
+        apply();
+      }}
     >
       <fieldset>
         <legend className={LABEL}>Operación</legend>
@@ -103,7 +216,12 @@ function FiltersForm({
                 type="radio"
                 name={P.operation}
                 value={o.param}
-                defaultChecked={paramOf(OPERATION_OPTIONS, filters.operation) === o.param}
+                defaultChecked={operationParam === o.param}
+                onChange={() => {
+                  // Cambiar de operación limpia la búsqueda: lo de venta no sirve para alquiler.
+                  const operation = OPERATION_OPTIONS.find((op) => op.param === o.param)?.value;
+                  navigate(operationHref(filters, operation), false);
+                }}
                 className="peer sr-only"
               />
               <span className="peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:hover:bg-primary-700 peer-focus-visible:ring-ring/50 hover:bg-muted block cursor-pointer rounded-lg px-2 py-2 text-center text-sm font-semibold transition-colors peer-focus-visible:ring-[3px]">
@@ -122,6 +240,9 @@ function FiltersForm({
           id={id('type')}
           name={P.propertyType}
           defaultValue={paramOf(PROPERTY_TYPE_OPTIONS, filters.propertyType)}
+          onValueChange={(value) => {
+            apply({ [P.propertyType]: [value] });
+          }}
           options={[
             { value: '', label: 'Todos' },
             ...PROPERTY_TYPE_OPTIONS.map((o) => ({ value: o.param, label: o.label })),
@@ -133,13 +254,20 @@ function FiltersForm({
         <label className={LABEL} htmlFor={id('location')}>
           Barrio o localidad
         </label>
-        <LocationCombobox
+        <LocationMultiSelect
           id={id('location')}
-          selected={location}
-          defaultText={filters.location}
+          selected={locations}
+          operation={operationParam === '' ? undefined : operationParam}
           placeholder="Mataderos, Ramos Mejía…"
-          className={FIELD}
+          onChange={(next) => {
+            setLocations(next);
+            apply({ [P.locationId]: next.map((l) => l.id) });
+          }}
         />
+        {/* Sin ubicaciones del catálogo, el texto libre de un link viejo sigue valiendo. */}
+        {filters.location && locations.length === 0 && (
+          <input type="hidden" name={P.location} value={filters.location} />
+        )}
       </div>
 
       <fieldset>
@@ -149,57 +277,82 @@ function FiltersForm({
             name={P.currency}
             aria-label="Moneda"
             defaultValue={paramOf(CURRENCY_OPTIONS, currency)}
+            onValueChange={(value) => {
+              apply({ [P.currency]: [value] });
+            }}
             options={CURRENCY_OPTIONS.map((o) => ({ value: o.param, label: o.label }))}
           />
-          <input
+          <NumberInput
+            id={id('min-price')}
             name={P.minPrice}
-            inputMode="numeric"
-            aria-label="Precio desde"
+            label="Precio desde"
             placeholder="Desde"
-            defaultValue={filters.minPrice ?? ''}
-            className={FIELD}
+            value={filters.minPrice}
+            onCommit={apply}
           />
-          <input
+          <NumberInput
+            id={id('max-price')}
             name={P.maxPrice}
-            inputMode="numeric"
-            aria-label="Precio hasta"
+            label="Precio hasta"
             placeholder="Hasta"
-            defaultValue={filters.maxPrice ?? ''}
-            className={FIELD}
+            value={filters.maxPrice}
+            onCommit={apply}
           />
         </div>
       </fieldset>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className={LABEL} htmlFor={id('rooms')}>
-            Ambientes
-          </label>
-          <SiteSelect
-            id={id('rooms')}
-            name={P.minRooms}
-            defaultValue={filters.minRooms?.toString() ?? ''}
-            options={[
-              { value: '', label: 'Todos' },
-              ...ROOM_OPTIONS.map((n) => ({ value: String(n), label: `${n} o más` })),
-            ]}
+      {COUNT_FACETS.map((facet) => (
+        <CountOptions
+          key={facet}
+          facet={facet}
+          idPrefix={id(facet)}
+          name={P[facet]}
+          chosen={filters[facet] ?? []}
+          counts={facets[facet]}
+        />
+      ))}
+
+      <fieldset>
+        <legend className={LABEL}>Superficie (m²)</legend>
+        <div className="grid grid-cols-2 gap-2">
+          <NumberInput
+            id={id('min-area')}
+            name={P.minArea}
+            label="Superficie desde, en m²"
+            placeholder="Desde"
+            value={filters.minArea}
+            onCommit={apply}
+          />
+          <NumberInput
+            id={id('max-area')}
+            name={P.maxArea}
+            label="Superficie hasta, en m²"
+            placeholder="Hasta"
+            value={filters.maxArea}
+            onCommit={apply}
           />
         </div>
-        <div>
-          <label className={LABEL} htmlFor={id('bedrooms')}>
-            Dormitorios
-          </label>
-          <SiteSelect
-            id={id('bedrooms')}
-            name={P.minBedrooms}
-            defaultValue={filters.minBedrooms?.toString() ?? ''}
-            options={[
-              { value: '', label: 'Todos' },
-              ...ROOM_OPTIONS.slice(0, 4).map((n) => ({ value: String(n), label: `${n} o más` })),
-            ]}
-          />
-        </div>
+      </fieldset>
+
+      <div>
+        <label className={LABEL} htmlFor={id('age')}>
+          Antigüedad
+        </label>
+        <SiteSelect
+          id={id('age')}
+          name={P.age}
+          defaultValue={paramOf(AGE_OPTIONS, filters.age)}
+          onValueChange={(value) => {
+            apply({ [P.age]: [value] });
+          }}
+          options={[
+            { value: '', label: 'Cualquiera' },
+            ...AGE_OPTIONS.map((o) => ({ value: o.param, label: o.label })),
+          ]}
+        />
       </div>
+
+      <FeatureOptions filters={filters} facets={facets} idPrefix={id('feature')} />
 
       {filters.view === 'map' && <input type="hidden" name={P.view} value={MAP_VIEW_PARAM} />}
       {filters.area && <input type="hidden" name={P.area} value={formatArea(filters.area)} />}
@@ -208,21 +361,219 @@ function FiltersForm({
       )}
 
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          className="bg-primary text-primary-foreground hover:bg-primary-700 focus-visible:ring-ring/50 h-11 flex-1 rounded-xl text-sm font-bold transition-colors outline-none focus-visible:ring-[3px]"
-        >
-          Ver propiedades
-        </button>
+        <noscript>
+          <button
+            type="submit"
+            className="bg-primary text-primary-foreground hover:bg-primary-700 h-11 rounded-xl px-6 text-sm font-bold"
+          >
+            Ver propiedades
+          </button>
+        </noscript>
         {count > 0 && (
           <Link
-            href={routes.properties()}
+            href={clearHref}
+            scroll={false}
             className="text-muted-foreground hover:text-foreground text-sm font-semibold"
           >
-            Limpiar
+            Limpiar filtros
           </Link>
         )}
       </div>
     </form>
+  );
+}
+
+/** Número con puntos de miles mientras se escribe; se aplica al salir del campo o con Enter. */
+function NumberInput({
+  id,
+  name,
+  label,
+  placeholder,
+  value,
+  onCommit,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly label: string;
+  readonly placeholder: string;
+  readonly value: number | undefined;
+  readonly onCommit: () => void;
+}) {
+  const initial = value === undefined ? '' : formatThousands(value);
+  return (
+    <input
+      id={id}
+      name={name}
+      inputMode="numeric"
+      autoComplete="off"
+      aria-label={label}
+      placeholder={placeholder}
+      defaultValue={initial}
+      onInput={(event) => {
+        const input = event.currentTarget;
+        const formatted = withThousands(input.value);
+        // El cursor queda al final: con puntos que aparecen y se corren es lo más predecible.
+        if (formatted !== input.value) input.value = formatted;
+      }}
+      onKeyDown={(event) => {
+        // Sin botón de buscar, el navegador no manda el formulario con Enter: lo hace el campo.
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        onCommit();
+      }}
+      onBlur={(event) => {
+        if (event.currentTarget.value !== initial) onCommit();
+      }}
+      className={FIELD}
+    />
+  );
+}
+
+function CountOptions({
+  facet,
+  idPrefix,
+  name,
+  chosen,
+  counts,
+}: {
+  readonly facet: PublicCountFacet;
+  readonly idPrefix: string;
+  readonly name: string;
+  readonly chosen: readonly number[];
+  readonly counts: PublicSearchFacets[PublicCountFacet];
+}) {
+  return (
+    <fieldset>
+      <legend className={LABEL}>{COUNT_TITLES[facet]}</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {counts.map(({ value, count }) => {
+          const isChosen = chosen.includes(value);
+          return (
+            <Toggle
+              key={value}
+              id={`${idPrefix}-${value}`}
+              name={name}
+              value={String(value)}
+              checked={isChosen}
+              muted={count === 0 && !isChosen}
+            >
+              {countOptionLabel(facet, value)}
+              <span className="ml-1 tabular-nums opacity-70">({count})</span>
+            </Toggle>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+/** Opción que se prende y se apaga, con forma de pastilla. */
+function Toggle({
+  id,
+  name,
+  value,
+  checked,
+  muted,
+  children,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly checked: boolean;
+  readonly muted: boolean;
+  readonly children: ReactNode;
+}) {
+  return (
+    <label htmlFor={id} className="relative">
+      <input
+        id={id}
+        type="checkbox"
+        name={name}
+        value={value}
+        defaultChecked={checked}
+        className="peer sr-only"
+      />
+      <span
+        className={cn(
+          'peer-checked:bg-primary peer-checked:border-primary peer-checked:text-primary-foreground peer-focus-visible:ring-ring/50 hover:border-foreground/30 flex h-9 cursor-pointer items-center rounded-full border px-3 text-xs font-semibold transition-colors peer-focus-visible:ring-[3px]',
+          muted && 'opacity-50',
+        )}
+      >
+        {children}
+      </span>
+    </label>
+  );
+}
+
+/** Amoblado, cochera y las características más frecuentes, con cuántas propiedades tiene cada una. */
+function FeatureOptions({
+  filters,
+  facets,
+  idPrefix,
+}: {
+  readonly filters: ListingFilters;
+  readonly facets: PublicSearchFacets;
+  readonly idPrefix: string;
+}) {
+  const chosen = filters.featureIds ?? [];
+  const options = [
+    {
+      id: `${idPrefix}-furnished`,
+      name: P.furnished,
+      value: YES_PARAM,
+      label: 'Amoblado',
+      count: facets.furnished,
+      checked: filters.furnished === true,
+    },
+    {
+      id: `${idPrefix}-parking`,
+      name: P.parking,
+      value: YES_PARAM,
+      label: 'Con cochera',
+      count: facets.withParking,
+      checked: filters.parking === true,
+    },
+    ...facets.features.map((feature) => ({
+      id: `${idPrefix}-${feature.id}`,
+      name: P.feature,
+      value: feature.id,
+      label: feature.name,
+      count: feature.count,
+      checked: chosen.includes(feature.id),
+    })),
+  ];
+  const anyChosen = options.some((o) => o.checked);
+
+  return (
+    <details className="details-smooth group" open={anyChosen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-bold [&::-webkit-details-marker]:hidden">
+        Otras características
+        <span className="text-muted-foreground font-medium group-open:hidden">Mostrar</span>
+        <span className="text-muted-foreground hidden font-medium group-open:inline">Ocultar</span>
+      </summary>
+      <div className="mt-3 grid gap-2">
+        {options.map((option) => (
+          <label
+            key={option.id}
+            htmlFor={option.id}
+            className={cn(
+              'flex cursor-pointer items-center gap-2.5 text-sm',
+              option.count === 0 && !option.checked && 'opacity-50',
+            )}
+          >
+            <input
+              id={option.id}
+              type="checkbox"
+              name={option.name}
+              value={option.value}
+              defaultChecked={option.checked}
+              className={CHECK}
+            />
+            <span className="flex-1">{option.label}</span>
+            <span className="text-muted-foreground text-xs tabular-nums">({option.count})</span>
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }

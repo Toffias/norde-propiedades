@@ -1,3 +1,4 @@
+import type { Operation } from '@norde/core/properties/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { createLocationsHandler } from './locations-handler';
@@ -10,11 +11,11 @@ const palermo = {
 };
 
 function handler(allowed = true) {
-  const asked: string[] = [];
+  const asked: [string, Operation | undefined][] = [];
   const handle = createLocationsHandler({
     allow: () => Promise.resolve(allowed),
-    suggest: (q) => {
-      asked.push(q);
+    suggest: (q, operation) => {
+      asked.push([q, operation]);
       return Promise.resolve([palermo]);
     },
   });
@@ -22,21 +23,35 @@ function handler(allowed = true) {
 }
 
 describe('locations handler', () => {
-  it('returns the suggestions for the trimmed text, cacheable', async () => {
+  it('returns the options for the trimmed text and operation, cacheable', async () => {
     const { handle, asked } = handler();
 
-    const response = await handle(new Request('http://localhost/api/ubicaciones?q=%20pal%20'));
+    const response = await handle(
+      new Request('http://localhost/api/ubicaciones?q=%20pal%20&operacion=alquiler'),
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('max-age=60');
     expect(await response.json()).toEqual({ options: [palermo] });
-    expect(asked).toEqual(['pal']);
+    expect(asked).toEqual([['pal', 'rent']]);
   });
 
-  it('rejects a missing, too short or too long text without searching', async () => {
+  it('lists the top locations without text and ignores an unknown operation', async () => {
     const { handle, asked } = handler();
 
-    for (const query of ['', '?q=p', `?q=${'a'.repeat(81)}`]) {
+    await handle(new Request('http://localhost/api/ubicaciones'));
+    await handle(new Request('http://localhost/api/ubicaciones?operacion=permuta'));
+
+    expect(asked).toEqual([
+      ['', undefined],
+      ['', undefined],
+    ]);
+  });
+
+  it('rejects a too short or too long text without searching', async () => {
+    const { handle, asked } = handler();
+
+    for (const query of ['?q=p', `?q=${'a'.repeat(81)}`]) {
       const response = await handle(new Request(`http://localhost/api/ubicaciones${query}`));
       expect(response.status).toBe(400);
     }

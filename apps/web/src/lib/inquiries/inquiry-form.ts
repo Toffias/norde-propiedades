@@ -28,23 +28,30 @@ export type InquiryFormState =
       readonly values?: InquiryFormValues;
     };
 
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z
     .string()
     .trim()
     .max(max)
     .transform((value) => (value === '' ? undefined : value));
 
+/** Nombre, email y teléfono: los comparte con el formulario de favoritos. */
+export const CONTACT_FIELDS = {
+  name: z.string().trim().min(2, 'Escribí tu nombre.').max(120, 'El nombre es muy largo.'),
+  email: optionalText(254).pipe(z.email('Revisá el email.').optional()),
+  phone: optionalText(40).pipe(
+    z
+      .string()
+      .regex(/^[+\d][\d\s()-]{5,}$/, 'Revisá el teléfono.')
+      .optional(),
+  ),
+};
+
+export const MISSING_CONTACT_MESSAGE = 'Dejanos un teléfono o un email para responderte.';
+
 const InquiryFormSchema = z
   .object({
-    name: z.string().trim().min(2, 'Escribí tu nombre.').max(120, 'El nombre es muy largo.'),
-    email: optionalText(254).pipe(z.email('Revisá el email.').optional()),
-    phone: optionalText(40).pipe(
-      z
-        .string()
-        .regex(/^[+\d][\d\s()-]{5,}$/, 'Revisá el teléfono.')
-        .optional(),
-    ),
+    ...CONTACT_FIELDS,
     message: z
       .string()
       .trim()
@@ -56,7 +63,7 @@ const InquiryFormSchema = z
   })
   .refine((data) => data.email !== undefined || data.phone !== undefined, {
     path: ['phone'],
-    message: 'Dejanos un teléfono o un email para responderte.',
+    message: MISSING_CONTACT_MESSAGE,
   });
 
 export type InquiryFormData = z.output<typeof InquiryFormSchema>;

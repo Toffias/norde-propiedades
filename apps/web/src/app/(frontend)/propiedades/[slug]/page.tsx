@@ -94,7 +94,15 @@ export default async function PropertyPage({ params }: Props) {
       />
 
       <div className="mt-5">
-        <PropertyGallery title={listing.title} photos={listing.photos} />
+        <PropertyGallery
+          title={listing.title}
+          photos={listing.photos}
+          floorPlans={listing.floorPlans}
+          priceLabel={listing.priceLabel}
+          location={listing.location}
+          highlights={listing.facts}
+          whatsappHref={listingWhatsapp(listing)}
+        />
       </div>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_24rem]">
@@ -305,10 +313,15 @@ function PropertyMedia({ listing }: { readonly listing: ListingDetail }) {
   );
 }
 
-function ContactCard({ listing }: { readonly listing: ListingDetail }) {
-  const whatsapp = whatsappHref(
+/** El WhatsApp de la ficha, con la propiedad ya nombrada en el mensaje. */
+function listingWhatsapp(listing: ListingDetail): string | null {
+  return whatsappHref(
     `Hola, me interesa la propiedad ${listing.code}: ${listing.title}. ${getSiteUrl()}${listing.href}`,
   );
+}
+
+function ContactCard({ listing }: { readonly listing: ListingDetail }) {
+  const whatsapp = listingWhatsapp(listing);
   const formEnabled = getContainer().inquiries !== undefined;
 
   return (

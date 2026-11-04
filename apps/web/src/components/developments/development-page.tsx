@@ -22,7 +22,7 @@ import { whatsappHref } from '../../lib/whatsapp';
 import { Pagination } from '../blog/pagination';
 import { InquiryForm } from '../properties/inquiry-form';
 import { ListingGrid } from '../properties/listing-card';
-import { PropertyGallery } from '../properties/property-gallery';
+import { type GalleryHighlight, PropertyGallery } from '../properties/property-gallery';
 import { PropertyMap } from '../properties/property-map';
 import { Breadcrumbs } from '../seo/breadcrumbs';
 import { JsonLdScript } from '../seo/json-ld-script';
@@ -90,7 +90,15 @@ export async function DevelopmentPage({
 
       {development.photos.length > 0 && (
         <div className="mt-5">
-          <PropertyGallery title={development.name} photos={development.photos} />
+          <PropertyGallery
+            title={development.name}
+            photos={development.photos}
+            floorPlans={development.floorPlans}
+            priceLabel={development.priceFromLabel}
+            location={development.location}
+            highlights={developmentHighlights(development)}
+            whatsappHref={developmentWhatsapp(development)}
+          />
         </div>
       )}
 
@@ -312,10 +320,25 @@ function Media({ development }: { readonly development: DevelopmentDetailView })
   );
 }
 
-function ContactCard({ development }: { readonly development: DevelopmentDetailView }) {
-  const whatsapp = whatsappHref(
+/** Lo principal de un emprendimiento para el costado de "todas las fotos": entrega y unidades. */
+function developmentHighlights(development: DevelopmentDetailView): GalleryHighlight[] {
+  const highlights: GalleryHighlight[] = [];
+  if (development.deliveryLabel) {
+    highlights.push({ kind: 'delivery', label: development.deliveryLabel });
+  }
+  highlights.push({ kind: 'units', label: development.unitsLabel });
+  return highlights;
+}
+
+/** El WhatsApp del emprendimiento, con su nombre ya en el mensaje. */
+function developmentWhatsapp(development: DevelopmentDetailView): string | null {
+  return whatsappHref(
     `Hola, me interesa el emprendimiento ${development.code}: ${development.name}. ${getSiteUrl()}${development.href}`,
   );
+}
+
+function ContactCard({ development }: { readonly development: DevelopmentDetailView }) {
+  const whatsapp = developmentWhatsapp(development);
   const formEnabled = getContainer().inquiries !== undefined;
 
   return (

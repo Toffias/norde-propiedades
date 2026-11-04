@@ -104,8 +104,8 @@ export default function AppraisalPage() {
             <Reveal className="flex flex-col border-t pt-10 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-16">
               <h3 className="mb-5 text-xl font-extrabold">Tus datos</h3>
               {formEnabled ? (
-                // Hasta que exista el alta de tasaciones desde la web, entra como consulta: el
-                // saludo inicial es lo que le dice a la bandeja que es una tasación.
+                // El pedido de tasación es una consulta (decisión del 2026-11-04, #111): el saludo
+                // inicial es lo que le dice a la bandeja que es una tasación.
                 <InquiryForm
                   defaultMessage="Hola, quiero tasar mi propiedad. "
                   messagePlaceholder="Dónde está, qué tipo de propiedad es, ambientes, metros y si la querés vender o alquilar."

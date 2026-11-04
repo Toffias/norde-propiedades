@@ -14,7 +14,7 @@ import { useFavorites } from '../../lib/favorites/use-favorites';
 import { SkeletonImage } from '../layout/skeleton-image';
 
 const FIELD =
-  'border-input bg-background w-full rounded-xl border px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive';
+  'border-input bg-card w-full rounded-xl border px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive';
 const LABEL = 'mb-1 block text-xs font-bold';
 
 const INITIAL: FavoritesFormState = { status: 'idle' };
@@ -165,9 +165,12 @@ function FavoritesList({
     );
   }
   return (
-    <ul className="divide-y px-5">
+    <ul className="space-y-2.5 px-5 py-4">
       {favorites.map((favorite) => (
-        <li key={favorite.id} className="relative flex gap-3 py-3">
+        <li
+          key={favorite.id}
+          className="bg-card hover:border-brand-200 dark:hover:border-brand-800 relative flex gap-3 rounded-2xl border p-2.5 shadow-xs transition-colors"
+        >
           <div className="bg-muted relative size-16 shrink-0 overflow-hidden rounded-xl">
             {favorite.cover ? (
               <SkeletonImage
@@ -188,7 +191,7 @@ function FavoritesList({
             <p className="text-sm font-extrabold tracking-tight">{favorite.priceLabel}</p>
             <Link
               href={favorite.href}
-              className="line-clamp-2 text-[13px] leading-snug font-semibold hover:underline"
+              className="line-clamp-2 text-[13px] leading-snug font-semibold after:absolute after:inset-0 after:rounded-2xl"
             >
               {favorite.title}
             </Link>
@@ -201,7 +204,7 @@ function FavoritesList({
             }}
             aria-label={`Quitar "${favorite.title}" de favoritos`}
             title="Quitar de favoritos"
-            className="text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring/50 absolute top-3 right-0 grid size-8 place-items-center rounded-lg outline-none focus-visible:ring-[3px]"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring/50 absolute top-2 right-2 z-10 grid size-8 place-items-center rounded-lg outline-none focus-visible:ring-[3px]"
           >
             <X aria-hidden className="size-4" />
           </button>
@@ -244,7 +247,7 @@ function FavoritesForm({
       key={JSON.stringify(values ?? {})}
       action={action}
       noValidate
-      className="bg-muted/40 mt-auto space-y-3 border-t px-5 py-5"
+      className="mt-auto space-y-3 border-t px-5 py-5"
     >
       <div>
         <p className="font-bold">Consultá por tus favoritos</p>

@@ -18,11 +18,22 @@ export interface PortalAccountBlockedError {
   readonly type: 'PortalAccountBlocked';
 }
 
+/**
+ * La cuenta dejó de estar asociada a Norde como integrador (en Zonaprop, cuando el portal cambia la
+ * cuenta de plan y la desasocia): hay que pedirle al portal que la vuelva a asociar.
+ */
+export interface PortalAccountUnlinkedError {
+  readonly type: 'PortalAccountUnlinked';
+}
+
 export type PortalAccountLookupError =
   | PortalNotConfiguredError
   | PortalAccountNotFoundError
   | PortalAccountBlockedError
   | PortalUnavailableError;
+
+export type PortalCreditsError =
+  PortalNotConfiguredError | PortalAccountUnlinkedError | PortalUnavailableError;
 
 /** Lo disponible de un plan de publicación contratado. */
 export interface PortalCredit {
@@ -50,5 +61,5 @@ export interface PortalAccountDirectory {
   credits(input: {
     readonly portal: PortalId;
     readonly externalAccountId: string;
-  }): Promise<Result<readonly PortalCredit[], PortalNotConfiguredError | PortalUnavailableError>>;
+  }): Promise<Result<readonly PortalCredit[], PortalCreditsError>>;
 }

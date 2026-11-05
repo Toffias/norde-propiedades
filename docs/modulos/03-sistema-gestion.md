@@ -827,7 +827,7 @@ Diseño propuesto:
 1. **Conexión** (hecha):
    - Mi empresa → Portales suma la tarjeta **Zonaprop**. Se conecta con el **código de inmobiliaria**; el sistema lo busca entre las inmobiliarias que Zonaprop asoció a Norde.
    - Un código que no está asociado, o una inmobiliaria bloqueada por Zonaprop, no se conecta y se explica por qué.
-   - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta. En la ficha, los créditos se recuerdan 2 minutos.
+   - Conectada, la tarjeta muestra los **créditos disponibles** por plan, leídos de Zonaprop en el momento. Si Zonaprop no responde, se avisa en la tarjeta. Si Zonaprop dice que la inmobiliaria ya no está asociada a Norde (pasa cuando cambia la cuenta de plan), la tarjeta lo dice y pide que la vuelvan a asociar; el rechazo queda en el log. En la ficha, los créditos se recuerdan 2 minutos.
    - Se activa para publicar como las cuentas de ML. Desconectar y volver a conectar la misma inmobiliaria la deja como estaba (activa o no); otra inmobiliaria empieza desactivada. El panel de la cuenta muestra el código de inmobiliaria.
    - La difusión (pestaña, resumen y cuentas) la ve quien tiene **Ver la difusión en portales** (`portals:read`, lo tienen administrador, gerente y agente); publicar sigue pidiendo `portals:publish`. Las publicaciones aparecen en "Míos" de la campanita de quien las pidió.
 2. **Publicar propiedades** (hecha):

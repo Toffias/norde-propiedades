@@ -177,6 +177,14 @@ describe('GetPortalCredits', () => {
     });
   });
 
+  it('reports an account the portal no longer associates to Norde', async () => {
+    const { credits, directory } = await connected();
+    directory.creditsFailWith = { type: 'PortalAccountUnlinked' };
+    expect(unwrapErr(await credits.execute({ portal: 'zonaprop' }, ADMIN))).toEqual({
+      type: 'PortalAccountUnlinked',
+    });
+  });
+
   it('only reads portals connected by their account code', async () => {
     const { credits } = setup();
     expect(unwrapErr(await credits.execute({ portal: 'mercadolibre' }, ADMIN))).toEqual({

@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 import type { InfraLogger } from '../../../shared/logger';
 
-import type { ZonapropApi } from './zonaprop-api';
+import { isUnlinkedAgency, type ZonapropApi } from './zonaprop-api';
 import { listingPermalink } from './zonaprop-listing';
 
 const MessageSchema = z.object({ messageText: z.string().nullish() });
@@ -78,9 +78,12 @@ export class ZonapropListingStates implements PortalListingStateReader {
     const result = await this.options.api.get(path, StatusSchema);
     if (result.isErr()) {
       switch (result.error.type) {
-        case 'not_found':
         case 'rejected':
+          // La inmobiliaria dejó de estar asociada a Norde: igual que un 403.
+          if (isUnlinkedAgency(result.error)) return err({ type: 'PortalCredentialsMissing' });
           // No es un aviso (un emprendimiento) o Zonaprop no lo tiene: queda como estaba.
+          return ok(undefined);
+        case 'not_found':
           return ok(undefined);
         case 'not_configured':
         case 'forbidden':

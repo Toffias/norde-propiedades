@@ -4,8 +4,7 @@ import { PortalInputSchema, type PortalCreditView, type PortalInput } from '../.
 import type { PortalNotConnectedError } from '../../domain/portal-account';
 import type { PortalAccountRepository } from '../../domain/portals.repository';
 import { requireConnectionMethod, type WrongConnectionMethodError } from '../connection-method';
-import type { PortalAccountDirectory } from '../ports/portal-account-directory';
-import type { PortalNotConfiguredError, PortalUnavailableError } from '../ports/portal-authorizer';
+import type { PortalAccountDirectory, PortalCreditsError } from '../ports/portal-account-directory';
 import { parseInput, type ValidationFailedError } from '../portals-input';
 
 export type GetPortalCreditsError =
@@ -13,8 +12,7 @@ export type GetPortalCreditsError =
   | ValidationFailedError
   | WrongConnectionMethodError
   | PortalNotConnectedError
-  | PortalNotConfiguredError
-  | PortalUnavailableError;
+  | PortalCreditsError;
 
 /**
  * Los créditos de publicación que le quedan a una cuenta conectada por código (Zonaprop), por plan.

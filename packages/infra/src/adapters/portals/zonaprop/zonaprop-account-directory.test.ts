@@ -258,11 +258,48 @@ describe('ZonapropAccountDirectory.credits', () => {
     ).toEqual([]);
   });
 
-  it('reports an agency no longer associated to Norde as unavailable', async () => {
+  it('reports an agency no longer associated to Norde (403) as unlinked', async () => {
     const { directory, logs } = setup([json(TOKEN), () => new Response(null, { status: 403 })]);
     expect(
       unwrapErr(await directory.credits({ portal: 'zonaprop', externalAccountId: '17310373' })),
-    ).toEqual({ type: 'PortalUnavailable' });
+    ).toEqual({ type: 'PortalAccountUnlinked' });
     expect(logs.join('\n')).toContain('Zonaprop refused the agency credits');
+  });
+
+  // Pasó el 28/10/2026: Zonaprop pasó la cuenta a premium y la desasoció de la integración (#172).
+  it('reports the 409 "no pertenece a la integracion" as unlinked and logs it', async () => {
+    const unlinked = json(
+      {
+        code: 'error',
+        message: 'La inmobiliaria [17310373] no pertenece a la integracion 42',
+      },
+      409,
+    );
+    const { directory, logs } = setup([json(TOKEN), unlinked]);
+
+    expect(
+      unwrapErr(await directory.credits({ portal: 'zonaprop', externalAccountId: '17310373' })),
+    ).toEqual({ type: 'PortalAccountUnlinked' });
+    const log = logs.join('\n');
+    expect(log).toContain('Zonaprop rejected the request');
+    expect(log).toContain('"status":409');
+    expect(log).toContain('no pertenece a la integracion');
+    expect(log).not.toContain(TOKEN.access_token);
+  });
+
+  it('logs any other rejection and reports it as unavailable', async () => {
+    const echoed = json(
+      { code: 'invalid', message: `Bad request with token ${TOKEN.access_token}` },
+      400,
+    );
+    const { directory, logs } = setup([json(TOKEN), echoed]);
+
+    expect(
+      unwrapErr(await directory.credits({ portal: 'zonaprop', externalAccountId: '17310373' })),
+    ).toEqual({ type: 'PortalUnavailable' });
+    const log = logs.join('\n');
+    expect(log).toContain('Zonaprop rejected the request');
+    expect(log).toContain('"code":"invalid"');
+    expect(log).not.toContain(TOKEN.access_token);
   });
 });

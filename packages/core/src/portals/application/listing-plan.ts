@@ -1,7 +1,10 @@
 import { err, ok, type Result } from '../../shared';
 import type { ListingOperation } from '../domain/listing';
 import { PORTAL_CATALOG, type ListingOwnerKind, type PortalId } from '../domain/portal';
-import type { PortalAccountDirectory } from './ports/portal-account-directory';
+import type {
+  PortalAccountDirectory,
+  PortalAccountUnlinkedError,
+} from './ports/portal-account-directory';
 import type { ListingSource } from './ports/listing-source';
 import type { PortalNotConfiguredError, PortalUnavailableError } from './ports/portal-authorizer';
 import type { ValidationFailedError } from './portals-input';
@@ -24,7 +27,11 @@ export interface NoCreditsLeftError {
 }
 
 export type ListingPlanError =
-  PlanNotOfferedError | NoCreditsLeftError | PortalNotConfiguredError | PortalUnavailableError;
+  | PlanNotOfferedError
+  | NoCreditsLeftError
+  | PortalNotConfiguredError
+  | PortalAccountUnlinkedError
+  | PortalUnavailableError;
 
 function invalid(issue: string): ValidationFailedError {
   return { type: 'ValidationFailed', issues: [issue] };

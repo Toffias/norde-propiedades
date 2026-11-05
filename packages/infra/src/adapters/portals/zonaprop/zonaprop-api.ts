@@ -28,6 +28,7 @@ export interface ZonapropApiOptions {
  * - `forbidden`: la cuenta no está asociada a Norde como integrador.
  * - `not_found`: no existe lo pedido.
  * - `rejected`: Zonaprop rechazó lo que se mandó (400, 409 o 422); `body` trae sus códigos de error.
+ *   Se loguea siempre; `isUnlinkedAgency` reconoce la inmobiliaria desasociada de Norde.
  * - `unavailable`: Zonaprop no respondió o respondió con un error (el sandbox se apaga de noche).
  */
 export type ZonapropApiError =
@@ -51,6 +52,25 @@ const ErrorBodySchema = z.object({
   error: z.string().optional(),
   code: z.string().optional(),
 });
+
+const RejectionBodySchema = z.object({
+  code: z.string().optional(),
+  error: z.string().optional(),
+  message: z.string().optional(),
+});
+
+/** Zonaprop responde 409 con este mensaje cuando la inmobiliaria ya no está asociada a Norde. */
+const UNLINKED_AGENCY = /no pertenece a la integraci[oó]n/i;
+
+/**
+ * Si Zonaprop rechazó el pedido porque la inmobiliaria dejó de estar asociada a Norde como
+ * integrador (`409 La inmobiliaria [...] no pertenece a la integracion ...`).
+ */
+export function isUnlinkedAgency(error: ZonapropApiError): boolean {
+  if (error.type !== 'rejected' || error.status !== 409) return false;
+  const parsed = RejectionBodySchema.safeParse(error.body);
+  return parsed.success && UNLINKED_AGENCY.test(parsed.data.message ?? '');
+}
 
 async function jsonOrUndefined(response: Response): Promise<unknown> {
   try {
@@ -85,6 +105,26 @@ async function errorReason(response: Response): Promise<string | undefined> {
     return undefined;
   }
 }
+
+/**
+ * El detalle de un rechazo, para el log: el código y, en las consultas (`GET`), el mensaje sin el
+ * token y recortado. El mensaje de un `PUT` puede repetir datos del aviso: no se loguea.
+ */
+function rejectionDetail(
+  body: unknown,
+  method: 'GET' | 'PUT' | 'DELETE',
+  token: string,
+): { readonly code: string | undefined; readonly message: string | undefined } {
+  const parsed = RejectionBodySchema.safeParse(body);
+  if (!parsed.success) return { code: undefined, message: undefined };
+  const code = (parsed.data.code ?? parsed.data.error)?.slice(0, REASON_MAX_LENGTH);
+  const message =
+    method === 'GET'
+      ? parsed.data.message?.replaceAll(token, '[token]').slice(0, REASON_MAX_LENGTH)
+      : undefined;
+  return { code, message };
+}
+
 /** Se renueva un poco antes de que venza. */
 const EXPIRY_MARGIN_MS = 5 * 60_000;
 
@@ -196,7 +236,17 @@ export class ZonapropApi {
     if (status === 204) return ok(undefined);
     if (status === 400 || status === 409 || status === 422) {
       // Zonaprop rechazó lo que se mandó: el cuerpo trae los códigos de error del aviso.
-      return err({ type: 'rejected', status, body: await jsonOrUndefined(response.value) });
+      const rejected = await jsonOrUndefined(response.value);
+      logger.warn(
+        {
+          endpoint: url.pathname,
+          method,
+          status,
+          ...rejectionDetail(rejected, method, token.value.value),
+        },
+        'Zonaprop rejected the request',
+      );
+      return err({ type: 'rejected', status, body: rejected });
     }
     if (!response.value.ok) {
       const reason = await errorReason(response.value);

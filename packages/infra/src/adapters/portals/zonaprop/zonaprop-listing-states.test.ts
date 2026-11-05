@@ -83,4 +83,25 @@ describe('ZonapropListingStates', () => {
       type: 'PortalCredentialsMissing',
     });
   });
+
+  it('reports an agency no longer associated to Norde like a forbidden one', async () => {
+    const { states } = setup({
+      [path('a1')]: () =>
+        Response.json(
+          { code: 'error', message: 'La inmobiliaria [17310373] no pertenece a la integracion 42' },
+          { status: 409 },
+        ),
+    });
+    expect(unwrapErr(await states.states('zonaprop', ['a1']))).toEqual({
+      type: 'PortalCredentialsMissing',
+    });
+  });
+
+  it('keeps the state of an ad Zonaprop rejects for another reason', async () => {
+    const { states } = setup({
+      [path('a1')]: () =>
+        Response.json({ code: 'error', message: 'No es un aviso' }, { status: 409 }),
+    });
+    expect(unwrap(await states.states('zonaprop', ['a1'])).has('a1')).toBe(false);
+  });
 });

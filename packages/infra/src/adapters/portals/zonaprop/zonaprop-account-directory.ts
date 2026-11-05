@@ -3,6 +3,7 @@ import type {
   PortalAccountLookupError,
   PortalAccountMatch,
   PortalCredit,
+  PortalCreditsError,
   PortalId,
   PortalNotConfiguredError,
   PortalUnavailableError,
@@ -12,7 +13,7 @@ import { z } from 'zod';
 
 import type { InfraLogger } from '../../../shared/logger';
 
-import type { ZonapropApi, ZonapropApiError } from './zonaprop-api';
+import { isUnlinkedAgency, type ZonapropApi, type ZonapropApiError } from './zonaprop-api';
 
 const AgencyPageSchema = z.object({
   total: z.number().int().nonnegative(),
@@ -92,7 +93,7 @@ export class ZonapropAccountDirectory implements PortalAccountDirectory {
   async credits(input: {
     readonly portal: PortalId;
     readonly externalAccountId: string;
-  }): Promise<Result<readonly PortalCredit[], PortalNotConfiguredError | PortalUnavailableError>> {
+  }): Promise<Result<readonly PortalCredit[], PortalCreditsError>> {
     if (input.portal !== 'zonaprop') return err({ type: 'PortalNotConfigured' });
     const code = encodeURIComponent(input.externalAccountId);
     const result = await this.deps.api.get(
@@ -100,12 +101,14 @@ export class ZonapropAccountDirectory implements PortalAccountDirectory {
       AvailabilitySchema,
     );
     if (result.isErr()) {
-      // La cuenta dejó de estar asociada a Norde: se informa como que Zonaprop no la da.
-      if (result.error.type === 'forbidden' || result.error.type === 'not_found') {
+      // La cuenta dejó de estar asociada a Norde: hay que pedirle a Zonaprop que la vuelva a asociar.
+      const { type } = result.error;
+      if (type === 'forbidden' || type === 'not_found' || isUnlinkedAgency(result.error)) {
         this.deps.logger.warn(
-          { portal: input.portal, reason: result.error.type },
+          { portal: input.portal, reason: type },
           'Zonaprop refused the agency credits',
         );
+        return err({ type: 'PortalAccountUnlinked' });
       }
       return err(portalError(result.error));
     }

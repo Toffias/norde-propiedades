@@ -91,12 +91,16 @@ export const CODE_CONNECTION_ERROR_MESSAGES = {
   PortalAccountChanged: ACCOUNT_CHANGED,
 } satisfies ErrorMessages<ConnectPortalAccountWithCodeError>;
 
+const ZONAPROP_UNLINKED =
+  'La inmobiliaria dejó de estar asociada a Norde en Zonaprop. Pedile a tu ejecutivo de cuentas de Zonaprop que la vuelva a asociar al integrador.';
+
 export const CREDITS_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para ver los créditos del portal.',
   ValidationFailed: 'Ese portal no existe.',
   WrongConnectionMethod: 'Este portal no informa créditos.',
   PortalNotConnected: NOT_CONNECTED,
   PortalNotConfigured: ZONAPROP_NOT_CONFIGURED,
+  PortalAccountUnlinked: ZONAPROP_UNLINKED,
   PortalUnavailable: 'No pudimos consultar los créditos: Zonaprop no respondió. Probá más tarde.',
 } satisfies ErrorMessages<GetPortalCreditsError>;
 
@@ -187,6 +191,7 @@ const PLAN_MESSAGES = {
     `No quedan créditos del plan ${planLabel(error.plan)}. Elegí otro plan o cargá créditos en el portal.`,
   PortalNotConfigured:
     'Faltan las credenciales del portal en el servidor, o el portal las rechazó (Mi empresa → Portales).',
+  PortalAccountUnlinked: ZONAPROP_UNLINKED,
   PortalUnavailable:
     'El portal no respondió al consultar los créditos. Probá de nuevo en unos minutos.',
 } as const;

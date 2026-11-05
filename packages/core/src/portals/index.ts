@@ -48,7 +48,9 @@ export type {
   PortalAccountLookupError,
   PortalAccountMatch,
   PortalAccountNotFoundError,
+  PortalAccountUnlinkedError,
   PortalCredit,
+  PortalCreditsError,
 } from './application/ports/portal-account-directory';
 export type {
   PortalCredentialStore,

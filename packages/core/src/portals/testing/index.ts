@@ -210,7 +210,9 @@ export class FakePortalAccountDirectory implements PortalAccountDirectory {
     { plan: 'DESARROLLOS_HOME', available: 2, contracted: 2, publishes: 'development' },
   ];
   failWith: PortalAccountLookupError | undefined;
-  creditsFailWith: { readonly type: 'PortalNotConfigured' | 'PortalUnavailable' } | undefined;
+  creditsFailWith:
+    | { readonly type: 'PortalNotConfigured' | 'PortalAccountUnlinked' | 'PortalUnavailable' }
+    | undefined;
   readonly lookups: { portal: PortalId; accountCode: string }[] = [];
   readonly creditReads: { portal: PortalId; externalAccountId: string }[] = [];
 

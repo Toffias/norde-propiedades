@@ -51,7 +51,7 @@ function Avatar({ review }: { readonly review: GoogleReviewCard }) {
 
 function ReviewCard({ review, now }: { readonly review: GoogleReviewCard; readonly now: Date }) {
   return (
-    <article className="bg-background flex h-full flex-col gap-3 rounded-3xl border p-5">
+    <article className="bg-card flex h-full flex-col gap-3 rounded-3xl border p-5">
       <header className="flex items-start gap-3">
         <Avatar review={review} />
         <div className="min-w-0 flex-1">

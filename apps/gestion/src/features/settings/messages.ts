@@ -1,4 +1,5 @@
 import type {
+  ChangeCompanyDarkLogoError,
   ChangeCompanyLogoError,
   ChangeReferenceCodePrefixError,
   ChangeWatermarkLogoError,
@@ -30,6 +31,7 @@ const INVALID = 'Revisá los datos marcados y probá de nuevo.';
 type CompanySettingsError =
   | UpdateGeneralSettingsError
   | ChangeCompanyLogoError
+  | ChangeCompanyDarkLogoError
   | ConfigureWatermarkError
   | ChangeWatermarkLogoError
   | PreviewWatermarkError

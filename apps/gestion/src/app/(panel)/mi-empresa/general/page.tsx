@@ -19,14 +19,30 @@ export default async function GeneralSettingsPage() {
   return (
     <SectionCard title="Datos de la empresa" icon={Building2Icon}>
       <div className="flex flex-col gap-5 md:flex-row md:gap-8">
-        <div className="flex shrink-0 flex-col gap-2">
-          <span className="text-sm font-medium">Logo</span>
-          <LogoUploader
-            which="company"
-            hasLogo={settings.hasLogo}
-            version={settings.logoVersion ?? ''}
-            disabled={!canUpdate}
-          />
+        <div className="flex shrink-0 flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium">Logo</span>
+            <LogoUploader
+              which="company"
+              hasLogo={settings.hasLogo}
+              version={settings.logoVersion ?? ''}
+              disabled={!canUpdate}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">Logo para fondos oscuros</span>
+              <span className="max-w-60 text-xs text-muted-foreground">
+                Tema oscuro de la web y menú lateral del panel. Sin cargar, se usa el logo.
+              </span>
+            </div>
+            <LogoUploader
+              which="company-dark"
+              hasLogo={settings.hasDarkLogo}
+              version={settings.darkLogoVersion ?? ''}
+              disabled={!canUpdate}
+            />
+          </div>
         </div>
         <div className="border-t border-border md:border-t-0 md:border-l" />
         <div className="min-w-0 flex-1">

@@ -2,6 +2,7 @@
 
 import {
   ChangeLogoInputSchema,
+  COMPANY_LOGO_KINDS,
   ChangeReferenceCodePrefixInputSchema,
   ConfigureWatermarkInputSchema,
   CreateFolderInputSchema,
@@ -19,6 +20,7 @@ import {
   UpdatePdfOptionsInputSchema,
   UpdatePortalDescriptionFooterInputSchema,
   type ChangeReferenceCodePrefixInput,
+  type CompanyLogoKind,
   type ConfigureWatermarkInput,
   type CreateFolderInput,
   type CreateReferenceCodeSequenceInput,
@@ -92,15 +94,19 @@ export async function updateGeneralSettingsAction(
 
 /** Sube el logo (campo `image`) o, sin archivo, lo quita. */
 export async function changeLogoAction(
-  which: 'company' | 'watermark',
+  which: CompanyLogoKind,
   form: FormData,
 ): Promise<ActionResult> {
   const { actor } = await requireSession();
+  if (!COMPANY_LOGO_KINDS.includes(which)) return actionFailed(INVALID);
   const image = await fileFrom(form, 'image');
   const parsed = ChangeLogoInputSchema.safeParse(image === undefined ? {} : { image });
   if (!parsed.success) return actionFailed(INVALID);
-  const useCase =
-    which === 'company' ? settings().changeCompanyLogo : settings().changeWatermarkLogo;
+  const useCase = {
+    company: settings().changeCompanyLogo,
+    'company-dark': settings().changeCompanyDarkLogo,
+    watermark: settings().changeWatermarkLogo,
+  }[which];
 
   const result = await useCase.execute(parsed.data, actor);
   if (result.isErr()) {

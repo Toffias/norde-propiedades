@@ -1,6 +1,10 @@
 'use client';
 
-import { LOGO_CONTENT_TYPES, MAX_LOGO_BYTES } from '@norde/core/settings/contracts';
+import {
+  LOGO_CONTENT_TYPES,
+  MAX_LOGO_BYTES,
+  type CompanyLogoKind,
+} from '@norde/core/settings/contracts';
 import { Button } from '@norde/ui/components/button';
 import {
   Dialog,
@@ -13,6 +17,7 @@ import { FileDropzone } from '@norde/ui/components/file-dropzone';
 import { toast } from '@norde/ui/components/sonner';
 import { ImageOffIcon, ImageUpIcon, Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { cn } from '@norde/ui/lib/utils';
 import { useState, useTransition } from 'react';
 
 import { runAction } from '../../../lib/action-result';
@@ -20,8 +25,21 @@ import { FallbackImage } from '../../properties/components/property-photo';
 import { FormAlert } from '../../shared/components/form-alert';
 import { changeLogoAction } from '../actions';
 
+const ALT: Record<CompanyLogoKind, string> = {
+  company: 'Logo de la empresa',
+  'company-dark': 'Logo de la empresa para fondos oscuros',
+  watermark: 'Logo de la marca de agua',
+};
+
+const HINT: Record<CompanyLogoKind, string> = {
+  company: 'Mejor con fondo transparente, para que se vea bien sobre cualquier color.',
+  'company-dark':
+    'Se usa sobre fondos oscuros: el tema oscuro de la web y el menú lateral del panel. Mejor con fondo transparente y colores claros.',
+  watermark: 'Mejor con fondo transparente, para que se vea bien sobre cualquier color.',
+};
+
 export interface LogoUploaderProps {
-  readonly which: 'company' | 'watermark';
+  readonly which: CompanyLogoKind;
   readonly hasLogo: boolean;
   /** Versión de la imagen, para que el navegador no muestre la anterior después de cambiarla. */
   readonly version: string;
@@ -80,13 +98,21 @@ export function LogoUploader({
     <div className="flex flex-col gap-3">
       {!open && <FormAlert message={error} />}
       <div className="flex w-fit flex-col gap-3">
-        {/* Damero con los tokens del tema: un logo blanco o transparente se ve en los dos temas. */}
-        <div className="flex h-24 w-full min-w-40 items-center justify-center overflow-hidden rounded-md border border-border bg-[repeating-conic-gradient(var(--color-muted)_0%_25%,var(--color-border)_0%_50%)] bg-size-[16px_16px]">
+        {/* Damero con los tokens del tema: un logo blanco o transparente se ve en los dos temas. El
+            logo para fondos oscuros se muestra sobre el color del menú lateral, que es oscuro. */}
+        <div
+          className={cn(
+            'flex h-24 w-full min-w-40 items-center justify-center overflow-hidden rounded-md border border-border',
+            which === 'company-dark'
+              ? 'bg-sidebar'
+              : 'bg-[repeating-conic-gradient(var(--color-muted)_0%_25%,var(--color-border)_0%_50%)] bg-size-[16px_16px]',
+          )}
+        >
           {hasLogo ? (
             <FallbackImage
               key={src}
               src={src}
-              alt={which === 'company' ? 'Logo de la empresa' : 'Logo de la marca de agua'}
+              alt={ALT[which]}
               className="max-h-full max-w-full object-contain"
               fallback={
                 <span className="flex flex-col items-center gap-1.5 text-xs text-muted-foreground">
@@ -96,7 +122,14 @@ export function LogoUploader({
               }
             />
           ) : (
-            <span className="text-xs text-muted-foreground">Sin logo</span>
+            <span
+              className={cn(
+                'text-xs',
+                which === 'company-dark' ? 'text-sidebar-foreground/70' : 'text-muted-foreground',
+              )}
+            >
+              Sin logo
+            </span>
           )}
         </div>
         {!disabled && (
@@ -138,9 +171,7 @@ export function LogoUploader({
         <DialogContent>
           <DialogHeader>
             <DialogTitle icon={ImageUpIcon}>{uploadTitle}</DialogTitle>
-            <DialogDescription>
-              Mejor con fondo transparente, para que se vea bien sobre cualquier color.
-            </DialogDescription>
+            <DialogDescription>{HINT[which]}</DialogDescription>
           </DialogHeader>
           <FormAlert message={error} />
           <FileDropzone

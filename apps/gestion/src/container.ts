@@ -356,6 +356,7 @@ import {
 } from '@norde/core/reporting';
 import {
   AllocateReferenceCode,
+  ChangeCompanyDarkLogo,
   ChangeCompanyLogo,
   ChangeReferenceCodePrefix,
   ChangeWatermarkLogo,
@@ -975,6 +976,7 @@ function createSettingsUseCases(
     getCompanyBrand: new GetCompanyBrand({ settings }),
     updateGeneralSettings: new UpdateGeneralSettings({ uow, clock }),
     changeCompanyLogo: new ChangeCompanyLogo({ uow, storage, ids, clock }),
+    changeCompanyDarkLogo: new ChangeCompanyDarkLogo({ uow, storage, ids, clock }),
     configureWatermark: new ConfigureWatermark({ uow, clock }),
     changeWatermarkLogo: new ChangeWatermarkLogo({ uow, storage, ids, clock }),
     previewWatermark: new PreviewWatermark({

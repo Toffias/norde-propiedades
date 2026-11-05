@@ -10,6 +10,7 @@ export function companySettingsAuditState(settings: CompanySettings): AuditState
   return {
     name: s.name,
     logoKey: s.logoKey,
+    darkLogoKey: s.darkLogoKey,
     timezone: s.timezone,
     webPropertyUrlTemplate: s.webPropertyUrlTemplate?.value,
     webDevelopmentUrlTemplate: s.webDevelopmentUrlTemplate?.value,
@@ -63,6 +64,8 @@ export function toCompanySettingsView(settings: CompanySettings): CompanySetting
     name: s.name,
     hasLogo: s.logoKey !== undefined,
     logoVersion: storageVersion(s.logoKey),
+    hasDarkLogo: s.darkLogoKey !== undefined,
+    darkLogoVersion: storageVersion(s.darkLogoKey),
     timezone: s.timezone,
     webPropertyUrlTemplate: s.webPropertyUrlTemplate?.value,
     webDevelopmentUrlTemplate: s.webDevelopmentUrlTemplate?.value,

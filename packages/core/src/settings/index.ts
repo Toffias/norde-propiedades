@@ -124,6 +124,10 @@ export {
   type ChangeCompanyLogoError,
 } from './application/commands/change-company-logo';
 export {
+  ChangeCompanyDarkLogo,
+  type ChangeCompanyDarkLogoError,
+} from './application/commands/change-company-dark-logo';
+export {
   ConfigureWatermark,
   type ConfigureWatermarkError,
 } from './application/commands/configure-watermark';

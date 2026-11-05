@@ -9,6 +9,7 @@ import {
   RecordingMailer,
 } from '../testing';
 
+import { ChangeCompanyDarkLogo } from './commands/change-company-dark-logo';
 import { ChangeCompanyLogo } from './commands/change-company-logo';
 import { ChangeWatermarkLogo } from './commands/change-watermark-logo';
 import { ConfigureWatermark } from './commands/configure-watermark';
@@ -52,6 +53,7 @@ function setup() {
     watermarker,
     updateGeneral: new UpdateGeneralSettings({ uow, clock }),
     changeLogo: new ChangeCompanyLogo({ uow, storage, ids, clock }),
+    changeDarkLogo: new ChangeCompanyDarkLogo({ uow, storage, ids, clock }),
     configureWatermark: new ConfigureWatermark({ uow, clock }),
     changeWatermarkLogo: new ChangeWatermarkLogo({ uow, storage, ids, clock }),
     previewWatermark: new PreviewWatermark({ settings, storage, watermarker }),
@@ -211,6 +213,71 @@ describe('ChangeCompanyLogo', () => {
   });
 });
 
+describe('ChangeCompanyDarkLogo', () => {
+  it('uploads the dark logo apart from the light one and audits the new key', async () => {
+    const { uow, storage, changeLogo, changeDarkLogo, getLogo } = setup();
+    unwrap(await changeLogo.execute({ image: PNG }, admin));
+    const lightKey = uow.companySettings.row.logoKey;
+
+    unwrap(await changeDarkLogo.execute({ image: { ...PNG, bytes: new Uint8Array([9]) } }, admin));
+
+    const key = uow.companySettings.row.darkLogoKey;
+    expect(key).toMatch(/^settings\/logo\//);
+    expect(key).not.toBe(lightKey);
+    expect(storage.objects.has(key ?? '')).toBe(true);
+    expect(uow.companySettings.row.logoKey).toBe(lightKey);
+    expect(uow.audit.entries[1]?.changes).toEqual({ darkLogoKey: { before: null, after: key } });
+    expect(unwrap(await getLogo.execute({ which: 'company-dark' }, agent)).bytes).toEqual(
+      new Uint8Array([9]),
+    );
+    expect(unwrap(await getLogo.execute({ which: 'company' }, agent)).bytes).toEqual(PNG.bytes);
+  });
+
+  it('removes the dark logo without an image and keeps the light one', async () => {
+    const { uow, changeLogo, changeDarkLogo, getLogo } = setup();
+    unwrap(await changeLogo.execute({ image: PNG }, admin));
+    unwrap(await changeDarkLogo.execute({ image: PNG }, admin));
+    const key = uow.companySettings.row.darkLogoKey;
+
+    unwrap(await changeDarkLogo.execute({}, admin));
+
+    expect(uow.companySettings.row.darkLogoKey).toBeUndefined();
+    expect(uow.companySettings.row.logoKey).toBeDefined();
+    expect(uow.audit.entries.at(-1)?.changes).toEqual({
+      darkLogoKey: { before: key, after: null },
+    });
+    expect(unwrapErr(await getLogo.execute({ which: 'company-dark' }, admin))).toEqual({
+      type: 'NotFound',
+    });
+  });
+
+  it('rejects a non image file and does not upload it', async () => {
+    const { storage, changeDarkLogo } = setup();
+    const result = await changeDarkLogo.execute(
+      { image: { ...PNG, contentType: 'application/pdf' as 'image/png' } },
+      admin,
+    );
+    expect(unwrapErr(result)).toMatchObject({ type: 'ValidationFailed' });
+    expect(storage.objects.size).toBe(0);
+  });
+
+  it('deletes the uploaded image when the change fails', async () => {
+    const { uow, storage, changeDarkLogo } = setup();
+    uow.companySettings.save = () => Promise.reject(new Error('db down'));
+
+    await expect(changeDarkLogo.execute({ image: PNG }, admin)).rejects.toThrow('db down');
+    expect(storage.objects.size).toBe(0);
+  });
+
+  it('is only for administrators', async () => {
+    const { storage, changeDarkLogo } = setup();
+    expect(unwrapErr(await changeDarkLogo.execute({ image: PNG }, agent))).toEqual({
+      type: 'Forbidden',
+    });
+    expect(storage.objects.size).toBe(0);
+  });
+});
+
 describe('GetCompanyLogo', () => {
   it('serves the company logo to any user', async () => {
     const { changeLogo, getLogo } = setup();
@@ -233,17 +300,21 @@ describe('GetCompanyLogo', () => {
 describe('GetCompanyBrand', () => {
   it('has no logo version until a logo is uploaded', async () => {
     const { getBrand } = setup();
-    expect(unwrap(await getBrand.execute({}, agent)).logoVersion).toBeUndefined();
+    const brand = unwrap(await getBrand.execute({}, agent));
+    expect(brand.logoVersion).toBeUndefined();
+    expect(brand.darkLogoVersion).toBeUndefined();
   });
 
   it('returns the name and logo version to any user', async () => {
-    const { uow, updateGeneral, changeLogo, getBrand } = setup();
+    const { uow, updateGeneral, changeLogo, changeDarkLogo, getBrand } = setup();
     unwrap(await updateGeneral.execute(general, admin));
     unwrap(await changeLogo.execute({ image: PNG }, admin));
+    unwrap(await changeDarkLogo.execute({ image: PNG }, admin));
 
     expect(unwrap(await getBrand.execute({}, agent))).toEqual({
       name: 'Norde Propiedades',
       logoVersion: uow.companySettings.row.logoKey?.split('/').at(-1),
+      darkLogoVersion: uow.companySettings.row.darkLogoKey?.split('/').at(-1),
     });
   });
 });

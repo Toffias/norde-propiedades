@@ -223,6 +223,15 @@ describe('CompanySettings', () => {
     expect(settings.changeLogo('settings/logo/b', NOW)).toBe('settings/logo/a');
   });
 
+  it('keeps the dark logo apart from the light one', () => {
+    const settings = CompanySettings.defaults();
+    settings.changeLogo('settings/logo/light', NOW);
+    expect(settings.changeDarkLogo('settings/logo/a', NOW)).toBeUndefined();
+    expect(settings.changeDarkLogo('settings/logo/b', NOW)).toBe('settings/logo/a');
+    expect(settings.logoKey).toBe('settings/logo/light');
+    expect(settings.darkLogoKey).toBe('settings/logo/b');
+  });
+
   it('stores a blank sender name as empty', () => {
     const settings = CompanySettings.defaults();
     settings.updateEmailSender({ fromName: '  ', replyTo: undefined }, NOW);

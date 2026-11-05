@@ -15,6 +15,10 @@ export class GetCompanyBrand {
     _actor: Actor,
   ): Promise<Result<CompanyBrandView, never>> {
     const s = (await this.deps.settings.get()).toSnapshot();
-    return ok({ name: s.name, logoVersion: storageVersion(s.logoKey) });
+    return ok({
+      name: s.name,
+      logoVersion: storageVersion(s.logoKey),
+      darkLogoVersion: storageVersion(s.darkLogoKey),
+    });
   }
 }

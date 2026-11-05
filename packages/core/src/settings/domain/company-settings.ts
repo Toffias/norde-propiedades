@@ -30,6 +30,8 @@ export interface EmailSender {
 export interface CompanySettingsSnapshot {
   readonly name: string;
   readonly logoKey: string | undefined;
+  /** Logo para fondos oscuros (tema oscuro de la web y del panel). Sin cargar, se usa `logoKey`. */
+  readonly darkLogoKey: string | undefined;
   readonly timezone: string;
   readonly webPropertyUrlTemplate: WebUrlTemplate | undefined;
   readonly webDevelopmentUrlTemplate: WebUrlTemplate | undefined;
@@ -74,6 +76,7 @@ export class CompanySettings extends AggregateRoot<CompanySettingsId, CompanySet
     return new CompanySettings({
       name: 'Norde Propiedades',
       logoKey: undefined,
+      darkLogoKey: undefined,
       timezone: DEFAULT_TIMEZONE,
       webPropertyUrlTemplate: undefined,
       webDevelopmentUrlTemplate: undefined,
@@ -98,6 +101,10 @@ export class CompanySettings extends AggregateRoot<CompanySettingsId, CompanySet
     return this.#state.logoKey;
   }
 
+  get darkLogoKey(): string | undefined {
+    return this.#state.darkLogoKey;
+  }
+
   get watermark(): Watermark {
     return this.#state.watermark;
   }
@@ -115,6 +122,14 @@ export class CompanySettings extends AggregateRoot<CompanySettingsId, CompanySet
   changeLogo(logoKey: string | undefined, now: Date): string | undefined {
     const previous = this.#state.logoKey;
     this.#state = { ...this.#state, logoKey };
+    this.changed('general', now);
+    return previous;
+  }
+
+  /** Cambia el logo para fondos oscuros. Devuelve el anterior, como `changeLogo`. */
+  changeDarkLogo(darkLogoKey: string | undefined, now: Date): string | undefined {
+    const previous = this.#state.darkLogoKey;
+    this.#state = { ...this.#state, darkLogoKey };
     this.changed('general', now);
     return previous;
   }

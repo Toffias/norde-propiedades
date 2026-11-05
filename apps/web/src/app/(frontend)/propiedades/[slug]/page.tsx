@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { FavoriteButton } from '../../../../components/favorites/favorite-button';
 import { SkeletonImage } from '../../../../components/layout/skeleton-image';
 import { SectionHeading } from '../../../../components/layout/section-heading';
 import { InquiryForm } from '../../../../components/properties/inquiry-form';
@@ -14,6 +15,7 @@ import { Breadcrumbs } from '../../../../components/seo/breadcrumbs';
 import { JsonLdScript } from '../../../../components/seo/json-ld-script';
 import { getContainer } from '../../../../container';
 import { summarize } from '../../../../lib/blog/text';
+import { toFavorite } from '../../../../lib/favorites/favorites';
 import { isExternal } from '../../../../lib/properties/images';
 import { listingHref, parseListingFilters } from '../../../../lib/properties/listing-filters';
 import { featuredListings, findListing, similarListings } from '../../../../lib/properties/queries';
@@ -181,6 +183,7 @@ function PropertySummary({ listing }: { readonly listing: ListingDetail }) {
             Destacada
           </span>
         )}
+        <FavoriteButton favorite={toFavorite(listing)} variant="detail" className="ml-auto" />
       </div>
       <h1 id="property-title" className="text-3xl leading-tight font-extrabold sm:text-4xl">
         {listing.title}

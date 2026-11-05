@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { FavoriteButton } from '../favorites/favorite-button';
 import { SkeletonImage } from '../layout/skeleton-image';
+import { toFavorite } from '../../lib/favorites/favorites';
 import { isExternal } from '../../lib/properties/images';
 import type { ListingCard as ListingCardData, ListingFactKind } from '../../lib/properties/view';
 
@@ -63,6 +65,7 @@ export function ListingCard({ listing, priority = false, headingLevel = 'h3' }: 
             </span>
           )}
         </div>
+        <FavoriteButton favorite={toFavorite(listing)} className="absolute top-2.5 right-2.5" />
         {listing.photoCount > 1 && (
           <span className="absolute right-3 bottom-3 flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-xs font-medium text-white">
             <Camera aria-hidden className="size-3.5" />

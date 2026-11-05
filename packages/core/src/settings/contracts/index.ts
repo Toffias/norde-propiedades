@@ -94,6 +94,10 @@ export const UpdateGeneralSettingsInputSchema = z.object({
 });
 export type UpdateGeneralSettingsInput = z.input<typeof UpdateGeneralSettingsInputSchema>;
 
+/** Qué logo: el de la empresa, el de la empresa para fondos oscuros o el de la marca de agua. */
+export const COMPANY_LOGO_KINDS = ['company', 'company-dark', 'watermark'] as const;
+export type CompanyLogoKind = (typeof COMPANY_LOGO_KINDS)[number];
+
 /** Sin `image`, se quita el logo. */
 export const ChangeLogoInputSchema = z.object({ image: ImageUploadSchema.optional() });
 export type ChangeLogoInput = z.input<typeof ChangeLogoInputSchema>;
@@ -161,6 +165,9 @@ export interface CompanySettingsView {
   readonly hasLogo: boolean;
   /** Cambia con cada logo nuevo: sirve para que el navegador no muestre el anterior. */
   readonly logoVersion: string | undefined;
+  /** El logo para fondos oscuros (tema oscuro de la web y del panel). */
+  readonly hasDarkLogo: boolean;
+  readonly darkLogoVersion: string | undefined;
   readonly timezone: string;
   readonly webPropertyUrlTemplate: string | undefined;
   readonly webDevelopmentUrlTemplate: string | undefined;
@@ -188,6 +195,8 @@ export interface CompanyBrandView {
   readonly name: string;
   /** Sin logo, `undefined`. Cambia con cada logo nuevo, como `CompanySettingsView.logoVersion`. */
   readonly logoVersion: string | undefined;
+  /** El logo para el tema oscuro; sin cargar, `undefined` (y se usa el de `logoVersion`). */
+  readonly darkLogoVersion: string | undefined;
 }
 
 /** Un archivo leído del storage, para devolverlo en una descarga o una vista previa. */

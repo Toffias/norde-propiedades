@@ -95,6 +95,7 @@ describe('DrizzleCompanySettingsRepository', () => {
       timezone: 'America/Argentina/Buenos_Aires',
       newsScope: 'all',
       logoKey: undefined,
+      darkLogoKey: undefined,
     });
     expect(settings.watermark.enabled).toBe(false);
   });
@@ -126,6 +127,7 @@ describe('DrizzleCompanySettingsRepository', () => {
       ),
     );
     settings.changeLogo('settings/logo/1', clock.now());
+    settings.changeDarkLogo('settings/logo/2', clock.now());
     settings.configureWatermark(
       unwrap(
         Watermark.create({
@@ -164,6 +166,7 @@ describe('DrizzleCompanySettingsRepository', () => {
     expect(read).toMatchObject({
       name: 'Norde',
       logoKey: 'settings/logo/1',
+      darkLogoKey: 'settings/logo/2',
       timezone: 'America/Argentina/Cordoba',
       newsScope: 'branch',
       pdfOptions: {

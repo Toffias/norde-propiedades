@@ -27,8 +27,14 @@ export const routes = {
   /** La confirmación de una suscripción a una búsqueda, desde el email (#208). */
   searchSubscription: (token: string) => `/suscripcion/${encodeURIComponent(token)}`,
   defaultOgImage: () => '/og-image.png',
-  /** El logo de Mi empresa. La versión cambia con la imagen, así se cachea para siempre. */
-  companyLogo: (version: string) => `/logo/${encodeURIComponent(version)}`,
+  /**
+   * Un logo de Mi empresa: el común o el de fondos oscuros. La versión cambia con la imagen, así se
+   * cachea para siempre.
+   */
+  companyLogo: (version: string, variant: 'light' | 'dark' = 'light') =>
+    variant === 'dark'
+      ? `/logo/dark/${encodeURIComponent(version)}`
+      : `/logo/${encodeURIComponent(version)}`,
 } as const;
 
 /**

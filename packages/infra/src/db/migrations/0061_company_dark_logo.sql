@@ -1,0 +1,1 @@
+ALTER TABLE "core"."company_settings" ADD COLUMN "dark_logo_storage_key" text;

@@ -143,10 +143,15 @@ export interface ChatSender {
   send(message: WebChatMessage): Promise<WebChatOutcome>;
 }
 
+export type CompanyLogoVariant = 'light' | 'dark';
+
 export interface Container {
   readonly database: DatabaseConnection;
-  /** El logo que Norde cargó en el panel (Mi empresa), para el header y el footer. */
-  companyLogo(): ReturnType<GetCompanyLogo['execute']>;
+  /**
+   * Un logo que Norde cargó en el panel (Mi empresa), para el header y el footer: el común o el de
+   * fondos oscuros (tema oscuro).
+   */
+  companyLogo(variant: CompanyLogoVariant): ReturnType<GetCompanyLogo['execute']>;
   readonly properties: PropertiesUseCases;
   readonly developments: DevelopmentsUseCases;
   readonly sharedListings: SharedListingsUseCases;
@@ -190,7 +195,8 @@ function createContainer(): Container {
   const sharedListings = createSharedListings(database);
   return {
     database,
-    companyLogo: () => companyLogo.execute({ which: 'company' }, WEB_ACTOR),
+    companyLogo: (variant) =>
+      companyLogo.execute({ which: variant === 'dark' ? 'company-dark' : 'company' }, WEB_ACTOR),
     properties: {
       search: (input) => search.execute(input, WEB_ACTOR),
       detail: (input) => detail.execute(input, WEB_ACTOR),

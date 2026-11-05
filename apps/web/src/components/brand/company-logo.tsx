@@ -3,7 +3,7 @@ import Image from 'next/image';
 import type { CSSProperties } from 'react';
 
 import { BUSINESS } from '../../constants/business';
-import { getCompanyLogo } from '../../lib/brand/company-logo';
+import { getCompanyLogo, type CompanyLogo as CompanyLogoData } from '../../lib/brand/company-logo';
 import { getLogoSizes } from '../../lib/brand/logo-size-query';
 import type { LogoSizes } from '../../lib/brand/logo-size';
 import { routes } from '../../lib/seo/routes';
@@ -22,26 +22,22 @@ function heightStyle(
   };
 }
 
-/**
- * El logo de Norde: el que cargaron en el panel (Mi empresa) o, si no hay, el dibujado con texto.
- * Se muestra siempre con sus colores, también sobre la foto de una portada y en el tema oscuro.
- */
-export async function CompanyLogo({
+function LogoImage({
+  logo,
+  variant,
   placement,
-  fallbackClassName,
+  sizes,
+  className,
 }: {
-  /** Dónde va: define el alto de la imagen (el ancho sigue la proporción del logo). */
+  readonly logo: CompanyLogoData;
+  readonly variant: 'light' | 'dark';
   readonly placement: 'header' | 'footer';
-  /** Para el logo de texto, cuando no hay uno cargado. */
-  readonly fallbackClassName?: string;
+  readonly sizes: LogoSizes;
+  readonly className?: string;
 }) {
-  const [logo, sizes] = await Promise.all([getCompanyLogo(), getLogoSizes()]);
-  if (logo === null)
-    return <NordeLogo {...(fallbackClassName ? { className: fallbackClassName } : {})} />;
-
   return (
     <Image
-      src={routes.companyLogo(logo.version)}
+      src={routes.companyLogo(logo.version, variant)}
       alt={BUSINESS.name}
       // Solo indican la proporción para reservar el lugar: el tamaño real lo da `style`.
       width={240}
@@ -52,7 +48,56 @@ export async function CompanyLogo({
       className={cn(
         'w-auto object-contain',
         placement === 'header' && 'h-(--logo-h) sm:h-(--logo-h-sm)',
+        className,
       )}
     />
+  );
+}
+
+/**
+ * El logo de Norde: el que cargaron en el panel (Mi empresa) o, si no hay, el dibujado con texto.
+ * Si cargaron también uno para fondos oscuros, ese reemplaza al común en el tema oscuro. Se muestra
+ * siempre con sus colores, también sobre la foto de una portada.
+ */
+export async function CompanyLogo({
+  placement,
+  fallbackClassName,
+}: {
+  /** Dónde va: define el alto de la imagen (el ancho sigue la proporción del logo). */
+  readonly placement: 'header' | 'footer';
+  /** Para el logo de texto, cuando no hay uno cargado. */
+  readonly fallbackClassName?: string;
+}) {
+  const [light, dark, sizes] = await Promise.all([
+    getCompanyLogo('light'),
+    getCompanyLogo('dark'),
+    getLogoSizes(),
+  ]);
+  // Con logo oscuro, el común (o el de texto) se oculta en el tema oscuro y el oscuro aparece.
+  const lightOnly = dark === null ? undefined : 'dark:hidden';
+
+  return (
+    <>
+      {light === null ? (
+        <NordeLogo className={cn(fallbackClassName, lightOnly)} />
+      ) : (
+        <LogoImage
+          logo={light}
+          variant="light"
+          placement={placement}
+          sizes={sizes}
+          {...(lightOnly ? { className: lightOnly } : {})}
+        />
+      )}
+      {dark !== null && (
+        <LogoImage
+          logo={dark}
+          variant="dark"
+          placement={placement}
+          sizes={sizes}
+          className="hidden dark:block"
+        />
+      )}
+    </>
   );
 }

@@ -59,11 +59,19 @@ function currentSection(pathname: string): readonly string[] {
 
 /**
  * Con un logo cargado en Mi empresa > General, reemplaza al isotipo de Norde (que vuelve si el
- * logo no carga).
+ * logo no carga). El menú lateral es oscuro en los dos temas: usa el logo para fondos oscuros y,
+ * si no hay, el común.
  */
 function brandProps(brand: CompanyBrandView | undefined, size: string) {
-  if (brand?.logoVersion === undefined) return {};
-  const src = `/mi-empresa/logo/company?v=${encodeURIComponent(brand.logoVersion)}`;
+  if (brand === undefined) return {};
+  const logo =
+    brand.darkLogoVersion === undefined
+      ? brand.logoVersion === undefined
+        ? undefined
+        : { which: 'company', version: brand.logoVersion }
+      : { which: 'company-dark', version: brand.darkLogoVersion };
+  if (logo === undefined) return {};
+  const src = `/mi-empresa/logo/${logo.which}?v=${encodeURIComponent(logo.version)}`;
   return {
     name: brand.name,
     mark: (

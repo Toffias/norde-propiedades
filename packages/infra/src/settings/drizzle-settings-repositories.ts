@@ -97,6 +97,7 @@ export class DrizzleCompanySettingsRepository
     return CompanySettings.restore({
       name: row.name,
       logoKey: row.logoStorageKey ?? undefined,
+      darkLogoKey: row.darkLogoStorageKey ?? undefined,
       timezone: row.timezone,
       webPropertyUrlTemplate: optional(row.webPropertyUrlTemplate, (v) =>
         stored(WebUrlTemplate.create(v), 'url template'),
@@ -132,6 +133,7 @@ export class DrizzleCompanySettingsRepository
       .set({
         name: s.name,
         logoStorageKey: s.logoKey ?? null,
+        darkLogoStorageKey: s.darkLogoKey ?? null,
         timezone: s.timezone,
         webPropertyUrlTemplate: s.webPropertyUrlTemplate?.value ?? null,
         webDevelopmentUrlTemplate: s.webDevelopmentUrlTemplate?.value ?? null,

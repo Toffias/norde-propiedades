@@ -1,20 +1,23 @@
+import { COMPANY_LOGO_KINDS } from '@norde/core/settings/contracts';
+
 import { getContainer } from '../../../../../container';
 import { getSession } from '../../../../../lib/session';
 
-// Logo de la empresa o de la marca de agua, servido por el panel: el storage es privado y el caso
-// de uso decide quién lo ve.
+// Logo de la empresa (claro u oscuro) o de la marca de agua, servido por el panel: el storage es
+// privado y el caso de uso decide quién lo ve.
 
 export async function GET(
   _request: Request,
   { params }: { readonly params: Promise<{ readonly which: string }> },
 ) {
   const { which } = await params;
-  if (which !== 'company' && which !== 'watermark') return new Response(null, { status: 404 });
+  const kind = COMPANY_LOGO_KINDS.find((k) => k === which);
+  if (kind === undefined) return new Response(null, { status: 404 });
   const session = await getSession();
   if (session.isErr()) return new Response(null, { status: 401 });
 
   const result = await getContainer().settings.getCompanyLogo.execute(
-    { which },
+    { which: kind },
     session.value.actor,
   );
   if (result.isErr()) {

@@ -22,6 +22,8 @@ export const companySettings = coreSchema.table(
     /** Sin uso desde 0003: el logo vive en el storage (`logoStorageKey`). Se retira más adelante. */
     logoUrl: text('logo_url'),
     logoStorageKey: text('logo_storage_key'),
+    /** Logo para fondos oscuros (tema oscuro de la web y del panel). `null`: se usa el claro. */
+    darkLogoStorageKey: text('dark_logo_storage_key'),
     timezone: text('timezone').notNull().default('America/Argentina/Buenos_Aires'),
     /** Plantilla de la URL de una propiedad en la web (ej. `https://norde.com.ar/propiedades/{slug}`). */
     webPropertyUrlTemplate: text('web_property_url_template'),

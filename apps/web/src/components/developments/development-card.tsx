@@ -22,7 +22,7 @@ export function DevelopmentCard({
   const Heading = headingLevel;
 
   return (
-    <article className="group bg-card hover:border-brand-200 dark:hover:border-brand-800 relative flex w-full flex-col overflow-hidden rounded-3xl border transition-colors">
+    <article className="group bg-card hover:border-brand-200 dark:hover:border-brand-800 relative flex w-full min-w-0 flex-col overflow-hidden rounded-3xl border transition-colors">
       <div className="bg-muted relative m-2 aspect-[4/3] overflow-hidden rounded-2xl">
         {development.cover ? (
           <SkeletonImage
@@ -59,7 +59,7 @@ export function DevelopmentCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col px-5 pt-2 pb-5">
+      <div className="flex min-w-0 flex-1 flex-col px-5 pt-2 pb-5">
         <p
           className={
             development.priceFromLabel
@@ -108,9 +108,9 @@ export function DevelopmentGrid({
   readonly priorityCount?: number;
 }) {
   return (
-    <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {developments.map((development, index) => (
-        <li key={development.id} className="flex">
+        <li key={development.id} className="flex min-w-0">
           <DevelopmentCard
             development={development}
             priority={index < priorityCount}

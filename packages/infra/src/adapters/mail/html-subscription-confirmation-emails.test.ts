@@ -4,7 +4,6 @@ import { HtmlSubscriptionConfirmationEmails } from './html-subscription-confirma
 
 const CONTENT = {
   companyName: 'Norde Propiedades',
-  firstName: 'Ana',
   searchSummary: 'Departamentos en venta en <Palermo>',
   frequencyLabel: 'una vez por semana',
   confirmUrl: 'https://norde.com.ar/suscripcion/abc',
@@ -16,7 +15,7 @@ describe('HtmlSubscriptionConfirmationEmails', () => {
     const email = new HtmlSubscriptionConfirmationEmails().compose(CONTENT);
 
     expect(email.subject).toBe('Confirmá tu suscripción a Norde Propiedades');
-    expect(email.text).toContain('¡Hola, Ana!');
+    expect(email.text.startsWith('¡Hola!')).toBe(true);
     expect(email.text).toContain('una vez por semana');
     expect(email.text).toContain('https://norde.com.ar/suscripcion/abc');
     expect(email.text).toContain('El link vence el 7 de noviembre');
@@ -28,14 +27,5 @@ describe('HtmlSubscriptionConfirmationEmails', () => {
 
     expect(email.html).toContain('en &lt;Palermo&gt;');
     expect(email.html).not.toContain('<Palermo>');
-  });
-
-  it('greets without a name', () => {
-    const email = new HtmlSubscriptionConfirmationEmails().compose({
-      ...CONTENT,
-      firstName: undefined,
-    });
-
-    expect(email.text.startsWith('¡Hola!')).toBe(true);
   });
 });

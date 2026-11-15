@@ -273,6 +273,10 @@ export interface User {
   id: number;
   name: string;
   /**
+   * Puede crear, borrar y hacer administradores a otros editores.
+   */
+  isAdmin?: boolean | null;
+  /**
    * Ej.: "Corredora inmobiliaria matriculada". Se muestra junto al nombre en sus artículos.
    */
   role?: string | null;
@@ -744,6 +748,7 @@ export interface MediaSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  isAdmin?: T;
   role?: T;
   bio?: T;
   photo?: T;

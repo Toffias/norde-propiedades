@@ -89,7 +89,11 @@ export const UpdateDevelopmentGeneralInputSchema = z.object({
   portalTitle: OptionalText(120),
   developerName: OptionalText(120),
   commercialContactClientId: z.uuid().optional(),
-  websiteUrl: z.url('Ingresá una dirección web válida.').max(300).optional(),
+  // Solo http(s): el link se muestra en el panel y en el sitio, y `javascript:` o `data:` ejecutan.
+  websiteUrl: z
+    .url({ protocol: /^https?$/, error: 'Ingresá una dirección web válida (http o https).' })
+    .max(300)
+    .optional(),
 });
 export type UpdateDevelopmentGeneralInput = z.input<typeof UpdateDevelopmentGeneralInputSchema>;
 

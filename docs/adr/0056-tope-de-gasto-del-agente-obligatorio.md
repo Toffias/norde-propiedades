@@ -1,4 +1,4 @@
-# ADR 0055: Tope de gasto del agente obligatorio
+# ADR 0056: Tope de gasto del agente obligatorio
 
 - **Estado**: aceptada
 - **Fecha**: 2026-11-14

@@ -118,6 +118,13 @@ describe('parseInbound', () => {
             errors: [{ code: 1 }],
           },
           { id: 'sin-remitente' },
+          {
+            from: '1',
+            id: 'wamid.r',
+            timestamp: '1',
+            type: 'reaction',
+            reaction: { message_id: 'wamid.x', emoji: '👍' },
+          },
         ]),
       ),
     ).toEqual([]);
@@ -212,6 +219,30 @@ describe('MessageBatcher and KeyedQueue', () => {
     await new Promise((r) => setTimeout(r, 60));
 
     expect(batches.sort()).toEqual([['hola', 'busco depto'], ['otro']]);
+  });
+
+  it('processes the batch after the max wait even if messages keep arriving', async () => {
+    const batches: string[][] = [];
+    const batcher = new MessageBatcher<string>({
+      queue: new KeyedQueue(),
+      keyOf: () => 'k',
+      debounceMs: 30,
+      maxWaitMs: 60,
+      process: (batch) => {
+        batches.push(batch);
+        return Promise.resolve();
+      },
+      onError: () => undefined,
+    });
+
+    for (let i = 0; i < 6; i += 1) {
+      batcher.push(String(i));
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    await batcher.drain();
+
+    expect(batches.length).toBeGreaterThan(1);
+    expect(batches.flat()).toEqual(['0', '1', '2', '3', '4', '5']);
   });
 
   it('drains pending batches on shutdown', async () => {

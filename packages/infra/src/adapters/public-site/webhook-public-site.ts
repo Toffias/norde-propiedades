@@ -4,8 +4,10 @@ import type { PublicSite } from '@norde/core/properties';
 
 import type { InfraLogger } from '../../shared/logger';
 
-/** El header de la firma, el mismo de los webhooks propios (`sha256=` + HMAC del body crudo). */
+/** El header de la firma: `sha256=` + HMAC de `<timestamp>.<body crudo>`. */
 export const PUBLIC_SITE_SIGNATURE_HEADER = 'x-norde-signature';
+/** La fecha del aviso en milisegundos, firmada con el body: la web rechaza un aviso viejo reenviado. */
+export const PUBLIC_SITE_TIMESTAMP_HEADER = 'x-norde-timestamp';
 
 /**
  * Le avisa a apps/web que una propiedad o un emprendimiento cambió: `POST /api/revalidate` firmado
@@ -18,6 +20,7 @@ export class WebhookPublicSite implements PublicSite {
       readonly url: string;
       readonly secret: string;
       readonly fetch?: typeof fetch;
+      readonly now?: () => number;
     },
   ) {}
 
@@ -33,12 +36,16 @@ export class WebhookPublicSite implements PublicSite {
     notice: { readonly propertyId: string } | { readonly developmentId: string },
   ): Promise<void> {
     const body = JSON.stringify(notice);
-    const signature = createHmac('sha256', this.options.secret).update(body).digest('hex');
+    const timestamp = String((this.options.now ?? Date.now)());
+    const signature = createHmac('sha256', this.options.secret)
+      .update(`${timestamp}.${body}`)
+      .digest('hex');
     const response = await (this.options.fetch ?? fetch)(this.options.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         [PUBLIC_SITE_SIGNATURE_HEADER]: `sha256=${signature}`,
+        [PUBLIC_SITE_TIMESTAMP_HEADER]: timestamp,
       },
       body,
       signal: AbortSignal.timeout(5_000),

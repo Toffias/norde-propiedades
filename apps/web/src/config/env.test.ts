@@ -40,7 +40,9 @@ describe('parseEnv', () => {
   });
 
   it('accepts a strong secret in production', () => {
-    expect(parseEnv(env({ NODE_ENV: 'production' })).PAYLOAD_SECRET).toBe(STRONG);
+    expect(parseEnv(env({ NODE_ENV: 'production', STORAGE_DRIVER: 'local' })).PAYLOAD_SECRET).toBe(
+      STRONG,
+    );
   });
 
   it('keeps accepting a weak secret outside production, for local setups', () => {

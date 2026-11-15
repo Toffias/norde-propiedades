@@ -508,6 +508,7 @@ import {
   LogPublicSite,
   LogTeamNotifier,
   OutboxRelay,
+  purgePlatformTables,
   PgBossEventBus,
   SharpImageVariantGenerator,
   WebhookPublicSite,
@@ -1957,6 +1958,8 @@ function propertyImportDirectory(
     },
     async findOrCreateOwner(owner, actor) {
       const result = await owners.execute(owner, actor);
+      // Datos del propietario que no se pueden usar (un nombre enorme): la propiedad entra sin él.
+      if (result.isErr() && result.error.type === 'InvalidInput') return undefined;
       // El job corre con `clients:create` (IMPORT_ACTOR): sin él es un error de configuración.
       if (result.isErr()) throw new Error(`Owner lookup failed: ${result.error.type}`);
       return result.value;
@@ -2376,6 +2379,15 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     run: async () => {
       await sendFollowUpDigests(followUpDigests, SCHEDULER_ACTOR, logger);
       await purgeExpiredSearchSubscriptions(purgeSubscriptions, SCHEDULER_ACTOR, logger);
+    },
+  });
+  // `outbox` e `idempotency_keys` solo crecen: lo viejo se borra de madrugada.
+  bus.schedule({
+    name: 'platform.housekeeping',
+    cron: '30 4 * * *',
+    run: async () => {
+      const purged = await purgePlatformTables(db, clock.now());
+      logger.info(purged, 'Platform tables purged');
     },
   });
   if (portalJobs) {

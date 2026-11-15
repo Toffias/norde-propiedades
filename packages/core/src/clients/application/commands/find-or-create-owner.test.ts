@@ -131,6 +131,34 @@ describe('FindOrCreateOwner', () => {
     expect(uow.clients.rows.size).toBe(0);
   });
 
+  it('takes the owner found in the trash out of it, audited', async () => {
+    const { uow, owners } = setup();
+    const trashed = await seedClient(uow, {
+      name: 'Ana',
+      emails: ['ana@mail.com'],
+      deleted: true,
+    });
+
+    const found = unwrap(
+      await owners.execute({ ...owner, phone: undefined, email: 'ana@mail.com' }, IMPORT_ACTOR),
+    );
+
+    expect(found).toEqual({ clientId: trashed.id });
+    expect(uow.clients.rows.get(trashed.id)?.deletedAt).toBeUndefined();
+    expect(uow.audit.entries.map((e) => e.action)).toEqual(['client.restored']);
+  });
+
+  it('rejects an owner with invalid data', async () => {
+    const { owners } = setup();
+
+    expect(
+      unwrapErr(await owners.execute({ ...owner, name: 'x'.repeat(201) }, IMPORT_ACTOR)).type,
+    ).toBe('InvalidInput');
+    expect(
+      unwrapErr(await owners.execute({ ...owner, agentId: 'no-uuid' }, IMPORT_ACTOR)).type,
+    ).toBe('InvalidInput');
+  });
+
   it('requires clients:create', async () => {
     const { owners } = setup();
 

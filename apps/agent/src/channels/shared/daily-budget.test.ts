@@ -38,4 +38,14 @@ describe('DailyBudget', () => {
     expect(budget.exceeded()).toBe(true);
     expect(budget.spentUsd()).toBeCloseTo(0.01);
   });
+
+  it('forgets turns older than 24 hours', () => {
+    let now = 0;
+    const budget = new DailyBudget(10, PRICES, () => now);
+    budget.record(usage(0, 0, 1));
+    now += 24 * 3_600_000 + 1;
+    budget.record(usage(0, 0, 1));
+
+    expect(budget.entryCount).toBe(1);
+  });
 });

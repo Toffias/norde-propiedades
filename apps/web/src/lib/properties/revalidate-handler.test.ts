@@ -9,8 +9,10 @@ const SECRET = 'test-'.repeat(8);
 const PROPERTY_ID = '00000000-0000-7000-8000-0000000000c1';
 const DEVELOPMENT_ID = '00000000-0000-7000-8000-0000000000e1';
 
-function sign(body: string, secret = SECRET) {
-  return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
+const NOW = 1767225600000;
+
+function sign(body: string, secret = SECRET, timestamp = String(NOW)) {
+  return `sha256=${createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')}`;
 }
 
 function setup() {
@@ -20,13 +22,16 @@ function setup() {
     secret: SECRET,
     revalidateTag: (tag) => tags.push(tag),
     onPropertyChanged: (propertyId) => changed.push(propertyId),
+    now: () => NOW,
   });
-  const post = (body: string, signature: string | null = sign(body)) =>
+  const post = (body: string, signature: string | null = sign(body), timestamp = String(NOW)) =>
     handle(
       new Request('http://localhost:3000/api/revalidate', {
         method: 'POST',
         body,
-        headers: signature ? { 'x-norde-signature': signature } : {},
+        headers: signature
+          ? { 'x-norde-signature': signature, 'x-norde-timestamp': timestamp }
+          : {},
       }),
     );
   return { tags, changed, post };
@@ -56,6 +61,15 @@ describe('POST /api/revalidate', () => {
     expect((await post(body, sign(body, 'otro-secreto'))).status).toBe(401);
     expect(tags).toEqual([]);
     expect(changed).toEqual([]);
+  });
+
+  it('rejects a captured notice replayed after the tolerance, and a forged date', async () => {
+    const { tags, post } = setup();
+    const body = JSON.stringify({ propertyId: PROPERTY_ID });
+    const old = String(NOW - 10 * 60_000);
+    expect((await post(body, sign(body, SECRET, old), old)).status).toBe(401);
+    expect((await post(body, sign(body), String(NOW + 1))).status).toBe(401);
+    expect(tags).toEqual([]);
   });
 
   it('rejects a signed body that is not a property id', async () => {

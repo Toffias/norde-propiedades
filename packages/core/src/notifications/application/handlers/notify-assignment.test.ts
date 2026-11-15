@@ -93,6 +93,16 @@ describe('NotifyAssignment', () => {
     expect(error).toEqual({ type: 'InvalidInput' });
   });
 
+  it('rejects ids longer than any id', async () => {
+    const { notify } = setup();
+
+    const error = unwrapErr(
+      await notify.execute({ ...reassigned, assignedBy: 'x'.repeat(65) }, TEST_SCHEDULER),
+    );
+
+    expect(error).toEqual({ type: 'InvalidInput' });
+  });
+
   it('requires notifications:create', async () => {
     const { notify } = setup();
 

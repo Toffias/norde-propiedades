@@ -345,6 +345,56 @@ describe('TokkoPropertyApi.photo', () => {
   });
 });
 
+describe('TokkoPropertyApi.photo redirects', () => {
+  const redirect = (location: string) => () =>
+    new Response(null, { status: 302, headers: { location } });
+
+  it('follows a redirect inside the Tokko servers', async () => {
+    const { api, requests } = setup([
+      redirect('/original_pictures/2.jpg'),
+      () => new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'image/jpeg' } }),
+    ]);
+
+    const photo = unwrap(await api.photo('https://static.tokkobroker.com/original_pictures/1.jpg'));
+
+    expect([...photo.bytes]).toEqual([1, 2]);
+    expect(requests.map((url) => url.pathname)).toEqual([
+      '/original_pictures/1.jpg',
+      '/original_pictures/2.jpg',
+    ]);
+  });
+
+  it('does not follow a redirect to another host', async () => {
+    const { api, requests } = setup([redirect('https://evil.example.test/x.jpg')]);
+
+    expect(unwrapErr(await api.photo('https://static.tokkobroker.com/1.jpg'))).toEqual({
+      type: 'PhotoUnavailable',
+    });
+    expect(requests).toHaveLength(1);
+  });
+
+  it('stops a download without a length that goes past the size cap', async () => {
+    const big = new Uint8Array(8 * 1024 * 1024);
+    const { api } = setup([
+      () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(big);
+              controller.enqueue(big);
+              controller.close();
+            },
+          }),
+          { headers: { 'content-type': 'image/jpeg' } },
+        ),
+    ]);
+
+    expect(unwrapErr(await api.photo('https://static.tokkobroker.com/1.jpg'))).toEqual({
+      type: 'PhotoUnavailable',
+    });
+  });
+});
+
 describe('TokkoPropertyApi users', () => {
   const user = (id: number, name: string) => ({
     id,

@@ -38,6 +38,7 @@ function transcriber(fetchImpl: typeof fetch, maxBytes?: number) {
     apiVersion: 'v23.0',
     baseUrl: 'https://graph.example.com',
     openai: { apiKey: 'openai-key', model: 'gpt-4o-mini-transcribe' },
+    mediaHosts: ['example.com'],
     fetch: fetchImpl,
     ...(maxBytes === undefined ? {} : { maxBytes }),
   });
@@ -73,6 +74,24 @@ describe('WhatsAppAudioTranscriber', () => {
 
     expect(result.isErr() && result.error).toEqual({ type: 'AudioTooLarge' });
     expect(calls).toHaveLength(1);
+  });
+
+  it('does not send the Meta token to a media URL outside the allowed hosts', async () => {
+    const { calls, fetchImpl } = fakeFetch([json({ ...MEDIA, url: 'https://evil.test/audio' })]);
+
+    await expect(transcriber(fetchImpl).transcribe('media-1')).rejects.toThrow('evil.test');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('refuses a download that turns out larger than the limit', async () => {
+    const { fetchImpl } = fakeFetch([
+      json({ ...MEDIA, file_size: undefined }),
+      new Response(new Uint8Array(10)),
+    ]);
+
+    const result = await transcriber(fetchImpl, 5).transcribe('media-1');
+
+    expect(result.isErr() && result.error).toEqual({ type: 'AudioTooLarge' });
   });
 
   it('throws when an API fails', async () => {

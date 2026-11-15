@@ -70,6 +70,7 @@ const FAILURE_MESSAGES: Readonly<Record<string, string>> = {
   development_unavailable: 'El emprendimiento ya no está disponible.',
   agent_role_missing: 'Falta el rol Agente en Mi empresa.',
   main_branch_missing: 'Falta la sucursal principal en Mi empresa.',
+  unexpected_error: 'Hubo un error inesperado. Probá de nuevo.',
   requester_unavailable: 'Quien la pidió ya no tiene acceso.',
   invalid_request: 'El pedido ya no es válido.',
 };

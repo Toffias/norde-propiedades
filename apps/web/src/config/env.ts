@@ -16,6 +16,10 @@ const EnvSchema = z.object({
    */
   ALLOW_INDEXING: z.stringbool().default(false),
 
+  /** Errores del servidor a Sentry (ADR 0055). Sin DSN, apagado. */
+  SENTRY_DSN: z.url({ protocol: /^https$/ }).optional(),
+  SENTRY_ENVIRONMENT: z.string().min(1).default('development'),
+
   /**
    * Storage de las fotos de las propiedades: el mismo bucket privado que apps/gestion, con
    * credenciales propias de solo lectura (ADR 0023). `local` lee la carpeta del panel en desarrollo.
@@ -63,6 +67,15 @@ const EnvSchema = z.object({
    * `CONVERSATION_IDLE_RESET_HOURS`. Pasado ese tiempo, el chat ofrece empezar una nueva.
    */
   CHAT_IDLE_RESET_HOURS: z.coerce.number().int().positive().default(24),
+
+  /**
+   * `true` solo para crear el primer editor desde `/admin` con la base vacía. Sin ella, el alta del
+   * primer usuario queda cerrada: el primero que llegara a un sitio recién instalado sería admin.
+   */
+  PAYLOAD_FIRST_REGISTER: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 /** Valores de ejemplo que circularon en `.env.example` o en docs: nunca sirven de secreto. */
@@ -114,6 +127,15 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
   if ((env.AGENT_CHAT_URL === undefined) !== (env.AGENT_CHAT_SECRET === undefined)) {
     const missing = env.AGENT_CHAT_URL ? 'AGENT_CHAT_SECRET' : 'AGENT_CHAT_URL';
     context.addIssue({ code: 'custom', path: [missing], message: 'Set both AGENT_CHAT_* or none' });
+  }
+  // `next build` también corre en producción, pero no sirve fotos (y el CI no tiene storage).
+  const building = process.env.NEXT_PHASE === 'phase-production-build';
+  if (env.NODE_ENV === 'production' && !building && env.STORAGE_DRIVER === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['STORAGE_DRIVER'],
+      message: 'Required in production (s3, or local for a single server)',
+    });
   }
   if (env.STORAGE_DRIVER !== 's3') return;
   for (const key of S3_REQUIRED) {

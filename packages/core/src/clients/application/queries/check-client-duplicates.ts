@@ -22,7 +22,9 @@ export type CheckClientDuplicatesError = ForbiddenError | InvalidInputError;
 /**
  * Antes de dar de alta: ¿ya existe? Busca por teléfono y email en todos los contactos (también
  * los de la papelera y los de otros agentes, para no duplicarlos) y, por nombre, posibles
- * duplicados. De los que el actor no puede ver se informa solo el nombre y el agente.
+ * duplicados. Del que tiene ese teléfono o email y el actor no puede ver se informa solo el agente
+ * (para pedirle que se lo asigne), sin el nombre: si no, cualquier teléfono revelaría de quién es.
+ * Los posibles duplicados por nombre que el actor no puede ver no se informan.
  */
 export class CheckClientDuplicates {
   constructor(
@@ -63,11 +65,14 @@ export class CheckClientDuplicates {
 
     const agentIds = [existing, ...possible].flatMap((c) => c?.toSnapshot().agentId ?? []);
     const names = await this.deps.agents.names([...new Set(agentIds)]);
+    const existingRef = existing && toDuplicateRef(existing, names, actor);
     return ok({
-      existing: existing && toDuplicateRef(existing, names, actor),
+      existing:
+        existingRef && !existingRef.canOpen ? { ...existingRef, name: undefined } : existingRef,
       possible: possible
         .filter((c) => c.id !== existing?.id)
-        .map((c) => toDuplicateRef(c, names, actor)),
+        .map((c) => toDuplicateRef(c, names, actor))
+        .filter((ref) => ref.canOpen),
     });
   }
 }

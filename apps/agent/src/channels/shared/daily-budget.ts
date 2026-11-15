@@ -42,6 +42,8 @@ export class DailyBudget {
   /** Registra un gasto que no son tokens del modelo (una transcripción) y lo devuelve. */
   recordUsd(usd: number): number {
     this.#spent.push({ at: this.now(), usd });
+    // Sin tope nadie consulta el gasto: se purga acá para que no crezca para siempre.
+    this.#prune();
     return usd;
   }
 
@@ -50,8 +52,17 @@ export class DailyBudget {
   }
 
   spentUsd(): number {
+    this.#prune();
+    return this.#spent.reduce((total, entry) => total + entry.usd, 0);
+  }
+
+  /** Cuántos turnos de las últimas 24 h tiene en memoria. */
+  get entryCount(): number {
+    return this.#spent.length;
+  }
+
+  #prune(): void {
     const since = this.now() - DAY_MS;
     while (this.#spent.length > 0 && (this.#spent[0]?.at ?? 0) <= since) this.#spent.shift();
-    return this.#spent.reduce((total, entry) => total + entry.usd, 0);
   }
 }

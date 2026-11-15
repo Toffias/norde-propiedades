@@ -2,8 +2,16 @@ import type { AudioTooLargeError, AudioTranscriber } from '@norde/core/conversat
 import { err, ok, type Result } from '@norde/core/shared';
 import { z } from 'zod';
 
+import { readLimitedBody } from '../../shared/read-limited-body';
+
 /** Una nota de voz de un par de minutos pesa menos de 1 MB; más que esto es un audio largo. */
 export const DEFAULT_MAX_AUDIO_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Dónde guarda Meta los archivos de WhatsApp. El token de System User solo viaja a estos hosts
+ * (y sus subdominios), aunque la consulta de media devuelva otro.
+ */
+export const DEFAULT_MEDIA_HOSTS: readonly string[] = ['fbsbx.com', 'whatsapp.net', 'facebook.com'];
 
 const MediaSchema = z.object({
   url: z.url({ protocol: /^https?$/ }),
@@ -26,6 +34,8 @@ export interface WhatsAppAudioTranscriberOptions {
     readonly baseUrl?: string;
   };
   readonly maxBytes?: number;
+  /** Hosts a los que se manda el token para bajar el archivo (ver `DEFAULT_MEDIA_HOSTS`). */
+  readonly mediaHosts?: readonly string[];
   readonly fetch?: typeof fetch;
 }
 
@@ -56,14 +66,21 @@ export class WhatsAppAudioTranscriber implements AudioTranscriber {
     if (media.file_size !== undefined && media.file_size > this.#maxBytes) {
       return err({ type: 'AudioTooLarge' });
     }
+    const host = new URL(media.url).hostname;
+    const hosts = this.options.mediaHosts ?? DEFAULT_MEDIA_HOSTS;
+    if (!hosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) {
+      throw new Error(`WhatsApp media URL outside the Meta hosts: ${host}`);
+    }
 
     const download = await this.#fetch(media.url, {
       headers: this.metaHeaders(),
+      // Una redirección no se sigue: llevaría el token a otro host.
+      redirect: 'error',
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!download.ok) throw new Error(`WhatsApp media download responded ${download.status}`);
-    const audio = await download.arrayBuffer();
-    if (audio.byteLength > this.#maxBytes) return err({ type: 'AudioTooLarge' });
+    const audio = await readLimitedBody(download, this.#maxBytes);
+    if (audio === undefined) return err({ type: 'AudioTooLarge' });
 
     const form = new FormData();
     form.append('file', new Blob([audio], { type: media.mime_type }), fileName(media.mime_type));

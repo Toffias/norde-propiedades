@@ -203,3 +203,17 @@ export interface ClientImportProblemRow {
   /** El contacto que ya existía (si es un duplicado). */
   readonly clientId: string | undefined;
 }
+
+/** El propietario que trae una propiedad importada (la exportación o la API de Tokko, #17). */
+export const FindOrCreateOwnerInputSchema = z.object({
+  name: z.string().max(200),
+  phone: z.string().max(60).optional(),
+  email: z.string().max(254).optional(),
+  sells: z.boolean(),
+  rents: z.boolean(),
+  /** El productor de la propiedad: queda a cargo del contacto nuevo. */
+  agentId: z.uuid().optional(),
+  /** El ID del contacto en Tokko (desde la API): se busca primero por él y se guarda. */
+  tokkoId: z.string().trim().min(1).max(40).optional(),
+});
+export type FindOrCreateOwnerInput = z.input<typeof FindOrCreateOwnerInputSchema>;

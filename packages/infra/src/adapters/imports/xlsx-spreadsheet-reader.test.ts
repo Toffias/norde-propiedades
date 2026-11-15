@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { SpreadsheetRow } from '@norde/core/shared';
 
-import { XlsxSpreadsheetReader } from './xlsx-spreadsheet-reader';
+import { declaredUncompressedSize, XlsxSpreadsheetReader } from './xlsx-spreadsheet-reader';
 
 async function xlsx(rows: readonly ExcelJS.CellValue[][]): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook();
@@ -61,6 +61,15 @@ describe('XlsxSpreadsheetReader', () => {
 
   it('reports a file that is not an Excel', async () => {
     const sheet = await new XlsxSpreadsheetReader().open(new TextEncoder().encode('a,b\n1,2'));
+
+    expect(sheet.isErr() && sheet.error).toEqual({ type: 'UnreadableSpreadsheet' });
+  });
+
+  it('refuses a file that would inflate past the limit, without opening it', async () => {
+    const bytes = await xlsx([['Nombre'], ['A'.repeat(5000)]]);
+
+    expect(declaredUncompressedSize(bytes)).toBeGreaterThan(5000);
+    const sheet = await new XlsxSpreadsheetReader({ maxUncompressedBytes: 5000 }).open(bytes);
 
     expect(sheet.isErr() && sheet.error).toEqual({ type: 'UnreadableSpreadsheet' });
   });

@@ -13,6 +13,9 @@ export const NOTICE_TEXT: Readonly<Record<Notice, string>> = {
     'Recibí muchos mensajes seguidos y necesito frenar un rato. Escribime más tarde y seguimos. ¡Gracias por la paciencia!',
 };
 
+/** Con más avisos que esto en memoria, se descartan los que ya salieron del período. */
+const PRUNE_ABOVE = 1000;
+
 /** Los avisos se mandan como máximo una vez por período por contacto (cada uno se cobra). */
 export class NoticeThrottle {
   readonly #lastSent = new Map<string, number>();
@@ -24,8 +27,14 @@ export class NoticeThrottle {
 
   allow(notice: Notice, contact: string): boolean {
     const key = `${notice}:${contact}`;
-    const last = this.#lastSent.get(key);
     const now = this.now();
+    // Sin purga, cada contacto que alguna vez recibió un aviso quedaría en memoria para siempre.
+    if (this.#lastSent.size > PRUNE_ABOVE) {
+      for (const [sent, at] of this.#lastSent) {
+        if (now - at >= this.cooldownMs) this.#lastSent.delete(sent);
+      }
+    }
+    const last = this.#lastSent.get(key);
     if (last !== undefined && now - last < this.cooldownMs) return false;
     this.#lastSent.set(key, now);
     return true;

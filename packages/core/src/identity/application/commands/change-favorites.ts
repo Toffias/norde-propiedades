@@ -7,7 +7,11 @@ import {
   type ForbiddenError,
   type Result,
 } from '../../../shared';
-import { FavoritesInputSchema, type FavoritesInput } from '../../contracts';
+import {
+  FavoritesInputSchema,
+  type FavoriteEntityValue,
+  type FavoritesInput,
+} from '../../contracts';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import type { InvalidInputError } from '../user-audit';
 
@@ -18,8 +22,22 @@ export interface ChangeFavoritesOutput {
   readonly changed: number;
 }
 
-function favoritesTarget(action: string, userId: string) {
-  return { action, entityType: 'user', entityId: userId, clientIds: [] };
+/**
+ * La entrada va contra el usuario. Si los favoritos son contactos, llevan sus IDs en `clientIds`:
+ * así la supresión de un contacto también borra esta entrada.
+ */
+function favoritesTarget(
+  action: string,
+  userId: string,
+  entityType: FavoriteEntityValue,
+  ids: readonly string[],
+) {
+  return {
+    action,
+    entityType: 'user',
+    entityId: userId,
+    clientIds: entityType === 'client' ? [...ids] : [],
+  };
 }
 
 /**
@@ -50,7 +68,7 @@ export class AddFavorites {
 
         await tx.favorites.add(actor.id, entityType, added, now);
         await tx.audit.record(
-          auditAction(actor, favoritesTarget('user.favorites_added', actor.id), {
+          auditAction(actor, favoritesTarget('user.favorites_added', actor.id, entityType, added), {
             entityType: { before: null, after: entityType },
             ids: { before: null, after: added },
           }),
@@ -84,10 +102,14 @@ export class RemoveFavorites {
 
         await tx.favorites.remove(actor.id, entityType, removed);
         await tx.audit.record(
-          auditAction(actor, favoritesTarget('user.favorites_removed', actor.id), {
-            entityType: { before: entityType, after: null },
-            ids: { before: [...removed], after: null },
-          }),
+          auditAction(
+            actor,
+            favoritesTarget('user.favorites_removed', actor.id, entityType, removed),
+            {
+              entityType: { before: entityType, after: null },
+              ids: { before: [...removed], after: null },
+            },
+          ),
         );
         return ok({ changed: removed.length });
       },

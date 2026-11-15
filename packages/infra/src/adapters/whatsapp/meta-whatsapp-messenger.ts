@@ -127,6 +127,11 @@ export class MetaWhatsAppMessenger implements ChannelMessenger {
         response = await request();
       }
     } catch (error) {
+      // Tras un timeout el mensaje pudo haber salido: reintentar lo entregaría dos veces.
+      if (isTimeout(error)) {
+        this.options.logger.warn({ err: error }, 'WhatsApp API timed out, not retrying');
+        return { kind: 'unreachable', error };
+      }
       this.options.logger.warn({ err: error }, 'WhatsApp API network error, retrying');
       await this.pause();
       try {
@@ -198,4 +203,9 @@ export function truncate(text: string, max: number): string {
 export function stripArgentineNine(to: string): string {
   const match = /^549(\d{10})$/.exec(to);
   return match ? `54${match[1] ?? ''}` : to;
+}
+
+/** El pedido se cortó esperando la respuesta (`AbortSignal.timeout`): Meta pudo haberlo recibido. */
+function isTimeout(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 }

@@ -95,7 +95,9 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
     const missing = env.AGENT_CHAT_URL ? 'AGENT_CHAT_SECRET' : 'AGENT_CHAT_URL';
     context.addIssue({ code: 'custom', path: [missing], message: 'Set both AGENT_CHAT_* or none' });
   }
-  if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === undefined) {
+  // `next build` también corre en producción, pero no sirve fotos (y el CI no tiene storage).
+  const building = process.env.NEXT_PHASE === 'phase-production-build';
+  if (env.NODE_ENV === 'production' && !building && env.STORAGE_DRIVER === undefined) {
     context.addIssue({
       code: 'custom',
       path: ['STORAGE_DRIVER'],

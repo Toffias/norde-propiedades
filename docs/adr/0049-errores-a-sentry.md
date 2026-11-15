@@ -12,7 +12,7 @@ El navegador también tiene errores (componentes cliente) y para reportarlos nec
 
 ## Decisión
 
-- **Sentry en `gestion`** (`@sentry/nextjs`, proyecto `norde-propiedades`, región UE). `apps/web` y `apps/agent` quedan para después.
+- **Sentry en `gestion`** (`@sentry/nextjs`, proyecto `norde-propiedades`, región UE). `apps/web` y `apps/agent` quedaron para después; se sumaron en el ADR 0055.
 - **Servidor**: `instrumentation.ts` inicia Sentry en `register()` antes de los jobs, y `onRequestError` suma `captureRequestError` al log de siempre. No hay configuración Edge: el proxy corre en Node.
 - **Navegador**: `instrumentation-client.ts` inicia Sentry. `error.tsx` y `global-error.tsx` reportan solo los errores sin `digest`; los que traen `digest` vienen del servidor y ya se reportaron.
 - **Segundo archivo de entorno**: `src/config/public-env.ts` lee y valida con Zod **solo** las `NEXT_PUBLIC_*` (`NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT`). La excepción está en `packages/config/eslint`. Nada secreto va ahí: se incrusta en el bundle y cambiarlo obliga a volver a compilar.

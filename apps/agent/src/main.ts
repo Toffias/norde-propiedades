@@ -1,9 +1,13 @@
 import { loadEnv } from './config/env';
 import { createLogger } from './config/logger';
+import { initSentry } from './config/sentry';
 import { createContainer } from './container';
 import { buildServer } from './http/server';
 
 const env = loadEnv();
+// Antes de crear el servidor: la integración de Fastify del SDK engancha cada instancia nueva y
+// manda sus errores 5xx.
+initSentry(env);
 const logger = createLogger(env);
 const container = createContainer(env, logger);
 const server = buildServer({

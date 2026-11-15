@@ -10,6 +10,10 @@ const EnvSchema = z.object({
   PAYLOAD_SECRET: z.string().min(32, 'PAYLOAD_SECRET debe tener al menos 32 caracteres'),
   NEXT_PUBLIC_SERVER_URL: z.url({ protocol: /^https?$/ }),
 
+  /** Errores del servidor a Sentry (ADR 0055). Sin DSN, apagado. */
+  SENTRY_DSN: z.url({ protocol: /^https$/ }).optional(),
+  SENTRY_ENVIRONMENT: z.string().min(1).default('development'),
+
   /**
    * Storage de las fotos de las propiedades: el mismo bucket privado que apps/gestion, con
    * credenciales propias de solo lectura (ADR 0023). `local` lee la carpeta del panel en desarrollo.

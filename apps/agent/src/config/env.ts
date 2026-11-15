@@ -21,6 +21,10 @@ const EnvSchema = z
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 
+    /** Errores a Sentry (ADR 0055). Sin DSN, apagado. */
+    SENTRY_DSN: z.url({ protocol: /^https$/ }).optional(),
+    SENTRY_ENVIRONMENT: z.string().min(1).default('development'),
+
     /** Sitio público: arma los links a las fichas que manda el agente. */
     PUBLIC_SITE_URL: z.url().default('http://localhost:3000'),
 

@@ -146,7 +146,7 @@ export class DrizzleNewsFeedQuery implements NewsFeedQuery {
             inArray(auditLog.action, [...NEWS_ACTIONS]),
             inArray(kind, [...criteria.kinds]),
             criteria.branchId === undefined ? undefined : inBranch(criteria.branchId),
-            criteria.days === undefined ? undefined : inDays(criteria.days),
+            inDays(criteria.days),
             where,
           ),
         ),

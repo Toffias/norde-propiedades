@@ -783,6 +783,9 @@ function portalSubscriptions(jobs: PortalJobs, logger: Logger): EventSubscriptio
       // El portal avisó que cambió un aviso: se lee cómo quedó (no lo que trajo el aviso).
       eventType: 'portals.listing_changed_on_portal',
       name: 'reconcile-listing',
+      // El aviso no viene firmado: una ráfaga sobre el mismo aviso se junta en una lectura por
+      // minuto, para no gastar la cuota de la API del portal.
+      throttleSeconds: 60,
       handle: async (event) => {
         const { listingId } = ListingPayloadSchema.parse(event.payload);
         const result = await jobs.reconcileOne.execute({ listingId }, jobs.actor);
@@ -983,7 +986,7 @@ export function eventSubscriptions(deps: {
     handle: async (event) => {
       const payload = OpportunityPayloadSchema.parse(event.payload);
       const result = await deps.notifyTeam.execute(
-        { type: eventType, occurredAt: event.occurredAt, payload },
+        { id: event.id, type: eventType, occurredAt: event.occurredAt, payload },
         deps.actor,
       );
       if (result.isErr()) {

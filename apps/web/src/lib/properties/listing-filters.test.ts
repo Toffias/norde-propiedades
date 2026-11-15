@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   activeFilters,
   activeFilterCount,
+  isCacheable,
   isIndexable,
+  isPageOutOfRange,
+  listingCanonicalHref,
+  shouldIndexListing,
   listingHref,
   listingTitle,
   operationHref,
@@ -135,12 +139,65 @@ describe('listingTitle', () => {
     expect(listingTitle(parseListingFilters({}))).toBe('Propiedades en venta y alquiler');
   });
 
-  it('indexes operation, type, zone and page, but not the fine filters', () => {
-    expect(isIndexable(parseListingFilters({ operacion: 'venta', zona: 'x', pagina: '2' }))).toBe(
-      true,
-    );
+  it('indexes operation, type and page, but not the fine filters', () => {
+    expect(
+      isIndexable(parseListingFilters({ operacion: 'venta', tipo: 'casa', pagina: '2' })),
+    ).toBe(true);
     expect(isIndexable(parseListingFilters({ ambientes: '2' }))).toBe(false);
     expect(isIndexable(parseListingFilters({ orden: 'recientes' }))).toBe(false);
+  });
+
+  it('does not index a free-text zone, nor a listing without results', () => {
+    const freeText = parseListingFilters({ operacion: 'venta', zona: 'compre ya en spam.example' });
+    expect(isIndexable(freeText)).toBe(false);
+    expect(shouldIndexListing(freeText, 3)).toBe(false);
+    expect(shouldIndexListing(parseListingFilters({ operacion: 'venta' }), 0)).toBe(false);
+    expect(shouldIndexListing(parseListingFilters({ operacion: 'venta' }), 4)).toBe(true);
+  });
+});
+
+describe('listingCanonicalHref', () => {
+  it('does not reflect the free-text zone', () => {
+    expect(
+      listingCanonicalHref(parseListingFilters({ operacion: 'venta', zona: '<b>spam</b>' })),
+    ).toBe('/propiedades?operacion=venta');
+  });
+
+  it('keeps operation, one type, one catalog location and the page', () => {
+    const href = listingCanonicalHref(
+      parseListingFilters({
+        operacion: 'alquiler',
+        tipo: ['casa', 'ph'],
+        ubicacion: ['00000000-0000-7000-8000-000000000001', '00000000-0000-7000-8000-000000000002'],
+        ambientes: '2',
+        orden: 'recientes',
+        pagina: '3',
+      }),
+    );
+    expect(href).toBe(
+      '/propiedades?operacion=alquiler&tipo=casa&ubicacion=00000000-0000-7000-8000-000000000001&pagina=3',
+    );
+  });
+});
+
+describe('isPageOutOfRange', () => {
+  it('flags pages past the last one, never the first', () => {
+    expect(isPageOutOfRange(1, 1)).toBe(false);
+    expect(isPageOutOfRange(1, 0)).toBe(false);
+    expect(isPageOutOfRange(3, 3)).toBe(false);
+    expect(isPageOutOfRange(4, 3)).toBe(true);
+  });
+});
+
+describe('isCacheable', () => {
+  it('caches the catalog options, but not free values', () => {
+    expect(
+      isCacheable(parseListingFilters({ operacion: 'venta', tipo: 'casa', ambientes: '2' })),
+    ).toBe(true);
+    expect(isCacheable(parseListingFilters({ zona: 'cualquier cosa' }))).toBe(false);
+    expect(isCacheable(parseListingFilters({ desde: '100000' }))).toBe(false);
+    expect(isCacheable(parseListingFilters({ 'm2-hasta': '80' }))).toBe(false);
+    expect(isCacheable(parseListingFilters({ area: '-34.6,-58.5,-34.5,-58.4' }))).toBe(false);
   });
 });
 

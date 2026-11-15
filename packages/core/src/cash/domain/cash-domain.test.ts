@@ -55,6 +55,9 @@ describe('cash periods', () => {
   it('moves to the next month across years', () => {
     expect(nextCashPeriod('2026-10')).toBe('2026-11');
     expect(nextCashPeriod('2026-12')).toBe('2027-01');
+    // El año siempre con cuatro dígitos, para que la comparación de textos siga el calendario.
+    expect(nextCashPeriod('0026-12')).toBe('0027-01');
+    expect(nextCashPeriod('0999-05')).toBe('0999-06');
     expect(periodOf('2026-10-23')).toBe('2026-10');
   });
 });
@@ -89,6 +92,13 @@ describe('CashMovement', () => {
   it('rejects invalid data', () => {
     expect(unwrapErr(create({ date: '2026-02-30' })).type).toBe('InvalidCashDate');
     expect(unwrapErr(create({ date: '2026-10-27' })).type).toBe('FutureCashDate');
+    // Un error de tipeo como el año 0026 obligaría a cerrar unos 24.000 meses.
+    expect(unwrapErr(create({ date: '0026-10-20' }))).toEqual({
+      type: 'TooOldCashDate',
+      earliest: '2021-01-01',
+    });
+    expect(unwrapErr(create({ date: '2020-12-31' })).type).toBe('TooOldCashDate');
+    expect(create({ date: '2021-01-01' }).isOk()).toBe(true);
     expect(unwrapErr(create({ amountCents: 0n })).type).toBe('InvalidCashAmount');
     expect(unwrapErr(create({ amountCents: 100_000_000_000_000n })).type).toBe('InvalidCashAmount');
     expect(unwrapErr(create({ concept: '   ' })).type).toBe('CashConceptRequired');

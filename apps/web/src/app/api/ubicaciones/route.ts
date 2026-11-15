@@ -1,4 +1,4 @@
-import { clientIp } from '../../../lib/client-ip';
+import { clientRateKey } from '../../../lib/client-ip';
 import { createLocationsHandler } from '../../../lib/properties/locations-handler';
 import { suggestLocations } from '../../../lib/properties/queries';
 import { createRateLimiter } from '../../../lib/rate-limit';
@@ -9,7 +9,7 @@ import { createRateLimiter } from '../../../lib/rate-limit';
 const allow = createRateLimiter(600, () => Date.now());
 
 const handle = createLocationsHandler({
-  allow: async () => allow(await clientIp()),
+  allow: async () => allow(await clientRateKey()),
   suggest: suggestLocations,
 });
 

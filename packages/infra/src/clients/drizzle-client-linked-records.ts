@@ -15,6 +15,7 @@ import {
   inquiries,
   opportunities,
   savedSearches,
+  searchSubscriptions,
   sharedListings,
 } from '../db/schema';
 
@@ -105,6 +106,12 @@ export class DrizzleClientLinkedRecords implements ClientLinkedRecords {
         .where(eq(savedSearches.clientId, fromId))
         .returning({ id: savedSearches.id }),
     );
+    // Las suscripciones a búsquedas del sitio (#208) siguen a su búsqueda guardada: si quedaran en
+    // el duplicado, la supresión del principal no se las llevaría y el resumen saldría a su nombre.
+    await this.db
+      .update(searchSubscriptions)
+      .set({ clientId: toId, updatedAt: now })
+      .where(eq(searchSubscriptions.clientId, fromId));
 
     // Una destacada que los dos tienen activa no puede quedar dos veces (índice único): la del
     // duplicado se mueve como quitada, con su reacción y su historia.

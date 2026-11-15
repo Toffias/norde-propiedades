@@ -70,7 +70,8 @@ export class CustomerAssistant {
       }
       return { ...turn, text };
     } catch (error) {
-      return { ok: false, error };
+      // El modelo ya respondió: su gasto cuenta aunque la respuesta no se pueda usar.
+      return { ok: false, error, usage: turn.usage };
     }
   }
 }

@@ -2,8 +2,8 @@
 
 import { getLogger } from '../../config/logger';
 import { getContainer } from '../../container';
-import { clientIp } from '../client-ip';
-import { createRateLimiter } from '../rate-limit';
+import { clientRateKey } from '../client-ip';
+import { allowInquiries } from '../inquiries/inquiry-limit';
 import { favoriteExternalId } from './external-id';
 import {
   favoritesFormValues,
@@ -11,9 +11,6 @@ import {
   parseFavoritesForm,
   type FavoritesFormState,
 } from './favorites-form';
-
-/** Envíos por IP cada 10 minutos (un envío son varias consultas, una por favorito). */
-const allow = createRateLimiter(5, () => Date.now());
 
 const UNAVAILABLE =
   'No pudimos enviar tu consulta. Probá de nuevo en unos minutos o escribinos por WhatsApp.';
@@ -37,14 +34,15 @@ export async function sendFavoritesInquiry(
     values: favoritesFormValues(form),
   });
 
-  if (!allow(await clientIp())) {
+  const { email, phone, message, propertyIds, submissionId, name } = parsed.data;
+  // Cada favorito es una consulta en el panel: cuenta como tal en el límite.
+  if (!allowInquiries(await clientRateKey(), propertyIds.length)) {
     return failed('Recibimos varias consultas seguidas. Esperá unos minutos y volvé a intentar.');
   }
   const sender = getContainer().inquiries;
   if (!sender) return failed(UNAVAILABLE);
 
   const logger = getLogger().child({ component: 'favorites-form' });
-  const { email, phone, message, propertyIds, submissionId, name } = parsed.data;
   const text = favoritesInquiryMessage(message, propertyIds.length);
   try {
     // De a una: el panel deduplica por `externalId`, y en orden el log dice dónde se cortó.

@@ -23,7 +23,8 @@ const stamps = { createdAt: NOW, updatedAt: NOW, createdBy: USER, updatedBy: USE
 const ALL: NewsFeedCriteria = {
   kinds: NEWS_KINDS,
   branchId: undefined,
-  days: undefined,
+  // Un mes que cubre todas las novedades de los tests: el feed siempre tiene un rango de días.
+  days: { from: '2026-09-01', to: '2026-10-31' },
   offset: 0,
   limit: 10,
   entriesPerCard: 20,

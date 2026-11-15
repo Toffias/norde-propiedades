@@ -1338,8 +1338,14 @@ function isErrResult(value: unknown): boolean {
 
 export class RecordingTeamNotifier implements TeamNotifier {
   readonly notifications: OpportunityNotification[] = [];
+  /** El próximo aviso falla, como un webhook caído. */
+  failNext = false;
 
   notifyOpportunity(notification: OpportunityNotification) {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('Team webhook responded 503'));
+    }
     this.notifications.push(notification);
     return Promise.resolve();
   }

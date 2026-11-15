@@ -657,6 +657,7 @@ export type {
 } from './application/ports/property-client-merge';
 export type { PropertyClientErasure } from './application/ports/property-client-erasure';
 export type { PropertyOwnerLinks } from './application/ports/property-owner-links';
+export type { PartyOwnership, ReservationParties } from './application/ports/reservation-parties';
 export {
   CreatePropertyFromAppraisal,
   type CreatePropertyFromAppraisalError,

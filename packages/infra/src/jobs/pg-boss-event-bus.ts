@@ -10,7 +10,8 @@ export interface EventSubscription {
   /** Nombre corto y único del handler: la cola es `<eventType>.<name>`. */
   readonly name: string;
   /**
-   * Maneja el evento. Si lanza, pg-boss reintenta con backoff. Tiene que ser idempotente:
+   * Maneja el evento. Si lanza, pg-boss reintenta con backoff; si agota los reintentos, el evento
+   * pasa a la cola de descarte (`<cola>.dead`) y se registra como error. Tiene que ser idempotente:
    * un evento puede llegar dos veces.
    */
   handle(event: PublishedEvent): Promise<void>;
@@ -90,26 +91,73 @@ export class PgBossEventBus {
         tz: 'America/Argentina/Buenos_Aires',
       });
       await this.#boss.work(job.name, async () => {
-        await job.run();
+        try {
+          await job.run();
+        } catch (error) {
+          // Sin reintentos: si no se registra acá, la falla queda solo en la tabla de pg-boss.
+          this.options.logger.error({ err: error, job: job.name }, 'Scheduled job failed');
+          throw error;
+        }
       });
     }
     for (const subscription of [...this.#subscriptions.values()].flat()) {
       const queue = queueName(subscription);
+      const deadLetter = deadLetterQueueName(queue);
+      // La cola de descarte tiene que existir antes: la cola principal la referencia.
+      await this.#ensureQueue(deadLetter, {
+        retryLimit: 0,
+        deleteAfterSeconds: DEAD_LETTER_RETENTION_SECONDS,
+      });
       await this.#ensureQueue(queue, {
         retryLimit: this.options.retryLimit ?? 5,
         retryBackoff: true,
         retryDelay: RETRY_DELAY_SECONDS,
         retryDelayMax: RETRY_DELAY_MAX_SECONDS,
         expireInSeconds: subscription.expireInSeconds ?? DEFAULT_EXPIRE_SECONDS,
+        deadLetter,
       });
       await this.#boss.work<unknown>(queue, async (jobs) => {
         for (const job of jobs) {
           const event = PublishedEventJobSchema.parse(job.data);
-          await subscription.handle(event);
+          try {
+            await subscription.handle(event);
+          } catch (error) {
+            this.options.logger.warn(
+              { err: error, queue, jobId: job.id, eventId: event.id, eventType: event.type },
+              'Event handler failed, pg-boss will retry it',
+            );
+            throw error;
+          }
         }
+      });
+      await this.#boss.work<unknown>(deadLetter, (jobs) => {
+        for (const job of jobs) {
+          this.#reportDeadLetter(queue, job.data);
+        }
+        return Promise.resolve();
       });
     }
     this.#started = true;
+  }
+
+  /**
+   * Un evento que agotó los reintentos: pg-boss copia el job a la cola de descarte. Se registra
+   * como error (solo IDs y tipo, sin el payload, que puede traer datos personales) y el job queda
+   * en `pgboss.job` para revisarlo o reencolarlo a mano.
+   */
+  #reportDeadLetter(queue: string, data: unknown): void {
+    const parsed = PublishedEventJobSchema.safeParse(data);
+    this.options.logger.error(
+      parsed.success
+        ? {
+            queue,
+            eventId: parsed.data.id,
+            eventType: parsed.data.type,
+            aggregateId: parsed.data.aggregateId,
+          }
+        : { queue },
+      'Event handler exhausted its retries: event moved to the dead letter queue',
+    );
   }
 
   /** Encola el evento para cada suscriptor. Reenviar el mismo evento no duplica jobs. */
@@ -155,6 +203,8 @@ interface QueueSettings {
   readonly retryDelay?: number;
   readonly retryDelayMax?: number;
   readonly expireInSeconds?: number;
+  readonly deleteAfterSeconds?: number;
+  readonly deadLetter?: string;
 }
 
 /**
@@ -168,6 +218,14 @@ const RETRY_DELAY_MAX_SECONDS = 10 * 60;
 /** El vencimiento de pg-boss si el handler no dice otro: 15 minutos. */
 const DEFAULT_EXPIRE_SECONDS = 15 * 60;
 
+/** Cuánto quedan en la base los eventos descartados, para revisarlos: 30 días. */
+const DEAD_LETTER_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+
 function queueName(subscription: EventSubscription): string {
   return `${subscription.eventType}.${subscription.name}`;
+}
+
+/** La cola de descarte de cada suscripción: `<eventType>.<name>.dead`. */
+export function deadLetterQueueName(queue: string): string {
+  return `${queue}.dead`;
 }

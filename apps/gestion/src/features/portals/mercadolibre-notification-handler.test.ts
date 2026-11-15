@@ -82,7 +82,8 @@ describe('MercadoLibre notifications', () => {
 
     const notOurs = setup({ unknownAccount: true });
     const ignored = await notOurs.post({ ...LEAD, topic: 'items', resource: '/items/MLA1' });
-    expect(await ignored.json()).toEqual({ ignored: true });
+    // Igual que uno propio: la respuesta no dice qué avisos son de Norde.
+    expect(await ignored.json()).toEqual({ received: true });
   });
 
   it('accepts and ignores other topics and accounts Norde has not connected', async () => {
@@ -95,7 +96,7 @@ describe('MercadoLibre notifications', () => {
     const unknown = setup({ unknownAccount: true });
     const response = await unknown.post(LEAD);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ignored: true });
+    expect(await response.json()).toEqual({ received: true });
   });
 
   it('rejects a notification for another application', async () => {

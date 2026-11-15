@@ -52,7 +52,11 @@ export interface AgentRunnerOptions<TContext> {
   readonly promptCacheKey?: string;
   readonly maxTurns?: number;
   readonly timeoutMs?: number;
-  /** Error inesperado dentro de una tool. El modelo recibe un error genérico y sigue. */
+  /**
+   * Error inesperado dentro de una tool (o argumentos inválidos). El modelo recibe
+   * `TOOL_ERROR_MESSAGE` y sigue: el error crudo puede traer SQL y datos personales, y quedaría
+   * guardado en la memoria. Quien lo loguee, que use `errorSummary`.
+   */
   readonly onToolError?: (toolName: string, error: unknown) => void;
 }
 
@@ -90,11 +94,18 @@ export type AgentTurnResult =
   | {
       readonly ok: false;
       readonly error: unknown;
+      /** Lo que se gastó antes de fallar (un turno que agota `maxTurns` igual se cobra). */
+      readonly usage: AgentTurnUsage;
     };
 
 export const DEFAULT_MAX_OUTPUT_TOKENS = 3000;
 export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'low';
 export const DEFAULT_FULL_MEMORY_TURNS = 2;
+
+/** Lo que recibe el modelo cuando falla una tool: nunca el error crudo. */
+export const TOOL_ERROR_MESSAGE =
+  'Hubo un error interno al usar esta herramienta. Seguí la conversación sin este dato y no ' +
+  'muestres detalles técnicos.';
 
 const NO_USAGE: AgentTurnUsage = {
   requests: 0,
@@ -192,7 +203,6 @@ export class AgentRunner<TContext> {
           ? [{ name: item.rawItem.name, arguments: parseArguments(item.rawItem.arguments) }]
           : [],
       );
-      const { usage } = runContext;
       return {
         ok: true,
         text: text?.trim() === '' ? undefined : text,
@@ -201,18 +211,12 @@ export class AgentRunner<TContext> {
             ? result.finalOutput
             : undefined,
         memory: this.compact(result.history),
-        usage: {
-          requests: usage.requests,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          cachedInputTokens: sumDetail(usage.inputTokensDetails, 'cached_tokens'),
-          reasoningTokens: sumDetail(usage.outputTokensDetails, 'reasoning_tokens'),
-        },
+        usage: turnUsage(runContext),
         toolCalls,
         flagged: false,
       };
     } catch (error) {
-      return { ok: false, error };
+      return { ok: false, error, usage: turnUsage(runContext) };
     }
   }
 
@@ -233,12 +237,13 @@ export class AgentRunner<TContext> {
       parameters: agentTool.parameters,
       execute: async (args, runContext?: RunContext<TContext>) => {
         if (!runContext) throw new Error(`Tool ${agentTool.name} ran without a turn context`);
-        try {
-          return toToolOutput(await agentTool.execute(args, runContext.context));
-        } catch (error) {
-          onToolError?.(agentTool.name, error);
-          throw error;
-        }
+        return toToolOutput(await agentTool.execute(args, runContext.context));
+      },
+      // Sin esto, el SDK le pasa al modelo `error.toString()`: con un error de Drizzle, el SQL y
+      // sus parámetros (teléfono, email), que además quedarían guardados en la memoria.
+      errorFunction: (_runContext, error) => {
+        onToolError?.(agentTool.name, error);
+        return TOOL_ERROR_MESSAGE;
       },
     });
   }
@@ -251,6 +256,18 @@ export class AgentRunner<TContext> {
 function toInputItems(memory: readonly unknown[]): AgentInputItem[] {
   // El SDK valida cada ítem al enviarlo; acá solo se recupera el tipo perdido al persistir.
   return memory.filter((item) => typeof item === 'object' && item !== null) as AgentInputItem[];
+}
+
+/** El uso acumulado del turno: también el de los pedidos de un turno que terminó fallando. */
+function turnUsage<T>(runContext: RunContext<T>): AgentTurnUsage {
+  const { usage } = runContext;
+  return {
+    requests: usage.requests,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    cachedInputTokens: sumDetail(usage.inputTokensDetails, 'cached_tokens'),
+    reasoningTokens: sumDetail(usage.outputTokensDetails, 'reasoning_tokens'),
+  };
 }
 
 /** Suma un detalle de uso (`cached_tokens`, `reasoning_tokens`) de todos los pedidos del turno. */

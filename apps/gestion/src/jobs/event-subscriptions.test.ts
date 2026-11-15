@@ -301,6 +301,8 @@ describe('eventSubscriptions', () => {
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
     expect(calls).toEqual([
       {
+        // El ID del evento es la clave para no avisar dos veces.
+        id: event.id,
         type: 'clients.opportunity_request_added',
         occurredAt: event.occurredAt,
         payload: { opportunityId: 'opp-1', clientId: 'client-1' },
@@ -1035,6 +1037,7 @@ describe('portal subscriptions', () => {
   it('gathers a burst of portal notices into one read per minute', () => {
     const { find } = portalSetup();
     expect(find('portals.leads_arrived.pull-portal-leads').throttleSeconds).toBe(60);
+    expect(find('portals.listing_changed_on_portal.reconcile-listing').throttleSeconds).toBe(60);
   });
 });
 

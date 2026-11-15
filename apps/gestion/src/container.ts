@@ -191,6 +191,7 @@ import {
   RequestSearchSubscription,
   type RequestSearchSubscriptionError,
   type RequestSearchSubscriptionInput,
+  MoveAgentBranchRecords,
 } from '@norde/core/clients';
 import type { RequestSearchSubscriptionOutput } from '@norde/core/clients/contracts';
 import { EraseClientConversations, MoveMergedClientConversations } from '@norde/core/conversations';
@@ -306,6 +307,7 @@ import {
   DeleteStoredMediaFiles,
   GenerateMediaVariants,
   MoveMergedClientLinks,
+  MoveProducerBranchRecords,
   RenderPropertyDocument,
   RenderPropertyListDocument,
   RevalidatePublicDevelopment,
@@ -697,6 +699,8 @@ const SCHEDULER_ACTOR = Actor.system('scheduler', [
   'properties:merge-client-data',
   'identity:merge-client-data',
   'notifications:merge-client-data',
+  'clients:move-user-branch',
+  'properties:move-user-branch',
   'notifications:create',
   'opportunities:apply-rules',
   'opportunities:run-bulk',
@@ -2286,6 +2290,13 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
       properties: new MoveMergedClientLinks({ uow: createPropertiesUnitOfWork(db, deps) }),
       favorites: new MoveMergedClientFavorites({ uow: createIdentityUnitOfWork(db, deps) }),
       notifications: new MoveMergedClientNotifications({ notifications }),
+    },
+    branchChange: {
+      clients: new MoveAgentBranchRecords({ uow: createClientsUnitOfWork(db, deps), clock }),
+      properties: new MoveProducerBranchRecords({
+        uow: createPropertiesUnitOfWork(db, deps),
+        clock,
+      }),
     },
     runImport: new RunClientImport({
       uow: createClientsUnitOfWork(db, deps),

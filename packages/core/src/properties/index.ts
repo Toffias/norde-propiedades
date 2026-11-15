@@ -651,6 +651,10 @@ export {
   MoveMergedClientLinks,
   type MoveMergedClientLinksError,
 } from './application/handlers/move-merged-client-links';
+export {
+  MoveProducerBranchRecords,
+  type MoveProducerBranchRecordsError,
+} from './application/handlers/move-producer-branch-records';
 export type {
   MovedClientLinks,
   PropertyClientMerge,

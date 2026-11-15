@@ -167,6 +167,7 @@ export class User extends AggregateRoot<UserId, UserEvent> {
     },
     now: Date,
   ): void {
+    const fromBranchId = this.#state.branchId;
     this.#state = {
       ...this.#state,
       name: data.name.trim().slice(0, MAX_NAME_LENGTH),
@@ -175,6 +176,14 @@ export class User extends AggregateRoot<UserId, UserEvent> {
       branchId: data.branchId,
       updatedAt: now,
     };
+    if (data.branchId !== fromBranchId) {
+      this.record({
+        type: 'identity.user_branch_changed',
+        aggregateId: this.id,
+        occurredAt: now,
+        payload: { userId: this.id, fromBranchId, toBranchId: data.branchId },
+      });
+    }
   }
 
   /** Reemplaza sus roles (al menos uno). Nadie cambia los suyos. */

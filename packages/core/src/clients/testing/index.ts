@@ -1,6 +1,14 @@
 // Fakes del módulo clients para tests (`@norde/core/clients/testing`).
 
-import { Actor, Email, parseId, Phone, pickWeighted, type WeightedAgent } from '../../shared';
+import {
+  Actor,
+  Email,
+  parseId,
+  Phone,
+  pickWeighted,
+  type OwnerBranchMove,
+  type WeightedAgent,
+} from '../../shared';
 import {
   InMemoryAuditLog,
   InMemoryEventPublisher,
@@ -229,6 +237,16 @@ export class InMemoryClientRepository implements ClientRepository {
     this.savedBy.set(client.id, actorId);
     return Promise.resolve();
   }
+
+  moveOwnerBranch(move: OwnerBranchMove) {
+    const moved = [...this.rows.values()]
+      .filter((row) => row.agentId === move.ownerId && row.branchId === move.fromBranchId)
+      .slice(0, move.limit);
+    for (const row of moved) {
+      this.rows.set(row.id, { ...row, branchId: move.toBranchId, updatedAt: move.now });
+    }
+    return Promise.resolve(moved.map((row) => row.id));
+  }
 }
 
 export class InMemoryOpportunityRepository implements OpportunityRepository {
@@ -261,6 +279,16 @@ export class InMemoryOpportunityRepository implements OpportunityRepository {
 
   hasStatusChangeFrom(sourceEventId: string) {
     return Promise.resolve(this.statusChanges.some((c) => c.sourceEventId === sourceEventId));
+  }
+
+  moveOwnerBranch(move: OwnerBranchMove) {
+    const moved = [...this.rows.values()]
+      .filter((row) => row.agentId === move.ownerId && row.branchId === move.fromBranchId)
+      .slice(0, move.limit);
+    for (const row of moved) {
+      this.rows.set(row.id, { ...row, branchId: move.toBranchId, updatedAt: move.now });
+    }
+    return Promise.resolve(moved.map((row) => row.id));
   }
 }
 

@@ -1,3 +1,4 @@
+import type { OwnerBranchMove } from '../../shared/domain/owner-branch-move';
 import type { Email } from '../../shared/domain/value-objects/email';
 
 import type { Client, ClientId } from './client';
@@ -41,6 +42,8 @@ export interface ClientRepository {
   findByName(name: string): Promise<Client[]>;
   /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
   save(client: Client, actorId: string): Promise<void>;
+  /** Mueve un lote de los de un dueño a su sucursal nueva (#221). Devuelve los IDs movidos. */
+  moveOwnerBranch(move: OwnerBranchMove): Promise<readonly ClientId[]>;
 }
 
 export interface OpportunityRepository {
@@ -53,6 +56,8 @@ export interface OpportunityRepository {
   save(opportunity: Opportunity, actorId: string): Promise<void>;
   /** Si una regla automática ya aplicó un cambio de estado por este evento. */
   hasStatusChangeFrom(sourceEventId: string): Promise<boolean>;
+  /** Mueve un lote de los de un dueño a su sucursal nueva (#221). Devuelve los IDs movidos. */
+  moveOwnerBranch(move: OwnerBranchMove): Promise<readonly OpportunityId[]>;
 }
 
 /** Las consultas entrantes (`inquiries`). */

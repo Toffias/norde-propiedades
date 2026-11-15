@@ -5,6 +5,7 @@ import type {
 } from '@norde/core/appraisals';
 import type {
   ApplyOpportunityRules,
+  MoveAgentBranchRecords,
   MatchFollowUps,
   NotifyTeamOfOpportunity,
   OpportunityRuleEvent,
@@ -45,6 +46,7 @@ import {
   type CreatePropertyFromAppraisal,
   type DeleteStoredMediaFiles,
   type MoveMergedClientLinks,
+  type MoveProducerBranchRecords,
   type UnlinkErasedClients,
   type GenerateMediaVariants,
   type RenderPropertyDocument,
@@ -105,6 +107,11 @@ const TOKKO_API_IMPORT_EXPIRE_SECONDS = 6 * 60 * 60;
 const TOKKO_USERS_IMPORT_EXPIRE_SECONDS = 60 * 60;
 const ErasedPayloadSchema = z.object({ erasedClientIds: z.array(z.uuid()).min(1) });
 const MergedPayloadSchema = z.object({ clientId: z.uuid(), mergedClientId: z.uuid() });
+const UserBranchChangedPayloadSchema = z.object({
+  userId: z.uuid(),
+  fromBranchId: z.uuid(),
+  toBranchId: z.uuid(),
+});
 const RulePayloadSchema = z.object({
   opportunityId: z.string(),
   // Solo en las reasignaciones; sin agente, la dejó sin nadie a cargo.
@@ -319,6 +326,14 @@ export interface MergeJobs {
   readonly properties: Pick<MoveMergedClientLinks, 'execute'>;
   readonly favorites: Pick<MoveMergedClientFavorites, 'execute'>;
   readonly notifications: Pick<MoveMergedClientNotifications, 'execute'>;
+}
+
+/**
+ * Lo que guarda una copia de la sucursal del dueño se mueve con él cuando cambia de sucursal (#221).
+ */
+export interface BranchChangeJobs {
+  readonly clients: Pick<MoveAgentBranchRecords, 'execute'>;
+  readonly properties: Pick<MoveProducerBranchRecords, 'execute'>;
 }
 
 /**
@@ -918,6 +933,35 @@ function mergeSubscriptions(jobs: MergeJobs, actor: Actor, logger: Logger): Even
   ];
 }
 
+/** El cambio de sucursal de un usuario (#221): cada módulo mueve lo suyo a la sucursal nueva. */
+function branchChangeSubscriptions(
+  jobs: BranchChangeJobs,
+  actor: Actor,
+  logger: Logger,
+): EventSubscription[] {
+  const move = (
+    name: string,
+    useCase: {
+      execute(
+        input: { userId: string; fromBranchId: string; toBranchId: string },
+        actor: Actor,
+      ): Promise<{ isErr(): boolean }>;
+    },
+  ): EventSubscription => ({
+    eventType: 'identity.user_branch_changed',
+    name,
+    handle: async (event) => {
+      const payload = UserBranchChangedPayloadSchema.parse(event.payload);
+      const result = await useCase.execute(payload, actor);
+      if (result.isErr()) logger.error({ eventId: event.id, name }, 'User branch move skipped');
+    },
+  });
+  return [
+    move('move-agent-branch-records', jobs.clients),
+    move('move-producer-branch-records', jobs.properties),
+  ];
+}
+
 function routeInquirySubscription(
   routeInquiry: Pick<RouteInquiry, 'execute'>,
   actor: Actor,
@@ -948,6 +992,7 @@ export function eventSubscriptions(deps: {
   readonly appraisals: AppraisalJobs;
   readonly erasure: ErasureJobs;
   readonly merge: MergeJobs;
+  readonly branchChange: BranchChangeJobs;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   /** La importación de unidades de un emprendimiento desde Excel (#7). */
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
@@ -1001,6 +1046,7 @@ export function eventSubscriptions(deps: {
     ...activitySubscriptions(deps.recordActivity, deps.actor, deps.logger),
     ...erasureSubscriptions(deps.erasure, deps.actor, deps.logger),
     ...mergeSubscriptions(deps.merge, deps.actor, deps.logger),
+    ...branchChangeSubscriptions(deps.branchChange, deps.actor, deps.logger),
     ...opportunitySubscriptions(deps.opportunities, deps.actor, deps.logger),
     ...followUpSubscriptions(deps.matchFollowUps, deps.actor, deps.logger),
     ...notificationSubscriptions(deps.notifyAssignment, deps.actor, deps.logger),

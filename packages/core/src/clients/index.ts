@@ -778,6 +778,10 @@ export {
   type MatchFollowUpsOutcome,
 } from './application/handlers/match-follow-ups';
 export {
+  MoveAgentBranchRecords,
+  type MoveAgentBranchRecordsError,
+} from './application/handlers/move-agent-branch-records';
+export {
   SendFollowUpDigests,
   type FollowUpDigestError,
   type FollowUpDigestFailure,

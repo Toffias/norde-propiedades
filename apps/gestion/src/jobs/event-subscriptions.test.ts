@@ -22,6 +22,7 @@ import {
   type AppraisalJobs,
   type ErasureJobs,
   type MergeJobs,
+  type BranchChangeJobs,
   type OpportunityJobs,
   type PropertyJobs,
   type SiteRevalidation,
@@ -110,6 +111,7 @@ const importActor = Actor.system('import', ['clients:run-imports', 'properties:r
 function clientJobs(calls: unknown[] = []): {
   readonly erasure: ErasureJobs;
   readonly merge: MergeJobs;
+  readonly branchChange: BranchChangeJobs;
   readonly notifyAssignment: Pick<NotifyAssignment, 'execute'>;
   readonly runImport: Pick<RunClientImport, 'execute'>;
   readonly runUnitImport: Pick<RunDevelopmentUnitImport, 'execute'>;
@@ -150,6 +152,20 @@ function clientJobs(calls: unknown[] = []): {
       favorites: move('merge-favorites'),
       appraisals: move('merge-appraisals'),
       notifications: move('merge-notifications'),
+    },
+    branchChange: {
+      clients: {
+        execute: (input, by) => {
+          calls.push(['branch-clients', input, by.id]);
+          return Promise.resolve(ok({ clients: 1, opportunities: 1 }));
+        },
+      },
+      properties: {
+        execute: (input, by) => {
+          calls.push(['branch-properties', input, by.id]);
+          return Promise.resolve(ok({ properties: 1, developments: 1 }));
+        },
+      },
     },
     notifyAssignment: {
       execute: (input, by) => {
@@ -278,6 +294,8 @@ describe('eventSubscriptions', () => {
       'clients.clients_merged.move-favorites',
       'clients.clients_merged.move-appraisals',
       'clients.clients_merged.move-notifications',
+      'identity.user_branch_changed.move-agent-branch-records',
+      'identity.user_branch_changed.move-producer-branch-records',
       'clients.opportunity_reassigned.apply-rules',
       'clients.opportunity_request_added.apply-rules',
       'clients.opportunity_listings_featured.apply-rules',
@@ -561,6 +579,15 @@ describe('eventSubscriptions', () => {
       });
     }
 
+    const branchChange = {
+      userId: CLIENT_ID,
+      fromBranchId: IMPORT_ID,
+      toBranchId: DUPLICATE_ID,
+    };
+    for (const subscription of byType('identity.user_branch_changed')) {
+      await subscription.handle({ ...event, payload: branchChange });
+    }
+
     expect(byType('clients.client_erased').map((s) => s.name)).toEqual([
       'erase-conversations',
       'unlink-properties',
@@ -590,7 +617,15 @@ describe('eventSubscriptions', () => {
         { clientId: CLIENT_ID, mergedClientId: DUPLICATE_ID },
         'system:scheduler',
       ]),
+      ['branch-clients', branchChange, 'system:scheduler'],
+      ['branch-properties', branchChange, 'system:scheduler'],
     ]);
+    await expect(
+      byType('identity.user_branch_changed')[0]?.handle({
+        ...event,
+        payload: { userId: CLIENT_ID },
+      }),
+    ).rejects.toThrow();
     await expect(
       byType('clients.clients_merged')[0]?.handle({ ...event, payload: { clientId: CLIENT_ID } }),
     ).rejects.toThrow();

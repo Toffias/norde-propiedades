@@ -1,6 +1,14 @@
 // Fakes del módulo properties para tests (`@norde/core/properties/testing`).
 
-import { Actor, err, ok, parseId, type PageSlice, type Result } from '../../shared';
+import {
+  Actor,
+  err,
+  ok,
+  parseId,
+  type OwnerBranchMove,
+  type PageSlice,
+  type Result,
+} from '../../shared';
 import {
   InMemoryAuditLog,
   InMemoryEventPublisher,
@@ -607,6 +615,16 @@ export class InMemoryPropertyRepository implements PropertyRepository {
   readonly savedBy = new Map<string, string>();
   /** Historial de precios guardado, por propiedad. */
   readonly priceChanges: { readonly propertyId: string; readonly change: PriceChange }[] = [];
+
+  moveOwnerBranch(move: OwnerBranchMove) {
+    const moved = [...this.rows.values()]
+      .filter((row) => row.producerUserId === move.ownerId && row.branchId === move.fromBranchId)
+      .slice(0, move.limit);
+    for (const row of moved) {
+      this.rows.set(row.id, { ...row, branchId: move.toBranchId, updatedAt: move.now });
+    }
+    return Promise.resolve(moved.map((row) => row.id));
+  }
 
   findById(id: PropertyId) {
     const row = this.rows.get(id);
@@ -1699,6 +1717,16 @@ export class InMemoryDevelopmentRepository implements DevelopmentRepository {
   readonly savedBy = new Map<string, string>();
 
   constructor(private readonly properties: InMemoryPropertyRepository) {}
+
+  moveOwnerBranch(move: OwnerBranchMove) {
+    const moved = [...this.rows.values()]
+      .filter((row) => row.producerUserId === move.ownerId && row.branchId === move.fromBranchId)
+      .slice(0, move.limit);
+    for (const row of moved) {
+      this.rows.set(row.id, { ...row, branchId: move.toBranchId, updatedAt: move.now });
+    }
+    return Promise.resolve(moved.map((row) => row.id));
+  }
 
   findById(id: DevelopmentId) {
     const row = this.rows.get(id);

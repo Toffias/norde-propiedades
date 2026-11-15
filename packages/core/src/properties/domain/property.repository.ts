@@ -1,3 +1,4 @@
+import type { OwnerBranchMove } from '../../shared/domain/owner-branch-move';
 import type { UnitDesignation } from './development-unit-import';
 import type { Property, PropertyId } from './property';
 
@@ -16,4 +17,6 @@ export interface PropertyRepository {
     limit: number,
   ): Promise<readonly Property[]>;
   save(property: Property, actorId: string): Promise<void>;
+  /** Mueve un lote de los de un dueño a su sucursal nueva (#221). Devuelve los IDs movidos. */
+  moveOwnerBranch(move: OwnerBranchMove): Promise<readonly PropertyId[]>;
 }

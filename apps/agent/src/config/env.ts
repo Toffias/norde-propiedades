@@ -77,6 +77,14 @@ const EnvSchema = z
     LIMIT_WEB_CHAT_REPLIES_PER_DAY: positiveInt(2000),
   })
   .superRefine((env, ctx) => {
+    // En producción los links del agente no pueden llevar a la máquina del que lee el mensaje.
+    if (env.NODE_ENV === 'production' && new URL(env.PUBLIC_SITE_URL).hostname === 'localhost') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PUBLIC_SITE_URL'],
+        message: 'En producción, la URL pública del sitio (no localhost)',
+      });
+    }
     const present = WHATSAPP_REQUIRED.filter((key) => env[key] !== undefined);
     if (present.length > 0 && present.length < WHATSAPP_REQUIRED.length) {
       for (const key of WHATSAPP_REQUIRED.filter((k) => env[k] === undefined)) {

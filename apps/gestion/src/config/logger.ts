@@ -4,8 +4,13 @@ import { pino, type Logger } from 'pino';
 
 import { getLogLevel } from './env';
 
-/** Datos personales que nunca se loguean en claro (Ley 25.326). */
-const REDACT_PATHS = ['*.token', '*.phone', '*.email', '*.dni', '*.password', '*.cookie'];
+/** Hasta tres niveles de anidamiento: pino no tiene un comodín recursivo. */
+function redactPaths(keys: readonly string[]): string[] {
+  return keys.flatMap((key) => [key, `*.${key}`, `*.*.${key}`]);
+}
+
+/** Datos personales y secretos que nunca se loguean en claro (Ley 25.326). */
+const REDACT_PATHS = redactPaths(['token', 'phone', 'email', 'dni', 'password', 'cookie']);
 
 let logger: Logger | undefined;
 

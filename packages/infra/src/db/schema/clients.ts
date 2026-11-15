@@ -336,6 +336,13 @@ export const opportunities = coreSchema.table(
     updatedBy: text('updated_by'),
   },
   (t) => [
+    // El tablero ordena cada sección por "en esta etapa desde" (la misma expresión del listado).
+    index('opportunities_stage_waiting_idx').on(
+      t.stageId,
+      sql`coalesce(${t.statusChangedAt}, ${t.createdAt})`,
+      t.id,
+    ),
+    index('opportunities_close_reason_idx').on(t.closeReasonId),
     index('opportunities_client_status_idx').on(t.clientId, t.status),
     index('opportunities_status_created_idx').on(t.status, t.createdAt),
     index('opportunities_agent_status_updated_idx').on(t.agentId, t.status, t.updatedAt),
@@ -649,6 +656,7 @@ export const savedSearches = coreSchema.table(
     ...trash(),
   },
   (t) => [
+    index('saved_searches_opportunity_idx').on(t.opportunityId),
     index('saved_searches_client_idx').on(t.clientId),
     // Búsquedas de la ficha del cliente, las actualizadas último primero.
     index('saved_searches_client_updated_idx')
@@ -697,6 +705,7 @@ export const featuredListings = coreSchema.table(
     ...authorship(),
   },
   (t) => [
+    index('featured_listings_opportunity_idx').on(t.opportunityId),
     uniqueIndex('featured_listings_client_property_uq')
       .on(t.clientId, t.propertyId)
       .where(sql`removed_at is null`),
@@ -786,6 +795,7 @@ export const sharedListings = coreSchema.table(
     ...authorship(),
   },
   (t) => [
+    index('shared_listings_opportunity_idx').on(t.opportunityId),
     uniqueIndex('shared_listings_token_hash_uq').on(t.tokenHash),
     index('shared_listings_client_sent_idx').on(t.clientId, t.sentAt),
   ],
@@ -852,6 +862,9 @@ export const followUpMatches = coreSchema.table(
     ...authorship(),
   },
   (t) => [
+    index('follow_up_matches_saved_search_idx').on(t.savedSearchId),
+    index('follow_up_matches_featured_listing_idx').on(t.featuredListingId),
+    index('follow_up_matches_shared_listing_idx').on(t.sharedListingId),
     uniqueIndex('follow_up_matches_new_listing_uq')
       .on(t.clientId, t.propertyId)
       .where(sql`reason = 'new_listing'`),

@@ -34,6 +34,9 @@ export class DrizzleClientErasure implements ClientErasure {
     if (clientIds.length === 0) return;
     const ids = [...clientIds];
     await this.eraseUnassignedInquiries(ids);
+    // El trigger de `audit_log` rechaza los DELETE salvo con esta marca, que dura lo que la
+    // transacción de la supresión (migración 0063).
+    await this.db.execute(sql`select set_config('norde.audit_erasure', 'on', true)`);
     await this.db.delete(auditLog).where(arrayOverlaps(auditLog.clientIds, ids));
     await this.db.delete(clients).where(inArray(clients.id, ids));
     await this.db

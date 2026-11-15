@@ -1,6 +1,6 @@
 import { FixedClock } from '@norde/core/shared/testing';
 import { hashPassword } from 'better-auth/crypto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { insertTestBranch, useTestDatabase } from '../../test/database';
@@ -169,7 +169,8 @@ describe('Two-factor authentication', () => {
   it('asks for the code after the password and audits the sign-in only with it', async () => {
     const userId = await insertUser();
     const { totpUri } = await enableTwoFactor();
-    await db.delete(auditLog);
+    // `audit_log` es solo de inserción (trigger de 0063): se vacía con TRUNCATE.
+    await db.execute(sql`truncate core.audit_log`);
     await db.delete(sessions);
 
     const challenge = await signIn();
@@ -206,7 +207,8 @@ describe('Two-factor authentication', () => {
     const userId = await insertUser();
     const { backupCodes } = await enableTwoFactor();
     const code = backupCodes[0] ?? '';
-    await db.delete(auditLog);
+    // `audit_log` es solo de inserción (trigger de 0063): se vacía con TRUNCATE.
+    await db.execute(sql`truncate core.audit_log`);
 
     const first = await signIn();
     await auth.api.verifyBackupCode({ body: { code }, headers: cookiesFrom(first.headers) });

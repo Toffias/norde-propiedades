@@ -99,8 +99,8 @@ describe('RequestSearchSubscription', () => {
     expect(uow.savedSearches.rows.size).toBe(0);
 
     expect(mailer.sent.map((email) => email.to)).toEqual(['ana@example.com']);
+    expect(emails.composed[0]).not.toHaveProperty('firstName');
     expect(emails.composed[0]).toMatchObject({
-      firstName: 'Ana',
       searchSummary: 'Departamentos en venta en Palermo',
       frequencyLabel: 'una vez por semana',
       expiresAt: new Date('2026-11-07T15:00:00Z'),

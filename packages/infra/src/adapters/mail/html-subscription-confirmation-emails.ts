@@ -40,7 +40,7 @@ function formatDateTime(date: Date): string {
 export class HtmlSubscriptionConfirmationEmails implements SubscriptionConfirmationEmails {
   compose(content: SubscriptionConfirmationContent): SubscriptionConfirmationEmail {
     const subject = `Confirmá tu suscripción a ${content.companyName}`;
-    const greeting = content.firstName === undefined ? '¡Hola!' : `¡Hola, ${content.firstName}!`;
+    const greeting = '¡Hola!';
     const intro = `Pediste recibir ${content.frequencyLabel} las propiedades nuevas y las bajas de precio de esta búsqueda:`;
     const expires = `El link vence el ${formatDateTime(content.expiresAt)}.`;
     const ignore = 'Si no fuiste vos, ignorá este email: no te vamos a mandar nada.';

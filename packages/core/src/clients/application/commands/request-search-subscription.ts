@@ -18,7 +18,6 @@ import {
   type RequestSearchSubscriptionInput,
   type RequestSearchSubscriptionOutput,
 } from '../../contracts';
-import { firstNameOf } from '../../domain/quick-reply';
 import type { InvalidSavedSearchError } from '../../domain/saved-search';
 import {
   MAX_PENDING_SUBSCRIPTIONS_PER_EMAIL,
@@ -142,7 +141,6 @@ export class RequestSearchSubscription {
         // Dentro de la transacción: si el email no sale, la suscripción no queda guardada.
         const composed = this.deps.emails.compose({
           companyName: company.name,
-          firstName: firstNameOf(data.name),
           searchSummary: subscription.summary,
           frequencyLabel: frequencyLabel(subscription.frequency),
           confirmUrl: searchSubscriptionConfirmUrl(siteUrl, token),

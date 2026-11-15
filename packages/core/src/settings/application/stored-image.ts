@@ -10,7 +10,7 @@ import type { FileStorage } from './ports/file-storage';
 export async function withStoredImage<T extends { readonly ok: boolean }>(
   deps: { readonly storage: FileStorage; readonly ids: IdGenerator },
   image: { readonly contentType: string; readonly bytes: Uint8Array },
-  folder: 'logo' | 'watermark',
+  folder: 'logo' | 'watermark' | 'reserved-banner',
   work: (key: string) => Promise<T>,
 ): Promise<T> {
   const key = `settings/${folder}/${deps.ids.next()}`;

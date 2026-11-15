@@ -7,7 +7,8 @@ export type GetCompanyLogoError = ForbiddenError | { readonly type: 'NotFound' }
 
 /**
  * Un logo de la configuración, para mostrarlo en el panel o en la web. Los de la empresa van en la
- * cabecera y los ve cualquier usuario; el de la marca de agua pide `settings:read`.
+ * cabecera y los ve cualquier usuario; el de la marca de agua y el banner "Reservado" piden
+ * `settings:read`.
  */
 export class GetCompanyLogo {
   constructor(
@@ -21,7 +22,8 @@ export class GetCompanyLogo {
     input: { readonly which: CompanyLogoKind },
     actor: Actor,
   ): Promise<Result<FileContent, GetCompanyLogoError>> {
-    if (input.which === 'watermark' && !actor.can('settings:read')) {
+    const internal = input.which === 'watermark' || input.which === 'reserved-banner';
+    if (internal && !actor.can('settings:read')) {
       return err({ type: 'Forbidden' });
     }
     const settings = await this.deps.settings.get();
@@ -29,6 +31,7 @@ export class GetCompanyLogo {
       company: settings.logoKey,
       'company-dark': settings.darkLogoKey,
       watermark: settings.watermark.logoKey,
+      'reserved-banner': settings.reservedBannerKey,
     }[input.which];
     const stored = key === undefined ? undefined : await this.deps.storage.get(key);
     if (stored === undefined) return err({ type: 'NotFound' });

@@ -3,6 +3,7 @@ import type { DomainEvent } from '../../shared/domain/domain-event';
 export const COMPANY_SETTINGS_SECTIONS = [
   'general',
   'watermark',
+  'reserved_banner',
   'portals',
   'pdf',
   'email',

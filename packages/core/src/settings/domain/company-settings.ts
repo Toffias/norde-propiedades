@@ -39,6 +39,11 @@ export interface CompanySettingsSnapshot {
   /** Pesos por dólar para el buscador de la web; sin cargar, no se convierten precios. */
   readonly usdExchangeRate: UsdExchangeRate | undefined;
   readonly watermark: Watermark;
+  /**
+   * Banner "Reservado" que se pone sobre la portada de una propiedad reservada. Sin cargar, se usa
+   * el de fábrica (franja roja con "RESERVADO").
+   */
+  readonly reservedBannerKey: string | undefined;
   readonly portalDescriptionFooter: DescriptionFooterTemplate | undefined;
   readonly pdfOptions: PdfOptions;
   readonly emailSender: EmailSender;
@@ -83,6 +88,7 @@ export class CompanySettings extends AggregateRoot<CompanySettingsId, CompanySet
       newsScope: 'all',
       usdExchangeRate: undefined,
       watermark: Watermark.disabled(),
+      reservedBannerKey: undefined,
       portalDescriptionFooter: undefined,
       pdfOptions: DEFAULT_PDF_OPTIONS,
       emailSender: { fromName: undefined, replyTo: undefined },
@@ -107,6 +113,10 @@ export class CompanySettings extends AggregateRoot<CompanySettingsId, CompanySet
 
   get watermark(): Watermark {
     return this.#state.watermark;
+  }
+
+  get reservedBannerKey(): string | undefined {
+    return this.#state.reservedBannerKey;
   }
 
   updateGeneral(general: GeneralSettings, now: Date): Result<void, InvalidCompanySettingsError> {
@@ -137,6 +147,13 @@ export class CompanySettings extends AggregateRoot<CompanySettingsId, CompanySet
   configureWatermark(watermark: Watermark, now: Date): void {
     this.#state = { ...this.#state, watermark };
     this.changed('watermark', now);
+  }
+
+  /** Cambia el banner "Reservado" (`undefined` vuelve al de fábrica). */
+  changeReservedBanner(reservedBannerKey: string | undefined, now: Date): void {
+    if (this.#state.reservedBannerKey === reservedBannerKey) return;
+    this.#state = { ...this.#state, reservedBannerKey };
+    this.changed('reserved_banner', now);
   }
 
   changePortalDescriptionFooter(footer: DescriptionFooterTemplate | undefined, now: Date): void {

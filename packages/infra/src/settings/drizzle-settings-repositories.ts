@@ -115,6 +115,7 @@ export class DrizzleCompanySettingsRepository
             'watermark',
           )
         : Watermark.disabled(),
+      reservedBannerKey: row.reservedBannerStorageKey ?? undefined,
       portalDescriptionFooter: optional(row.portalDescriptionFooter, (v) =>
         stored(DescriptionFooterTemplate.create(v), 'footer'),
       ),
@@ -140,6 +141,7 @@ export class DrizzleCompanySettingsRepository
         newsScope: s.newsScope,
         usdExchangeRateCents: s.usdExchangeRate?.arsCentsPerUsd ?? null,
         watermark: s.watermark.toProps(),
+        reservedBannerStorageKey: s.reservedBannerKey ?? null,
         portalDescriptionFooter: s.portalDescriptionFooter?.value ?? null,
         pdfSettings: s.pdfOptions,
         emailFromName: s.emailSender.fromName ?? null,

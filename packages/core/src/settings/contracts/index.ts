@@ -94,8 +94,16 @@ export const UpdateGeneralSettingsInputSchema = z.object({
 });
 export type UpdateGeneralSettingsInput = z.input<typeof UpdateGeneralSettingsInputSchema>;
 
-/** Qué logo: el de la empresa, el de la empresa para fondos oscuros o el de la marca de agua. */
-export const COMPANY_LOGO_KINDS = ['company', 'company-dark', 'watermark'] as const;
+/**
+ * Qué imagen: el logo de la empresa, el de fondos oscuros, el de la marca de agua o el banner
+ * "Reservado" de la portada.
+ */
+export const COMPANY_LOGO_KINDS = [
+  'company',
+  'company-dark',
+  'watermark',
+  'reserved-banner',
+] as const;
 export type CompanyLogoKind = (typeof COMPANY_LOGO_KINDS)[number];
 
 /** Sin `image`, se quita el logo. */
@@ -181,6 +189,11 @@ export interface CompanySettingsView {
     readonly sizePercent: number;
     readonly position: WatermarkPositionValue;
     readonly opacity: number;
+  };
+  /** Banner "Reservado" de la portada: sin imagen cargada, se usa el de fábrica. */
+  readonly reservedBanner: {
+    readonly hasImage: boolean;
+    readonly version: string | undefined;
   };
   readonly portalDescriptionFooter: string | undefined;
   readonly pdfOptions: UpdatePdfOptionsInput;

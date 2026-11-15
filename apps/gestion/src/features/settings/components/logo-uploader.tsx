@@ -29,6 +29,7 @@ const ALT: Record<CompanyLogoKind, string> = {
   company: 'Logo de la empresa',
   'company-dark': 'Logo de la empresa para fondos oscuros',
   watermark: 'Logo de la marca de agua',
+  'reserved-banner': 'Banner "Reservado"',
 };
 
 const HINT: Record<CompanyLogoKind, string> = {
@@ -36,6 +37,21 @@ const HINT: Record<CompanyLogoKind, string> = {
   'company-dark':
     'Se usa sobre fondos oscuros: el tema oscuro de la web y el menú lateral del panel. Mejor con fondo transparente y colores claros.',
   watermark: 'Mejor con fondo transparente, para que se vea bien sobre cualquier color.',
+  'reserved-banner':
+    'Una franja horizontal, mejor PNG con fondo transparente. Se pone pegada al borde izquierdo de la portada, a un quinto del alto, con el 65 % del ancho.',
+};
+
+/** Cómo se nombra la imagen en los botones y avisos. */
+const NOUN: Record<CompanyLogoKind, 'logo' | 'banner'> = {
+  company: 'logo',
+  'company-dark': 'logo',
+  watermark: 'logo',
+  'reserved-banner': 'banner',
+};
+
+/** Sin imagen cargada, el banner "Reservado" usa el de fábrica: se muestra ese. */
+const DEFAULT_IMAGE: Partial<Record<CompanyLogoKind, string>> = {
+  'reserved-banner': '/reserved-banner-default.png',
 };
 
 export interface LogoUploaderProps {
@@ -60,6 +76,7 @@ export function LogoUploader({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [pending, startTransition] = useTransition();
+  const noun = NOUN[which];
 
   function change(file: File | undefined) {
     setError(undefined);
@@ -80,7 +97,15 @@ export function LogoUploader({
         return;
       }
       setOpen(false);
-      toast.success(file ? 'Logo actualizado' : 'Logo quitado');
+      toast.success(
+        noun === 'banner'
+          ? file
+            ? 'Banner actualizado'
+            : 'Volviste al banner de fábrica'
+          : file
+            ? 'Logo actualizado'
+            : 'Logo quitado',
+      );
       router.refresh();
     });
   }
@@ -91,8 +116,9 @@ export function LogoUploader({
     setOpen(next);
   }
 
-  const uploadTitle = hasLogo ? 'Cambiar el logo' : 'Subir el logo';
+  const uploadTitle = hasLogo ? `Cambiar el ${noun}` : `Subir el ${noun}`;
   const src = `/mi-empresa/logo/${which}?v=${encodeURIComponent(version)}`;
+  const defaultImage = DEFAULT_IMAGE[which];
 
   return (
     <div className="flex flex-col gap-3">
@@ -117,9 +143,16 @@ export function LogoUploader({
               fallback={
                 <span className="flex flex-col items-center gap-1.5 text-xs text-muted-foreground">
                   <ImageOffIcon className="h-5 w-5" aria-hidden />
-                  No se pudo mostrar el logo
+                  No se pudo mostrar el {noun}
                 </span>
               }
+            />
+          ) : defaultImage !== undefined ? (
+            // eslint-disable-next-line @next/next/no-img-element -- imagen estática chica del panel, sin optimizar.
+            <img
+              src={defaultImage}
+              alt={`${ALT[which]} de fábrica`}
+              className="max-h-full max-w-full object-contain"
             />
           ) : (
             <span
@@ -161,7 +194,7 @@ export function LogoUploader({
                 ) : (
                   <Trash2Icon className="h-4 w-4" />
                 )}
-                Quitar el logo
+                {noun === 'banner' ? 'Volver al de fábrica' : 'Quitar el logo'}
               </Button>
             )}
           </div>

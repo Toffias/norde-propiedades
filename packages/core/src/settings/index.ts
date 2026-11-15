@@ -136,6 +136,10 @@ export {
   type ChangeWatermarkLogoError,
 } from './application/commands/change-watermark-logo';
 export {
+  ChangeReservedBanner,
+  type ChangeReservedBannerError,
+} from './application/commands/change-reserved-banner';
+export {
   UpdatePortalDescriptionFooter,
   type UpdatePortalDescriptionFooterError,
 } from './application/commands/update-portal-description-footer';

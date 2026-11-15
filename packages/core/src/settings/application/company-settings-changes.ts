@@ -17,6 +17,7 @@ export function companySettingsAuditState(settings: CompanySettings): AuditState
     newsScope: s.newsScope,
     usdExchangeRateCents: s.usdExchangeRate?.arsCentsPerUsd,
     watermark: toAuditValue(s.watermark.toProps()),
+    reservedBannerKey: s.reservedBannerKey,
     portalDescriptionFooter: s.portalDescriptionFooter?.value,
     pdfOptions: toAuditValue(s.pdfOptions),
     emailFromName: s.emailSender.fromName,
@@ -78,6 +79,10 @@ export function toCompanySettingsView(settings: CompanySettings): CompanySetting
       sizePercent: s.watermark.sizePercent,
       position: s.watermark.position,
       opacity: s.watermark.opacity,
+    },
+    reservedBanner: {
+      hasImage: s.reservedBannerKey !== undefined,
+      version: storageVersion(s.reservedBannerKey),
     },
     portalDescriptionFooter: s.portalDescriptionFooter?.value,
     pdfOptions: s.pdfOptions,

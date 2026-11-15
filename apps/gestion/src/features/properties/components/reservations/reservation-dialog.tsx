@@ -61,7 +61,7 @@ function defaults(subject: ReservationSubject, reservation: ReservationRow | und
   if (reservation !== undefined) {
     return {
       propertyId: subject.propertyId,
-      clientId: reservation.client.id,
+      clientId: reservation.client?.id ?? '',
       operation: reservation.operation,
       agentUserId: reservation.agent?.id,
       managerUserId: reservation.manager?.id,
@@ -91,7 +91,8 @@ function defaults(subject: ReservationSubject, reservation: ReservationRow | und
 
 /**
  * Reservar una propiedad (desde su ficha o desde una destacada de un contacto) o editar su reserva
- * activa. Al editar, el contacto y la operación no cambian: se ven, pero no se eligen.
+ * activa. El contacto es opcional: si no se sabe quién reservó, se carga después al editar. Al
+ * editar, la operación no cambia, y el contacto tampoco si la reserva viene de una oportunidad.
  */
 export function ReservationDialog({
   subject,
@@ -114,7 +115,19 @@ export function ReservationDialog({
   });
   const { control } = form;
   const pending = form.formState.isSubmitting;
-  const fixedClient = editing ? reservation.client : subject.client;
+  // El contacto no se elige si viene de una destacada (al reservar) o la reserva tiene oportunidad.
+  const fixedClient = editing
+    ? reservation.opportunityId === undefined
+      ? undefined
+      : (reservation.client ?? { id: '', name: undefined })
+    : subject.client;
+  const currentClient =
+    reservation?.client === undefined
+      ? undefined
+      : {
+          value: reservation.client.id,
+          label: reservation.client.name ?? 'Contacto en la papelera',
+        };
 
   function close() {
     form.reset(defaults(subject, reservation));
@@ -128,6 +141,7 @@ export function ReservationDialog({
       editing
         ? updateReservationAction({
             reservationId: reservation.id,
+            clientId: values.clientId,
             agentUserId: values.agentUserId,
             managerUserId: values.managerUserId,
             amount: values.amount,
@@ -163,7 +177,7 @@ export function ReservationDialog({
           </DialogTitle>
           <DialogDescription>
             {editing
-              ? 'El contacto y la operación no cambian: si cambian, la reserva se da por caída y se reserva de nuevo.'
+              ? 'La operación no cambia: si cambia, la reserva se da por caída y se reserva de nuevo.'
               : 'La propiedad pasa a reservada: deja de ofrecerse en la web hasta que la reserva se caiga.'}
           </DialogDescription>
         </DialogHeader>
@@ -181,19 +195,30 @@ export function ReservationDialog({
                   name="clientId"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-2">
-                      <FormLabel>Contacto</FormLabel>
+                      <FormLabel>
+                        {currentClient === undefined ? 'Contacto (opcional)' : 'Contacto'}
+                      </FormLabel>
                       <FormControl>
                         <EntityPicker
                           value={field.value === '' ? undefined : field.value}
-                          initial={undefined}
+                          initial={currentClient}
                           onChange={(id) => {
                             field.onChange(id ?? '');
                           }}
                           loadPage={loadClientOptions}
                           placeholder="Buscalo por nombre, teléfono o email"
                           searchPlaceholder="Buscar contacto"
+                          {...(currentClient === undefined
+                            ? { clearLabel: 'Quitar contacto' }
+                            : {})}
                         />
                       </FormControl>
+                      {currentClient === undefined && (
+                        <FormDescription>
+                          Si todavía no sabés quién reservó, dejalo vacío y cargalo después desde la
+                          reserva.
+                        </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

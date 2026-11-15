@@ -902,8 +902,11 @@ export {
   type NegativeReservationAmountError,
   type NewReservation,
   type ReservationAmount,
+  type ReservationChanges,
+  type ReservationClientLockedError,
   type ReservationId,
   type ReservationNotActiveError,
+  type ReservationOpportunityWithoutClientError,
   type ReservationSnapshot,
   type ReservationTerms,
 } from './domain/reservation';

@@ -2190,7 +2190,9 @@ export class InMemoryReservationRepository implements ReservationRepository {
 
   findActiveByClients(clientIds: readonly string[], limit: number) {
     const rows = [...this.rows.values()]
-      .filter((r) => clientIds.includes(r.clientId) && r.status === 'active')
+      .filter(
+        (r) => r.clientId !== undefined && clientIds.includes(r.clientId) && r.status === 'active',
+      )
       .slice(0, limit);
     return Promise.resolve(rows.map((row) => Reservation.restore(row)));
   }
@@ -2201,7 +2203,9 @@ export class InMemoryReservationRepository implements ReservationRepository {
   }
 
   deleteByClients(clientIds: readonly string[]) {
-    const ids = [...this.rows.values()].filter((r) => clientIds.includes(r.clientId));
+    const ids = [...this.rows.values()].filter(
+      (r) => r.clientId !== undefined && clientIds.includes(r.clientId),
+    );
     for (const row of ids) this.rows.delete(row.id);
     return Promise.resolve(ids.length);
   }

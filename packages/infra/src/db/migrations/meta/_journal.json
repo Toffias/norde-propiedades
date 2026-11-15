@@ -456,6 +456,13 @@
       "when": 1794712481687,
       "tag": "0064_outbox_retry_backoff",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1794777867397,
+      "tag": "0065_reservation_optional_client",
+      "breakpoints": true
     }
   ]
 }

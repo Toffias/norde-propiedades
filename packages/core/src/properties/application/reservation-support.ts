@@ -1,3 +1,4 @@
+import { canActOn, OWNERSHIP_RULES } from '../../identity';
 import {
   err,
   ok,
@@ -13,6 +14,7 @@ import type { Property } from '../domain/property';
 import type { Reservation, ReservationAmount, ReservationTerms } from '../domain/reservation';
 import type { ReservationRepository } from '../domain/reservation.repository';
 import type { PropertiesTransaction } from './ports/properties-transaction';
+import type { ReservationParties } from './ports/reservation-parties';
 import type { Producers } from './ports/user-names';
 import { findProperty, type PropertyNotFoundError } from './property-support';
 
@@ -105,15 +107,36 @@ export function reservationAuditState(reservation: Reservation): AuditState {
 
 /**
  * Las reservas se registran en el historial de su propiedad (la entidad principal), con el cliente
- * en `clientIds` para poder suprimirlas.
+ * en `clientIds` para poder suprimirlas. Si el cliente cambió, van los dos (`previousClientId`):
+ * la entrada tiene los datos de ambos.
  */
-export function reservationTarget(action: string, reservation: Reservation): AuditTarget {
-  return {
-    action,
-    entityType: 'property',
-    entityId: reservation.propertyId,
-    clientIds: [reservation.clientId],
-  };
+export function reservationTarget(
+  action: string,
+  reservation: Reservation,
+  previousClientId?: string,
+): AuditTarget {
+  const clientIds = [...new Set([previousClientId, reservation.clientId])].filter(
+    (id): id is string => id !== undefined,
+  );
+  return { action, entityType: 'property', entityId: reservation.propertyId, clientIds };
+}
+
+/** El contacto no existe, está en la papelera, se unificó o el que reserva no lo puede ver. */
+export interface ReservationClientNotFoundError {
+  readonly type: 'ReservationClientNotFound';
+}
+
+/** Que el contacto exista (sin papelera ni unificación) y el actor lo pueda ver. */
+export async function checkReservationClient(
+  parties: ReservationParties,
+  actor: Actor,
+  clientId: string,
+): Promise<Result<void, ReservationClientNotFoundError>> {
+  const client = await parties.client(clientId);
+  if (!client || !canActOn(actor, OWNERSHIP_RULES.clientsRead, client)) {
+    return err({ type: 'ReservationClientNotFound' });
+  }
+  return ok(undefined);
 }
 
 export async function findReservation(

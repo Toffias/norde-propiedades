@@ -7,6 +7,7 @@ import {
   ReserveProperty,
   SignReservation,
   UnlinkErasedClients,
+  UpdateReservation,
   type Producers,
   type PropertyId,
 } from '@norde/core/properties';
@@ -201,6 +202,45 @@ describe('reservations', () => {
       await list.execute({ propertyId, sort: 'reservedAt', page: 1, pageSize: 1 }, AGENT_ACTOR),
     );
     expect(oldestFirst.items.map((item) => item.status)).toEqual(['fallen']);
+  });
+
+  it('reserves without a contact and takes it later', async () => {
+    await aClient(CLIENT, 'Lucía Pérez');
+    const propertyId = await anAvailableProperty('DEP0105');
+    const { reservationId } = unwrap(
+      await reserve.execute({ ...input(propertyId), clientId: undefined }, AGENT_ACTOR),
+    );
+    expect(await statusOf(propertyId)).toBe('reserved');
+
+    const list = new ListPropertyReservations({
+      reservations: new DrizzlePropertyReservationsQuery(db),
+      users: { names: () => Promise.resolve(new Map()) },
+    });
+    const before = unwrap(await list.execute({ propertyId }, AGENT_ACTOR));
+    expect(before.items).toEqual([
+      expect.objectContaining({ id: reservationId, client: undefined }),
+    ]);
+
+    unwrap(
+      await new UpdateReservation({ uow, producers, clock }).execute(
+        { ...input(propertyId), reservationId, clientId: CLIENT },
+        MANAGER,
+      ),
+    );
+    const after = unwrap(await list.execute({ propertyId }, AGENT_ACTOR));
+    expect(after.items).toEqual([
+      expect.objectContaining({ client: { id: CLIENT, name: 'Lucía Pérez' } }),
+    ]);
+    const history = await db
+      .select({ action: auditLog.action, clientIds: auditLog.clientIds })
+      .from(auditLog)
+      .where(eq(auditLog.entityId, propertyId));
+    expect(history).toEqual(
+      expect.arrayContaining([
+        { action: 'property.reserved', clientIds: [] },
+        { action: 'property.reservation_updated', clientIds: [CLIENT] },
+      ]),
+    );
   });
 
   it('keeps one active reservation per property when two reserve at the same time', async () => {

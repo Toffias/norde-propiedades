@@ -26,6 +26,9 @@ export const RESERVATION_ERROR_MESSAGES = {
   ReservationClientNotFound: 'No encontramos ese contacto. Puede que lo hayan borrado o unificado.',
   ReservationOpportunityNotFound:
     'No encontramos esa oportunidad del contacto. Recargá la página y probá de nuevo.',
+  ReservationOpportunityWithoutClient: 'Elegí el contacto de la oportunidad.',
+  ReservationClientLocked:
+    'La reserva viene de una oportunidad: el contacto es el de esa oportunidad y no cambia.',
   NegativeReservationAmount: 'Los montos no pueden ser negativos.',
   InvalidCommission: 'La comisión va de 0 a 100, con hasta dos decimales.',
   ReservationNotFound: 'No encontramos esa reserva. Recargá la ficha.',

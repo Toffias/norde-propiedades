@@ -4,13 +4,12 @@ import type { ReservationRow } from '@norde/core/properties/contracts';
 import type { Page } from '@norde/core/shared';
 import type { DataTableColumn } from '@norde/ui/components/data-table';
 import { StatusPill } from '@norde/ui/components/status-pill';
-import type { Route } from 'next';
-import Link from 'next/link';
 
 import { EMPTY_VALUE, formatDate, formatDateOnly } from '../../../../lib/format';
 import { ServerDataTable } from '../../../shared/components/server-data-table';
 import { OPERATION_LABELS, RESERVATION_STATUS_DISPLAY } from '../../labels';
-import { reservationAmount, reservationClient, reservationCommission } from './reservation-format';
+import { ReservationClientLink } from './reservation-client-link';
+import { reservationAmount, reservationCommission } from './reservation-format';
 
 /** La pestaña Reservas de la ficha: las activas, caídas y firmadas de la propiedad. */
 export function ReservationsGrid({
@@ -27,13 +26,7 @@ export function ReservationsGrid({
       className: 'whitespace-normal',
       cell: (row) => (
         <div className="flex min-w-0 flex-col">
-          <Link
-            // La ficha del contacto: typedRoutes no verifica un segmento armado.
-            href={`/contactos/${row.client.id}` as Route}
-            className="font-medium hover:underline"
-          >
-            {reservationClient(row)}
-          </Link>
+          <ReservationClientLink reservation={row} />
           <span className="text-xs text-muted-foreground">{OPERATION_LABELS[row.operation]}</span>
         </div>
       ),

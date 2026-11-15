@@ -471,7 +471,12 @@ export function PendingView({
                   ? `Vencida el ${formatDateOnly(row.estimatedSigningDate)}`
                   : `Firma ${formatDateOnly(row.estimatedSigningDate)}`
               }
-              detail={[`Reserva de ${row.clientName ?? 'cliente sin nombre'}`, row.agent?.name]
+              detail={[
+                row.clientId === undefined
+                  ? 'Reserva sin contacto'
+                  : `Reserva de ${row.clientName ?? 'cliente sin nombre'}`,
+                row.agent?.name,
+              ]
                 .filter((part) => part !== undefined)
                 .join(' · ')}
               actions={

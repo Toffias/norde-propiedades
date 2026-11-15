@@ -21,5 +21,6 @@ export function reservationAmount(reservation: Pick<ReservationRow, 'amount'>): 
 
 /** El nombre del contacto, o por qué no se muestra. */
 export function reservationClient(reservation: Pick<ReservationRow, 'client'>): string {
+  if (reservation.client === undefined) return 'Sin contacto';
   return reservation.client.name ?? 'Contacto en la papelera';
 }

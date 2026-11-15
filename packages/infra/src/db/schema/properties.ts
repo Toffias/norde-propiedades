@@ -758,8 +758,11 @@ export const reservations = coreSchema.table(
     propertyId: uuid('property_id')
       .notNull()
       .references(() => properties.id, { onDelete: 'restrict' }),
-    /** Cliente del módulo clients: solo el ID, sin foreign key entre módulos. */
-    clientId: uuid('client_id').notNull(),
+    /**
+     * Cliente del módulo clients: solo el ID, sin foreign key entre módulos. `null`: se reservó sin
+     * saber quién (se carga después).
+     */
+    clientId: uuid('client_id'),
     /** Oportunidad del módulo clients: solo el ID, sin foreign key entre módulos. */
     opportunityId: uuid('opportunity_id'),
     /** Usuario del módulo identity: solo el ID, sin foreign key entre módulos. */

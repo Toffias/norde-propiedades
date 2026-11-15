@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { Actor } from '../../../shared';
 import { FixedClock, SequentialIdGenerator, unwrap, unwrapErr } from '../../../shared/testing';
 import {
   BRANCH_ID,
@@ -74,6 +75,21 @@ const INPUT = {
   estimatedSigningDate: '2026-11-15',
 };
 
+/** Los términos de la reserva de prueba, sin cambios. */
+const TERMS = {
+  amount: '5000',
+  currency: 'USD' as const,
+  commissionPct: '3',
+  estimatedSigningDate: '2026-11-15',
+};
+const OTHER_CLIENT = '00000000-0000-7000-8000-0000000000d3';
+/** Edita reservas y ve todos los contactos: puede cargar el de una reserva. */
+const MANAGER_SEEING_CLIENTS = Actor.user(OTHER_USER_ID, [
+  'properties:read',
+  'reservations:*',
+  'clients:read-all',
+]);
+
 describe('ReserveProperty', () => {
   it('reserves an available property and records it in its history', async () => {
     const { uow, reserve, statusOf } = setup();
@@ -124,6 +140,30 @@ describe('ReserveProperty', () => {
         },
       }),
     ]);
+  });
+
+  it('reserves without a contact, and the history has no client', async () => {
+    const { uow, reserve, statusOf } = setup();
+    unwrap(await reserve.execute({ ...INPUT, clientId: undefined }, TEST_RESERVING_AGENT));
+
+    expect(statusOf()).toBe('reserved');
+    expect(uow.reservations.rows.get(FIRST_ID)).toMatchObject({ clientId: undefined });
+    const [entry] = uow.audit.entries;
+    expect(entry).toMatchObject({ action: 'property.reserved', clientIds: [] });
+    expect(entry?.changes).not.toHaveProperty('clientId');
+  });
+
+  it('needs the contact when it comes from an opportunity', async () => {
+    const { uow, reserve } = setup();
+    expect(
+      unwrapErr(
+        await reserve.execute(
+          { ...INPUT, clientId: undefined, opportunityId: OPPORTUNITY_ID },
+          TEST_RESERVING_AGENT,
+        ),
+      ),
+    ).toMatchObject({ type: 'InvalidInput', issues: ['Elegí el contacto de la oportunidad.'] });
+    expect(uow.reservations.rows.size).toBe(0);
   });
 
   it('keeps the opportunity of a featured property and takes another agent with its branch', async () => {
@@ -287,6 +327,100 @@ describe('UpdateReservation', () => {
         },
       }),
     ]);
+  });
+
+  it('takes the contact of a reservation made without one', async () => {
+    const { uow, producers, clock, stored } = reserved();
+    uow.reservations.rows.set(RESERVATION_ID, reservationSnapshot({ clientId: undefined }));
+    const update = new UpdateReservation({ uow, producers, clock });
+    unwrap(
+      await update.execute(
+        { ...TERMS, reservationId: RESERVATION_ID, clientId: CLIENT_ID },
+        MANAGER_SEEING_CLIENTS,
+      ),
+    );
+
+    expect(stored()).toMatchObject({ clientId: CLIENT_ID });
+    expect(uow.audit.entries).toEqual([
+      expect.objectContaining({
+        action: 'property.reservation_updated',
+        clientIds: [CLIENT_ID],
+        changes: { clientId: { before: null, after: CLIENT_ID } },
+      }),
+    ]);
+  });
+
+  it('changes the contact and keeps both in the history to erase them', async () => {
+    const { uow, producers, clock, stored } = reserved();
+    uow.reservationParties.clients.set(OTHER_CLIENT, {
+      ownerId: PRODUCER_ID,
+      ownerBranchId: BRANCH_ID,
+    });
+    const update = new UpdateReservation({ uow, producers, clock });
+    unwrap(
+      await update.execute(
+        { ...TERMS, reservationId: RESERVATION_ID, clientId: OTHER_CLIENT },
+        MANAGER_SEEING_CLIENTS,
+      ),
+    );
+
+    expect(stored()).toMatchObject({ clientId: OTHER_CLIENT });
+    expect(uow.audit.entries).toEqual([
+      expect.objectContaining({
+        clientIds: [CLIENT_ID, OTHER_CLIENT],
+        changes: { clientId: { before: CLIENT_ID, after: OTHER_CLIENT } },
+      }),
+    ]);
+  });
+
+  it('keeps the contact when none comes', async () => {
+    const { uow, producers, clock, stored } = reserved();
+    const update = new UpdateReservation({ uow, producers, clock });
+    unwrap(
+      await update.execute({ ...TERMS, reservationId: RESERVATION_ID }, MANAGER_SEEING_CLIENTS),
+    );
+    expect(stored()).toMatchObject({ clientId: CLIENT_ID });
+    expect(uow.audit.entries).toEqual([]);
+  });
+
+  it('rejects an unknown or hidden contact, and a new one for a reservation of an opportunity', async () => {
+    const { uow, producers, clock } = reserved();
+    const update = new UpdateReservation({ uow, producers, clock });
+    expect(
+      unwrapErr(
+        await update.execute(
+          { ...TERMS, reservationId: RESERVATION_ID, clientId: OTHER_CLIENT },
+          MANAGER_SEEING_CLIENTS,
+        ),
+      ),
+    ).toEqual({ type: 'ReservationClientNotFound' });
+    // Existe, pero quien edita no ve los contactos de otros.
+    uow.reservationParties.clients.set(OTHER_CLIENT, {
+      ownerId: PRODUCER_ID,
+      ownerBranchId: BRANCH_ID,
+    });
+    expect(
+      unwrapErr(
+        await update.execute(
+          { ...TERMS, reservationId: RESERVATION_ID, clientId: OTHER_CLIENT },
+          TEST_RESERVATIONS_MANAGER,
+        ),
+      ),
+    ).toEqual({ type: 'ReservationClientNotFound' });
+
+    uow.reservations.rows.set(
+      RESERVATION_ID,
+      reservationSnapshot({ opportunityId: OPPORTUNITY_ID }),
+    );
+    expect(
+      unwrapErr(
+        await update.execute(
+          { ...TERMS, reservationId: RESERVATION_ID, clientId: OTHER_CLIENT },
+          MANAGER_SEEING_CLIENTS,
+        ),
+      ),
+    ).toEqual({ type: 'ReservationClientLocked' });
+    expect(uow.audit.entries).toEqual([]);
   });
 
   it('moves the reservation to the branch of a new agent and keeps an unchanged one', async () => {

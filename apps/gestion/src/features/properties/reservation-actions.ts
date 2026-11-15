@@ -29,7 +29,7 @@ function properties() {
 
 /**
  * Mapea el resultado y revalida las fichas de propiedades (el estado cambia con la reserva) y la del
- * contacto, si se reservó desde sus destacadas.
+ * contacto, si la reserva tiene uno.
  */
 function done<E extends { readonly type: keyof typeof RESERVATION_ERROR_MESSAGES }>(
   result: Result<unknown, E>,
@@ -58,7 +58,7 @@ export async function updateReservationAction(
   const parsed = UpdateReservationInputSchema.safeParse(input);
   if (!parsed.success) return actionFailed(INVALID);
   const result = await properties().updateReservation.execute(parsed.data, actor);
-  return done(result);
+  return done(result, parsed.data.clientId);
 }
 
 export async function fallReservationAction(input: FallReservationInput): Promise<ActionResult> {

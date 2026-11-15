@@ -1,0 +1,1 @@
+ALTER TABLE "core"."reservations" ALTER COLUMN "client_id" DROP NOT NULL;

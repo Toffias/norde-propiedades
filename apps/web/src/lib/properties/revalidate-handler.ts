@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { verifySignature } from '../signature';
+import { readLimitedBody } from '../read-limited-body';
+import { verifyTimestampedSignature } from '../signature';
 import {
   DEVELOPMENTS_CACHE_TAG,
   developmentCacheTag,
@@ -9,6 +10,7 @@ import {
 } from './cache';
 
 export const REVALIDATE_SIGNATURE_HEADER = 'x-norde-signature';
+export const REVALIDATE_TIMESTAMP_HEADER = 'x-norde-timestamp';
 
 /** Un aviso es un ID: lo que pese más no lo mandó apps/gestion. */
 const BODY_LIMIT_BYTES = 1024;
@@ -29,14 +31,19 @@ export function createRevalidateHandler(options: {
   readonly revalidateTag: (tag: string) => void;
   /** No espera: lo que haga corre después de responder. */
   readonly onPropertyChanged?: (propertyId: string) => void;
+  readonly now?: () => number;
 }): (request: Request) => Promise<Response> {
   return async (request) => {
-    const declared = Number(request.headers.get('content-length') ?? '0');
-    if (declared > BODY_LIMIT_BYTES) return tooLarge();
-    const raw = Buffer.from(await request.arrayBuffer());
-    if (raw.byteLength > BODY_LIMIT_BYTES) return tooLarge();
-    const signature = request.headers.get(REVALIDATE_SIGNATURE_HEADER);
-    if (!verifySignature(raw, signature, options.secret)) {
+    const raw = await readLimitedBody(request, BODY_LIMIT_BYTES);
+    if (raw === undefined) return tooLarge();
+    const signed = verifyTimestampedSignature({
+      rawBody: raw,
+      timestamp: request.headers.get(REVALIDATE_TIMESTAMP_HEADER),
+      signature: request.headers.get(REVALIDATE_SIGNATURE_HEADER),
+      secret: options.secret,
+      now: (options.now ?? Date.now)(),
+    });
+    if (!signed) {
       return Response.json({ error: 'invalid signature' }, { status: 401 });
     }
 

@@ -10,16 +10,24 @@ const PROPERTY_ID = '00000000-0000-7000-8000-0000000000c1';
 const DEVELOPMENT_ID = '00000000-0000-7000-8000-0000000000e1';
 
 describe('WebhookPublicSite', () => {
-  it('posts the property id signed with the shared secret', async () => {
-    const requests: { url: string; body: string; signature: string | null }[] = [];
+  it('posts the property id signed with the shared secret and the date', async () => {
+    const requests: {
+      url: string;
+      body: string;
+      signature: string | null;
+      timestamp: string | null;
+    }[] = [];
     const site = new WebhookPublicSite({
       url: 'https://norde.example/api/revalidate',
       secret: SECRET,
+      now: () => 1767225600000,
       fetch: (url, init) => {
+        const headers = new Headers(init?.headers);
         requests.push({
           url: url instanceof Request ? url.url : url.toString(),
           body: typeof init?.body === 'string' ? init.body : '',
-          signature: new Headers(init?.headers).get('x-norde-signature'),
+          signature: headers.get('x-norde-signature'),
+          timestamp: headers.get('x-norde-timestamp'),
         });
         return Promise.resolve(new Response(null, { status: 204 }));
       },
@@ -32,7 +40,8 @@ describe('WebhookPublicSite', () => {
       {
         url: 'https://norde.example/api/revalidate',
         body,
-        signature: `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`,
+        signature: `sha256=${createHmac('sha256', SECRET).update(`1767225600000.${body}`).digest('hex')}`,
+        timestamp: '1767225600000',
       },
     ]);
   });

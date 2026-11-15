@@ -6,6 +6,7 @@ import type { Result } from '@norde/core/shared';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
+import { readLimitedBody } from '../../lib/read-limited-body';
 import { clientIp, createRateLimiter } from '../../lib/request-guards';
 
 /** Un aviso de Zonaprop es chico: el ID del evento y los datos del contacto. */
@@ -59,12 +60,8 @@ export function createZonapropCallbackHandler(
       return Response.json({ error: 'unauthorized' }, { status: 401 });
     }
 
-    const declaredLength = Number(request.headers.get('content-length') ?? 0);
-    if (declaredLength > BODY_LIMIT_BYTES) {
-      return Response.json({ error: 'body too large' }, { status: 413 });
-    }
-    const raw = Buffer.from(await request.arrayBuffer());
-    if (raw.byteLength > BODY_LIMIT_BYTES) {
+    const raw = await readLimitedBody(request, BODY_LIMIT_BYTES);
+    if (raw === undefined) {
       return Response.json({ error: 'body too large' }, { status: 413 });
     }
     let payload: unknown;

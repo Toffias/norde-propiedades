@@ -1959,6 +1959,8 @@ function propertyImportDirectory(
     },
     async findOrCreateOwner(owner, actor) {
       const result = await owners.execute(owner, actor);
+      // Datos del propietario que no se pueden usar (un nombre enorme): la propiedad entra sin él.
+      if (result.isErr() && result.error.type === 'InvalidInput') return undefined;
       // El job corre con `clients:create` (IMPORT_ACTOR): sin él es un error de configuración.
       if (result.isErr()) throw new Error(`Owner lookup failed: ${result.error.type}`);
       return result.value;

@@ -39,7 +39,23 @@ export function periodOf(date: string): CashPeriod {
 export function nextCashPeriod(period: CashPeriod): CashPeriod {
   const year = Number(period.slice(0, 4));
   const month = Number(period.slice(5, 7));
-  return month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`;
+  const yearText = (value: number) => String(value).padStart(4, '0');
+  return month === 12
+    ? `${yearText(year + 1)}-01`
+    : `${yearText(year)}-${String(month + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Hasta cuántos años para atrás se carga un movimiento. La caja arrancó vacía en 2026: algo más
+ * viejo es un error de tipeo (el año 0026), que además obligaría a cerrar miles de meses.
+ */
+export const MAX_CASH_YEARS_BACK = 5;
+
+/** El primer día que se puede cargar, contando desde hoy en Buenos Aires. */
+export function earliestCashDate(now: Date): string {
+  const today = buenosAiresDate(now);
+  const year = Number(today.slice(0, 4)) - MAX_CASH_YEARS_BACK;
+  return `${String(year).padStart(4, '0')}-01-01`;
 }
 
 /** Un mes anterior al vigente está cerrado, tenga o no su cierre guardado. */

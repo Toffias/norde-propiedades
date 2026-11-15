@@ -3,7 +3,13 @@ import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { CashBox } from './cash-box';
-import { buenosAiresDate, isCashDate, periodOf, type CashPeriod } from './cash-period';
+import {
+  buenosAiresDate,
+  earliestCashDate,
+  isCashDate,
+  periodOf,
+  type CashPeriod,
+} from './cash-period';
 
 export type CashMovementId = Id<'CashMovement'>;
 
@@ -47,6 +53,11 @@ export interface InvalidCashDateError {
 export interface FutureCashDateError {
   readonly type: 'FutureCashDate';
 }
+/** Más vieja que `MAX_CASH_YEARS_BACK` años: casi seguro un error de tipeo. */
+export interface TooOldCashDateError {
+  readonly type: 'TooOldCashDate';
+  readonly earliest: string;
+}
 export interface InvalidCashAmountError {
   readonly type: 'InvalidCashAmount';
 }
@@ -65,6 +76,7 @@ export interface CashMovementInactiveError {
 export type InvalidCashMovementError =
   | InvalidCashDateError
   | FutureCashDateError
+  | TooOldCashDateError
   | InvalidCashAmountError
   | CashConceptRequiredError
   | CashTextTooLongError;
@@ -75,6 +87,8 @@ function cleanDetails(
 ): Result<CashMovementDetails, InvalidCashMovementError> {
   if (!isCashDate(details.date)) return err({ type: 'InvalidCashDate' });
   if (details.date > buenosAiresDate(now)) return err({ type: 'FutureCashDate' });
+  const earliest = earliestCashDate(now);
+  if (details.date < earliest) return err({ type: 'TooOldCashDate', earliest });
   if (details.amountCents <= 0n || details.amountCents >= MAX_CASH_AMOUNT_CENTS) {
     return err({ type: 'InvalidCashAmount' });
   }

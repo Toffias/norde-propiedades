@@ -342,22 +342,24 @@ El primer editor del sitio (`/admin` de Payload) solo se puede crear con `PAYLOA
 `scripts/ops/backup-db.sh` hace `pg_dump` (formato custom) de `norde_uat` en `/var/backups/norde-uat`:
 
 - **`pre-deploy`**: lo corre el deploy antes de las migraciones. Si falla, el deploy se corta sin migrar.
-- **`daily`**: la base más los archivos subidos (`/var/www/norde-uat-storage` y `apps/web/media`). Va por cron del usuario `norde`.
+- **`scheduled`**: la base más los archivos subidos (`/var/www/norde-uat-storage` y `apps/web/media`). Va por cron cada 5 días.
 
-Se borran los de más de `BACKUP_KEEP_DAYS` días (14 por defecto). Con `BACKUP_S3_URI`, cada archivo se copia además fuera del servidor (necesita la CLI de AWS y una clave IAM aparte, solo con `s3:PutObject` sobre esa carpeta; no la del storage de fotos).
+Se borran los de más de `BACKUP_KEEP_DAYS` días (10 por defecto): quedan los dos últimos programados y los `pre-deploy` de esos días. Con `BACKUP_S3_URI`, cada archivo se copia además fuera del servidor (necesita la CLI de AWS y una clave IAM aparte, solo con `s3:PutObject` sobre esa carpeta; no la del storage de fotos).
 
-Cron (`sudo -u norde crontab -e`), todos los días a las 4 (hora del servidor):
+Cron (`crontab -e` del usuario que corre las apps: `root` hasta pasar a `norde`), a las 4 (hora del servidor) los días 1, 6, 11, 16, 21, 26 y 31 de cada mes. Al cambiar de mes, entre el 31 y el 1 pasa un solo día:
 
 ```bash
-0 4 * * * BACKUP_S3_URI=s3://apzsoftware.online/norde-uat-backups /var/www/norde-uat/current/scripts/ops/backup-db.sh daily >> /var/backups/norde-uat/backup.log 2>&1
+0 4 */5 * * /var/www/norde-uat/current/scripts/ops/backup-db.sh scheduled >> /var/backups/norde-uat/backup.log 2>&1
 ```
+
+Para la copia fuera del servidor, anteponé `BACKUP_S3_URI=s3://apzsoftware.online/norde-uat-backups ` al comando del cron.
 
 **Restaurar** (con las apps bajadas):
 
 ```bash
 pm2 stop norde-web norde-gestion norde-agent
 DATABASE_URL="$(grep -E '^DATABASE_URL=' /var/www/norde-uat/shared/apps/gestion/.env | cut -d= -f2-)"
-pg_restore --clean --if-exists --no-owner --dbname="$DATABASE_URL" /var/backups/norde-uat/db-daily-AAAAMMDDTHHMMSSZ.dump
+pg_restore --clean --if-exists --no-owner --dbname="$DATABASE_URL" /var/backups/norde-uat/db-scheduled-AAAAMMDDTHHMMSSZ.dump
 tar -xzf /var/backups/norde-uat/files-AAAAMMDDTHHMMSSZ.tar.gz -C /   # archivos subidos, si hace falta
 pm2 start norde-web norde-gestion norde-agent
 ```

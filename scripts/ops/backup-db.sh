@@ -2,7 +2,7 @@
 # Backup de UAT (docs/deploy.md, "Backups"). Corre en el VPS, desde la carpeta del deploy.
 #
 #   scripts/ops/backup-db.sh pre-deploy   # antes de migrar: solo la base
-#   scripts/ops/backup-db.sh daily        # cron diario: base + archivos subidos
+#   scripts/ops/backup-db.sh scheduled    # cron cada 5 días: base + archivos subidos
 #
 # Toma la base de `DATABASE_URL` en apps/gestion/.env (una sola base para las tres apps, ADR 0015).
 # Deja los archivos en BACKUP_DIR, borra los de más de BACKUP_KEEP_DAYS días y, si está
@@ -10,14 +10,14 @@
 set -euo pipefail
 
 KIND="${1:-}"
-if [ "$KIND" != "pre-deploy" ] && [ "$KIND" != "daily" ]; then
-  echo "Uso: $0 pre-deploy|daily" >&2
+if [ "$KIND" != "pre-deploy" ] && [ "$KIND" != "scheduled" ]; then
+  echo "Uso: $0 pre-deploy|scheduled" >&2
   exit 2
 fi
 
 APP_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/norde-uat}"
-BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
+BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-10}"
 STORAGE_DIR="${STORAGE_DIR:-/var/www/norde-uat-storage}"
 
 DATABASE_URL="$(grep -E '^DATABASE_URL=' "$APP_DIR/apps/gestion/.env" | cut -d= -f2-)"
@@ -36,7 +36,7 @@ DB_FILE="$BACKUP_DIR/db-$KIND-$STAMP.dump"
 pg_dump --format=custom --no-owner --file="$DB_FILE" "$DATABASE_URL"
 FILES+=("$DB_FILE")
 
-if [ "$KIND" = "daily" ]; then
+if [ "$KIND" = "scheduled" ]; then
   FILES_FILE="$BACKUP_DIR/files-$STAMP.tar.gz"
   SOURCES=()
   [ -d "$STORAGE_DIR" ] && SOURCES+=("$STORAGE_DIR")

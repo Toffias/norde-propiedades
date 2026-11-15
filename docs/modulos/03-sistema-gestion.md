@@ -457,6 +457,12 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Sucursal**: la de la propiedad consultada, que es la de su captador, hasta que la consulta se asigna. Sin propiedad, queda sin sucursal.
 - **Etiquetas automáticas**: el canal y, de la propiedad consultada, sus operaciones, el tipo y el barrio. Se guardan como códigos (`channel:zonaprop`, `operation:sale`, `type:apartment`, `neighborhood:Palermo`) y la bandeja los muestra en palabras.
 - Emite `clients.inquiry_received`, que van a tomar el reparto automático y los avisos.
+
+**Bandeja** (`/consultas`):
+
+- **Indicadores de origen**: arriba, una tarjeta por origen con cuántas consultas entraron en el **mes en curso** (hora de Buenos Aires), sin las borradas: MercadoLibre, Zonaprop, Agente de IA web (`web_chat`), Bot de WhatsApp (`whatsapp`) y Otros (el resto de los canales, incluido el formulario de la web). Son solo un recuento: no filtran ni dependen de los filtros (`CountInquiriesBySource`, por el índice `(channel, received_at)`).
+- **Estado**: Pendientes, Asignadas o Borradas se eligen en un select, primero en la barra de filtros, con el total de cada uno con los demás filtros aplicados (`?tab=`).
+- **Filtros**: canal, propiedad, sucursal y fecha de recepción. Sucursal y fechas van en "Más filtros" hasta pantallas extra anchas.
 - Se audita como `inquiry.received` **sin los datos del remitente** (canal, ID externo, fecha, propiedad, sucursal, estado y etiquetas). Mientras no se asigna, la consulta no tiene un contacto con el que suprimirlos.
 
 **Formulario de la web** → `POST /api/webhooks/inquiries/web` en `apps/gestion` (ADR 0021):

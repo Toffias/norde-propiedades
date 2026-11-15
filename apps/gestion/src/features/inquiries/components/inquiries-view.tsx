@@ -3,8 +3,11 @@
 import {
   CONTACT_CHANNEL_LABELS,
   CONTACT_CHANNEL_VALUES,
+  INQUIRY_SOURCE_VALUES,
   INQUIRY_TAB_VALUES,
   type InquiryInboxRow,
+  type InquirySourceCounts,
+  type InquirySourceValue,
   type InquiryTabCounts,
   type InquiryTabValue,
 } from '@norde/core/clients/contracts';
@@ -19,11 +22,15 @@ import { initials } from '@norde/ui/lib/initials';
 import { cn } from '@norde/ui/lib/utils';
 import {
   ArchiveRestoreIcon,
+  BotIcon,
+  Building2Icon,
   HomeIcon,
+  InboxIcon,
   Loader2Icon,
   MailIcon,
   MessageSquareTextIcon,
   PhoneIcon,
+  StoreIcon,
   Trash2Icon,
   UserCheckIcon,
   UserIcon,
@@ -31,10 +38,10 @@ import {
 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { useId, useState } from 'react';
+import { useId, useState, type ComponentType } from 'react';
 
 import { MoreFiltersButton } from '../../shared/components/more-filters-button';
-import { FilterMultiSelect } from '../../shared/components/list-filters';
+import { FilterMultiSelect, FilterSelect } from '../../shared/components/list-filters';
 import type { ActionResult } from '../../../lib/action-result';
 import { EMPTY_VALUE, formatDateTime } from '../../../lib/format';
 import { listingPrice } from '../../clients/activity-format';
@@ -53,7 +60,13 @@ import {
   useListNavigation,
 } from '../../shared/components/server-data-table';
 import { deleteInquiryAction, restoreInquiryAction } from '../actions';
-import { formatAge, INQUIRY_TAB_LABELS, tagLabel } from '../inquiry-format';
+import {
+  formatAge,
+  formatMonth,
+  INQUIRY_SOURCE_LABELS,
+  INQUIRY_TAB_LABELS,
+  tagLabel,
+} from '../inquiry-format';
 
 import { AssignInquiryDialog } from './assign-inquiry-dialog';
 
@@ -93,83 +106,53 @@ function senderName(row: InquiryInboxRow): string {
   return row.senderName ?? 'Sin nombre';
 }
 
-/** El color de cada pestaña: el punto, y el borde y el tinte de la tarjeta elegida. */
-const TAB_TONES: Readonly<Record<InquiryTabValue, { dot: string; active: string }>> = {
-  pending: {
-    dot: 'bg-warning-500',
-    active: 'border-warning-500 bg-warning-50 dark:bg-warning-700/20',
-  },
-  assigned: {
-    dot: 'bg-success-500',
-    active: 'border-success-500 bg-success-50 dark:bg-success-700/20',
-  },
-  deleted: {
-    dot: 'bg-muted-foreground',
-    active: 'border-muted-foreground bg-muted',
-  },
+const SOURCE_ICONS: Readonly<
+  Record<InquirySourceValue, ComponentType<{ readonly className?: string }>>
+> = {
+  mercadolibre: StoreIcon,
+  zonaprop: Building2Icon,
+  web_chat: BotIcon,
+  whatsapp: WhatsAppIcon,
+  other: InboxIcon,
 };
 
-/** Una tarjeta por pestaña con su total (con los filtros aplicados): tocarla cambia de pestaña. */
-function TabCardsBody({
-  tab,
-  counts,
-}: {
-  readonly tab: InquiryTabValue;
-  readonly counts: InquiryTabCounts;
-}) {
-  const { setParams } = useListNavigation();
+/**
+ * Indicadores de arriba de la bandeja: cuántas consultas entraron este mes por cada origen (sin las
+ * borradas). Son solo un recuento: no dependen de los filtros ni filtran.
+ */
+export function InquirySourceCards({ sources }: { readonly sources: InquirySourceCounts }) {
+  const monthLabel = formatMonth(sources.month);
   return (
-    <nav data-tour="inquiries-status" aria-label="Estado de las consultas">
-      <ul className="grid grid-cols-3 gap-2">
-        {INQUIRY_TAB_VALUES.map((value) => {
-          const active = tab === value;
-          const count = counts[value];
+    <section data-tour="inquiries-sources" aria-label={`Consultas de ${monthLabel} por origen`}>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Recibidas en <span className="font-medium text-foreground">{monthLabel}</span>
+      </p>
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {INQUIRY_SOURCE_VALUES.map((source) => {
+          const Icon = SOURCE_ICONS[source];
+          const count = sources.counts[source];
           return (
-            <li key={value}>
-              <button
-                type="button"
-                aria-pressed={active}
-                className={cn(
-                  'flex h-full w-full flex-col gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 text-left shadow-xs transition-colors outline-none hover:border-foreground/30 focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                  active && TAB_TONES[value].active,
-                  count === 0 && !active && 'text-muted-foreground',
-                )}
-                onClick={() => {
-                  // Pendientes es la pestaña por defecto: sin el param en la URL.
-                  if (!active) setParams({ tab: value === 'pending' ? undefined : value });
-                }}
-              >
-                <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                  <span
-                    aria-hidden
-                    className={cn('h-2.5 w-2.5 shrink-0 rounded-full', TAB_TONES[value].dot)}
-                  />
-                  <span className="truncate">{INQUIRY_TAB_LABELS[value]}</span>
-                </span>
-                <span className="text-2xl leading-none font-semibold tabular-nums">
-                  {count.toLocaleString('es-AR')}
-                </span>
-              </button>
+            <li
+              key={source}
+              className={cn(
+                'flex flex-col gap-1.5 rounded-lg border border-border bg-card px-3 py-2.5 shadow-xs',
+                // "Otros" ocupa la fila entera cuando quedaría sola en mobile.
+                source === 'other' && 'col-span-2 sm:col-span-1',
+                count === 0 && 'text-muted-foreground',
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{INQUIRY_SOURCE_LABELS[source]}</span>
+              </span>
+              <span className="text-2xl leading-none font-semibold tabular-nums">
+                {count.toLocaleString('es-AR')}
+              </span>
             </li>
           );
         })}
       </ul>
-    </nav>
-  );
-}
-
-/**
- * Pendientes, Asignadas y Borradas como tarjetas sueltas arriba de la bandeja: su total con los
- * filtros aplicados, y a la vez la pestaña que se está viendo (`?tab=`).
- */
-export function InquiryTabCards(props: {
-  readonly tab: InquiryTabValue;
-  readonly counts: InquiryTabCounts;
-}) {
-  return (
-    <ListNavigationProvider>
-      <TabCardsBody {...props} />
-    </ListNavigationProvider>
+    </section>
   );
 }
 
@@ -223,11 +206,13 @@ function InlineReceivedRange({ from, to }: { readonly from: string; readonly to:
  */
 function Toolbar({
   filters,
+  tabCounts,
   permissions,
   propertyLabel,
   branchLabel,
 }: {
   readonly filters: InquiryFilterValues;
+  readonly tabCounts: InquiryTabCounts | undefined;
   readonly permissions: InquiryPermissions;
   readonly propertyLabel: string | undefined;
   readonly branchLabel: string | undefined;
@@ -242,8 +227,23 @@ function Toolbar({
   return (
     <div
       data-tour="inquiries-filters"
-      className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center lg:flex-nowrap"
+      className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center xl:flex-nowrap"
     >
+      <div data-tour="inquiries-status" className="w-full sm:w-auto sm:min-w-[170px]">
+        <FilterSelect
+          param="tab"
+          value={filters.tab}
+          label="Estado"
+          options={INQUIRY_TAB_VALUES.map((tab) => ({
+            value: tab,
+            label:
+              tabCounts === undefined
+                ? INQUIRY_TAB_LABELS[tab]
+                : `${INQUIRY_TAB_LABELS[tab]} (${tabCounts[tab].toLocaleString('es-AR')})`,
+          }))}
+          className="w-full"
+        />
+      </div>
       <FilterMultiSelect
         param="channel"
         value={filters.channel}
@@ -275,16 +275,16 @@ function Toolbar({
         </div>
       )}
       {permissions.pickBranches && (
-        <div className="hidden min-w-0 flex-1 lg:block">
+        <div className="hidden min-w-0 flex-1 xl:block">
           <BranchFilter value={filters.branchId} label={branchLabel} />
         </div>
       )}
-      <div className="hidden lg:block">
+      <div className="hidden xl:block">
         <InlineReceivedRange from={filters.receivedFrom} to={filters.receivedTo} />
       </div>
       <Popover>
         <PopoverTrigger asChild>
-          <MoreFiltersButton active={more} className="lg:hidden" />
+          <MoreFiltersButton active={more} className="xl:hidden" />
         </PopoverTrigger>
         <PopoverContent align="end" className="flex w-[min(92vw,340px)] flex-col gap-4">
           {permissions.pickBranches && (
@@ -600,6 +600,7 @@ function InboxBody({
   pageSize,
   now,
   filters,
+  tabCounts,
   permissions,
   propertyLabel,
   branchLabel,
@@ -617,6 +618,7 @@ function InboxBody({
     <div className="flex flex-col">
       <Toolbar
         filters={filters}
+        tabCounts={tabCounts}
         permissions={permissions}
         propertyLabel={propertyLabel}
         branchLabel={branchLabel}
@@ -685,13 +687,15 @@ export interface InquiriesViewProps {
   /** Instante del render en el servidor (ISO), para la antigüedad de cada consulta. */
   readonly renderedAt: string;
   readonly filters: InquiryFilterValues;
+  /** Los totales de cada estado con los filtros aplicados, para el select; sin ellos, solo el nombre. */
+  readonly tabCounts: InquiryTabCounts | undefined;
   readonly permissions: InquiryPermissions;
   /** El nombre de la propiedad filtrada, para el selector. */
   readonly propertyLabel: string | undefined;
   readonly branchLabel: string | undefined;
 }
 
-/** La bandeja de consultas: pestañas, filtros y tarjetas paginadas en el servidor. */
+/** La bandeja de consultas: estado, filtros y tarjetas paginadas en el servidor. */
 export function InquiriesView(props: InquiriesViewProps) {
   return (
     <ListNavigationProvider>

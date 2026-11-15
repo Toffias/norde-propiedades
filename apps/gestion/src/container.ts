@@ -149,6 +149,7 @@ import {
   CloseOpportunity,
   ReassignOpportunity,
   AssignInquiry,
+  CountInquiriesBySource,
   CountInquiriesByTab,
   CountPendingInquiries,
   CreateInquiryRule,
@@ -1450,6 +1451,7 @@ function createInquiriesUseCases(
     }),
     countPendingInquiries: new CountPendingInquiries({ inbox }),
     countInquiriesByTab: new CountInquiriesByTab({ inbox }),
+    countInquiriesBySource: new CountInquiriesBySource({ inbox, clock }),
     deleteInquiry: new DeleteInquiry({ uow, clock }),
     restoreInquiry: new RestoreInquiry({ uow, clock }),
     listInquiryMatches: new ListInquiryMatches({

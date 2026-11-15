@@ -181,7 +181,7 @@ Qué hay que construir:
 ### 4.5 WhatsApp: temas pendientes
 
 - **Plantillas (templates)**: hacen falta para escribirle al cliente pasadas las 24 h. Por ejemplo, para un seguimiento, un aviso de propiedad nueva que coincide con su búsqueda o una respuesta del asesor fuera de la ventana. Se aprueban en Meta y tienen otro costo.
-- **Audios**: se transcriben con OpenAI (`gpt-4o-mini-transcribe`) y el agente los lee como texto, marcados con "(audio)" (ADR 0045). Si no se pueden transcribir, se responde el aviso de contenido no soportado.
+- **Audios**: se transcriben con OpenAI (`gpt-4o-mini-transcribe`) y el agente los lee como texto, marcados con "(audio)" (ADR 0045). Si no se pueden transcribir, se responde el aviso de contenido no soportado. Una reentrega de Meta ya registrada no se vuelve a transcribir, con el tope de gasto alcanzado no se transcribe, y cada transcripción suma al tope (`OPENAI_PRICE_PER_AUDIO_USD`). Pendiente (#222): hoy se transcribe antes de registrar, así que un contacto pasado de su límite o una conversación derivada igual pagan el audio.
 - **Ubicación**: aceptar un pin de ubicación como zona de búsqueda.
 - **`criteria` guardado**: hoy se guarda pero no se usa. Se puede inyectar en el prompt para retomar la búsqueda anterior.
 
@@ -207,7 +207,8 @@ La cola, el batcher y los contadores de avisos viven en memoria, así que el bot
 - Respuesta estructurada (`text`, `buttons`, `photoPropertyId`) en lugar de las tools `offer_buttons` y `show_photo`: cada llamada a una tool costaba otra vuelta al modelo con todo el contexto (#150).
 - Historial recortado y compactado (#151): los dos últimos turnos van completos; en los anteriores se quita el razonamiento y los resultados de `search_properties` y `get_property` quedan en id, título, precio y link.
 - Uso por turno con tokens cacheados y de razonamiento, guardado con cada respuesta junto con la versión del prompt (`PROMPT_VERSION`). El log `Agent turn` trae el costo estimado (`costUsd`).
-- Tope de gasto en USD de las últimas 24 h (`AGENT_DAILY_BUDGET_USD`, ADR 0046), sumando los dos canales: al llegar, WhatsApp no responde y el chat del sitio contesta "no disponible".
+- Tope de gasto en USD de las últimas 24 h (`AGENT_DAILY_BUDGET_USD`, 10 USD si no se configura; ADR 0046), sumando los dos canales, los turnos que fallan (hasta 8 llamadas al modelo) y las transcripciones de audios: al llegar, WhatsApp no responde y el chat del sitio contesta "no disponible".
+- Si una tool falla, el modelo recibe un texto genérico, nunca el error crudo (un error de la base trae el SQL y sus parámetros, y quedaría en la memoria). Los logs de errores del agente guardan solo el nombre y la primera línea del mensaje (#222).
 
 **Web chat**: solo el costo del LLM. Límites por IP: 20 mensajes cada 10 minutos, 150 por día y 10 conversaciones nuevas por día (así "Nueva conversación" no reinicia los límites del agente).
 

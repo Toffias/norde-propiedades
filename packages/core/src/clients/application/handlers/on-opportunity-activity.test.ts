@@ -12,15 +12,12 @@ import { RegisterContact } from '../commands/register-contact';
 import { NotifyTeamOfOpportunity } from './on-opportunity-activity';
 
 const scheduler = Actor.system('scheduler', ['clients:read']);
+const EVENT_ID = '00000000-0000-7000-8000-0000000000f1';
 
 async function setup() {
   const uow = new InMemoryClientsUnitOfWork();
   const notifier = new RecordingTeamNotifier();
-  const handler = new NotifyTeamOfOpportunity({
-    clients: uow.clients,
-    opportunities: uow.opportunities,
-    notifier,
-  });
+  const handler = new NotifyTeamOfOpportunity({ uow, notifier });
   const registered = await new RegisterContact({
     uow,
     properties: new InMemoryInquiryPropertyLookup(),
@@ -48,6 +45,7 @@ describe('NotifyTeamOfOpportunity', () => {
 
     const result = await handler.execute(
       {
+        id: EVENT_ID,
         type: event.type,
         occurredAt: event.occurredAt,
         payload: { opportunityId: event.aggregateId, clientId: '' },
@@ -75,6 +73,7 @@ describe('NotifyTeamOfOpportunity', () => {
 
     await handler.execute(
       {
+        id: EVENT_ID,
         type: 'clients.opportunity_request_added',
         occurredAt: event.occurredAt,
         payload: { opportunityId: event.aggregateId, clientId: '' },
@@ -85,12 +84,45 @@ describe('NotifyTeamOfOpportunity', () => {
     expect(notifier.notifications[0]?.kind).toBe('follow_up');
   });
 
+  it('does not notify twice when the queue delivers the same event again', async () => {
+    const { handler, notifier, event } = await setup();
+    const delivery = {
+      id: EVENT_ID,
+      type: event.type,
+      occurredAt: event.occurredAt,
+      payload: { opportunityId: event.aggregateId, clientId: '' },
+    };
+
+    expect((await handler.execute(delivery, scheduler)).isOk()).toBe(true);
+    expect((await handler.execute(delivery, scheduler)).isOk()).toBe(true);
+    await handler.execute({ ...delivery, id: '00000000-0000-7000-8000-0000000000f2' }, scheduler);
+
+    expect(notifier.notifications).toHaveLength(2);
+  });
+
+  it('notifies again on a retry when the first attempt failed', async () => {
+    const { handler, notifier, event } = await setup();
+    const delivery = {
+      id: EVENT_ID,
+      type: event.type,
+      occurredAt: event.occurredAt,
+      payload: { opportunityId: event.aggregateId, clientId: '' },
+    };
+    notifier.failNext = true;
+
+    await expect(handler.execute(delivery, scheduler)).rejects.toThrow();
+    expect((await handler.execute(delivery, scheduler)).isOk()).toBe(true);
+
+    expect(notifier.notifications).toHaveLength(1);
+  });
+
   it('fails with OpportunityNotFound for unknown opportunities', async () => {
     const { handler, notifier, event } = await setup();
 
     for (const opportunityId of ['00000000-0000-7000-8000-999999999999', 'nope']) {
       const result = await handler.execute(
         {
+          id: EVENT_ID,
           type: event.type,
           occurredAt: event.occurredAt,
           payload: { opportunityId, clientId: '' },
@@ -107,6 +139,7 @@ describe('NotifyTeamOfOpportunity', () => {
 
     const result = await handler.execute(
       {
+        id: EVENT_ID,
         type: event.type,
         occurredAt: event.occurredAt,
         payload: { opportunityId: event.aggregateId, clientId: '' },

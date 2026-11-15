@@ -9,6 +9,7 @@ import {
   type Result,
 } from '../../../shared';
 import { SetUserPermissionsInputSchema, type SetUserPermissionsInput } from '../../contracts';
+import type { LastAdministratorError } from '../../domain/administrators';
 import type { UnknownPermissionError } from '../../domain/permission-catalog';
 import {
   ensureCanManageUser,
@@ -18,6 +19,7 @@ import {
 } from '../../domain/permission-escalation';
 import type { CannotChangeOwnPermissionsError, DuplicatePermissionError } from '../../domain/user';
 import { holdsOf, userPermissionsOf } from '../permission-guard';
+import { guardLastAdministrator } from '../administrator-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
@@ -35,7 +37,8 @@ export type SetUserPermissionsError =
   | DuplicatePermissionError
   | CannotChangeOwnPermissionsError
   | UserHasMorePermissionsError
-  | PermissionEscalationError;
+  | PermissionEscalationError
+  | LastAdministratorError;
 
 /**
  * Permisos propios de un usuario, además de los de sus roles: permitir uno que sus roles no dan, o
@@ -65,6 +68,7 @@ export class SetUserPermissions {
       if (managed.isErr()) return err(managed.error);
 
       const before = userAuditState(user);
+      const keepsAnAdministrator = await guardLastAdministrator(tx, user);
       const set = user.setOwnPermissions(parsed.data.permissions, actor.id, now);
       if (set.isErr()) return err(set.error);
       const held = ensureGrantsHeld(
@@ -73,6 +77,8 @@ export class SetUserPermissions {
         permissionsBefore,
       );
       if (held.isErr()) return err(held.error);
+      const guarded = await keepsAnAdministrator(user);
+      if (guarded.isErr()) return err(guarded.error);
 
       const changes = diffChanges(before, userAuditState(user));
       if (Object.keys(changes).length === 0) return ok(undefined);

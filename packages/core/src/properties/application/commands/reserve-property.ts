@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { canActOn, OWNERSHIP_RULES } from '../../../identity';
 import {
   auditAction,
   diffChanges,
@@ -37,11 +38,10 @@ import {
   type ManagerNotFoundError,
 } from '../reservation-support';
 
-/** Otra reserva activa la tomó primero (también entre dos altas al mismo tiempo). */
-
 /** Lo que devuelve un reintento con la misma clave (ADR 0050). */
 const ResultSchema = z.object({ reservationId: z.string() });
 
+/** Otra reserva activa la tomó primero (también entre dos altas al mismo tiempo). */
 export interface PropertyAlreadyReservedError {
   readonly type: 'PropertyAlreadyReserved';
 }
@@ -56,11 +56,23 @@ export type ReservePropertyError =
   | PropertyAlreadyReservedError
   | AgentNotFoundError
   | ManagerNotFoundError
-  | InvalidReservationTermsError;
+  | InvalidReservationTermsError
+  | ReservationClientNotFoundError
+  | ReservationOpportunityNotFoundError;
+
+/** El contacto no existe, está en la papelera, se unificó o el que reserva no lo puede ver. */
+export interface ReservationClientNotFoundError {
+  readonly type: 'ReservationClientNotFound';
+}
+/** La oportunidad no existe, es de otro contacto o el que reserva no la puede ver. */
+export interface ReservationOpportunityNotFoundError {
+  readonly type: 'ReservationOpportunityNotFound';
+}
 
 /**
  * Reserva una propiedad disponible para un cliente, con `reservations:create`. La propiedad pasa a
- * reservada en la misma transacción. Sin agente elegido, queda a cargo quien reserva.
+ * reservada en la misma transacción. Sin agente elegido, queda a cargo quien reserva. El contacto
+ * (y la oportunidad, si viene) tienen que existir y el que reserva tiene que poder verlos.
  */
 export class ReserveProperty {
   constructor(
@@ -94,6 +106,21 @@ export class ReserveProperty {
         async (): Promise<Result<{ readonly reservationId: string }, ReservePropertyError>> => {
           const property = await findProperty(tx.properties, data.propertyId);
           if (!property) return err({ type: 'PropertyNotFound' });
+
+          const client = await tx.reservationParties.client(data.clientId);
+          if (!client || !canActOn(actor, OWNERSHIP_RULES.clientsRead, client)) {
+            return err({ type: 'ReservationClientNotFound' });
+          }
+          if (data.opportunityId !== undefined) {
+            const opportunity = await tx.reservationParties.opportunity(data.opportunityId);
+            if (
+              opportunity?.clientId !== data.clientId ||
+              !canActOn(actor, OWNERSHIP_RULES.opportunitiesRead, opportunity)
+            ) {
+              return err({ type: 'ReservationOpportunityNotFound' });
+            }
+          }
+
           const statusBefore = property.status;
           const marked = property.markAsReserved(data.operation, now);
           if (marked.isErr()) return err(marked.error);

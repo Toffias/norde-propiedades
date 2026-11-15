@@ -9,6 +9,12 @@ export interface UserRepository {
   findByName(name: string): Promise<User | undefined>;
   /** El que está marcado como asesor por defecto (#208), si hay. */
   findDefaultAssignee(): Promise<User | undefined>;
+  /**
+   * Cuántos administradores hay (`isAdministrator`): activos, con el rol `adminRoleId` y sin
+   * ninguno de `blockingDenials` negado. Bloquea hasta el final de la transacción a las demás que
+   * lo pidan, para que dos administradores no se suspendan entre sí a la vez.
+   */
+  countAdministrators(adminRoleId: string, blockingDenials: readonly string[]): Promise<number>;
   /** `actorId` queda como autor del alta o de la edición (`created_by` / `updated_by`). */
   save(user: User, actorId: string): Promise<void>;
 }

@@ -29,16 +29,19 @@ describe('DailyBudget', () => {
     expect(budget.exceeded()).toBe(false);
   });
 
-  it('only measures without a limit', () => {
-    const budget = new DailyBudget(undefined, PRICES);
-    budget.record(usage(0, 0, 10_000_000));
+  it('also counts spending that is not model tokens, like a transcription', () => {
+    const budget = new DailyBudget(0.01, PRICES);
 
+    budget.recordUsd(0.004);
     expect(budget.exceeded()).toBe(false);
+    budget.recordUsd(0.006);
+    expect(budget.exceeded()).toBe(true);
+    expect(budget.spentUsd()).toBeCloseTo(0.01);
   });
 
-  it('forgets turns older than 24 hours even without a limit', () => {
+  it('forgets turns older than 24 hours', () => {
     let now = 0;
-    const budget = new DailyBudget(undefined, PRICES, () => now);
+    const budget = new DailyBudget(10, PRICES, () => now);
     budget.record(usage(0, 0, 1));
     now += 24 * 3_600_000 + 1;
     budget.record(usage(0, 0, 1));

@@ -151,6 +151,20 @@ describe('clients persistence', () => {
     expect(await db.select().from(clients)).toHaveLength(1);
   });
 
+  it('registers concurrent contacts with the same phone as one client and one opportunity', async () => {
+    // Dos mensajes seguidos del mismo número: antes se duplicaba la oportunidad o el segundo
+    // chocaba con el índice único del teléfono (un 500).
+    const results = await Promise.all([
+      registerContact.execute(whatsapp, agent),
+      registerContact.execute({ ...whatsapp, channelExternalId: '5491166899124-b' }, agent),
+      registerContact.execute(whatsapp, agent),
+    ]);
+
+    expect(results.every((r) => r.isOk())).toBe(true);
+    expect(await db.select().from(clients)).toHaveLength(1);
+    expect(await db.select().from(opportunities)).toHaveLength(1);
+  });
+
   it('rolls back everything written when the work returns an Err', async () => {
     const result = await uow.run(async (tx) => {
       await tx.events.publish([

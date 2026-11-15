@@ -33,7 +33,8 @@ export const NEWS_ENTRIES_PER_CARD = 20;
 
 /**
  * El período del resumen de Noticias, en días de Buenos Aires: hoy, ayer o los últimos 7 días
- * (hoy incluido). Sin período, el feed no tiene límite de fechas.
+ * (hoy incluido). Sin período, la semana: el feed siempre tiene un límite de fechas, para no
+ * recorrer todo `audit_log`.
  */
 export const NEWS_PERIODS = ['today', 'yesterday', 'week'] as const;
 export type NewsPeriod = (typeof NEWS_PERIODS)[number];
@@ -53,7 +54,7 @@ export const NewsFeedQuerySchema = pageQuerySchema({
 }).extend({
   pageSize: z.coerce.number().int().min(1).max(NEWS_MAX_PAGE_SIZE).default(NEWS_PAGE_SIZE),
   kinds: newsKindsSchema,
-  period: z.enum(NEWS_PERIODS).optional(),
+  period: z.enum(NEWS_PERIODS).default('week'),
 });
 export type ListNewsQuery = z.input<typeof NewsFeedQuerySchema>;
 

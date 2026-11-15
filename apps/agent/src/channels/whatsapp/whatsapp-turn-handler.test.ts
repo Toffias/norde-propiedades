@@ -32,13 +32,18 @@ import { FixedClock, SequentialIdGenerator } from '@norde/core/shared/testing';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { createCustomerAssistant, MODERATED_TEXT } from '../../assistant/customer-assistant';
+import {
+  createCustomerAssistant,
+  MODERATED_TEXT,
+  type CustomerAssistant,
+} from '../../assistant/customer-assistant';
 import { PROMPT_VERSION } from '../../assistant/instructions/build-instructions';
 
 import { DailyBudget } from '../shared/daily-budget';
 import { FailureBreaker } from '../shared/failure-breaker';
 
 const PRICES = { inputPerMillion: 0.25, cachedInputPerMillion: 0.025, outputPerMillion: 2 };
+const AUDIO_COST_USD = 0.003;
 import type { WhatsAppInbound } from './inbound';
 import { NOTICE_TEXT, NoticeThrottle } from './notices';
 import { FALLBACK_TEXT } from './reply-builder';
@@ -99,6 +104,8 @@ function setup(
     perContactPerHour?: number;
     transcript?: string | Error;
     properties?: ReturnType<typeof aPropertyRecord>[];
+    /** Reemplaza al agente real (para simular fallas con estado o con gasto). */
+    assistant?: Pick<CustomerAssistant, 'run'>;
   } = {},
 ) {
   const model = new ScriptedModel();
@@ -111,6 +118,8 @@ function setup(
   const properties = new InMemoryPropertySearchQuery(options.properties ?? [palermo]);
   const ads = new InMemoryPortalAdLookup();
   const toolErrors: string[] = [];
+  const logs: string[] = [];
+  let transcriptions = 0;
 
   const assistant = createCustomerAssistant({
     model: { instance: model },
@@ -129,6 +138,7 @@ function setup(
       clock,
     }),
   });
+  const budget = new DailyBudget(options.budgetUsd ?? 100, PRICES);
   const handler = new WhatsAppTurnHandler({
     receiveInbound: new ReceiveInboundMessages({
       uow: conversations,
@@ -151,20 +161,23 @@ function setup(
     sendReply: new SendReply({ uow: conversations, ids, clock, messengers }),
     transcribeAudio: new TranscribeAudioMessage({
       transcriber: {
-        transcribe: () =>
-          options.transcript instanceof Error
+        transcribe: () => {
+          transcriptions += 1;
+          return options.transcript instanceof Error
             ? Promise.reject(options.transcript)
-            : Promise.resolve(ok(options.transcript ?? 'hola')),
+            : Promise.resolve(ok(options.transcript ?? 'hola'));
+        },
       },
     }),
-    assistant,
+    audioCostUsd: AUDIO_COST_USD,
+    assistant: options.assistant ?? assistant,
     actor,
     siteUrl: 'https://norde.com.ar',
-    budget: new DailyBudget(options.budgetUsd, PRICES),
+    budget,
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
     notices: new NoticeThrottle(HOUR),
     now: () => clock.now(),
-    logger: pino({ level: 'silent' }),
+    logger: pino({ level: 'info' }, { write: (line: string) => logs.push(line) }),
   });
 
   let sequence = 0;
@@ -194,6 +207,9 @@ function setup(
     toolErrors,
     clock,
     ads,
+    budget,
+    logs,
+    transcriptions: () => transcriptions,
   };
 }
 
@@ -609,6 +625,72 @@ describe('WhatsAppTurnHandler', () => {
       type: 'text',
       text: '¿Lo buscás para comprar o alquilar?',
     });
+  });
+
+  it('does not pay the transcription again for a redelivered audio', async () => {
+    const ctx = setup({ transcript: 'Busco un dos ambientes en Palermo' });
+    ctx.model.enqueue([reply('¿Lo buscás para comprar o alquilar?')]);
+    const audio = {
+      ...ctx.inbound('', { kind: 'unsupported', rawType: 'audio' }),
+      audioMediaId: 'media-1',
+    };
+
+    await ctx.handler.handle([audio]);
+    await ctx.handler.handle([audio]);
+
+    expect(ctx.transcriptions()).toBe(1);
+    expect(ctx.messenger.sent).toHaveLength(1);
+  });
+
+  it('counts the transcription in the daily budget', async () => {
+    const ctx = setup({ budgetUsd: AUDIO_COST_USD });
+
+    await ctx.handler.handle([
+      { ...ctx.inbound('', { kind: 'unsupported', rawType: 'audio' }), audioMediaId: 'media-1' },
+    ]);
+
+    expect(ctx.transcriptions()).toBe(1);
+    expect(ctx.budget.spentUsd()).toBeCloseTo(AUDIO_COST_USD);
+    // El audio llegó al tope: el agente ya no corre.
+    expect(ctx.model.calls).toHaveLength(0);
+    expect(ctx.messenger.sent.map((s) => s.message)).toEqual([
+      { type: 'text', text: NOTICE_TEXT.agent_unavailable },
+    ]);
+  });
+
+  it('does not transcribe audios once the daily budget is reached', async () => {
+    const ctx = setup({ budgetUsd: 0.001 });
+    ctx.budget.recordUsd(0.001);
+
+    await ctx.handler.handle([
+      { ...ctx.inbound('', { kind: 'unsupported', rawType: 'audio' }), audioMediaId: 'media-1' },
+    ]);
+
+    expect(ctx.transcriptions()).toBe(0);
+  });
+
+  it('counts a failed turn in the budget and logs only the name and message of its error', async () => {
+    // Como MaxTurnsExceededError: el error carga el estado del turno con toda la conversación.
+    const error = Object.assign(new Error('Max turns (8) exceeded'), {
+      state: { phone: `+${PHONE}`, messages: ['busco un dos ambientes en Palermo'] },
+    });
+    const usage = {
+      requests: 8,
+      inputTokens: 400_000,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      reasoningTokens: 0,
+    };
+    const ctx = setup({ assistant: { run: () => Promise.resolve({ ok: false, error, usage }) } });
+
+    await ctx.handler.handle([ctx.inbound('busco un dos ambientes en Palermo')]);
+
+    expect(ctx.budget.spentUsd()).toBeCloseTo(0.1);
+    const failed = ctx.logs.find((line) => line.includes('Agent turn failed'));
+    expect(failed).toContain('Max turns (8) exceeded');
+    expect(failed).not.toContain(PHONE);
+    expect(failed).not.toContain('Palermo');
+    expect(ctx.messenger.sent[0]?.message).toEqual({ type: 'text', text: FALLBACK_TEXT });
   });
 
   it('answers with the notice when an audio cannot be transcribed', async () => {

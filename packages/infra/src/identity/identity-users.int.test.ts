@@ -1,4 +1,5 @@
 import {
+  ADMIN_BLOCKING_DENIALS,
   ChangeOwnPassword,
   CreateUser,
   ResetUserPassword,
@@ -12,7 +13,16 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { insertTestBranch, useTestDatabase } from '../../test/database';
-import { auditLog, branches, outbox, roles, sessions, userRoles, users } from '../db/schema';
+import {
+  auditLog,
+  branches,
+  outbox,
+  roles,
+  sessions,
+  userPermissions,
+  userRoles,
+  users,
+} from '../db/schema';
 import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import type { InfraLogger } from '../shared/logger';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
@@ -235,6 +245,28 @@ describe('DrizzleUserRepository', () => {
     // Sin mayúsculas ni acentos, como compara la importación de usuarios de Tokko.
     expect((await repository.findByName(' CÁMILA '))?.id).toBe(id.value);
     expect(await repository.findByName('Camilo')).toBeUndefined();
+  });
+
+  it('counts the active administrators without an essential permission denied', async () => {
+    const admin = await insertRole('admin', 'Administrador');
+    const agent = await insertRole('agent', 'Agente');
+    await createUser('ana@norde.com.ar', [admin]);
+    const bruno = await createUser('bruno@norde.com.ar', [admin]);
+    const carla = await createUser('carla@norde.com.ar', [admin]);
+    await createUser('dario@norde.com.ar', [agent]);
+    const repository = new DrizzleUserRepository(db);
+    expect(await repository.countAdministrators(admin, ADMIN_BLOCKING_DENIALS)).toBe(3);
+
+    await db.update(users).set({ status: 'suspended' }).where(eq(users.id, bruno));
+    await db.insert(userPermissions).values({
+      userId: carla,
+      permission: 'users:*',
+      effect: 'deny',
+      createdAt: now,
+      createdBy: ADMIN.id,
+    });
+
+    expect(await repository.countAdministrators(admin, ADMIN_BLOCKING_DENIALS)).toBe(1);
   });
 });
 

@@ -1,7 +1,7 @@
 // Carga propiedades de prueba (datos del MVP APZ-WP-BOT), un usuario del panel por rol y consultas
 // de portales y de la web en la base de DESARROLLO LOCAL. Idempotente: actualiza las propiedades
 // por código interno, y no toca los usuarios ni las consultas que ya existen. Se niega a correr con
-// NODE_ENV=production.
+// NODE_ENV=production o con una DATABASE_URL que no sea de esta máquina.
 // Usuarios y contraseña de prueba: `seed/users.json`.
 //
 // Es herramienta de desarrollo: escribe directo en la tabla. Cuando exista el alta de
@@ -15,7 +15,7 @@ import { parseEnv } from 'node:util';
 import pg from 'pg';
 import { z } from 'zod';
 
-import { parseDatabaseUrl } from './database-url';
+import { isLocalDatabaseUrl, parseDatabaseUrl } from './database-url';
 import { createUser, ensureMainBranch, NewUserSchema } from './users';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
@@ -134,6 +134,13 @@ function databaseUrl(): string {
   }
   const url = process.env.DATABASE_URL ?? env.DATABASE_URL;
   if (!url) throw new Error('Falta DATABASE_URL en apps/agent/.env');
+  // Crea usuarios con una contraseña pública: con una DATABASE_URL de UAT o producción (y sin
+  // NODE_ENV=production) los dejaría entrar al panel. Solo bases de esta máquina.
+  if (!isLocalDatabaseUrl(url)) {
+    throw new Error(
+      `db:seed es solo para una base local (localhost, 127.0.0.1 o ::1); DATABASE_URL apunta a ${parseDatabaseUrl(url).redacted}.`,
+    );
+  }
   return url;
 }
 

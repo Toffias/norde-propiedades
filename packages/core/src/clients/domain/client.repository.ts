@@ -33,7 +33,8 @@ export interface ClientRepository {
   /**
    * Los clientes que tienen alguno de estos teléfonos (por `Phone.matchKey`: el mismo celular con
    * o sin el 9) o emails, en cualquiera de sus teléfonos y emails. Incluye los de la papelera.
-   * Como mucho `MAX_DUPLICATE_CANDIDATES`.
+   * Como mucho `MAX_DUPLICATE_CANDIDATES`. Dentro de una transacción bloquea esos teléfonos y
+   * emails hasta el final: dos contactos a la vez con los mismos datos no registran dos clientes.
    */
   findMatching(contact: ContactKeys): Promise<Client[]>;
   /**
@@ -51,6 +52,10 @@ export interface ClientRepository {
 
 export interface OpportunityRepository {
   findById(id: OpportunityId): Promise<Opportunity | undefined>;
+  /**
+   * Dentro de una transacción bloquea al cliente hasta el final: dos contactos a la vez no le abren
+   * dos oportunidades por lo mismo.
+   */
   findOpenByClient(clientId: ClientId): Promise<Opportunity[]>;
   /**
    * Guarda la oportunidad y los cambios de estado pendientes en el historial. `actorId` queda como

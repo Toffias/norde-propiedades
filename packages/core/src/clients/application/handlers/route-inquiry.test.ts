@@ -175,6 +175,23 @@ describe('RouteInquiry', () => {
     expect(uow.events.published.map((e) => e.type)).not.toContain('clients.opportunity_reassigned');
   });
 
+  it('does not keep a suspended agent: the inquiry goes to the one of the distribution', async () => {
+    const { uow, route, inquiry } = setup();
+    const rule = await seedInquiryRule(uow);
+    // UNKNOWN_USER no vuelve de `ClientAgents`: está suspendido (o ya no existe).
+    const client = await seedClient(uow, { agentId: UNKNOWN_USER, branchId: OTHER_BRANCH_ID });
+    const inquiryId = await inquiry();
+
+    const outcome = unwrap(await route.execute({ inquiryId }, SCHEDULER));
+
+    expect(outcome).toMatchObject({ routed: true, clientId: client.id, agentId: AGENT_ID });
+    expect(uow.inquiries.rows.get(inquiryId)).toMatchObject({ assignedAgentId: AGENT_ID });
+    expect(uow.opportunities.rows.get(outcome.routed ? outcome.opportunityId : '')).toMatchObject({
+      agentId: AGENT_ID,
+    });
+    expect(uow.inquiryRules.rows.get(rule.id)?.cursor).toBe(1n);
+  });
+
   it('gives a matching contact without an agent the one of the distribution', async () => {
     const { uow, route, inquiry } = setup();
     await seedInquiryRule(uow);

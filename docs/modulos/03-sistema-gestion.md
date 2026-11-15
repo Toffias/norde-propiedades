@@ -69,6 +69,8 @@ Roles propuestos (a validar con Norde):
   - **Edición** de los datos y los roles. Sin cambios no se audita nada. Nadie cambia sus propios roles, como pasa con los permisos: con eso se podría dar cualquier permiso.
   - **Cambio de sucursal** (#221): los contactos, las oportunidades, las propiedades y los emprendimientos del usuario guardan una copia de su sucursal, que usan los permisos "de su sucursal". Al cambiarla, un job (`identity.user_branch_changed`) mueve por lotes los que siguen en la anterior, también los de la papelera, y lo deja en el historial de cada uno. Las tasaciones y las reservas no se mueven: su sucursal es un dato de la operación, no una copia de la del usuario.
   - **Suspender** cierra sus sesiones abiertas en la misma transacción; nadie se puede suspender a sí mismo. **Reactivar** le devuelve el acceso.
+  - **Siempre queda un administrador** (#222): un usuario activo con el rol Administrador y sin ninguno de `roles:update`, `users:update`, `users:suspend` ni `users:permissions` negado a mano. Al último no se lo suspende, no se le saca el rol ni se le niega uno de esos permisos (si dos lo intentan a la vez, el segundo espera y ve el cambio del primero). Al rol Administrador tampoco se le sacan esos cuatro permisos.
+  - Contraseña, nombre, email y baja pasan solo por los casos de uso del panel: las rutas equivalentes de Better Auth (`/change-password`, `/update-user`, `/change-email`, `/delete-user`, `/set-password`) están desactivadas.
   - **Blanquear la contraseña**: el administrador pone una temporal y se cierran las sesiones del usuario.
 - **Contraseña temporal**: quien entra con una (alta o blanqueo) va a `/cambiar-contrasena` y su sesión no tiene ningún permiso hasta elegir una propia, distinta de la temporal. Lo decide `ResolveSessionActor`, no la pantalla.
 - **Cambiar la contraseña propia** cierra las demás sesiones del usuario y deja abierta la del cambio: quien haya entrado con la contraseña vieja o con la temporal no sigue adentro.
@@ -525,7 +527,7 @@ Las **consultas** son los mensajes que llegan de los portales y del formulario d
 - **Al entrar una consulta** (`RouteInquiry`, reacción a `clients.inquiry_received` en `apps/gestion`, como `system:scheduler`):
   - Primero, la **derivación por chances** de su emprendimiento (o el de la unidad consultada), si tiene agentes; funciona con las reglas apagadas. Si ninguno de sus agentes está activo, sigue con las reglas.
   - Se asigna como con "Asignar", sin una persona: al contacto que coincide por teléfono o email o, si no hay ninguno, a uno nuevo.
-  - **Si el contacto ya tiene agente**, la oportunidad sigue con él y la regla no avanza su reparto. Si no, va al agente que toca.
+  - **Si el contacto ya tiene un agente activo**, la oportunidad sigue con él y la regla no avanza su reparto. Si no (o si su agente está suspendido), va al agente que toca.
   - **Queda pendiente** si no cumple ninguna regla, si coinciden varios contactos distintos (decide una persona) o si la regla no tiene ningún agente activo.
   - Es idempotente: una consulta que ya no está pendiente no se toca.
   - La auditoría de `inquiry.assigned` suma la regla (`ruleId`) o el emprendimiento (`developmentChances`) que la repartió.
@@ -1010,6 +1012,7 @@ Una **reserva** es la seña de un contacto sobre una propiedad. Vive en el módu
 - Solo una propiedad **disponible**, fuera de la papelera y que ofrezca la operación elegida. Pasa a **reservada** y deja de mostrarse en la web.
 - Datos: contacto, operación, agente (sin elegir, quien reserva), gerente (opcional, cualquier usuario activo), valor y moneda, comisión en porcentaje y/o monto con su moneda (todo opcional), fecha estimada de firma y notas. Desde una destacada, el contacto viene elegido y la reserva queda atada a la oportunidad de la destacada.
 - La sucursal de la reserva es la del agente.
+- El contacto tiene que existir, no estar en la papelera ni unificado, y quien reserva tiene que poder verlo (`clients:read` con su alcance). La oportunidad, si viene, tiene que ser de ese contacto y visible para quien reserva (#222).
 - **Una sola reserva activa por propiedad**: lo exige el dominio (la propiedad tiene que estar disponible) y un índice único parcial en la base, también si dos la reservan al mismo tiempo.
 
 **Estados**: activa → caída o firmada. Caída y firmada son finales.
@@ -1433,7 +1436,7 @@ Reemplaza a `norde-caja`, la app aparte con la que la oficina lleva el efectivo.
 ### 15.1 Cajas y movimientos
 
 - Dos cajas fijas e independientes: **Caja de oficina** y **Caja Osvaldo**. Cada una tiene sus movimientos, saldos y cierres. Agregar una es un cambio de código.
-- Un movimiento es un **ingreso** o un **egreso** en pesos, con fecha (día de Buenos Aires, no futura), concepto (obligatorio, hasta 255 caracteres) y observaciones (hasta 500). El monto se escribe como en la planilla: `125000`, `125.000` o `125.000,50`.
+- Un movimiento es un **ingreso** o un **egreso** en pesos, con fecha (día de Buenos Aires, no futura y de los últimos 5 años: algo más viejo es un error de tipeo que obligaría a cerrar miles de meses, #222), concepto (obligatorio, hasta 255 caracteres) y observaciones (hasta 500). El monto se escribe como en la planilla: `125000`, `125.000` o `125.000,50`.
 - La caja se ve por **mes calendario**. El saldo inicial de un mes es el acumulado de todos los meses anteriores; la planilla muestra el saldo después de cada movimiento, en orden de fecha y de carga.
 
 ### 15.2 Qué se puede hacer en cada mes

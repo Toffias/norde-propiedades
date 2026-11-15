@@ -61,8 +61,9 @@ interface RoutePick {
  *
  * - Si el teléfono o el email son de un contacto, va a él; si no, se crea uno.
  * - Si coinciden varios contactos distintos, queda pendiente: elige una persona.
- * - Si el contacto ya tiene agente, la oportunidad sigue con él y el reparto no avanza.
- *   Si no, va al agente que toca por el reparto ponderado, entre los que siguen activos.
+ * - Si el contacto ya tiene un agente activo, la oportunidad sigue con él y el reparto no avanza.
+ *   Si no (o si su agente está suspendido), va al agente que toca por el reparto ponderado, entre
+ *   los que siguen activos.
  * - Las del chat del sitio sin oportunidad (datos sin verificar, #221) quedan pendientes.
  * - Sin chances ni regla, o sin ningún agente activo, queda pendiente. Un emprendimiento sin
  *   agentes activos deja la consulta a las reglas.
@@ -157,7 +158,7 @@ export class RouteInquiry {
     existing: Client | undefined,
   ): Promise<RoutePick | undefined> {
     const by = { kind: 'development_chances', developmentId } as const;
-    if (existing?.ownership.ownerId !== undefined) return { by, agent: undefined };
+    if (await this.hasActiveOwner(existing)) return { by, agent: undefined };
     const branches = await this.activeBranches(chances);
     const agentId = await tx.developmentChances.takeTurn(developmentId, new Set(branches.keys()));
     if (agentId === undefined) return undefined;
@@ -173,7 +174,7 @@ export class RouteInquiry {
     now: Date,
   ): Promise<RoutePick | undefined> {
     const by = { kind: 'rule', ruleId: matched.id } as const;
-    if (existing?.ownership.ownerId !== undefined) return { by, agent: undefined };
+    if (await this.hasActiveOwner(existing)) return { by, agent: undefined };
     // Bloqueada: dos consultas a la vez toman turnos distintos del reparto.
     const rule = await tx.inquiryRules.findForUpdate(matched.id);
     if (!rule) return undefined;
@@ -182,6 +183,15 @@ export class RouteInquiry {
     if (agentId === undefined) return undefined;
     await tx.inquiryRules.save(rule, actor.id);
     return { by, agent: { agentId, branchId: branches.get(agentId) } };
+  }
+
+  /**
+   * Si el contacto ya tiene un agente que sigue activo. Uno suspendido no puede entrar al panel: la
+   * consulta se reparte como si el contacto no tuviera agente.
+   */
+  private async hasActiveOwner(existing: Client | undefined): Promise<boolean> {
+    const ownerId = existing?.ownership.ownerId;
+    return ownerId !== undefined && (await this.deps.agents.find(ownerId)) !== undefined;
   }
 
   /** Los agentes activos de la lista, con su sucursal. */

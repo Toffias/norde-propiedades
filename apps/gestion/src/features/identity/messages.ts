@@ -76,6 +76,8 @@ export const USER_ERROR_MESSAGES = {
       : `No podés dar permisos que vos no tenés: ${permissions.join(', ')}.`,
   UserHasMorePermissions:
     'Ese usuario tiene permisos que vos no tenés: pedíselo a un administrador.',
+  LastAdministrator:
+    'Es el único administrador activo: nombrá a otro antes, para que alguien pueda administrar el panel.',
 } satisfies ErrorMessages<UserError>;
 
 export const TOKKO_USERS_IMPORT_ERROR_MESSAGES = {
@@ -96,6 +98,8 @@ export const ROLE_ERROR_MESSAGES = {
   SystemRoleCannotBeRenamed:
     'Los roles del sistema no se renombran; sí podés ajustar sus permisos.',
   SystemRoleCannotBeDeleted: 'Los roles del sistema no se pueden borrar.',
+  AdminRoleNeedsPermissions:
+    'El Administrador tiene que poder editar roles y usuarios, suspenderlos y darles permisos.',
   RoleInUse: ({ userCount }) =>
     userCount === 1
       ? 'Hay 1 usuario con este rol: asignale otro antes de borrarlo.'

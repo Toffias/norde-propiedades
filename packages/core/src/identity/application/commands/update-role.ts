@@ -8,6 +8,7 @@ import {
   type Result,
 } from '../../../shared';
 import { UpdateRoleInputSchema, type UpdateRoleInput } from '../../contracts';
+import type { AdminRoleNeedsPermissionsError } from '../../domain/administrators';
 import type { UnknownPermissionError } from '../../domain/permission-catalog';
 import {
   ensureGrantsHeld,
@@ -27,7 +28,8 @@ export type UpdateRoleError =
   | UnknownPermissionError
   | SystemRoleCannotBeRenamedError
   | RoleNameTakenError
-  | PermissionEscalationError;
+  | PermissionEscalationError
+  | AdminRoleNeedsPermissionsError;
 
 /**
  * Edita el nombre, la descripción y los permisos de un rol. El cambio de permisos alcanza a todos

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { AgentRunner } from './agent-runner';
+import { AgentRunner, TOOL_ERROR_MESSAGE } from './agent-runner';
 import { defineTool } from './agent-tool';
 import { assistantMessage, functionCall, modelError, ScriptedModel } from './testing';
 
@@ -19,7 +19,14 @@ const echo = defineTool<Context, z.ZodObject<{ text: z.ZodString }>>({
   },
 });
 
-function runnerWith(model: ScriptedModel, overrides: { onToolError?: () => void } = {}) {
+/** Como el error de Drizzle: el SQL en la primera línea y los parámetros en la segunda. */
+const QUERY_ERROR_MESSAGE =
+  'Failed query: select * from clients where phone = $1\nparams: +5491166899124,ana@mail.com';
+
+function runnerWith(
+  model: ScriptedModel,
+  overrides: { onToolError?: (toolName: string, error: unknown) => void; maxTurns?: number } = {},
+) {
   return new AgentRunner<Context>({
     name: 'Test',
     model: { instance: model },
@@ -31,6 +38,12 @@ function runnerWith(model: ScriptedModel, overrides: { onToolError?: () => void 
         description: 'Siempre falla',
         parameters: z.object({}),
         execute: () => Promise.reject(new Error('boom')),
+      }),
+      defineTool<Context, z.ZodObject>({
+        name: 'query',
+        description: 'Falla como una consulta a la base',
+        parameters: z.object({}),
+        execute: () => Promise.reject(new Error(QUERY_ERROR_MESSAGE)),
       }),
     ],
     maxMemoryItems: 10,
@@ -82,6 +95,46 @@ describe('AgentRunner', () => {
 
     expect(result.ok && result.text).toBe('Hubo un problema');
     expect(errors).toEqual(['broken']);
+  });
+
+  it('gives the model a generic text instead of the raw tool error, and reports the error', async () => {
+    const errors: { toolName: string; error: unknown }[] = [];
+    const model = new ScriptedModel([
+      [functionCall('query', {}, { callId: 'call-1' })],
+      [assistantMessage('Hubo un problema')],
+    ]);
+
+    const result = await runnerWith(model, {
+      onToolError: (toolName, error) => errors.push({ toolName, error }),
+    }).run({ memory: [], userText: 'buscá', context: { calls: [] } });
+
+    const sent = JSON.stringify(model.lastCall?.request.input);
+    expect(sent).toContain(TOOL_ERROR_MESSAGE);
+    expect(sent).not.toContain('Failed query');
+    expect(sent).not.toContain('5491166899124');
+    const stored = JSON.stringify(result.ok && result.memory);
+    expect(stored).not.toContain('Failed query');
+    expect(stored).not.toContain('ana@mail.com');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.toolName).toBe('query');
+    expect(errors[0]?.error).toBeInstanceOf(Error);
+  });
+
+  it('returns the usage of a failed turn, so it still counts against the budget', async () => {
+    const model = new ScriptedModel([
+      [functionCall('echo', { text: 'uno' }, { callId: 'call-1' })],
+      [functionCall('echo', { text: 'dos' }, { callId: 'call-2' })],
+      [functionCall('echo', { text: 'tres' }, { callId: 'call-3' })],
+    ]);
+
+    const result = await runnerWith(model, { maxTurns: 2 }).run({
+      memory: [],
+      userText: 'repetí',
+      context: { calls: [] },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.usage.requests).toBe(2);
   });
 
   it('returns a failure when the model fails', async () => {

@@ -40,7 +40,9 @@ if [ "$KIND" = "daily" ]; then
   FILES_FILE="$BACKUP_DIR/files-$STAMP.tar.gz"
   SOURCES=()
   [ -d "$STORAGE_DIR" ] && SOURCES+=("$STORAGE_DIR")
-  [ -d "$APP_DIR/apps/web/media" ] && SOURCES+=("$APP_DIR/apps/web/media")
+  # En un release, `apps/web/media` es un link a `shared/`: se guarda la carpeta real.
+  WEB_MEDIA="$(readlink -f "$APP_DIR/apps/web/media" || true)"
+  [ -n "$WEB_MEDIA" ] && [ -d "$WEB_MEDIA" ] && SOURCES+=("$WEB_MEDIA")
   if [ "${#SOURCES[@]}" -gt 0 ]; then
     tar -czf "$FILES_FILE" "${SOURCES[@]}"
     FILES+=("$FILES_FILE")

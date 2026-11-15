@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildRobots } from './robots';
 
 describe('buildRobots', () => {
-  const robots = buildRobots('https://norde.com.ar');
+  const robots = buildRobots('https://norde.com.ar', true);
   const rules = Array.isArray(robots.rules) ? robots.rules : [robots.rules];
 
   it('blocks the admin, the API and the preview for every crawler', () => {
@@ -24,5 +24,13 @@ describe('buildRobots', () => {
 
   it('points to the sitemap', () => {
     expect(robots.sitemap).toBe('https://norde.com.ar/sitemap.xml');
+  });
+});
+
+describe('buildRobots outside production', () => {
+  it('disallows everything and does not advertise the sitemap', () => {
+    const robots = buildRobots('https://uat.norde.com.ar', false);
+
+    expect(robots).toEqual({ rules: [{ userAgent: '*', disallow: '/' }] });
   });
 });

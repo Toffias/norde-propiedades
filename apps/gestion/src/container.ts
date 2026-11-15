@@ -507,8 +507,6 @@ import {
   createConversationsUnitOfWork,
   DrizzleClientConversationErasure,
   DrizzleClientFavoriteErasure,
-  DrizzleClientRepository,
-  DrizzleOpportunityRepository,
   DrizzlePropertyClientErasure,
   LogPublicSite,
   LogTeamNotifier,
@@ -2241,8 +2239,7 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
   const notifications = new DrizzleNotifications(db);
   for (const subscription of eventSubscriptions({
     notifyTeam: new NotifyTeamOfOpportunity({
-      clients: new DrizzleClientRepository(db, ids),
-      opportunities: new DrizzleOpportunityRepository(db),
+      uow: createClientsUnitOfWork(db, { ids, clock }),
       notifier: env.TEAM_WEBHOOK_URL
         ? new WebhookTeamNotifier({ url: env.TEAM_WEBHOOK_URL, token: env.TEAM_WEBHOOK_TOKEN })
         : new LogTeamNotifier(logger),

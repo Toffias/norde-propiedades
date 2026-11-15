@@ -274,7 +274,8 @@ export class DrizzlePropertyRepository implements PropertyRepository {
 
   /**
    * El alta inserta la fila completa; después, el upsert actualiza todo lo que modela el aggregate.
-   * Las columnas que todavía no maneja (videos sueltos) no se pisan.
+   * Las columnas que todavía no maneja (videos sueltos) no se pisan, y el estado solo si cambió
+   * después del que hay guardado.
    */
   async save(property: Property, actorId: string): Promise<void> {
     const s = property.toSnapshot();
@@ -347,7 +348,22 @@ export class DrizzlePropertyRepository implements PropertyRepository {
         createdBy: actorId,
         ...mutable,
       })
-      .onConflictDoUpdate({ target: properties.id, set: mutable });
+      .onConflictDoUpdate({
+        target: properties.id,
+        set: {
+          ...mutable,
+          // El estado solo lo escribe quien lo cambió: una edición que leyó la propiedad antes de
+          // que una reserva la pasara a reservada trae el estado y la fecha viejos, y no la pisa.
+          // Todo cambio de estado mueve `status_changed_at` (lo pone el dominio con el `Clock`).
+          status: sql`case
+            when ${properties.statusChangedAt} is null
+              or excluded.status_changed_at >= ${properties.statusChangedAt}
+            then excluded.status
+            else ${properties.status}
+          end`,
+          statusChangedAt: sql`greatest(excluded.status_changed_at, ${properties.statusChangedAt})`,
+        },
+      });
 
     await this.saveOperations(property, actorId);
     for (const change of property.priceChanges) {

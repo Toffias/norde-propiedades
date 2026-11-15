@@ -5,6 +5,11 @@ on:
   push:
     branches: [main, uat]
 
+# Solo lectura del repo: ningún job escribe en GitHub. Las acciones van fijadas por commit (el tag
+# del comentario es la versión): un tag se puede mover, un SHA no.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   # En los PR, un push nuevo cancela la corrida anterior; en `main` y `uat` no, para no cortar un
@@ -36,11 +41,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -75,11 +80,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -112,11 +117,11 @@ jobs:
     env:
       E2E_DATABASE_URL: postgres://norde:norde@localhost:5432/norde_e2e
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -134,7 +139,7 @@ jobs:
 
       - name: Reporte de Playwright
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report
           path: |
@@ -142,10 +147,11 @@ jobs:
             apps/gestion/e2e/.results
           retention-days: 7
 
-  # Un push a `uat` que pasa CI se publica en el VPS (docs/deploy.md). Va como workflow reutilizable
-  # y no con `workflow_run`, que solo dispara desde la rama por defecto.
+  # Un push a `uat` que pasa CI (e2e incluidos) se publica en el VPS (docs/deploy.md). Va como
+  # workflow reutilizable y no con `workflow_run`, que solo dispara desde la rama por defecto.
+  # Sin `secrets: inherit`: los secretos del deploy son del entorno `uat` y los lee el job que lo
+  # declara; los demás secretos del repo no llegan al deploy.
   deploy-uat:
-    needs: [check, integration]
+    needs: [check, integration, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/uat'
     uses: ./.github/workflows/deploy-uat.yml
-    secrets: inherit

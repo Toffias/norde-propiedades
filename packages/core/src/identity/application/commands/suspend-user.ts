@@ -9,12 +9,14 @@ import {
   type Result,
 } from '../../../shared';
 import { UserIdInputSchema, type UserIdInput } from '../../contracts';
+import type { LastAdministratorError } from '../../domain/administrators';
 import type { CannotSuspendSelfError, UserAlreadySuspendedError } from '../../domain/user';
 import {
   ensureCanManageUser,
   type UserHasMorePermissionsError,
 } from '../../domain/permission-escalation';
 import { holdsOf, userPermissionsOf } from '../permission-guard';
+import { guardLastAdministrator } from '../administrator-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
@@ -30,9 +32,13 @@ export type SuspendUserError =
   | UserNotFoundError
   | CannotSuspendSelfError
   | UserAlreadySuspendedError
-  | UserHasMorePermissionsError;
+  | UserHasMorePermissionsError
+  | LastAdministratorError;
 
-/** Suspende el acceso de un usuario al panel y cierra sus sesiones abiertas. */
+/**
+ * Suspende el acceso de un usuario al panel y cierra sus sesiones abiertas. Al último
+ * administrador no se lo suspende: nadie podría reactivarlo.
+ */
 export class SuspendUser {
   constructor(private readonly deps: { readonly uow: IdentityUnitOfWork; readonly clock: Clock }) {}
 
@@ -53,8 +59,11 @@ export class SuspendUser {
       if (managed.isErr()) return err(managed.error);
 
       const before = userAuditState(user);
+      const keepsAnAdministrator = await guardLastAdministrator(tx, user);
       const suspended = user.suspend(actor.id, now);
       if (suspended.isErr()) return err(suspended.error);
+      const guarded = await keepsAnAdministrator(user);
+      if (guarded.isErr()) return err(guarded.error);
 
       await tx.users.save(user, actor.id);
       await tx.sessions.revokeAll(user.id);

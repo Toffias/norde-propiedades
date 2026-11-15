@@ -26,6 +26,7 @@ import type {
 } from '../contracts';
 import type { DevelopmentCodeAllocator } from '../application/ports/development-code-allocator';
 import type { PropertyOwnerLinks } from '../application/ports/property-owner-links';
+import type { PartyOwnership, ReservationParties } from '../application/ports/reservation-parties';
 import type {
   DevelopmentUnitImportItem,
   DevelopmentUnitImportQuery,
@@ -919,6 +920,20 @@ export class InMemoryFavoriteSearchRepository implements FavoriteSearchRepositor
  * Vínculos de propietarios, con la clave `propiedad:cliente` y el autor. `clients` son los
  * clientes que pueden quedar como propietarios (existen y no están en la papelera).
  */
+/** Los contactos y las oportunidades que existen, con su agente. */
+export class InMemoryReservationParties implements ReservationParties {
+  readonly clients = new Map<string, PartyOwnership>();
+  readonly opportunities = new Map<string, PartyOwnership & { readonly clientId: string }>();
+
+  client(clientId: string) {
+    return Promise.resolve(this.clients.get(clientId));
+  }
+
+  opportunity(opportunityId: string) {
+    return Promise.resolve(this.opportunities.get(opportunityId));
+  }
+}
+
 export class InMemoryPropertyOwnerLinks implements PropertyOwnerLinks {
   readonly rows = new Map<string, string>();
   readonly clients = new Set<string>();
@@ -977,6 +992,7 @@ export class InMemoryPropertiesUnitOfWork implements PropertiesUnitOfWork {
   readonly reservations = new InMemoryReservationRepository();
   readonly clientMerge = new FakePropertyClientMerge();
   readonly owners = new InMemoryPropertyOwnerLinks();
+  readonly reservationParties = new InMemoryReservationParties();
   readonly events = new InMemoryEventPublisher();
   readonly audit = new InMemoryAuditLog();
   readonly idempotency = new InMemoryIdempotencyKeys();
@@ -2092,6 +2108,8 @@ export const TEST_RESERVING_AGENT = Actor.user(PRODUCER_ID, [
   'properties:read',
   'reservations:read',
   'reservations:create',
+  'clients:read',
+  'opportunities:read',
 ]).withBranch(BRANCH_ID);
 /** Gerente de reservas: hace todo con las reservas. */
 export const TEST_RESERVATIONS_MANAGER = Actor.user(OTHER_USER_ID, [

@@ -1,3 +1,4 @@
+import { errorSummary } from '@norde/agent-kit';
 import { OpportunitySearchSchema } from '@norde/core/clients';
 import type {
   ReceiveInboundMessages,
@@ -142,7 +143,13 @@ export class WebChatTurnHandler {
     });
 
     if (!turn.ok) {
-      log.error({ err: turn.error }, 'Agent turn failed');
+      // Un turno fallido también se cobra (hasta `maxTurns` llamadas al modelo).
+      const failedCostUsd = deps.budget.record(turn.usage);
+      // Solo nombre y mensaje: el error del SDK carga el estado del turno con toda la conversación.
+      log.error(
+        { error: errorSummary(turn.error), ...turn.usage, costUsd: failedCostUsd },
+        'Agent turn failed',
+      );
       if (deps.breaker.recordFailure()) {
         log.error('Agent breaker opened: the web chat answers unavailable until it recovers');
       }

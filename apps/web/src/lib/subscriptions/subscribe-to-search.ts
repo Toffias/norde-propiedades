@@ -2,7 +2,7 @@
 
 import { getLogger } from '../../config/logger';
 import { getContainer } from '../../container';
-import { clientIp } from '../client-ip';
+import { clientRateKey } from '../client-ip';
 import { parseListingFilters, type SearchParamsRecord } from '../properties/listing-filters';
 import { findLocations } from '../properties/queries';
 import { createRateLimiter } from '../rate-limit';
@@ -56,7 +56,7 @@ export async function subscribeToSearch(
   }
   const criteria = subscriptionCriteria({ ...listed, operation });
 
-  if (!allow(await clientIp())) {
+  if (!allow(await clientRateKey())) {
     return failed('Recibimos varios pedidos seguidos. Esperá unos minutos y volvé a intentar.');
   }
   const sender = getContainer().subscriptions;

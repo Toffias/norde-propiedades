@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { getLogger } from '../../config/logger';
 import { getContainer } from '../../container';
-import { clientIp } from '../client-ip';
+import { clientRateKey } from '../client-ip';
 import { createRateLimiter } from '../rate-limit';
 
 /** Por IP cada 10 minutos: alcanza para confirmar y reintentar, no para probar tokens. */
@@ -23,7 +23,7 @@ export type ConfirmOutcome =
 export async function confirmSearchSubscription(input: unknown): Promise<ConfirmOutcome> {
   const parsed = InputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, reason: 'not_found' };
-  if (!allow(await clientIp())) return { ok: false, reason: 'rate_limited' };
+  if (!allow(await clientRateKey())) return { ok: false, reason: 'rate_limited' };
   const result = await getContainer().searchSubscriptions.confirm(parsed.data);
   if (result.isOk()) return { ok: true };
   const { error } = result;

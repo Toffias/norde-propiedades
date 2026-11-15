@@ -91,6 +91,18 @@ export class InMemoryUserRepository implements UserRepository {
     return Promise.resolve(row && User.restore(row));
   }
 
+  countAdministrators(adminRoleId: string, blockingDenials: readonly string[]) {
+    const count = [...this.rows.values()].filter(
+      (r) =>
+        r.status === 'active' &&
+        r.roleIds.includes(adminRoleId) &&
+        !r.permissions.some(
+          (own) => own.effect === 'deny' && blockingDenials.includes(own.permission),
+        ),
+    ).length;
+    return Promise.resolve(count);
+  }
+
   save(user: User, actorId: string) {
     this.rows.set(user.id, user.toSnapshot());
     this.updatedBy.set(user.id, actorId);

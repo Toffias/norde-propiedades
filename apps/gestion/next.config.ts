@@ -1,12 +1,32 @@
 import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
+/**
+ * Cabeceras de seguridad de todo el panel. La CSP no restringe scripts (Next.js inyecta scripts
+ * inline y exigiría nonces): cubre lo que no rompe nada, que el panel no se pueda embeber en otro
+ * sitio (clickjacking) ni cambiar la base de los enlaces o el destino de los formularios.
+ */
+const SECURITY_HEADERS = [
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  {
+    key: 'Content-Security-Policy',
+    value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
+  },
+];
+
 const config: NextConfig = {
   // Los paquetes internos se consumen como código fuente TypeScript.
   transpilePackages: ['@norde/core', '@norde/infra', '@norde/ui'],
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
+  headers() {
+    return Promise.resolve([{ source: '/:path*', headers: SECURITY_HEADERS }]);
+  },
   redirects() {
     // El alta de tasaciones pasó al panel lateral del listado: los enlaces viejos llegan ahí.
     return Promise.resolve([

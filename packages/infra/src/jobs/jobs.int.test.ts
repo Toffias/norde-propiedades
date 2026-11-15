@@ -236,4 +236,53 @@ describe('PgBossEventBus', () => {
     // Uno en este minuto y uno en el siguiente, que junta el resto de la ráfaga.
     expect(result.rows[0]?.jobs).toBe(2);
   });
+  it('moves an event that exhausts its retries to the dead letter queue and logs it', async () => {
+    const eventType = `tests.dead_letter_${new UuidV7IdGenerator().next().replaceAll('-', '')}`;
+    const errors: { details: object; message: string }[] = [];
+    let resolveLogged: () => void = () => undefined;
+    const logged = new Promise<void>((resolve) => (resolveLogged = resolve));
+    const bus = new PgBossEventBus({
+      connectionString: inject('databaseUrl'),
+      logger: {
+        ...silent,
+        error: (details, message) => {
+          errors.push({ details, message });
+          resolveLogged();
+        },
+      },
+      applicationName: 'norde-infra-tests',
+      schema: 'pgboss_test',
+      retryLimit: 0,
+    });
+    bus.subscribe({
+      eventType,
+      name: 'handler',
+      handle: () => Promise.reject(new Error('portal down')),
+    });
+    await bus.start();
+    const event: PublishedEvent = {
+      id: new UuidV7IdGenerator().next(),
+      type: eventType,
+      aggregateId: 'agg-1',
+      occurredAt: clock.now(),
+      payload: { phone: '+5491100000000' },
+    };
+    await bus.publish(event);
+    await Promise.race([logged, new Promise((r) => setTimeout(r, 15_000))]);
+    await bus.stop();
+
+    const queue = `${eventType}.handler`;
+    const result = await db.execute<{ dead_letter: string }>(
+      sql`select dead_letter from pgboss_test.queue where name = ${queue}`,
+    );
+    expect(result.rows[0]?.dead_letter).toBe(`${queue}.dead`);
+    expect(errors).toEqual([
+      {
+        details: { queue, eventId: event.id, eventType, aggregateId: 'agg-1' },
+        message: 'Event handler exhausted its retries: event moved to the dead letter queue',
+      },
+    ]);
+    // El payload no se loguea: puede traer datos personales.
+    expect(JSON.stringify(errors)).not.toContain('+5491100000000');
+  }, 20_000);
 });

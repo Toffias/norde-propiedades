@@ -27,6 +27,7 @@ import {
   outbox,
   propertyOwners,
   reservations,
+  searchSubscriptions,
   userFavorites,
   users,
 } from '../db/schema';
@@ -303,6 +304,41 @@ describe('merging contacts moves what other modules keep', () => {
       }).execute(input, scheduler),
     );
     expect(again).toEqual({ propertyIds: [], developmentIds: [] });
+  });
+
+  it('moves the search subscriptions of the duplicate to the primary', async () => {
+    await aClient(PRIMARY, 'Lucía Pérez');
+    await aClient(DUPLICATE, 'Lucía P');
+    const subscriptionId = ids.next();
+    await db.insert(searchSubscriptions).values({
+      id: subscriptionId,
+      tokenHash: 'hash-1',
+      summary: 'Departamentos en venta',
+      frequency: 'weekly',
+      operation: 'sale',
+      requestedAt: NOW,
+      expiresAt: NOW,
+      confirmedAt: NOW,
+      clientId: DUPLICATE,
+      createdAt: NOW,
+      updatedAt: NOW,
+      createdBy: AGENT,
+      updatedBy: AGENT,
+    });
+
+    unwrap(
+      await new MergeClients({
+        uow: createClientsUnitOfWork(db, { ids, clock }),
+        ids,
+        clock,
+      }).execute({ primaryId: PRIMARY, duplicateId: DUPLICATE }, manager),
+    );
+
+    const [subscription] = await db
+      .select({ clientId: searchSubscriptions.clientId })
+      .from(searchSubscriptions)
+      .where(eq(searchSubscriptions.id, subscriptionId));
+    expect(subscription?.clientId).toBe(PRIMARY);
   });
 
   it('fixes the merges made before, following chains of merges', async () => {

@@ -47,10 +47,12 @@ const AGENT_ACTOR = Actor.user(AGENT, [
   'properties:read',
   'reservations:read',
   'reservations:create',
+  'clients:read',
 ]).withBranch(BRANCH);
 const MANAGER = Actor.user('00000000-0000-7000-8000-0000000000a2', [
   'properties:read',
   'reservations:*',
+  'clients:read-all',
 ]);
 
 function unwrap<T, E>(result: Result<T, E>): T {
@@ -203,6 +205,8 @@ describe('reservations', () => {
 
   it('keeps one active reservation per property when two reserve at the same time', async () => {
     const propertyId = await anAvailableProperty('DEP0102');
+    await aClient(CLIENT, 'Lucía Pérez');
+    await aClient(OTHER_CLIENT, 'Ana Pérez');
 
     const results = await Promise.all([
       reserve.execute(input(propertyId), AGENT_ACTOR),
@@ -223,7 +227,32 @@ describe('reservations', () => {
     expect(await statusOf(propertyId)).toBe('reserved');
   });
 
+  it('keeps the reserved status when an edit read the property before the reservation', async () => {
+    await aClient(CLIENT, 'Ana Pérez');
+    const propertyId = await anAvailableProperty('DEP0103');
+    // La ficha abierta en otra pestaña: se leyó disponible.
+    const stale = await repository.findById(propertyId);
+    if (!stale) throw new Error('Property not found');
+
+    unwrap(await reserve.execute(input(propertyId), AGENT_ACTOR));
+    unwrap(
+      stale.updateInternalInfo(
+        { ...stale.toSnapshot().internal, keysLocation: 'Portería' },
+        clock.now(),
+      ),
+    );
+    await repository.save(stale, AGENT);
+
+    expect(await statusOf(propertyId)).toBe('reserved');
+    const [row] = await db
+      .select({ keysLocation: properties.keysLocation })
+      .from(properties)
+      .where(eq(properties.id, propertyId));
+    expect(row?.keysLocation).toBe('Portería');
+  });
+
   it('deletes the reservations of an erased client and frees the reserved property', async () => {
+    await aClient(CLIENT, 'Ana Pérez');
     const propertyId = await anAvailableProperty('DEP0103');
     unwrap(await reserve.execute(input(propertyId), AGENT_ACTOR));
 

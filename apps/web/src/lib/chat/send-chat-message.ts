@@ -3,18 +3,21 @@
 import { randomUUID } from 'node:crypto';
 
 import { cookies } from 'next/headers';
-import { z } from 'zod';
 
 import { getEnv } from '../../config/env';
 import { getLogger } from '../../config/logger';
 import { getContainer, type WebChatReply } from '../../container';
-import { clientIp } from '../client-ip';
+import { clientRateKey } from '../client-ip';
 import { createRateLimiter } from '../rate-limit';
 
+import { resolveChatSession } from './chat-session';
 import { ChatMessageInputSchema, type ChatActionResult, type ChatReply } from './chat-contract';
 import { chatListingHref } from './listing-link';
 
-/** Sesión anónima del visitante: identifica su conversación con el agente (ADR 0037). */
+/**
+ * Sesión anónima del visitante: identifica su conversación con el agente (ADR 0037). Va firmada con
+ * `PAYLOAD_SECRET` (ver `chat-session.ts`).
+ */
 const SESSION_COOKIE = 'norde_chat';
 const SESSION_MAX_AGE_S = 30 * 24 * 3600;
 
@@ -35,24 +38,33 @@ const UNAVAILABLE =
 const BUSY = 'Recibimos muchos mensajes seguidos. Esperá unos minutos y volvé a escribir.';
 
 /**
- * La sesión del visitante; si no tiene (o no es válida), se crea una nueva. `undefined` si ese IP
- * ya abrió demasiadas hoy.
+ * La sesión del visitante, de su cookie firmada; si no tiene (o no es válida), se crea una nueva.
+ * `undefined` si ese IP ya abrió demasiadas hoy.
  */
 async function sessionId(ip: string): Promise<string | undefined> {
   const store = await cookies();
-  const current = z.uuid().safeParse(store.get(SESSION_COOKIE)?.value);
-  if (current.success) return current.data;
-  if (!allowNewSession(ip)) return undefined;
-
-  const created = randomUUID();
-  store.set(SESSION_COOKIE, created, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: getEnv().NODE_ENV === 'production',
-    path: '/',
-    maxAge: SESSION_MAX_AGE_S,
+  const env = getEnv();
+  const session = resolveChatSession({
+    cookie: store.get(SESSION_COOKIE)?.value,
+    secret: env.PAYLOAD_SECRET,
+    allowNew: () => allowNewSession(ip),
+    newId: randomUUID,
   });
-  return created;
+  switch (session.kind) {
+    case 'existing':
+      return session.sessionId;
+    case 'limited':
+      return undefined;
+    case 'created':
+      store.set(SESSION_COOKIE, session.cookie, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: SESSION_MAX_AGE_S,
+      });
+      return session.sessionId;
+  }
 }
 
 function toChatReply({ listing, ...reply }: WebChatReply): ChatReply {
@@ -66,7 +78,7 @@ export async function sendChatMessage(input: unknown): Promise<ChatActionResult>
 
   const chat = getContainer().chat;
   if (!chat) return { status: 'error', message: UNAVAILABLE };
-  const ip = await clientIp();
+  const ip = await clientRateKey();
   if (!allow(ip) || !allowToday(ip)) return { status: 'error', message: BUSY };
   const session = await sessionId(ip);
   if (!session) return { status: 'error', message: BUSY };

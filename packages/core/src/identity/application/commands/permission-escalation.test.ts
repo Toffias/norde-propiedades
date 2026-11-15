@@ -127,12 +127,12 @@ describe('roles', () => {
     const { uow, updateRole } = setup();
 
     const result = await updateRole.execute(
-      { roleId: ADMIN_ROLE.id, name: ADMIN_ROLE.name, permissions: ['clients:read', 'users:read'] },
+      { roleId: AGENT_ROLE.id, name: AGENT_ROLE.name, permissions: ['users:read'] },
       DELEGATE,
     );
 
     expect(result.isOk()).toBe(true);
-    expect(uow.roles.rows.get(ADMIN_ROLE.id)?.permissions).toEqual(['clients:read', 'users:read']);
+    expect(uow.roles.rows.get(AGENT_ROLE.id)?.permissions).toEqual(['users:read']);
   });
 
   it('does not create a role with permissions the actor does not have', async () => {

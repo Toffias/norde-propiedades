@@ -986,7 +986,7 @@ export function eventSubscriptions(deps: {
     handle: async (event) => {
       const payload = OpportunityPayloadSchema.parse(event.payload);
       const result = await deps.notifyTeam.execute(
-        { type: eventType, occurredAt: event.occurredAt, payload },
+        { id: event.id, type: eventType, occurredAt: event.occurredAt, payload },
         deps.actor,
       );
       if (result.isErr()) {

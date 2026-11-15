@@ -301,6 +301,8 @@ describe('eventSubscriptions', () => {
     await subscriptions[1]?.handle({ ...event, type: 'clients.opportunity_request_added' });
     expect(calls).toEqual([
       {
+        // El ID del evento es la clave para no avisar dos veces.
+        id: event.id,
         type: 'clients.opportunity_request_added',
         occurredAt: event.occurredAt,
         payload: { opportunityId: 'opp-1', clientId: 'client-1' },

@@ -1035,6 +1035,7 @@ describe('portal subscriptions', () => {
   it('gathers a burst of portal notices into one read per minute', () => {
     const { find } = portalSetup();
     expect(find('portals.leads_arrived.pull-portal-leads').throttleSeconds).toBe(60);
+    expect(find('portals.listing_changed_on_portal.reconcile-listing').throttleSeconds).toBe(60);
   });
 });
 

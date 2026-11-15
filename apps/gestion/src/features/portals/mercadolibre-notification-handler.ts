@@ -92,9 +92,7 @@ export function createMercadoLibreNotificationHandler(
       return Response.json({ error: 'forbidden' }, { status: 403 });
     }
     const itemId = topic === ITEMS_TOPIC ? ITEM_RESOURCE.exec(resource ?? '')?.[1] : undefined;
-    if (!LEAD_TOPICS.has(topic) && itemId === undefined) {
-      return Response.json({ ignored: true }, { status: 200 });
-    }
+    if (!LEAD_TOPICS.has(topic) && itemId === undefined) return accepted();
 
     const notified =
       itemId === undefined
@@ -112,8 +110,15 @@ export function createMercadoLibreNotificationHandler(
       if (itemId === undefined) {
         options.logger.warn({ topic }, 'MercadoLibre notification for an account not connected');
       }
-      return Response.json({ ignored: true }, { status: 200 });
     }
-    return Response.json({ received: true }, { status: 200 });
+    return accepted();
   };
+}
+
+/**
+ * La misma respuesta para todo lo aceptado: lo que se procesa, lo que se ignora y los avisos de
+ * cuentas o ítems ajenos. Así no sirve para averiguar qué avisos son de Norde.
+ */
+function accepted(): Response {
+  return Response.json({ received: true }, { status: 200 });
 }

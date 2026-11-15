@@ -11,6 +11,7 @@ import {
 import { UpdateReservationInputSchema, type UpdateReservationInput } from '../../contracts';
 import type {
   InvalidReservationTermsError,
+  ReservationClientLockedError,
   ReservationNotActiveError,
 } from '../../domain/reservation';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
@@ -22,11 +23,13 @@ import {
 } from '../property-support';
 import {
   buildTerms,
+  checkReservationClient,
   loadReservationForChange,
   reservationAuditState,
   reservationTarget,
   type AgentNotFoundError,
   type ManagerNotFoundError,
+  type ReservationClientNotFoundError,
   type ReservationNotFoundError,
 } from '../reservation-support';
 
@@ -38,11 +41,14 @@ export type UpdateReservationError =
   | ReservationNotActiveError
   | AgentNotFoundError
   | ManagerNotFoundError
-  | InvalidReservationTermsError;
+  | InvalidReservationTermsError
+  | ReservationClientNotFoundError
+  | ReservationClientLockedError;
 
 /**
- * Edita una reserva activa (valor, comisión, fecha estimada, agente, gerente y notas), con
- * `reservations:update`. El cliente y la operación no cambian: para eso se cae y se reserva de nuevo.
+ * Edita una reserva activa (contacto, valor, comisión, fecha estimada, agente, gerente y notas), con
+ * `reservations:update`. El contacto se carga si se reservó sin él, o se cambia (sin valor, queda el
+ * que tenía); si la reserva está atada a una oportunidad, no cambia. La operación no cambia: para eso se cae y se reserva de nuevo.
  */
 export class UpdateReservation {
   constructor(
@@ -73,9 +79,14 @@ export class UpdateReservation {
       const agentUserId = data.agentUserId ?? current.agentUserId ?? actor.id;
       const terms = await buildTerms(this.deps.producers, agentUserId, data, current);
       if (terms.isErr()) return err(terms.error);
+      const clientId = data.clientId ?? current.clientId;
+      if (clientId !== undefined && clientId !== current.clientId) {
+        const client = await checkReservationClient(tx.reservationParties, actor, clientId);
+        if (client.isErr()) return err(client.error);
+      }
 
       const before = reservationAuditState(reservation);
-      const changed = reservation.update(terms.value, now);
+      const changed = reservation.update({ ...terms.value, clientId }, now);
       if (changed.isErr()) return err(changed.error);
       if (!changed.value) return ok(undefined);
 
@@ -84,7 +95,7 @@ export class UpdateReservation {
       await tx.audit.record(
         auditAction(
           actor,
-          reservationTarget('property.reservation_updated', reservation),
+          reservationTarget('property.reservation_updated', reservation, current.clientId),
           diffChanges(before, reservationAuditState(reservation)),
         ),
       );

@@ -106,7 +106,10 @@ function toItem(row: {
   return {
     id: r.id,
     propertyId: r.propertyId,
-    client: { id: r.clientId, name: row.clientFound ? (row.clientName ?? undefined) : undefined },
+    client:
+      r.clientId === null
+        ? undefined
+        : { id: r.clientId, name: row.clientFound ? (row.clientName ?? undefined) : undefined },
     opportunityId: r.opportunityId ?? undefined,
     agentUserId: r.agentUserId ?? undefined,
     managerUserId: r.managerUserId ?? undefined,

@@ -65,7 +65,8 @@ function withCurrencies<T extends z.ZodType<TermsWithCurrencies>>(schema: T) {
 export const ReservePropertyInputSchema = withCurrencies(
   z.object({
     propertyId: z.uuid(),
-    clientId: z.uuid('Elegí un contacto.'),
+    /** Opcional: se puede reservar sin saber quién reservó y cargar el contacto después. */
+    clientId: z.uuid('Elegí un contacto.').optional(),
     /** Si se reserva desde una destacada: la oportunidad a la que está atada. */
     opportunityId: z.uuid().optional(),
     operation: z.enum(OPERATIONS),
@@ -73,11 +74,22 @@ export const ReservePropertyInputSchema = withCurrencies(
     /** Clave de idempotencia del formulario (ADR 0050). */
     idempotencyKey: idempotencyKeySchema.optional(),
   }),
-);
+).refine((input) => input.opportunityId === undefined || input.clientId !== undefined, {
+  message: 'Elegí el contacto de la oportunidad.',
+  path: ['clientId'],
+});
 export type ReservePropertyInput = z.input<typeof ReservePropertyInputSchema>;
 
 export const UpdateReservationInputSchema = withCurrencies(
-  z.object({ reservationId: z.uuid(), ...reservationTerms }),
+  z.object({
+    reservationId: z.uuid(),
+    /**
+     * El contacto que reservó: se carga (si se reservó sin él) o se cambia. Sin valor, queda el que
+     * tenía. Si la reserva está atada a una oportunidad, el contacto no cambia.
+     */
+    clientId: z.uuid('Elegí un contacto.').optional(),
+    ...reservationTerms,
+  }),
 );
 export type UpdateReservationInput = z.input<typeof UpdateReservationInputSchema>;
 
@@ -107,8 +119,11 @@ export type ActiveReservationQuery = z.input<typeof ActiveReservationQuerySchema
 export interface ReservationRow {
   readonly id: string;
   readonly propertyId: string;
-  /** `name` es `undefined` si el contacto ya no está (papelera o supresión). */
-  readonly client: { readonly id: string; readonly name: string | undefined };
+  /**
+   * `undefined` si se reservó sin contacto. `name` es `undefined` si el contacto ya no está
+   * (papelera o supresión).
+   */
+  readonly client: { readonly id: string; readonly name: string | undefined } | undefined;
   readonly opportunityId: string | undefined;
   readonly agent: PanelUserRef | undefined;
   readonly manager: PanelUserRef | undefined;

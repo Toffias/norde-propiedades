@@ -23,8 +23,6 @@ import {
   PencilIcon,
   XCircleIcon,
 } from 'lucide-react';
-import type { Route } from 'next';
-import Link from 'next/link';
 import { useId, useState, useTransition } from 'react';
 
 import { runAction } from '../../../../lib/action-result';
@@ -34,7 +32,8 @@ import { FormAlert } from '../../../shared/components/form-alert';
 import { OPERATION_LABELS, RESERVATION_STATUS_DISPLAY } from '../../labels';
 import { fallReservationAction, signReservationAction } from '../../reservation-actions';
 import { ReservationDialog, type ReservationSubject } from './reservation-dialog';
-import { reservationAmount, reservationClient, reservationCommission } from './reservation-format';
+import { ReservationClientLink } from './reservation-client-link';
+import { reservationAmount, reservationCommission } from './reservation-format';
 
 /**
  * La reserva activa de la propiedad, debajo de la cabecera de la ficha. Quien gestiona reservas la
@@ -58,15 +57,7 @@ export function ActiveReservationCard({
   const facts = [
     {
       label: 'Contacto',
-      value: (
-        <Link
-          // La ficha del contacto: typedRoutes no verifica un segmento armado.
-          href={`/contactos/${reservation.client.id}` as Route}
-          className="font-medium hover:underline"
-        >
-          {reservationClient(reservation)}
-        </Link>
-      ),
+      value: <ReservationClientLink reservation={reservation} />,
     },
     { label: 'Operación', value: OPERATION_LABELS[reservation.operation] },
     { label: 'Valor', value: reservationAmount(reservation) },

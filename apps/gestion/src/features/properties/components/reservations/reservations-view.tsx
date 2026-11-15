@@ -28,7 +28,8 @@ import { EntityPicker } from '../../../identity/components/entity-picker';
 import { FilterMultiSelect, options } from '../../../shared/components/list-filters';
 import { ServerDataTable, useListNavigation } from '../../../shared/components/server-data-table';
 import { OPERATION_LABELS, PROPERTY_TYPE_LABELS, RESERVATION_STATUS_DISPLAY } from '../../labels';
-import { reservationAmount, reservationClient, reservationCommission } from './reservation-format';
+import { ReservationClientLink } from './reservation-client-link';
+import { reservationAmount, reservationCommission } from './reservation-format';
 
 /**
  * Filtros del listado tal como están en la URL: texto, o listas en los de varios valores (el param
@@ -401,13 +402,7 @@ export function ReservationsView({
       className: 'whitespace-normal',
       cell: (row) => (
         <div className="flex min-w-0 flex-col">
-          <Link
-            // La ficha del contacto: typedRoutes no verifica un segmento armado.
-            href={`/contactos/${row.client.id}` as Route}
-            className="font-medium hover:underline"
-          >
-            {reservationClient(row)}
-          </Link>
+          <ReservationClientLink reservation={row} />
           <span className="text-xs text-muted-foreground">{OPERATION_LABELS[row.operation]}</span>
         </div>
       ),

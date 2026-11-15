@@ -3,7 +3,8 @@ import type { DomainEvent } from '../../shared/domain/domain-event';
 interface ReservationPayload {
   readonly reservationId: string;
   readonly propertyId: string;
-  readonly clientId: string;
+  /** `undefined` si se reservó sin contacto. */
+  readonly clientId: string | undefined;
 }
 
 export type ReservationCreated = DomainEvent<

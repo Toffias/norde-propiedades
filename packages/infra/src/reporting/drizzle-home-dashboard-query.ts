@@ -313,7 +313,7 @@ export class DrizzleHomeDashboardQuery implements HomeDashboardQuery {
         propertyId: row.propertyId,
         propertyCode: row.propertyCode,
         propertyTitle: row.propertyTitle,
-        clientId: row.clientId,
+        clientId: row.clientId ?? undefined,
         clientName: row.clientName ?? undefined,
         agentId: row.agentId ?? undefined,
         // El `where` exige la fecha.

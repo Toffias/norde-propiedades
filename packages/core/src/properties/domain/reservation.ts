@@ -16,7 +16,7 @@ export interface ReservationAmount {
   readonly currency: PriceCurrency;
 }
 
-/** Lo que se edita de una reserva activa. El cliente, la propiedad y la operación no cambian. */
+/** Los términos de una reserva activa. La propiedad y la operación no cambian. */
 export interface ReservationTerms {
   /** Agente a cargo: usuario de identity, solo por ID. */
   readonly agentUserId: string | undefined;
@@ -38,8 +38,8 @@ export interface ReservationTerms {
 export interface ReservationSnapshot extends ReservationTerms {
   readonly id: ReservationId;
   readonly propertyId: PropertyId;
-  /** Cliente del módulo clients, solo por ID. */
-  readonly clientId: string;
+  /** Cliente del módulo clients, solo por ID. `undefined`: se reservó sin saber quién. */
+  readonly clientId: string | undefined;
   /** Oportunidad del módulo clients, solo por ID (si se reservó desde una destacada). */
   readonly opportunityId: string | undefined;
   readonly operation: PropertyOperationKind;
@@ -55,10 +55,15 @@ export interface ReservationSnapshot extends ReservationTerms {
 export interface NewReservation extends ReservationTerms {
   readonly id: ReservationId;
   readonly propertyId: PropertyId;
-  readonly clientId: string;
+  readonly clientId: string | undefined;
   readonly opportunityId: string | undefined;
   readonly operation: PropertyOperationKind;
   readonly now: Date;
+}
+
+/** Lo que se edita de una reserva activa: sus términos y el contacto que reservó. */
+export interface ReservationChanges extends ReservationTerms {
+  readonly clientId: string | undefined;
 }
 
 /** Una reserva caída o firmada ya no se edita ni cambia de estado. */
@@ -67,6 +72,14 @@ export interface ReservationNotActiveError {
 }
 export interface NegativeReservationAmountError {
   readonly type: 'NegativeReservationAmount';
+}
+/** Una reserva atada a una oportunidad es de su contacto: no se lo cambia ni se lo quita. */
+export interface ReservationClientLockedError {
+  readonly type: 'ReservationClientLocked';
+}
+/** Una reserva atada a una oportunidad necesita el contacto de esa oportunidad. */
+export interface ReservationOpportunityWithoutClientError {
+  readonly type: 'ReservationOpportunityWithoutClient';
 }
 
 export type InvalidReservationTermsError = NegativeReservationAmountError | InvalidCommissionError;
@@ -108,7 +121,8 @@ function sameTerms(a: ReservationTerms, b: ReservationTerms): boolean {
 }
 
 /**
- * Reserva (seña) de una propiedad por un cliente. Nace activa; se cae (la propiedad vuelve a estar
+ * Reserva (seña) de una propiedad. El cliente es opcional: se puede reservar sin saber quién y
+ * cargarlo después; si viene de una oportunidad, es el de esa oportunidad y no cambia. Nace activa; se cae (la propiedad vuelve a estar
  * disponible) o se firma (la propiedad pasa a vendida o alquilada). Una propiedad tiene a lo sumo
  * una reserva activa: lo garantizan el estado de la propiedad y un índice único en la base.
  */
@@ -120,7 +134,12 @@ export class Reservation extends AggregateRoot<ReservationId, ReservationEvent> 
     this.#state = state;
   }
 
-  static create(input: NewReservation): Result<Reservation, InvalidReservationTermsError> {
+  static create(
+    input: NewReservation,
+  ): Result<Reservation, InvalidReservationTermsError | ReservationOpportunityWithoutClientError> {
+    if (input.opportunityId !== undefined && input.clientId === undefined) {
+      return err({ type: 'ReservationOpportunityWithoutClient' });
+    }
     const terms = cleanTerms(input);
     if (terms.isErr()) return err(terms.error);
     const reservation = new Reservation(input.id, {
@@ -155,7 +174,7 @@ export class Reservation extends AggregateRoot<ReservationId, ReservationEvent> 
     return this.#state.propertyId;
   }
 
-  get clientId(): string {
+  get clientId(): string | undefined {
     return this.#state.clientId;
   }
 
@@ -171,16 +190,26 @@ export class Reservation extends AggregateRoot<ReservationId, ReservationEvent> 
     return this.#state.status === 'active';
   }
 
-  /** Cambia los términos de una reserva activa. Devuelve `false` si no cambió nada. */
+  /**
+   * Cambia los términos y el contacto de una reserva activa. Devuelve `false` si no cambió nada. Si
+   * la reserva está atada a una oportunidad, el contacto no cambia.
+   */
   update(
-    terms: ReservationTerms,
+    changes: ReservationChanges,
     now: Date,
-  ): Result<boolean, ReservationNotActiveError | InvalidReservationTermsError> {
+  ): Result<
+    boolean,
+    ReservationNotActiveError | InvalidReservationTermsError | ReservationClientLockedError
+  > {
     if (!this.isActive) return err({ type: 'ReservationNotActive' });
-    const cleaned = cleanTerms(terms);
+    const clientChanged = changes.clientId !== this.#state.clientId;
+    if (clientChanged && this.#state.opportunityId !== undefined) {
+      return err({ type: 'ReservationClientLocked' });
+    }
+    const cleaned = cleanTerms(changes);
     if (cleaned.isErr()) return err(cleaned.error);
-    if (sameTerms(this.#state, cleaned.value)) return ok(false);
-    this.#state = { ...this.#state, ...cleaned.value, updatedAt: now };
+    if (!clientChanged && sameTerms(this.#state, cleaned.value)) return ok(false);
+    this.#state = { ...this.#state, ...cleaned.value, clientId: changes.clientId, updatedAt: now };
     this.record({
       type: 'properties.reservation_updated',
       aggregateId: this.id,
@@ -230,7 +259,7 @@ export class Reservation extends AggregateRoot<ReservationId, ReservationEvent> 
     return { id: this.id, ...this.#state };
   }
 
-  #payload(): { reservationId: string; propertyId: string; clientId: string } {
+  #payload(): { reservationId: string; propertyId: string; clientId: string | undefined } {
     return {
       reservationId: this.id,
       propertyId: this.#state.propertyId,

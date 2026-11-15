@@ -36,7 +36,7 @@ function toSnapshot(row: ReservationDbRow): ReservationSnapshot {
   return {
     id: id.value,
     propertyId: propertyId.value,
-    clientId: row.clientId,
+    clientId: row.clientId ?? undefined,
     opportunityId: row.opportunityId ?? undefined,
     operation: z.enum(PROPERTY_OPERATIONS).parse(row.operation),
     status: z.enum(RESERVATION_STATUSES).parse(row.status),
@@ -57,9 +57,10 @@ function toSnapshot(row: ReservationDbRow): ReservationSnapshot {
   };
 }
 
-/** Lo que cambia de una reserva: todo menos la propiedad, el cliente, la operación y el alta. */
+/** Lo que cambia de una reserva: todo menos la propiedad, la operación y el alta. */
 function changingValues(s: ReservationSnapshot, actorId: string) {
   return {
+    clientId: s.clientId ?? null,
     status: s.status,
     agentUserId: s.agentUserId ?? null,
     branchId: s.branchId ?? null,
@@ -107,7 +108,6 @@ export class DrizzleReservationRepository implements ReservationRepository {
       .values({
         id: s.id,
         propertyId: s.propertyId,
-        clientId: s.clientId,
         opportunityId: s.opportunityId ?? null,
         operation: s.operation,
         reservedAt: s.reservedAt,

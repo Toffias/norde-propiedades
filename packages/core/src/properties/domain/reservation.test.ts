@@ -92,6 +92,27 @@ describe('Reservation.create', () => {
     expect(none.toSnapshot()).toMatchObject({ commissionPct: undefined, amount: undefined });
   });
 
+  it('can start without a contact', () => {
+    const reservation = unwrap(Reservation.create(newReservation({ clientId: undefined })));
+    expect(reservation.clientId).toBeUndefined();
+    expect(reservation.pullEvents()).toMatchObject([
+      { type: 'properties.reservation_created', payload: { clientId: undefined } },
+    ]);
+  });
+
+  it('needs the contact of its opportunity', () => {
+    expect(
+      unwrapErr(
+        Reservation.create(
+          newReservation({
+            clientId: undefined,
+            opportunityId: '00000000-0000-7000-8000-0000000000e1',
+          }),
+        ),
+      ),
+    ).toEqual({ type: 'ReservationOpportunityWithoutClient' });
+  });
+
   it('rejects negative amounts and an invalid commission', () => {
     expect(
       unwrapErr(Reservation.create(newReservation({ amount: { cents: -1n, currency: 'USD' } }))),
@@ -122,6 +143,41 @@ describe('Reservation changes', () => {
     });
     expect(unwrap(reservation.update(terms, LATER))).toBe(false);
     expect(reservation.pullEvents().map((e) => e.type)).toEqual(['properties.reservation_updated']);
+  });
+
+  it('takes the contact later, or another one', () => {
+    const reservation = unwrap(Reservation.create(newReservation({ clientId: undefined })));
+    reservation.pullEvents();
+    const other = '00000000-0000-7000-8000-0000000000d2';
+
+    expect(
+      unwrap(reservation.update({ ...reservation.toSnapshot(), clientId: CLIENT_ID }, LATER)),
+    ).toBe(true);
+    expect(reservation.toSnapshot()).toMatchObject({ clientId: CLIENT_ID, updatedAt: LATER });
+    expect(
+      unwrap(reservation.update({ ...reservation.toSnapshot(), clientId: other }, LATER)),
+    ).toBe(true);
+    expect(reservation.clientId).toBe(other);
+    expect(reservation.pullEvents()).toMatchObject([
+      { type: 'properties.reservation_updated', payload: { clientId: CLIENT_ID } },
+      { type: 'properties.reservation_updated', payload: { clientId: other } },
+    ]);
+  });
+
+  it('keeps the contact of its opportunity', () => {
+    const reservation = unwrap(
+      Reservation.create(newReservation({ opportunityId: '00000000-0000-7000-8000-0000000000e1' })),
+    );
+    const terms = reservation.toSnapshot();
+    expect(
+      unwrapErr(
+        reservation.update({ ...terms, clientId: '00000000-0000-7000-8000-0000000000d2' }, LATER),
+      ),
+    ).toEqual({ type: 'ReservationClientLocked' });
+    expect(unwrapErr(reservation.update({ ...terms, clientId: undefined }, LATER))).toEqual({
+      type: 'ReservationClientLocked',
+    });
+    expect(unwrap(reservation.update({ ...terms, notes: 'Firma el lunes' }, LATER))).toBe(true);
   });
 
   it('falls with an optional reason', () => {

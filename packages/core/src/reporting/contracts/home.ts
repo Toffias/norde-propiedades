@@ -107,7 +107,8 @@ export interface UpcomingSigningRow {
   readonly propertyId: string;
   readonly propertyCode: string;
   readonly propertyTitle: string;
-  readonly clientId: string;
+  /** `undefined` si se reservó sin contacto. */
+  readonly clientId: string | undefined;
   readonly clientName: string | undefined;
   readonly agent: AgentRef | undefined;
   /** `AAAA-MM-DD`. */

@@ -67,7 +67,8 @@ const COLUMNS: readonly Column[] = [
   {
     header: 'Cliente',
     width: 26,
-    value: (r) => r.client.name ?? 'Contacto en la papelera',
+    value: (r) =>
+      r.client === undefined ? 'Sin contacto' : (r.client.name ?? 'Contacto en la papelera'),
   },
   { header: 'Agente', width: 22, value: (r) => r.agent?.name },
   { header: 'Gerente', width: 22, value: (r) => r.manager?.name },

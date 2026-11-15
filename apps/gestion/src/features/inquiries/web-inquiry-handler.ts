@@ -9,6 +9,7 @@ import type { Result } from '@norde/core/shared';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
+import { readLimitedBody } from '../../lib/read-limited-body';
 import { clientIp, createRateLimiter, createRejectionLimiter } from '../../lib/request-guards';
 import { verifySignature } from '../../lib/signature';
 
@@ -79,10 +80,8 @@ export function createWebInquiryHandler(
       return Response.json({ error: 'body too large' }, { status: 413 });
     };
 
-    const declaredLength = Number(request.headers.get('content-length') ?? 0);
-    if (declaredLength > BODY_LIMIT_BYTES) return tooLarge();
-    const raw = Buffer.from(await request.arrayBuffer());
-    if (raw.byteLength > BODY_LIMIT_BYTES) return tooLarge();
+    const raw = await readLimitedBody(request, BODY_LIMIT_BYTES);
+    if (raw === undefined) return tooLarge();
 
     if (!verifySignature(raw, request.headers.get(WEB_INQUIRY_SIGNATURE_HEADER), options.secret)) {
       rejections.record(ip);

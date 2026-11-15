@@ -35,6 +35,10 @@ export const outbox = coreSchema.table(
     index('outbox_pending_idx')
       .on(t.recordedAt)
       .where(sql`published_at is null`),
+    // La purga diaria borra los publicados hace más de un mes.
+    index('outbox_published_idx')
+      .on(t.publishedAt)
+      .where(sql`published_at is not null`),
   ],
 );
 
@@ -204,5 +208,9 @@ export const idempotencyKeys = coreSchema.table(
     result: jsonb('result'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
   },
-  (t) => [uniqueIndex('idempotency_keys_scope_uq').on(t.actorId, t.command, t.key)],
+  (t) => [
+    uniqueIndex('idempotency_keys_scope_uq').on(t.actorId, t.command, t.key),
+    // La purga diaria borra las de más de una semana.
+    index('idempotency_keys_created_idx').on(t.createdAt),
+  ],
 );

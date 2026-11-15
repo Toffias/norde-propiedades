@@ -1,5 +1,5 @@
 {
-  "id": "bfbb9bb0-381b-44e2-ae0b-3e3652f8a991",
+  "id": "cbbe2cd9-2dc0-4ca4-83a7-278131784a7e",
   "prevId": "f2f52e40-ab85-45f2-9ed0-56d85d6a68cc",
   "version": "7",
   "dialect": "postgresql",
@@ -2325,6 +2325,21 @@
         }
       },
       "indexes": {
+        "featured_listings_opportunity_idx": {
+          "name": "featured_listings_opportunity_idx",
+          "columns": [
+            {
+              "expression": "opportunity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "featured_listings_client_property_uq": {
           "name": "featured_listings_client_property_uq",
           "columns": [
@@ -2556,6 +2571,51 @@
         }
       },
       "indexes": {
+        "follow_up_matches_saved_search_idx": {
+          "name": "follow_up_matches_saved_search_idx",
+          "columns": [
+            {
+              "expression": "saved_search_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "follow_up_matches_featured_listing_idx": {
+          "name": "follow_up_matches_featured_listing_idx",
+          "columns": [
+            {
+              "expression": "featured_listing_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "follow_up_matches_shared_listing_idx": {
+          "name": "follow_up_matches_shared_listing_idx",
+          "columns": [
+            {
+              "expression": "shared_listing_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "follow_up_matches_new_listing_uq": {
           "name": "follow_up_matches_new_listing_uq",
           "columns": [
@@ -3609,6 +3669,48 @@
         }
       },
       "indexes": {
+        "opportunities_stage_waiting_idx": {
+          "name": "opportunities_stage_waiting_idx",
+          "columns": [
+            {
+              "expression": "stage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "coalesce(\"status_changed_at\", \"created_at\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "opportunities_close_reason_idx": {
+          "name": "opportunities_close_reason_idx",
+          "columns": [
+            {
+              "expression": "close_reason_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "opportunities_client_status_idx": {
           "name": "opportunities_client_status_idx",
           "columns": [
@@ -4986,6 +5088,21 @@
         }
       },
       "indexes": {
+        "saved_searches_opportunity_idx": {
+          "name": "saved_searches_opportunity_idx",
+          "columns": [
+            {
+              "expression": "opportunity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "saved_searches_client_idx": {
           "name": "saved_searches_client_idx",
           "columns": [
@@ -5611,6 +5728,21 @@
         }
       },
       "indexes": {
+        "shared_listings_opportunity_idx": {
+          "name": "shared_listings_opportunity_idx",
+          "columns": [
+            {
+              "expression": "opportunity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "shared_listings_token_hash_uq": {
           "name": "shared_listings_token_hash_uq",
           "columns": [
@@ -8305,6 +8437,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idempotency_keys_created_idx": {
+          "name": "idempotency_keys_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -8777,12 +8924,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "next_attempt_at": {
-          "name": "next_attempt_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -8798,6 +8939,22 @@
           ],
           "isUnique": false,
           "where": "published_at is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "outbox_published_idx": {
+          "name": "outbox_published_idx",
+          "columns": [
+            {
+              "expression": "published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "published_at is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

@@ -88,6 +88,18 @@ function byHeader(sheet: ExcelJS.Worksheet, rowNumber: number): Map<string, Exce
 describe('FilePropertyExportWriter', () => {
   const writer = new FilePropertyExportWriter();
 
+  it('neutralizes CSV texts that Excel would run as a formula', async () => {
+    const file = writer.write(
+      'csv',
+      batches([row({ portalTitle: '=HYPERLINK("https://evil.test")' }), row({ code: '@SUM(1)' })]),
+      { generatedAt: GENERATED_AT, includeOwners: false },
+    );
+    const lines = (await read(file.body)).toString('utf8').split(/\r\n/);
+
+    expect(lines[1]).toContain(';"\'=HYPERLINK(""https://evil.test"")";');
+    expect(lines[2]?.startsWith("'@SUM(1);")).toBe(true);
+  });
+
   it('writes a CSV that Excel opens in Spanish, with decimal commas and local dates', async () => {
     const file = writer.write('csv', batches([row()], [row({ code: 'DEP0002' })]), {
       generatedAt: GENERATED_AT,

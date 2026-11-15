@@ -40,6 +40,14 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ DATABASE_URL, LOG_LEVEL: 'verbose' })).toThrow(/LOG_LEVEL/);
   });
 
+  it('requires the real site URL in production', () => {
+    expect(() => parseEnv({ DATABASE_URL, NODE_ENV: 'production' })).toThrow(/PUBLIC_SITE_URL/);
+    expect(
+      parseEnv({ DATABASE_URL, NODE_ENV: 'production', PUBLIC_SITE_URL: 'https://norde.com.ar' })
+        .PUBLIC_SITE_URL,
+    ).toBe('https://norde.com.ar');
+  });
+
   it('runs without WhatsApp, and enables it only with all four credentials', () => {
     expect(whatsAppConfig(parseEnv({ DATABASE_URL }))).toBeUndefined();
     expect(

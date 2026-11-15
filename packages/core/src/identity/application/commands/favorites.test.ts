@@ -41,6 +41,15 @@ describe('favorites', () => {
     });
   });
 
+  it('lists the contacts in clientIds, so their erasure also removes the entry', async () => {
+    const { uow, add, remove } = setup();
+    unwrap(await add.execute({ entityType: 'client', ids: [A] }, ACTOR));
+    unwrap(await remove.execute({ entityType: 'client', ids: [A] }, ACTOR));
+    unwrap(await add.execute({ entityType: 'property', ids: [B] }, ACTOR));
+
+    expect(uow.audit.entries.map((entry) => entry.clientIds)).toEqual([[A], [A], []]);
+  });
+
   it('keeps each user favorites apart and removes them', async () => {
     const { uow, add, remove, ids } = setup();
     unwrap(await add.execute({ entityType: 'property', ids: [A, B] }, ACTOR));

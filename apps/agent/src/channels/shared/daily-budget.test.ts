@@ -35,4 +35,14 @@ describe('DailyBudget', () => {
 
     expect(budget.exceeded()).toBe(false);
   });
+
+  it('forgets turns older than 24 hours even without a limit', () => {
+    let now = 0;
+    const budget = new DailyBudget(undefined, PRICES, () => now);
+    budget.record(usage(0, 0, 1));
+    now += 24 * 3_600_000 + 1;
+    budget.record(usage(0, 0, 1));
+
+    expect(budget.entryCount).toBe(1);
+  });
 });

@@ -212,6 +212,18 @@ describe('Tokko users import run tracking', () => {
     });
   });
 
+  it('marks the saved run failed when the copy throws, and lets the error reach the edge', async () => {
+    const { uow, run, source, importId } = await requested();
+    source.users = () => Promise.reject(new Error('connection reset'));
+
+    await expect(run.execute({ importId }, JOB_ACTOR)).rejects.toThrow('connection reset');
+
+    expect(uow.tokkoUsersImports.rows.get(importId)).toMatchObject({
+      status: 'failed',
+      failure: 'unexpected_error',
+    });
+  });
+
   it('runs an event from before the runs were saved, without one', async () => {
     const { uow, run } = setup();
 

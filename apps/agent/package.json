@@ -15,6 +15,7 @@
     "@norde/agent-kit": "workspace:*",
     "@norde/core": "workspace:*",
     "@norde/infra": "workspace:*",
+    "@sentry/node": "catalog:",
     "fastify": "catalog:",
     "pino": "catalog:",
     "tsx": "catalog:",

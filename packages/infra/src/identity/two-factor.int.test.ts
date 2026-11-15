@@ -1,6 +1,6 @@
 import { FixedClock } from '@norde/core/shared/testing';
 import { hashPassword } from 'better-auth/crypto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { insertTestBranch, useTestDatabase } from '../../test/database';
@@ -169,12 +169,19 @@ describe('Two-factor authentication', () => {
   it('asks for the code after the password and audits the sign-in only with it', async () => {
     const userId = await insertUser();
     const { totpUri } = await enableTwoFactor();
-    await db.delete(auditLog);
+    // `audit_log` es solo de inserción (trigger de 0063): se vacía con TRUNCATE.
+    await db.execute(sql`truncate core.audit_log`);
     await db.delete(sessions);
+
+    await db.update(users).set({ lastLoginAt: null }).where(eq(users.id, userId));
 
     const challenge = await signIn();
     expect(challenge.response).toMatchObject({ twoFactorRedirect: true });
     expect(await db.select().from(sessions)).toEqual([]);
+    // Con la contraseña sola todavía no ingresó.
+    const lastLogin = async () =>
+      (await db.select({ at: users.lastLoginAt }).from(users).where(eq(users.id, userId)))[0]?.at;
+    expect(await lastLogin()).toBeNull();
 
     await expect(
       auth.api.verifyTOTP({ body: { code: '000000' }, headers: cookiesFrom(challenge.headers) }),
@@ -185,6 +192,7 @@ describe('Two-factor authentication', () => {
     });
 
     expect(await db.select().from(sessions)).toHaveLength(1);
+    expect(await lastLogin()).toBeInstanceOf(Date);
     expect(await auditActions(userId)).toEqual([
       {
         action: 'user.sign-in-failed',
@@ -206,7 +214,8 @@ describe('Two-factor authentication', () => {
     const userId = await insertUser();
     const { backupCodes } = await enableTwoFactor();
     const code = backupCodes[0] ?? '';
-    await db.delete(auditLog);
+    // `audit_log` es solo de inserción (trigger de 0063): se vacía con TRUNCATE.
+    await db.execute(sql`truncate core.audit_log`);
 
     const first = await signIn();
     await auth.api.verifyBackupCode({ body: { code }, headers: cookiesFrom(first.headers) });

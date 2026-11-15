@@ -110,9 +110,9 @@ packages/core/src/
 │   ├── contracts/                   # Schemas Zod + tipos de entrada y salida (seguros para el cliente)
 │   └── index.ts                     # API pública del módulo (lo único importable desde afuera)
 ├── clients/                         # Clientes, canales de contacto, oportunidades
-├── rentals/                         # Contratos de alquiler, actualizaciones por IPC
+├── rentals/                         # (planificado) Contratos de alquiler, actualizaciones por IPC
 ├── appraisals/                      # Tasaciones
-├── promotions/                      # Modal promocional de la web
+├── promotions/                      # (planificado) Modal promocional de la web
 ├── conversations/                   # Conversaciones del agente, handoff
 ├── portals/                         # Publicación en portales, contactos entrantes
 ├── identity/                        # Usuarios, roles, permisos, sucursales, equipos
@@ -201,9 +201,9 @@ packages/infra/src/
 | --------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `properties`    | Propiedades, emprendimientos, unidades, estados, fotos, destacados, mapa                     | `PropertyPublished`, `PropertyPriceChanged`, `PropertyStatusChanged` |
 | `clients`       | Clientes, canales de contacto, deduplicación, oportunidades, asignación, búsquedas guardadas | `ClientRegistered`, `OpportunityCreated`, `OpportunityStatusChanged` |
-| `rentals`       | Contratos, partes, garantes, actualizaciones por IPC, vencimientos                           | `RentUpdateCalculated`, `ContractExpiring`                           |
+| `rentals`       | (Planificado) Contratos, partes, garantes, actualizaciones por IPC, vencimientos             | `RentUpdateCalculated`, `ContractExpiring`                           |
 | `appraisals`    | Tasaciones, conversión a propiedad                                                           | `AppraisalRequested`, `AppraisalStatusChanged`, `AppraisalConverted` |
-| `promotions`    | Promociones del modal de la web                                                              | `PromotionActivated`                                                 |
+| `promotions`    | (Planificado) Promociones del modal de la web                                                | `PromotionActivated`                                                 |
 | `conversations` | Conversaciones del agente, historial, handoff humano                                         | `ConversationHandedOff`, `ConversationReturnedToBot`                 |
 | `portals`       | Publicación en portales, estado de sincronización, contactos entrantes                       | `ListingSyncFailed`, `PortalContactReceived`                         |
 | `identity`      | Usuarios, roles, permisos, sucursales, equipos, favoritos                                    | `UserCreated`, `RoleChanged`                                         |

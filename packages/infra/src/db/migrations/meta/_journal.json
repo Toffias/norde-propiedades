@@ -439,8 +439,22 @@
     {
       "idx": 62,
       "version": "7",
-      "when": 1794707325418,
-      "tag": "0062_outbox_retry_backoff",
+      "when": 1794707948086,
+      "tag": "0062_p2_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1794707957139,
+      "tag": "0063_audit_log_insert_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1794712481687,
+      "tag": "0064_outbox_retry_backoff",
       "breakpoints": true
     }
   ]

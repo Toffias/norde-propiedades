@@ -14,6 +14,7 @@ import { err, ok, type Result } from '@norde/core/shared';
 import { z } from 'zod';
 
 import type { InfraLogger } from '../../shared/logger';
+import { readLimitedBody } from '../../shared/read-limited-body';
 
 /** La API key de Norde en Tokko (Mi empresa → Permisos). */
 export interface TokkoApiConfig {
@@ -37,6 +38,8 @@ const PAGE_TIMEOUT_MS = 60_000;
 const PHOTO_TIMEOUT_MS = 30_000;
 /** Lo que pesa como mucho una foto en Norde (`MAX_MEDIA_BYTES`); más no se baja. */
 const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
+/** Cuántas redirecciones se siguen para bajar una foto (siempre dentro de `PHOTO_HOST`). */
+const MAX_PHOTO_REDIRECTS = 3;
 /** Esperas antes de cada reintento: Tokko a veces responde 503 por un rato. */
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000];
 
@@ -385,30 +388,37 @@ export class TokkoPropertyApi implements TokkoPropertySource, TokkoUserSource {
   }
 
   async photo(rawUrl: string): Promise<Result<DownloadedPhoto, PhotoUnavailableError>> {
-    let url: URL;
-    try {
-      url = new URL(rawUrl);
-    } catch {
-      // No es una URL: no hay nada que bajar.
-      return err({ type: 'PhotoUnavailable' });
-    }
-    if (url.protocol !== 'https:' || url.hostname !== PHOTO_HOST || url.username !== '') {
-      this.options.logger.warn({ host: url.hostname }, 'Tokko photo outside the Tokko servers');
+    let url = photoUrl(rawUrl);
+    if (!url) {
+      this.options.logger.warn({}, 'Tokko photo outside the Tokko servers');
       return err({ type: 'PhotoUnavailable' });
     }
     try {
-      const response = await this.#fetch(url, { signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) });
-      const declared = Number(response.headers.get('content-length') ?? '0');
-      if (!response.ok || declared > MAX_PHOTO_BYTES) {
+      const signal = AbortSignal.timeout(PHOTO_TIMEOUT_MS);
+      let response = await this.#fetch(url, { signal, redirect: 'manual' });
+      // Las redirecciones se siguen a mano, y solo dentro de los servidores de Tokko.
+      for (let hop = 0; isRedirect(response.status) && hop < MAX_PHOTO_REDIRECTS; hop += 1) {
+        const next = photoUrl(response.headers.get('location'), url);
+        await response.body?.cancel();
+        if (!next) {
+          this.options.logger.warn({ path: url.pathname }, 'Tokko photo redirected outside Tokko');
+          return err({ type: 'PhotoUnavailable' });
+        }
+        url = next;
+        response = await this.#fetch(url, { signal, redirect: 'manual' });
+      }
+      if (!response.ok) {
+        await response.body?.cancel();
         this.options.logger.warn(
           { status: response.status, path: url.pathname },
           'Tokko photo not downloaded',
         );
         return err({ type: 'PhotoUnavailable' });
       }
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      const bytes = await readLimitedBody(response, MAX_PHOTO_BYTES);
       const contentType = (response.headers.get('content-type') ?? '').split(';')[0]?.trim() ?? '';
-      if (bytes.byteLength === 0 || bytes.byteLength > MAX_PHOTO_BYTES || contentType === '') {
+      if (bytes === undefined || bytes.byteLength === 0 || contentType === '') {
+        this.options.logger.warn({ path: url.pathname }, 'Tokko photo empty or too big');
         return err({ type: 'PhotoUnavailable' });
       }
       return ok({ bytes, contentType });
@@ -458,4 +468,24 @@ export class TokkoPropertyApi implements TokkoPropertySource, TokkoUserSource {
       await this.#sleep(delay);
     }
   }
+}
+
+const isRedirect = (status: number): boolean => status >= 300 && status < 400;
+
+/**
+ * La URL de una foto si es de los servidores de Tokko (`https`, `PHOTO_HOST`, sin usuario);
+ * `undefined` si no. `base` resuelve una redirección relativa.
+ */
+function photoUrl(raw: string | null, base?: URL): URL | undefined {
+  if (!raw) return undefined;
+  let url: URL;
+  try {
+    url = new URL(raw, base);
+  } catch {
+    // No es una URL: no hay nada que bajar.
+    return undefined;
+  }
+  return url.protocol === 'https:' && url.hostname === PHOTO_HOST && url.username === ''
+    ? url
+    : undefined;
 }

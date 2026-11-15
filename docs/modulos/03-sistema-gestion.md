@@ -239,8 +239,8 @@ La issue #8 se parte en cuatro etapas: (1) agenda base, (2) etiquetas, agenda A�
 
 **Alta** (panel lateral, `clients:create`): nombre, tipo de registro (persona, empresa o grupo), teléfonos con tipo y horario de contacto, emails, empresa, tipos de cliente y agente (otro agente pide `clients:reassign`). Antes de crear se buscan duplicados con la misma regla que usan el agente de IA y los portales:
 
-- Mismo teléfono (con o sin el 9) o mismo email, en cualquiera de los teléfonos y emails del contacto: no se crea otro. Se ofrece abrir su ficha o, si está en la papelera, restaurarlo. Si es de un agente que el usuario no ve, se avisa a cargo de quién está.
-- Mismo nombre (sin acentos ni mayúsculas) con otros datos: "posible duplicado", que se puede crear igual.
+- Mismo teléfono (con o sin el 9) o mismo email, en cualquiera de los teléfonos y emails del contacto: no se crea otro. Se ofrece abrir su ficha o, si está en la papelera, restaurarlo. Si es de un agente que el usuario no ve, se avisa a cargo de quién está, sin su nombre (si no, cualquier teléfono revelaría de quién es).
+- Mismo nombre (sin acentos ni mayúsculas) con otros datos: "posible duplicado", que se puede crear igual. Solo se muestran los que el usuario puede ver.
 - Si un contacto de la papelera vuelve a escribir por un canal (agente de IA, portal), se restaura solo.
 
 **Ficha** (`/contactos/[id]`): tarjeta con nombre, tipos, agente, teléfono y email principales, y las acciones WhatsApp, llamar, email, cambiar agente (`clients:reassign`) y borrar o restaurar. Secciones editables en línea: teléfonos y emails (el primero de cada lista es el principal), tipos de cliente, datos (tipo de registro, empresa, cargo, web, nacimiento, dirección, país, idioma y documento) y los canales por los que se contactó. Pestaña Historial con quién cambió qué y cuándo.
@@ -1068,7 +1068,7 @@ Cada propiedad:
 - **Expensas**: en pesos; 0 es "sin expensas".
 - **Plantas, ocupación, zonificación y superficie descubierta**: Norde no las modela; van a los comentarios internos, bajo "Datos de Tokko".
 - **Productor**: el usuario activo con ese nombre (sin distinguir mayúsculas ni acentos), con su sucursal; "Libre" o un nombre que no es un usuario, quien pidió la importación.
-- **Propietario**: el contacto con ese celular o email (la regla de duplicados de contactos) o uno nuevo como propietario vendedor o locador, a cargo del productor. Sin un teléfono ni un email válidos, la propiedad se importa sin propietario, con un aviso.
+- **Propietario**: el contacto con ese celular o email (la regla de duplicados de contactos; si estaba en la papelera, se restaura) o uno nuevo como propietario vendedor o locador, a cargo del productor. Sin un teléfono ni un email válidos, la propiedad se importa sin propietario, con un aviso.
 - **Emprendimiento**: Tokko suma el estado de obra al nombre ("AV. RIVADAVIA 9540 + EN POZO"); sin eso, si hay un emprendimiento activo con ese nombre, la propiedad queda como su unidad (también en el historial del emprendimiento). Si no hay uno, se importa suelta, con un aviso.
 
 El reporte de cada importación muestra las filas, las creadas, las que ya estaban y las que tuvieron errores, y las filas con problemas: los errores (la fila no se importó) y los avisos (se importó con algo ajustado), con un enlace a la propiedad. No guarda datos personales: el número de fila, el motivo, la columna y el ID de la propiedad. Las propiedades quedan auditadas como `property.imported` (`system:import`), agrupadas por la importación, con el propietario en `client_ids`.

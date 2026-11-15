@@ -2,14 +2,16 @@ import { pino, type Logger } from 'pino';
 
 import type { Env } from './env';
 
-/** Datos personales que nunca se loguean en claro (Ley 25.326). */
+/** Hasta tres niveles de anidamiento: pino no tiene un comodín recursivo. */
+function redactPaths(keys: readonly string[]): string[] {
+  return keys.flatMap((key) => [key, `*.${key}`, `*.*.${key}`]);
+}
+
+/** Datos personales y secretos que nunca se loguean en claro (Ley 25.326). */
 const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers["x-hub-signature-256"]',
-  '*.token',
-  '*.phone',
-  '*.email',
-  '*.dni',
+  ...redactPaths(['token', 'phone', 'email', 'dni']),
 ];
 
 export function createLogger(env: Pick<Env, 'NODE_ENV' | 'LOG_LEVEL'>): Logger {

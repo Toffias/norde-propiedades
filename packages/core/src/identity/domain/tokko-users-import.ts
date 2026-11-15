@@ -7,11 +7,15 @@ export type TokkoUsersImportId = Id<'TokkoUsersImport'>;
 export const TOKKO_USERS_IMPORT_STATUSES = ['pending', 'running', 'done', 'failed'] as const;
 export type TokkoUsersImportStatus = (typeof TOKKO_USERS_IMPORT_STATUSES)[number];
 
-/** Por qué no se pudo copiar: Tokko no respondió o falta el rol Agente o la sucursal principal. */
+/**
+ * Por qué no se pudo copiar: Tokko no respondió, falta el rol Agente o la sucursal principal, o la
+ * copia se cortó por un error inesperado (queda en el log).
+ */
 export const TOKKO_USERS_IMPORT_FAILURES = [
   'tokko_unavailable',
   'agent_role_missing',
   'main_branch_missing',
+  'unexpected_error',
 ] as const;
 export type TokkoUsersImportFailure = (typeof TOKKO_USERS_IMPORT_FAILURES)[number];
 

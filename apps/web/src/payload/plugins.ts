@@ -13,7 +13,7 @@ import { summarize } from '../lib/blog/text';
 import { withBrand } from '../lib/seo/metadata';
 import { absoluteUrl, routes } from '../lib/seo/routes';
 import type { Post } from '../payload-types';
-import { authenticated } from './access';
+import { authenticated, authenticatedOrSite } from './access';
 import { revalidateOnChange, revalidateOnDelete } from './hooks/revalidate-blog';
 
 /** Documento en edición: cualquier campo puede faltar o venir en `null`. */
@@ -42,7 +42,7 @@ export const plugins: Plugin[] = [
     overrides: {
       labels: { singular: 'Redirección', plural: 'Redirecciones' },
       access: {
-        read: () => true,
+        read: authenticatedOrSite,
         create: authenticated,
         update: authenticated,
         delete: authenticated,

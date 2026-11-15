@@ -84,21 +84,28 @@ export class RunTokkoUsersImport {
     if (job?.isFinished === true) return ok(job.summary);
     if (job) await this.#start(job, actor);
 
-    const result = await this.#copyAll(actor);
-    if (job) await this.#finish(job, actor, result);
+    let result: Result<TokkoUsersImportSummary, RunTokkoUsersImportError>;
+    try {
+      result = await this.#copyAll(actor);
+    } catch (error) {
+      // La corrida no queda "en proceso" para siempre: se marca fallida y el error sigue al borde.
+      if (job) await this.#finish(job, actor, 'unexpected_error');
+      throw error;
+    }
+    if (job) await this.#finish(job, actor, result.isOk() ? result.value : failureOf(result.error));
     return result;
   }
 
   async #finish(
     job: TokkoUsersImport,
     actor: Actor,
-    result: Result<TokkoUsersImportSummary, RunTokkoUsersImportError>,
+    outcome: TokkoUsersImportSummary | TokkoUsersImportFailure,
   ) {
     await this.deps.uow.run(async (tx) => {
       const before = job.status;
       const now = this.deps.clock.now();
-      if (result.isOk()) job.finish(result.value, now);
-      else job.fail(failureOf(result.error), now);
+      if (typeof outcome === 'string') job.fail(outcome, now);
+      else job.finish(outcome, now);
       await tx.tokkoUsersImports.save(job, actor.id);
       await tx.audit.record(
         auditAction(

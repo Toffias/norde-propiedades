@@ -232,6 +232,7 @@ export { SharpImageWatermarker } from './adapters/images/sharp-image-watermarker
 export { SharpImageVariantGenerator } from './adapters/images/sharp-image-variant-generator';
 
 export { OutboxRelay, type OutboxRelayOptions } from './jobs/outbox-relay';
+export { purgePlatformTables, type HousekeepingResult } from './jobs/platform-housekeeping';
 export {
   PgBossEventBus,
   type EventSubscription,

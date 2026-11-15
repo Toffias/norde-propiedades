@@ -3,13 +3,20 @@ name: Deploy UAT
 # Publica las tres apps en el VPS de Hostinger (docs/deploy.md). Lo llama CI cuando un push a `uat`
 # pasa; también se puede correr a mano desde Actions para volver a publicar la rama.
 #
-# El build corre acá y no en el VPS (1 vCPU / 4 GB compartido con otros proyectos). Se compila en
-# la misma ruta absoluta que en el VPS para que `.next` no arrastre rutas del runner. En el VPS solo
-# se instalan las dependencias, se migran las bases y se recargan los procesos.
+# El build corre acá y no en el VPS (1 vCPU / 4 GB compartido con otros proyectos). Cada deploy es
+# un release nuevo en `releases/<corrida>-<intento>`, compilado en la misma ruta absoluta que tendrá
+# en el VPS para que `.next` no arrastre rutas del runner. Los procesos viejos siguen corriendo con
+# su carpeta intacta: se instala y se migra en el release nuevo, se mueve el link `current` (un
+# rename, atómico) y recién ahí se reinician los procesos. El release anterior queda en `previous`:
+# si la verificación falla, se vuelve a él solo.
 
 on:
   workflow_call:
   workflow_dispatch:
+
+# Solo lectura del repo. Las acciones van fijadas por commit (el tag del comentario es la versión).
+permissions:
+  contents: read
 
 # Un deploy por vez; uno nuevo espera al anterior en vez de cortarlo.
 concurrency:
@@ -17,7 +24,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_DIR: /var/www/norde-uat
+  DEPLOY_ROOT: /var/www/norde-uat
+  RELEASE_DIR: /var/www/norde-uat/releases/${{ github.run_number }}-${{ github.run_attempt }}
   # Node del VPS para las apps de Norde (el del sistema lo usan otros proyectos).
   VPS_NODE_DIR: /opt/node-24/bin
   WEB_URL: https://landingnorde.apzsoftware.online
@@ -27,33 +35,47 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    # Los secretos del deploy son del entorno `uat` (docs/deploy.md §8): solo este job los ve.
     environment:
       name: uat
       url: ${{ env.WEB_URL }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Copiar el repo a la ruta del VPS
+      - name: Verificar los secretos del entorno
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
-          sudo mkdir -p "$DEPLOY_DIR"
-          sudo chown "$USER" "$DEPLOY_DIR"
-          rsync -a --exclude .git ./ "$DEPLOY_DIR/"
-          echo "$GITHUB_SHA" > "$DEPLOY_DIR/DEPLOYED_SHA.txt"
+          for name in VPS_HOST VPS_SSH_KEY VPS_KNOWN_HOSTS; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Falta el secret $name en el entorno uat (docs/deploy.md §8)."
+              exit 1
+            fi
+          done
 
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - name: Copiar el repo a la ruta del release
+        run: |
+          sudo mkdir -p "$RELEASE_DIR"
+          sudo chown "$USER" "$RELEASE_DIR"
+          rsync -a --exclude .git ./ "$RELEASE_DIR/"
+          echo "$GITHUB_SHA" > "$RELEASE_DIR/DEPLOYED_SHA.txt"
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: Instalar dependencias
-        working-directory: ${{ env.DEPLOY_DIR }}
+        working-directory: ${{ env.RELEASE_DIR }}
         run: pnpm install --frozen-lockfile
 
       - name: Build de web y gestión
-        working-directory: ${{ env.DEPLOY_DIR }}
+        working-directory: ${{ env.RELEASE_DIR }}
         run: pnpm turbo run build --filter=@norde/web --filter=@norde/gestion
         env:
           # La web no lee la base en el build (ADR 0011): la URL y el secreto son de relleno. La URL
@@ -67,28 +89,67 @@ jobs:
           NEXT_PUBLIC_SENTRY_ENVIRONMENT: uat
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
+      # La huella del VPS sale de un secret verificado a mano (docs/deploy.md §8), no de
+      # `ssh-keyscan` en cada deploy: un host que se haga pasar por el VPS no recibe el código.
       - name: Configurar SSH
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $VPS_HOST
+            User root
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+
+      # El release nuevo arranca como copia del actual con hard links (sin dependencias): el rsync
+      # siguiente sube solo lo que cambió, y reemplaza archivos (los escribe aparte y los renombra)
+      # sin tocar los del release en uso.
+      - name: Preparar el release en el VPS
+        run: |
+          ssh vps bash -s -- "$DEPLOY_ROOT" "$RELEASE_DIR" <<'EOF'
+            set -euo pipefail
+            root=$1
+            release=$2
+            mkdir -p "$root/releases"
+            if [ -e "$release" ]; then
+              echo "El release $release ya existe en el VPS." >&2
+              exit 1
+            fi
+            if [ -d "$root/current/" ]; then
+              rsync -a --link-dest="$root/current/" \
+                --exclude /node_modules \
+                --exclude '/apps/*/node_modules' \
+                --exclude '/packages/*/node_modules' \
+                --exclude /scripts/node_modules \
+                --exclude .next/cache \
+                --exclude '.env' \
+                --exclude /apps/web/media \
+                "$root/current/" "$release/"
+            else
+              mkdir -p "$release"
+            fi
+          EOF
 
       - name: Subir el código y los builds
-        working-directory: ${{ env.DEPLOY_DIR }}
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-        # Lo excluido no se borra en el VPS: dependencias, `.env`, archivos subidos y cachés quedan.
-        # --delay-updates deja los archivos nuevos en su lugar al final, para acortar el momento en
-        # que los procesos viejos ven el `.next` a medio copiar.
-        # Solo se excluyen los node_modules de dependencias (los instala el VPS): `.next/node_modules`
-        # trae los alias de Turbopack a los paquetes externos (`pino-<hash>`) y tiene que viajar.
+        working-directory: ${{ env.RELEASE_DIR }}
+        # Lo excluido no viaja: las dependencias las instala el VPS, y los `.env` y los archivos
+        # subidos se enlazan desde `shared/`. Solo se excluyen los node_modules de dependencias:
+        # `.next/node_modules` trae los alias de Turbopack a los paquetes externos (`pino-<hash>`) y
+        # tiene que viajar.
         run: |
-          rsync -az --delete --delay-updates \
-            -e "ssh -i ~/.ssh/deploy_key" \
+          rsync -az --delete \
             --exclude /node_modules \
             --exclude '/apps/*/node_modules' \
             --exclude '/packages/*/node_modules' \
@@ -101,38 +162,87 @@ jobs:
             --exclude .storage \
             --exclude /apps/web/media \
             --exclude '*.tsbuildinfo' \
-            ./ root@"$VPS_HOST":"$DEPLOY_DIR"/
+            ./ vps:"$RELEASE_DIR"/
 
-      - name: Instalar, migrar y recargar en el VPS
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
+      - name: Instalar, migrar y activar en el VPS
+        id: activate
         run: |
-          ssh -i ~/.ssh/deploy_key root@"$VPS_HOST" bash -s <<EOF
+          ssh vps bash -s -- "$DEPLOY_ROOT" "$RELEASE_DIR" "$VPS_NODE_DIR" <<'EOF'
             set -euo pipefail
-            cd "$DEPLOY_DIR"
-            export PATH="$VPS_NODE_DIR:\$PATH"
-            export NORDE_NODE_BIN="$VPS_NODE_DIR/node"
+            root=$1
+            release=$2
+            export PATH="$3:$PATH"
+            export NORDE_NODE_BIN="$3/node"
             export HUSKY=0
             export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
+            # Lo que sobrevive a los releases: los `.env` y los archivos subidos a la web. En el
+            # primer deploy con releases se copian una vez del esquema anterior (todo en $root).
+            mkdir -p "$root/shared/apps/web/media" "$root/shared/apps/gestion" "$root/shared/apps/agent"
+            for app in web gestion agent; do
+              shared_env="$root/shared/apps/$app/.env"
+              if [ ! -f "$shared_env" ]; then
+                if [ ! -f "$root/apps/$app/.env" ]; then
+                  echo "Falta $shared_env (docs/deploy.md §5)." >&2
+                  exit 1
+                fi
+                cp -p "$root/apps/$app/.env" "$shared_env"
+              fi
+              ln -sfn "$shared_env" "$release/apps/$app/.env"
+            done
+            if [ -d "$root/apps/web/media" ] && [ -z "$(ls -A "$root/shared/apps/web/media")" ]; then
+              cp -a "$root/apps/web/media/." "$root/shared/apps/web/media/"
+            fi
+            ln -sfn "$root/shared/apps/web/media" "$release/apps/web/media"
+
+            cd "$release"
             corepack pnpm install --frozen-lockfile
 
-            # Migraciones, en el orden de docs/arquitectura.md §10. drizzle-kit toma la base de
-            # DATABASE_URL; se lee solo esa línea del .env de gestión (el resto puede tener espacios).
-            DATABASE_URL="\$(grep -E '^DATABASE_URL=' apps/gestion/.env | cut -d= -f2-)" \
+            # Migraciones, en el orden de docs/arquitectura.md §10, antes del cambio: los procesos
+            # viejos siguen andando con la base nueva (migraciones compatibles hacia atrás).
+            # drizzle-kit toma la base de DATABASE_URL; se lee solo esa línea del .env de gestión.
+            DATABASE_URL="$(grep -E '^DATABASE_URL=' apps/gestion/.env | cut -d= -f2-)" \
               corepack pnpm --filter @norde/infra db:migrate
             # Sin TTY, un prompt de Payload colgaría el deploy: con /dev/null recibe EOF.
             corepack pnpm --filter @norde/web migrate < /dev/null
 
-            pm2 startOrReload ecosystem.config.cjs --update-env
+            # El cambio: `previous` pasa al release que corría y `current` al nuevo, cada uno con un
+            # rename (atómico).
+            if [ -L "$root/current" ]; then
+              ln -sfn "$(readlink -f "$root/current")" "$root/previous.next"
+              mv -T "$root/previous.next" "$root/previous"
+            fi
+            ln -sfn "$release" "$root/current.next"
+            mv -T "$root/current.next" "$root/current"
+
+            # Se borran y se vuelven a crear desde el release (y no `reload`): PM2 no cambia la
+            # carpeta de un proceso al recargarlo. En modo fork el corte es el mismo que el de un
+            # reload. `pm2 pid` no imprime nada si el proceso no existe.
+            for app in norde-web norde-gestion norde-agent; do
+              if [ -n "$(pm2 pid "$app")" ]; then
+                pm2 delete "$app"
+              fi
+            done
+            pm2 start ecosystem.config.cjs
             pm2 save
+
+            # Quedan los tres releases más nuevos, y nunca el actual ni el anterior.
+            current_target="$(readlink -f "$root/current")"
+            previous_target=""
+            if [ -L "$root/previous" ]; then
+              previous_target="$(readlink -f "$root/previous")"
+            fi
+            ls -1dt "$root"/releases/*/ | tail -n +4 | while read -r dir; do
+              dir="${dir%/}"
+              if [ "$dir" != "$current_target" ] && [ "$dir" != "$previous_target" ]; then
+                rm -rf "$dir"
+              fi
+            done
           EOF
 
       - name: Verificar el commit y las apps
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          DEPLOYED_SHA=$(ssh -i ~/.ssh/deploy_key root@"$VPS_HOST" "cat $DEPLOY_DIR/DEPLOYED_SHA.txt")
+          DEPLOYED_SHA=$(ssh vps "cat $DEPLOY_ROOT/current/DEPLOYED_SHA.txt")
           echo "Esperado:   $GITHUB_SHA"
           echo "Desplegado: $DEPLOYED_SHA"
           if [ "$DEPLOYED_SHA" != "$GITHUB_SHA" ]; then
@@ -140,7 +250,7 @@ jobs:
             exit 1
           fi
 
-          # Next.js tarda unos segundos en levantar después del reload.
+          # Next.js tarda unos segundos en levantar después del reinicio.
           check() {
             for attempt in $(seq 1 12); do
               code=$(curl -s -o /dev/null -w '%{http_code}' "$1" || true)
@@ -156,3 +266,44 @@ jobs:
           check "$WEB_URL/"
           check "$GESTION_URL/ingresar"
           check "$AGENT_URL/health"
+
+      # Si el release nuevo quedó activo y no responde (o falló al arrancar), vuelve el anterior.
+      # Si falló antes del cambio, `current` sigue en el anterior y no hay nada que hacer. Las
+      # migraciones no se revierten: son compatibles hacia atrás. En el primer deploy con releases
+      # no hay `previous`: vuelve el esquema anterior, que sigue en $DEPLOY_ROOT hasta que se borre
+      # a mano (docs/deploy.md, "Releases").
+      - name: Volver al release anterior
+        if: failure() && (steps.activate.outcome == 'success' || steps.activate.outcome == 'failure')
+        run: |
+          ssh vps bash -s -- "$DEPLOY_ROOT" "$RELEASE_DIR" "$VPS_NODE_DIR" <<'EOF'
+            set -euo pipefail
+            root=$1
+            release=$2
+            export PATH="$3:$PATH"
+            export NORDE_NODE_BIN="$3/node"
+            if [ "$(readlink -f "$root/current" || true)" != "$release" ]; then
+              echo "El release nuevo no llegó a activarse: sigue el anterior."
+              exit 0
+            fi
+            if [ -L "$root/previous" ]; then
+              target="$(readlink -f "$root/previous")"
+              ln -sfn "$target" "$root/current.next"
+              mv -T "$root/current.next" "$root/current"
+            elif [ -f "$root/ecosystem.config.cjs" ]; then
+              target="$root"
+              rm "$root/current"
+            else
+              echo "No hay un release anterior al que volver." >&2
+              exit 1
+            fi
+            cd "$target"
+            for app in norde-web norde-gestion norde-agent; do
+              if [ -n "$(pm2 pid "$app")" ]; then
+                pm2 delete "$app"
+              fi
+            done
+            pm2 start ecosystem.config.cjs
+            pm2 save
+            echo "Volvió a $target."
+          EOF
+          echo "::error::El deploy falló y se volvió al release anterior."

@@ -9,21 +9,50 @@ Entorno de pruebas para validar integraciones (MercadoLibre, WhatsApp, Resend) y
 | Agente  | `https://agentenorde.apzsoftware.online`  | 3022         | `norde-agent`   |
 
 - **VPS**: `srv1589149.hstgr.cloud` (`82.29.59.19`), KVM 1 (1 vCPU / 4 GB), Ubuntu. Las otras apps usan los puertos 3000 a 3003 y 3010.
-- **Carpeta**: `/var/www/norde-uat`. **Base**: PostgreSQL 17.10 local (compartido con los otros proyectos), base `norde_uat`. Es la versión de todo el proyecto (ADR 0041).
+- **Carpeta**: `/var/www/norde-uat`, con un release por deploy (ver [Releases](#releases)). **Base**: PostgreSQL 17.10 local (compartido con los otros proyectos), base `norde_uat`. Es la versión de todo el proyecto (ADR 0041).
 - **Node**: las apps de Norde usan Node 24 en `/opt/node-24`. El Node del sistema queda para los otros proyectos.
 
 ## Flujo
 
-`git push` a `uat` → CI (`.github/workflows/ci.yml`) → si pasa, el job `deploy-uat` llama a `.github/workflows/deploy-uat.yml`:
+`git push` a `uat` → CI (`.github/workflows/ci.yml`) → si pasan `check`, `integration` **y** `e2e`, el job `deploy-uat` llama a `.github/workflows/deploy-uat.yml`:
 
-1. **En GitHub Actions**: `pnpm install` y build de web y gestión, en la misma ruta que en el VPS (`/var/www/norde-uat`). Así `.next` no arrastra rutas del runner y el VPS no compila.
-2. **rsync al VPS**: código y builds. No se tocan `node_modules`, los `.env`, los archivos subidos (`apps/web/media`, `.storage`) ni las cachés.
-3. **En el VPS**: `pnpm install --frozen-lockfile`, migraciones de core (`drizzle-kit migrate`), migraciones de Payload y `pm2 startOrReload ecosystem.config.cjs`.
-4. **Verificación**: compara el SHA desplegado (`DEPLOYED_SHA.txt`) y que las tres URLs respondan.
+1. **En GitHub Actions**: `pnpm install` y build de web y gestión, en la misma ruta que tendrá el release en el VPS (`/var/www/norde-uat/releases/<corrida>-<intento>`). Así `.next` no arrastra rutas del runner y el VPS no compila.
+2. **Release nuevo en el VPS**: se arma como copia con hard links del release actual (sin `node_modules`) y el rsync sube solo lo que cambió. El release que está corriendo no se toca.
+3. **En el VPS, sobre el release nuevo**: enlaza los `.env` y `apps/web/media` desde `shared/`, `pnpm install --frozen-lockfile`, migraciones de core (`drizzle-kit migrate`) y de Payload. Si algo falla acá, el deploy se corta y sigue el release anterior.
+4. **Cambio**: `previous` pasa al release que corría, `current` al nuevo (los dos con un rename atómico) y los procesos de PM2 se borran y se crean desde el release nuevo.
+5. **Verificación**: compara el SHA desplegado (`current/DEPLOYED_SHA.txt`) y que las tres URLs respondan. Si falla, el workflow vuelve solo al release anterior.
 
 Se trabaja en `dev`. Para publicar en UAT: `git checkout uat && git merge dev && git push`, o un PR de `dev` a `uat`. Para volver a publicar sin cambios: Actions → **Deploy UAT** → _Run workflow_ sobre `uat`.
 
-**Rollback**: revertir en `uat` (`git revert`) y pushear. Las migraciones son compatibles hacia atrás, así que el código anterior funciona con la base nueva.
+**Rollback**: si la verificación falla, el workflow vuelve solo a `previous`. Se puede volver a mano (ver [Releases](#releases)) o, si el release anterior también tiene el problema, revertir en `uat` (`git revert`) y pushear. Las migraciones son compatibles hacia atrás, así que el código anterior funciona con la base nueva.
+
+## Releases
+
+```text
+/var/www/norde-uat/
+├── releases/<corrida>-<intento>/   checkout + build + node_modules de un deploy (quedan los 3 últimos)
+├── current  -> releases/...        el que corre
+├── previous -> releases/...        el anterior, para volver
+└── shared/apps/{web,gestion,agent}/.env y shared/apps/web/media
+```
+
+- Los `.env` se editan en `shared/apps/<app>/.env` (cada release tiene un symlink a ese archivo). Después: `pm2 reload norde-<app> --update-env`.
+- **Volver a mano al release anterior**:
+
+```bash
+cd /var/www/norde-uat
+ln -sfn "$(readlink -f previous)" current.next && mv -T current.next current
+cd "$(readlink -f current)"
+for app in norde-web norde-gestion norde-agent; do pm2 delete "$app"; done
+NORDE_NODE_BIN=/opt/node-24/bin/node pm2 start ecosystem.config.cjs && pm2 save
+```
+
+- **Paso desde el esquema anterior** (todo el repo directo en `/var/www/norde-uat`): el primer deploy con releases copia los `.env` de `apps/<app>/.env` y `apps/web/media` a `shared/`, y deja el esquema anterior donde está (si ese deploy falla, el workflow vuelve a él). No hace falta ningún paso a mano antes. Cuando un deploy con releases quedó andando, se borra lo viejo a mano, sin tocar `releases/`, `shared/`, `current` ni `previous`:
+
+```bash
+cd /var/www/norde-uat
+ls -A   # revisar qué queda del esquema anterior antes de borrar
+```
 
 ---
 
@@ -66,19 +95,20 @@ Un solo usuario de base para las tres apps (ADR 0015).
 ### 4. Carpetas
 
 ```bash
-mkdir -p /var/www/norde-uat/apps/{web,gestion,agent} /var/www/norde-uat-storage
+mkdir -p /var/www/norde-uat/releases /var/www/norde-uat/shared/apps/{web/media,gestion,agent} /var/www/norde-uat-storage
 ```
 
 ### 5. `.env` de cada app
 
-No se versionan y el deploy no los toca. Generá los secretos con `openssl rand -base64 32`. Las variables posibles están en el `.env.example` de cada app.
+No se versionan y el deploy no los toca: viven en `shared/` y cada release los enlaza. Generá los secretos con `openssl rand -base64 32`. Las variables posibles están en el `.env.example` de cada app.
 
-`/var/www/norde-uat/apps/web/.env`:
+`/var/www/norde-uat/shared/apps/web/.env`:
 
 ```bash
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
 PAYLOAD_SECRET=SECRETO_DE_32_O_MAS
 NEXT_PUBLIC_SERVER_URL=https://landingnorde.apzsoftware.online
+# Sin ALLOW_INDEXING (o en false), robots.txt pide no indexar nada. Solo producción lleva true.
 # Fotos de las propiedades: la misma carpeta que el panel (ADR 0023)
 STORAGE_DRIVER=local
 STORAGE_LOCAL_DIR=/var/www/norde-uat-storage
@@ -92,7 +122,7 @@ AGENT_CHAT_URL=http://127.0.0.1:3022/chat/messages
 AGENT_CHAT_SECRET=SECRETO_DE_32_O_MAS
 ```
 
-`/var/www/norde-uat/apps/gestion/.env` (lo mínimo; sumá Resend, MercadoLibre, etc. a medida que pruebes cada integración):
+`/var/www/norde-uat/shared/apps/gestion/.env` (lo mínimo; sumá Resend, MercadoLibre, etc. a medida que pruebes cada integración):
 
 ```bash
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
@@ -129,7 +159,7 @@ S3_SECRET_ACCESS_KEY=...
 
 - Las fotos que ya estaban en `/var/www/norde-uat-storage` no se mueven solas. Se suben con las mismas rutas: `aws s3 sync /var/www/norde-uat-storage s3://apzsoftware.online/norde-uat/`.
 
-`/var/www/norde-uat/apps/agent/.env`:
+`/var/www/norde-uat/shared/apps/agent/.env`:
 
 ```bash
 NODE_ENV=production
@@ -177,7 +207,38 @@ for d in landingnorde gestionnorde agentenorde; do
 done
 ```
 
-Los tres subdominios ya apuntan a `82.29.59.19`. El bloque de `landingnorde` lleva además `add_header X-Robots-Tag "noindex, nofollow" always;`, para que la web de pruebas no se indexe.
+Los tres subdominios ya apuntan a `82.29.59.19`. El bloque de `landingnorde` lleva además `add_header X-Robots-Tag "noindex, nofollow" always;`, para que la web de pruebas no se indexe. Es una segunda barrera: la web ya responde `robots.txt` con `Disallow: /` mientras no tenga `ALLOW_INDEXING=true`.
+
+#### Límite de requests de la web
+
+La web limita por IP los formularios y el chat, pero no las páginas: el listado con filtros libres, las fichas y el blog con slugs inventados consultan la base en cada request (#222). Nginx los frena antes de llegar a Next. La zona va una sola vez en `/etc/nginx/conf.d/norde-limits.conf` (contexto `http`):
+
+```nginx
+# Por IP: 10 páginas por segundo sostenidas. Los IPv6 se agrupan por su /64 (los primeros 4 grupos)
+map $binary_remote_addr $norde_web_key {
+    default $binary_remote_addr;
+    "~(?s)^(?<p64>.{8}).{8}$" $p64;   # 16 bytes = IPv6: se queda con 8
+}
+limit_req_zone $norde_web_key zone=norde_web:10m rate=10r/s;
+limit_req_status 429;
+```
+
+Y en el `server` de la web (`landingnorde`), además del `location /` de arriba:
+
+```nginx
+    # Las páginas que consultan la base: ráfagas de 20 y después 10 por segundo
+    location ~ ^/(propiedades|emprendimientos|blog)(/|$) {
+        limit_req zone=norde_web burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3020;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+```
+
+Los assets de Next (`/_next/static`) y las fotos (`/fotos`) quedan afuera: los cachea el navegador. Probalo con `nginx -t && systemctl reload nginx`; un `429` en el log de nginx es el límite actuando.
 
 ### 7. Clave de GitHub Actions hacia el VPS
 
@@ -197,7 +258,22 @@ En `Toffias/norde-propiedades` → Settings → Environments, creá el entorno *
 | ------------------- | ------------------------------------------------------------------ |
 | `VPS_HOST`          | `82.29.59.19`                                                      |
 | `VPS_SSH_KEY`       | la clave **privada** `~/.ssh/norde_uat_deploy` (completa)          |
+| `VPS_KNOWN_HOSTS`   | las líneas de `known_hosts` del VPS, verificadas (ver abajo)       |
 | `SENTRY_AUTH_TOKEN` | token de Sentry para subir los source maps de `gestion` (ADR 0049) |
+
+Tienen que ser secrets **del entorno `uat`**, no del repo: CI no le pasa secretos al workflow de deploy (sin `secrets: inherit`) y los lee el job que declara el entorno. Si falta uno de los tres del VPS, el deploy se corta en el primer paso.
+
+**`VPS_KNOWN_HOSTS`**: el deploy no confía en la primera clave que responda (`ssh-keyscan` en cada corrida), usa esta. Para armarla:
+
+```bash
+# En tu máquina:
+ssh-keyscan -t ed25519,ecdsa,rsa 82.29.59.19 > vps_known_hosts
+ssh-keygen -lf vps_known_hosts
+# En el VPS (consola web de Hostinger o una sesión SSH que ya confiás):
+for key in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf "$key"; done
+```
+
+Si las huellas (`SHA256:...`) coinciden, pegá el contenido de `vps_known_hosts` en el secret. Si el VPS se reinstala o rota sus claves de host, el deploy falla hasta que se actualice el secret.
 
 Y esta variable (no es secreta), que el build incrusta en el panel:
 
@@ -221,6 +297,7 @@ El push dispara CI y el deploy. El primer `pnpm install` en el VPS tarda varios 
 
 ```bash
 cd /var/www/norde-uat
+cd "$(readlink -f current)"
 PATH=/opt/node-24/bin:$PATH corepack pnpm user:create-admin --whatsapp +54911...   # primer usuario del panel y casa central
 pm2 status
 ```
@@ -232,5 +309,6 @@ pm2 status
 ```bash
 pm2 logs norde-gestion --lines 100
 pm2 logs norde-agent --lines 100
-cat /var/www/norde-uat/DEPLOYED_SHA.txt
+cat /var/www/norde-uat/current/DEPLOYED_SHA.txt
+ls -lt /var/www/norde-uat/releases
 ```

@@ -47,8 +47,42 @@ describe('OutboxRelay', () => {
     expect(published[0]?.occurredAt).toEqual(clock.now());
   });
 
-  it('keeps failed events pending and counts the attempts', async () => {
+  it('waits longer after each failure instead of retrying every second (#221)', async () => {
     await recordEvents(1);
+    let calls = 0;
+    const relay = new OutboxRelay({
+      db,
+      logger: silent,
+      publish: () => {
+        calls += 1;
+        return Promise.reject(new Error('queue down'));
+      },
+    });
+    const delaySeconds = async () => {
+      const result = await db.execute<{ readonly seconds: number }>(sql`
+        select round(extract(epoch from next_attempt_at - now()))::int as seconds from core.outbox
+      `);
+      return result.rows[0]?.seconds;
+    };
+    const timePasses = () => db.execute(sql`update core.outbox set next_attempt_at = now()`);
+
+    await relay.relayOnce();
+    await relay.relayOnce();
+    expect(calls).toBe(1);
+    expect(await delaySeconds()).toBe(2);
+
+    await timePasses();
+    await relay.relayOnce();
+    expect(calls).toBe(2);
+    expect(await delaySeconds()).toBe(4);
+
+    await db.execute(sql`update core.outbox set attempts = 15, next_attempt_at = now()`);
+    await relay.relayOnce();
+    expect(await delaySeconds()).toBe(3600);
+  });
+
+  it('keeps failed events pending, counts the attempts and reports the exhausted ones', async () => {
+    await recordEvents(2);
     const relay = new OutboxRelay({
       db,
       logger: silent,
@@ -56,12 +90,17 @@ describe('OutboxRelay', () => {
       publish: () => Promise.reject(new Error('queue down')),
     });
 
-    await relay.relayOnce();
-    await relay.relayOnce();
-    await relay.relayOnce();
+    for (let i = 0; i < 3; i += 1) {
+      await relay.relayOnce();
+      await db.execute(sql`update core.outbox set next_attempt_at = now()`);
+    }
 
-    const [row] = await db.select().from(outbox);
-    expect(row).toMatchObject({ publishedAt: null, attempts: 2, lastError: 'queue down' });
+    const rows = await db.select().from(outbox);
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toMatchObject({ publishedAt: null, attempts: 2, lastError: 'queue down' });
+    }
+    expect(await relay.exhaustedCount()).toBe(2);
   });
 });
 

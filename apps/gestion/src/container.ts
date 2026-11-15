@@ -4,6 +4,7 @@ import 'server-only';
 // Arma los casos de uso de @norde/core que usan los Server Components y las Server Actions, y los
 // procesos en segundo plano: el relay del outbox y los workers de pg-boss (ADR 0021).
 
+import * as Sentry from '@sentry/nextjs';
 import {
   DeleteAppraisalPhotoFiles,
   EraseClientAppraisals,
@@ -570,6 +571,7 @@ import {
   purgeExpiredSearchSubscriptions,
   sendFollowUpDigests,
 } from './jobs/event-subscriptions';
+import { checkExhaustedOutbox } from './jobs/outbox-health';
 
 export interface Container {
   readonly database: DatabaseConnection;
@@ -2411,6 +2413,18 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     });
   }
   const relay = new OutboxRelay({ db, logger, publish: (event) => bus.publish(event) });
+  // Eventos que agotaron los reintentos: nadie los recibe hasta que alguien los reintente (#221).
+  bus.schedule({
+    name: 'outbox.check-exhausted',
+    cron: '*/15 * * * *',
+    run: async () => {
+      await checkExhaustedOutbox({
+        exhaustedCount: () => relay.exhaustedCount(),
+        report: (message) => Sentry.captureMessage(message, 'error'),
+        logger,
+      });
+    },
+  });
 
   return {
     async start() {

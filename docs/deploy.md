@@ -303,3 +303,10 @@ pm2 logs norde-gestion --lines 100
 pm2 logs norde-agent --lines 100
 cat /var/www/norde-uat/DEPLOYED_SHA.txt
 ```
+
+**Eventos del outbox agotados** (Sentry: "Outbox has N exhausted events"): el relay los reintentó 20 veces sin poder publicarlos, y nadie reaccionó a ellos (portales, sitio, notificaciones). Revisá `last_error`, arreglá la causa y reintentalos:
+
+```sql
+select id, event_type, attempts, last_error from core.outbox where published_at is null and attempts >= 20;
+update core.outbox set attempts = 0, next_attempt_at = null where published_at is null and attempts >= 20;
+```

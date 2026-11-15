@@ -304,7 +304,7 @@ export class RegisterContact {
 ### 6.5 Transacciones, eventos y jobs
 
 - `UnitOfWork.run(fn)` abre una transacción. Los repositorios que recibe `fn` operan dentro de ella.
-- Los **eventos de dominio** se guardan en la tabla `outbox` **en la misma transacción**. Un relay en `apps/gestion` los publica en **pg-boss**, y los handlers (casos de uso) reaccionan (ADR 0021). Así no se pierde un evento si el proceso se cae.
+- Los **eventos de dominio** se guardan en la tabla `outbox` **en la misma transacción**. Un relay en `apps/gestion` los publica en **pg-boss**, y los handlers (casos de uso) reaccionan (ADR 0021). Así no se pierde un evento si el proceso se cae. Si publicar falla, el relay reintenta con espera exponencial (2, 4, 8... segundos, hasta una hora; `next_attempt_at`) hasta 20 veces. Un evento que agota los intentos queda sin publicar, y un chequeo cada 15 minutos (`outbox.check-exhausted`) lo loguea como error y lo reporta a Sentry (#221).
 - Los **jobs programados** (IPC diario, alertas, sincronización con portales) son casos de uso disparados por pg-boss en `apps/gestion`.
 - Los handlers son **idempotentes**: un evento puede procesarse dos veces sin romper nada.
 - Las **altas desde el panel** también: el formulario manda una clave de idempotencia y el command corre con `runIdempotent` dentro de su transacción. Un doble clic o un reintento devuelve el alta ya guardada (ADR 0050).

@@ -5,7 +5,7 @@
 export async function readLimitedBody(
   response: Response,
   maxBytes: number,
-): Promise<Uint8Array | undefined> {
+): Promise<Uint8Array<ArrayBuffer> | undefined> {
   const declared = Number(response.headers.get('content-length') ?? '0');
   if (declared > maxBytes) {
     await response.body?.cancel();

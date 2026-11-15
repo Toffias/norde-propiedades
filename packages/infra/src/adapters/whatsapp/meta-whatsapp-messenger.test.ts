@@ -124,6 +124,17 @@ describe('MetaWhatsAppMessenger', () => {
     expect(twice.calls).toHaveLength(2);
   });
 
+  it('does not retry after a timeout, since the message may have been delivered', async () => {
+    const timeout = new Error('The operation was aborted due to timeout');
+    timeout.name = 'TimeoutError';
+    const { calls, fetchImpl } = fakeFetch([timeout, json({ messages: [{ id: 'wamid.4' }] })]);
+
+    const result = await messenger(fetchImpl).send('1', { type: 'text', text: 'a' });
+
+    expect(result.isErr()).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
   it('reports an unreachable API without throwing', async () => {
     const { fetchImpl } = fakeFetch([new Error('down'), new Error('still down')]);
 

@@ -128,6 +128,8 @@ export interface PropertyQuickView {
   readonly photoIds: readonly string[];
   /** Todas las fotos y planos de la propiedad, aunque el vistazo muestre solo las primeras. */
   readonly totalPhotos: number;
+  /** Reservada: la portada se muestra con el banner "Reservado" (si ya se generó). */
+  readonly reservedCoverId: string | undefined;
 }
 
 /** El vistazo de una fila del buscador: datos clave, descripción y las primeras fotos. */
@@ -176,6 +178,7 @@ export async function loadPropertyQuickViewAction(
         .filter((item) => item.processing === 'ready')
         .map((item) => item.id),
       totalPhotos: media.value.total,
+      reservedCoverId: d.cover?.reserved === true ? d.cover.mediaId : undefined,
     },
   };
 }

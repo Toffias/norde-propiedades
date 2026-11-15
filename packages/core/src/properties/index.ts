@@ -5,9 +5,16 @@ export {
   MANUAL_STATUSES,
   PROPERTY_STATUSES,
   PUBLICLY_LISTED_STATUSES,
+  WEB_LISTED_STATUSES,
   canTransition,
   type PropertyStatus,
+  type PublicAudience,
 } from './domain/property-status';
+export {
+  reservedBannerPlacement,
+  showsReservedCover,
+  type ReservedBannerPlacement,
+} from './domain/reserved-cover';
 export type {
   PropertyMediaRecord,
   PropertyOperationRecord,
@@ -409,6 +416,8 @@ export {
   type MediaTooLargeError,
   type MediaVariants,
   type MediaVariantsRequested,
+  type NotReservedCoverError,
+  type ReservedCoverRequested,
   type NotAnImageError,
   type UnsupportedMediaTypeError,
 } from './domain/media-item';
@@ -429,6 +438,7 @@ export type {
   ImageVariants,
   InvalidImageError as InvalidPropertyImageError,
 } from './application/ports/image-variant-generator';
+export type { ReservedBannerRenderer } from './application/ports/reserved-banner-renderer';
 export type {
   AttachmentCriteria,
   MediaCriteria,
@@ -458,6 +468,15 @@ export {
   type GenerateMediaVariantsError,
   type MediaProcessingOutcome,
 } from './application/commands/generate-media-variants';
+export {
+  GenerateReservedCover,
+  type GenerateReservedCoverError,
+  type ReservedCoverOutcome,
+} from './application/commands/generate-reserved-cover';
+export {
+  RequestReservedCovers,
+  type RequestReservedCoversError,
+} from './application/commands/request-reserved-covers';
 export {
   DeleteStoredMediaFiles,
   type DeleteStoredMediaFilesError,

@@ -34,6 +34,8 @@ export const companySettings = coreSchema.table(
     usdExchangeRateCents: bigint('usd_exchange_rate_cents', { mode: 'bigint' }),
     /** Marca de agua de las fotos: logo, tamaño, posición, opacidad. */
     watermark: jsonb('watermark'),
+    /** Banner "Reservado" de la portada de las reservadas. `null`: se usa el de fábrica. */
+    reservedBannerStorageKey: text('reserved_banner_storage_key'),
     portalDescriptionFooter: text('portal_description_footer'),
     pdfSettings: jsonb('pdf_settings'),
     emailFromName: text('email_from_name'),

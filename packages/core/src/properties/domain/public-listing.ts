@@ -2,6 +2,8 @@
 
 import type { MediaKind, MediaProcessingStatus, MediaVariants } from './media-item';
 import { PROPERTY_OPERATIONS, type PropertyOperationKind } from './property-catalog';
+import type { PropertyStatus } from './property-status';
+import { showsReservedCover } from './reserved-cover';
 
 export interface PublicPriceSource {
   readonly priceCents: bigint | null;
@@ -121,6 +123,19 @@ export function publicImageKey(media: PublicMediaSource): string | undefined {
   if (media.kind !== 'photo' && media.kind !== 'floor_plan') return undefined;
   if (!media.showOnWeb || media.processing !== 'ready') return undefined;
   return media.variants.watermarked ?? media.variants.web;
+}
+
+/**
+ * La portada "Reservado" que se publica en lugar de la portada de una propiedad reservada, si ya se
+ * generó. Mientras no está, se publica la portada de siempre.
+ */
+export function reservedCoverKey(
+  media: PublicMediaSource & { readonly isCover: boolean },
+  status: PropertyStatus,
+): string | undefined {
+  if (!showsReservedCover(status) || !media.isCover || media.kind !== 'photo') return undefined;
+  if (publicImageKey(media) === undefined) return undefined;
+  return media.variants.reserved;
 }
 
 /**

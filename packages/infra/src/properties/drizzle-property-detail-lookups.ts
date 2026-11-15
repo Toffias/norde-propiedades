@@ -121,6 +121,7 @@ export class DrizzlePropertyDetailLookups implements PropertyDetailLookups {
       .select({
         mediaId: mediaItems.id,
         hasThumbnail: sql<boolean>`${mediaItems.variants} ? 'thumbnail'`,
+        hasReserved: sql<boolean>`${mediaItems.variants} ? 'reserved'`,
       })
       .from(mediaItems)
       .where(and(eq(mediaItems.propertyId, propertyId), eq(mediaItems.isCover, true)))

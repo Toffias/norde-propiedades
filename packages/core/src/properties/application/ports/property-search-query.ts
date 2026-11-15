@@ -19,6 +19,8 @@ export interface PropertyMediaRecord {
   /** Link de videos y recorridos, o de fotos importadas sin archivo propio. */
   readonly externalUrl: string | null;
   readonly showOnWeb: boolean;
+  /** La portada de la galería (la primera foto si nadie la eligió). */
+  readonly isCover: boolean;
   readonly processing: MediaProcessingStatus;
   readonly variants: MediaVariants;
   readonly width: number | null;

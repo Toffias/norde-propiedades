@@ -1,6 +1,6 @@
 import type { CompanySettingsReader } from '../../settings';
 import { CURRENCIES, type Currency, type SearchPropertiesInputSchema } from '../contracts';
-import { PUBLICLY_LISTED_STATUSES } from '../domain/property-status';
+import { listedStatusesFor, type PublicAudience } from '../domain/property-status';
 import {
   ageRange,
   countOptionRanges,
@@ -29,11 +29,12 @@ export async function exchangeRateFor(
 
 /**
  * Los filtros de la búsqueda pública (web y agente) como criterios del puerto: el stock que se
- * ofrece, las opciones de la web como rangos y el precio en las monedas que correspondan.
+ * muestra (la web incluye las reservadas), las opciones de la web como rangos y el precio en las monedas que correspondan.
  */
 export function toPublicFilterCriteria(
   filters: ParsedFilters,
   arsCentsPerUsd: bigint | undefined,
+  audience: PublicAudience,
 ): PropertyFilterCriteria {
   const {
     currency,
@@ -50,7 +51,7 @@ export function toPublicFilterCriteria(
   const filtersPrice = minPriceCents !== undefined || maxPriceCents !== undefined;
   return {
     ...rest,
-    statuses: PUBLICLY_LISTED_STATUSES,
+    statuses: listedStatusesFor(audience),
     publishedOnWebOnly: true,
     ...(filtersPrice && {
       priceBounds: priceBounds(currency, minPriceCents, maxPriceCents, arsCentsPerUsd),

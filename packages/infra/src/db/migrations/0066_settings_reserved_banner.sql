@@ -1,0 +1,1 @@
+ALTER TABLE "core"."company_settings" ADD COLUMN "reserved_banner_storage_key" text;

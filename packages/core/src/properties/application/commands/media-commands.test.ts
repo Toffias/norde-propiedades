@@ -441,6 +441,22 @@ describe('gallery edits', () => {
     });
   });
 
+  it('serves the "Reservado" cover, or the web version while it is not generated', async () => {
+    const { uow, storage, a } = await gallery();
+    const stored = uow.media.rows.get(a);
+    if (!stored) throw new Error('missing fixture');
+    storage.signing = true;
+    const files = new GetMediaFile({ uow, storage });
+    uow.media.rows.set(a, { ...stored, variants: { thumbnail: 'thumb', web: 'web' } });
+    expect(unwrap(await files.execute({ mediaId: a, variant: 'reserved' }, EDITOR))).toMatchObject({
+      url: 'signed:web',
+    });
+    uow.media.rows.set(a, { ...stored, variants: { thumbnail: 'thumb', reserved: 'reserved' } });
+    expect(unwrap(await files.execute({ mediaId: a, variant: 'reserved' }, EDITOR))).toMatchObject({
+      url: 'signed:reserved',
+    });
+  });
+
   it('serves an imported photo without a stored file from its link', async () => {
     const { uow, storage, a } = await gallery();
     const stored = uow.media.rows.get(a);

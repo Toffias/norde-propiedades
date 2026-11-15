@@ -70,6 +70,8 @@ export interface BoundingBox {
  */
 export interface ListedCover extends PropertyCover {
   readonly fileKey: string | undefined;
+  /** La portada "Reservado", si se generó: se muestra si la propiedad está reservada. */
+  readonly reservedKey?: string | undefined;
 }
 
 /** Fila tal como sale de la base: los usuarios, solo por ID. */

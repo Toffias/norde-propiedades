@@ -178,7 +178,7 @@ export function ReservationDialog({
           <DialogDescription>
             {editing
               ? 'La operación no cambia: si cambia, la reserva se da por caída y se reserva de nuevo.'
-              : 'La propiedad pasa a reservada: deja de ofrecerse en la web hasta que la reserva se caiga.'}
+              : 'La propiedad pasa a reservada: sigue en la web con la portada "Reservado" y se pausa en los portales hasta que la reserva se caiga.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

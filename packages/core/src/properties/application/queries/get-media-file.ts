@@ -50,7 +50,11 @@ export class GetMediaFile {
 
     const { variant } = parsed.data;
     const key =
-      (variant === 'original' ? undefined : snapshot.variants[variant]) ?? snapshot.storageKey;
+      (variant === 'original'
+        ? undefined
+        : variant === 'reserved'
+          ? (snapshot.variants.reserved ?? snapshot.variants.web)
+          : snapshot.variants[variant]) ?? snapshot.storageKey;
     const url = await this.deps.storage.signedUrl(key, {
       expiresInSeconds: PHOTO_URL_SECONDS,
       reusable: true,

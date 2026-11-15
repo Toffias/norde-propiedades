@@ -1,4 +1,4 @@
-import { Columns3Icon, HouseIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { BookmarkCheckIcon, Columns3Icon, HouseIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { ListCustomAttributesQuerySchema } from '@norde/core/properties/contracts';
 import { Card } from '@norde/ui/components/card';
 import { ErrorState } from '@norde/ui/components/error-state';
@@ -10,6 +10,8 @@ import { getContainer } from '../../../../container';
 import { CustomAttributesSettings } from '../../../../features/properties/components/custom-attributes-settings';
 import { GridColumnsForm } from '../../../../features/properties/components/grid-columns-form';
 import { PropertyTypesSettings } from '../../../../features/properties/components/property-types-settings';
+import { LogoUploader } from '../../../../features/settings/components/logo-uploader';
+import { loadCompanySettings } from '../../../../features/settings/queries';
 import { messageForError } from '../../../../lib/errors';
 import { parseListParams, type SearchParams } from '../../../../lib/list-params';
 import { requireSession } from '../../../../lib/session';
@@ -25,9 +27,10 @@ export default async function PropertySettingsPage({
   const { value: query } = parseListParams(ListCustomAttributesQuerySchema, await searchParams);
   const { properties } = getContainer();
   const showAttributes = companyFeatures().customAttributes;
-  const [result, attributes] = await Promise.all([
+  const [result, attributes, company] = await Promise.all([
     properties.getPropertyConfiguration.execute(actor),
     showAttributes ? properties.listCustomAttributes.execute(query, actor) : undefined,
+    loadCompanySettings(),
   ]);
   if (result.isErr()) {
     return (
@@ -44,6 +47,23 @@ export default async function PropertySettingsPage({
       <SectionCard title="Tipos de propiedad" icon={HouseIcon}>
         <PropertyTypesSettings types={result.value.types} disabled={disabled} />
       </SectionCard>
+      {company.ok && (
+        <SectionCard title="Portada de las reservadas" icon={BookmarkCheckIcon}>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              Una propiedad reservada sigue en la web con este banner sobre su foto de portada. Al
+              volver a disponible, la portada vuelve a la original. Si cambiás el banner, las
+              portadas se regeneran en unos minutos.
+            </p>
+            <LogoUploader
+              which="reserved-banner"
+              hasLogo={company.settings.reservedBanner.hasImage}
+              version={company.settings.reservedBanner.version ?? ''}
+              disabled={!company.canUpdate}
+            />
+          </div>
+        </SectionCard>
+      )}
       {attributes !== undefined && (
         <div className="flex flex-col gap-2">
           <h2 className="flex items-center gap-2 text-base font-bold">

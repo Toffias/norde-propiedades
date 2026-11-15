@@ -14,6 +14,7 @@ import {
   type SearchPropertiesInput,
 } from '../../contracts';
 import type { CompanySettingsReader } from '../../../settings';
+import type { PublicAudience } from '../../domain/property-status';
 import type { PropertySearchQuery } from '../ports/property-search-query';
 import { toPropertySummary } from '../property-mapper';
 import { exchangeRateFor, toPublicFilterCriteria } from '../public-search-criteria';
@@ -21,13 +22,18 @@ import { exchangeRateFor, toPublicFilterCriteria } from '../public-search-criter
 export type SearchPropertiesError =
   ForbiddenError | { readonly type: 'InvalidSearch'; readonly issues: readonly string[] };
 
-/** Busca en el stock que se ofrece al público (web y agente de IA). */
+/**
+ * Busca en el stock público: la web muestra también las reservadas (con su portada "Reservado");
+ * el agente de IA, solo lo disponible.
+ */
 export class SearchProperties {
   constructor(
     private readonly deps: {
       readonly properties: PropertySearchQuery;
       /** La cotización del dólar, para el filtro de precio. Sin ella, no se convierte. */
       readonly settings?: CompanySettingsReader;
+      /** Sin indicar, solo lo que se ofrece como disponible (agente de IA). */
+      readonly audience?: PublicAudience;
     },
   ) {}
 
@@ -45,7 +51,7 @@ export class SearchProperties {
     const rate = await exchangeRateFor(filters, this.deps.settings);
 
     const result = await this.deps.properties.search({
-      ...toPublicFilterCriteria(filters, rate),
+      ...toPublicFilterCriteria(filters, rate, this.deps.audience ?? 'offer'),
       sort,
       ...toOffsetLimit({ page, pageSize }),
     });

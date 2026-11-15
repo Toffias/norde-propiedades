@@ -106,6 +106,7 @@ export async function changeLogoAction(
     company: settings().changeCompanyLogo,
     'company-dark': settings().changeCompanyDarkLogo,
     watermark: settings().changeWatermarkLogo,
+    'reserved-banner': settings().changeReservedBanner,
   }[which];
 
   const result = await useCase.execute(parsed.data, actor);

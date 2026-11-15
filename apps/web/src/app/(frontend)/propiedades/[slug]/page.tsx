@@ -104,6 +104,7 @@ export default async function PropertyPage({ params }: Props) {
           location={listing.location}
           highlights={listing.facts}
           whatsappHref={listingWhatsapp(listing)}
+          reservedCover={listing.reserved}
         />
       </div>
 
@@ -178,6 +179,11 @@ function PropertySummary({ listing }: { readonly listing: ListingDetail }) {
         <span className="bg-muted rounded-lg px-2.5 py-1 text-xs font-bold">
           {listing.propertyTypeLabel}
         </span>
+        {listing.reserved && (
+          <span className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-bold text-white">
+            Reservada
+          </span>
+        )}
         {listing.featured && (
           <span className="bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 rounded-lg px-2.5 py-1 text-xs font-bold">
             Destacada

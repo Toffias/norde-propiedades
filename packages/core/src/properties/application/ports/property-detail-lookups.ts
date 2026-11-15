@@ -27,9 +27,15 @@ export interface PropertyDetailLookups {
   ): Promise<readonly Omit<PanelPropertyCustomAttribute, 'value'>[]>;
   /** Propietarios: clientes por ID, con su nombre para mostrar. */
   owners(propertyId: string): Promise<readonly { readonly id: string; readonly name: string }[]>;
-  cover(
-    propertyId: string,
-  ): Promise<{ readonly mediaId: string; readonly hasThumbnail: boolean } | undefined>;
+  cover(propertyId: string): Promise<
+    | {
+        readonly mediaId: string;
+        readonly hasThumbnail: boolean;
+        /** Tiene su portada "Reservado" generada. */
+        readonly hasReserved: boolean;
+      }
+    | undefined
+  >;
   counts(propertyId: string): Promise<{ readonly media: number; readonly attachments: number }>;
   /** Quién dio el alta (`created_by`). */
   createdBy(propertyId: string): Promise<string | undefined>;

@@ -22,7 +22,8 @@ export function propertyCoverUrl(
 ): string {
   if (cover.url !== undefined) return cover.url;
   const ready = cover.hasThumbnail ? 'ready' : 'pending';
-  return `${OWNER_PATHS[owner]}/${propertyId}/fotos/${cover.mediaId}?v=thumbnail&r=${ready}`;
+  const variant = cover.reserved === true ? 'reserved' : 'thumbnail';
+  return `${OWNER_PATHS[owner]}/${propertyId}/fotos/${cover.mediaId}?v=${variant}&r=${ready}`;
 }
 
 /**

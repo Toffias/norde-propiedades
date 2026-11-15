@@ -28,6 +28,7 @@ export function aPropertyDetail(overrides: Partial<PropertyDetail> = {}): Proper
     amenities: [],
     cover: { id: 'm1', src: '/fotos/m1/abc', width: 1600, height: 1200, description: null },
     photoCount: 2,
+    isReserved: false,
     description: 'Luminoso.',
     province: 'Buenos Aires',
     coordinates: null,

@@ -14,7 +14,7 @@ import {
   type SearchPublicLocationsInput,
 } from '../../contracts';
 import { locationContext } from '../../domain/location';
-import { PUBLICLY_LISTED_STATUSES } from '../../domain/property-status';
+import { WEB_LISTED_STATUSES } from '../../domain/property-status';
 import type { PublicLocationQuery } from '../ports/public-location-query';
 
 const BROWSABLE_LOCATION_KINDS = ['city', 'neighborhood', 'subneighborhood'] as const;
@@ -47,7 +47,7 @@ export class SearchPublicLocations {
       // Sin texto ni elegidas, el desplegable abre con los barrios y localidades con más
       // propiedades: las provincias juntan todo y no ayudan a elegir.
       kinds: q === undefined && ids === undefined ? BROWSABLE_LOCATION_KINDS : undefined,
-      statuses: PUBLICLY_LISTED_STATUSES,
+      statuses: WEB_LISTED_STATUSES,
       ...toOffsetLimit({ page, pageSize }),
     });
     const items = slice.items.map((record): PublicLocation => ({

@@ -5,7 +5,7 @@ import {
   type PropertyDetail,
 } from '../../contracts';
 import { cleanReferenceCode } from '../../domain/property';
-import { isPubliclyListed, isUnreleased } from '../../domain/property-status';
+import { isListedFor, isUnreleased, type PublicAudience } from '../../domain/property-status';
 import type { PropertySearchQuery } from '../ports/property-search-query';
 import { toPropertyDetail } from '../property-mapper';
 
@@ -14,14 +14,20 @@ export type GetPropertyDetailError =
   /** No existe, está en la papelera o es un borrador que nunca se ofreció. */
   | { readonly type: 'PropertyNotFound' }
   /**
-   * Existe pero ya no se ofrece (vendida, reservada, despublicada). La web muestra "ya no está
+   * Existe pero ya no se muestra (vendida, despublicada; para el agente, también reservada). La web muestra "ya no está
    * disponible" con similares y `noindex`, en lugar de un 404 (doc 02 §4.2).
    */
   | { readonly type: 'PropertyNotListed' };
 
 /** Ficha pública de una propiedad, por id o código (agente) o por slug (web). */
 export class GetPropertyDetail {
-  constructor(private readonly deps: { readonly properties: PropertySearchQuery }) {}
+  constructor(
+    private readonly deps: {
+      readonly properties: PropertySearchQuery;
+      /** La web muestra también las reservadas; sin indicar, solo lo disponible (agente de IA). */
+      readonly audience?: PublicAudience;
+    },
+  ) {}
 
   async execute(
     input: GetPropertyDetailInput,
@@ -34,7 +40,8 @@ export class GetPropertyDetail {
     const record = await this.find(parsed.data);
     if (!record || isUnreleased(record)) return err({ type: 'PropertyNotFound' });
 
-    const detail = isPubliclyListed(record) ? toPropertyDetail(record) : undefined;
+    const listed = isListedFor(this.deps.audience ?? 'offer', record);
+    const detail = listed ? toPropertyDetail(record) : undefined;
     return detail ? ok(detail) : err({ type: 'PropertyNotListed' });
   }
 

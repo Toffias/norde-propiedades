@@ -39,8 +39,8 @@ describe('GetPublicPropertyMap', () => {
       }),
       aPropertyRecord({ title: 'Sin coordenadas', operations: [sale] }),
       aPropertyRecord({
-        title: 'Reservada',
-        status: 'reserved',
+        title: 'Vendida',
+        status: 'sold',
         latitude: -34.6,
         longitude: -58.4,
       }),
@@ -71,7 +71,7 @@ describe('GetPublicPropertyMap', () => {
     );
 
     expect(properties.criteria[0]).toMatchObject({
-      statuses: ['available'],
+      statuses: ['available', 'reserved'],
       publishedOnWebOnly: true,
       withCoordinates: true,
       operation: 'rent',
@@ -149,7 +149,7 @@ describe('SearchPublicLocations', () => {
     });
     expect(locations.criteria[0]).toMatchObject({
       text: 'ramos',
-      statuses: ['available'],
+      statuses: ['available', 'reserved'],
       offset: 0,
       limit: 8,
     });

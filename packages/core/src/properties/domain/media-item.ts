@@ -24,6 +24,11 @@ export interface MediaVariants {
   readonly web?: string;
   /** Solo si la marca de agua está activa en Mi empresa. */
   readonly watermarked?: string;
+  /**
+   * La portada de una propiedad con el banner "Reservado" encima (sobre la versión con marca de
+   * agua, si hay). Se genera de antemano para que reservar cambie la portada al instante.
+   */
+  readonly reserved?: string;
 }
 
 /** Tipos de imagen que se aceptan al subir una foto o un plano. */
@@ -71,6 +76,10 @@ export interface MediaTooLargeError {
 export interface InvalidMediaUrlError {
   readonly type: 'InvalidMediaUrl';
 }
+/** La portada "Reservado" solo la lleva la portada (ya procesada) de una propiedad. */
+export interface NotReservedCoverError {
+  readonly type: 'NotReservedCover';
+}
 /** Rotar, marcar como plano o generar variantes solo aplica a una imagen subida. */
 export interface NotAnImageError {
   readonly type: 'NotAnImage';
@@ -82,6 +91,14 @@ interface MediaPayload {
   readonly mediaId: string;
 }
 
+/**
+ * Hay que generar la portada "Reservado" de esta foto: pasó a ser la portada de una propiedad, se
+ * regeneraron sus variantes o cambió el banner en Mi empresa. Lo atiende un job (pg-boss).
+ */
+export type ReservedCoverRequested = DomainEvent<
+  'properties.reserved_cover_requested',
+  MediaPayload
+>;
 /** Hay que generar las variantes (alta de una foto o rotación). Lo atiende un job (pg-boss). */
 export type MediaVariantsRequested = DomainEvent<
   'properties.media_variants_requested',
@@ -97,7 +114,8 @@ export type MediaDeleted = DomainEvent<
  * revalida la ficha de su dueño (ADR 0023).
  */
 export type MediaChanged = DomainEvent<'properties.media_changed', MediaPayload>;
-export type MediaEvent = MediaVariantsRequested | MediaDeleted | MediaChanged;
+export type MediaEvent =
+  MediaVariantsRequested | ReservedCoverRequested | MediaDeleted | MediaChanged;
 
 /** Proveedores de video y recorridos virtuales que se pueden embeber en la web. */
 const VIDEO_HOSTS = ['youtube.com', 'www.youtube.com', 'youtu.be', 'vimeo.com', 'player.vimeo.com'];
@@ -288,9 +306,13 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
   /** Todo lo que hay en el storage: la original y las variantes. */
   get storageKeys(): readonly string[] {
     const { storageKey, variants } = this.#state;
-    return [storageKey, variants.thumbnail, variants.web, variants.watermarked].filter(
-      (key): key is string => key !== undefined,
-    );
+    return [
+      storageKey,
+      variants.thumbnail,
+      variants.web,
+      variants.watermarked,
+      variants.reserved,
+    ].filter((key): key is string => key !== undefined);
   }
 
   /**
@@ -358,7 +380,48 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
     if (isCover && this.#state.kind !== 'photo') return err({ type: 'NotAnImage' });
     if (this.#state.isCover === isCover) return ok(false);
     this.#state = { ...this.#state, isCover, updatedAt: now };
+    // Si todavía se procesa, la pide `completeProcessing`.
+    if (this.#state.processing === 'ready') this.requestReservedCover(now);
     return ok(true);
+  }
+
+  /** La portada de una propiedad lleva su versión "Reservado"; el resto de las fotos, no. */
+  get needsReservedCover(): boolean {
+    const { owner, kind, isCover, processing, variants } = this.#state;
+    return (
+      owner.kind === 'property' &&
+      kind === 'photo' &&
+      isCover &&
+      processing === 'ready' &&
+      variants.web !== undefined
+    );
+  }
+
+  /** Pide (otra vez) la portada "Reservado". Sin efecto si esta foto no la lleva. */
+  requestReservedCover(now: Date): boolean {
+    if (!this.needsReservedCover) return false;
+    this.record({
+      type: 'properties.reserved_cover_requested',
+      aggregateId: this.id,
+      occurredAt: now,
+      payload: this.#payload(),
+    });
+    return true;
+  }
+
+  /**
+   * El job generó la portada "Reservado". Devuelve la clave que reemplaza (para borrarla del
+   * storage), o un error si la foto dejó de ser la portada mientras tanto.
+   */
+  completeReservedCover(key: string, now: Date): Result<string | undefined, NotReservedCoverError> {
+    if (!this.needsReservedCover) return err({ type: 'NotReservedCover' });
+    const previous = this.#state.variants.reserved;
+    this.#state = {
+      ...this.#state,
+      variants: { ...this.#state.variants, reserved: key },
+      updatedAt: now,
+    };
+    return ok(previous);
   }
 
   /** El job generó las variantes: quedan listas con las medidas de la original. */
@@ -380,6 +443,8 @@ export class MediaItem extends AggregateRoot<MediaItemId, MediaEvent> {
       processingError: undefined,
       updatedAt: now,
     };
+    // Las variantes nuevas reemplazan a la portada "Reservado": se vuelve a generar sobre ellas.
+    this.requestReservedCover(now);
     return ok(undefined);
   }
 

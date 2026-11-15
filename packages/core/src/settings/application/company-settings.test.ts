@@ -11,6 +11,7 @@ import {
 
 import { ChangeCompanyDarkLogo } from './commands/change-company-dark-logo';
 import { ChangeCompanyLogo } from './commands/change-company-logo';
+import { ChangeReservedBanner } from './commands/change-reserved-banner';
 import { ChangeWatermarkLogo } from './commands/change-watermark-logo';
 import { ConfigureWatermark } from './commands/configure-watermark';
 import { SendTestEmail } from './commands/send-test-email';
@@ -56,6 +57,7 @@ function setup() {
     changeDarkLogo: new ChangeCompanyDarkLogo({ uow, storage, ids, clock }),
     configureWatermark: new ConfigureWatermark({ uow, clock }),
     changeWatermarkLogo: new ChangeWatermarkLogo({ uow, storage, ids, clock }),
+    changeReservedBanner: new ChangeReservedBanner({ uow, storage, ids, clock }),
     previewWatermark: new PreviewWatermark({ settings, storage, watermarker }),
     updateFooter: new UpdatePortalDescriptionFooter({ uow, clock }),
     updatePdf: new UpdatePdfOptions({ uow, clock }),
@@ -158,6 +160,59 @@ describe('UpdateGeneralSettings', () => {
     const { updateGeneral, getSettings } = setup();
     expect(unwrapErr(await updateGeneral.execute(general, agent))).toEqual({ type: 'Forbidden' });
     expect(unwrapErr(await getSettings.execute({}, agent))).toEqual({ type: 'Forbidden' });
+  });
+});
+
+describe('ChangeReservedBanner', () => {
+  it('uploads the banner, audits its key and asks to regenerate the covers', async () => {
+    const { uow, storage, changeReservedBanner, getLogo, getSettings } = setup();
+
+    unwrap(await changeReservedBanner.execute({ image: PNG }, admin));
+
+    const key = uow.companySettings.row.reservedBannerKey;
+    expect(key).toMatch(/^settings\/reserved-banner\//);
+    expect(storage.objects.has(key ?? '')).toBe(true);
+    expect(uow.audit.entries[0]?.changes).toEqual({
+      reservedBannerKey: { before: null, after: key },
+    });
+    expect(uow.events.published).toMatchObject([
+      { type: 'settings.company_settings_changed', payload: { section: 'reserved_banner' } },
+    ]);
+    expect(unwrap(await getLogo.execute({ which: 'reserved-banner' }, admin)).bytes).toEqual(
+      PNG.bytes,
+    );
+    expect(unwrap(await getSettings.execute({}, admin)).reservedBanner).toMatchObject({
+      hasImage: true,
+    });
+  });
+
+  it('goes back to the default banner without an image', async () => {
+    const { uow, changeReservedBanner, getLogo } = setup();
+    unwrap(await changeReservedBanner.execute({ image: PNG }, admin));
+
+    unwrap(await changeReservedBanner.execute({}, admin));
+
+    expect(uow.companySettings.row.reservedBannerKey).toBeUndefined();
+    expect(unwrapErr(await getLogo.execute({ which: 'reserved-banner' }, admin))).toEqual({
+      type: 'NotFound',
+    });
+  });
+
+  it('does not audit nor regenerate when nothing changes', async () => {
+    const { uow, changeReservedBanner } = setup();
+    unwrap(await changeReservedBanner.execute({}, admin));
+    expect(uow.audit.entries).toEqual([]);
+    expect(uow.events.published).toEqual([]);
+  });
+
+  it('needs settings:update to change it and settings:read to see it', async () => {
+    const { changeReservedBanner, getLogo } = setup();
+    expect(unwrapErr(await changeReservedBanner.execute({ image: PNG }, agent))).toEqual({
+      type: 'Forbidden',
+    });
+    expect(unwrapErr(await getLogo.execute({ which: 'reserved-banner' }, agent))).toEqual({
+      type: 'Forbidden',
+    });
   });
 });
 

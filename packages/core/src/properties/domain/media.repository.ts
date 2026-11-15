@@ -10,6 +10,11 @@ export interface MediaItemRepository {
    */
   listForOwner(owner: MediaOwner): Promise<readonly MediaItem[]>;
   count(owner: MediaOwner): Promise<number>;
+  /**
+   * Las portadas de las propiedades (fuera de la papelera o no), de a `limit`, por ID, después de
+   * `after`: las recorre regenerar la portada "Reservado" cuando cambia el banner.
+   */
+  listPropertyCovers(after: MediaItemId | undefined, limit: number): Promise<readonly MediaItem[]>;
   /** La posición que sigue a la última de la galería. */
   nextPosition(owner: MediaOwner): Promise<number>;
   save(item: MediaItem, actorId: string): Promise<void>;

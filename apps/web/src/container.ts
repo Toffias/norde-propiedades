@@ -179,8 +179,9 @@ function createContainer(): Container {
   const database = createDatabase({ url: env.DATABASE_URL, applicationName: 'norde-web' });
   const properties = new DrizzlePropertySearchQuery(database.db);
   const settings = new DrizzleCompanySettingsRepository(database.db, new SystemClock());
-  const search = new SearchProperties({ properties, settings });
-  const detail = new GetPropertyDetail({ properties });
+  // La web muestra también las reservadas, con su portada "Reservado".
+  const search = new SearchProperties({ properties, settings, audience: 'web' });
+  const detail = new GetPropertyDetail({ properties, audience: 'web' });
   const map = new GetPublicPropertyMap({ properties, settings });
   const facets = new GetPublicSearchFacets({ properties, settings });
   const locations = new SearchPublicLocations({

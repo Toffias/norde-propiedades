@@ -139,6 +139,25 @@ describe('ListPanelProperties', () => {
     expect(storage.signedWith).toEqual([{ expiresInSeconds: 7200, reusable: true }]);
   });
 
+  it('shows the "Reservado" cover of a reserved property, once generated', async () => {
+    const MEDIA_ID = '01a15c18-c76d-77c7-a70b-8df8d692de55';
+    const cover = { mediaId: MEDIA_ID, hasThumbnail: true, fileKey: 'thumbnail-key' };
+    const { storage, list } = setup([
+      aPanelItem({ status: 'reserved', cover: { ...cover, reservedKey: 'reserved-key' } }),
+      aPanelItem({ status: 'available', cover: { ...cover, reservedKey: 'reserved-key' } }),
+      aPanelItem({ status: 'reserved', cover }),
+    ]);
+    storage.signing = true;
+
+    const page = unwrap(await list.execute({}, TEST_PRODUCER));
+
+    expect(page.items.map((item) => item.cover)).toEqual([
+      { mediaId: MEDIA_ID, hasThumbnail: true, reserved: true, url: 'signed:reserved-key' },
+      { mediaId: MEDIA_ID, hasThumbnail: true, url: 'signed:thumbnail-key' },
+      { mediaId: MEDIA_ID, hasThumbnail: true, url: 'signed:thumbnail-key' },
+    ]);
+  });
+
   it('leaves the cover to the panel route when the storage does not sign (local disk)', async () => {
     const MEDIA_ID = '01a15c18-c76d-77c7-a70b-8df8d692de55';
     const { list } = setup([

@@ -247,9 +247,12 @@ export function publicImagePath(mediaId: string, version: string): string {
   return `/fotos/${mediaId}/${version}`;
 }
 
-/** La versión de una foto: su última modificación. Una foto rotada cambia de URL. */
-export function publicImageVersion(updatedAt: Date): string {
-  return updatedAt.getTime().toString(36);
+/**
+ * La versión de una foto: su última modificación. Una foto rotada cambia de URL. La portada
+ * "Reservado" lleva una `r` al final: es otro archivo, con su propia URL en la caché.
+ */
+export function publicImageVersion(updatedAt: Date, reserved = false): string {
+  return `${updatedAt.getTime().toString(36)}${reserved ? 'r' : ''}`;
 }
 
 /** `/fotos/<id>/<versión>`: la versión no elige el archivo, solo detecta una URL vieja. */
@@ -305,6 +308,8 @@ export interface PropertySummary {
   readonly amenities: readonly string[];
   readonly cover: PublicImage | null;
   readonly photoCount: number;
+  /** Reservada: la web la sigue mostrando, con la portada "Reservado". */
+  readonly isReserved: boolean;
 }
 
 export interface PublicCoordinatesDto {

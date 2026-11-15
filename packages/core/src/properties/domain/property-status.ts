@@ -37,8 +37,17 @@ export const MANUAL_STATUSES: readonly PropertyStatus[] = PROPERTY_STATUSES.filt
   (status) => status !== 'reserved',
 );
 
-/** Estados que se ofrecen al público (web, agente de IA). Una reservada ya no se ofrece. */
+/**
+ * Estados que se ofrecen como disponibles (agente de IA, seguimientos, unidades de un
+ * emprendimiento). Una reservada ya no se ofrece.
+ */
 export const PUBLICLY_LISTED_STATUSES: readonly PropertyStatus[] = ['available'];
+
+/**
+ * Estados que se muestran en la web (buscador y ficha). Una reservada sigue visible, con la
+ * portada "Reservado" (decisión del 2026-11-15).
+ */
+export const WEB_LISTED_STATUSES: readonly PropertyStatus[] = ['available', 'reserved'];
 
 export interface ListingVisibility {
   readonly status: PropertyStatus;
@@ -56,4 +65,20 @@ export function isUnreleased(property: Pick<ListingVisibility, 'status'>): boole
 /** Una propiedad se muestra al público si está disponible y marcada "Publicar en web". */
 export function isPubliclyListed(property: ListingVisibility): boolean {
   return property.publishedOnWeb && PUBLICLY_LISTED_STATUSES.includes(property.status);
+}
+
+/** Una propiedad se muestra en la web si está disponible o reservada y marcada "Publicar en web". */
+export function isListedOnWeb(property: ListingVisibility): boolean {
+  return property.publishedOnWeb && WEB_LISTED_STATUSES.includes(property.status);
+}
+
+/** Para quién se lista: la web muestra también las reservadas; el agente de IA, no. */
+export type PublicAudience = 'web' | 'offer';
+
+export function listedStatusesFor(audience: PublicAudience): readonly PropertyStatus[] {
+  return audience === 'web' ? WEB_LISTED_STATUSES : PUBLICLY_LISTED_STATUSES;
+}
+
+export function isListedFor(audience: PublicAudience, property: ListingVisibility): boolean {
+  return audience === 'web' ? isListedOnWeb(property) : isPubliclyListed(property);
 }

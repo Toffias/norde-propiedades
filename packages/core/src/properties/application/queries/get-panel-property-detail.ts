@@ -7,7 +7,8 @@ import {
 } from '../../contracts';
 import { estimatedCommissionCents, pricePerM2Cents } from '../../domain/operation-figures';
 import type { Property } from '../../domain/property';
-import { isPubliclyListed } from '../../domain/property-status';
+import { isListedOnWeb } from '../../domain/property-status';
+import { showsReservedCover } from '../../domain/reserved-cover';
 import type { PropertiesUnitOfWork } from '../ports/properties-transaction';
 import type { PropertyDetailLookups } from '../ports/property-detail-lookups';
 import type { UserNames } from '../ports/user-names';
@@ -94,11 +95,15 @@ export async function buildPanelPropertyDetail(
     publication: s.publication,
     isPubliclyListed:
       s.deletedAt === undefined &&
-      isPubliclyListed({ status: s.status, publishedOnWeb: s.publication.publishedOnWeb }),
+      isListedOnWeb({ status: s.status, publishedOnWeb: s.publication.publishedOnWeb }),
     producer: ref(s.producerUserId),
     branchId: s.branchId,
     owners,
-    cover,
+    cover: cover && {
+      mediaId: cover.mediaId,
+      hasThumbnail: cover.hasThumbnail,
+      reserved: cover.hasReserved && showsReservedCover(s.status),
+    },
     counts,
     development,
     createdAt: s.createdAt,

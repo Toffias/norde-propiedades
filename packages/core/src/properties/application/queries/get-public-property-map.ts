@@ -39,7 +39,7 @@ export class GetPublicPropertyMap {
     }
     const rate = await exchangeRateFor(parsed.data, this.deps.settings);
     const result = await this.deps.properties.search({
-      ...toPublicFilterCriteria(parsed.data, rate),
+      ...toPublicFilterCriteria(parsed.data, rate, 'web'),
       withCoordinates: true,
       sort: 'featured',
       offset: 0,

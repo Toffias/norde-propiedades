@@ -7,7 +7,7 @@ import {
   type UserRepository,
 } from '@norde/core/identity';
 import { Email, parseId, Phone, type Result } from '@norde/core/shared';
-import { and, asc, eq, notInArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, notExists, notInArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -42,6 +42,42 @@ export class DrizzleUserRepository implements UserRepository {
   /** Como mucho uno: lo garantiza `users_default_assignee_uq`. */
   findDefaultAssignee() {
     return this.findOneWhere(eq(users.defaultAssignee, true));
+  }
+
+  async countAdministrators(
+    adminRoleId: string,
+    blockingDenials: readonly string[],
+  ): Promise<number> {
+    // Serializa los cambios que pueden dejar sin administradores: la segunda transacción espera a
+    // que la primera termine y cuenta con lo que esa dejó.
+    await this.db.execute(sql`select pg_advisory_xact_lock(hashtextextended('administrators', 0))`);
+    const [row] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(
+        and(
+          eq(users.status, 'active'),
+          exists(
+            this.db
+              .select({ one: sql`1` })
+              .from(userRoles)
+              .where(and(eq(userRoles.userId, users.id), eq(userRoles.roleId, adminRoleId))),
+          ),
+          notExists(
+            this.db
+              .select({ one: sql`1` })
+              .from(userPermissions)
+              .where(
+                and(
+                  eq(userPermissions.userId, users.id),
+                  eq(userPermissions.effect, 'deny'),
+                  inArray(userPermissions.permission, [...blockingDenials]),
+                ),
+              ),
+          ),
+        ),
+      );
+    return row?.count ?? 0;
   }
 
   async save(user: User, actorId: string): Promise<void> {

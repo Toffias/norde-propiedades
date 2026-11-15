@@ -8,6 +8,7 @@ import {
   type Result,
 } from '../../../shared';
 import { UpdateRoleInputSchema, type UpdateRoleInput } from '../../contracts';
+import type { AdminRoleNeedsPermissionsError } from '../../domain/administrators';
 import type { UnknownPermissionError } from '../../domain/permission-catalog';
 import type { SystemRoleCannotBeRenamedError } from '../../domain/role';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
@@ -21,6 +22,7 @@ export type UpdateRoleError =
   | RoleNotFoundError
   | UnknownPermissionError
   | SystemRoleCannotBeRenamedError
+  | AdminRoleNeedsPermissionsError
   | RoleNameTakenError;
 
 /**

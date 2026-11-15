@@ -12,11 +12,13 @@ import {
   type Result,
 } from '../../../shared';
 import { UpdateUserInputSchema, type UpdateUserInput } from '../../contracts';
+import type { LastAdministratorError } from '../../domain/administrators';
 import type {
   CannotChangeOwnRolesError,
   SuspendedDefaultAssigneeError,
   UserNeedsRoleError,
 } from '../../domain/user';
+import { guardLastAdministrator } from '../administrator-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
@@ -40,7 +42,8 @@ export type UpdateUserError =
   | BranchNotFoundError
   | UserNeedsRoleError
   | CannotChangeOwnRolesError
-  | SuspendedDefaultAssigneeError;
+  | SuspendedDefaultAssigneeError
+  | LastAdministratorError;
 
 /**
  * Edita los datos de un usuario, sus roles y si es el asesor por defecto (#208). Marcarlo como
@@ -83,12 +86,15 @@ export class UpdateUser {
       if (branches.length === 0) return err({ type: 'BranchNotFound' });
 
       const before = userAuditState(user);
+      const keepsAnAdministrator = await guardLastAdministrator(tx, user);
       user.updateProfile(
         { name: data.name, email: email.value, phone, branchId: data.branchId },
         now,
       );
       const assigned = user.assignRoles(data.roleIds, actor.id, now);
       if (assigned.isErr()) return err(assigned.error);
+      const guarded = await keepsAnAdministrator(user);
+      if (guarded.isErr()) return err(guarded.error);
       if (data.defaultAssignee !== undefined) {
         const marked = user.setDefaultAssignee(data.defaultAssignee, now);
         if (marked.isErr()) return err(marked.error);

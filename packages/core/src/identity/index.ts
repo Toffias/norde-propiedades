@@ -66,6 +66,13 @@ export {
   type SystemRoleCannotBeDeletedError,
   type SystemRoleCannotBeRenamedError,
 } from './domain/role';
+export {
+  ADMIN_BLOCKING_DENIALS,
+  ADMIN_ESSENTIAL_PERMISSIONS,
+  ADMIN_ROLE_KEY,
+  type AdminRoleNeedsPermissionsError,
+  type LastAdministratorError,
+} from './domain/administrators';
 export type { RoleEvent } from './domain/role.events';
 export type { RoleRepository } from './domain/role.repository';
 export {

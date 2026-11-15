@@ -3,6 +3,11 @@ import type { Id } from '../../shared/domain/id';
 import { err, ok, type Result } from '../../shared/domain/result';
 
 import type { PermissionClaim } from './access';
+import {
+  ADMIN_ROLE_KEY,
+  keepsAdminPowers,
+  type AdminRoleNeedsPermissionsError,
+} from './administrators';
 import { isKnownPermission, type UnknownPermissionError } from './permission-catalog';
 import type { RoleEvent } from './role.events';
 
@@ -135,7 +140,8 @@ export class Role extends AggregateRoot<RoleId, RoleEvent> {
 
   /**
    * Nombre, descripción y permisos. Un rol del sistema no se renombra (su nombre lo reconoce todo
-   * el equipo), pero sí se le ajustan los permisos.
+   * el equipo), pero sí se le ajustan los permisos. Al Administrador no se le sacan los que hacen
+   * falta para administrar usuarios y roles: si no, nadie podría devolverle el acceso a nadie.
    */
   update(
     data: {
@@ -144,13 +150,19 @@ export class Role extends AggregateRoot<RoleId, RoleEvent> {
       readonly permissions: readonly string[];
     },
     now: Date,
-  ): Result<void, UnknownPermissionError | SystemRoleCannotBeRenamedError> {
+  ): Result<
+    void,
+    UnknownPermissionError | SystemRoleCannotBeRenamedError | AdminRoleNeedsPermissionsError
+  > {
     const name = data.name.trim().slice(0, MAX_NAME_LENGTH);
     if (this.#state.isSystem && name !== this.#state.name) {
       return err({ type: 'SystemRoleCannotBeRenamed' });
     }
     const permissions = normalizePermissions(data.permissions);
     if (permissions.isErr()) return err(permissions.error);
+    if (this.#state.key === ADMIN_ROLE_KEY && !keepsAdminPowers(permissions.value)) {
+      return err({ type: 'AdminRoleNeedsPermissions' });
+    }
 
     const permissionsChanged = permissions.value.join() !== this.#state.permissions.join();
     this.#state = {

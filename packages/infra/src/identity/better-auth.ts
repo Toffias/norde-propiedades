@@ -107,6 +107,18 @@ export function createAuth(options: AuthOptions) {
     return user?.enabled === true;
   }
 
+  /**
+   * Último ingreso, para el listado de usuarios: cuando el ingreso se completa (con el código, si
+   * tiene segundo factor). No es un cambio de datos: no se audita como edición (el ingreso ya queda
+   * como `user.signed-in`).
+   */
+  async function markSignedIn(userId: string, at: Date | undefined) {
+    await db
+      .update(users)
+      .set({ lastLoginAt: at ?? new Date() })
+      .where(eq(users.id, userId));
+  }
+
   // Del `before` al `after` de un mismo request: Better Auth pasa el mismo objeto `context`.
   const pendingVerifications = new WeakMap<object, PendingVerification>();
 
@@ -155,6 +167,7 @@ export function createAuth(options: AuthOptions) {
               await audit.record(
                 auditAction(Actor.user(userId, []), userTarget('user.signed-in', userId)),
               );
+              await markSignedIn(userId, ctx.context.newSession?.session.createdAt);
               return;
             }
 
@@ -187,6 +200,9 @@ export function createAuth(options: AuthOptions) {
             }
 
             if (pending.signingIn) {
+              if (failure === undefined) {
+                await markSignedIn(pending.userId, ctx.context.newSession?.session.createdAt);
+              }
               await audit.record(
                 failure === undefined
                   ? auditAction(
@@ -255,14 +271,6 @@ export function createAuth(options: AuthOptions) {
           before: async (session) => {
             const status = await findStatus(session.userId);
             return status !== undefined && canSignIn(status);
-          },
-          // Último ingreso, para el listado de usuarios. No es un cambio de datos: no se audita
-          // como edición (el ingreso ya queda como `user.signed-in`).
-          after: async (session) => {
-            await db
-              .update(users)
-              .set({ lastLoginAt: session.createdAt })
-              .where(eq(users.id, session.userId));
           },
         },
       },

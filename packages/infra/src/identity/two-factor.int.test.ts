@@ -173,9 +173,15 @@ describe('Two-factor authentication', () => {
     await db.execute(sql`truncate core.audit_log`);
     await db.delete(sessions);
 
+    await db.update(users).set({ lastLoginAt: null }).where(eq(users.id, userId));
+
     const challenge = await signIn();
     expect(challenge.response).toMatchObject({ twoFactorRedirect: true });
     expect(await db.select().from(sessions)).toEqual([]);
+    // Con la contraseña sola todavía no ingresó.
+    const lastLogin = async () =>
+      (await db.select({ at: users.lastLoginAt }).from(users).where(eq(users.id, userId)))[0]?.at;
+    expect(await lastLogin()).toBeNull();
 
     await expect(
       auth.api.verifyTOTP({ body: { code: '000000' }, headers: cookiesFrom(challenge.headers) }),
@@ -186,6 +192,7 @@ describe('Two-factor authentication', () => {
     });
 
     expect(await db.select().from(sessions)).toHaveLength(1);
+    expect(await lastLogin()).toBeInstanceOf(Date);
     expect(await auditActions(userId)).toEqual([
       {
         action: 'user.sign-in-failed',

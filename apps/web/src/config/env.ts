@@ -7,8 +7,14 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  /** Firma las sesiones del admin de Payload y la cookie del chat. En producción, ver `isWeakSecret`. */
   PAYLOAD_SECRET: z.string().min(32, 'PAYLOAD_SECRET debe tener al menos 32 caracteres'),
   NEXT_PUBLIC_SERVER_URL: z.url({ protocol: /^https?$/ }),
+  /**
+   * Si los buscadores pueden indexar el sitio (`robots.txt`). Solo `true` en el sitio de producción:
+   * sin valor, UAT, previews y desarrollo piden no indexar nada.
+   */
+  ALLOW_INDEXING: z.stringbool().default(false),
 
   /**
    * Storage de las fotos de las propiedades: el mismo bucket privado que apps/gestion, con
@@ -59,10 +65,37 @@ const EnvSchema = z.object({
   CHAT_IDLE_RESET_HOURS: z.coerce.number().int().positive().default(24),
 });
 
+/** Valores de ejemplo que circularon en `.env.example` o en docs: nunca sirven de secreto. */
+const EXAMPLE_SECRETS = new Set(['cambiar-por-un-secreto-largo-y-aleatorio']);
+
+/** Mínimo de caracteres distintos: descarta `aaaa…` o `12341234…`. */
+const MIN_DISTINCT_CHARS = 10;
+
+/**
+ * Un secreto que cualquiera puede adivinar: el de ejemplo, un placeholder (`changeme`, `cambiar…`,
+ * `secret…`) o uno con muy pocos caracteres distintos.
+ */
+export function isWeakSecret(secret: string): boolean {
+  const normalized = secret.trim().toLowerCase();
+  return (
+    EXAMPLE_SECRETS.has(normalized) ||
+    /^(cambiar|change|changeme|secret|secreto|example|ejemplo|placeholder|xxx)/.test(normalized) ||
+    new Set(normalized).size < MIN_DISTINCT_CHARS
+  );
+}
+
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
 const S3_REQUIRED = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
 
 const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
+  if (env.NODE_ENV === 'production' && isWeakSecret(env.PAYLOAD_SECRET)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['PAYLOAD_SECRET'],
+      message:
+        'PAYLOAD_SECRET es el de ejemplo o es débil: generá uno con `openssl rand -base64 48`',
+    });
+  }
   if ((env.INQUIRY_WEBHOOK_URL === undefined) !== (env.INQUIRY_WEBHOOK_SECRET === undefined)) {
     const missing = env.INQUIRY_WEBHOOK_URL ? 'INQUIRY_WEBHOOK_SECRET' : 'INQUIRY_WEBHOOK_URL';
     context.addIssue({
@@ -94,18 +127,20 @@ export type Env = z.infer<typeof EnvSchema>;
 
 let cached: Env | undefined;
 
-export function getEnv(): Env {
-  if (cached) return cached;
-
-  const source = Object.fromEntries(
-    Object.entries(process.env).filter(([, value]) => value !== undefined && value.trim() !== ''),
+/** Valida un entorno (las variables vacías cuentan como ausentes). Exportada para los tests. */
+export function parseEnv(source: Readonly<Record<string, string | undefined>>): Env {
+  const present = Object.fromEntries(
+    Object.entries(source).filter(([, value]) => value !== undefined && value.trim() !== ''),
   );
-  const parsed = ValidatedEnvSchema.safeParse(source);
+  const parsed = ValidatedEnvSchema.safeParse(present);
   if (!parsed.success) {
     throw new Error(`Invalid environment variables:\n${z.prettifyError(parsed.error)}`);
   }
+  return parsed.data;
+}
 
-  cached = parsed.data;
+export function getEnv(): Env {
+  cached ??= parseEnv(process.env);
   return cached;
 }
 

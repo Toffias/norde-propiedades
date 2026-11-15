@@ -529,12 +529,13 @@ function capitalizeWords(text: string): string {
 /**
  * Un listado con filtros finos (precio, ambientes, características, área del mapa, orden, más de
  * una ubicación o un tipo) o en la vista de mapa no se indexa: son infinitas URLs con el mismo contenido.
- * Operación, un tipo, una zona y página sí.
+ * Tampoco una zona en texto libre (la que no coincidió con el catálogo): cualquiera podría crear
+ * páginas indexables con el texto que quiera en el título. Operación, un tipo, una ubicación del
+ * catálogo y página sí.
  */
 export function isIndexable(filters: ListingFilters): boolean {
   const fine = activeFilters(filters).filter(
-    (chip) =>
-      !chip.key.startsWith('type-') && chip.key !== 'zone' && !chip.key.startsWith('location-'),
+    (chip) => !chip.key.startsWith('type-') && !chip.key.startsWith('location-'),
   );
   return (
     fine.length === 0 &&
@@ -542,5 +543,50 @@ export function isIndexable(filters: ListingFilters): boolean {
     (filters.locationIds?.length ?? 0) <= 1 &&
     filters.view === undefined &&
     filters.sort === 'featured'
+  );
+}
+
+/** Un listado sin resultados tampoco se indexa: sería una página vacía (soft 404). */
+export function shouldIndexListing(filters: ListingFilters, total: number): boolean {
+  return isIndexable(filters) && total > 0;
+}
+
+/**
+ * La URL canónica: lo que se indexa (un tipo y una ubicación del catálogo), sin orden ni filtros
+ * finos. El texto libre no se refleja: esa página no se indexa y no tiene una URL propia.
+ */
+export function listingCanonicalHref(filters: ListingFilters): string {
+  const [locationId] = filters.locationIds ?? [];
+  const [propertyType] = filters.propertyTypes ?? [];
+  return listingHref(
+    {
+      ...(filters.operation && { operation: filters.operation }),
+      ...(propertyType && { propertyTypes: [propertyType] }),
+      ...(locationId && { locationIds: [locationId] }),
+      sort: 'featured',
+      page: filters.page,
+    },
+    { page: filters.page },
+  );
+}
+
+/** La página pedida no existe (más allá de la última): responde 404, no una página vacía. */
+export function isPageOutOfRange(page: number, totalPages: number): boolean {
+  return page > Math.max(1, totalPages);
+}
+
+/**
+ * Si las lecturas de estos filtros van al caché de Next. Las que llevan valores libres (zona en
+ * texto, precio, superficie o área del mapa) no: cada combinación sería una entrada nueva en el
+ * caché, y cualquiera podría llenarlo variando la URL.
+ */
+export function isCacheable(filters: ListingFilters): boolean {
+  return (
+    filters.location === undefined &&
+    filters.area === undefined &&
+    filters.minPrice === undefined &&
+    filters.maxPrice === undefined &&
+    filters.minArea === undefined &&
+    filters.maxArea === undefined
   );
 }

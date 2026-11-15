@@ -2,7 +2,7 @@ import { cn } from '@norde/ui/lib/utils';
 import { List, Map as MapIcon, X } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { Pagination } from '../../../components/blog/pagination';
 import { ListingFiltersPanel } from '../../../components/properties/listing-filters-form';
@@ -13,11 +13,15 @@ import { SortSelect } from '../../../components/properties/sort-select';
 import { Breadcrumbs } from '../../../components/seo/breadcrumbs';
 import {
   activeFilters,
+  isCacheable,
   isIndexable,
+  isPageOutOfRange,
   LISTING_PAGE_SIZE,
+  listingCanonicalHref,
   listingHref,
   listingTitle,
   parseListingFilters,
+  shouldIndexListing,
   SORT_OPTIONS,
   type ListingFilters,
 } from '../../../lib/properties/listing-filters';
@@ -36,23 +40,6 @@ import { routes } from '../../../lib/seo/routes';
 // Por request: los filtros vienen en la URL. Los datos salen del caché de propiedades.
 export const dynamic = 'force-dynamic';
 
-/** La URL canónica: lo que se indexa (un tipo y una zona), sin orden ni filtros finos. */
-function canonicalOf(filters: ListingFilters): string {
-  const [locationId] = filters.locationIds ?? [];
-  const [propertyType] = filters.propertyTypes ?? [];
-  return listingHref(
-    {
-      ...(filters.operation && { operation: filters.operation }),
-      ...(propertyType && { propertyTypes: [propertyType] }),
-      ...(filters.location && { location: filters.location }),
-      ...(locationId && { locationIds: [locationId] }),
-      sort: 'featured',
-      page: filters.page,
-    },
-    { page: filters.page },
-  );
-}
-
 export async function generateMetadata({
   searchParams,
 }: PageProps<'/propiedades'>): Promise<Metadata> {
@@ -63,12 +50,27 @@ export async function generateMetadata({
     locations.map((l) => l.name),
   );
   const page = filters.page > 1 ? ` (página ${filters.page})` : '';
+  // Solo se cuentan los resultados de lo indexable: esas lecturas van al caché.
+  const indexable =
+    isIndexable(filters) &&
+    shouldIndexListing(
+      filters,
+      (await searchListings(filters, LISTING_PAGE_SIZE, cacheableWith(filters, locations))).total,
+    );
   return buildMetadata({
     title: withBrand(`${title}${page}`),
     description: `${title}: fotos, precios y datos de cada propiedad. Consultá directo con Norde Propiedades.`,
-    path: canonicalOf(filters),
-    noIndex: !isIndexable(filters),
+    path: listingCanonicalHref(filters),
+    noIndex: !indexable,
   });
+}
+
+/**
+ * Si las lecturas van al caché: con filtros del catálogo (ver `isCacheable`) y solo con IDs de
+ * ubicaciones que existen. Un ID inventado en la URL sería una entrada nueva en el caché.
+ */
+function cacheableWith(filters: ListingFilters, locations: readonly unknown[]): boolean {
+  return isCacheable(filters) && locations.length === (filters.locationIds?.length ?? 0);
 }
 
 /**
@@ -92,12 +94,14 @@ export default async function PropertiesPage({ searchParams }: PageProps<'/propi
   if (resolved) redirect(resolved);
 
   const isMap = filters.view === 'map';
-  const [result, map, facets, locations] = await Promise.all([
-    isMap ? undefined : searchListings(filters, LISTING_PAGE_SIZE),
-    isMap ? listingMap(filters) : undefined,
-    searchFacets(filters),
-    findLocations(filters.locationIds ?? []),
+  const locations = await findLocations(filters.locationIds ?? []);
+  const cacheable = cacheableWith(filters, locations);
+  const [result, map, facets] = await Promise.all([
+    isMap ? undefined : searchListings(filters, LISTING_PAGE_SIZE, cacheable),
+    isMap ? listingMap(filters, cacheable) : undefined,
+    searchFacets(filters, cacheable),
   ]);
+  if (result && isPageOutOfRange(filters.page, result.totalPages)) notFound();
   const total = result?.total ?? map?.total ?? 0;
   const locationNames = locations.map((l) => l.name);
   const title = listingTitle(filters, locationNames);

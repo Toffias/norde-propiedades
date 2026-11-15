@@ -141,7 +141,7 @@ export const listPublishedPostSlugs = unstable_cache(
   CACHE_OPTIONS,
 );
 
-const findPublishedPost = unstable_cache(
+const cachedPublishedPost = unstable_cache(
   async (slug: string): Promise<Post | null> => {
     const result = await (
       await payload()
@@ -159,6 +159,15 @@ const findPublishedPost = unstable_cache(
   ['blog:post-by-slug'],
   CACHE_OPTIONS,
 );
+
+/**
+ * Solo se busca (y se cachea) un slug que está publicado: con uno inventado, la lista de slugs
+ * (una sola entrada en el caché) alcanza para responder 404 sin llenar el caché.
+ */
+async function findPublishedPost(slug: string): Promise<Post | null> {
+  const published = await listPublishedPostSlugs();
+  return published.some((post) => post.slug === slug) ? cachedPublishedPost(slug) : null;
+}
 
 /**
  * Post por slug. En draft mode (preview del admin, con sesión verificada en /next/preview)
@@ -239,8 +248,28 @@ export const findCategoryBySlug = cache(
     (await listCategories()).find((category) => category.slug === slug) ?? null,
 );
 
-/** Redirección cargada en el admin para una ruta (ej. un post cuyo slug cambió). */
-export const findRedirect = unstable_cache(
+/** Tope de redirecciones que se leen: se cargan a mano en el admin, son pocas. */
+const MAX_REDIRECTS = 1000;
+
+/** Las rutas de origen de las redirecciones: una sola entrada en el caché. */
+const listRedirectSources = unstable_cache(
+  async (): Promise<string[]> => {
+    const result = await (
+      await payload()
+    ).find({
+      collection: 'redirects',
+      overrideAccess: false,
+      depth: 0,
+      limit: MAX_REDIRECTS,
+      select: { from: true },
+    });
+    return result.docs.map((doc) => doc.from);
+  },
+  ['blog:redirect-sources'],
+  CACHE_OPTIONS,
+);
+
+const cachedRedirect = unstable_cache(
   async (from: string): Promise<Redirect | null> => {
     const result = await (
       await payload()
@@ -257,3 +286,12 @@ export const findRedirect = unstable_cache(
   ['blog:redirect'],
   CACHE_OPTIONS,
 );
+
+/**
+ * Redirección cargada en el admin para una ruta (ej. un post cuyo slug cambió). Solo se busca (y
+ * se cachea) una ruta que es origen de alguna: una URL inventada no llena el caché.
+ */
+export async function findRedirect(from: string): Promise<Redirect | null> {
+  const sources = await listRedirectSources();
+  return sources.includes(from) ? cachedRedirect(from) : null;
+}

@@ -5,7 +5,8 @@ import { unstable_cache } from 'next/cache';
 
 import { getContainer } from '../../container';
 import { PROPERTIES_CACHE_TAG, PROPERTIES_REVALIDATE_SECONDS } from './cache';
-import { toMapInput, toSearchInput, type ListingFilters } from './listing-filters';
+import { isListingSlug } from './listing-slug';
+import { isCacheable, toMapInput, toSearchInput, type ListingFilters } from './listing-filters';
 import {
   toListingCard,
   toListingDetail,
@@ -20,6 +21,8 @@ import {
 // Lecturas de propiedades para las páginas, con caché (ADR 0011 y 0023). Devuelven vistas ya
 // formateadas: el caché de Next guarda JSON y los DTO del core traen `bigint` y `Date`.
 // Cualquier cambio de una propiedad invalida `properties` (lo avisa apps/gestion).
+// Lo que depende de texto o números libres de la URL no se cachea (ver `isCacheable`): cada
+// combinación sería una entrada nueva y cualquiera podría llenar el caché variando la URL.
 
 const CACHE_OPTIONS = { tags: [PROPERTIES_CACHE_TAG], revalidate: PROPERTIES_REVALIDATE_SECONDS };
 
@@ -43,8 +46,19 @@ async function search(filters: ListingFilters, pageSize: number): Promise<Listin
   };
 }
 
-/** Una página del listado con los filtros de la URL. */
-export const searchListings = unstable_cache(search, ['properties:search'], CACHE_OPTIONS);
+const cachedSearch = unstable_cache(search, ['properties:search'], CACHE_OPTIONS);
+
+/**
+ * Una página del listado con los filtros de la URL. `cacheable: false` la saca del caché aunque
+ * los filtros lo permitan (por ejemplo, con IDs de ubicaciones que no existen).
+ */
+export function searchListings(
+  filters: ListingFilters,
+  pageSize: number,
+  cacheable = isCacheable(filters),
+): Promise<ListingPage> {
+  return cacheable ? cachedSearch(filters, pageSize) : search(filters, pageSize);
+}
 
 /** Las destacadas de la home: primero las marcadas, después las más nuevas. */
 export const featuredListings = unstable_cache(
@@ -62,28 +76,38 @@ export interface ListingMap {
   readonly truncated: boolean;
 }
 
+async function map(filters: ListingFilters): Promise<ListingMap> {
+  const result = await getContainer().properties.map(toMapInput(filters));
+  if (result.isErr()) throw new Error(`Public map failed: ${result.error.type}`);
+  const { pins, total, truncated } = result.value;
+  return { pins: pins.map(toMapPinView), total, truncated };
+}
+
+const cachedMap = unstable_cache(map, ['properties:map'], CACHE_OPTIONS);
+
 /** Los pines del mapa del listado con los filtros de la URL. */
-export const listingMap = unstable_cache(
-  async (filters: ListingFilters): Promise<ListingMap> => {
-    const result = await getContainer().properties.map(toMapInput(filters));
-    if (result.isErr()) throw new Error(`Public map failed: ${result.error.type}`);
-    const { pins, total, truncated } = result.value;
-    return { pins: pins.map(toMapPinView), total, truncated };
-  },
-  ['properties:map'],
-  CACHE_OPTIONS,
-);
+export function listingMap(
+  filters: ListingFilters,
+  cacheable = isCacheable(filters),
+): Promise<ListingMap> {
+  return cacheable ? cachedMap(filters) : map(filters);
+}
+
+async function facets(filters: ListingFilters): Promise<PublicSearchFacets> {
+  const result = await getContainer().properties.facets(toMapInput(filters));
+  if (result.isErr()) throw new Error(`Public facets failed: ${result.error.type}`);
+  return result.value;
+}
+
+const cachedFacets = unstable_cache(facets, ['properties:facets'], CACHE_OPTIONS);
 
 /** Cuántas propiedades daría cada opción del buscador con los filtros de la URL. */
-export const searchFacets = unstable_cache(
-  async (filters: ListingFilters): Promise<PublicSearchFacets> => {
-    const result = await getContainer().properties.facets(toMapInput(filters));
-    if (result.isErr()) throw new Error(`Public facets failed: ${result.error.type}`);
-    return result.value;
-  },
-  ['properties:facets'],
-  CACHE_OPTIONS,
-);
+export function searchFacets(
+  filters: ListingFilters,
+  cacheable = isCacheable(filters),
+): Promise<PublicSearchFacets> {
+  return cacheable ? cachedFacets(filters) : facets(filters);
+}
 
 /** Mínimo de letras para buscar ubicaciones: con una sola, sale medio catálogo. */
 export const LOCATION_QUERY_MIN_LENGTH = 2;
@@ -100,30 +124,36 @@ async function locations(
   return result.value.items.map(toLocationOption);
 }
 
-/**
- * Barrios y localidades con propiedades publicadas: los que coinciden con lo que se escribe o,
- * sin texto, los que más tienen. Con operación, cuenta solo las de esa operación.
- */
-export const suggestLocations = unstable_cache(
-  async (text: string, operation?: Operation): Promise<readonly LocationOption[]> => {
-    const q = text.trim().slice(0, 80);
-    if (q.length > 0 && q.length < LOCATION_QUERY_MIN_LENGTH) return [];
-    return locations(
-      { ...(q.length > 0 && { q }), ...(operation && { operation }) },
-      LOCATION_OPTIONS,
-    );
-  },
+/** Sin texto, las de más propiedades: pocas combinaciones (una por operación), van al caché. */
+const topLocations = unstable_cache(
+  async (operation?: Operation): Promise<readonly LocationOption[]> =>
+    locations({ ...(operation && { operation }) }, LOCATION_OPTIONS),
   ['properties:locations'],
   CACHE_OPTIONS,
 );
 
-/** Las ubicaciones elegidas (título, chips y buscador): las que ya no tienen propiedades no están. */
-export const findLocations = unstable_cache(
-  async (ids: readonly string[]): Promise<readonly LocationOption[]> =>
-    ids.length === 0 ? [] : locations({ ids: [...ids] }, ids.length),
-  ['properties:location'],
-  CACHE_OPTIONS,
-);
+/**
+ * Barrios y localidades con propiedades publicadas: los que coinciden con lo que se escribe o,
+ * sin texto, los que más tienen. Con operación, cuenta solo las de esa operación. Lo escrito no
+ * se cachea: sería una entrada por cada texto (el endpoint del autocompletado tiene límite por IP).
+ */
+export async function suggestLocations(
+  text: string,
+  operation?: Operation,
+): Promise<readonly LocationOption[]> {
+  const q = text.trim().slice(0, 80);
+  if (q.length === 0) return topLocations(operation);
+  if (q.length < LOCATION_QUERY_MIN_LENGTH) return [];
+  return locations({ q, ...(operation && { operation }) }, LOCATION_OPTIONS);
+}
+
+/**
+ * Las ubicaciones elegidas (título, chips y buscador): las que ya no tienen propiedades no están.
+ * Sin caché: los IDs vienen de la URL y pueden ser cualquiera. Son pocos y se buscan por clave.
+ */
+export async function findLocations(ids: readonly string[]): Promise<readonly LocationOption[]> {
+  return ids.length === 0 ? [] : locations({ ids: [...ids] }, ids.length);
+}
 
 export type ListingLookup =
   | { readonly kind: 'listed'; readonly listing: ListingDetail }
@@ -134,8 +164,7 @@ export type ListingLookup =
   | { readonly kind: 'not_listed' }
   | { readonly kind: 'not_found' };
 
-/** La ficha por su slug. */
-export const findListing = unstable_cache(
+const cachedFindListing = unstable_cache(
   async (slug: string): Promise<ListingLookup> => {
     const result = await getContainer().properties.detail({ slug });
     if (result.isOk()) return { kind: 'listed', listing: toListingDetail(result.value) };
@@ -151,6 +180,11 @@ export const findListing = unstable_cache(
   ['properties:detail'],
   CACHE_OPTIONS,
 );
+
+/** La ficha por su slug. */
+export async function findListing(slug: string): Promise<ListingLookup> {
+  return isListingSlug(slug) ? cachedFindListing(slug) : { kind: 'not_found' };
+}
 
 /**
  * Propiedades parecidas a una ficha: misma operación y tipo. Si no alcanzan, de la misma

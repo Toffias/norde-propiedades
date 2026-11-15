@@ -4,12 +4,9 @@ import { randomUUID } from 'node:crypto';
 
 import { getLogger } from '../../config/logger';
 import { getContainer } from '../../container';
-import { clientIp } from '../client-ip';
-import { createRateLimiter } from '../rate-limit';
+import { clientRateKey } from '../client-ip';
 import { inquiryFormValues, parseInquiryForm, type InquiryFormState } from './inquiry-form';
-
-/** Consultas por IP cada 10 minutos. */
-const allow = createRateLimiter(5, () => Date.now());
+import { allowInquiries } from './inquiry-limit';
 
 const UNAVAILABLE =
   'No pudimos enviar tu consulta. Probá de nuevo en unos minutos o escribinos por WhatsApp.';
@@ -29,7 +26,7 @@ export async function sendInquiry(
     values: inquiryFormValues(form),
   });
 
-  if (!allow(await clientIp())) {
+  if (!allowInquiries(await clientRateKey(), 1)) {
     return failed('Recibimos varias consultas seguidas. Esperá unos minutos y volvé a intentar.');
   }
   const sender = getContainer().inquiries;

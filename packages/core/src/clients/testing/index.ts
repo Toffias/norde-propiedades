@@ -1941,6 +1941,8 @@ export class StubInquiryInboxQuery implements InquiryInboxQuery {
   readonly counts: InquiryInboxFilters[] = [];
   pending = 0;
   tabCounts: InquiryTabCounts = { pending: 0, assigned: 0, deleted: 0 };
+  readonly channelCountRanges: { readonly from: Date; readonly to: Date }[] = [];
+  channelCounts: ReadonlyMap<ContactChannel, number> = new Map();
 
   constructor(public items: readonly InquiryInboxItem[] = []) {}
 
@@ -1955,6 +1957,11 @@ export class StubInquiryInboxQuery implements InquiryInboxQuery {
   countByTab(filters: InquiryInboxFilters) {
     this.counts.push(filters);
     return Promise.resolve(this.tabCounts);
+  }
+
+  countByChannel(received: { readonly from: Date; readonly to: Date }) {
+    this.channelCountRanges.push(received);
+    return Promise.resolve(this.channelCounts);
   }
 
   countPending() {

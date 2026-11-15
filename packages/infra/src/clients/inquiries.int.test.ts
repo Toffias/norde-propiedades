@@ -206,6 +206,20 @@ describe('DrizzleInquiryInboxQuery', () => {
     expect(totals.reduce((a, b) => a + b)).toBe(5);
   });
 
+  it('counts the not deleted ones by channel inside the reception range', async () => {
+    await seed();
+
+    const all = await inbox.countByChannel({ from: NOW, to: new Date(NOW.getTime() + 30 * HOUR) });
+    expect(Object.fromEntries(all)).toEqual({ zonaprop: 8, web_form: 16 });
+
+    // Desde la hora 10 (inclusive) hasta la 20 (exclusive).
+    const range = await inbox.countByChannel({
+      from: new Date(NOW.getTime() + 10 * HOUR),
+      to: new Date(NOW.getTime() + 20 * HOUR),
+    });
+    expect(Object.fromEntries(range)).toEqual({ zonaprop: 3, web_form: 5 });
+  });
+
   it('filters by branch, channel, property and reception date', async () => {
     await seed();
     const all = (await inbox.search(criteria())).items;

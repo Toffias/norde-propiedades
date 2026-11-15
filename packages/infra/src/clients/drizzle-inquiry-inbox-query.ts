@@ -1,6 +1,7 @@
 import {
   CONTACT_CHANNELS,
   INQUIRY_STATUSES,
+  type ContactChannel,
   type InquiryInboxCriteria,
   type InquiryInboxFilters,
   type InquiryInboxItem,
@@ -30,6 +31,8 @@ const RowEnums = z.object({
   channel: z.enum(CONTACT_CHANNELS),
   status: z.enum(INQUIRY_STATUSES),
 });
+
+const ChannelEnum = z.enum(CONTACT_CHANNELS);
 
 const rowColumns = {
   id: inquiries.id,
@@ -114,6 +117,25 @@ export class DrizzleInquiryInboxQuery implements InquiryInboxQuery {
       countTab('deleted'),
     ]);
     return { pending, assigned, deleted };
+  }
+
+  /** Por el índice parcial `(channel, received_at)` de las no borradas. */
+  async countByChannel(received: {
+    readonly from: Date;
+    readonly to: Date;
+  }): Promise<ReadonlyMap<ContactChannel, number>> {
+    const rows = await this.db
+      .select({ channel: inquiries.channel, total: count() })
+      .from(inquiries)
+      .where(
+        and(
+          isNull(inquiries.deletedAt),
+          gte(inquiries.receivedAt, received.from),
+          lt(inquiries.receivedAt, received.to),
+        ),
+      )
+      .groupBy(inquiries.channel);
+    return new Map(rows.map((row) => [ChannelEnum.parse(row.channel), row.total]));
   }
 
   async countPending(): Promise<number> {

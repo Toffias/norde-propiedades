@@ -44,6 +44,11 @@ export interface InquiryInboxQuery {
   search(criteria: InquiryInboxCriteria): Promise<PageSlice<InquiryInboxItem>>;
   /** Cuántas hay en cada pestaña con esos filtros. */
   countByTab(filters: InquiryInboxFilters): Promise<InquiryTabCounts>;
+  /** Las no borradas recibidas en el rango [from, to), por canal; los canales sin consultas no vienen. */
+  countByChannel(received: {
+    readonly from: Date;
+    readonly to: Date;
+  }): Promise<ReadonlyMap<ContactChannel, number>>;
   /** Las pendientes (sin asignar ni borrar): el contador del menú. */
   countPending(): Promise<number>;
 }

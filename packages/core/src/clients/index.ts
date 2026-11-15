@@ -580,6 +580,10 @@ export {
   type CountInquiriesByTabError,
 } from './application/queries/count-inquiries-by-tab';
 export {
+  CountInquiriesBySource,
+  type CountInquiriesBySourceError,
+} from './application/queries/count-inquiries-by-source';
+export {
   AssignInquiry,
   type AssignInquiryError,
   type InquiryClientMismatchError,

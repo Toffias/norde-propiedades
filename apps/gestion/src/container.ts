@@ -510,6 +510,7 @@ import {
   LogPublicSite,
   LogTeamNotifier,
   OutboxRelay,
+  purgePlatformTables,
   PgBossEventBus,
   SharpImageVariantGenerator,
   WebhookPublicSite,
@@ -2381,6 +2382,15 @@ function createJobsRuntime(env: Env, logger: Logger): JobsRuntime {
     run: async () => {
       await sendFollowUpDigests(followUpDigests, SCHEDULER_ACTOR, logger);
       await purgeExpiredSearchSubscriptions(purgeSubscriptions, SCHEDULER_ACTOR, logger);
+    },
+  });
+  // `outbox` e `idempotency_keys` solo crecen: lo viejo se borra de madrugada.
+  bus.schedule({
+    name: 'platform.housekeeping',
+    cron: '30 4 * * *',
+    run: async () => {
+      const purged = await purgePlatformTables(db, clock.now());
+      logger.info(purged, 'Platform tables purged');
     },
   });
   if (portalJobs) {

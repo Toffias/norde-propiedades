@@ -1005,31 +1005,32 @@ Pantalla propia en `/propiedades/[id]`, con las pestañas en la URL (`?tab=`). L
 
 ### 4.9 Reservas (#13)
 
-Una **reserva** es la seña de un contacto sobre una propiedad. Vive en el módulo `properties` porque cambia el estado de la propiedad en la misma transacción.
+Una **reserva** es la seña sobre una propiedad, normalmente de un contacto. Vive en el módulo `properties` porque cambia el estado de la propiedad en la misma transacción.
 
 **Reservar** ("Reservar" en la cabecera de la ficha o en una destacada del contacto, con `reservations:create`):
 
 - Solo una propiedad **disponible**, fuera de la papelera y que ofrezca la operación elegida. Pasa a **reservada** y deja de mostrarse en la web.
-- Datos: contacto, operación, agente (sin elegir, quien reserva), gerente (opcional, cualquier usuario activo), valor y moneda, comisión en porcentaje y/o monto con su moneda (todo opcional), fecha estimada de firma y notas. Desde una destacada, el contacto viene elegido y la reserva queda atada a la oportunidad de la destacada.
+- Datos: contacto (opcional), operación, agente (sin elegir, quien reserva), gerente (opcional, cualquier usuario activo), valor y moneda, comisión en porcentaje y/o monto con su moneda (todo opcional), fecha estimada de firma y notas. Desde una destacada, el contacto viene elegido y la reserva queda atada a la oportunidad de la destacada.
+- **Sin contacto**: si todavía no se sabe quién reservó, se reserva igual y el contacto se carga después, al editar la reserva. Mientras tanto, la ficha, el listado, el Excel e Inicio muestran "Sin contacto". Una reserva atada a una oportunidad siempre tiene el contacto de esa oportunidad.
 - La sucursal de la reserva es la del agente.
-- El contacto tiene que existir, no estar en la papelera ni unificado, y quien reserva tiene que poder verlo (`clients:read` con su alcance). La oportunidad, si viene, tiene que ser de ese contacto y visible para quien reserva (#222).
+- El contacto, si viene, tiene que existir, no estar en la papelera ni unificado, y quien reserva tiene que poder verlo (`clients:read` con su alcance). La oportunidad, si viene, tiene que ser de ese contacto y visible para quien reserva (#222).
 - **Una sola reserva activa por propiedad**: lo exige el dominio (la propiedad tiene que estar disponible) y un índice único parcial en la base, también si dos la reservan al mismo tiempo.
 
 **Estados**: activa → caída o firmada. Caída y firmada son finales.
 
-| Acción                                                  | Permiso               | La propiedad                                       |
-| ------------------------------------------------------- | --------------------- | -------------------------------------------------- |
-| Editar (valor, comisión, fecha, agente, gerente, notas) | `reservations:update` | No cambia                                          |
-| Dar por caída (con motivo opcional)                     | `reservations:update` | Vuelve a disponible                                |
-| Firmar                                                  | `reservations:update` | Venta → vendida; alquiler o temporario → alquilada |
+| Acción                                                            | Permiso               | La propiedad                                       |
+| ----------------------------------------------------------------- | --------------------- | -------------------------------------------------- |
+| Editar (contacto, valor, comisión, fecha, agente, gerente, notas) | `reservations:update` | No cambia                                          |
+| Dar por caída (con motivo opcional)                               | `reservations:update` | Vuelve a disponible                                |
+| Firmar                                                            | `reservations:update` | Venta → vendida; alquiler o temporario → alquilada |
 
-El contacto y la operación no se editan: si cambian, la reserva se da por caída y se reserva de nuevo. De fábrica, gerente y administrador tienen `reservations:*`; el agente, ver y crear.
+Al editar, el contacto se carga (si se reservó sin él) o se cambia; quien edita tiene que poder verlo, igual que al reservar. No se quita, y no cambia si la reserva está atada a una oportunidad. La operación no se edita: si cambia, la reserva se da por caída y se reserva de nuevo. De fábrica, gerente y administrador tienen `reservations:*`; el agente, ver y crear.
 
 **Mientras hay una reserva activa**, el estado de la propiedad no se cambia a mano (ficha, edición rápida o masiva, importación de unidades) y no se puede mandar a la papelera.
 
 **En la ficha**: la tarjeta de la reserva activa (debajo de la cabecera, con Editar, Dar por caída y Firmar) y la pestaña **Reservas**, paginada, con todas las de la propiedad (contacto, estado, agente, valor, comisión, fecha de reserva y firma estimada), ordenable por fecha de reserva o de firma.
 
-**Historial**: cada paso queda en el historial de la propiedad (filtro "Reservas") con su diff y el ID del contacto en `client_ids`: `property.reserved`, `property.reservation_updated`, `property.reservation_fallen`, `property.reservation_signed`. Al suprimir los datos de un contacto se borran sus reservas; si una estaba activa, la propiedad vuelve a disponible y queda `property.reservation_erased`, sin el contacto.
+**Historial**: cada paso queda en el historial de la propiedad (filtro "Reservas") con su diff y el ID del contacto en `client_ids` (vacío si se reservó sin contacto; si el contacto cambió, van el anterior y el nuevo): `property.reserved`, `property.reservation_updated`, `property.reservation_fallen`, `property.reservation_signed`. Al suprimir los datos de un contacto se borran sus reservas; si una estaba activa, la propiedad vuelve a disponible y queda `property.reservation_erased`, sin el contacto.
 
 **Listado `/reservas`** (menú Cartera → Reservas, con `reservations:read`): todas las reservas, activas, caídas y firmadas, incluidas las de propiedades en la papelera. Lo ve todo el que ve reservas, de cualquier agente o sucursal.
 

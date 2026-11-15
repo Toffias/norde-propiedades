@@ -11,7 +11,7 @@ import { inquiryRulesEnabled } from '../../../config/env';
 import { getContainer } from '../../../container';
 import {
   InquiriesView,
-  InquiryTabCards,
+  InquirySourceCards,
   type InquiryFilterValues,
 } from '../../../features/inquiries/components/inquiries-view';
 import { INQUIRY_LIST_ERROR_MESSAGES } from '../../../features/inquiries/messages';
@@ -33,9 +33,10 @@ export default async function InquiriesPage({
   );
   const { inquiries } = getContainer();
   const { tab: _tab, page: _page, pageSize: _pageSize, sort: _sort, ...filterQuery } = query;
-  const [result, counts] = await Promise.all([
+  const [result, counts, sources] = await Promise.all([
     inquiries.listInquiries.execute(query, actor),
     inquiries.countInquiriesByTab.execute(filterQuery, actor),
+    inquiries.countInquiriesBySource.execute(actor),
   ]);
 
   const filters: InquiryFilterValues = {
@@ -77,7 +78,7 @@ export default async function InquiriesPage({
         </p>
       )}
 
-      {counts.isOk() && <InquiryTabCards tab={query.tab} counts={counts.value} />}
+      {sources.isOk() && <InquirySourceCards sources={sources.value} />}
 
       <Card className="gap-0 overflow-hidden p-0">
         {result.isErr() ? (
@@ -90,6 +91,7 @@ export default async function InquiriesPage({
             pageSize={result.value.pageSize}
             renderedAt={new Date().toISOString()}
             filters={filters}
+            tabCounts={counts.isOk() ? counts.value : undefined}
             propertyLabel={
               filteredProperty && `${filteredProperty.code} · ${filteredProperty.title}`
             }

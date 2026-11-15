@@ -227,10 +227,10 @@ const inquiries: Tour = {
         'Los mensajes que llegan desde la web, los portales y el agente de IA, antes de convertirse en oportunidades.',
     },
     {
-      target: 'inquiries-status',
-      title: 'Estados',
+      target: 'inquiries-sources',
+      title: 'Origen del mes',
       description:
-        'Pendientes son las que nadie tomó todavía; asignadas, las que ya tienen agente; borradas, las descartadas.',
+        'Cuántas consultas entraron este mes desde MercadoLibre, Zonaprop, el agente de IA de la web, el bot de WhatsApp y el resto.',
     },
     {
       target: 'inquiries-rules',
@@ -240,7 +240,8 @@ const inquiries: Tour = {
     {
       target: 'inquiries-filters',
       title: 'Filtros',
-      description: 'Filtrá por canal, propiedad, sucursal o fecha de llegada.',
+      description:
+        'Elegí el estado (pendientes, asignadas o borradas) y filtrá por canal, propiedad, sucursal o fecha de llegada.',
     },
     {
       target: 'inquiries-list',

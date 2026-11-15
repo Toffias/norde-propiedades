@@ -101,6 +101,23 @@ export type CountInquiriesByTabQuery = z.input<typeof CountInquiriesByTabQuerySc
 
 export type InquiryTabCounts = Readonly<Record<InquiryTabValue, number>>;
 
+/** Replica `INQUIRY_SOURCES` del dominio: los indicadores de origen de la bandeja. */
+export const INQUIRY_SOURCE_VALUES = [
+  'mercadolibre',
+  'zonaprop',
+  'web_chat',
+  'whatsapp',
+  'other',
+] as const;
+export type InquirySourceValue = (typeof INQUIRY_SOURCE_VALUES)[number];
+
+/** Las consultas recibidas en el mes en curso (sin las borradas), por origen. */
+export interface InquirySourceCounts {
+  /** `AAAA-MM` de Buenos Aires. */
+  readonly month: string;
+  readonly counts: Readonly<Record<InquirySourceValue, number>>;
+}
+
 export interface InquiryTag {
   readonly kind: InquiryTagKindValue;
   readonly value: string;

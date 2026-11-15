@@ -8,6 +8,7 @@ import { MAX_CLIENT_TAGS } from '../domain/client-tag';
 import { CLIENT_KINDS, CLIENT_TYPES, EMAIL_KINDS, PHONE_KINDS } from '../domain/client-values';
 import { CONTACT_CHANNELS } from '../domain/contact-channel';
 import { INQUIRY_STATUSES } from '../domain/inquiry';
+import { INQUIRY_SOURCES } from '../domain/inquiry-source';
 import {
   MAX_CONDITION_VALUES,
   MAX_RULE_AGENTS,
@@ -44,6 +45,7 @@ import {
   ClientFilterSchema,
   CONTACT_CHANNEL_VALUES,
   EMAIL_KIND_VALUES,
+  INQUIRY_SOURCE_VALUES,
   INQUIRY_TAB_VALUES,
   INQUIRY_TAG_KIND_VALUES,
   MAX_INQUIRY_RULE_AGENTS,
@@ -77,6 +79,7 @@ describe('clients contracts', () => {
   it('mirror the domain enums', () => {
     expect(CONTACT_CHANNEL_VALUES).toEqual(CONTACT_CHANNELS);
     expect(INQUIRY_TAB_VALUES).toEqual(INQUIRY_STATUSES);
+    expect(INQUIRY_SOURCE_VALUES).toEqual(INQUIRY_SOURCES);
     expect(INQUIRY_TAG_KIND_VALUES).toEqual(INQUIRY_TAG_KINDS);
     expect(OPPORTUNITY_TYPE_VALUES).toEqual(OPPORTUNITY_TYPES);
     expect(OPPORTUNITY_INTENT_VALUES).toEqual(OPPORTUNITY_INTENTS);

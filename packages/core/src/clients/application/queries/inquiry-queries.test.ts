@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../../shared';
-import { unwrap, unwrapErr } from '../../../shared/testing';
+import { FixedClock, unwrap, unwrapErr } from '../../../shared/testing';
 import {
   AGENT_ID,
   aListing,
@@ -14,6 +14,7 @@ import {
   StubInquiryInboxQuery,
 } from '../../testing';
 
+import { CountInquiriesBySource } from './count-inquiries-by-source';
 import { CountInquiriesByTab } from './count-inquiries-by-tab';
 import { CountPendingInquiries } from './count-pending-inquiries';
 import { ListInquiries } from './list-inquiries';
@@ -217,5 +218,48 @@ describe('CountInquiriesByTab', () => {
     const { inbox, countByTab } = setup();
     expect(unwrapErr(await countByTab.execute({}, OUTSIDER))).toEqual({ type: 'Forbidden' });
     expect(inbox.counts).toEqual([]);
+  });
+});
+
+describe('CountInquiriesBySource', () => {
+  function setupBySource(now: string) {
+    const inbox = new StubInquiryInboxQuery();
+    return { inbox, bySource: new CountInquiriesBySource({ inbox, clock: new FixedClock(now) }) };
+  }
+
+  it('counts the current Buenos Aires month by source, with the rest as other', async () => {
+    const { inbox, bySource } = setupBySource('2026-11-15T12:00:00Z');
+    inbox.channelCounts = new Map([
+      ['mercadolibre', 5],
+      ['zonaprop', 2],
+      ['web_chat', 4],
+      ['whatsapp', 1],
+      ['web_form', 3],
+      ['argenprop', 2],
+    ]);
+
+    expect(unwrap(await bySource.execute(READER))).toEqual({
+      month: '2026-11',
+      counts: { mercadolibre: 5, zonaprop: 2, web_chat: 4, whatsapp: 1, other: 5 },
+    });
+    expect(inbox.channelCountRanges).toEqual([
+      { from: new Date('2026-11-01T03:00:00Z'), to: new Date('2026-12-01T03:00:00Z') },
+    ]);
+  });
+
+  it('takes the month in Buenos Aires time, across the year change', async () => {
+    // 31/12 22:00 en Buenos Aires: todavía es diciembre.
+    const { inbox, bySource } = setupBySource('2027-01-01T01:00:00Z');
+
+    expect(unwrap(await bySource.execute(READER)).month).toBe('2026-12');
+    expect(inbox.channelCountRanges).toEqual([
+      { from: new Date('2026-12-01T03:00:00Z'), to: new Date('2027-01-01T03:00:00Z') },
+    ]);
+  });
+
+  it('requires permission to see the inquiries', async () => {
+    const { inbox, bySource } = setupBySource('2026-11-15T12:00:00Z');
+    expect(unwrapErr(await bySource.execute(OUTSIDER))).toEqual({ type: 'Forbidden' });
+    expect(inbox.channelCountRanges).toEqual([]);
   });
 });

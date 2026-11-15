@@ -1,5 +1,6 @@
 import {
   CONTACT_CHANNEL_LABELS,
+  type InquirySourceValue,
   type InquiryTabValue,
   type InquiryTag,
 } from '@norde/core/clients/contracts';
@@ -13,6 +14,25 @@ export const INQUIRY_TAB_LABELS: Readonly<Record<InquiryTabValue, string>> = {
   assigned: 'Asignadas',
   deleted: 'Borradas',
 };
+
+export const INQUIRY_SOURCE_LABELS: Readonly<Record<InquirySourceValue, string>> = {
+  mercadolibre: 'MercadoLibre',
+  zonaprop: 'Zonaprop',
+  web_chat: 'Agente de IA web',
+  whatsapp: 'Bot de WhatsApp',
+  other: 'Otros',
+};
+
+const MONTH_FORMAT = new Intl.DateTimeFormat('es-AR', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+/** `AAAA-MM` en palabras: "noviembre de 2026". */
+export function formatMonth(month: string): string {
+  return MONTH_FORMAT.format(new Date(`${month}-15T00:00:00Z`));
+}
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;

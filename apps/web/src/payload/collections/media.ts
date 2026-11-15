@@ -1,5 +1,7 @@
 import type { CollectionConfig } from 'payload';
 
+import { authenticated, authenticatedOrSite } from '../access';
+
 /**
  * Imágenes del contenido editorial (blog, páginas).
  * Las fotos de propiedades NO van acá: las gestiona el sistema de gestión.
@@ -8,7 +10,14 @@ import type { CollectionConfig } from 'payload';
 export const Media: CollectionConfig = {
   slug: 'media',
   labels: { singular: 'Imagen', plural: 'Imágenes' },
-  access: { read: () => true },
+  // Los archivos se sirven a todos; el listado de la API REST (con las imágenes de los borradores),
+  // solo a los editores.
+  access: {
+    read: authenticatedOrSite,
+    create: authenticated,
+    update: authenticated,
+    delete: authenticated,
+  },
   upload: {
     staticDir: 'media',
     mimeTypes: ['image/*'],

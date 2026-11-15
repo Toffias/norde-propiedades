@@ -57,6 +57,15 @@ const EnvSchema = z.object({
    * `CONVERSATION_IDLE_RESET_HOURS`. Pasado ese tiempo, el chat ofrece empezar una nueva.
    */
   CHAT_IDLE_RESET_HOURS: z.coerce.number().int().positive().default(24),
+
+  /**
+   * `true` solo para crear el primer editor desde `/admin` con la base vacía. Sin ella, el alta del
+   * primer usuario queda cerrada: el primero que llegara a un sitio recién instalado sería admin.
+   */
+  PAYLOAD_FIRST_REGISTER: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 /** Con `STORAGE_DRIVER=s3`, las credenciales y el bucket son obligatorios. */
@@ -81,6 +90,13 @@ const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
   if ((env.AGENT_CHAT_URL === undefined) !== (env.AGENT_CHAT_SECRET === undefined)) {
     const missing = env.AGENT_CHAT_URL ? 'AGENT_CHAT_SECRET' : 'AGENT_CHAT_URL';
     context.addIssue({ code: 'custom', path: [missing], message: 'Set both AGENT_CHAT_* or none' });
+  }
+  if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === undefined) {
+    context.addIssue({
+      code: 'custom',
+      path: ['STORAGE_DRIVER'],
+      message: 'Required in production (s3, or local for a single server)',
+    });
   }
   if (env.STORAGE_DRIVER !== 's3') return;
   for (const key of S3_REQUIRED) {

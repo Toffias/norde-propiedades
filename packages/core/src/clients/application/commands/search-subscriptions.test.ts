@@ -139,15 +139,16 @@ describe('RequestSearchSubscription', () => {
     expect(uow.searchSubscriptions.rows.size).toBe(3);
   });
 
-  it('keeps nothing when the email does not go out', async () => {
+  it('emails only after saving, and reports a mail that does not go out', async () => {
     const { uow, mailer, request } = setup();
     mailer.failWith = { type: 'MailUnavailable' };
 
     const error: RequestSearchSubscriptionError = unwrapErr(await request.execute(REQUEST, WEB));
 
     expect(error.type).toBe('MailUnavailable');
-    expect(uow.searchSubscriptions.rows.size).toBe(0);
-    expect(uow.audit.entries).toEqual([]);
+    // Quedó pendiente, pero nadie tiene el link: vence sola y la borra la purga.
+    const [pending] = [...uow.searchSubscriptions.rows.values()];
+    expect(pending).toMatchObject({ confirmedAt: undefined, clientId: undefined });
   });
 
   it('rejects an invalid email', async () => {

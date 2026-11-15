@@ -55,8 +55,11 @@ export function searchSubscriptionConfirmUrl(siteUrl: string, token: string): st
  * confirmación): hasta que no confirma, no hay contacto ni búsqueda.
  *
  * Un mismo email puede pedir {@link MAX_PENDING_SUBSCRIPTIONS_PER_EMAIL} por día: pasado el tope
- * responde igual pero no manda nada, así nadie llena de mails la casilla de otro. Si el email no
- * sale, no queda nada guardado.
+ * responde igual pero no manda nada, así nadie llena de mails la casilla de otro.
+ *
+ * El email sale después de guardar: si saliera antes y el guardado fallara, el link no llevaría a
+ * nada. Si el email no sale, el pedido queda pendiente sin que nadie tenga el link, vence solo y lo
+ * borra la purga de vencidas.
  */
 export class RequestSearchSubscription {
   constructor(
@@ -88,15 +91,20 @@ export class RequestSearchSubscription {
     const now = this.deps.clock.now();
     const company = (await this.deps.settings.get()).toSnapshot();
 
-    return this.deps.uow.run(
+    const saved = await this.deps.uow.run(
       async (
         tx,
-      ): Promise<Result<RequestSearchSubscriptionOutput, RequestSearchSubscriptionError>> => {
+      ): Promise<
+        Result<
+          { readonly token: string; readonly subscription: SearchSubscription } | undefined,
+          RequestSearchSubscriptionError
+        >
+      > => {
         const recent = await tx.searchSubscriptions.countRequestedSince(
           email.value,
           new Date(now.getTime() - DAY_MS),
         );
-        if (recent >= MAX_PENDING_SUBSCRIPTIONS_PER_EMAIL) return ok({ requested: true });
+        if (recent >= MAX_PENDING_SUBSCRIPTIONS_PER_EMAIL) return ok(undefined);
 
         const { token, hash } = this.deps.tokens.issue();
         const requested = SearchSubscription.request({
@@ -138,23 +146,28 @@ export class RequestSearchSubscription {
           ),
         );
 
-        // Dentro de la transacción: si el email no sale, la suscripción no queda guardada.
-        const composed = this.deps.emails.compose({
-          companyName: company.name,
-          searchSummary: subscription.summary,
-          frequencyLabel: frequencyLabel(subscription.frequency),
-          confirmUrl: searchSubscriptionConfirmUrl(siteUrl, token),
-          expiresAt: subscription.expiresAt,
-        });
-        const mailed = await this.deps.mailer.send({
-          to: email.value.value,
-          ...composed,
-          fromName: company.emailSender.fromName ?? company.name,
-          replyTo: company.emailSender.replyTo?.value,
-        });
-        if (mailed.isErr()) return err(mailed.error);
-        return ok({ requested: true });
+        return ok({ token, subscription });
       },
     );
+    if (saved.isErr()) return err(saved.error);
+    // Pasado el tope diario se responde igual, sin mandar nada.
+    if (saved.value === undefined) return ok({ requested: true });
+
+    const { token, subscription } = saved.value;
+    const composed = this.deps.emails.compose({
+      companyName: company.name,
+      searchSummary: subscription.summary,
+      frequencyLabel: frequencyLabel(subscription.frequency),
+      confirmUrl: searchSubscriptionConfirmUrl(siteUrl, token),
+      expiresAt: subscription.expiresAt,
+    });
+    const mailed = await this.deps.mailer.send({
+      to: email.value.value,
+      ...composed,
+      fromName: company.emailSender.fromName ?? company.name,
+      replyTo: company.emailSender.replyTo?.value,
+    });
+    if (mailed.isErr()) return err(mailed.error);
+    return ok({ requested: true });
   }
 }

@@ -8,8 +8,9 @@ export const NOTICE_TEXT: Readonly<Record<Notice, string>> = {
     'Perdón, en este momento no puedo responderte. Volvé a escribirme en un rato y seguimos.',
   unsupported_content:
     'Por ahora solo puedo leer mensajes de texto y audios. ¿Me contás qué estás buscando?',
+  // No promete que un asesor revise: el plan `contact_limit` no avisa a nadie (#151).
   contact_limit:
-    'Recibí muchos mensajes seguidos. Para seguir ayudándote, un asesor va a revisar la conversación. ¡Gracias por la paciencia!',
+    'Recibí muchos mensajes seguidos y necesito frenar un rato. Escribime más tarde y seguimos. ¡Gracias por la paciencia!',
 };
 
 /** Los avisos se mandan como máximo una vez por período por contacto (cada uno se cobra). */

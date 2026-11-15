@@ -27,7 +27,10 @@ import { FixedClock, SequentialIdGenerator } from '@norde/core/shared/testing';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { createCustomerAssistant } from '../../assistant/customer-assistant';
+import {
+  createCustomerAssistant,
+  type CustomerAssistant,
+} from '../../assistant/customer-assistant';
 import { DailyBudget } from '../shared/daily-budget';
 import { FailureBreaker } from '../shared/failure-breaker';
 
@@ -84,8 +87,16 @@ const NO_FILTERS = {
 };
 
 function setup(
-  options: { breakerThreshold?: number; limits?: Partial<UsageLimits>; budgetUsd?: number } = {},
+  options: {
+    breakerThreshold?: number;
+    limits?: Partial<UsageLimits>;
+    budgetUsd?: number;
+    /** Reemplaza al agente real (para simular fallas con estado o con gasto). */
+    assistant?: Pick<CustomerAssistant, 'run'>;
+  } = {},
 ) {
+  const logs: string[] = [];
+  const budget = new DailyBudget(options.budgetUsd ?? 100, PRICES);
   const model = new ScriptedModel();
   const clock = new FixedClock('2026-03-01T13:00:00Z');
   const ids = new SequentialIdGenerator();
@@ -133,13 +144,13 @@ function setup(
       },
     }),
     sendReply: new SendReply({ uow: conversations, ids, clock, messengers }),
-    assistant,
+    assistant: options.assistant ?? assistant,
     actor,
     siteUrl: 'https://norde.com.ar',
-    budget: new DailyBudget(options.budgetUsd, PRICES),
+    budget,
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
     now: () => clock.now(),
-    logger: pino({ level: 'silent' }),
+    logger: pino({ level: 'info' }, { write: (line: string) => logs.push(line) }),
   });
 
   let sequence = 0;
@@ -150,7 +161,17 @@ function setup(
   });
   const conversation = () => [...conversations.conversations.rows.values()][0];
 
-  return { model, messenger, clients, conversations, handler, message, conversation };
+  return {
+    model,
+    messenger,
+    clients,
+    conversations,
+    handler,
+    message,
+    conversation,
+    budget,
+    logs,
+  };
 }
 
 describe('WebChatTurnHandler', () => {
@@ -352,6 +373,30 @@ describe('WebChatTurnHandler', () => {
     expect(second).toEqual({ kind: 'unavailable' });
     expect(third).toEqual({ kind: 'unavailable' });
     expect(ctx.conversation()?.agentMemory).toEqual([]);
+  });
+
+  it('counts a failed turn in the budget and logs only the name and message of its error', async () => {
+    // Como MaxTurnsExceededError: el error carga el estado del turno con toda la conversación.
+    const error = Object.assign(new Error('Max turns (8) exceeded'), {
+      state: { email: 'ana@mail.com', messages: ['busco un dos ambientes en Palermo'] },
+    });
+    const usage = {
+      requests: 8,
+      inputTokens: 400_000,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      reasoningTokens: 0,
+    };
+    const ctx = setup({ assistant: { run: () => Promise.resolve({ ok: false, error, usage }) } });
+
+    const result = await ctx.handler.handle(ctx.message('busco un dos ambientes en Palermo'));
+
+    expect(ctx.budget.spentUsd()).toBeCloseTo(0.1);
+    const failed = ctx.logs.find((line) => line.includes('Agent turn failed'));
+    expect(failed).toContain('Max turns (8) exceeded');
+    expect(failed).not.toContain('ana@mail.com');
+    expect(failed).not.toContain('Palermo');
+    expect(result).toMatchObject({ kind: 'reply', reply: { text: FALLBACK_TEXT } });
   });
 
   it('does not answer acknowledgements nor a retried message', async () => {

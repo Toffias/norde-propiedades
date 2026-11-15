@@ -1,3 +1,4 @@
+import { errorSummary } from '@norde/agent-kit';
 import { OpportunitySearchSchema } from '@norde/core/clients';
 import {
   MAX_INBOUND_MESSAGES_PER_CALL,
@@ -24,6 +25,7 @@ import type { DailyBudget } from '../shared/daily-budget';
 import type { FailureBreaker } from '../shared/failure-breaker';
 import type { WhatsAppInbound } from './inbound';
 import { NOTICE_TEXT, type NoticeThrottle } from './notices';
+import { RecentIds } from './recent-ids';
 import { buildWhatsAppReply, FALLBACK_TEXT } from './reply-builder';
 
 export interface WhatsAppTurnHandlerDeps {
@@ -31,6 +33,8 @@ export interface WhatsAppTurnHandlerDeps {
   readonly sendReply: Pick<SendReply, 'execute'>;
   /** Sin transcripción, un audio se contesta con el aviso de contenido no soportado. */
   readonly transcribeAudio?: Pick<TranscribeAudioMessage, 'execute'> | undefined;
+  /** Costo estimado de transcribir un audio, en USD: se suma al tope de gasto. */
+  readonly audioCostUsd: number;
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
@@ -49,6 +53,9 @@ export interface WhatsAppTurnHandlerDeps {
  * contacto, así que nunca hay dos turnos en paralelo para la misma conversación.
  */
 export class WhatsAppTurnHandler {
+  /** Mensajes ya registrados: una reentrega de Meta no vuelve a pagar la transcripción. */
+  readonly #recorded = new RecentIds(10_000);
+
   constructor(private readonly deps: WhatsAppTurnHandlerDeps) {}
 
   async handle(batch: readonly WhatsAppInbound[]): Promise<void> {
@@ -63,6 +70,7 @@ export class WhatsAppTurnHandler {
       deps.logger.error({ error: received.error }, 'Could not record inbound WhatsApp messages');
       return;
     }
+    for (const m of batch) this.#recorded.add(m.message.channelMessageId);
 
     const conversation = received.value;
     const log = deps.logger.child({ conversationId: conversation.conversationId });
@@ -118,22 +126,32 @@ export class WhatsAppTurnHandler {
     return decided;
   }
 
-  /** El mensaje tal como lo lee el agente: un audio, transcrito. Si no se puede, queda como llegó. */
+  /**
+   * El mensaje tal como lo lee el agente: un audio, transcrito. Si no se puede, queda como llegó.
+   * No se transcribe una reentrega ni con el tope de gasto alcanzado (el agente no va a responder).
+   */
   private async readable(inbound: WhatsAppInbound): Promise<InboundMessage> {
     const { deps } = this;
     if (!inbound.audioMediaId || !deps.transcribeAudio) return inbound.message;
+    if (this.#recorded.has(inbound.message.channelMessageId) || deps.budget.exceeded()) {
+      return inbound.message;
+    }
     try {
       const result = await deps.transcribeAudio.execute(
         { mediaId: inbound.audioMediaId },
         deps.actor,
       );
+      // OpenAI cobra el audio aunque no tenga palabras.
+      if (result.isOk() || result.error.type === 'EmptyTranscript') {
+        deps.budget.recordUsd(deps.audioCostUsd);
+      }
       if (result.isErr()) {
         deps.logger.info({ reason: result.error.type }, 'WhatsApp audio not transcribed');
         return inbound.message;
       }
       return { ...inbound.message, kind: 'audio', text: result.value.text };
     } catch (error) {
-      deps.logger.error({ err: error }, 'WhatsApp audio transcription failed');
+      deps.logger.error({ error: errorSummary(error) }, 'WhatsApp audio transcription failed');
       return inbound.message;
     }
   }
@@ -175,7 +193,13 @@ export class WhatsAppTurnHandler {
     });
 
     if (!turn.ok) {
-      log.error({ err: turn.error }, 'Agent turn failed');
+      // Un turno fallido también se cobra (hasta `maxTurns` llamadas al modelo).
+      const failedCostUsd = deps.budget.record(turn.usage);
+      // Solo nombre y mensaje: el error del SDK carga el estado del turno con toda la conversación.
+      log.error(
+        { error: errorSummary(turn.error), ...turn.usage, costUsd: failedCostUsd },
+        'Agent turn failed',
+      );
       if (deps.breaker.recordFailure()) {
         log.error('Agent breaker opened: no more fallback replies until it recovers');
       }

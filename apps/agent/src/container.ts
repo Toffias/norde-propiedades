@@ -2,6 +2,7 @@
 // Instancia los adaptadores y arma los casos de uso de @norde/core que expone la app. Los procesos
 // en segundo plano (relay del outbox y jobs) corren en apps/gestion (ADR 0021).
 
+import { errorSummary } from '@norde/agent-kit';
 import { RegisterContact, type InquiryPropertyLookup } from '@norde/core/clients';
 import {
   ReceiveInboundMessages,
@@ -154,7 +155,8 @@ export function createContainer(
           model: { name: env.OPENAI_MODEL, apiKey: env.OPENAI_API_KEY },
           maxMemoryItems: env.AGENT_MAX_MEMORY_ITEMS,
           onToolError: (tool, error) => {
-            logger.error({ err: error, tool }, 'Agent tool failed');
+            // Solo nombre y mensaje: un error de Drizzle trae los parámetros (teléfono, email).
+            logger.error({ error: errorSummary(error), tool }, 'Agent tool failed');
           },
           moderation: env.AGENT_MODERATION
             ? openAIModeration({
@@ -204,6 +206,7 @@ export function createContainer(
       receiveInbound,
       sendReply,
       transcribeAudio,
+      audioCostUsd: env.OPENAI_PRICE_PER_AUDIO_USD,
       assistant,
       actor: AGENT_ACTOR,
       breaker: newBreaker(),
@@ -219,7 +222,10 @@ export function createContainer(
       debounceMs: env.WHATSAPP_DEBOUNCE_MS,
       process: (messages) => handler.handle(messages),
       onError: (error, messages) => {
-        logger.error({ err: error, count: messages.length }, 'WhatsApp batch failed');
+        logger.error(
+          { error: errorSummary(error), count: messages.length },
+          'WhatsApp batch failed',
+        );
       },
     });
     batcher = activeBatcher;

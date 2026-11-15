@@ -7,8 +7,8 @@ export interface NewsFeedCriteria {
   readonly kinds: readonly NewsKind[];
   /** Solo las entidades de esta sucursal; `undefined`, todas. */
   readonly branchId: string | undefined;
-  /** Solo las novedades de estos días (inclusive); `undefined`, sin límite de fechas. */
-  readonly days: NewsDayRange | undefined;
+  /** Solo las novedades de estos días (inclusive). Obligatorio: sin él se recorre todo `audit_log`. */
+  readonly days: NewsDayRange;
   /** Sobre las tarjetas (entidad + día), no sobre las entradas. */
   readonly offset: number;
   readonly limit: number;

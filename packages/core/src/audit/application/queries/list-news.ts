@@ -47,9 +47,9 @@ function assigneeOf(entry: NewsEntryRecord): string | undefined {
 /**
  * Noticias: el feed de actividad de la empresa, por entidad y día, de lo más nuevo a lo más viejo.
  * Pide `news:read`. Según la configuración de la empresa, se ven las novedades de todas las
- * sucursales o solo las de la sucursal de quien mira (un usuario sin sucursal ve todas). Con un
- * período (hoy, ayer, la semana), solo las de esos días de Buenos Aires: así se arma cada sección
- * del resumen, una por tipo.
+ * sucursales o solo las de la sucursal de quien mira (un usuario sin sucursal ve todas). Siempre
+ * de un período (hoy, ayer o la semana, si no se dice), en días de Buenos Aires: así se arma cada
+ * sección del resumen, una por tipo, y la consulta no recorre todo el historial.
  */
 export class ListNews {
   constructor(
@@ -80,8 +80,7 @@ export class ListNews {
     const slice = await this.deps.feed.list({
       kinds,
       branchId: scope === 'branch' ? actor.branchId : undefined,
-      days:
-        period === undefined ? undefined : newsPeriodDays(period, newsDayOf(this.deps.clock.now())),
+      days: newsPeriodDays(period, newsDayOf(this.deps.clock.now())),
       entriesPerCard: NEWS_ENTRIES_PER_CARD,
       ...toOffsetLimit({ page, pageSize }),
     });

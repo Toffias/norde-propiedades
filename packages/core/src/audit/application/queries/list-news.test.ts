@@ -262,12 +262,12 @@ describe('ListNews', () => {
     },
   );
 
-  it('reads the whole feed without a period', async () => {
+  it('reads the last week when no period is given, never the whole feed', async () => {
     const { listNews, feed } = setup([]);
 
     unwrap(await listNews.execute({}, reader));
 
-    expect(feed.criteria[0]?.days).toBeUndefined();
+    expect(feed.criteria[0]?.days).toEqual({ from: '2026-09-29', to: '2026-10-05' });
   });
 
   it('rejects an invalid query', async () => {

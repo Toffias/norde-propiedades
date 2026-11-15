@@ -32,8 +32,8 @@ function dayInBuenosAires(at: Date): string {
   return new Date(at.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-function inRange(day: string, days: NewsDayRange | undefined): boolean {
-  return days === undefined || (day >= days.from && day <= days.to);
+function inRange(day: string, days: NewsDayRange): boolean {
+  return day >= days.from && day <= days.to;
 }
 
 /** Clasifica, agrupa y pagina en memoria lo que `DrizzleNewsFeedQuery` hace en la base. */

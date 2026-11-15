@@ -88,6 +88,58 @@ describe('GetPublicPhoto', () => {
     expect(delivery).toMatchObject({ kind: 'content', bytes: new Uint8Array([7]) });
   });
 
+  describe('reserved cover', () => {
+    async function reservedSetup(status: 'reserved' | 'available', isCover = true) {
+      const photo = aPropertyMediaRecord({ updatedAt: UPDATED_AT, isCover });
+      const cover = { ...photo, variants: { ...photo.variants, reserved: 'media/reserved' } };
+      const storage = new InMemoryFileStorage();
+      for (const [key, byte] of [
+        [cover.variants.web, 1],
+        ['media/reserved', 9],
+      ] as const) {
+        if (key)
+          await storage.put({ key, contentType: 'image/jpeg', bytes: new Uint8Array([byte]) });
+      }
+      const properties = new InMemoryPropertySearchQuery([
+        aPropertyRecord({ status, media: [cover] }),
+      ]);
+      const useCase = new GetPublicPhoto({
+        properties,
+        developments: new InMemoryPublishedDevelopmentQuery(),
+        storage,
+      });
+      return { photo: cover, useCase };
+    }
+
+    it('serves the cover with the "Reservado" banner, on its own URL, while reserved', async () => {
+      const { photo, useCase } = await reservedSetup('reserved');
+      const reservedVersion = publicImageVersion(UPDATED_AT, true);
+      expect(reservedVersion).toBe(`${VERSION}r`);
+      expect(
+        unwrap(await useCase.execute({ mediaId: photo.id, version: reservedVersion }, web)),
+      ).toMatchObject({ kind: 'content', bytes: new Uint8Array([9]) });
+      // La URL de la portada sin banner quedó vieja: se redirige a la nueva.
+      expect(unwrap(await useCase.execute({ mediaId: photo.id, version: VERSION }, web))).toEqual({
+        kind: 'moved',
+        path: `/fotos/${photo.id}/${reservedVersion}`,
+      });
+    });
+
+    it('goes back to the original cover once available again', async () => {
+      const { photo, useCase } = await reservedSetup('available');
+      expect(
+        unwrap(await useCase.execute({ mediaId: photo.id, version: VERSION }, web)),
+      ).toMatchObject({ kind: 'content', bytes: new Uint8Array([1]) });
+    });
+
+    it('leaves the other photos of a reserved property as they are', async () => {
+      const { photo, useCase } = await reservedSetup('reserved', false);
+      expect(
+        unwrap(await useCase.execute({ mediaId: photo.id, version: VERSION }, web)),
+      ).toMatchObject({ kind: 'content', bytes: new Uint8Array([1]) });
+    });
+  });
+
   it('sends an old version to the current URL', async () => {
     const photo = aPropertyMediaRecord({ updatedAt: UPDATED_AT });
     const useCase = await setup(photo, {});
@@ -111,7 +163,7 @@ describe('GetPublicPhoto', () => {
   });
 
   it.each([
-    ['an unlisted property', {}, { status: 'reserved' as const }],
+    ['an unlisted property', {}, { status: 'sold' as const }],
     ['an unpublished property', {}, { publishedOnWeb: false }],
     ['a hidden photo', { showOnWeb: false }, {}],
     ['a photo still processing', { processing: 'pending' as const }, {}],

@@ -44,7 +44,7 @@ export class GetPublicSearchFacets {
       return err({ type: 'InvalidSearch', issues: parsed.error.issues.map((i) => i.message) });
     }
     const rate = await exchangeRateFor(parsed.data, this.deps.settings);
-    const criteria = toPublicFilterCriteria(parsed.data, rate);
+    const criteria = toPublicFilterCriteria(parsed.data, rate, 'web');
 
     const counts = async (facet: CountFacet): Promise<PublicCountOption[]> => {
       const options = countOptions(facet);

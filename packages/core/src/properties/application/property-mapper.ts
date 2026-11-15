@@ -8,14 +8,17 @@ import {
   type PublicImage,
   type PublicOperation,
 } from '../contracts';
+import type { PropertyStatus } from '../domain/property-status';
 import {
   isPublicImage,
   isPublicLink,
+  reservedCoverKey,
   primaryOperation,
   publicAddress,
   publicCoordinates,
   publicPrice,
 } from '../domain/public-listing';
+import { showsReservedCover } from '../domain/reserved-cover';
 
 import type {
   PropertyMediaRecord,
@@ -34,8 +37,12 @@ function toPublicOperation(
   };
 }
 
-function toPublicImage(media: PropertyMediaRecord): PublicImage {
-  const version = publicImageVersion(media.updatedAt);
+function toPublicImage(
+  media: PropertyMediaRecord,
+  status: PropertyStatus | undefined,
+): PublicImage {
+  const reserved = status !== undefined && reservedCoverKey(media, status) !== undefined;
+  const version = publicImageVersion(media.updatedAt, reserved);
   return {
     id: media.id,
     src:
@@ -48,12 +55,18 @@ function toPublicImage(media: PropertyMediaRecord): PublicImage {
   };
 }
 
-/** Las fotos o los planos que se publican, en el orden de la galería. */
+/**
+ * Las fotos o los planos que se publican, en el orden de la galería. Una propiedad reservada
+ * (`status`) publica su portada con el banner "Reservado"; un emprendimiento no pasa estado.
+ */
 export function publicImages(
   media: readonly PropertyMediaRecord[],
   kind: 'photo' | 'floor_plan',
+  status?: PropertyStatus,
 ): PublicImage[] {
-  return media.filter((m) => m.kind === kind && isPublicImage(m)).map(toPublicImage);
+  return media
+    .filter((m) => m.kind === kind && isPublicImage(m))
+    .map((m) => toPublicImage(m, status));
 }
 
 /** Los links de videos o recorridos 360 que se publican. */
@@ -77,7 +90,7 @@ export function toPropertySummary(
   const operations = record.operations.map((o) => toPublicOperation(o, record.showPriceOnWeb));
   const primary = primaryOperation(operations, searched);
   if (!primary) return undefined;
-  const photos = publicImages(record.media, 'photo');
+  const photos = publicImages(record.media, 'photo', record.status);
   // Las expensas se pagan siempre en pesos.
   const expenses: MoneyDto | null =
     record.expensesCents === null ? null : { amountCents: record.expensesCents, currency: 'ARS' };
@@ -104,6 +117,7 @@ export function toPropertySummary(
     amenities: record.features.filter((f) => f.kind === 'amenity').map((f) => f.name),
     cover: photos[0] ?? null,
     photoCount: photos.length,
+    isReserved: showsReservedCover(record.status),
   };
 }
 
@@ -128,8 +142,8 @@ export function toPropertyDetail(record: PropertyRecord): PropertyDetail | undef
     creditEligible: record.creditEligible,
     professionalUse: record.professionalUse,
     features: record.features,
-    photos: publicImages(record.media, 'photo'),
-    floorPlans: publicImages(record.media, 'floor_plan'),
+    photos: publicImages(record.media, 'photo', record.status),
+    floorPlans: publicImages(record.media, 'floor_plan', record.status),
     videoUrls: publicLinkUrls(record.media, 'video'),
     tourUrls: publicLinkUrls(record.media, 'tour_360'),
     developmentId: record.developmentId,

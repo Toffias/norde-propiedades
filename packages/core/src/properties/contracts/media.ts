@@ -56,6 +56,16 @@ export type AddMediaLinkInput = z.input<typeof AddMediaLinkInputSchema>;
 export const MediaIdInputSchema = z.object({ mediaId: z.uuid() });
 export type MediaIdInput = z.input<typeof MediaIdInputSchema>;
 
+/**
+ * Pedir la portada "Reservado": de una propiedad, solo si le falta (pasó a reservada), o de todas
+ * otra vez (cambió el banner en Mi empresa).
+ */
+export const RequestReservedCoversInputSchema = z.union([
+  z.object({ propertyId: z.uuid() }),
+  z.object({ all: z.literal(true) }),
+]);
+export type RequestReservedCoversInput = z.input<typeof RequestReservedCoversInputSchema>;
+
 export const UpdateMediaInputSchema = z
   .object({
     mediaId: z.uuid(),
@@ -114,7 +124,8 @@ export interface MediaRow {
 }
 
 /** Qué versión de la foto se pide: la miniatura para la galería, la web o la original. */
-export const MEDIA_VARIANT_VALUES = ['thumbnail', 'web', 'original'] as const;
+/** `reserved`: la portada "Reservado" (sin generar, la versión web). */
+export const MEDIA_VARIANT_VALUES = ['thumbnail', 'web', 'original', 'reserved'] as const;
 export type MediaVariantValue = (typeof MEDIA_VARIANT_VALUES)[number];
 
 export const GetMediaFileInputSchema = z.object({
@@ -234,6 +245,8 @@ export type StoredFileDelivery =
 export interface PropertyCover {
   readonly mediaId: string;
   readonly hasThumbnail: boolean;
+  /** Reservada y con su portada "Reservado" generada: se muestra esa en lugar de la miniatura. */
+  readonly reserved?: boolean;
   /**
    * La miniatura firmada en el storage, cuando el listado la firma (S3/R2): la pantalla la carga
    * directo del bucket, sin pasar por la ruta del panel.

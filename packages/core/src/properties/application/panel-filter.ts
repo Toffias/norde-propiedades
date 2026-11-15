@@ -124,7 +124,7 @@ export async function toPanelRows(
   return Promise.all(
     items.map(async ({ producerUserId, deletedBy, cover, ...item }) => ({
       ...item,
-      cover: await toCover(cover, storage),
+      cover: await toCover(cover, storage, item.status),
       producer: ref(producerUserId),
       deletedBy: ref(deletedBy),
     })),

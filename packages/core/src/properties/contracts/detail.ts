@@ -442,7 +442,9 @@ export interface PanelPropertyDetail {
   readonly branchId: string | undefined;
   /** Propietarios (clientes). Se cargan cuando exista el buscador de contactos (#8). */
   readonly owners: readonly { readonly id: string; readonly name: string }[];
-  readonly cover: { readonly mediaId: string; readonly hasThumbnail: boolean } | undefined;
+  readonly cover:
+    | { readonly mediaId: string; readonly hasThumbnail: boolean; readonly reserved: boolean }
+    | undefined;
   readonly counts: { readonly media: number; readonly attachments: number };
   /** Emprendimiento al que pertenece, si es una unidad. */
   readonly development: DevelopmentRef | undefined;

@@ -91,6 +91,32 @@ function aPhoto(propertyId: PropertyId, position: number, isCover = false): Medi
 }
 
 describe('DrizzleMediaItemRepository', () => {
+  it('lists the property covers by id, in batches, and keeps the "Reservado" variant', async () => {
+    const first = await aProperty('CAS0101');
+    const second = await aProperty('CAS0102');
+    const covers = [aPhoto(first, 0, true), aPhoto(second, 0, true)];
+    for (const cover of covers) {
+      unwrap(cover.completeProcessing({ variants: { web: 'w' }, width: 1, height: 1 }, NOW));
+      await media.save(cover, USER);
+    }
+    await media.save(aPhoto(first, 1), USER);
+    const [cover] = covers;
+    if (!cover) throw new Error('missing cover');
+    unwrap(cover.completeReservedCover('reserved-key', NOW));
+    await media.save(cover, USER);
+
+    const ordered = covers.map((item) => item.id).sort();
+    const all = await media.listPropertyCovers(undefined, 1_000);
+    const ours = all.map((item) => item.id).filter((id) => ordered.includes(id));
+    expect(ours).toEqual(ordered);
+    expect(all.every((item) => item.isCover && item.owner.kind === 'property')).toBe(true);
+    const [firstId] = ordered;
+    const after = await media.listPropertyCovers(firstId, 1_000);
+    expect(after.map((item) => item.id)).not.toContain(firstId);
+    expect((await media.listPropertyCovers(undefined, 1)).length).toBe(1);
+    expect((await media.findById(cover.id))?.toSnapshot().variants.reserved).toBe('reserved-key');
+  });
+
   it('round-trips a photo and a video, with variants and processing state', async () => {
     const propertyId = await aProperty('CAS0001');
     const photo = aPhoto(propertyId, 0, true);

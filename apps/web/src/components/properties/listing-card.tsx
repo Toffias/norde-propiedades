@@ -48,7 +48,11 @@ export function ListingCard({ listing, priority = false, headingLevel = 'h3' }: 
             sizes="(min-width: 1280px) 400px, (min-width: 768px) 50vw, 100vw"
             priority={priority}
             unoptimized={isExternal(listing.cover.src)}
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className={cn(
+              'object-cover transition-transform duration-500 group-hover:scale-[1.03]',
+              // El banner "Reservado" va pegado a la izquierda: el recorte no lo corta.
+              listing.reserved && 'object-left',
+            )}
           />
         ) : (
           <div className="text-muted-foreground flex h-full items-center justify-center">

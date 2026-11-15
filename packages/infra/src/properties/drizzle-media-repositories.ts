@@ -12,7 +12,7 @@ import {
   type AttachmentRepository,
 } from '@norde/core/properties';
 import { parseId, type Result } from '@norde/core/shared';
-import { asc, count, eq, max, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNotNull, max, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -29,6 +29,7 @@ const VariantsSchema = z.object({
   thumbnail: z.string().optional(),
   web: z.string().optional(),
   watermarked: z.string().optional(),
+  reserved: z.string().optional(),
 });
 
 function stored<T, E>(result: Result<T, E>): T {
@@ -94,6 +95,7 @@ function toMediaItem(row: typeof mediaItems.$inferSelect): MediaItem {
       ...(variants.thumbnail === undefined ? {} : { thumbnail: variants.thumbnail }),
       ...(variants.web === undefined ? {} : { web: variants.web }),
       ...(variants.watermarked === undefined ? {} : { watermarked: variants.watermarked }),
+      ...(variants.reserved === undefined ? {} : { reserved: variants.reserved }),
     },
     processing: parsed.processingStatus,
     processingError: row.processingError ?? undefined,
@@ -119,6 +121,25 @@ export class DrizzleMediaItemRepository implements MediaItemRepository {
       .where(ofOwner(owner))
       .orderBy(asc(mediaItems.position), asc(mediaItems.id))
       .limit(MAX_MEDIA_PER_OWNER);
+    return rows.map(toMediaItem);
+  }
+
+  async listPropertyCovers(
+    after: MediaItemId | undefined,
+    limit: number,
+  ): Promise<readonly MediaItem[]> {
+    const rows = await this.db
+      .select()
+      .from(mediaItems)
+      .where(
+        and(
+          eq(mediaItems.isCover, true),
+          isNotNull(mediaItems.propertyId),
+          after === undefined ? undefined : gt(mediaItems.id, after),
+        ),
+      )
+      .orderBy(asc(mediaItems.id))
+      .limit(limit);
     return rows.map(toMediaItem);
   }
 

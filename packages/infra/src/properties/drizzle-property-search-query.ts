@@ -65,6 +65,7 @@ const VariantsSchema = z.object({
   thumbnail: z.string().optional(),
   web: z.string().optional(),
   watermarked: z.string().optional(),
+  reserved: z.string().optional(),
 });
 const FeatureKindSchema = z.enum(FEATURE_KINDS);
 
@@ -490,11 +491,13 @@ export function toPropertyMediaRecord(row: typeof mediaItems.$inferSelect): Prop
     // las fotos subidas repite la clave del storage.
     externalUrl: isLink || row.storageKey === null ? row.url : null,
     showOnWeb: row.showOnWeb,
+    isCover: row.isCover,
     processing: enums.processingStatus,
     variants: {
       ...(variants.thumbnail === undefined ? {} : { thumbnail: variants.thumbnail }),
       ...(variants.web === undefined ? {} : { web: variants.web }),
       ...(variants.watermarked === undefined ? {} : { watermarked: variants.watermarked }),
+      ...(variants.reserved === undefined ? {} : { reserved: variants.reserved }),
     },
     width: row.width,
     height: row.height,

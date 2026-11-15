@@ -55,6 +55,8 @@ export interface ListingCard {
   readonly cover: ListingImage | null;
   readonly photoCount: number;
   readonly featured: boolean;
+  /** Reservada: la portada ya lleva el banner "Reservado"; la ficha lo dice también en texto. */
+  readonly reserved: boolean;
   readonly facts: readonly ListingFact[];
 }
 
@@ -215,6 +217,7 @@ export function toListingCard(p: PropertySummary): ListingCard {
     cover: p.cover && toListingImage(p.cover, `${p.title}, ${location}`),
     photoCount: p.photoCount,
     featured: p.featured,
+    reserved: p.isReserved,
     facts: factsOf(p),
   };
 }

@@ -47,6 +47,10 @@ const CoverRow = z
       .string()
       .nullable()
       .transform((key) => key ?? undefined),
+    reservedKey: z
+      .string()
+      .nullable()
+      .transform((key) => key ?? undefined),
   })
   .nullable();
 const RowEnums = z.object({
@@ -75,7 +79,8 @@ const cover = sql<unknown>`(
   select json_build_object(
     'mediaId', m.id,
     'hasThumbnail', m.variants ? 'thumbnail',
-    'fileKey', coalesce(m.variants ->> 'thumbnail', m.storage_key)
+    'fileKey', coalesce(m.variants ->> 'thumbnail', m.storage_key),
+    'reservedKey', case when m.is_cover then m.variants ->> 'reserved' end
   )
   from ${mediaItems} m
   where m.property_id = ${outerPropertyId} and m.kind = 'photo'

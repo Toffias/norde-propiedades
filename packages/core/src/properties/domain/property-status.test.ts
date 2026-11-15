@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { isPubliclyListed, isUnreleased, PROPERTY_STATUSES } from './property-status';
+import {
+  isListedFor,
+  isListedOnWeb,
+  isPubliclyListed,
+  isUnreleased,
+  PROPERTY_STATUSES,
+} from './property-status';
 
 describe('isPubliclyListed', () => {
   it('lists only available properties published on the web', () => {
@@ -19,5 +25,26 @@ describe('isUnreleased', () => {
     for (const status of PROPERTY_STATUSES.filter((s) => s !== 'draft')) {
       expect(isUnreleased({ status })).toBe(false);
     }
+  });
+});
+
+describe('isListedOnWeb', () => {
+  it('keeps a reserved property on the web, with the available ones', () => {
+    expect(isListedOnWeb({ status: 'available', publishedOnWeb: true })).toBe(true);
+    expect(isListedOnWeb({ status: 'reserved', publishedOnWeb: true })).toBe(true);
+    expect(isListedOnWeb({ status: 'reserved', publishedOnWeb: false })).toBe(false);
+  });
+
+  it.each(PROPERTY_STATUSES.filter((s) => s !== 'available' && s !== 'reserved'))(
+    'does not show %s',
+    (status) => {
+      expect(isListedOnWeb({ status, publishedOnWeb: true })).toBe(false);
+    },
+  );
+
+  it('offers a reserved property to the web, not to the AI agent', () => {
+    const reserved = { status: 'reserved' as const, publishedOnWeb: true };
+    expect(isListedFor('web', reserved)).toBe(true);
+    expect(isListedFor('offer', reserved)).toBe(false);
   });
 });

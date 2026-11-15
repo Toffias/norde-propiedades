@@ -68,6 +68,11 @@ interface PropertyGalleryProps {
   readonly highlights?: readonly GalleryHighlight[];
   /** Link a WhatsApp ya armado, o `null` si Norde todavía no tiene el número. */
   readonly whatsappHref?: string | null;
+  /**
+   * La primera foto es la portada "Reservado": el banner va pegado a la izquierda, así que el
+   * recorte del mosaico la alinea a la izquierda para no cortarlo.
+   */
+  readonly reservedCover?: boolean;
 }
 
 /**
@@ -84,6 +89,7 @@ export function PropertyGallery({
   location = null,
   highlights = [],
   whatsappHref = null,
+  reservedCover = false,
 }: PropertyGalleryProps) {
   const [allTab, setAllTab] = useState<AllTab | null>(null);
   const [viewer, setViewer] = useState<number | null>(null);
@@ -123,7 +129,10 @@ export function PropertyGallery({
               priority={index === 0}
               sizes={index === 0 ? '(min-width: 640px) 50vw, 100vw' : '25vw'}
               unoptimized={isExternal(photo.src)}
-              className="object-cover transition-transform duration-500 hover:scale-[1.02]"
+              className={cn(
+                'object-cover transition-transform duration-500 hover:scale-[1.02]',
+                reservedCover && index === 0 && 'object-left',
+              )}
             />
           </button>
         ))}

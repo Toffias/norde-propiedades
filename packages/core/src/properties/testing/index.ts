@@ -178,6 +178,7 @@ import { sameOwner, type MediaOwner } from '../domain/media-owner';
 import type { MediaItemRepository, AttachmentRepository } from '../domain/media.repository';
 import { Attachment, type AttachmentId, type AttachmentSnapshot } from '../domain/attachment';
 import type { ImageVariantGenerator } from '../application/ports/image-variant-generator';
+import type { ReservedBannerRenderer } from '../application/ports/reserved-banner-renderer';
 import type { MediaQuery } from '../application/ports/media-query';
 import type {
   OwnerReports,
@@ -285,6 +286,7 @@ export function aPropertyMediaRecord(
     storageKey: `media/${sequence}/original`,
     externalUrl: null,
     showOnWeb: true,
+    isCover: false,
     processing: 'ready',
     variants: { thumbnail: `media/${sequence}/thumbnail`, web: `media/${sequence}/web` },
     width: 1600,
@@ -1340,6 +1342,17 @@ export class InMemoryMediaItemRepository implements MediaItemRepository {
     );
   }
 
+  listPropertyCovers(after: MediaItemId | undefined, limit: number) {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((row) => row.isCover && row.owner.kind === 'property')
+        .filter((row) => after === undefined || row.id > after)
+        .sort((a, b) => (a.id < b.id ? -1 : 1))
+        .slice(0, limit)
+        .map((row) => MediaItem.restore(row)),
+    );
+  }
+
   count(owner: MediaOwner) {
     return Promise.resolve([...this.rows.values()].filter((r) => sameOwner(r.owner, owner)).length);
   }
@@ -1377,6 +1390,18 @@ export class InMemoryAttachmentRepository implements AttachmentRepository {
 }
 
 /** Devuelve variantes de un byte con medidas fijas; con `invalid`, falla como una imagen dañada. */
+/** Agrega el banner (o un byte 0xbb si es el de fábrica) al final de la foto. */
+export class FakeReservedBannerRenderer implements ReservedBannerRenderer {
+  invalid = false;
+  readonly requests: Parameters<ReservedBannerRenderer['render']>[0][] = [];
+
+  render(input: Parameters<ReservedBannerRenderer['render']>[0]) {
+    this.requests.push(input);
+    if (this.invalid) return Promise.resolve(err({ type: 'InvalidImage' as const }));
+    return Promise.resolve(ok(new Uint8Array([...input.photo, ...(input.banner ?? [0xbb])])));
+  }
+}
+
 export class FakeImageVariantGenerator implements ImageVariantGenerator {
   invalid = false;
   readonly requests: Parameters<ImageVariantGenerator['generate']>[0][] = [];

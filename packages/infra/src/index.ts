@@ -229,6 +229,7 @@ export { ResendMailer, type ResendMailerOptions } from './adapters/mail/resend-m
 export { HtmlSharedListingEmails } from './adapters/mail/html-shared-listing-emails';
 export { HtmlSubscriptionConfirmationEmails } from './adapters/mail/html-subscription-confirmation-emails';
 export { SharpImageWatermarker } from './adapters/images/sharp-image-watermarker';
+export { SharpReservedBannerRenderer } from './adapters/images/sharp-reserved-banner-renderer';
 export { SharpImageVariantGenerator } from './adapters/images/sharp-image-variant-generator';
 
 export { OutboxRelay, type OutboxRelayOptions } from './jobs/outbox-relay';

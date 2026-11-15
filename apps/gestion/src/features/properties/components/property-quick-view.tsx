@@ -46,7 +46,11 @@ function isStatus(value: string): value is PropertyStatusValue {
   return value in PROPERTY_STATUS_DISPLAY;
 }
 
-function photoUrl(propertyId: string, mediaId: string, variant: 'web' | 'thumbnail'): string {
+function photoUrl(
+  propertyId: string,
+  mediaId: string,
+  variant: 'web' | 'thumbnail' | 'reserved',
+): string {
   return `/propiedades/${propertyId}/fotos/${mediaId}?v=${variant}`;
 }
 
@@ -117,11 +121,13 @@ function Carousel({
   photoIds,
   totalPhotos,
   title,
+  reservedCoverId,
 }: {
   readonly propertyId: string;
   readonly photoIds: readonly string[];
   readonly totalPhotos: number;
   readonly title: string;
+  readonly reservedCoverId: string | undefined;
 }) {
   const [index, setIndex] = useState(0);
   const current = photoIds[index];
@@ -159,7 +165,7 @@ function Carousel({
         ) : (
           <FallbackImage
             key={current}
-            src={photoUrl(propertyId, current, 'web')}
+            src={photoUrl(propertyId, current, current === reservedCoverId ? 'reserved' : 'web')}
             alt={`Foto ${index + 1} de ${photoIds.length}`}
             className="absolute inset-0 h-full w-full object-cover"
             fallback={empty}
@@ -277,6 +283,7 @@ function QuickViewBody({ value }: { readonly value: PropertyQuickView }) {
       <Carousel
         propertyId={detail.id}
         photoIds={value.photoIds}
+        reservedCoverId={value.reservedCoverId}
         totalPhotos={value.totalPhotos}
         title={detail.portalTitle}
       />

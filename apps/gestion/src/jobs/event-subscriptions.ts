@@ -49,6 +49,8 @@ import {
   type MoveProducerBranchRecords,
   type UnlinkErasedClients,
   type GenerateMediaVariants,
+  type GenerateReservedCover,
+  type RequestReservedCovers,
   type RenderPropertyDocument,
   type RenderPropertyListDocument,
   type RevalidatePublicDevelopment,
@@ -91,6 +93,7 @@ const ConversationLinkedPayloadSchema = z.object({
   channel: z.string().default('unknown'),
 });
 const MediaPayloadSchema = z.object({ mediaId: z.uuid() });
+const StatusChangedPayloadSchema = z.object({ propertyId: z.uuid(), to: z.string() });
 const MediaDeletedPayloadSchema = z.object({ storageKeys: z.array(z.string()).max(10) });
 const PropertyPayloadSchema = z.object({ propertyId: z.uuid() });
 const MediaOwnerPayloadSchema = z.object({
@@ -456,6 +459,8 @@ function notificationSubscriptions(
 /** Los jobs de la ficha de propiedad (#6): variantes de fotos, limpieza del storage y PDF. */
 export interface PropertyJobs {
   readonly generateMediaVariants: Pick<GenerateMediaVariants, 'execute'>;
+  readonly generateReservedCover: Pick<GenerateReservedCover, 'execute'>;
+  readonly requestReservedCovers: Pick<RequestReservedCovers, 'execute'>;
   readonly deleteStoredMediaFiles: Pick<DeleteStoredMediaFiles, 'execute'>;
   readonly renderDocument: Pick<RenderPropertyDocument, 'execute'>;
   readonly renderListDocument: Pick<RenderPropertyListDocument, 'execute'>;
@@ -476,6 +481,38 @@ function propertySubscriptions(
       handle: async (event) => {
         const { mediaId } = MediaPayloadSchema.parse(event.payload);
         const result = await jobs.generateMediaVariants.execute({ mediaId }, actor);
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+    {
+      eventType: 'properties.reserved_cover_requested',
+      name: 'generate-reserved-cover',
+      handle: async (event) => {
+        const { mediaId } = MediaPayloadSchema.parse(event.payload);
+        const result = await jobs.generateReservedCover.execute({ mediaId }, actor);
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+    {
+      // Al reservar, si a la portada le falta su versión "Reservado" (propiedades de antes), se pide.
+      eventType: 'properties.property_status_changed',
+      name: 'ensure-reserved-cover',
+      handle: async (event) => {
+        const { propertyId, to } = StatusChangedPayloadSchema.parse(event.payload);
+        if (to !== 'reserved') return;
+        const result = await jobs.requestReservedCovers.execute({ propertyId }, actor);
+        if (result.isErr()) skipped(event, result.error);
+      },
+    },
+    {
+      // Cambió el banner "Reservado" en Mi empresa: se regeneran todas las portadas.
+      eventType: 'settings.company_settings_changed',
+      name: 'regenerate-reserved-covers',
+      expireInSeconds: 60 * 60,
+      handle: async (event) => {
+        const { section } = SettingsSectionPayloadSchema.parse(event.payload);
+        if (section !== 'reserved_banner') return;
+        const result = await jobs.requestReservedCovers.execute({ all: true }, actor);
         if (result.isErr()) skipped(event, result.error);
       },
     },

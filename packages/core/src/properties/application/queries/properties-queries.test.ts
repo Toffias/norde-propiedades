@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Actor } from '../../../shared';
+import { publicImageVersion } from '../../contracts';
 import { aPropertyMediaRecord, aPropertyRecord, InMemoryPropertySearchQuery } from '../../testing';
 
 import { GetPropertyDetail } from './get-property-detail';
@@ -39,6 +40,32 @@ describe('SearchProperties', () => {
       publishedOnWebOnly: true,
       sort: 'featured',
     });
+  });
+
+  it('keeps reserved properties on the web, with the "Reservado" cover, but not for the AI agent', async () => {
+    const photo = aPropertyMediaRecord({
+      isCover: true,
+      updatedAt: new Date('2026-10-01T12:00:00Z'),
+    });
+    const cover = { ...photo, variants: { ...photo.variants, reserved: 'media/reserved' } };
+    const properties = new InMemoryPropertySearchQuery([
+      aPropertyRecord({ title: 'Disponible' }),
+      aPropertyRecord({ title: 'Reservada', status: 'reserved', media: [cover] }),
+    ]);
+
+    const web = await new SearchProperties({ properties, audience: 'web' }).execute({}, reader);
+    const items = web.isOk() ? web.value.items : [];
+    expect(items.map((p) => [p.title, p.isReserved])).toEqual([
+      ['Disponible', false],
+      ['Reservada', true],
+    ]);
+    expect(items[1]?.cover?.src).toBe(
+      `/fotos/${cover.id}/${publicImageVersion(photo.updatedAt, true)}`,
+    );
+    expect(properties.criteria[0]).toMatchObject({ statuses: ['available', 'reserved'] });
+
+    const agent = await new SearchProperties({ properties }).execute({}, reader);
+    expect(agent.isOk() && agent.value.items.map((p) => p.title)).toEqual(['Disponible']);
   });
 
   it('translates pages into offset and limit and passes the filters and sort', async () => {
@@ -163,6 +190,23 @@ describe('GetPropertyDetail', () => {
 
     expect(byId.isOk() && byId.value).toMatchObject({ id: property.id, description: 'Luminoso' });
     expect(bySlug.isOk() && bySlug.value.id).toBe(property.id);
+  });
+
+  it('shows a reserved property on the web and hides it from the AI agent', async () => {
+    const reserved = aPropertyRecord({ status: 'reserved' });
+    const properties = new InMemoryPropertySearchQuery([reserved]);
+
+    const web = await new GetPropertyDetail({ properties, audience: 'web' }).execute(
+      { slug: reserved.slug },
+      reader,
+    );
+    const agent = await new GetPropertyDetail({ properties }).execute(
+      { propertyId: reserved.id },
+      reader,
+    );
+
+    expect(web.isOk() && web.value).toMatchObject({ id: reserved.id, isReserved: true });
+    expect(agent.isErr() && agent.error).toEqual({ type: 'PropertyNotListed' });
   });
 
   it('publishes the approximate address and coordinates unless the exact ones are allowed', async () => {

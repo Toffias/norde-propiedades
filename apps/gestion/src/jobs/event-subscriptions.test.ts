@@ -65,6 +65,18 @@ function propertyJobs(calls: unknown[] = []): PropertyJobs {
         return Promise.resolve(ok('ready' as const));
       },
     },
+    generateReservedCover: {
+      execute: (input) => {
+        calls.push(['reserved-cover', input]);
+        return Promise.resolve(ok('ready' as const));
+      },
+    },
+    requestReservedCovers: {
+      execute: (input) => {
+        calls.push(['request-reserved-covers', input]);
+        return Promise.resolve(ok(1));
+      },
+    },
   };
 }
 
@@ -272,6 +284,9 @@ describe('eventSubscriptions', () => {
       'clients.opportunity_created.notify-team',
       'clients.opportunity_request_added.notify-team',
       'properties.media_variants_requested.generate-variants',
+      'properties.reserved_cover_requested.generate-reserved-cover',
+      'properties.property_status_changed.ensure-reserved-cover',
+      'settings.company_settings_changed.regenerate-reserved-covers',
       'properties.media_deleted.delete-files',
       'properties.document_requested.render-document',
       'properties.list_document_requested.render-list-document',
@@ -382,6 +397,39 @@ describe('eventSubscriptions', () => {
     await expect(
       byType('properties.document_requested')?.handle({ ...event, payload: { documentId: 'x' } }),
     ).rejects.toThrow();
+  });
+
+  it('prepares the "Reservado" cover: on request, when reserving and when the banner changes', async () => {
+    const calls: unknown[] = [];
+    const subscriptions = eventSubscriptions({
+      notifyTeam: { execute: () => Promise.resolve(ok(undefined)) },
+      recordActivity: recordActivity(),
+      properties: propertyJobs(calls),
+      ...clientJobs(),
+      actor,
+      logger: pino({ level: 'silent' }),
+    });
+    const byName = (name: string) => subscriptions.find((s) => s.name === name);
+    const status = (to: string) => ({
+      ...event,
+      payload: { propertyId: PROPERTY_ID, code: 'DEP0001', from: 'available', to },
+    });
+    const section = (name: string) => ({ ...event, payload: { section: name } });
+
+    await byName('generate-reserved-cover')?.handle({
+      ...event,
+      payload: { ownerKind: 'property', ownerId: PROPERTY_ID, mediaId: MEDIA_ID },
+    });
+    await byName('ensure-reserved-cover')?.handle(status('reserved'));
+    await byName('ensure-reserved-cover')?.handle(status('sold'));
+    await byName('regenerate-reserved-covers')?.handle(section('reserved_banner'));
+    await byName('regenerate-reserved-covers')?.handle(section('watermark'));
+
+    expect(calls).toEqual([
+      ['reserved-cover', { mediaId: MEDIA_ID }],
+      ['request-reserved-covers', { propertyId: PROPERTY_ID }],
+      ['request-reserved-covers', { all: true }],
+    ]);
   });
 
   it('revalidates the public site when a property, a development or a gallery changes', async () => {

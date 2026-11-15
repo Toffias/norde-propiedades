@@ -31,3 +31,13 @@ Thumbs.db
 /apps/gestion/e2e/.results/
 /apps/gestion/e2e/.report/
 .storage-e2e/
+
+# Datos que no se versionan: planillas y exportaciones (pueden tener datos de clientes), volcados
+# de base y claves. Un archivo de prueba se agrega con `git add -f`.
+*.xlsx
+*.xls
+*.csv
+*.dump
+*.sql.gz
+*.pem
+*.key

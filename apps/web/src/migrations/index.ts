@@ -4,6 +4,7 @@ import * as migration_20261023_171229_about_team from './20261023_171229_about_t
 import * as migration_20261029_195908_about_stat_icon from './20261029_195908_about_stat_icon';
 import * as migration_20261102_014740_site_appearance from './20261102_014740_site_appearance';
 import * as migration_20261104_180209_google_reviews from './20261104_180209_google_reviews';
+import * as migration_20261115_013758_users_admin_role from './20261115_013758_users_admin_role';
 
 export const migrations = [
   {
@@ -34,6 +35,11 @@ export const migrations = [
   {
     up: migration_20261104_180209_google_reviews.up,
     down: migration_20261104_180209_google_reviews.down,
-    name: '20261104_180209_google_reviews'
+    name: '20261104_180209_google_reviews',
+  },
+  {
+    up: migration_20261115_013758_users_admin_role.up,
+    down: migration_20261115_013758_users_admin_role.down,
+    name: '20261115_013758_users_admin_role'
   },
 ];

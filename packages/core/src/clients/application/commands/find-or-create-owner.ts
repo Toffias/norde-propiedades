@@ -1,4 +1,5 @@
 import {
+  auditAction,
   auditCreated,
   Email,
   err,
@@ -11,25 +12,24 @@ import {
   type IdGenerator,
   type Result,
 } from '../../../shared';
+import {
+  FindOrCreateOwnerInputSchema,
+  type FindOrCreateOwnerInput,
+} from '../../contracts/clients-import';
 import { Client, type ClientEmail, type ClientPhone } from '../../domain/client';
 import { EMPTY_PROFILE, type ClientType } from '../../domain/client-values';
 import { createClientIn } from '../client-creation';
-import { clientAuditState, clientTarget } from '../client-support';
+import {
+  clientAuditState,
+  clientTarget,
+  findClient,
+  invalidInput,
+  type InvalidInputError,
+} from '../client-support';
 import type { ClientAgents } from '../ports/client-agents';
 import type { ClientsTransaction, ClientsUnitOfWork } from '../ports/clients-transaction';
 
-/** El propietario que trae una propiedad importada (la exportación de Tokko, #17). */
-export interface FindOrCreateOwnerInput {
-  readonly name: string;
-  readonly phone: string | undefined;
-  readonly email: string | undefined;
-  readonly sells: boolean;
-  readonly rents: boolean;
-  /** El productor de la propiedad: queda a cargo del contacto nuevo. */
-  readonly agentId: string | undefined;
-  /** El ID del contacto en Tokko (desde la API): se busca primero por él y se guarda. */
-  readonly tokkoId?: string | undefined;
-}
+export type { FindOrCreateOwnerInput };
 
 /** Sin nombre en Tokko, el contacto se llama así hasta que alguien lo complete. */
 const UNNAMED_OWNER = 'Propietario';
@@ -38,6 +38,8 @@ const UNNAMED_OWNER = 'Propietario';
  * El contacto del propietario: el que ya tiene ese ID de Tokko (si lo trae), el que tiene ese
  * teléfono o email (la misma regla de duplicados que el alta manual, aunque esté en la papelera)
  * o uno nuevo, como propietario vendedor o locador. Un teléfono o un email inválidos se ignoran.
+ * Uno que estaba en la papelera vuelve a estar activo: una propiedad no queda a nombre de un
+ * contacto borrado.
  *
  * Sin ninguno válido: con el ID de Tokko se crea solo con el nombre (decidido con Norde el
  * 2026-10-20: si Tokko lo permite, Norde también), y el ID evita duplicarlo; sin el ID (la
@@ -54,10 +56,15 @@ export class FindOrCreateOwner {
   ) {}
 
   async execute(
-    input: FindOrCreateOwnerInput,
+    raw: FindOrCreateOwnerInput,
     actor: Actor,
-  ): Promise<Result<{ readonly clientId: string } | undefined, ForbiddenError>> {
+  ): Promise<
+    Result<{ readonly clientId: string } | undefined, ForbiddenError | InvalidInputError>
+  > {
     if (!actor.can('clients:create')) return err({ type: 'Forbidden' });
+    const parsed = FindOrCreateOwnerInputSchema.safeParse(raw);
+    if (!parsed.success) return err(invalidInput(parsed.error));
+    const input = parsed.data;
     const tokkoId = input.tokkoId;
     if (tokkoId !== undefined) {
       const known = await this.deps.uow.run((tx) => tx.externalIds.find('tokko', tokkoId));
@@ -103,7 +110,7 @@ export class FindOrCreateOwner {
   async #createWithoutContact(
     tx: ClientsTransaction,
     actor: Actor,
-    input: FindOrCreateOwnerInput,
+    input: { readonly name: string; readonly agentId?: string | undefined },
     clientTypes: readonly ClientType[],
     agent: { readonly branchId: string | undefined } | undefined,
   ): Promise<string> {
@@ -129,7 +136,7 @@ export class FindOrCreateOwner {
   async #findOrCreate(
     tx: ClientsTransaction,
     actor: Actor,
-    input: FindOrCreateOwnerInput,
+    input: { readonly name: string; readonly agentId?: string | undefined },
     data: {
       readonly phones: readonly ClientPhone[];
       readonly emails: readonly ClientEmail[];
@@ -151,8 +158,23 @@ export class FindOrCreateOwner {
       now: this.deps.clock.now(),
     });
     if (created.isOk()) return created.value.id;
-    if (created.error.type === 'DuplicateClient') return created.error.clientId;
+    if (created.error.type === 'DuplicateClient') {
+      if (created.error.trashed) await this.#restore(tx, actor, created.error.clientId);
+      return created.error.clientId;
+    }
     // Con nombre y un teléfono o email válidos, el alta no puede fallar por datos faltantes.
     throw new Error(`Unexpected ${created.error.type} creating an owner`);
+  }
+
+  /** Saca de la papelera al contacto encontrado, como lo haría "Restaurar". */
+  async #restore(tx: ClientsTransaction, actor: Actor, clientId: string): Promise<void> {
+    const client = await findClient(tx.clients, clientId);
+    if (!client) throw new Error('Trashed owner disappeared while importing');
+    const restored = client.restoreFromTrash(this.deps.clock.now());
+    // Un contacto unificado no aparece como duplicado: si pasa, es un error del sistema.
+    if (restored.isErr()) throw new Error(`Unexpected ${restored.error.type} restoring an owner`);
+    await tx.clients.save(client, actor.id);
+    await tx.events.publish(client.pullEvents());
+    await tx.audit.record(auditAction(actor, clientTarget('client.restored', client.id)));
   }
 }

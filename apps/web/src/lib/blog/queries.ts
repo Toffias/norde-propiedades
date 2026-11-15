@@ -17,6 +17,13 @@ const CACHE_OPTIONS = { tags: [BLOG_CACHE_TAG], revalidate: BLOG_REVALIDATE_SECO
 
 const PUBLISHED: Where = { _status: { equals: 'published' } };
 
+/**
+ * Topes de las lecturas que traen "todo" (sitemap, categorías): con `pagination: false` y sin
+ * `limit`, Payload trae la tabla entera. Sobran para el blog de Norde.
+ */
+export const MAX_POST_SLUGS = 5000;
+export const MAX_CATEGORIES = 200;
+
 export interface PostCardData {
   readonly id: number;
   readonly title: string;
@@ -131,6 +138,7 @@ export const listPublishedPostSlugs = unstable_cache(
       overrideAccess: false,
       draft: false,
       depth: 0,
+      limit: MAX_POST_SLUGS,
       pagination: false,
       select: { slug: true, updatedAt: true },
       where: PUBLISHED,
@@ -194,6 +202,7 @@ export const findAuthors = unstable_cache(
       collection: 'users',
       overrideAccess: true,
       depth: 1,
+      limit: ids.length,
       pagination: false,
       select: { name: true, role: true, bio: true, photo: true },
       where: { id: { in: [...ids] } },
@@ -225,6 +234,7 @@ export const listCategories = unstable_cache(
       collection: 'categories',
       overrideAccess: false,
       depth: 0,
+      limit: MAX_CATEGORIES,
       pagination: false,
       sort: 'title',
     });

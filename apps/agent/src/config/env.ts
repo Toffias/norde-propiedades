@@ -21,6 +21,10 @@ const EnvSchema = z
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 
+    /** Errores a Sentry (ADR 0055). Sin DSN, apagado. */
+    SENTRY_DSN: z.url({ protocol: /^https$/ }).optional(),
+    SENTRY_ENVIRONMENT: z.string().min(1).default('development'),
+
     /** Sitio público: arma los links a las fichas que manda el agente. */
     PUBLIC_SITE_URL: z.url().default('http://localhost:3000'),
 
@@ -77,6 +81,14 @@ const EnvSchema = z
     LIMIT_WEB_CHAT_REPLIES_PER_DAY: positiveInt(2000),
   })
   .superRefine((env, ctx) => {
+    // En producción los links del agente no pueden llevar a la máquina del que lee el mensaje.
+    if (env.NODE_ENV === 'production' && new URL(env.PUBLIC_SITE_URL).hostname === 'localhost') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PUBLIC_SITE_URL'],
+        message: 'En producción, la URL pública del sitio (no localhost)',
+      });
+    }
     const present = WHATSAPP_REQUIRED.filter((key) => env[key] !== undefined);
     if (present.length > 0 && present.length < WHATSAPP_REQUIRED.length) {
       for (const key of WHATSAPP_REQUIRED.filter((k) => env[k] === undefined)) {

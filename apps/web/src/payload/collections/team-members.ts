@@ -1,6 +1,6 @@
 import type { CollectionConfig, TextFieldSingleValidation } from 'payload';
 
-import { anyone, authenticated } from '../access';
+import { authenticated, authenticatedOrSite } from '../access';
 import { revalidateOnChange, revalidateOnDelete } from '../hooks/revalidate-blog';
 
 /** WhatsApp en el formato de los links `wa.me`: código de país y número, solo dígitos. */
@@ -18,7 +18,13 @@ const validateWhatsapp: TextFieldSingleValidation = (value) =>
 export const TeamMembers: CollectionConfig<'team-members'> = {
   slug: 'team-members',
   labels: { singular: 'Integrante', plural: 'Equipo' },
-  access: { read: anyone, create: authenticated, update: authenticated, delete: authenticated },
+  // Sin sesión, solo lo lee el sitio: la API REST no expone a los inactivos ni sus WhatsApp.
+  access: {
+    read: authenticatedOrSite,
+    create: authenticated,
+    update: authenticated,
+    delete: authenticated,
+  },
   admin: {
     group: 'Nosotros',
     useAsTitle: 'name',

@@ -225,6 +225,8 @@ PATH=/opt/node-24/bin:$PATH corepack pnpm user:create-admin --whatsapp +54911...
 pm2 status
 ```
 
+El primer editor del sitio (`/admin` de Payload) solo se puede crear con `PAYLOAD_FIRST_REGISTER=true` en el `.env` de apps/web: se agrega, se crea el editor (queda como administrador) y se saca. Sin ella, el alta queda cerrada para que nadie se adelante con la base vacía. Después, solo un administrador crea o borra editores.
+
 `pm2 startup` ya está configurado por los otros proyectos, y el deploy corre `pm2 save`: los procesos vuelven solos si el VPS se reinicia.
 
 ## Diagnóstico

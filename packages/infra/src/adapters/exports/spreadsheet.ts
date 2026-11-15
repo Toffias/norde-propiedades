@@ -101,14 +101,18 @@ export function xlsxStream<Row>(
 
 const encoder = new TextEncoder();
 
+/** Lo que Excel toma como el comienzo de una fórmula (inyección de fórmulas en CSV). */
+const FORMULA_START = /^[=+\-@\t\r]/;
+
 /**
  * El texto de una celda del CSV. Separado con `;` y con coma decimal, como lo abre Excel con
- * configuración regional de Argentina.
+ * configuración regional de Argentina. Un texto que empieza como una fórmula lleva un `'` adelante
+ * para que Excel lo muestre como texto y no lo ejecute.
  */
 function csvCell(cell: Cell): string {
   if (cell === undefined) return '';
   let text: string;
-  if (typeof cell === 'string') text = cell;
+  if (typeof cell === 'string') text = FORMULA_START.test(cell) ? `'${cell}` : cell;
   else if (typeof cell === 'number') text = String(cell).replace('.', ',');
   else if (cell.kind === 'day') {
     const [year, month, dayOfMonth] = cell.date.toISOString().slice(0, 10).split('-');

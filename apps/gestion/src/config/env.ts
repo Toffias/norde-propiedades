@@ -137,6 +137,17 @@ const ZONAPROP_API = ['ZONAPROP_API_URL', 'ZONAPROP_CLIENT_ID', 'ZONAPROP_CLIENT
 const S3_REQUIRED = ['S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
 
 const ValidatedEnvSchema = EnvSchema.superRefine((env, context) => {
+  // Las cookies de sesión de Better Auth son `secure` solo con https. Localhost queda afuera: el
+  // e2e corre el build de producción en la máquina.
+  const authUrl = new URL(env.BETTER_AUTH_URL);
+  const local = authUrl.hostname === 'localhost' || authUrl.hostname === '127.0.0.1';
+  if (env.NODE_ENV === 'production' && authUrl.protocol !== 'https:' && !local) {
+    context.addIssue({
+      code: 'custom',
+      path: ['BETTER_AUTH_URL'],
+      message: 'Must be https in production',
+    });
+  }
   // Un deploy sin el driver guardaría los archivos en el disco del servidor sin que nadie lo note.
   if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === undefined) {
     context.addIssue({

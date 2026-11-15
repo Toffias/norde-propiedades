@@ -42,6 +42,8 @@ export default buildConfig({
   collections: [Posts, Categories, TeamMembers, GoogleReviews, Media, Users],
   globals: [AboutPage, SiteAppearance],
   plugins,
+  // El sitio lee Payload por la Local API: GraphQL no se usa y no se expone.
+  graphQL: { disable: true },
   // Ejecuta la cola de jobs (publicación programada de posts). El sitio corre en un VPS
   // con un proceso de larga duración (PM2), no en serverless.
   jobs: { autoRun: [{ cron: '* * * * *', queue: 'default', limit: 10 }] },

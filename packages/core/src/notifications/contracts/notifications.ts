@@ -44,10 +44,11 @@ export const NotifyAssignmentInputSchema = z.object({
   type: z.enum(NOTIFICATION_TYPE_VALUES),
   entityId: z.uuid(),
   clientId: z.uuid(),
-  fromAgentId: z.string().optional(),
-  toAgentId: z.string().optional(),
-  assignedBy: z.string().optional(),
-  inquiryId: z.string().optional(),
+  fromAgentId: z.string().max(64).optional(),
+  toAgentId: z.string().max(64).optional(),
+  /** Un usuario o un actor de sistema (`system:import`). */
+  assignedBy: z.string().max(64).optional(),
+  inquiryId: z.string().max(64).optional(),
   occurredAt: z.date(),
 });
 export type NotifyAssignmentInput = z.input<typeof NotifyAssignmentInputSchema>;

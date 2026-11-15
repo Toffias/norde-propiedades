@@ -32,6 +32,7 @@
     "@payloadcms/richtext-lexical": "catalog:",
     "@payloadcms/translations": "catalog:",
     "@payloadcms/ui": "catalog:",
+    "@sentry/nextjs": "catalog:",
     "graphql": "catalog:",
     "leaflet": "catalog:",
     "leaflet.markercluster": "catalog:",

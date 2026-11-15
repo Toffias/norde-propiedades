@@ -5,7 +5,10 @@ name: Deploy UAT
 #
 # El build corre acá y no en el VPS (1 vCPU / 4 GB compartido con otros proyectos). Se compila en
 # la misma ruta absoluta que en el VPS para que `.next` no arrastre rutas del runner. En el VPS solo
-# se instalan las dependencias, se migran las bases y se recargan los procesos.
+# se instalan las dependencias, se hace un backup de la base, se migra y se recargan los procesos.
+#
+# Solo despliega la rama `uat`: el environment `uat` (secrets del VPS) además está limitado a esa
+# rama y pide aprobación (docs/deploy.md §8). Un `workflow_dispatch` sobre otra rama no corre.
 
 on:
   workflow_call:
@@ -23,9 +26,12 @@ env:
   WEB_URL: https://landingnorde.apzsoftware.online
   GESTION_URL: https://gestionnorde.apzsoftware.online
   AGENT_URL: https://agentenorde.apzsoftware.online
+  # Usuario del VPS dueño de la carpeta y de su PM2 (docs/deploy.md §7). `root` hasta migrar.
+  VPS_USER: ${{ vars.VPS_USER || 'root' }}
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/uat'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
@@ -101,13 +107,13 @@ jobs:
             --exclude .storage \
             --exclude /apps/web/media \
             --exclude '*.tsbuildinfo' \
-            ./ root@"$VPS_HOST":"$DEPLOY_DIR"/
+            ./ "$VPS_USER@$VPS_HOST":"$DEPLOY_DIR"/
 
       - name: Instalar, migrar y recargar en el VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          ssh -i ~/.ssh/deploy_key root@"$VPS_HOST" bash -s <<EOF
+          ssh -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" bash -s <<EOF
             set -euo pipefail
             cd "$DEPLOY_DIR"
             export PATH="$VPS_NODE_DIR:\$PATH"
@@ -116,6 +122,9 @@ jobs:
             export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
             corepack pnpm install --frozen-lockfile
+
+            # Backup antes de migrar (docs/deploy.md, "Backups"): si falla, no se migra.
+            bash scripts/ops/backup-db.sh pre-deploy
 
             # Migraciones, en el orden de docs/arquitectura.md §10. drizzle-kit toma la base de
             # DATABASE_URL; se lee solo esa línea del .env de gestión (el resto puede tener espacios).
@@ -132,7 +141,7 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          DEPLOYED_SHA=$(ssh -i ~/.ssh/deploy_key root@"$VPS_HOST" "cat $DEPLOY_DIR/DEPLOYED_SHA.txt")
+          DEPLOYED_SHA=$(ssh -i ~/.ssh/deploy_key "$VPS_USER@$VPS_HOST" "cat $DEPLOY_DIR/DEPLOYED_SHA.txt")
           echo "Esperado:   $GITHUB_SHA"
           echo "Desplegado: $DEPLOYED_SHA"
           if [ "$DEPLOYED_SHA" != "$GITHUB_SHA" ]; then

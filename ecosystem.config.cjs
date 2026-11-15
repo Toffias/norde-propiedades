@@ -7,6 +7,10 @@
 //
 // El VPS es compartido con otros proyectos: los nombres llevan el prefijo `norde-` y los puertos
 // (3020 y 3021; el agente toma el suyo de `PORT` en su `.env`) no chocan con los de las otras apps.
+//
+// Las tres escuchan solo en 127.0.0.1 (el agente, por `HOST` en su `.env`): se llega únicamente por
+// nginx. Expuestas, se saltearía el TLS y, como el panel confía en `X-Forwarded-For`, un
+// `X-Forwarded-For` falso anularía los límites de login y de los webhooks (#221).
 
 /** Le da tiempo al cierre ordenado (jobs en curso, turnos del agente) antes del SIGKILL. */
 const KILL_TIMEOUT_MS = 15_000;
@@ -23,7 +27,7 @@ module.exports = {
       name: 'norde-web',
       cwd: 'apps/web',
       script: 'node_modules/next/dist/bin/next',
-      args: 'start --port 3020',
+      args: 'start --hostname 127.0.0.1 --port 3020',
       interpreter: NODE_BIN,
       exec_mode: 'fork',
       instances: 1,
@@ -34,7 +38,7 @@ module.exports = {
       name: 'norde-gestion',
       cwd: 'apps/gestion',
       script: 'node_modules/next/dist/bin/next',
-      args: 'start --port 3021',
+      args: 'start --hostname 127.0.0.1 --port 3021',
       interpreter: NODE_BIN,
       exec_mode: 'fork',
       instances: 1,

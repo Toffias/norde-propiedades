@@ -63,6 +63,9 @@ export interface WhatsAppInbound {
   readonly message: InboundMessage;
 }
 
+/** Tipos de mensaje que no son algo que el contacto le dice al agente. */
+const IGNORED_TYPES: ReadonlySet<string> = new Set(['reaction']);
+
 /**
  * Convierte el payload del webhook en mensajes. Ignora los eventos de estado (enviado,
  * entregado, leído), los mensajes con error y los que no se pueden interpretar.
@@ -84,6 +87,9 @@ export function parseInbound(payload: unknown): WhatsAppInbound[] {
         const message = MessageSchema.safeParse(raw);
         if (!message.success || (message.data.errors?.length ?? 0) > 0) continue;
         const m = message.data;
+        // Una reacción (👍 a un mensaje) no es algo que contestar: no dispara el aviso de
+        // "solo leo texto y audios".
+        if (IGNORED_TYPES.has(m.type)) continue;
         out.push({
           phoneNumberId: value.metadata.phone_number_id,
           from: m.from,

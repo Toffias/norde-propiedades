@@ -5,6 +5,12 @@ export interface MessageBatcherOptions<T> {
   readonly keyOf: (item: T) => string;
   /** Silencio a esperar antes de procesar. 0 = procesar de inmediato. */
   readonly debounceMs: number;
+  /**
+   * Lo máximo que espera el primer mensaje del lote, aunque sigan llegando otros: alguien que
+   * escribe cada pocos segundos igual recibe respuesta. Por defecto, 5 veces el silencio.
+   */
+  readonly maxWaitMs?: number;
+  readonly now?: () => number;
   readonly process: (batch: T[]) => Promise<void>;
   readonly onError: (error: unknown, batch: T[]) => void;
 }
@@ -17,13 +23,17 @@ export interface MessageBatcherOptions<T> {
  * Vive en memoria: el agente corre en **una** instancia (ver apps/agent/CLAUDE.md).
  */
 export class MessageBatcher<T> {
-  readonly #pending = new Map<string, { items: T[]; timer: NodeJS.Timeout | undefined }>();
+  readonly #pending = new Map<
+    string,
+    { items: T[]; timer: NodeJS.Timeout | undefined; readonly firstAt: number }
+  >();
 
   constructor(private readonly options: MessageBatcherOptions<T>) {}
 
   push(item: T): void {
     const key = this.options.keyOf(item);
-    const entry = this.#pending.get(key) ?? { items: [], timer: undefined };
+    const now = (this.options.now ?? Date.now)();
+    const entry = this.#pending.get(key) ?? { items: [], timer: undefined, firstAt: now };
     entry.items.push(item);
     clearTimeout(entry.timer);
 
@@ -32,10 +42,15 @@ export class MessageBatcher<T> {
       void this.flush(key, entry.items);
       return;
     }
-    entry.timer = setTimeout(() => {
-      this.#pending.delete(key);
-      void this.flush(key, entry.items);
-    }, this.options.debounceMs);
+    const maxWaitMs = this.options.maxWaitMs ?? this.options.debounceMs * 5;
+    const untilMaxWait = Math.max(0, entry.firstAt + maxWaitMs - now);
+    entry.timer = setTimeout(
+      () => {
+        this.#pending.delete(key);
+        void this.flush(key, entry.items);
+      },
+      Math.min(this.options.debounceMs, untilMaxWait),
+    );
     entry.timer.unref();
     this.#pending.set(key, entry);
   }

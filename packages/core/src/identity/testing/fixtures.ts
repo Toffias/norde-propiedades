@@ -1,6 +1,7 @@
 // Datos de prueba de identity: usuarios y actores de ejemplo para los tests de casos de uso.
 
-import { Actor, Email, parseId, Phone, type Result } from '../../shared';
+import { Actor, Email, parseId, Phone, type Permission, type Result } from '../../shared';
+import { PERMISSION_CATALOG } from '../domain/permission-catalog';
 import type { BranchSnapshot } from '../domain/branch';
 import type { RoleSnapshot } from '../domain/role';
 import type { TeamSnapshot } from '../domain/team';
@@ -11,13 +12,16 @@ export const ROLE_AGENT_ID = '00000000-0000-7000-8000-00000000000a';
 export const ROLE_MANAGER_ID = '00000000-0000-7000-8000-00000000000b';
 export const ADMIN_USER_ID = '00000000-0000-7000-8000-0000000000aa';
 
-/** Administrador del panel: puede todo sobre usuarios y roles. */
-export const TEST_ADMIN = Actor.user(ADMIN_USER_ID, [
-  'users:*',
-  'roles:*',
-  'branches:*',
-  'teams:*',
-]).withCorrelation('req-1');
+/**
+ * Administrador del panel: todos los recursos del catálogo, como el rol Administrador. Puede dar
+ * cualquier permiso y administrar a cualquier usuario (#221).
+ */
+export const TEST_ADMIN = Actor.user(
+  ADMIN_USER_ID,
+  PERMISSION_CATALOG.flatMap((group) => group.resources).map(
+    (resource): Permission => `${resource.resource}:*`,
+  ),
+).withCorrelation('req-1');
 /** Agente sin permisos sobre usuarios. */
 export const TEST_AGENT = Actor.user('00000000-0000-7000-8000-0000000000bb', ['clients:read']);
 

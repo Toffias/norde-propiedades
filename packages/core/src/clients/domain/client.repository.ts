@@ -1,6 +1,8 @@
+import type { OwnerBranchMove } from '../../shared/domain/owner-branch-move';
 import type { Email } from '../../shared/domain/value-objects/email';
 
 import type { Client, ClientId } from './client';
+import type { ContactChannel } from './contact-channel';
 import type { ClientActivity } from './client-activity';
 import type { ClientImport, ClientImportId, ImportRowProblem } from './client-import';
 import type { ClientTag, ClientTagGroup, ClientTagGroupId, ClientTagId } from './client-tag';
@@ -42,6 +44,10 @@ export interface ClientRepository {
   findByName(name: string): Promise<Client[]>;
   /** `actorId` queda como autor de la fila (`created_by` / `updated_by`). */
   save(client: Client, actorId: string): Promise<void>;
+  /** Mueve un lote de los de un dueño a su sucursal nueva (#221). Devuelve los IDs movidos. */
+  moveOwnerBranch(move: OwnerBranchMove): Promise<readonly ClientId[]>;
+  /** Cuántos clientes se comunicaron por esta identidad del canal (una charla del sitio). */
+  countReachedThrough(channel: ContactChannel, externalId: string): Promise<number>;
 }
 
 export interface OpportunityRepository {
@@ -58,6 +64,8 @@ export interface OpportunityRepository {
   save(opportunity: Opportunity, actorId: string): Promise<void>;
   /** Si una regla automática ya aplicó un cambio de estado por este evento. */
   hasStatusChangeFrom(sourceEventId: string): Promise<boolean>;
+  /** Mueve un lote de los de un dueño a su sucursal nueva (#221). Devuelve los IDs movidos. */
+  moveOwnerBranch(move: OwnerBranchMove): Promise<readonly OpportunityId[]>;
 }
 
 /** Las consultas entrantes (`inquiries`). */

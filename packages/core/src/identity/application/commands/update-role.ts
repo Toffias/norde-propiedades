@@ -10,8 +10,13 @@ import {
 import { UpdateRoleInputSchema, type UpdateRoleInput } from '../../contracts';
 import type { AdminRoleNeedsPermissionsError } from '../../domain/administrators';
 import type { UnknownPermissionError } from '../../domain/permission-catalog';
+import {
+  ensureGrantsHeld,
+  type PermissionEscalationError,
+} from '../../domain/permission-escalation';
 import type { SystemRoleCannotBeRenamedError } from '../../domain/role';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
+import { holdsOf } from '../permission-guard';
 import { roleAuditState, roleTarget } from '../role-audit';
 import { findRole } from '../role-lookup';
 import type { InvalidInputError, RoleNameTakenError, RoleNotFoundError } from '../user-audit';
@@ -22,12 +27,16 @@ export type UpdateRoleError =
   | RoleNotFoundError
   | UnknownPermissionError
   | SystemRoleCannotBeRenamedError
-  | AdminRoleNeedsPermissionsError
-  | RoleNameTakenError;
+  | RoleNameTakenError
+  | PermissionEscalationError
+  | AdminRoleNeedsPermissionsError;
 
 /**
  * Edita el nombre, la descripción y los permisos de un rol. El cambio de permisos alcanza a todos
  * sus usuarios desde su próximo request (la sesión se arma en cada uno). La clave no cambia.
+ *
+ * Solo se suman permisos que quien edita tiene (#221): con `roles:update` nadie se agrega
+ * `users:*` en su propio rol. Quitar siempre se puede.
  */
 export class UpdateRole {
   constructor(private readonly deps: { readonly uow: IdentityUnitOfWork; readonly clock: Clock }) {}
@@ -50,12 +59,19 @@ export class UpdateRole {
       const sameName = await tx.roles.findByName(data.name);
       if (sameName && sameName.id !== role.id) return err({ type: 'RoleNameTaken' });
 
+      const permissionsBefore = role.toSnapshot().permissions;
       const before = roleAuditState(role);
       const updated = role.update(
         { name: data.name, description: data.description, permissions: data.permissions },
         now,
       );
       if (updated.isErr()) return err(updated.error);
+      const held = ensureGrantsHeld(
+        { granted: role.toSnapshot().permissions, denied: [] },
+        holdsOf(actor),
+        { granted: permissionsBefore, denied: [] },
+      );
+      if (held.isErr()) return err(held.error);
 
       const entry = auditUpdated(
         actor,

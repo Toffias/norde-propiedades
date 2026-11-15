@@ -5,9 +5,10 @@ import {
   ResolveSessionActor,
   RestoreRole,
   SetUserPermissions,
+  PERMISSION_CATALOG,
   UpdateRole,
 } from '@norde/core/identity';
-import { Actor } from '@norde/core/shared';
+import { Actor, type Permission } from '@norde/core/shared';
 import { FixedClock } from '@norde/core/shared/testing';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -25,7 +26,13 @@ const db = useTestDatabase();
 const ids = new UuidV7IdGenerator();
 const clock = new FixedClock('2026-10-01T12:00:00Z');
 const uow = createIdentityUnitOfWork(db, { ids, clock });
-const ADMIN = Actor.user(ids.next(), ['users:*', 'roles:*']);
+/** Como el rol Administrador: solo se otorga lo que se tiene (#221). */
+const ADMIN = Actor.user(
+  ids.next(),
+  PERMISSION_CATALOG.flatMap((group) => group.resources).map(
+    (resource): Permission => `${resource.resource}:*`,
+  ),
+);
 const AUTH = Actor.system('auth', ['sessions:resolve']);
 const TEMPORARY = 'temporal-12345'; // gitleaks:allow
 

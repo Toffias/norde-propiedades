@@ -273,6 +273,7 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
   - El nombre de perfil de WhatsApp lo elige el cliente: entra en las instrucciones saneado (solo letras, espacios, apóstrofos, puntos y guiones; hasta 40 caracteres), al final y presentado como dato.
   - Las respuestas solo pueden llevar links al sitio de Norde y a `wa.me`. El agente quita los demás antes de responder (y lo loguea en `warn`). El widget del sitio, además, muestra como texto cualquier link a otro dominio.
   - `register_client` registra una sola vez por turno y no le dice al modelo si el teléfono o el email ya eran de un cliente: en el chat del sitio los escribe cualquiera.
+  - En el chat del sitio esos datos no están verificados (#221): si apuntan a un cliente que no llegó por esa charla, o la charla ya registró a otro cliente, no se toca ninguna ficha (no se restaura de la papelera, no se le suma el canal ni se completan sus datos) y la conversación no se vincula. Queda una consulta pendiente en la bandeja, sin oportunidad, que el reparto automático no asigna: la revisa y la asigna una persona. Al visitante se le responde igual que siempre.
 - **Ajustes de baja prioridad** (#152):
   - El chat del sitio firma la fecha junto con el body (`x-norde-timestamp`) y el agente rechaza mensajes de más de 5 minutos.
   - El verify token del webhook de WhatsApp se compara en tiempo constante.

@@ -48,4 +48,6 @@ export default withSentryConfig(config, {
   silent: true,
   telemetry: false,
   widenClientFileUpload: true,
+  // Los .map no quedan publicados en `.next/static` (es el default; explícito por #221).
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
 });

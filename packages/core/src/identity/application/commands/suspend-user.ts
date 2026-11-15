@@ -11,6 +11,11 @@ import {
 import { UserIdInputSchema, type UserIdInput } from '../../contracts';
 import type { LastAdministratorError } from '../../domain/administrators';
 import type { CannotSuspendSelfError, UserAlreadySuspendedError } from '../../domain/user';
+import {
+  ensureCanManageUser,
+  type UserHasMorePermissionsError,
+} from '../../domain/permission-escalation';
+import { holdsOf, userPermissionsOf } from '../permission-guard';
 import { guardLastAdministrator } from '../administrator-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
@@ -27,6 +32,7 @@ export type SuspendUserError =
   | UserNotFoundError
   | CannotSuspendSelfError
   | UserAlreadySuspendedError
+  | UserHasMorePermissionsError
   | LastAdministratorError;
 
 /**
@@ -48,6 +54,9 @@ export class SuspendUser {
     return this.deps.uow.run(async (tx): Promise<Result<void, SuspendUserError>> => {
       const user = await findUser(tx.users, parsed.data.userId);
       if (!user) return err({ type: 'UserNotFound' });
+      // Con un permiso delegado no se toca a quien tiene más permisos (#221).
+      const managed = ensureCanManageUser(await userPermissionsOf(tx.roles, user), holdsOf(actor));
+      if (managed.isErr()) return err(managed.error);
 
       const before = userAuditState(user);
       const keepsAnAdministrator = await guardLastAdministrator(tx, user);

@@ -14,14 +14,22 @@ import {
   type ClientId,
   type ClientRepository,
   type ClientSnapshot,
+  type ContactChannel,
   type ContactKeys,
   REFERRAL_RESULTS,
   type OpportunityId,
   type OpportunityRepository,
   type OpportunitySearch,
 } from '@norde/core/clients';
-import { Email, parseId, Phone, type IdGenerator, type Result } from '@norde/core/shared';
-import { and, eq, inArray, isNull, notInArray, sql, type SQL } from 'drizzle-orm';
+import {
+  Email,
+  parseId,
+  Phone,
+  type IdGenerator,
+  type OwnerBranchMove,
+  type Result,
+} from '@norde/core/shared';
+import { and, asc, eq, inArray, isNull, notInArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DbExecutor } from '../db/executor';
@@ -104,6 +112,29 @@ export class DrizzleClientRepository implements ClientRepository {
 
   findById(id: ClientId) {
     return this.findOneWhere(eq(clients.id, id));
+  }
+
+  async countReachedThrough(channel: ContactChannel, externalId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ count: sql<number>`count(distinct ${clientChannels.clientId})::int` })
+      .from(clientChannels)
+      .where(and(eq(clientChannels.channel, channel), eq(clientChannels.externalId, externalId)));
+    return row?.count ?? 0;
+  }
+
+  async moveOwnerBranch(move: OwnerBranchMove): Promise<readonly ClientId[]> {
+    const batch = this.db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(and(eq(clients.agentId, move.ownerId), eq(clients.branchId, move.fromBranchId)))
+      .orderBy(asc(clients.id))
+      .limit(move.limit);
+    const moved = await this.db
+      .update(clients)
+      .set({ branchId: move.toBranchId, updatedAt: move.now, updatedBy: move.actorId })
+      .where(inArray(clients.id, batch))
+      .returning({ id: clients.id });
+    return moved.map((row) => storedId<'Client'>(row.id));
   }
 
   async findMatching(contact: ContactKeys): Promise<Client[]> {
@@ -497,6 +528,23 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
       .where(eq(opportunities.id, id))
       .limit(1);
     return row && toOpportunity(row);
+  }
+
+  async moveOwnerBranch(move: OwnerBranchMove): Promise<readonly OpportunityId[]> {
+    const batch = this.db
+      .select({ id: opportunities.id })
+      .from(opportunities)
+      .where(
+        and(eq(opportunities.agentId, move.ownerId), eq(opportunities.branchId, move.fromBranchId)),
+      )
+      .orderBy(asc(opportunities.id))
+      .limit(move.limit);
+    const moved = await this.db
+      .update(opportunities)
+      .set({ branchId: move.toBranchId, updatedAt: move.now, updatedBy: move.actorId })
+      .where(inArray(opportunities.id, batch))
+      .returning({ id: opportunities.id });
+    return moved.map((row) => storedId<'Opportunity'>(row.id));
   }
 
   async findOpenByClient(clientId: ClientId) {

@@ -20,6 +20,7 @@ import {
 } from '../../contracts';
 import type { MissingContactInfoError } from '../../domain/client';
 import { maskSensitiveNumbers } from '../../domain/contact-masking';
+import { unverifiedContactNeedsReview } from '../../domain/contact-verification';
 import { findExistingClient } from '../../domain/duplicate-check';
 import type { Inquiry } from '../../domain/inquiry';
 import type { Opportunity } from '../../domain/opportunity';
@@ -45,6 +46,10 @@ export type RegisterContactError =
  *
  * Además deja la consulta en la bandeja (#45), una por oportunidad: pendiente si la oportunidad no
  * tiene agente (asignarla le pone uno), o ya asignada a su agente si lo tiene.
+ *
+ * En el chat del sitio el teléfono y el email los escribe el visitante (#221): si apuntan a un
+ * cliente que no llegó por esa charla, o la charla ya registró a otro, no se toca ningún cliente y
+ * solo queda la consulta pendiente, para que una persona la revise y la asigne.
  */
 export class RegisterContact {
   constructor(
@@ -95,12 +100,49 @@ export class RegisterContact {
           phones: contact.phone ? [contact.phone] : [],
           emails: contact.email ? [contact.email] : [],
         };
+        const existing = findExistingClient(await tx.clients.findMatching(keys), keys);
+        const message =
+          data.opportunity.note === undefined
+            ? undefined
+            : maskSensitiveNumbers(data.opportunity.note);
+        const needsReview = unverifiedContactNeedsReview({
+          channel: data.channel,
+          channelExternalId: data.channelExternalId,
+          existing,
+          clientsInConversation: await tx.clients.countReachedThrough(
+            data.channel,
+            data.channelExternalId,
+          ),
+        });
+        if (needsReview) {
+          const review = await receiveInquiryIn(
+            tx,
+            actor,
+            { ids: this.deps.ids, now },
+            {
+              channel: data.channel,
+              // Cada pedido es una consulta aparte: ninguna tiene oportunidad todavía.
+              externalId: `${data.channelExternalId}:${this.deps.ids.next()}`,
+              receivedAt: now,
+              name: contact.name,
+              phone,
+              email,
+              message,
+              propertyId,
+              developmentId: undefined,
+              property,
+            },
+          );
+          if (review.isErr()) return err(review.error);
+          return ok({ status: 'pending_review', inquiryId: review.value.inquiry.id });
+        }
+
         const recorded = await recordIncomingContact(
           tx,
           actor,
           { ids: this.deps.ids, now },
           {
-            existing: findExistingClient(await tx.clients.findMatching(keys), keys),
+            existing,
             contact,
             channel: data.channel,
             channelExternalId: data.channelExternalId,
@@ -122,10 +164,7 @@ export class RegisterContact {
             name: contact.name,
             phone,
             email,
-            message:
-              data.opportunity.note === undefined
-                ? undefined
-                : maskSensitiveNumbers(data.opportunity.note),
+            message,
             propertyId,
             developmentId: undefined,
             property,
@@ -139,6 +178,7 @@ export class RegisterContact {
         }
 
         return ok({
+          status: 'registered',
           clientId: client.id,
           opportunityId: opportunity.id,
           clientCreated,

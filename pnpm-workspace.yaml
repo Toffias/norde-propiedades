@@ -21,21 +21,21 @@ catalog:
   '@fontsource/plus-jakarta-sans': 5.3.0
   '@fontsource/space-grotesk': 5.3.0
   '@hookform/resolvers': 5.9.1
-  '@next/eslint-plugin-next': 16.3.6
-  '@openai/agents': 0.18.0
-  '@openai/agents-core': 0.18.0
-  '@payloadcms/db-postgres': 3.90.1
-  '@payloadcms/live-preview-react': 3.90.1
-  '@payloadcms/next': 3.90.1
-  '@payloadcms/plugin-redirects': 3.90.1
-  '@payloadcms/plugin-seo': 3.90.1
-  '@payloadcms/richtext-lexical': 3.90.1
-  '@payloadcms/translations': 3.90.1
-  '@payloadcms/ui': 3.90.1
+  '@next/eslint-plugin-next': 16.4.6
+  '@openai/agents': 0.22.0
+  '@openai/agents-core': 0.22.0
+  '@payloadcms/db-postgres': 3.91.0
+  '@payloadcms/live-preview-react': 3.91.0
+  '@payloadcms/next': 3.91.0
+  '@payloadcms/plugin-redirects': 3.91.0
+  '@payloadcms/plugin-seo': 3.91.0
+  '@payloadcms/richtext-lexical': 3.91.0
+  '@payloadcms/translations': 3.91.0
+  '@payloadcms/ui': 3.91.0
   '@playwright/test': 1.63.0
   '@react-pdf/renderer': 4.9.0
-  '@sentry/nextjs': 11.9.0
-  '@sentry/node': 11.9.0
+  '@sentry/nextjs': 11.12.0
+  '@sentry/node': 11.12.0
   '@tailwindcss/postcss': 4.3.3
   '@tanstack/react-table': 9.2.4
   '@types/leaflet': 1.9.22
@@ -46,9 +46,9 @@ catalog:
   '@types/qrcode': 1.5.6
   '@types/react': 19.3.0
   '@types/react-dom': 19.3.0
-  '@vitest/coverage-v8': 5.0.1
+  '@vitest/coverage-v8': 5.1.0
   apexcharts: 7.6.1
-  better-auth: 1.7.7
+  better-auth: 1.7.25
   class-variance-authority: 0.7.1
   clsx: 2.1.1
   drizzle-kit: 0.31.11
@@ -57,10 +57,10 @@ catalog:
   eslint: 10.11.0
   eslint-config-prettier: 10.1.8
   eslint-import-resolver-typescript: 4.4.5
-  eslint-plugin-boundaries: 7.2.0
+  eslint-plugin-boundaries: 7.4.3
   eslint-plugin-react-hooks: 7.1.1
   exceljs: 4.4.0
-  fastify: 5.12.5
+  fastify: 5.12.8
   globals: 17.12.0
   graphql: 16.14.2
   husky: 9.1.7
@@ -70,9 +70,9 @@ catalog:
   lucide: 1.47.0
   lint-staged: 17.5.1
   lucide-react: 1.47.0
-  next: 16.3.6
+  next: 16.4.6
   next-themes: 0.4.6
-  payload: 3.90.1
+  payload: 3.91.0
   pdf-lib: 1.17.1
   pg: 8.23.0
   pg-boss: 12.33.6
@@ -88,7 +88,7 @@ catalog:
   react-dom: 19.3.0
   react-hook-form: 7.89.0
   server-only: 0.0.1
-  sharp: 0.35.4
+  sharp: 0.35.5
   sonner: 2.0.8
   tailwind-merge: 3.7.0
   tailwindcss: 4.3.3
@@ -98,10 +98,25 @@ catalog:
   typescript: 6.0.3
   typescript-eslint: 8.70.1
   uuid: 14.0.2
-  vitest: 5.0.1
+  # vite no se usa directo: es peer de vitest y @sentry/cloudflare; se fija en la raíz para salir de 8.3.0 (#221).
+  vite: 8.3.8
+  vitest: 5.1.0
   # SheetJS se publica en su CDN, no en npm (la versión de npm quedó en 0.18.5 con CVEs).
   xlsx: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-  zod: 4.6.5
+  zod: 4.6.7
+
+# Dependencias transitivas forzadas a versiones sin avisos de `pnpm audit --prod` (#221).
+# Revisar en cada actualización de la dependencia que las arrastra y borrar las que ya no hagan falta.
+overrides:
+  '@modelcontextprotocol/client': ^2.4.0 # @openai/agents-core
+  dompurify: ^3.4.18 # @payloadcms/ui > monaco-editor
+  fast-uri@3: ^3.1.9 # fastify > ajv
+  fast-uri@4: ^4.2.3 # fastify > @fastify/ajv-compiler
+  happy-dom: ^21.0.4 # better-auth > vitest
+  source-map-js: ^1.2.2 # @sentry/nextjs > vite > postcss
+  undici@7: ^7.30.1 # payload 3.91 (3.92+ pide Node >= 24.22.1)
+  uuid@8: ^11.1.1 # exceljs
+  zod: 'catalog:' # eslint-plugin-react-hooks
 
 # pnpm 10 bloquea los scripts de instalación por defecto; solo se permiten estos.
 onlyBuiltDependencies:

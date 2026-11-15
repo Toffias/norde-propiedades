@@ -43,12 +43,20 @@ export const RegisterContactInputSchema = z.object({
 
 export type RegisterContactInput = z.input<typeof RegisterContactInputSchema>;
 
-export interface RegisterContactOutput {
-  readonly clientId: string;
-  readonly opportunityId: string;
-  readonly clientCreated: boolean;
-  readonly opportunityCreated: boolean;
-}
+/**
+ * `registered`: el cliente y su oportunidad quedaron registrados. `pending_review`: los datos no
+ * están verificados (chat del sitio) y apuntan a un cliente que no es de esa charla, o la charla
+ * ya registró a otro: solo quedó una consulta pendiente en la bandeja, sin tocar clientes (#221).
+ */
+export type RegisterContactOutput =
+  | {
+      readonly status: 'registered';
+      readonly clientId: string;
+      readonly opportunityId: string;
+      readonly clientCreated: boolean;
+      readonly opportunityCreated: boolean;
+    }
+  | { readonly status: 'pending_review'; readonly inquiryId: string };
 
 export * from './property-interest';
 export * from './clients-panel';

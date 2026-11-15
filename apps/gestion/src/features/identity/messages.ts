@@ -70,6 +70,12 @@ export const USER_ERROR_MESSAGES = {
   CannotChangeOwnRoles: 'No podés cambiar tus propios roles: pedíselo a otro administrador.',
   SuspendedDefaultAssignee:
     'Un usuario suspendido no puede ser el asesor por defecto: reactivalo primero.',
+  PermissionEscalation: ({ permissions }) =>
+    permissions.length === 1
+      ? `No podés dar el permiso ${permissions.join('')}: vos no lo tenés.`
+      : `No podés dar permisos que vos no tenés: ${permissions.join(', ')}.`,
+  UserHasMorePermissions:
+    'Ese usuario tiene permisos que vos no tenés: pedíselo a un administrador.',
   LastAdministrator:
     'Es el único administrador activo: nombrá a otro antes, para que alguien pueda administrar el panel.',
 } satisfies ErrorMessages<UserError>;
@@ -77,6 +83,10 @@ export const USER_ERROR_MESSAGES = {
 export const TOKKO_USERS_IMPORT_ERROR_MESSAGES = {
   Forbidden: 'No tenés permiso para crear usuarios.',
   TokkoApiNotConfigured: 'Falta configurar la API key de Tokko.',
+  PermissionEscalation: ({ permissions }) =>
+    permissions.length === 1
+      ? `No podés dar el permiso ${permissions.join('')}: vos no lo tenés.`
+      : `No podés dar permisos que vos no tenés: ${permissions.join(', ')}.`,
 } satisfies ErrorMessages<StartTokkoUsersImportError>;
 
 export const ROLE_ERROR_MESSAGES = {
@@ -96,6 +106,10 @@ export const ROLE_ERROR_MESSAGES = {
       : `Hay ${String(userCount)} usuarios con este rol: asignales otro antes de borrarlo.`,
   RoleAlreadyDeleted: 'El rol ya estaba en la papelera.',
   RoleNotDeleted: 'El rol no está en la papelera.',
+  PermissionEscalation: ({ permissions }) =>
+    permissions.length === 1
+      ? `No podés dar el permiso ${permissions.join('')}: vos no lo tenés.`
+      : `No podés dar permisos que vos no tenés: ${permissions.join(', ')}.`,
 } satisfies ErrorMessages<RoleError>;
 
 type BranchError =

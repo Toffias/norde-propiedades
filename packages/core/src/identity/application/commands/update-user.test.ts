@@ -22,6 +22,8 @@ import {
 import { UpdateUser } from './update-user';
 
 const CAMILA = userSnapshot();
+// Su sesión tiene sus propios permisos (los de su rol) más el de editar usuarios.
+const CAMILA_SESSION = Actor.user(CAMILA.id, ['users:update', 'clients:read']);
 const OTHER_BRANCH_ID = '00000000-0000-7000-8000-0000000000b2';
 
 function emailOf(raw: string) {
@@ -55,7 +57,7 @@ describe('UpdateUser', () => {
 
     const result = await useCase.execute(
       { ...UNCHANGED, roleIds: [ROLE_AGENT_ID, ROLE_MANAGER_ID] },
-      Actor.user(CAMILA.id, ['users:update']),
+      CAMILA_SESSION,
     );
 
     expect(result.isErr() && result.error).toEqual({ type: 'CannotChangeOwnRoles' });
@@ -68,7 +70,7 @@ describe('UpdateUser', () => {
 
     const result = await useCase.execute(
       { ...UNCHANGED, name: 'Camila Pérez Ruiz' },
-      Actor.user(CAMILA.id, ['users:update']),
+      CAMILA_SESSION,
     );
 
     expect(result.isOk()).toBe(true);

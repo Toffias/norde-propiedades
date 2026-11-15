@@ -14,6 +14,7 @@ import {
   PROPERTY_ID,
   seedClient,
   seedOpportunity,
+  registeredContact,
 } from '../../testing';
 
 import { AssignInquiry } from './assign-inquiry';
@@ -383,7 +384,7 @@ describe('AssignInquiry of an inquiry left by the AI agent (#45)', () => {
       ids,
       clock,
     });
-    const registered = unwrap(
+    const registered = registeredContact(
       await register.execute(
         {
           channel: 'web_chat',

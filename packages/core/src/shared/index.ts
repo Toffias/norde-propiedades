@@ -31,6 +31,12 @@ export {
   type ErasedClientsInput,
 } from './application/erased-clients';
 export { MergedClientInputSchema, type MergedClientInput } from './application/merged-clients';
+export type { OwnerBranchMove } from './domain/owner-branch-move';
+export {
+  USER_BRANCH_CHANGE_BATCH_SIZE,
+  UserBranchChangeInputSchema,
+  type UserBranchChangeInput,
+} from './application/user-branch-change';
 export {
   idempotencyScope,
   runIdempotent,

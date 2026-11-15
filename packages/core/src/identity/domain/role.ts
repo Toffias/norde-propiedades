@@ -45,6 +45,9 @@ export interface RoleNotDeletedError {
   readonly type: 'RoleNotDeleted';
 }
 
+/** El rol de los usuarios importados de Tokko (decidido con Norde el 2026-10-21). */
+export const AGENT_ROLE_KEY = 'agent';
+
 const MAX_NAME_LENGTH = 80;
 const MAX_KEY_LENGTH = 60;
 

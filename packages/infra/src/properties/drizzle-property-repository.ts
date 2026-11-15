@@ -13,7 +13,7 @@ import {
   type PropertyRepository,
   type UnitDesignation,
 } from '@norde/core/properties';
-import { parseId, type IdGenerator, type Result } from '@norde/core/shared';
+import { parseId, type IdGenerator, type OwnerBranchMove, type Result } from '@norde/core/shared';
 import { and, asc, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -85,6 +85,26 @@ export class DrizzlePropertyRepository implements PropertyRepository {
   async findById(id: PropertyId): Promise<Property | undefined> {
     const [row] = await this.db.select().from(properties).where(eq(properties.id, id)).limit(1);
     return row ? this.restore(row) : undefined;
+  }
+
+  async moveOwnerBranch(move: OwnerBranchMove): Promise<readonly PropertyId[]> {
+    const batch = this.db
+      .select({ id: properties.id })
+      .from(properties)
+      .where(
+        and(
+          eq(properties.producerUserId, move.ownerId),
+          eq(properties.branchId, move.fromBranchId),
+        ),
+      )
+      .orderBy(asc(properties.id))
+      .limit(move.limit);
+    const moved = await this.db
+      .update(properties)
+      .set({ branchId: move.toBranchId, updatedAt: move.now, updatedBy: move.actorId })
+      .where(inArray(properties.id, batch))
+      .returning({ id: properties.id });
+    return moved.map((row) => stored(parseId<'Property'>(row.id)));
   }
 
   async findByCode(code: string): Promise<Property | undefined> {

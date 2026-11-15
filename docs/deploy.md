@@ -18,13 +18,15 @@ Entorno de pruebas para validar integraciones (MercadoLibre, WhatsApp, Resend) y
 
 1. **En GitHub Actions**: `pnpm install` y build de web y gestión, en la misma ruta que tendrá el release en el VPS (`/var/www/norde-uat/releases/<corrida>-<intento>`). Así `.next` no arrastra rutas del runner y el VPS no compila.
 2. **Release nuevo en el VPS**: se arma como copia con hard links del release actual (sin `node_modules`) y el rsync sube solo lo que cambió. El release que está corriendo no se toca.
-3. **En el VPS, sobre el release nuevo**: enlaza los `.env` y `apps/web/media` desde `shared/`, `pnpm install --frozen-lockfile`, migraciones de core (`drizzle-kit migrate`) y de Payload. Si algo falla acá, el deploy se corta y sigue el release anterior.
+3. **En el VPS, sobre el release nuevo**: enlaza los `.env` y `apps/web/media` desde `shared/`, `pnpm install --frozen-lockfile`, backup de la base (`scripts/ops/backup-db.sh pre-deploy`; si falla, no se migra), migraciones de core (`drizzle-kit migrate`) y de Payload. Si algo falla acá, el deploy se corta y sigue el release anterior.
 4. **Cambio**: `previous` pasa al release que corría, `current` al nuevo (los dos con un rename atómico) y los procesos de PM2 se borran y se crean desde el release nuevo.
 5. **Verificación**: compara el SHA desplegado (`current/DEPLOYED_SHA.txt`) y que las tres URLs respondan. Si falla, el workflow vuelve solo al release anterior.
 
 Se trabaja en `dev`. Para publicar en UAT: `git checkout uat && git merge dev && git push`, o un PR de `dev` a `uat`. Para volver a publicar sin cambios: Actions → **Deploy UAT** → _Run workflow_ sobre `uat`.
 
-**Rollback**: si la verificación falla, el workflow vuelve solo a `previous`. Se puede volver a mano (ver [Releases](#releases)) o, si el release anterior también tiene el problema, revertir en `uat` (`git revert`) y pushear. Las migraciones son compatibles hacia atrás, así que el código anterior funciona con la base nueva.
+El workflow solo despliega `uat` (`if: github.ref == 'refs/heads/uat'`), aunque se lo corra a mano sobre otra rama.
+
+**Rollback**: si la verificación falla, el workflow vuelve solo a `previous`. Se puede volver a mano (ver [Releases](#releases)) o, si el release anterior también tiene el problema, revertir en `uat` (`git revert`) y pushear. Las migraciones son compatibles hacia atrás, así que el código anterior funciona con la base nueva. Si una migración rompió datos, se restaura el backup `pre-deploy` (ver [Backups](#backups)).
 
 ## Releases
 
@@ -58,7 +60,7 @@ ls -A   # revisar qué queda del esquema anterior antes de borrar
 
 ## Setup único
 
-Todo como `root` en el VPS (`ssh root@82.29.59.19`).
+Como `root` en el VPS (`ssh root@82.29.59.19`), salvo lo que se indica como usuario `norde`.
 
 ### 1. Node 24 aparte
 
@@ -240,7 +242,16 @@ Y en el `server` de la web (`landingnorde`), además del `location /` de arriba:
 
 Los assets de Next (`/_next/static`) y las fotos (`/fotos`) quedan afuera: los cachea el navegador. Probalo con `nginx -t && systemctl reload nginx`; un `429` en el log de nginx es el límite actuando.
 
-### 7. Clave de GitHub Actions hacia el VPS
+### 7. Usuario propio y clave de GitHub Actions
+
+El VPS es compartido: si el deploy y los procesos corren como `root`, una ejecución remota de código en cualquier app o dependencia de Norde da root sobre todos los proyectos. Las apps corren con un usuario sin privilegios, dueño de su carpeta y de su propio PM2.
+
+```bash
+adduser --system --group --shell /bin/bash --home /home/norde norde
+chown -R norde:norde /var/www/norde-uat /var/www/norde-uat-storage
+mkdir -p /var/backups/norde-uat && chown norde:norde /var/backups/norde-uat && chmod 700 /var/backups/norde-uat
+chmod 600 /var/www/norde-uat/shared/apps/*/.env
+```
 
 En tu máquina, generá un par exclusivo para este deploy:
 
@@ -248,7 +259,16 @@ En tu máquina, generá un par exclusivo para este deploy:
 ssh-keygen -t ed25519 -C "norde-uat-deploy" -f ~/.ssh/norde_uat_deploy -N ""
 ```
 
-Agregá la **pública** (`~/.ssh/norde_uat_deploy.pub`) en una línea nueva de `/root/.ssh/authorized_keys` del VPS. El VPS no necesita acceso a GitHub: el código llega por rsync.
+Agregá la **pública** (`~/.ssh/norde_uat_deploy.pub`) en `/home/norde/.ssh/authorized_keys` (carpeta `700`, archivo `600`, dueño `norde`), **no** en la de `root`. El VPS no necesita acceso a GitHub: el código llega por rsync.
+
+PM2 propio del usuario `norde` (no el de root), con arranque al reiniciar:
+
+```bash
+sudo -u norde -i bash -c 'PATH=/opt/node-24/bin:$PATH pm2 ping'
+env PATH=$PATH:/opt/node-24/bin pm2 startup systemd -u norde --hp /home/norde
+```
+
+**Migrar una instalación que corre como `root`:** hacé lo de arriba, bajá los procesos del PM2 de root (`pm2 delete norde-web norde-gestion norde-agent && pm2 save`), sacá la clave de deploy de `/root/.ssh/authorized_keys`, creá la variable `VPS_USER=norde` (§8) y volvé a correr el deploy: los levanta el PM2 de `norde`. Mientras `VPS_USER` no exista, el workflow sigue entrando como `root`.
 
 ### 8. GitHub
 
@@ -281,9 +301,20 @@ Y esta variable (no es secreta), que el build incrusta en el panel:
 | -------------------- | -------------------------------------------------------------------------- |
 | `SENTRY_DSN_GESTION` | el DSN del proyecto `norde-propiedades` en Sentry (Settings → Client Keys) |
 
-Sin ellos el deploy anda igual, pero el panel no reporta errores a Sentry.
+Sin ellos el deploy anda igual, pero el panel no reporta errores a Sentry. El token de Sentry va con el alcance mínimo para subir source maps (`project:releases`), no uno de organización.
 
-Opcional: en el entorno, limitá los _deployment branches_ a `uat`.
+En Settings → Secrets and variables → Actions → **Variables** del repositorio (no del entorno: el workflow la lee antes de entrar al job):
+
+| Variable   | Valor                                 |
+| ---------- | ------------------------------------- |
+| `VPS_USER` | `norde` (sin ella, entra como `root`) |
+
+**Obligatorio** en el entorno `uat`:
+
+- _Deployment branches and tags_ → **Selected branches** → solo `uat`. Sin esto, cualquier rama que declare `environment: uat` usa `VPS_SSH_KEY`.
+- _Required reviewers_: al menos una persona. El deploy queda esperando aprobación en Actions.
+
+Y en Settings → Branches, protección de `uat` y `main`: sin push forzado ni borrado, y con el check de CI requerido.
 
 ### 9. Rama y primer deploy
 
@@ -306,6 +337,42 @@ El primer editor del sitio (`/admin` de Payload) solo se puede crear con `PAYLOA
 
 `pm2 startup` ya está configurado por los otros proyectos, y el deploy corre `pm2 save`: los procesos vuelven solos si el VPS se reinicia.
 
+## Backups
+
+`scripts/ops/backup-db.sh` hace `pg_dump` (formato custom) de `norde_uat` en `/var/backups/norde-uat`:
+
+- **`pre-deploy`**: lo corre el deploy antes de las migraciones. Si falla, el deploy se corta sin migrar.
+- **`daily`**: la base más los archivos subidos (`/var/www/norde-uat-storage` y `apps/web/media`). Va por cron del usuario `norde`.
+
+Se borran los de más de `BACKUP_KEEP_DAYS` días (14 por defecto). Con `BACKUP_S3_URI`, cada archivo se copia además fuera del servidor (necesita la CLI de AWS y una clave IAM aparte, solo con `s3:PutObject` sobre esa carpeta; no la del storage de fotos).
+
+Cron (`sudo -u norde crontab -e`), todos los días a las 4 (hora del servidor):
+
+```bash
+0 4 * * * BACKUP_S3_URI=s3://apzsoftware.online/norde-uat-backups /var/www/norde-uat/current/scripts/ops/backup-db.sh daily >> /var/backups/norde-uat/backup.log 2>&1
+```
+
+**Restaurar** (con las apps bajadas):
+
+```bash
+pm2 stop norde-web norde-gestion norde-agent
+DATABASE_URL="$(grep -E '^DATABASE_URL=' /var/www/norde-uat/shared/apps/gestion/.env | cut -d= -f2-)"
+pg_restore --clean --if-exists --no-owner --dbname="$DATABASE_URL" /var/backups/norde-uat/db-daily-AAAAMMDDTHHMMSSZ.dump
+tar -xzf /var/backups/norde-uat/files-AAAAMMDDTHHMMSSZ.tar.gz -C /   # archivos subidos, si hace falta
+pm2 start norde-web norde-gestion norde-agent
+```
+
+Probá una restauración en una base aparte cada tanto: un backup que nunca se restauró no está probado.
+
+## Chequeos de seguridad del servidor
+
+No se ven desde el repo; revisalos al hacer el setup y después de cambios en el VPS:
+
+- Las apps escuchan solo en `127.0.0.1` (`ss -ltnp | grep -E ':302[0-2]'`). Igual, el firewall bloquea 3020 a 3022 desde afuera (`ufw status`) y Postgres escucha solo en localhost (`listen_addresses` en `postgresql.conf`).
+- Los `.env` tienen permisos `600` y dueño `norde`; `PAYLOAD_SECRET` y los demás secretos no son los de `.env.example`.
+- No hay source maps públicos de gestión: `find apps/gestion/.next/static -name '*.map'` no devuelve nada.
+- Si `norde_uat` tiene datos reales de clientes (import de Tokko, leads de portales), UAT es producción de hecho: backups, usuario propio y entorno protegido no son opcionales.
+
 ## Diagnóstico
 
 ```bash
@@ -313,4 +380,11 @@ pm2 logs norde-gestion --lines 100
 pm2 logs norde-agent --lines 100
 cat /var/www/norde-uat/current/DEPLOYED_SHA.txt
 ls -lt /var/www/norde-uat/releases
+```
+
+**Eventos del outbox agotados** (Sentry: "Outbox has N exhausted events"): el relay los reintentó 20 veces sin poder publicarlos, y nadie reaccionó a ellos (portales, sitio, notificaciones). Revisá `last_error`, arreglá la causa y reintentalos:
+
+```sql
+select id, event_type, attempts, last_error from core.outbox where published_at is null and attempts >= 20;
+update core.outbox set attempts = 0, next_attempt_at = null where published_at is null and attempts >= 20;
 ```

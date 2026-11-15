@@ -8,7 +8,7 @@ import {
   type DevelopmentId,
   type DevelopmentRepository,
 } from '@norde/core/properties';
-import { parseId, type Result } from '@norde/core/shared';
+import { parseId, type OwnerBranchMove, type Result } from '@norde/core/shared';
 import { and, asc, count, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -60,6 +60,26 @@ export class DrizzleDevelopmentRepository implements DevelopmentRepository {
   async findById(id: DevelopmentId): Promise<Development | undefined> {
     const [row] = await this.db.select().from(developments).where(eq(developments.id, id)).limit(1);
     return row ? this.restore(row) : undefined;
+  }
+
+  async moveOwnerBranch(move: OwnerBranchMove): Promise<readonly DevelopmentId[]> {
+    const batch = this.db
+      .select({ id: developments.id })
+      .from(developments)
+      .where(
+        and(
+          eq(developments.producerUserId, move.ownerId),
+          eq(developments.branchId, move.fromBranchId),
+        ),
+      )
+      .orderBy(asc(developments.id))
+      .limit(move.limit);
+    const moved = await this.db
+      .update(developments)
+      .set({ branchId: move.toBranchId, updatedAt: move.now, updatedBy: move.actorId })
+      .where(inArray(developments.id, batch))
+      .returning({ id: developments.id });
+    return moved.map((row) => stored(parseId<'Development'>(row.id)));
   }
 
   /** Por `developments_code_uq`. */

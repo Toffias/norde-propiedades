@@ -1,3 +1,4 @@
+import type { OwnerBranchMove } from '../../shared/domain/owner-branch-move';
 import type { Development, DevelopmentId } from './development';
 
 export interface DevelopmentRepository {
@@ -10,4 +11,6 @@ export interface DevelopmentRepository {
   /** Cuántas de esas unidades están disponibles (estado `available`). */
   countAvailableUnits(id: DevelopmentId): Promise<number>;
   save(development: Development, actorId: string): Promise<void>;
+  /** Mueve un lote de los de un dueño a su sucursal nueva (#221). Devuelve los IDs movidos. */
+  moveOwnerBranch(move: OwnerBranchMove): Promise<readonly DevelopmentId[]>;
 }

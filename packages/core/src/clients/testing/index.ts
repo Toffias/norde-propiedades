@@ -1,6 +1,15 @@
 // Fakes del módulo clients para tests (`@norde/core/clients/testing`).
 
-import { Actor, Email, parseId, Phone, pickWeighted, type WeightedAgent } from '../../shared';
+import {
+  Actor,
+  Email,
+  parseId,
+  Phone,
+  pickWeighted,
+  type OwnerBranchMove,
+  type Result,
+  type WeightedAgent,
+} from '../../shared';
 import {
   InMemoryAuditLog,
   InMemoryEventPublisher,
@@ -19,6 +28,7 @@ import type {
   OpportunityStageCount,
   FollowUpListingProfile,
   PropertyInterestProfile,
+  RegisterContactOutput,
 } from '../contracts';
 import type {
   FollowUpCandidatesQuery,
@@ -27,6 +37,7 @@ import type {
   FollowUpListings,
   FollowUpSearchCandidate,
 } from '../application/ports/follow-up-ports';
+import type { ContactChannel } from '../domain/contact-channel';
 import type { FollowUpMatch, FollowUpMatchId } from '../domain/follow-up-match';
 import { SearchSubscription, type SearchSubscriptionSnapshot } from '../domain/search-subscription';
 import type { DefaultAssignee } from '../application/ports/default-assignee';
@@ -229,6 +240,24 @@ export class InMemoryClientRepository implements ClientRepository {
     this.savedBy.set(client.id, actorId);
     return Promise.resolve();
   }
+
+  countReachedThrough(channel: ContactChannel, externalId: string) {
+    return Promise.resolve(
+      [...this.rows.values()].filter((row) =>
+        row.channels.some((c) => c.channel === channel && c.externalId === externalId),
+      ).length,
+    );
+  }
+
+  moveOwnerBranch(move: OwnerBranchMove) {
+    const moved = [...this.rows.values()]
+      .filter((row) => row.agentId === move.ownerId && row.branchId === move.fromBranchId)
+      .slice(0, move.limit);
+    for (const row of moved) {
+      this.rows.set(row.id, { ...row, branchId: move.toBranchId, updatedAt: move.now });
+    }
+    return Promise.resolve(moved.map((row) => row.id));
+  }
 }
 
 export class InMemoryOpportunityRepository implements OpportunityRepository {
@@ -261,6 +290,16 @@ export class InMemoryOpportunityRepository implements OpportunityRepository {
 
   hasStatusChangeFrom(sourceEventId: string) {
     return Promise.resolve(this.statusChanges.some((c) => c.sourceEventId === sourceEventId));
+  }
+
+  moveOwnerBranch(move: OwnerBranchMove) {
+    const moved = [...this.rows.values()]
+      .filter((row) => row.agentId === move.ownerId && row.branchId === move.fromBranchId)
+      .slice(0, move.limit);
+    for (const row of moved) {
+      this.rows.set(row.id, { ...row, branchId: move.toBranchId, updatedAt: move.now });
+    }
+    return Promise.resolve(moved.map((row) => row.id));
   }
 }
 
@@ -2003,4 +2042,13 @@ export class StubInquiryRuleQuery implements InquiryRuleQuery {
       total: this.items.length,
     });
   }
+}
+
+/** Lo que devolvió `RegisterContact` cuando registró al cliente; falla si quedó para revisión. */
+export function registeredContact<E>(
+  result: Result<RegisterContactOutput, E>,
+): Extract<RegisterContactOutput, { readonly status: 'registered' }> {
+  if (result.isErr()) throw new Error(`Expected Ok: ${JSON.stringify(result.error)}`);
+  if (result.value.status !== 'registered') throw new Error('Expected a registered contact');
+  return result.value;
 }

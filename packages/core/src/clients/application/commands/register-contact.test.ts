@@ -10,6 +10,7 @@ import {
   InMemoryInquiryPropertyLookup,
   seedClient,
   stageFixtureId,
+  registeredContact,
 } from '../../testing';
 
 import { RegisterContact } from './register-contact';
@@ -66,7 +67,7 @@ describe('RegisterContact', () => {
       'inquiry.received',
     ]);
     const [clientEntry, opportunityEntry] = uow.audit.entries;
-    const clientId = result.isOk() ? result.value.clientId : '';
+    const clientId = registeredContact(result).clientId;
     expect(clientEntry).toEqual({
       kind: 'created',
       actorId: 'system:agent-ia',
@@ -142,7 +143,7 @@ describe('RegisterContact', () => {
       agent,
     );
 
-    expect(result.isOk() && result.value.clientCreated).toBe(false);
+    expect(registeredContact(result).clientCreated).toBe(false);
     expect(uow.clients.rows.size).toBe(1);
     const [client] = [...uow.clients.rows.values()];
     expect(client?.channels.map((c) => c.channel)).toEqual(['whatsapp', 'web_form']);
@@ -192,7 +193,7 @@ describe('RegisterContact', () => {
       agent,
     );
 
-    expect(result.isOk() && result.value.clientCreated).toBe(false);
+    expect(registeredContact(result).clientCreated).toBe(false);
     const withEmail = [...uow.clients.rows.values()].filter((c) =>
       c.emails.some((e) => e.email.value === 'bruno@mail.com'),
     );
@@ -211,7 +212,7 @@ describe('RegisterContact', () => {
 
     const result = await useCase.execute(whatsappContact(), agent);
 
-    expect(result.isOk() && result.value.opportunityCreated).toBe(false);
+    expect(registeredContact(result).opportunityCreated).toBe(false);
     expect(uow.opportunities.rows.size).toBe(1);
     expect([...uow.opportunities.rows.values()][0]?.intent).toBe('visit');
     expect(uow.events.published.at(-1)?.type).toBe('clients.opportunity_request_added');
@@ -308,7 +309,7 @@ describe('RegisterContact leaves the inquiry in the inbox (#45)', () => {
       neighborhood: 'Mataderos',
     });
 
-    const { opportunityId } = unwrap(
+    const { opportunityId } = registeredContact(
       await useCase.execute(
         whatsappContact({
           opportunity: {
@@ -357,7 +358,7 @@ describe('RegisterContact leaves the inquiry in the inbox (#45)', () => {
       branchId: BRANCH_ID,
     });
 
-    const { opportunityId } = unwrap(await useCase.execute(whatsappContact(), agent));
+    const { opportunityId } = registeredContact(await useCase.execute(whatsappContact(), agent));
 
     const [inquiry] = [...uow.inquiries.rows.values()];
     expect(inquiry).toMatchObject({
@@ -394,5 +395,86 @@ describe('RegisterContact leaves the inquiry in the inbox (#45)', () => {
       'inquiry.received',
       'inquiry.assigned',
     ]);
+  });
+});
+
+describe('RegisterContact from the site chat, with contact data nobody verified (#221)', () => {
+  const SESSION = 'web-session-1';
+
+  function webChatContact(overrides: Partial<RegisterContactInput> = {}): RegisterContactInput {
+    return {
+      channel: 'web_chat',
+      channelExternalId: SESSION,
+      phone: '+5491166899124',
+      name: 'Otro nombre',
+      email: 'nuevo@ejemplo.com',
+      opportunity: { type: 'rent', intent: 'visit', note: 'Quiere visitar' },
+      ...overrides,
+    };
+  }
+
+  it('does not touch a client of another conversation: only a pending inquiry is left', async () => {
+    const { uow, useCase } = setup();
+    const client = await seedClient(uow, { name: 'Cliente real', deleted: true });
+    const before = uow.clients.rows.get(client.id);
+    uow.audit.entries.splice(0);
+    uow.events.published.splice(0);
+
+    const result = await useCase.execute(webChatContact(), agent);
+
+    const output = unwrap(result);
+    expect(output.status).toBe('pending_review');
+    expect(uow.clients.rows.get(client.id)).toEqual(before);
+    expect(uow.opportunities.rows.size).toBe(0);
+    const [inquiry] = [...uow.inquiries.rows.values()];
+    expect(inquiry).toMatchObject({
+      status: 'pending',
+      channel: 'web_chat',
+      opportunityId: undefined,
+      clientId: undefined,
+    });
+    expect(output.status === 'pending_review' && output.inquiryId).toBe(inquiry?.id);
+    expect(uow.audit.entries.map((e) => e.action)).toEqual(['inquiry.received']);
+    expect(uow.events.published.map((e) => e.type)).toEqual(['clients.inquiry_received']);
+  });
+
+  it('registers normally the client that this same conversation created', async () => {
+    const { uow, useCase } = setup();
+    registeredContact(await useCase.execute(webChatContact({ email: undefined }), agent));
+
+    const again = registeredContact(
+      await useCase.execute(
+        webChatContact({ opportunity: { type: 'sale', intent: 'contact' } }),
+        agent,
+      ),
+    );
+
+    expect(again.clientCreated).toBe(false);
+    expect(uow.clients.rows.size).toBe(1);
+    expect(uow.opportunities.rows.size).toBe(2);
+  });
+
+  it('does not create a second client from the same conversation', async () => {
+    const { uow, useCase } = setup();
+    registeredContact(await useCase.execute(webChatContact({ email: undefined }), agent));
+
+    const second = unwrap(
+      await useCase.execute(
+        webChatContact({ phone: '+5491140001234', email: 'otra@ejemplo.com' }),
+        agent,
+      ),
+    );
+
+    expect(second.status).toBe('pending_review');
+    expect(uow.clients.rows.size).toBe(1);
+  });
+
+  it('keeps registering WhatsApp contacts against the existing client', async () => {
+    const { uow, useCase } = setup();
+    await seedClient(uow);
+
+    const result = registeredContact(await useCase.execute(whatsappContact(), agent));
+
+    expect(result.clientCreated).toBe(false);
   });
 });

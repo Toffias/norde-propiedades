@@ -28,6 +28,8 @@ export const outbox = coreSchema.table(
     publishedAt: timestamp('published_at', { withTimezone: true }),
     attempts: integer('attempts').notNull().default(0),
     lastError: text('last_error'),
+    /** Después de un fallo, no se reintenta antes de esto (backoff exponencial, #221). */
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
   },
   (t) => [
     index('outbox_pending_idx')

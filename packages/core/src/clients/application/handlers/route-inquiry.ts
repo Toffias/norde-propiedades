@@ -14,6 +14,7 @@ import {
   inquiryRoutingFacts,
   type InquiryAssignmentRule,
 } from '../../domain/inquiry-assignment-rule';
+import { contactDataIsVerified } from '../../domain/contact-verification';
 import { assignInquiryIn, senderKeys, type AgentRef } from '../inquiry-assignment';
 import { findInquiryForUpdate } from '../inquiry-support';
 import type { ClientAgents } from '../ports/client-agents';
@@ -36,7 +37,12 @@ export type InquiryRouteOutcome =
   | {
       readonly routed: false;
       readonly reason:
-        'not_found' | 'not_pending' | 'no_rule' | 'ambiguous_client' | 'no_active_agent';
+        | 'not_found'
+        | 'not_pending'
+        | 'no_rule'
+        | 'ambiguous_client'
+        | 'no_active_agent'
+        | 'needs_review';
     };
 
 /** Lo que eligió el reparto: por dónde y, si el contacto no tenía agente, a quién. */
@@ -58,6 +64,7 @@ interface RoutePick {
  * - Si el contacto ya tiene un agente activo, la oportunidad sigue con él y el reparto no avanza.
  *   Si no (o si su agente está suspendido), va al agente que toca por el reparto ponderado, entre
  *   los que siguen activos.
+ * - Las del chat del sitio sin oportunidad (datos sin verificar, #221) quedan pendientes.
  * - Sin chances ni regla, o sin ningún agente activo, queda pendiente. Un emprendimiento sin
  *   agentes activos deja la consulta a las reglas.
  *
@@ -89,6 +96,14 @@ export class RouteInquiry {
       const inquiry = await findInquiryForUpdate(tx.inquiries, event.inquiryId);
       if (!inquiry) return ok({ routed: false, reason: 'not_found' });
       if (inquiry.status !== 'pending') return ok({ routed: false, reason: 'not_pending' });
+      // Datos sin verificar que no quedaron en un cliente (#221): asignarla sola los cargaría en la
+      // ficha del que coincida. La revisa una persona.
+      if (
+        !contactDataIsVerified(inquiry.channel) &&
+        inquiry.toSnapshot().opportunityId === undefined
+      ) {
+        return ok({ routed: false, reason: 'needs_review' });
+      }
 
       const snapshot = inquiry.toSnapshot();
       const { developmentId } = snapshot;

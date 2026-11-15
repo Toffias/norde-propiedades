@@ -120,6 +120,45 @@ describe('User.assignRoles', () => {
   });
 });
 
+describe('User.updateProfile', () => {
+  const OTHER_BRANCH_ID = '00000000-0000-7000-8000-0000000000b2';
+
+  it('records the branch change, so their records move with them (#221)', () => {
+    const user = newUser();
+    user.pullEvents();
+
+    user.updateProfile(
+      {
+        name: 'Camila Pérez',
+        email: email('camila@norde.com.ar'),
+        phone: undefined,
+        branchId: OTHER_BRANCH_ID,
+      },
+      LATER,
+    );
+
+    expect(user.toSnapshot().branchId).toBe(OTHER_BRANCH_ID);
+    expect(user.pullEvents()).toEqual([
+      expect.objectContaining({
+        type: 'identity.user_branch_changed',
+        payload: { userId: ID, fromBranchId: BRANCH_ID, toBranchId: OTHER_BRANCH_ID },
+      }),
+    ]);
+  });
+
+  it('records nothing when the branch stays the same', () => {
+    const user = newUser();
+    user.pullEvents();
+
+    user.updateProfile(
+      { name: 'Otra', email: email('camila@norde.com.ar'), phone: undefined, branchId: BRANCH_ID },
+      LATER,
+    );
+
+    expect(user.pullEvents()).toEqual([]);
+  });
+});
+
 describe('User.setDefaultAssignee (#208)', () => {
   it('marks and unmarks, reporting whether it changed', () => {
     const user = newUser();

@@ -8,7 +8,10 @@ name: Deploy UAT
 # en el VPS para que `.next` no arrastre rutas del runner. Los procesos viejos siguen corriendo con
 # su carpeta intacta: se instala y se migra en el release nuevo, se mueve el link `current` (un
 # rename, atómico) y recién ahí se reinician los procesos. El release anterior queda en `previous`:
-# si la verificación falla, se vuelve a él solo.
+# si la verificación falla, se vuelve a él solo. Antes de migrar se hace un backup de la base.
+#
+# Solo despliega la rama `uat`: el environment `uat` (secrets del VPS) además está limitado a esa
+# rama y pide aprobación (docs/deploy.md §8). Un `workflow_dispatch` sobre otra rama no corre.
 
 on:
   workflow_call:
@@ -31,9 +34,12 @@ env:
   WEB_URL: https://landingnorde.apzsoftware.online
   GESTION_URL: https://gestionnorde.apzsoftware.online
   AGENT_URL: https://agentenorde.apzsoftware.online
+  # Usuario del VPS dueño de la carpeta y de su PM2 (docs/deploy.md §7). `root` hasta migrar.
+  VPS_USER: ${{ vars.VPS_USER || 'root' }}
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/uat'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     # Los secretos del deploy son del entorno `uat` (docs/deploy.md §8): solo este job los ve.
@@ -106,7 +112,7 @@ jobs:
           cat > ~/.ssh/config <<EOF
           Host vps
             HostName $VPS_HOST
-            User root
+            User $VPS_USER
             IdentityFile ~/.ssh/deploy_key
             IdentitiesOnly yes
             StrictHostKeyChecking yes
@@ -197,6 +203,9 @@ jobs:
 
             cd "$release"
             corepack pnpm install --frozen-lockfile
+
+            # Backup antes de migrar (docs/deploy.md, "Backups"): si falla, no se migra.
+            bash scripts/ops/backup-db.sh pre-deploy
 
             # Migraciones, en el orden de docs/arquitectura.md §10, antes del cambio: los procesos
             # viejos siguen andando con la base nueva (migraciones compatibles hacia atrás).

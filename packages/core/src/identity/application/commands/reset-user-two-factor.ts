@@ -7,12 +7,21 @@ import {
   type Result,
 } from '../../../shared';
 import { UserIdInputSchema, type UserIdInput } from '../../contracts';
+import {
+  ensureCanManageUser,
+  type UserHasMorePermissionsError,
+} from '../../domain/permission-escalation';
+import { holdsOf, userPermissionsOf } from '../permission-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import { userTarget, type InvalidInputError, type UserNotFoundError } from '../user-audit';
 import { findUser } from '../user-lookup';
 
 export type ResetUserTwoFactorError =
-  ForbiddenError | InvalidInputError | UserNotFoundError | { readonly type: 'TwoFactorNotEnabled' };
+  | ForbiddenError
+  | InvalidInputError
+  | UserNotFoundError
+  | UserHasMorePermissionsError
+  | { readonly type: 'TwoFactorNotEnabled' };
 
 /**
  * Un administrador le quita la verificación en dos pasos a un usuario que perdió el celular y los
@@ -33,6 +42,9 @@ export class ResetUserTwoFactor {
     return this.deps.uow.run(async (tx): Promise<Result<void, ResetUserTwoFactorError>> => {
       const user = await findUser(tx.users, parsed.data.userId);
       if (!user) return err({ type: 'UserNotFound' });
+      // Con un permiso delegado no se toca a quien tiene más permisos (#221).
+      const managed = ensureCanManageUser(await userPermissionsOf(tx.roles, user), holdsOf(actor));
+      if (managed.isErr()) return err(managed.error);
       if (!(await tx.credentials.hasTwoFactor(user.id))) {
         return err({ type: 'TwoFactorNotEnabled' });
       }

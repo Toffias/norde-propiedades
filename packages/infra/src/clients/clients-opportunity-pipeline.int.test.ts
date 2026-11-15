@@ -10,6 +10,7 @@ import {
   type OpportunityPipelineQuery,
 } from '@norde/core/clients';
 import { Actor, type Result } from '@norde/core/shared';
+import { registeredContact } from '@norde/core/clients/testing';
 import { FixedClock } from '@norde/core/shared/testing';
 import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -419,7 +420,7 @@ describe('opportunity actions persistence', () => {
   }
 
   async function registerAna() {
-    return unwrap(
+    return registeredContact(
       await new RegisterContact({ uow, properties: noProperties, ids, clock }).execute(
         {
           channel: 'whatsapp',

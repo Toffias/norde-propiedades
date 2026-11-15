@@ -14,8 +14,13 @@ import {
   type Result,
 } from '../../../shared';
 import { CreateUserInputSchema, type CreateUserInput } from '../../contracts';
+import {
+  ensureGrantsHeld,
+  type PermissionEscalationError,
+} from '../../domain/permission-escalation';
 import { User, type UserNeedsRoleError } from '../../domain/user';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
+import { holdsOf, permissionsOf } from '../permission-guard';
 import type { PasswordHasher } from '../ports/password-hasher';
 import {
   userAuditState,
@@ -34,9 +39,13 @@ export type CreateUserError =
   | EmailTakenError
   | RoleNotFoundError
   | BranchNotFoundError
-  | UserNeedsRoleError;
+  | UserNeedsRoleError
+  | PermissionEscalationError;
 
-/** Alta de un usuario del panel con una contraseña temporal y sus roles. */
+/**
+ * Alta de un usuario del panel con una contraseña temporal y sus roles. Sus roles no pueden dar
+ * permisos que quien lo crea no tiene (#221): con `users:create` no se crea un administrador.
+ */
 export class CreateUser {
   constructor(
     private readonly deps: {
@@ -77,6 +86,8 @@ export class CreateUser {
         if (data.roleIds.some((id) => !existing.includes(id))) return err({ type: 'RoleNotFound' });
         const branches = await tx.branches.findExistingIds([data.branchId]);
         if (branches.length === 0) return err({ type: 'BranchNotFound' });
+        const held = ensureGrantsHeld(await permissionsOf(tx.roles, data.roleIds), holdsOf(actor));
+        if (held.isErr()) return err(held.error);
 
         const created = User.create({
           id: nextId<'User'>(this.deps.ids),

@@ -9,7 +9,13 @@ import {
   type IdGenerator,
   type Result,
 } from '../../../shared';
+import {
+  ensureGrantsHeld,
+  type PermissionEscalationError,
+} from '../../domain/permission-escalation';
+import { AGENT_ROLE_KEY } from '../../domain/role';
 import { TokkoUsersImport } from '../../domain/tokko-users-import';
+import { holdsOf } from '../permission-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 
 /** No hay una API key de Tokko configurada. */
@@ -17,7 +23,8 @@ export interface TokkoUsersNotConfiguredError {
   readonly type: 'TokkoApiNotConfigured';
 }
 
-export type StartTokkoUsersImportError = ForbiddenError | TokkoUsersNotConfiguredError;
+export type StartTokkoUsersImportError =
+  ForbiddenError | TokkoUsersNotConfiguredError | PermissionEscalationError;
 
 /**
  * Pide traer los usuarios de Tokko (#17): los crea un job (`identity.tokko_users_import_requested`),
@@ -47,7 +54,16 @@ export class StartTokkoUsersImport {
       requestedBy: actor.id,
       now: this.deps.clock.now(),
     });
-    await this.deps.uow.run(async (tx) => {
+    return this.deps.uow.run(async (tx): Promise<Result<void, StartTokkoUsersImportError>> => {
+      // Los usuarios se crean con el rol Agente: quien lo pide tiene que tener sus permisos (#221).
+      const agentRole = await tx.roles.findByKey(AGENT_ROLE_KEY);
+      if (agentRole) {
+        const held = ensureGrantsHeld(
+          { granted: agentRole.toSnapshot().permissions, denied: [] },
+          holdsOf(actor),
+        );
+        if (held.isErr()) return err(held.error);
+      }
       await tx.tokkoUsersImports.save(job, actor.id);
       await tx.events.publish(job.pullEvents());
       await tx.audit.record(
@@ -62,7 +78,7 @@ export class StartTokkoUsersImport {
           { status: { before: null, after: 'requested' } },
         ),
       );
+      return ok(undefined);
     });
-    return ok(undefined);
   }
 }

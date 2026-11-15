@@ -21,7 +21,18 @@ export type UserPermissionsChanged = DomainEvent<
   { readonly userId: string }
 >;
 
+/**
+ * Pasó a otra sucursal (#221). Lo que guarda una copia de la sucursal del dueño (contactos,
+ * oportunidades, propiedades, emprendimientos) se mueve con él, para que las reglas "de su
+ * sucursal" sigan valiendo.
+ */
+export type UserBranchChanged = DomainEvent<
+  'identity.user_branch_changed',
+  { readonly userId: string; readonly fromBranchId: string; readonly toBranchId: string }
+>;
+
 export type UserEvent =
+  | UserBranchChanged
   | UserPermissionsChanged
   | UserCreated
   | UserRolesChanged

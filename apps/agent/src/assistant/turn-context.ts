@@ -59,8 +59,13 @@ export interface CustomerTurnContext {
   photo: { readonly url: string; readonly propertyId: string } | undefined;
   /** Opciones cerradas para responder con botones. */
   buttons: readonly { readonly id: string; readonly title: string }[] | undefined;
-  /** Cliente y oportunidad registrados en este turno. */
-  registration: { readonly clientId: string; readonly opportunityId: string } | undefined;
+  /**
+   * Lo registrado en este turno. Sin cliente cuando los datos del chat del sitio apuntaban a un
+   * cliente de otra charla: quedó una consulta para revisar y la conversación no se vincula (#221).
+   */
+  registration:
+    | { readonly clientId: string | undefined; readonly opportunityId: string | undefined }
+    | undefined;
   /** Hay un registro en curso: el modelo puede llamar a la tool dos veces en paralelo. */
   registering: boolean;
 }

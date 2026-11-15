@@ -14,6 +14,7 @@ import {
   type ClientId,
   type ClientRepository,
   type ClientSnapshot,
+  type ContactChannel,
   type ContactKeys,
   REFERRAL_RESULTS,
   type OpportunityId,
@@ -96,6 +97,14 @@ export class DrizzleClientRepository implements ClientRepository {
 
   findById(id: ClientId) {
     return this.findOneWhere(eq(clients.id, id));
+  }
+
+  async countReachedThrough(channel: ContactChannel, externalId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ count: sql<number>`count(distinct ${clientChannels.clientId})::int` })
+      .from(clientChannels)
+      .where(and(eq(clientChannels.channel, channel), eq(clientChannels.externalId, externalId)));
+    return row?.count ?? 0;
   }
 
   async moveOwnerBranch(move: OwnerBranchMove): Promise<readonly ClientId[]> {

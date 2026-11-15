@@ -402,6 +402,11 @@ export class Client extends AggregateRoot<ClientId, ClientEvent> {
     );
   }
 
+  /** Ya se comunicó por esta identidad del canal (el mismo número, la misma sesión de chat). */
+  isReachedThrough(channel: ContactChannel, externalId: string): boolean {
+    return this.#state.channels.some((c) => c.channel === channel && c.externalId === externalId);
+  }
+
   /** Registra que el cliente se comunicó por un canal: lo agrega o actualiza la última interacción. */
   recordContact(channel: ContactChannel, externalId: string, now: Date): void {
     const existing = this.#state.channels.find(

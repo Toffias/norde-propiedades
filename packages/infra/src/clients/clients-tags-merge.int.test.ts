@@ -9,6 +9,7 @@ import {
   RegisterContact,
 } from '@norde/core/clients';
 import { Actor, parseId } from '@norde/core/shared';
+import { registeredContact } from '@norde/core/clients/testing';
 import { FixedClock } from '@norde/core/shared/testing';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -319,7 +320,7 @@ describe('MergeClients (Postgres)', () => {
       Actor.system('agent-ia', ['clients:create', 'inquiries:receive']),
     );
     if (registered.isErr()) throw new Error(registered.error.type);
-    const duplicate = registered.value.clientId;
+    const duplicate = registeredContact(registered).clientId;
     const acme = await createClient('Acme', '+541147770001', { kind: 'company' });
     const tag = await createTag('Zonaprop');
     await tagClient(duplicate, [tag]);

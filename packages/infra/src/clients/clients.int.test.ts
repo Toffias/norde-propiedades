@@ -4,6 +4,7 @@ import {
   type RegisterContactInput,
 } from '@norde/core/clients';
 import { Actor, err, ok, Phone, type AuditEntry } from '@norde/core/shared';
+import { registeredContact } from '@norde/core/clients/testing';
 import { FixedClock } from '@norde/core/shared/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -71,7 +72,7 @@ describe('clients persistence', () => {
         action: 'client.registered',
         source: 'agent',
         correlationId: 'wamid.1',
-        clientIds: [result.value.clientId],
+        clientIds: [registeredContact(result).clientId],
         changes: {
           phones: { before: null, after: [{ kind: 'mobile', number: '+5491166899124' }] },
         },
@@ -80,14 +81,14 @@ describe('clients persistence', () => {
       { action: 'inquiry.received', clientIds: [] },
       {
         action: 'opportunity.opened',
-        clientIds: [result.value.clientId],
+        clientIds: [registeredContact(result).clientId],
         // Los centavos se guardan crudos, marcados para recuperar el bigint (`toJsonb`).
         changes: { search: { after: { maxPriceCents: { $bigint: '80000000' } } } },
       },
     ]);
 
     const opportunity = await new DrizzleOpportunityRepository(db).findById(
-      result.value.opportunityId as OpportunityId,
+      registeredContact(result).opportunityId as OpportunityId,
     );
     expect(opportunity?.toSnapshot()).toMatchObject({
       type: 'rent',
@@ -127,10 +128,27 @@ describe('clients persistence', () => {
       agent,
     );
 
-    expect(second.isOk() && second.value.clientCreated).toBe(false);
+    expect(registeredContact(second).clientCreated).toBe(false);
     expect(await db.select().from(clients)).toMatchObject([{ email: 'ana@mail.com' }]);
     expect(await db.select().from(clientChannels)).toHaveLength(2);
     expect(await db.select().from(opportunities)).toHaveLength(2);
+  });
+
+  it('counts the clients of a site chat and sends a second one to review (#221)', async () => {
+    const webChat: RegisterContactInput = {
+      ...whatsapp,
+      channel: 'web_chat',
+      channelExternalId: 'web-session-1',
+    };
+    registeredContact(await registerContact.execute(webChat, agent));
+
+    const second = await registerContact.execute(
+      { ...webChat, phone: '+5491140001234', name: 'Otra' },
+      agent,
+    );
+
+    expect(second.isOk() && second.value.status).toBe('pending_review');
+    expect(await db.select().from(clients)).toHaveLength(1);
   });
 
   it('rolls back everything written when the work returns an Err', async () => {

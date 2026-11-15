@@ -7,6 +7,7 @@ import {
   Phone,
   pickWeighted,
   type OwnerBranchMove,
+  type Result,
   type WeightedAgent,
 } from '../../shared';
 import {
@@ -27,6 +28,7 @@ import type {
   OpportunityStageCount,
   FollowUpListingProfile,
   PropertyInterestProfile,
+  RegisterContactOutput,
 } from '../contracts';
 import type {
   FollowUpCandidatesQuery,
@@ -35,6 +37,7 @@ import type {
   FollowUpListings,
   FollowUpSearchCandidate,
 } from '../application/ports/follow-up-ports';
+import type { ContactChannel } from '../domain/contact-channel';
 import type { FollowUpMatch, FollowUpMatchId } from '../domain/follow-up-match';
 import { SearchSubscription, type SearchSubscriptionSnapshot } from '../domain/search-subscription';
 import type { DefaultAssignee } from '../application/ports/default-assignee';
@@ -236,6 +239,14 @@ export class InMemoryClientRepository implements ClientRepository {
     this.rows.set(client.id, client.toSnapshot());
     this.savedBy.set(client.id, actorId);
     return Promise.resolve();
+  }
+
+  countReachedThrough(channel: ContactChannel, externalId: string) {
+    return Promise.resolve(
+      [...this.rows.values()].filter((row) =>
+        row.channels.some((c) => c.channel === channel && c.externalId === externalId),
+      ).length,
+    );
   }
 
   moveOwnerBranch(move: OwnerBranchMove) {
@@ -2025,4 +2036,13 @@ export class StubInquiryRuleQuery implements InquiryRuleQuery {
       total: this.items.length,
     });
   }
+}
+
+/** Lo que devolvió `RegisterContact` cuando registró al cliente; falla si quedó para revisión. */
+export function registeredContact<E>(
+  result: Result<RegisterContactOutput, E>,
+): Extract<RegisterContactOutput, { readonly status: 'registered' }> {
+  if (result.isErr()) throw new Error(`Expected Ok: ${JSON.stringify(result.error)}`);
+  if (result.value.status !== 'registered') throw new Error('Expected a registered contact');
+  return result.value;
 }

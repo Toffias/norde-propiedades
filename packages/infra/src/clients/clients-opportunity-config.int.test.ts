@@ -11,6 +11,7 @@ import {
   UpdateOpportunitySettings,
 } from '@norde/core/clients';
 import { Actor, type Result } from '@norde/core/shared';
+import { registeredContact } from '@norde/core/clients/testing';
 import { FixedClock } from '@norde/core/shared/testing';
 import { asc, eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -45,7 +46,7 @@ function unwrap<T, E>(result: Result<T, E>): T {
 }
 
 async function registerAna() {
-  return unwrap(
+  return registeredContact(
     await new RegisterContact({ uow, properties: noProperties, ids, clock }).execute(
       {
         channel: 'whatsapp',

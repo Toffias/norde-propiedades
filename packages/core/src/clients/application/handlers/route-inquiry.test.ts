@@ -401,3 +401,18 @@ describe('RouteInquiry', () => {
     });
   });
 });
+
+describe('RouteInquiry with contact data nobody verified (#221)', () => {
+  it('leaves a site chat inquiry without opportunity for a person to review', async () => {
+    const { uow, route, inquiry } = setup();
+    await seedClient(uow, { agentId: AGENT_ID, branchId: BRANCH_ID });
+    await seedInquiryRule(uow);
+    const inquiryId = await inquiry({ channel: 'web_chat' });
+
+    const outcome = unwrap(await route.execute({ inquiryId }, SCHEDULER));
+
+    expect(outcome).toEqual({ routed: false, reason: 'needs_review' });
+    expect(uow.inquiries.rows.get(inquiryId)?.status).toBe('pending');
+    expect(uow.opportunities.rows.size).toBe(0);
+  });
+});

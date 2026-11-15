@@ -105,10 +105,12 @@ export function registerClientTool(deps: AssistantToolDeps) {
         return { ok: false, reason: REASONS[result.error.type] };
       }
 
-      context.registration = {
-        clientId: result.value.clientId,
-        opportunityId: result.value.opportunityId,
-      };
+      // Para el visitante es igual: un asesor lo va a contactar. Con datos que apuntaban a otro
+      // cliente, la conversación no queda vinculada a nadie hasta que una persona lo revise.
+      context.registration =
+        result.value.status === 'registered'
+          ? { clientId: result.value.clientId, opportunityId: result.value.opportunityId }
+          : { clientId: undefined, opportunityId: undefined };
       // No se le dice al modelo si el cliente ya existía: en el chat del sitio el teléfono o el
       // email los escribe cualquiera, y así se podría averiguar quién es cliente de Norde.
       return { ok: true };

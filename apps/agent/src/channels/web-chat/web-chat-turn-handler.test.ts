@@ -8,6 +8,7 @@ import { RegisterContact } from '@norde/core/clients';
 import {
   InMemoryClientsUnitOfWork,
   InMemoryInquiryPropertyLookup,
+  seedClient,
 } from '@norde/core/clients/testing';
 import { ReceiveInboundMessages, SendReply, type UsageLimits } from '@norde/core/conversations';
 import {
@@ -335,6 +336,45 @@ describe('WebChatTurnHandler', () => {
     const toolOutputs = JSON.stringify(ctx.model.lastCall?.request.input);
     expect(toolOutputs).toContain('ya quedó registrado');
     expect(toolOutputs).not.toContain('alreadyKnownClient');
+  });
+
+  it('does not touch nor link a client of another conversation whose email the visitor typed (#221)', async () => {
+    const ctx = setup();
+    const existing = await seedClient(ctx.clients, {
+      name: 'Cliente real',
+      emails: ['real@example.com'],
+      deleted: true,
+    });
+    const before = ctx.clients.clients.rows.get(existing.id);
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'register_client',
+          {
+            type: 'rent',
+            intent: 'contact',
+            name: 'Impostor',
+            email: 'real@example.com',
+            phone: null,
+            propertyId: null,
+            notes: null,
+            noMatchingStock: false,
+          },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Listo, un asesor te va a escribir.')],
+    );
+
+    await ctx.handler.handle(ctx.message('soy real@example.com'));
+
+    expect(ctx.clients.clients.rows.get(existing.id)).toEqual(before);
+    expect(ctx.clients.opportunities.rows.size).toBe(0);
+    expect(ctx.conversation()?.clientId).toBeUndefined();
+    expect([...ctx.clients.inquiries.rows.values()]).toMatchObject([
+      { channel: 'web_chat', status: 'pending', opportunityId: undefined },
+    ]);
+    expect(JSON.stringify(ctx.model.lastCall?.request.input)).not.toContain('Cliente real');
   });
 
   it('returns a fallback when the agent fails, and unavailable once the breaker opens', async () => {

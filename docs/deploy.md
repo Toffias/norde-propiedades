@@ -281,7 +281,7 @@ En `Toffias/norde-propiedades` → Settings → Environments, creá el entorno *
 | `VPS_KNOWN_HOSTS`   | las líneas de `known_hosts` del VPS, verificadas (ver abajo)       |
 | `SENTRY_AUTH_TOKEN` | token de Sentry para subir los source maps de `gestion` (ADR 0049) |
 
-Tienen que ser secrets **del entorno `uat`**, no del repo: CI no le pasa secretos al workflow de deploy (sin `secrets: inherit`) y los lee el job que declara el entorno. Si falta uno de los tres del VPS, el deploy se corta en el primer paso.
+Tienen que ser secrets **del entorno `uat`**, no del repo. CI llama al deploy con `secrets: inherit`: sin eso, el workflow reutilizable los recibe vacíos aunque estén cargados en el entorno. Si falta uno de los tres del VPS, el deploy se corta en el primer paso.
 
 **`VPS_KNOWN_HOSTS`**: el deploy no confía en la primera clave que responda (`ssh-keyscan` en cada corrida), usa esta. Para armarla:
 

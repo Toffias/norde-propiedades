@@ -149,9 +149,10 @@ jobs:
 
   # Un push a `uat` que pasa CI (e2e incluidos) se publica en el VPS (docs/deploy.md). Va como
   # workflow reutilizable y no con `workflow_run`, que solo dispara desde la rama por defecto.
-  # Sin `secrets: inherit`: los secretos del deploy son del entorno `uat` y los lee el job que lo
-  # declara; los demás secretos del repo no llegan al deploy.
+  # `secrets: inherit` hace falta aunque los secretos sean del entorno `uat`: sin él, el workflow
+  # reutilizable los recibe vacíos y el deploy se corta en el primer paso.
   deploy-uat:
     needs: [check, integration, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/uat'
     uses: ./.github/workflows/deploy-uat.yml
+    secrets: inherit

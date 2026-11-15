@@ -17,6 +17,13 @@ import type {
   SuspendedDefaultAssigneeError,
   UserNeedsRoleError,
 } from '../../domain/user';
+import {
+  ensureCanManageUser,
+  ensureGrantsHeld,
+  type PermissionEscalationError,
+  type UserHasMorePermissionsError,
+} from '../../domain/permission-escalation';
+import { holdsOf, userPermissionsOf } from '../permission-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
@@ -40,12 +47,17 @@ export type UpdateUserError =
   | BranchNotFoundError
   | UserNeedsRoleError
   | CannotChangeOwnRolesError
-  | SuspendedDefaultAssigneeError;
+  | SuspendedDefaultAssigneeError
+  | UserHasMorePermissionsError
+  | PermissionEscalationError;
 
 /**
  * Edita los datos de un usuario, sus roles y si es el asesor por defecto (#208). Marcarlo como
  * asesor por defecto se lo saca al que lo era, que también queda en su historial. Sin cambios, no
  * se guarda ni se audita nada.
+ *
+ * Quien edita tiene que tener todo lo que el usuario tiene, y los roles nuevos solo pueden sumar
+ * permisos que quien edita tiene (#221).
  */
 export class UpdateUser {
   constructor(private readonly deps: { readonly uow: IdentityUnitOfWork; readonly clock: Clock }) {}
@@ -72,6 +84,9 @@ export class UpdateUser {
     return this.deps.uow.run(async (tx): Promise<Result<void, UpdateUserError>> => {
       const user = await findUser(tx.users, data.userId);
       if (!user) return err({ type: 'UserNotFound' });
+      const permissionsBefore = await userPermissionsOf(tx.roles, user);
+      const managed = ensureCanManageUser(permissionsBefore, holdsOf(actor));
+      if (managed.isErr()) return err(managed.error);
 
       if (!user.email.equals(email.value)) {
         const other = await tx.users.findByEmail(email.value);
@@ -89,6 +104,12 @@ export class UpdateUser {
       );
       const assigned = user.assignRoles(data.roleIds, actor.id, now);
       if (assigned.isErr()) return err(assigned.error);
+      const held = ensureGrantsHeld(
+        await userPermissionsOf(tx.roles, user),
+        holdsOf(actor),
+        permissionsBefore,
+      );
+      if (held.isErr()) return err(held.error);
       if (data.defaultAssignee !== undefined) {
         const marked = user.setDefaultAssignee(data.defaultAssignee, now);
         if (marked.isErr()) return err(marked.error);

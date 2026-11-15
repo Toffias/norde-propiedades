@@ -21,6 +21,7 @@ import {
   type TokkoUsersImportFailure,
   type TokkoUsersImportSummary,
 } from '../../domain/tokko-users-import';
+import { AGENT_ROLE_KEY } from '../../domain/role';
 import { User } from '../../domain/user';
 import type { IdentityTransaction, IdentityUnitOfWork } from '../ports/identity-transaction';
 import type { TokkoUser, TokkoUserSource } from '../ports/tokko-user-source';
@@ -38,9 +39,6 @@ export interface TokkoUsersUnavailableResultError {
 
 export type RunTokkoUsersImportError =
   ForbiddenError | TokkoUsersSetupMissingError | TokkoUsersUnavailableResultError;
-
-/** El rol de los usuarios importados (decidido con Norde el 2026-10-21). */
-const AGENT_ROLE_KEY = 'agent';
 
 /**
  * Un email que no se entrega nunca (`.invalid`, RFC 2606), para un usuario que ya no está en Tokko

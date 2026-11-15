@@ -11,15 +11,24 @@ import {
 } from '../../../shared';
 import { CreateRoleInputSchema, type CreateRoleInput } from '../../contracts';
 import type { UnknownPermissionError } from '../../domain/permission-catalog';
+import {
+  ensureGrantsHeld,
+  type PermissionEscalationError,
+} from '../../domain/permission-escalation';
 import { Role } from '../../domain/role';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
+import { holdsOf } from '../permission-guard';
 import { roleAuditState, roleTarget } from '../role-audit';
 import type { InvalidInputError, RoleNameTakenError } from '../user-audit';
 
 export type CreateRoleError =
-  ForbiddenError | InvalidInputError | UnknownPermissionError | RoleNameTakenError;
+  | ForbiddenError
+  | InvalidInputError
+  | UnknownPermissionError
+  | RoleNameTakenError
+  | PermissionEscalationError;
 
-/** Rol nuevo con sus permisos del catálogo. */
+/** Rol nuevo con sus permisos del catálogo. Solo puede llevar permisos que quien lo crea tiene. */
 export class CreateRole {
   constructor(
     private readonly deps: {
@@ -46,6 +55,11 @@ export class CreateRole {
         const created = Role.create({ id: nextId<'Role'>(this.deps.ids), ...parsed.data, now });
         if (created.isErr()) return err(created.error);
         const role = created.value;
+        const held = ensureGrantsHeld(
+          { granted: role.toSnapshot().permissions, denied: [] },
+          holdsOf(actor),
+        );
+        if (held.isErr()) return err(held.error);
         // Dos roles con el mismo nombre (aunque uno esté en la papelera) se confundirían en la grilla;
         // la clave sale del nombre y también es única.
         const taken =

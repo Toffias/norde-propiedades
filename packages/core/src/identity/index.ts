@@ -21,6 +21,10 @@ export {
   type PermissionGroup,
   type PermissionResource,
 } from './domain/permission-catalog';
+export type {
+  PermissionEscalationError,
+  UserHasMorePermissionsError,
+} from './domain/permission-escalation';
 export {
   Branch,
   type BranchAlreadyDeletedError,

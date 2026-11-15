@@ -8,12 +8,18 @@ import {
   type Result,
 } from '../../../shared';
 import { ResetUserPasswordInputSchema, type ResetUserPasswordInput } from '../../contracts';
+import {
+  ensureCanManageUser,
+  type UserHasMorePermissionsError,
+} from '../../domain/permission-escalation';
+import { holdsOf, userPermissionsOf } from '../permission-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import type { PasswordHasher } from '../ports/password-hasher';
 import { userTarget, type InvalidInputError, type UserNotFoundError } from '../user-audit';
 import { findUser } from '../user-lookup';
 
-export type ResetUserPasswordError = ForbiddenError | InvalidInputError | UserNotFoundError;
+export type ResetUserPasswordError =
+  ForbiddenError | InvalidInputError | UserNotFoundError | UserHasMorePermissionsError;
 
 /**
  * Blanqueo: un administrador le pone una contraseña temporal (no hay recuperación por mail). Se
@@ -44,6 +50,9 @@ export class ResetUserPassword {
     return this.deps.uow.run(async (tx): Promise<Result<void, ResetUserPasswordError>> => {
       const user = await findUser(tx.users, parsed.data.userId);
       if (!user) return err({ type: 'UserNotFound' });
+      // Con un permiso delegado no se toca a quien tiene más permisos (#221).
+      const managed = ensureCanManageUser(await userPermissionsOf(tx.roles, user), holdsOf(actor));
+      if (managed.isErr()) return err(managed.error);
 
       user.resetPassword(now);
       await tx.users.save(user, actor.id);

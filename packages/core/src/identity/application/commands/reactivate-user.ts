@@ -10,6 +10,11 @@ import {
 } from '../../../shared';
 import { UserIdInputSchema, type UserIdInput } from '../../contracts';
 import type { UserAlreadyActiveError } from '../../domain/user';
+import {
+  ensureCanManageUser,
+  type UserHasMorePermissionsError,
+} from '../../domain/permission-escalation';
+import { holdsOf, userPermissionsOf } from '../permission-guard';
 import type { IdentityUnitOfWork } from '../ports/identity-transaction';
 import {
   userAuditState,
@@ -20,7 +25,11 @@ import {
 import { findUser } from '../user-lookup';
 
 export type ReactivateUserError =
-  ForbiddenError | InvalidInputError | UserNotFoundError | UserAlreadyActiveError;
+  | ForbiddenError
+  | InvalidInputError
+  | UserNotFoundError
+  | UserAlreadyActiveError
+  | UserHasMorePermissionsError;
 
 /** Devuelve el acceso al panel a un usuario suspendido. */
 export class ReactivateUser {
@@ -38,6 +47,9 @@ export class ReactivateUser {
     return this.deps.uow.run(async (tx): Promise<Result<void, ReactivateUserError>> => {
       const user = await findUser(tx.users, parsed.data.userId);
       if (!user) return err({ type: 'UserNotFound' });
+      // Con un permiso delegado no se toca a quien tiene más permisos (#221).
+      const managed = ensureCanManageUser(await userPermissionsOf(tx.roles, user), holdsOf(actor));
+      if (managed.isErr()) return err(managed.error);
 
       const before = userAuditState(user);
       const reactivated = user.reactivate(now);

@@ -51,14 +51,29 @@ async function reservedProperty(page: Page) {
 }
 
 test.describe('reservar', () => {
-  test('pide el contacto', async ({ page }) => {
+  test('se reserva sin contacto y el contacto se carga después', async ({ page }) => {
+    const contact = await createContact(page);
     const property = await availableProperty(page);
 
     await page.getByRole('button', { name: 'Reservar' }).click();
     const dialog = page.getByRole('dialog', { name: `Reservar ${property.code}` });
     await dialog.getByRole('button', { name: 'Reservar' }).click();
+    await expect(page.getByText(`${property.code} quedó reservada`)).toBeVisible();
 
-    await expect(dialog.getByText('Elegí un contacto.')).toBeVisible();
+    const card = page.locator('[data-slot="card"]').filter({
+      has: page.getByRole('heading', { level: 2, name: 'Reserva' }),
+    });
+    await expect(card.getByText('Sin contacto')).toBeVisible();
+
+    await card.getByRole('button', { name: 'Editar' }).click();
+    const edit = page.getByRole('dialog', { name: 'Editar la reserva' });
+    await pickOption(page, edit.getByRole('combobox', { name: 'Contacto' }), {
+      label: 'Buscar contacto',
+      text: contact.name,
+    });
+    await edit.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByText('Reserva actualizada')).toBeVisible();
+    await expect(card.getByRole('link', { name: contact.name })).toBeVisible();
   });
 
   test('la propiedad queda reservada y el estado solo cambia con la reserva', async ({ page }) => {

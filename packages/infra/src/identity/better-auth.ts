@@ -40,6 +40,17 @@ const SIGN_IN_PATH = '/sign-in/email';
 const SIGN_OUT_PATH = '/sign-out';
 const DISABLE_TWO_FACTOR_PATH = '/two-factor/disable';
 const BACKUP_CODES_PATH = '/two-factor/generate-backup-codes';
+/**
+ * Rutas de Better Auth que el panel no usa: contraseña, nombre, email y baja pasan por los casos
+ * de uso de `identity`, que auditan, chequean permisos y revocan sesiones.
+ */
+export const DISABLED_AUTH_PATHS = [
+  '/change-password',
+  '/update-user',
+  '/change-email',
+  '/delete-user',
+  '/set-password',
+] as const;
 /** Cookie firmada del plugin con el desafío pendiente entre la contraseña y el código. */
 const TWO_FACTOR_COOKIE = 'two_factor';
 /** Nombre con el que aparece la cuenta en la app autenticadora. */
@@ -239,6 +250,7 @@ export function createAuth(options: AuthOptions) {
       schema: { users, sessions, accounts, verifications, twoFactors },
     }),
     emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 10 },
+    disabledPaths: [...DISABLED_AUTH_PATHS],
     // Better Auth no da de alta usuarios (lo hace `CreateUser`), pero valida que conoce toda
     // columna obligatoria de `users`.
     user: { additionalFields: { branchId: { type: 'string', required: true, input: false } } },

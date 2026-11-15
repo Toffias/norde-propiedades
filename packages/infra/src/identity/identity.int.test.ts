@@ -18,7 +18,7 @@ import { DrizzleAuditLog } from '../shared/drizzle-audit-log';
 import type { InfraLogger } from '../shared/logger';
 import { UuidV7IdGenerator } from '../shared/uuid-v7-id-generator';
 
-import { BetterAuthSessionReader, createAuth } from './better-auth';
+import { BetterAuthSessionReader, DISABLED_AUTH_PATHS, createAuth } from './better-auth';
 import { DrizzleUserAccessQuery } from './drizzle-user-access-query';
 
 const db = useTestDatabase();
@@ -243,5 +243,31 @@ describe('Better Auth', () => {
     ).rejects.toBeDefined();
 
     expect(await db.select().from(users)).toEqual([]);
+  });
+
+  it.each(DISABLED_AUTH_PATHS)('does not expose %s over HTTP', async (path) => {
+    const userId = await insertUser('camila@norde.com.ar');
+    const headers = await signInCookie('camila@norde.com.ar');
+    headers.set('content-type', 'application/json');
+    headers.set('origin', 'http://localhost:3001');
+
+    const response = await auth.handler(
+      new Request(`http://localhost:3001/api/auth${path}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          currentPassword: PASSWORD,
+          newPassword: 'otra-clave-de-prueba-456', // gitleaks:allow
+          password: PASSWORD,
+          name: 'Otro nombre',
+          newEmail: 'otro@norde.com.ar',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(404);
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    expect(user?.name).toBe('Camila Pérez');
+    expect(user?.email).toBe('camila@norde.com.ar');
   });
 });

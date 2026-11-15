@@ -30,7 +30,12 @@ export const DISALLOWED_PATHS: readonly string[] = [
   '/suscripcion/',
 ];
 
-export function buildRobots(siteUrl: string): MetadataRoute.Robots {
+/**
+ * `indexable` solo en el sitio de producción (`ALLOW_INDEXING`): UAT y los previews piden no indexar
+ * nada desde la app, sin depender de una línea puesta a mano en nginx.
+ */
+export function buildRobots(siteUrl: string, indexable: boolean): MetadataRoute.Robots {
+  if (!indexable) return { rules: [{ userAgent: '*', disallow: '/' }] };
   return {
     rules: [
       { userAgent: '*', allow: '/', disallow: [...DISALLOWED_PATHS] },

@@ -254,7 +254,7 @@ describe('CheckClientDuplicates', () => {
     return { uow, useCase: new CheckClientDuplicates({ uow, agents }) };
   }
 
-  it('finds an existing contact of another agent without letting the actor open it', async () => {
+  it('finds an existing contact of another agent, without its name or letting the actor open it', async () => {
     const { uow, useCase } = setup();
     const existing = await seedClient(uow, {
       phones: ['+541166899124'],
@@ -269,7 +269,7 @@ describe('CheckClientDuplicates', () => {
     expect(result).toEqual({
       existing: {
         id: existing.id,
-        name: 'Ana Pérez',
+        name: undefined,
         agent: { id: OTHER_AGENT_ID, name: 'Martín' },
         trashed: false,
         canOpen: false,
@@ -297,6 +297,20 @@ describe('CheckClientDuplicates', () => {
 
     expect(result.existing).toBeUndefined();
     expect(result.possible.map((p) => p.id)).toEqual([sameName.id]);
+  });
+
+  it('does not suggest same-name contacts the actor cannot see', async () => {
+    const { uow, useCase } = setup();
+    await seedClient(uow, {
+      name: 'ana pérez',
+      phones: ['+541147770000'],
+      agentId: OTHER_AGENT_ID,
+      branchId: OTHER_BRANCH_ID,
+    });
+
+    const result = unwrap(await useCase.execute({ name: 'Ana Pérez' }, TEST_AGENT));
+
+    expect(result.possible).toEqual([]);
   });
 
   it('requires clients:create', async () => {

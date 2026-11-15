@@ -58,7 +58,12 @@ function ExistingClient({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | undefined>();
-  const who = `${clientName(client.name)}${client.agent ? `, a cargo de ${userName(client.agent)}` : ''}`;
+  // De otro agente llega sin nombre: solo a cargo de quién está.
+  const agent = client.agent ? `a cargo de ${userName(client.agent)}` : undefined;
+  const who =
+    client.name === undefined && !client.canOpen
+      ? `uno ${agent ?? 'de otro agente'}`
+      : `${clientName(client.name)}${agent ? `, ${agent}` : ''}`;
 
   return (
     <div

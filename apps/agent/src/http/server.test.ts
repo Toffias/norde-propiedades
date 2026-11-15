@@ -6,6 +6,7 @@ import type { WebChatInbound, WebChatTurnResult } from '../channels/web-chat/web
 import type { WhatsAppInbound } from '../channels/whatsapp/inbound';
 import { WHATSAPP_WEBHOOK_PATH } from '../channels/whatsapp/webhook-routes';
 
+import { redactUrl } from './request-log';
 import type { HealthStatus } from './routes/health';
 import { buildServer } from './server';
 import { signBody, signTimestamped } from './signature';
@@ -32,6 +33,56 @@ describe('GET /health', () => {
 
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ status: 'degraded', database: 'down' });
+  });
+});
+
+describe('GET /health cache', () => {
+  it('reuses the last check for a few seconds instead of querying the database each time', async () => {
+    let checks = 0;
+    let clock = 0;
+    const app = buildServer({
+      logger: silent,
+      healthCheck: () => {
+        checks += 1;
+        return Promise.resolve({ database: 'up' });
+      },
+      now: () => clock,
+    });
+
+    await app.inject({ method: 'GET', url: '/health' });
+    await app.inject({ method: 'GET', url: '/health' });
+    expect(checks).toBe(1);
+    clock += 10_000;
+    await app.inject({ method: 'GET', url: '/health' });
+    expect(checks).toBe(2);
+  });
+});
+
+describe('rate limit', () => {
+  it('answers 429 past the limit per IP and minute, and lets the next minute through', async () => {
+    let clock = 0;
+    const app = buildServer({
+      logger: silent,
+      healthCheck: () => Promise.resolve({ database: 'up' }),
+      rateLimitPerMinute: 2,
+      now: () => clock,
+    });
+    const get = () => app.inject({ method: 'GET', url: '/health' });
+
+    expect((await get()).statusCode).toBe(200);
+    expect((await get()).statusCode).toBe(200);
+    expect((await get()).statusCode).toBe(429);
+    clock += 60_000;
+    expect((await get()).statusCode).toBe(200);
+  });
+});
+
+describe('request log', () => {
+  it('redacts the WhatsApp verify token from the logged URL', () => {
+    expect(
+      redactUrl('/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=s3cret&hub.challenge=1'),
+    ).toBe('/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=%5Bredacted%5D&hub.challenge=1');
+    expect(redactUrl('/health')).toBe('/health');
   });
 });
 

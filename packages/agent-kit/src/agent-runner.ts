@@ -254,8 +254,12 @@ function toInputItems(memory: readonly unknown[]): AgentInputItem[] {
 }
 
 /** Suma un detalle de uso (`cached_tokens`, `reasoning_tokens`) de todos los pedidos del turno. */
-function sumDetail(details: readonly Record<string, number>[], key: string): number {
-  return details.reduce((total, detail) => total + (detail[key] ?? 0), 0);
+function sumDetail(details: readonly Record<string, unknown>[], key: string): number {
+  // Desde @openai/agents 0.22 los detalles son JSON genérico: se suma solo lo que es número.
+  return details.reduce((total, detail) => {
+    const value = detail[key];
+    return total + (typeof value === 'number' ? value : 0);
+  }, 0);
 }
 
 function parseArguments(raw: string): unknown {

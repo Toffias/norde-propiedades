@@ -81,6 +81,21 @@ function storedValue<T, E>(result: Result<T, E>): T {
   return result.value;
 }
 
+/**
+ * Bloquea estos teléfonos y emails hasta el fin de la transacción (advisory lock de Postgres).
+ * Dos contactos entrantes con el mismo teléfono a la vez (el agente y un portal, dos mensajes
+ * seguidos) se serializan: el segundo espera, ve al cliente que creó el primero y no lo duplica ni
+ * choca con el índice único. En orden, para no trabarse con otra transacción que bloquea los
+ * mismos. Fuera de una transacción el bloqueo se suelta enseguida: no molesta a las consultas.
+ */
+async function lockContactKeys(db: DbExecutor, keys: readonly string[]): Promise<void> {
+  for (const key of [...new Set(keys)].sort()) {
+    await db.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`client-contact:${key}`}, 0))`,
+    );
+  }
+}
+
 export class DrizzleClientRepository implements ClientRepository {
   constructor(
     private readonly db: DbExecutor,
@@ -95,6 +110,10 @@ export class DrizzleClientRepository implements ClientRepository {
     const keys = contact.phones.map((p) => p.matchKey);
     const addresses = contact.emails.map((e) => e.value);
     const limit = MAX_DUPLICATE_CANDIDATES;
+    await lockContactKeys(this.db, [
+      ...keys.map((k) => `phone:${k}`),
+      ...addresses.map((a) => `email:${a}`),
+    ]);
 
     // El principal está en `clients` (con índice único); todos, en las filas hijas.
     const lookups: (() => Promise<{ readonly id: string }[]>)[] = [];
@@ -481,6 +500,13 @@ export class DrizzleOpportunityRepository implements OpportunityRepository {
   }
 
   async findOpenByClient(clientId: ClientId) {
+    // Bloquea el cliente hasta el fin de la transacción: dos contactos del mismo cliente a la vez
+    // (por teléfono uno y por email el otro) no le abren dos oportunidades por lo mismo.
+    await this.db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(eq(clients.id, clientId))
+      .for('update');
     const rows = await this.db
       .select()
       .from(opportunities)

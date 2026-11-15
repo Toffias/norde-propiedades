@@ -23,6 +23,9 @@ export const RESERVATION_ERROR_MESSAGES = {
   PropertyAlreadyReserved: 'Alguien la reservó recién. Recargá la ficha para ver su reserva.',
   AgentNotFound: 'Ese agente no existe o está suspendido.',
   ManagerNotFound: 'Ese gerente no existe o está suspendido.',
+  ReservationClientNotFound: 'No encontramos ese contacto. Puede que lo hayan borrado o unificado.',
+  ReservationOpportunityNotFound:
+    'No encontramos esa oportunidad del contacto. Recargá la página y probá de nuevo.',
   NegativeReservationAmount: 'Los montos no pueden ser negativos.',
   InvalidCommission: 'La comisión va de 0 a 100, con hasta dos decimales.',
   ReservationNotFound: 'No encontramos esa reserva. Recargá la ficha.',

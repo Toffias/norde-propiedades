@@ -20,6 +20,7 @@ import type { ReservationRepository } from '../../domain/reservation.repository'
 
 import type { PropertyClientMerge } from './property-client-merge';
 import type { PropertyOwnerLinks } from './property-owner-links';
+import type { ReservationParties } from './reservation-parties';
 
 /** Lo que un command de properties usa dentro de la transacción, ligado a la misma conexión. */
 export interface PropertiesTransaction {
@@ -43,6 +44,7 @@ export interface PropertiesTransaction {
   readonly reservations: ReservationRepository;
   readonly clientMerge: PropertyClientMerge;
   readonly owners: PropertyOwnerLinks;
+  readonly reservationParties: ReservationParties;
   readonly events: EventPublisher;
   readonly audit: AuditLog;
   /** Claves de idempotencia de las altas (ADR 0050). */

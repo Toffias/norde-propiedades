@@ -42,6 +42,13 @@ function setup(status: 'available' | 'reserved' | 'draft' = 'available') {
       [MANAGER_USER_ID, { branchId: undefined }],
     ]),
   );
+  // El contacto y la oportunidad son de quien reserva (TEST_RESERVING_AGENT).
+  uow.reservationParties.clients.set(CLIENT_ID, { ownerId: PRODUCER_ID, ownerBranchId: BRANCH_ID });
+  uow.reservationParties.opportunities.set(OPPORTUNITY_ID, {
+    clientId: CLIENT_ID,
+    ownerId: PRODUCER_ID,
+    ownerBranchId: BRANCH_ID,
+  });
   const clock = new FixedClock(TEST_NOW);
   const reserve = new ReserveProperty({ uow, producers, clock, ids: new SequentialIdGenerator() });
   const statusOf = () => uow.properties.rows.get(PROPERTY_ID)?.status;
@@ -191,6 +198,51 @@ describe('ReserveProperty', () => {
         ),
       ),
     ).toMatchObject({ type: 'InvalidInput', issues: ['Elegí la moneda de la comisión.'] });
+  });
+
+  it('rejects a contact that does not exist or that the actor cannot see', async () => {
+    const { uow, reserve, statusOf } = setup();
+    const otherClient = '00000000-0000-7000-8000-0000000000d2';
+    uow.reservationParties.clients.set(otherClient, {
+      ownerId: OTHER_USER_ID,
+      ownerBranchId: OTHER_BRANCH,
+    });
+
+    for (const clientId of ['00000000-0000-7000-8000-0000000000d9', otherClient]) {
+      expect(
+        unwrapErr(await reserve.execute({ ...INPUT, clientId }, TEST_RESERVING_AGENT)),
+      ).toEqual({ type: 'ReservationClientNotFound' });
+    }
+    expect(statusOf()).toBe('available');
+    expect(uow.reservations.rows.size).toBe(0);
+    expect(uow.audit.entries).toEqual([]);
+  });
+
+  it('rejects an opportunity of another contact or one the actor cannot see', async () => {
+    const { uow, reserve } = setup();
+    const ofAnotherClient = '00000000-0000-7000-8000-0000000000e7';
+    const ofAnotherAgent = '00000000-0000-7000-8000-0000000000e8';
+    uow.reservationParties.opportunities.set(ofAnotherClient, {
+      clientId: '00000000-0000-7000-8000-0000000000d2',
+      ownerId: PRODUCER_ID,
+      ownerBranchId: BRANCH_ID,
+    });
+    uow.reservationParties.opportunities.set(ofAnotherAgent, {
+      clientId: CLIENT_ID,
+      ownerId: OTHER_USER_ID,
+      ownerBranchId: OTHER_BRANCH,
+    });
+
+    for (const opportunityId of [
+      '00000000-0000-7000-8000-0000000000e6',
+      ofAnotherClient,
+      ofAnotherAgent,
+    ]) {
+      expect(
+        unwrapErr(await reserve.execute({ ...INPUT, opportunityId }, TEST_RESERVING_AGENT)),
+      ).toEqual({ type: 'ReservationOpportunityNotFound' });
+    }
+    expect(uow.reservations.rows.size).toBe(0);
   });
 
   it('needs the permission to create reservations', async () => {

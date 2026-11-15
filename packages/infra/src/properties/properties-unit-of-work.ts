@@ -28,6 +28,7 @@ import { DrizzlePropertyClientMerge } from './drizzle-property-client-merge';
 import { DrizzlePropertyDocumentRepository } from './drizzle-property-documents';
 import { DrizzlePropertyListDocumentRepository } from './drizzle-property-list-documents';
 import { DrizzlePropertyOwnerLinks } from './drizzle-property-owner-links';
+import { DrizzleReservationParties } from './drizzle-reservation-parties';
 import { DrizzlePropertyRepository } from './drizzle-property-repository';
 import { DrizzleReservationRepository } from './drizzle-reservation-repository';
 
@@ -55,6 +56,7 @@ export function createPropertiesUnitOfWork(
     reservations: new DrizzleReservationRepository(tx),
     clientMerge: new DrizzlePropertyClientMerge(tx),
     owners: new DrizzlePropertyOwnerLinks(tx, deps.clock),
+    reservationParties: new DrizzleReservationParties(tx),
     events: new DrizzleOutboxPublisher(tx, deps.ids, deps.clock),
     audit: new DrizzleAuditLog(tx, deps.ids, deps.clock),
     idempotency: new DrizzleIdempotencyKeys(tx, deps.clock),

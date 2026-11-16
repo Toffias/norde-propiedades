@@ -17,7 +17,7 @@ const latest = (dates: readonly string[]): string | undefined =>
 
 /**
  * Entradas del sitemap: páginas fijas, propiedades publicadas, emprendimientos, tasaciones,
- * contacto, blog, categorías y posts.
+ * contacto, blog, categorías, posts y la política de privacidad.
  */
 export function buildSitemap(siteUrl: string, source: SitemapSource): MetadataRoute.Sitemap {
   const lastPost = latest(source.posts.map((p) => p.updatedAt));
@@ -57,5 +57,6 @@ export function buildSitemap(siteUrl: string, source: SitemapSource): MetadataRo
       changeFrequency: 'monthly' as const,
       priority: 0.7,
     })),
+    { url: absoluteUrl(siteUrl, routes.privacy()), changeFrequency: 'yearly', priority: 0.2 },
   ];
 }

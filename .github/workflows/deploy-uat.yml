@@ -31,9 +31,9 @@ env:
   RELEASE_DIR: /var/www/norde-uat/releases/${{ github.run_number }}-${{ github.run_attempt }}
   # Node del VPS para las apps de Norde (el del sistema lo usan otros proyectos).
   VPS_NODE_DIR: /opt/node-24/bin
-  WEB_URL: https://landingnorde.apzsoftware.online
-  GESTION_URL: https://gestionnorde.apzsoftware.online
-  AGENT_URL: https://agentenorde.apzsoftware.online
+  WEB_URL: https://webuat.nordepropiedades.com.ar
+  GESTION_URL: https://appuat.nordepropiedades.com.ar
+  AGENT_URL: https://agentuat.nordepropiedades.com.ar
   # Usuario del VPS dueño de la carpeta y de su PM2 (docs/deploy.md §7). `root` hasta migrar.
   VPS_USER: ${{ vars.VPS_USER || 'root' }}
 

@@ -2,11 +2,13 @@
 
 Entorno de pruebas para validar integraciones (MercadoLibre, WhatsApp, Resend) y revisar avances con Norde. Corre en el VPS de Hostinger compartido con otros proyectos.
 
-| App     | URL                                       | Puerto local | Proceso PM2     |
-| ------- | ----------------------------------------- | ------------ | --------------- |
-| Web     | `https://landingnorde.apzsoftware.online` | 3020         | `norde-web`     |
-| Gestión | `https://gestionnorde.apzsoftware.online` | 3021         | `norde-gestion` |
-| Agente  | `https://agentenorde.apzsoftware.online`  | 3022         | `norde-agent`   |
+| App     | URL                                        | Puerto local | Proceso PM2     |
+| ------- | ------------------------------------------ | ------------ | --------------- |
+| Web     | `https://webuat.nordepropiedades.com.ar`   | 3020         | `norde-web`     |
+| Gestión | `https://appuat.nordepropiedades.com.ar`   | 3021         | `norde-gestion` |
+| Agente  | `https://agentuat.nordepropiedades.com.ar` | 3022         | `norde-agent`   |
+
+Los subdominios se administran en el cPanel de Zetahosting que maneja el dominio de Norde (Zone Editor, registros `A` a `82.29.59.19`). Los subdominios anteriores (`landingnorde`, `gestionnorde` y `agentenorde.apzsoftware.online`) redirigen con 301 a los nuevos (ver [Dominios anteriores](#dominios-anteriores)).
 
 - **VPS**: `srv1589149.hstgr.cloud` (`82.29.59.19`), KVM 1 (1 vCPU / 4 GB), Ubuntu. Las otras apps usan los puertos 3000 a 3003 y 3010.
 - **Carpeta**: `/var/www/norde-uat`, con un release por deploy (ver [Releases](#releases)). **Base**: PostgreSQL 17.10 local (compartido con los otros proyectos), base `norde_uat`. Es la versión de todo el proyecto (ADR 0041).
@@ -109,7 +111,7 @@ No se versionan y el deploy no los toca: viven en `shared/` y cada release los e
 ```bash
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
 PAYLOAD_SECRET=SECRETO_DE_32_O_MAS
-NEXT_PUBLIC_SERVER_URL=https://landingnorde.apzsoftware.online
+NEXT_PUBLIC_SERVER_URL=https://webuat.nordepropiedades.com.ar
 # Sin ALLOW_INDEXING (o en false), robots.txt pide no indexar nada. Solo producción lleva true.
 # Fotos de las propiedades: la misma carpeta que el panel (ADR 0023)
 STORAGE_DRIVER=local
@@ -117,7 +119,7 @@ STORAGE_LOCAL_DIR=/var/www/norde-uat-storage
 # El mismo valor que WEB_REVALIDATE_SECRET de gestion
 REVALIDATE_SECRET=SECRETO_DE_32_O_MAS
 # Formulario de consulta de la ficha: el mismo valor que INQUIRY_WEBHOOK_SECRET de gestion
-INQUIRY_WEBHOOK_URL=https://gestionnorde.apzsoftware.online/api/webhooks/inquiries/web
+INQUIRY_WEBHOOK_URL=https://appuat.nordepropiedades.com.ar/api/webhooks/inquiries/web
 INQUIRY_WEBHOOK_SECRET=SECRETO_DE_32_O_MAS
 # Chat con el agente de IA (ADR 0037): el mismo valor que WEB_CHAT_SECRET del agente
 AGENT_CHAT_URL=http://127.0.0.1:3022/chat/messages
@@ -129,20 +131,20 @@ AGENT_CHAT_SECRET=SECRETO_DE_32_O_MAS
 ```bash
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
 BETTER_AUTH_SECRET=SECRETO
-BETTER_AUTH_URL=https://gestionnorde.apzsoftware.online
+BETTER_AUTH_URL=https://appuat.nordepropiedades.com.ar
 STORAGE_DRIVER=local
 STORAGE_LOCAL_DIR=/var/www/norde-uat-storage
 GEOCODER_USER_AGENT=NordePropiedades-UAT/1.0 (TU_EMAIL)
 JOBS_ENABLED=true
 # Avisos a la web cuando cambia una propiedad (ADR 0023)
-WEB_REVALIDATE_URL=https://landingnorde.apzsoftware.online/api/revalidate
+WEB_REVALIDATE_URL=https://webuat.nordepropiedades.com.ar/api/revalidate
 WEB_REVALIDATE_SECRET=SECRETO_DE_32_O_MAS
 # Consultas del formulario de la web
 INQUIRY_WEBHOOK_SECRET=SECRETO_DE_32_O_MAS
 # Para probar MercadoLibre:
 # PORTALS_ENABLED=true
 # PORTALS_SECRET_KEY=SECRETO
-# MERCADOLIBRE_REDIRECT_URI=https://gestionnorde.apzsoftware.online/api/portals/mercadolibre/callback
+# MERCADOLIBRE_REDIRECT_URI=https://appuat.nordepropiedades.com.ar/api/portals/mercadolibre/callback
 ```
 
 **Fotos en S3.** MercadoLibre descarga las fotos con links firmados, y eso pide `STORAGE_DRIVER=s3`. Con `local` no se puede publicar en ML. UAT usa el bucket compartido `apzsoftware.online` (AWS, `us-east-2`), en la carpeta `norde-uat/`:
@@ -168,11 +170,11 @@ NODE_ENV=production
 HOST=127.0.0.1
 PORT=3022
 DATABASE_URL=postgres://norde:CONTRASEÑA@127.0.0.1:5432/norde_uat
-PUBLIC_SITE_URL=https://landingnorde.apzsoftware.online
+PUBLIC_SITE_URL=https://webuat.nordepropiedades.com.ar
 OPENAI_API_KEY=sk-...
 # Chat del sitio (ADR 0037): el mismo valor que AGENT_CHAT_SECRET de la web
 WEB_CHAT_SECRET=SECRETO_DE_32_O_MAS
-# WhatsApp: webhook en https://agentenorde.apzsoftware.online/webhooks/whatsapp
+# WhatsApp: webhook en https://agentuat.nordepropiedades.com.ar/webhooks/whatsapp
 ```
 
 Si cambiás un `.env` sin hacer un deploy, recargá el proceso: `pm2 reload norde-gestion --update-env` (o `norde-web` / `norde-agent`). Un cambio en `NEXT_PUBLIC_SERVER_URL` se incrusta en el build: también hay que cambiar `WEB_URL` en `deploy-uat.yml` y volver a publicar.
@@ -180,8 +182,8 @@ Si cambiás un `.env` sin hacer un deploy, recargá el proceso: `pm2 reload nord
 ### 6. Nginx y SSL
 
 ```bash
-for pair in landingnorde:3020 gestionnorde:3021 agentenorde:3022; do
-  name=${pair%%:*}.apzsoftware.online; port=${pair##*:}
+for pair in webuat:3020 appuat:3021 agentuat:3022; do
+  name=${pair%%:*}.nordepropiedades.com.ar; port=${pair##*:}
   cat > /etc/nginx/sites-available/$name <<NGINX
 server {
     server_name $name;
@@ -204,12 +206,12 @@ NGINX
 done
 nginx -t && systemctl reload nginx
 # Un certificado por subdominio, como el resto de los sitios del VPS.
-for d in landingnorde gestionnorde agentenorde; do
-  certbot --nginx --non-interactive --redirect -d $d.apzsoftware.online
+for d in webuat appuat agentuat; do
+  certbot --nginx --non-interactive --redirect -d $d.nordepropiedades.com.ar
 done
 ```
 
-Los tres subdominios ya apuntan a `82.29.59.19`. El bloque de `landingnorde` lleva además `add_header X-Robots-Tag "noindex, nofollow" always;`, para que la web de pruebas no se indexe. Es una segunda barrera: la web ya responde `robots.txt` con `Disallow: /` mientras no tenga `ALLOW_INDEXING=true`.
+Los tres subdominios ya apuntan a `82.29.59.19`. El bloque de `webuat` lleva además `add_header X-Robots-Tag "noindex, nofollow" always;`, para que la web de pruebas no se indexe. Es una segunda barrera: la web ya responde `robots.txt` con `Disallow: /` mientras no tenga `ALLOW_INDEXING=true`.
 
 #### Límite de requests de la web
 
@@ -225,7 +227,7 @@ limit_req_zone $norde_web_key zone=norde_web:10m rate=10r/s;
 limit_req_status 429;
 ```
 
-Y en el `server` de la web (`landingnorde`), además del `location /` de arriba:
+Y en el `server` de la web (`webuat`), además del `location /` de arriba:
 
 ```nginx
     # Las páginas que consultan la base: ráfagas de 20 y después 10 por segundo
@@ -241,6 +243,48 @@ Y en el `server` de la web (`landingnorde`), además del `location /` de arriba:
 ```
 
 Los assets de Next (`/_next/static`) y las fotos (`/fotos`) quedan afuera: los cachea el navegador. Probalo con `nginx -t && systemctl reload nginx`; un `429` en el log de nginx es el límite actuando.
+
+#### Dominios anteriores
+
+Hasta noviembre de 2026, UAT usó `landingnorde`, `gestionnorde` y `agentenorde.apzsoftware.online`. Esos nombres siguen respondiendo, pero solo redirigen con 301 a los nuevos, con la misma ruta y la misma query. Así siguen andando los links que ya circularon. Cada uno conserva su certificado, que certbot renueva solo:
+
+```bash
+for pair in landingnorde:webuat gestionnorde:appuat agentenorde:agentuat; do
+  old=${pair%%:*}.apzsoftware.online; new=${pair##*:}.nordepropiedades.com.ar
+  cat > /etc/nginx/sites-available/$old <<NGINX
+server {
+    listen 80;
+    server_name $old;
+    return 301 https://$new\$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name $old;
+    ssl_certificate /etc/letsencrypt/live/$old/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$old/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    return 301 https://$new\$request_uri;
+}
+NGINX
+done
+nginx -t && systemctl reload nginx
+```
+
+El webhook de WhatsApp no sigue redirecciones: en Meta se cambia a mano (ver [Cambio de dominio](#cambio-de-dominio)).
+
+#### Cambio de dominio
+
+Para mudar UAT a otros subdominios:
+
+1. Crear los registros `A` hacia `82.29.59.19` y esperar a que resuelvan (`nslookup <nombre>`).
+2. Crear los bloques de Nginx y los certificados de los nombres nuevos (el `for` del principio de esta sección), y sumar el `X-Robots-Tag` y el `location` del límite al de la web.
+3. Cambiar las URLs en los tres `.env` de `shared/` (§5): `NEXT_PUBLIC_SERVER_URL`, `INQUIRY_WEBHOOK_URL` y `SUBSCRIPTION_WEBHOOK_URL` en la web; `BETTER_AUTH_URL`, `PUBLIC_SITE_URL`, `WEB_REVALIDATE_URL` y `MERCADOLIBRE_REDIRECT_URI` en gestión; `PUBLIC_SITE_URL` en el agente. Si alguna no está, no hace falta agregarla.
+4. Cambiar `WEB_URL`, `GESTION_URL` y `AGENT_URL` en `deploy-uat.yml` y publicar `uat`: `NEXT_PUBLIC_SERVER_URL` se incrusta en el build, y el deploy recrea los procesos con los `.env` nuevos.
+5. En los servicios externos: la URL de redirección de la app de MercadoLibre, el webhook de WhatsApp en Meta y el dominio de envío de Resend, si cambia.
+6. Pasar los nombres viejos a redirecciones ([Dominios anteriores](#dominios-anteriores)).
+
+Las sesiones del panel son por dominio: al cambiarlo, todos vuelven a ingresar.
 
 ### 7. Usuario propio y clave de GitHub Actions
 

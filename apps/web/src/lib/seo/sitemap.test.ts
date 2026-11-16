@@ -5,7 +5,7 @@ import { buildSitemap } from './sitemap';
 const SITE = 'https://norde.com.ar';
 
 describe('buildSitemap', () => {
-  it('lists the home, the properties, the developments, the fixed pages, the blog and the posts', () => {
+  it('lists the home, the properties, the developments, the fixed pages, the blog, the posts and the privacy policy', () => {
     const sitemap = buildSitemap(SITE, {
       posts: [
         { slug: 'aumento-ipc', updatedAt: '2026-09-10T00:00:00.000Z' },
@@ -28,6 +28,7 @@ describe('buildSitemap', () => {
       'https://norde.com.ar/blog/categoria/alquilar',
       'https://norde.com.ar/blog/aumento-ipc',
       'https://norde.com.ar/blog/vivir-en-palermo',
+      'https://norde.com.ar/privacidad',
     ]);
   });
 
@@ -51,7 +52,7 @@ describe('buildSitemap', () => {
       properties: [],
       developments: [],
     });
-    expect(sitemap).toHaveLength(6);
+    expect(sitemap).toHaveLength(7);
     expect(sitemap[5]).not.toHaveProperty('lastModified');
   });
 });

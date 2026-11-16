@@ -81,8 +81,13 @@ export function SiteFooter() {
           )}
         </div>
       </div>
-      <div className="text-muted-foreground border-t py-5 text-center text-xs">
-        © {new Date().getFullYear()} {BUSINESS.legalName}
+      <div className="text-muted-foreground flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t py-5 text-center text-xs">
+        <span>
+          © {new Date().getFullYear()} {BUSINESS.legalName}
+        </span>
+        <Link href={routes.privacy()} className={LINK}>
+          Política de privacidad
+        </Link>
       </div>
     </footer>
   );

@@ -39,6 +39,8 @@ export interface Business {
    * Las redes conocidas (Facebook, Instagram, LinkedIn, YouTube) aparecen en la barra superior.
    */
   readonly sameAs: readonly string[];
+  /** Ficha de Norde en Google Maps: el destino de "Dejanos tu reseña". */
+  readonly googleMapsUrl: string | null;
 }
 
 export const BUSINESS: Business = {
@@ -67,6 +69,7 @@ export const BUSINESS: Business = {
     'https://www.facebook.com/profile.php?id=100087943220522',
     'https://www.instagram.com/nordepropiedades_',
   ],
+  googleMapsUrl: 'https://maps.app.goo.gl/gLXVCGiRTNWAm8sc7',
 };
 
 /** Título por defecto: la home y las páginas sin meta title. */

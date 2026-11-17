@@ -8,6 +8,7 @@ import {
 } from '../../lib/about/google-reviews';
 import { MediaImage } from '../blog/media-image';
 import { GoogleIcon } from '../brand/google-icon';
+import { LeaveReviewLink } from '../brand/leave-review-link';
 import { SectionHeading } from '../layout/section-heading';
 import { Reveal } from './reveal';
 import { ReviewText } from './review-text';
@@ -114,17 +115,20 @@ export function GoogleReviewsSection({
               </span>
             }
           />
-          {googleReviewsUrl && (
-            <a
-              href={googleReviewsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary inline-flex items-center gap-1 text-sm font-bold link-underline"
-            >
-              Ver todas en Google
-              <ArrowUpRight aria-hidden className="size-4" />
-            </a>
-          )}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            {googleReviewsUrl && (
+              <a
+                href={googleReviewsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary inline-flex items-center gap-1 text-sm font-bold link-underline"
+              >
+                Ver todas en Google
+                <ArrowUpRight aria-hidden className="size-4" />
+              </a>
+            )}
+            <LeaveReviewLink className="bg-card hover:bg-muted rounded-full border px-4 py-2 text-sm font-bold transition-colors" />
+          </div>
         </div>
         <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {reviews.map((review, index) => (

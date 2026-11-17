@@ -4,6 +4,7 @@ import { BUSINESS } from '../../constants/business';
 import { listingHref, parseListingFilters } from '../../lib/properties/listing-filters';
 import { routes } from '../../lib/seo/routes';
 import { CompanyLogo } from '../brand/company-logo';
+import { LeaveReviewLink } from '../brand/leave-review-link';
 
 const PROPERTY_LINKS = [
   { label: 'Propiedades en venta', href: listingHref(parseListingFilters({ operacion: 'venta' })) },
@@ -77,6 +78,9 @@ export function SiteFooter() {
                   </a>
                 </p>
               )}
+              <p className="pt-1">
+                <LeaveReviewLink className={LINK} />
+              </p>
             </address>
           )}
         </div>

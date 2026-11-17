@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { BUSINESS } from '../../constants/business';
 import { whatsappHref } from '../../lib/whatsapp';
+import { LeaveReviewLink } from '../brand/leave-review-link';
 import { SectionHeading } from '../layout/section-heading';
 import { InquiryForm } from '../properties/inquiry-form';
 import { PropertyMap } from '../properties/property-map';
@@ -122,17 +123,20 @@ export function ContactSection({ formEnabled }: { readonly formEnabled: boolean 
                   Oficina
                 </p>
                 <p className="font-bold break-words">{address}</p>
-                {maps && (
-                  <a
-                    href={maps}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary mt-1 inline-flex w-fit items-center gap-1 text-sm font-bold link-underline"
-                  >
-                    Cómo llegar
-                    <ExternalLink aria-hidden className="size-3.5" />
-                  </a>
-                )}
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {maps && (
+                    <a
+                      href={maps}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary inline-flex w-fit items-center gap-1 text-sm font-bold link-underline"
+                    >
+                      Cómo llegar
+                      <ExternalLink aria-hidden className="size-3.5" />
+                    </a>
+                  )}
+                  <LeaveReviewLink className="text-primary text-sm font-bold link-underline" />
+                </div>
                 {BUSINESS.geo && (
                   <PropertyMap
                     latitude={BUSINESS.geo.latitude}

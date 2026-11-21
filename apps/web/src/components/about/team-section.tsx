@@ -7,7 +7,12 @@ import { MediaImage } from '../blog/media-image';
 import { SectionHeading } from '../layout/section-heading';
 import { Reveal } from './reveal';
 
-function MemberCard({ member }: { readonly member: TeamMemberCard }) {
+/** Con menos, una vuelta de la cinta no llena una pantalla ancha y se ve el corte: se repiten. */
+const MIN_ITEMS = 8;
+/** Segundos que tarda en pasar cada tarjeta: la velocidad es la misma con más o menos personas. */
+const SECONDS_PER_CARD = 7;
+
+function MemberCard({ member, copy }: { readonly member: TeamMemberCard; readonly copy: boolean }) {
   const whatsapp = member.whatsapp
     ? whatsappHref(`Hola ${member.name}, quiero hacer una consulta.`, member.whatsapp)
     : null;
@@ -18,7 +23,7 @@ function MemberCard({ member }: { readonly member: TeamMemberCard }) {
         {member.photo ? (
           <MediaImage
             media={member.photo}
-            sizes="(min-width: 1024px) 18rem, 50vw"
+            sizes="(min-width: 640px) 18rem, 15rem"
             className="size-full transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none"
           />
         ) : (
@@ -41,6 +46,7 @@ function MemberCard({ member }: { readonly member: TeamMemberCard }) {
             href={whatsapp}
             target="_blank"
             rel="noopener noreferrer"
+            tabIndex={copy ? -1 : undefined}
             className="text-whatsapp mt-auto inline-flex items-center gap-1.5 self-start pt-2 text-sm font-bold link-underline"
           >
             <WhatsAppIcon aria-hidden className="size-4" />
@@ -52,27 +58,52 @@ function MemberCard({ member }: { readonly member: TeamMemberCard }) {
   );
 }
 
-/** El equipo de Norde: una tarjeta con foto por persona. */
+/**
+ * El equipo de Norde: una tarjeta con foto por persona, en una cinta a todo el ancho que desfila
+ * sin parar, como la de barrios de la home. La lista va dos veces para que la vuelta no se note; la
+ * copia queda fuera del lector de pantalla y del Tab. Se frena con el mouse encima (para poder
+ * tocar "Escribile") o con el foco del teclado; con "reducir movimiento" queda quieta y se recorre
+ * con scroll horizontal.
+ */
 export function TeamSection({ members }: { readonly members: readonly TeamMemberCard[] }) {
   if (members.length === 0) return null;
 
+  const repeats = Math.ceil(MIN_ITEMS / members.length);
+  const items = Array.from({ length: repeats }, (_, round) =>
+    members.map((member) => ({ member, key: `${String(round)}-${member.id}` })),
+  ).flat();
+
+  const list = (copy: boolean) => (
+    <ul aria-hidden={copy || undefined} className="team-ribbon-list flex shrink-0">
+      {items.map(({ member, key }) => (
+        <li key={key} className="w-60 shrink-0 pr-3 sm:w-72 sm:pr-4">
+          <MemberCard member={member} copy={copy} />
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
-    <section aria-labelledby="team-title" className="bg-card border-y">
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-14 sm:px-6 sm:py-16">
+    <section aria-labelledby="team-title" className="bg-card space-y-8 border-y py-14 sm:py-16">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <SectionHeading
           id="team-title"
           title="Nuestro equipo"
           accent="especializado"
           description="Cada uno se especializa en una parte del trabajo. Escribile directo a quien te corresponda o pasá por la oficina."
         />
-        <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          {members.map((member, index) => (
-            <Reveal as="li" key={member.id} delayMs={(index % 4) * 80}>
-              <MemberCard member={member} />
-            </Reveal>
-          ))}
-        </ul>
       </div>
+      <Reveal>
+        <div className="team-ribbon overflow-hidden py-2">
+          <div
+            className="team-ribbon-track flex w-max"
+            style={{ animationDuration: `${String(items.length * SECONDS_PER_CARD)}s` }}
+          >
+            {list(false)}
+            {list(true)}
+          </div>
+        </div>
+      </Reveal>
     </section>
   );
 }

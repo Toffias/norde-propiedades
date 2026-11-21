@@ -371,6 +371,37 @@ html {
 }
 
 /*
+ * Cinta del equipo en /contacto: igual que la de barrios, pero se frena también con el mouse encima,
+ * para poder tocar "Escribile". La duración la pone el componente según la cantidad de tarjetas.
+ */
+@keyframes team-ribbon {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .team-ribbon-track {
+    animation: team-ribbon 60s linear infinite;
+  }
+
+  .team-ribbon:hover .team-ribbon-track,
+  .team-ribbon:focus-within .team-ribbon-track {
+    animation-play-state: paused;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-ribbon {
+    overflow-x: auto;
+  }
+
+  .team-ribbon-list[aria-hidden] {
+    display: none;
+  }
+}
+
+/*
  * Links de solo texto ("Ver todas las propiedades →"): al pasar el mouse o tomar el foco, una línea
  * fina crece de izquierda a derecha y la flecha, si hay, avanza. Al salir, la línea se va hacia la
  * derecha. Reemplaza al `hover:underline`.

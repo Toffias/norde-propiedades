@@ -29,6 +29,10 @@ export {
   type GetPropertyDetailError,
 } from './application/queries/get-property-detail';
 export {
+  GetOfferAvailability,
+  type GetOfferAvailabilityError,
+} from './application/queries/get-offer-availability';
+export {
   SearchProperties,
   type SearchPropertiesError,
 } from './application/queries/search-properties';

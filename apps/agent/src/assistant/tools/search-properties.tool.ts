@@ -21,6 +21,12 @@ const Parameters = z.object({
   minPrice: z.number().nonnegative().nullable().describe('En la moneda indicada, sin centavos'),
   maxPrice: z.number().nonnegative().nullable(),
   currency: z.enum(CURRENCIES).nullable().describe('Moneda del rango de precio'),
+  maxPriceIncludesExpenses: z
+    .boolean()
+    .nullable()
+    .describe(
+      'Alquiler en pesos: true si el cliente confirmó que maxPrice incluye las expensas (alquiler + expensas). null si es solo el alquiler o no lo sabés',
+    ),
   minRooms: z.int().min(0).max(20).nullable().describe('Ambientes mínimos'),
   maxRooms: z.int().min(0).max(20).nullable(),
   minBedrooms: z.int().min(0).max(20).nullable().describe('Dormitorios mínimos'),
@@ -63,6 +69,7 @@ export function searchPropertiesTool(deps: AssistantToolDeps) {
           currency: orUndefined(args.currency),
           minPriceCents: search.minPriceCents,
           maxPriceCents: search.maxPriceCents,
+          ...(args.maxPriceIncludesExpenses === true ? { maxPriceIncludesExpenses: true } : {}),
           minRooms: orUndefined(args.minRooms),
           maxRooms: orUndefined(args.maxRooms),
           minBedrooms: orUndefined(args.minBedrooms),

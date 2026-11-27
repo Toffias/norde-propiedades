@@ -4,9 +4,11 @@ import {
   type AgentTurnResult,
   type InputModeration,
 } from '@norde/agent-kit';
+import type { GetOfferAvailability } from '@norde/core/properties';
 
 import { applyCustomerReply, CustomerReplySchema } from './customer-reply';
 import { AGENT_NAME } from './instructions/base';
+import type { OfficialContact } from './instructions/base';
 import { buildInstructions } from './instructions/build-instructions';
 import { unverifiedAmounts } from './price-guard';
 import { compactToolOutput } from './tool-memory';
@@ -30,6 +32,10 @@ type CustomerAssistantOptions = {
   readonly moderation?: InputModeration | undefined;
   /** Montos de la respuesta que no salieron de las tools ni del cliente (posible invento). */
   readonly onUnverifiedAmounts?: ((amounts: readonly string[]) => void) | undefined;
+  /** Vías oficiales de Norde que el agente da ante una estafa, una urgencia o si se las piden. */
+  readonly contact: OfficialContact;
+  /** Revalida las propiedades que el contacto ya vio antes de cada turno. */
+  readonly getOfferAvailability: Pick<GetOfferAvailability, 'execute'>;
 } & AssistantToolDeps;
 
 /**
@@ -44,7 +50,7 @@ export class CustomerAssistant {
     this.#runner = new AgentRunner<CustomerTurnContext>({
       name: AGENT_NAME,
       model: options.model,
-      instructions: buildInstructions,
+      instructions: (context) => buildInstructions(context, options.contact),
       tools: [searchPropertiesTool(options), getPropertyTool(options), registerClientTool(options)],
       outputSchema: CustomerReplySchema,
       promptCacheKey: PROMPT_CACHE_KEY,
@@ -58,6 +64,7 @@ export class CustomerAssistant {
   async run(
     input: Parameters<AgentRunner<CustomerTurnContext>['run']>[0],
   ): Promise<AgentTurnResult> {
+    await this.markUnavailable(input.context);
     const turn = await this.#runner.run(input);
     if (!turn.ok) return turn;
     if (turn.flagged) return { ...turn, text: MODERATED_TEXT };
@@ -72,6 +79,32 @@ export class CustomerAssistant {
     } catch (error) {
       // El modelo ya respondió: su gasto cuenta aunque la respuesta no se pueda usar.
       return { ok: false, error, usage: turn.usage };
+    }
+  }
+
+  /**
+   * Las propiedades que el contacto vio en turnos anteriores pueden haberse reservado o vendido
+   * después: se marcan para que el agente no las vuelva a ofrecer desde la memoria. Si la consulta
+   * falla, el turno sigue sin marcas (las tools igual devuelven solo lo disponible).
+   */
+  private async markUnavailable(context: CustomerTurnContext): Promise<void> {
+    const propertyIds = context.recentProperties.map((property) => property.id);
+    if (propertyIds.length === 0) return;
+    try {
+      const result = await this.options.getOfferAvailability.execute(
+        { propertyIds },
+        this.options.actor,
+      );
+      if (result.isErr()) {
+        this.options.onToolError('offer_availability', new Error(result.error.type));
+        return;
+      }
+      for (const { propertyId, availability } of result.value) {
+        if (availability !== 'available')
+          context.unavailableProperties.set(propertyId, availability);
+      }
+    } catch (error) {
+      this.options.onToolError('offer_availability', error);
     }
   }
 }

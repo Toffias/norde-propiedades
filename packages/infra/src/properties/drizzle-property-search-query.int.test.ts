@@ -290,6 +290,24 @@ describe('DrizzlePropertySearchQuery', () => {
     ]);
   });
 
+  it('caps the rent plus expenses of the ones published in pesos', async () => {
+    await insertProperty({ title: 'Entra con expensas', expensesCents: 5_000_000n }, [
+      { priceCents: 60_000_000n },
+    ]);
+    await insertProperty({ title: 'Se pasa con expensas', expensesCents: 19_000_000n }, [
+      { priceCents: 65_000_000n },
+    ]);
+    await insertProperty({ title: 'Sin expensas' }, [{ priceCents: 70_000_000n }]);
+
+    expect(
+      await titles({
+        operation: 'rent',
+        priceBounds: [{ currency: 'ARS', maxCents: 70_000_000n }],
+        maxArsPriceWithExpensesCents: 70_000_000n,
+      }),
+    ).toEqual(['Sin expensas', 'Entra con expensas']);
+  });
+
   it('matches a price in any of the ranges, each in its currency', async () => {
     await insertProperty({ title: 'En dólares' }, [
       { operation: 'sale', priceCents: 6_000_000n, currency: 'USD' },
@@ -587,6 +605,20 @@ describe('DrizzlePropertySearchQuery', () => {
     expect((await query.findByCode(row.code))?.id).toBe(row.id);
     expect(await query.findByCode('NOEXISTE1')).toBeUndefined();
     expect(await query.findById('00000000-0000-7000-8000-999999999999')).toBeUndefined();
+  });
+
+  it('reads the status and publication of some properties, outside the trash', async () => {
+    const available = await insertProperty();
+    const reserved = await insertProperty({ status: 'reserved', publishedOnWeb: false });
+    const trashed = await insertProperty({ deletedAt: new Date('2026-10-02T12:00:00Z') });
+
+    const rows = await query.findVisibility([available.id, reserved.id, trashed.id]);
+
+    expect([...rows].sort((a, b) => a.id.localeCompare(b.id))).toEqual([
+      { id: available.id, status: 'available', publishedOnWeb: true },
+      { id: reserved.id, status: 'reserved', publishedOnWeb: false },
+    ]);
+    expect(await query.findVisibility([])).toEqual([]);
   });
 
   it('finds the property that owns a photo, outside the trash', async () => {

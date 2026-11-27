@@ -42,7 +42,12 @@ const allowNewSession = createRateLimiter(10, () => Date.now(), DAY_MS);
 
 const UNAVAILABLE =
   'El asistente no está disponible en este momento. Probá de nuevo en unos minutos.';
-const BUSY = 'Recibimos muchos mensajes seguidos. Esperá unos minutos y volvé a escribir.';
+const BUSY_RESULT: ChatActionResult = {
+  status: 'error',
+  message:
+    'Recibimos muchos mensajes seguidos. Esperá unos minutos y volvé a escribir, o seguí la consulta por WhatsApp.',
+  busy: true,
+};
 
 /**
  * La sesión del visitante, de su cookie firmada; si no tiene (o no es válida), se crea una nueva.
@@ -86,9 +91,9 @@ export async function sendChatMessage(input: unknown): Promise<ChatActionResult>
   const chat = getContainer().chat;
   if (!chat) return { status: 'error', message: UNAVAILABLE };
   const ip = await clientRateKey();
-  if (!allow(ip) || !allowToday(ip)) return { status: 'error', message: BUSY };
+  if (!allow(ip) || !allowToday(ip)) return BUSY_RESULT;
   const session = await sessionId(ip);
-  if (!session) return { status: 'error', message: BUSY };
+  if (!session) return BUSY_RESULT;
 
   const logger = getLogger().child({ component: 'site-chat' });
   try {
@@ -97,7 +102,7 @@ export async function sendChatMessage(input: unknown): Promise<ChatActionResult>
       case 'reply':
         return { status: 'ok', reply: outcome.reply && toChatReply(outcome.reply) };
       case 'busy':
-        return { status: 'error', message: BUSY };
+        return BUSY_RESULT;
       case 'unavailable':
         return { status: 'error', message: UNAVAILABLE };
     }

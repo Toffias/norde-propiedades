@@ -82,6 +82,11 @@ export const SearchPropertiesInputSchema = z.object({
   currency: z.enum(CURRENCIES).optional(),
   minPriceCents: z.bigint().nonnegative().optional(),
   maxPriceCents: z.bigint().nonnegative().optional(),
+  /**
+   * Alquiler (agente): el máximo en pesos incluye las expensas. Las publicadas en pesos entran si
+   * precio + expensas no lo pasan.
+   */
+  maxPriceIncludesExpenses: z.literal(true).optional(),
   minRooms: z.int().min(0).max(50).optional(),
   maxRooms: z.int().min(0).max(50).optional(),
   minBedrooms: z.int().min(0).max(50).optional(),
@@ -218,6 +223,25 @@ export const GetPropertyDetailInputSchema = z.union([
   z.object({ code: z.string().trim().min(1).max(40) }),
 ]);
 export type GetPropertyDetailInput = z.input<typeof GetPropertyDetailInputSchema>;
+
+/** Las propiedades que vio un contacto (a lo sumo tres páginas de resultados del agente). */
+export const MAX_OFFER_AVAILABILITY_IDS = 20;
+
+export const GetOfferAvailabilityInputSchema = z.object({
+  propertyIds: z.array(z.uuid()).max(MAX_OFFER_AVAILABILITY_IDS),
+});
+export type GetOfferAvailabilityInput = z.input<typeof GetOfferAvailabilityInputSchema>;
+
+/**
+ * Si se puede seguir ofreciendo: `reserved` sigue en la web con la portada "Reservado";
+ * `unavailable` es vendida, alquilada, pausada, despublicada o borrada.
+ */
+export type OfferAvailability = 'available' | 'reserved' | 'unavailable';
+
+export interface PropertyOfferAvailability {
+  readonly propertyId: string;
+  readonly availability: OfferAvailability;
+}
 
 export interface MoneyDto {
   readonly amountCents: bigint;

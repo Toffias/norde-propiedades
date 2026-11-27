@@ -222,6 +222,24 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
     return this.findOne(inArray(properties.id, owner));
   }
 
+  /** Por la clave primaria: a lo sumo las pocas propiedades que vio un contacto. */
+  async findVisibility(ids: readonly string[]) {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select({
+        id: properties.id,
+        status: properties.status,
+        publishedOnWeb: properties.publishedOnWeb,
+      })
+      .from(properties)
+      .where(and(inArray(properties.id, [...ids]), isNull(properties.deletedAt)));
+    return rows.map((row) => ({
+      id: row.id,
+      status: PropertyEnums.shape.status.parse(row.status),
+      publishedOnWeb: row.publishedOnWeb,
+    }));
+  }
+
   private async findOne(condition: SQL): Promise<PropertyRecord | undefined> {
     const [row] = await this.db
       .select({ id: properties.id })
@@ -304,6 +322,10 @@ export class DrizzlePropertySearchQuery implements PropertySearchQuery {
       filtersPrice ? eq(properties.priceOnWeb, true) : undefined,
       filtersPrice ? eq(propertyOperations.priceOnRequest, false) : undefined,
       filtersPrice ? or(...bounds.map(inPriceBounds)) : undefined,
+      // Las expensas están en pesos: el tope "con expensas" solo aplica a las publicadas en pesos.
+      c.maxArsPriceWithExpensesCents === undefined
+        ? undefined
+        : sql`(${propertyOperations.currency} <> 'ARS' or ${propertyOperations.priceCents} + coalesce(${properties.expensesCents}, 0) <= ${c.maxArsPriceWithExpensesCents})`,
     );
     return sql`exists (select 1 from ${propertyOperations} where ${conditions})`;
   }

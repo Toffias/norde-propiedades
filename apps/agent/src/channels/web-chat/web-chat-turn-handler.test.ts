@@ -17,7 +17,7 @@ import {
 } from '@norde/core/conversations/testing';
 import { FindPropertyByPortalAd } from '@norde/core/portals';
 import { InMemoryPortalAdLookup } from '@norde/core/portals/testing';
-import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
+import { GetOfferAvailability, GetPropertyDetail, SearchProperties } from '@norde/core/properties';
 import {
   aPropertyMediaRecord,
   aPropertyRecord,
@@ -79,6 +79,7 @@ const NO_FILTERS = {
   minPrice: null,
   maxPrice: null,
   currency: null,
+  maxPriceIncludesExpenses: null,
   minRooms: null,
   maxRooms: null,
   minBedrooms: null,
@@ -116,6 +117,8 @@ function setup(
     siteUrl: 'https://norde.com.ar',
     searchProperties: new SearchProperties({ properties }),
     getPropertyDetail: new GetPropertyDetail({ properties }),
+    getOfferAvailability: new GetOfferAvailability({ properties }),
+    contact: { contactPageUrl: 'https://norde.com.ar/contacto', whatsapp: '+54 9 11 0000-0000' },
     findPropertyByPortalAd: new FindPropertyByPortalAd({ ads }),
     registerContact: new RegisterContact({
       uow: clients,
@@ -150,6 +153,7 @@ function setup(
     siteUrl: 'https://norde.com.ar',
     budget,
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
+    memoryResetAfterHours: 24,
     now: () => clock.now(),
     logger: pino({ level: 'info' }, { write: (line: string) => logs.push(line) }),
   });

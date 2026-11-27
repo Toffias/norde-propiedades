@@ -1,5 +1,6 @@
 import type { RegisterContactInput } from '@norde/core/clients';
 import type { ConversationChannel } from '@norde/core/conversations';
+import type { OfferAvailability } from '@norde/core/properties/contracts';
 
 import type { RecentProperty } from './recent-properties';
 
@@ -49,6 +50,16 @@ export interface CustomerTurnContext {
    * ahí aunque la memoria del agente se haya recortado o reiniciado.
    */
   readonly recentProperties: readonly RecentProperty[];
+  /**
+   * Las de `recentProperties` que ya no se pueden ofrecer (se reservaron, vendieron o
+   * despublicaron después de mostrarlas). Lo completa el agente al empezar el turno.
+   */
+  readonly unavailableProperties: Map<string, Exclude<OfferAvailability, 'available'>>;
+  /**
+   * La memoria se borró en este turno por inactividad: el agente avisa que solo conserva la charla
+   * estas horas y pide que le vuelvan a contar qué busca.
+   */
+  readonly memoryReset: { readonly afterHours: number } | undefined;
   /** Propiedades que el agente vio o mostró en este turno. */
   readonly shownProperties: Map<string, ShownProperty>;
   /** Última búsqueda, para guardarla en la conversación y en la oportunidad. */
@@ -81,7 +92,13 @@ export function createTurnContext(input: {
   readonly knownClient?: boolean;
   /** Si la memoria del agente está vacía en este turno. */
   readonly freshMemory?: boolean;
+  /** Horas de inactividad tras las que se borró la memoria, si se borró en este turno. */
+  readonly memoryResetAfterHours?: number | undefined;
 }): CustomerTurnContext {
+  const memoryReset =
+    input.memoryResetAfterHours === undefined
+      ? undefined
+      : { afterHours: input.memoryResetAfterHours };
   return {
     channel: input.channel,
     channelExternalId: input.channelExternalId,
@@ -89,8 +106,11 @@ export function createTurnContext(input: {
     contactName: input.contactName,
     now: input.now,
     knownClient: input.knownClient ?? false,
-    resumedSearch: input.freshMemory ? input.previousSearch : undefined,
-    recentProperties: input.recentProperties ?? [],
+    // Tras el reinicio por inactividad se pide la búsqueda de nuevo: no se retoma la anterior.
+    resumedSearch: input.freshMemory && !memoryReset ? input.previousSearch : undefined,
+    recentProperties: memoryReset ? [] : (input.recentProperties ?? []),
+    unavailableProperties: new Map(),
+    memoryReset,
     shownProperties: new Map(),
     lastSearch: input.previousSearch,
     searchResult: undefined,

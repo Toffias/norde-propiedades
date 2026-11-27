@@ -27,11 +27,16 @@ const ChatEntrySchema = z.object({
   buttons: z.array(z.object({ id: z.string().max(64), title: z.string().max(40) })).max(3),
   /** Aviso de error del sitio, no del agente: se muestra distinto. */
   error: z.boolean(),
+  /** El error es un límite de mensajes: se ofrece seguir por WhatsApp o la página de contacto. */
+  busy: z.boolean().default(false),
 });
 
 export type ChatEntry = z.infer<typeof ChatEntrySchema>;
 
-const STORAGE_KEY = 'norde-chat:v1';
+/** Exportada para enterarse de los cambios que hace otra pestaña (evento `storage`). */
+export const TRANSCRIPT_STORAGE_KEY = 'norde-chat:v1';
+/** El texto sin enviar, por pestaña: sobrevive a una recarga pero no se mezcla entre pestañas. */
+const DRAFT_KEY = 'norde-chat:draft';
 /** Cuándo fue el último mensaje (epoch en ms), para saber si el agente todavía recuerda la charla. */
 const ACTIVITY_KEY = 'norde-chat:last-activity';
 /** Solo se recuerdan los últimos mensajes: la memoria de la charla la tiene el agente. */
@@ -45,7 +50,7 @@ const TranscriptSchema = z.array(ChatEntrySchema).max(MAX_STORED_ENTRIES);
  */
 export function loadTranscript(): ChatEntry[] {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(TRANSCRIPT_STORAGE_KEY);
     if (!raw) return [];
     const parsed = TranscriptSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : [];
@@ -58,10 +63,13 @@ export function loadTranscript(): ChatEntry[] {
 export function saveTranscript(entries: readonly ChatEntry[]): void {
   try {
     if (entries.length === 0) {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(TRANSCRIPT_STORAGE_KEY);
       return;
     }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-MAX_STORED_ENTRIES)));
+    window.localStorage.setItem(
+      TRANSCRIPT_STORAGE_KEY,
+      JSON.stringify(entries.slice(-MAX_STORED_ENTRIES)),
+    );
   } catch {
     // Sin almacenamiento (modo privado, cuota llena): el chat sigue funcionando sin recordar.
   }
@@ -104,4 +112,23 @@ export function isTranscriptInactive(input: {
   if (input.entries.length === 0) return false;
   if (input.lastActivityAt === null) return true;
   return (input.now ?? Date.now()) - input.lastActivityAt > input.idleResetMs;
+}
+
+export function loadDraft(): string {
+  try {
+    return window.sessionStorage.getItem(DRAFT_KEY) ?? '';
+  } catch {
+    // Almacenamiento bloqueado: el campo arranca vacío.
+    return '';
+  }
+}
+
+/** Guarda el texto sin enviar; vacío lo borra (al enviar o al empezar una charla nueva). */
+export function saveDraft(draft: string): void {
+  try {
+    if (draft === '') window.sessionStorage.removeItem(DRAFT_KEY);
+    else window.sessionStorage.setItem(DRAFT_KEY, draft);
+  } catch {
+    // Sin almacenamiento: el chat sigue funcionando sin recordar el borrador.
+  }
 }

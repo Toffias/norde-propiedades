@@ -364,16 +364,18 @@ export function listingHref(filters: ListingFilters, changes: ListingFilterChang
 }
 
 /**
- * Al cambiar de operación (venta ↔ alquiler) la búsqueda arranca de cero: los precios, las zonas y
- * los ambientes de una no sirven para la otra. Solo quedan la vista (grilla o mapa) y el orden.
+ * Al cambiar de operación (venta ↔ alquiler) se conserva lo que busca (zona, tipo, ambientes,
+ * características, vista y orden): solo se saca el precio, que no sirve de una a la otra.
  */
 export function operationHref(filters: ListingFilters, operation: Operation | undefined): string {
-  return listingHref({
-    ...(operation && { operation }),
-    ...(filters.view && { view: filters.view }),
-    sort: filters.sort,
-    page: 1,
-  });
+  const {
+    operation: _operation,
+    currency: _currency,
+    minPrice: _minPrice,
+    maxPrice: _maxPrice,
+    ...rest
+  } = filters;
+  return listingHref({ ...rest, ...(operation && { operation }), page: 1 });
 }
 
 /** Un filtro aplicado, con el link que lo saca: los chips de arriba del listado. */

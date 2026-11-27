@@ -4,6 +4,7 @@ import { Actor } from '../../../shared';
 import { publicImageVersion } from '../../contracts';
 import { aPropertyMediaRecord, aPropertyRecord, InMemoryPropertySearchQuery } from '../../testing';
 
+import { GetOfferAvailability } from './get-offer-availability';
 import { GetPropertyDetail } from './get-property-detail';
 import { SearchProperties } from './search-properties';
 
@@ -24,6 +25,37 @@ const rent = {
 } as const;
 
 describe('SearchProperties', () => {
+  it('caps rent plus expenses when the budget in pesos includes them', async () => {
+    const properties = new InMemoryPropertySearchQuery([
+      aPropertyRecord({ title: 'Entra', expensesCents: 5_000_000n, operations: [rent] }),
+      aPropertyRecord({
+        title: 'Se pasa',
+        expensesCents: 19_000_000n,
+        operations: [{ ...rent, priceCents: 65_000_000n }],
+      }),
+    ]);
+    const search = new SearchProperties({ properties });
+
+    const withExpenses = await search.execute(
+      {
+        operation: 'rent',
+        currency: 'ARS',
+        maxPriceCents: 70_000_000n,
+        maxPriceIncludesExpenses: true,
+      },
+      reader,
+    );
+    const rentOnly = await search.execute(
+      { operation: 'rent', currency: 'ARS', maxPriceCents: 70_000_000n },
+      reader,
+    );
+
+    expect(withExpenses.isOk() && withExpenses.value.items.map((p) => p.title)).toEqual(['Entra']);
+    expect(properties.criteria[0]).toMatchObject({ maxArsPriceWithExpensesCents: 70_000_000n });
+    expect(rentOnly.isOk() && rentOnly.value.total).toBe(2);
+    expect(properties.criteria[1]?.maxArsPriceWithExpensesCents).toBeUndefined();
+  });
+
   it('returns a page of publicly listed properties', async () => {
     const properties = new InMemoryPropertySearchQuery([
       aPropertyRecord({ title: 'Disponible' }),
@@ -206,7 +238,24 @@ describe('GetPropertyDetail', () => {
     );
 
     expect(web.isOk() && web.value).toMatchObject({ id: reserved.id, isReserved: true });
-    expect(agent.isErr() && agent.error).toEqual({ type: 'PropertyNotListed' });
+    expect(agent.isErr() && agent.error).toMatchObject({
+      type: 'PropertyNotListed',
+      reserved: { id: reserved.id, isReserved: true },
+    });
+  });
+
+  it('tells the AI agent a sold property is gone, without its detail', async () => {
+    const sold = aPropertyRecord({ status: 'sold' });
+    const hidden = aPropertyRecord({ status: 'reserved', publishedOnWeb: false });
+    const useCase = new GetPropertyDetail({
+      properties: new InMemoryPropertySearchQuery([sold, hidden]),
+    });
+
+    const soldResult = await useCase.execute({ propertyId: sold.id }, reader);
+    const hiddenResult = await useCase.execute({ propertyId: hidden.id }, reader);
+
+    expect(soldResult.isErr() && soldResult.error).toEqual({ type: 'PropertyNotListed' });
+    expect(hiddenResult.isErr() && hiddenResult.error).toEqual({ type: 'PropertyNotListed' });
   });
 
   it('publishes the approximate address and coordinates unless the exact ones are allowed', async () => {
@@ -293,6 +342,50 @@ describe('GetPropertyDetail', () => {
     const useCase = new GetPropertyDetail({ properties: new InMemoryPropertySearchQuery() });
 
     const result = await useCase.execute({ propertyId: 'x' }, nobody);
+
+    expect(result.isErr() && result.error).toEqual({ type: 'Forbidden' });
+  });
+});
+
+describe('GetOfferAvailability', () => {
+  it('tells which properties can still be offered, keeping the requested order', async () => {
+    const available = aPropertyRecord();
+    const reserved = aPropertyRecord({ status: 'reserved' });
+    const sold = aPropertyRecord({ status: 'sold' });
+    const unpublished = aPropertyRecord({ publishedOnWeb: false });
+    const missing = '01920000-0000-7000-8000-00000000dead';
+    const useCase = new GetOfferAvailability({
+      properties: new InMemoryPropertySearchQuery([available, reserved, sold, unpublished]),
+    });
+
+    const result = await useCase.execute(
+      { propertyIds: [reserved.id, available.id, sold.id, unpublished.id, missing] },
+      reader,
+    );
+
+    expect(result.isOk() && result.value).toEqual([
+      { propertyId: reserved.id, availability: 'reserved' },
+      { propertyId: available.id, availability: 'available' },
+      { propertyId: sold.id, availability: 'unavailable' },
+      { propertyId: unpublished.id, availability: 'unavailable' },
+      { propertyId: missing, availability: 'unavailable' },
+    ]);
+  });
+
+  it('answers nothing for no ids and rejects invalid ones', async () => {
+    const useCase = new GetOfferAvailability({ properties: new InMemoryPropertySearchQuery() });
+
+    const empty = await useCase.execute({ propertyIds: [] }, reader);
+    const invalid = await useCase.execute({ propertyIds: ['not-an-id'] }, reader);
+
+    expect(empty.isOk() && empty.value).toEqual([]);
+    expect(invalid.isErr() && invalid.error.type).toBe('InvalidInput');
+  });
+
+  it('requires reading properties', async () => {
+    const useCase = new GetOfferAvailability({ properties: new InMemoryPropertySearchQuery() });
+
+    const result = await useCase.execute({ propertyIds: [] }, nobody);
 
     expect(result.isErr() && result.error).toEqual({ type: 'Forbidden' });
   });

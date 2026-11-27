@@ -43,4 +43,9 @@ export interface ChatReply {
 export type ChatActionResult =
   /** `reply: null` cuando el agente no tiene nada que decir (por ejemplo, a un "gracias"). */
   | { readonly status: 'ok'; readonly reply: ChatReply | null }
-  | { readonly status: 'error'; readonly message: string };
+  | {
+      readonly status: 'error';
+      readonly message: string;
+      /** Un límite de mensajes: el widget ofrece seguir por WhatsApp o la página de contacto. */
+      readonly busy?: true;
+    };

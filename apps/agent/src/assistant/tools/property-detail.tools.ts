@@ -1,7 +1,12 @@
 import { defineTool } from '@norde/agent-kit';
 import { z } from 'zod';
 
-import { presentCard, presentDetail, propertyReference } from '../property-presenter';
+import {
+  presentCard,
+  presentDetail,
+  presentSummary,
+  propertyReference,
+} from '../property-presenter';
 import type { CustomerTurnContext } from '../turn-context';
 
 import { UnexpectedToolError, type AssistantToolDeps } from './tool-deps';
@@ -21,6 +26,11 @@ const PropertyParameters = z.object({
 
 const NOT_FOUND = { error: 'No hay una propiedad publicada con ese id, link o código' };
 const OTHER_AD = { error: 'Ese aviso no es de una propiedad publicada de Norde' };
+/** Sigue en la web con la portada "Reservado": se informa el estado, no se ofrece. */
+const RESERVED = {
+  status: 'Reservada',
+  note: 'Está reservada: decíselo al cliente. No la ofrezcas ni propongas visitarla; si quiere, buscá alternativas disponibles.',
+};
 
 type Lookup = Parameters<AssistantToolDeps['getPropertyDetail']['execute']>[0];
 
@@ -52,6 +62,9 @@ export function getPropertyTool(deps: AssistantToolDeps) {
       if (result.isErr()) {
         if (result.error.type === 'Forbidden') {
           throw new UnexpectedToolError('get_property', 'forbidden');
+        }
+        if (result.error.type === 'PropertyNotListed' && result.error.reserved) {
+          return { ...RESERVED, ...presentSummary(result.error.reserved, deps.siteUrl) };
         }
         return NOT_FOUND;
       }

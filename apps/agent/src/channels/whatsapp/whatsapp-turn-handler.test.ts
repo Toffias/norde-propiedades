@@ -21,7 +21,7 @@ import {
 } from '@norde/core/conversations/testing';
 import { FindPropertyByPortalAd } from '@norde/core/portals';
 import { InMemoryPortalAdLookup } from '@norde/core/portals/testing';
-import { GetPropertyDetail, SearchProperties } from '@norde/core/properties';
+import { GetOfferAvailability, GetPropertyDetail, SearchProperties } from '@norde/core/properties';
 import {
   aPropertyMediaRecord,
   aPropertyRecord,
@@ -89,6 +89,7 @@ const NO_FILTERS = {
   minPrice: null,
   maxPrice: null,
   currency: null,
+  maxPriceIncludesExpenses: null,
   minRooms: null,
   maxRooms: null,
   minBedrooms: null,
@@ -130,6 +131,8 @@ function setup(
     siteUrl: 'https://norde.com.ar',
     searchProperties: new SearchProperties({ properties }),
     getPropertyDetail: new GetPropertyDetail({ properties }),
+    getOfferAvailability: new GetOfferAvailability({ properties }),
+    contact: { contactPageUrl: 'https://norde.com.ar/contacto', whatsapp: '+54 9 11 0000-0000' },
     findPropertyByPortalAd: new FindPropertyByPortalAd({ ads }),
     registerContact: new RegisterContact({
       uow: clients,
@@ -175,6 +178,7 @@ function setup(
     siteUrl: 'https://norde.com.ar',
     budget,
     breaker: new FailureBreaker(options.breakerThreshold ?? 5, 10 * 60_000),
+    memoryResetAfterHours: 24,
     notices: new NoticeThrottle(HOUR),
     now: () => clock.now(),
     logger: pino({ level: 'info' }, { write: (line: string) => logs.push(line) }),
@@ -210,6 +214,12 @@ function setup(
     budget,
     logs,
     transcriptions: () => transcriptions,
+    /** La reserva de una propiedad entre un mensaje y otro (la marca el alta de la reserva). */
+    reserve: (propertyId: string) => {
+      const index = properties.records.findIndex((record) => record.id === propertyId);
+      const record = properties.records[index];
+      if (record) properties.records[index] = { ...record, status: 'reserved' };
+    },
   };
 }
 
@@ -252,7 +262,7 @@ describe('WhatsAppTurnHandler', () => {
     expect(ctx.conversations.messages.outbound).toHaveLength(1);
   });
 
-  it('remembers the shown properties after the idle reset, so "la que me pasaste" still works', async () => {
+  it('after the idle reset says the chat is kept 24 hours and asks for the search again', async () => {
     const ctx = setup();
     ctx.model.enqueue(
       [
@@ -263,25 +273,65 @@ describe('WhatsAppTurnHandler', () => {
         ),
       ],
       [reply('Tengo esta opción en Palermo.')],
-      [reply('¡Dale! ¿Qué día te queda bien para visitarla?')],
+      [reply('Solo guardo la conversación 24 horas: ¿me contás de nuevo qué buscás?')],
     );
 
     await ctx.handler.handle([ctx.inbound('busco alquilar en palermo')]);
     ctx.clock.advance(48 * HOUR);
-    await ctx.handler.handle([ctx.inbound('quiero visitar la que me pasaste')]);
+    await ctx.handler.handle([ctx.inbound('hola, sigo con lo de ayer')]);
 
-    expect(ctx.conversation()?.shownProperties).toEqual([
-      {
-        id: palermo.id,
-        title: '2 ambientes en Palermo',
-        url: 'https://norde.com.ar/propiedades/2-ambientes-palermo',
-      },
-    ]);
     const instructions = ctx.model.lastCall?.request.systemInstructions ?? '';
-    expect(instructions).toContain('Propiedades que ya vio en esta charla');
-    expect(instructions).toContain(`«2 ambientes en Palermo» (id: ${palermo.id}`);
-    // La memoria se reinició: lo único que tiene de la propiedad es el bloque del turno.
+    expect(instructions).toContain('pasaron más de 24 horas sin mensajes');
+    expect(instructions).not.toContain('La última vez buscaba');
+    expect(instructions).not.toContain('Propiedades que ya vio en esta charla');
     expect(JSON.stringify(ctx.model.lastCall?.request.input)).not.toContain(palermo.id);
+    expect(ctx.conversation()?.shownProperties).toEqual([]);
+  });
+
+  it('does not offer again a property that was reserved after it was shown', async () => {
+    const reserved = aPropertyRecord({
+      slug: 'ph-reservado',
+      title: 'PH reservado',
+      neighborhood: 'Palermo',
+    });
+    const ctx = setup({ properties: [reserved] });
+    ctx.model.enqueue(
+      [
+        functionCall(
+          'search_properties',
+          { ...NO_FILTERS, operation: 'rent', location: 'Palermo' },
+          { callId: 'c1' },
+        ),
+      ],
+      [reply('Tengo este PH en Palermo.')],
+      [reply('Ese PH ya se reservó. ¿Busco otras opciones?')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('busco alquilar en palermo')]);
+    ctx.reserve(reserved.id);
+    ctx.clock.advance(HOUR);
+    await ctx.handler.handle([ctx.inbound('quiero visitar el ph')]);
+
+    const instructions = ctx.model.lastCall?.request.systemInstructions ?? '';
+    expect(instructions).toContain(
+      `«PH reservado» (id: ${reserved.id}, https://norde.com.ar/propiedades/ph-reservado) — YA NO ESTÁ DISPONIBLE: se reservó`,
+    );
+  });
+
+  it('tells the status of a reserved property asked by its code, without offering it', async () => {
+    const reserved = aPropertyRecord({ code: 'NAP12040363', status: 'reserved' });
+    const ctx = setup({ properties: [reserved] });
+    ctx.model.enqueue(
+      [functionCall('get_property', { property: 'NAP12040363', portal: null }, { callId: 'c1' })],
+      [reply('Esa propiedad está reservada.')],
+    );
+
+    await ctx.handler.handle([ctx.inbound('el NAP12040363 está reservado?')]);
+
+    const toolOutput = JSON.stringify(ctx.model.lastCall?.request.input);
+    expect(toolOutput).toContain('Reservada');
+    expect(toolOutput).toContain('No la ofrezcas ni propongas visitarla');
+    expect(toolOutput).toContain(reserved.id);
   });
 
   it('numbers the results across pages, so the second page starts at 4', async () => {

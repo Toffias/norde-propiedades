@@ -38,6 +38,8 @@ export interface WhatsAppTurnHandlerDeps {
   readonly assistant: Pick<CustomerAssistant, 'run'>;
   readonly actor: Actor;
   readonly breaker: FailureBreaker;
+  /** Horas sin mensajes tras las que se borra la memoria del agente (para avisarle al cliente). */
+  readonly memoryResetAfterHours: number;
   /** Tope de gasto en OpenAI, compartido por los canales. */
   readonly budget: DailyBudget;
   /** Sitio público: los links del agente a otros dominios se quitan antes de responder. */
@@ -184,6 +186,7 @@ export class WhatsAppTurnHandler {
       now: deps.now(),
       knownClient: conversation.clientId !== undefined,
       freshMemory: conversation.agentMemory.length === 0,
+      memoryResetAfterHours: conversation.memoryReset ? deps.memoryResetAfterHours : undefined,
     });
 
     const turn = await deps.assistant.run({

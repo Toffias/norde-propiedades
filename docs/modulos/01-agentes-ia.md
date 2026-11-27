@@ -289,12 +289,20 @@ El agente de WhatsApp hace lo mismo que el MVP, sobre la arquitectura del proyec
 - **Fluidez** (#151):
   - Si va a responder el agente, WhatsApp muestra "escribiendo…" junto con el acuse de lectura.
   - Una foto con botones sale en un solo mensaje: botones con la foto de encabezado.
-  - Tras el período de inactividad se olvida la memoria pero no la última búsqueda: el agente la recibe como dato para retomarla, y sabe si el contacto ya es cliente.
-  - La conversación guarda también las últimas propiedades que vio el contacto (hasta 9, la más reciente primero). Sobreviven al recorte (`AGENT_MAX_MEMORY_ITEMS`) y al reinicio de la memoria, y el agente las recibe en cada turno para resolver "la segunda" o "la que me pasaste".
+  - Tras el período de inactividad (`CONVERSATION_IDLE_RESET_HOURS`, 24 h) la charla arranca de cero: en su primera respuesta el agente avisa que solo conserva la conversación ese tiempo y pide que le vuelvan a contar qué busca (salvo que el mensaje ya lo diga). No retoma la búsqueda anterior ni las propiedades vistas. Sigue sabiendo si el contacto ya es cliente.
+  - La conversación guarda también las últimas propiedades que vio el contacto (hasta 9, la más reciente primero). Sobreviven al recorte (`AGENT_MAX_MEMORY_ITEMS`), y el agente las recibe en cada turno para resolver "la segunda" o "la que me pasaste".
   - Los resultados se numeran de corrido entre páginas (la segunda arranca en 4), así "la 5" no es ambigua.
   - Si el contacto toca un botón de un mensaje de WhatsApp anterior a la última respuesta, el agente lo recibe marcado ("(botón de un mensaje anterior)") y pregunta en lugar de tomarlo como respuesta.
   - El agente encuentra una propiedad por el link de su ficha, por el código que muestra la web, por un aviso de MercadoLibre (id del ítem) o de Zonaprop (número del link, que se busca en el permalink guardado) y por la calle de la dirección publicada. Un aviso que no es de Norde se informa como tal.
   - El agente nunca le pide al cliente un id ni un código de propiedad: la identifica por la charla ("la 2", "la que me pasaste"), ofrece botones si hay varias posibles, acepta el link de una ficha y, si igual no la identifica, registra la consulta sin propiedad con la referencia en la nota para el asesor.
+
+- **Auditoría del chat** (27/11/2026):
+  - **Reservadas**: la búsqueda y la ficha del agente ofrecen solo lo disponible. Antes de cada turno se revalida el estado de las propiedades que el contacto ya vio (`GetOfferAvailability`): las que se reservaron, vendieron o despublicaron después llegan marcadas y no se vuelven a ofrecer desde la memoria. Si el cliente pregunta por una reservada (por código, link o calle), `get_property` devuelve su ficha con estado "Reservada" y el agente lo informa sin ofrecerla ni proponer visita.
+  - **Alquiler con expensas**: si el cliente da un tope sin aclarar, el agente pregunta si incluye las expensas. Con "sí", la búsqueda filtra por alquiler + expensas en pesos (`maxPriceIncludesExpenses`). Cada resultado de alquiler en pesos trae el total mensual ya sumado (`monthlyTotalWithExpenses`): el modelo no hace la cuenta, y si el total pasa el tope lo dice con la diferencia.
+  - **Mascotas**: valen solo las características de la ficha ("Apto mascotas"), nunca la descripción. Si la característica no está tildada, el agente dice que no figura y que lo confirma un asesor: es un dato que tiene que cargar el administrador.
+  - **Lo que no está en la ficha** (distancias, servicios incluidos en las expensas, ajuste del contrato, accesibilidad, ruido, rentabilidad): no se agregan campos. El agente dice que el dato no está publicado y ofrece derivar a un asesor.
+  - **Contacto oficial**: ante una posible estafa o una urgencia, o si se lo piden, el agente da las vías oficiales en el mismo mensaje (`AGENT_CONTACT_WHATSAPP`, `AGENT_CONTACT_PHONE`, `AGENT_CONTACT_EMAIL` y la página de contacto del sitio). Nunca redacta textos en nombre de Norde (aprobaciones, reservas, señas), ni como ejemplo.
+  - **Otras reglas**: responde en el idioma del cliente; entiende montos abreviados ("700 lucas", "95k"); distingue preferencias de requisitos; no propone subir un tope que el cliente dio como fijo; busca un aviso nombrado por la calle sin los filtros anteriores y, si hay varios candidatos, los ofrece; distingue superficie total y cubierta.
 
 ### 8.3 Pendiente
 

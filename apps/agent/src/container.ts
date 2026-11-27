@@ -13,7 +13,12 @@ import {
   type ConversationPolicy,
 } from '@norde/core/conversations';
 import { FindPropertyByPortalAd } from '@norde/core/portals';
-import { GetPropertyDetail, GetPropertySummaries, SearchProperties } from '@norde/core/properties';
+import {
+  GetOfferAvailability,
+  GetPropertyDetail,
+  GetPropertySummaries,
+  SearchProperties,
+} from '@norde/core/properties';
 import { Actor } from '@norde/core/shared';
 import {
   createClientsUnitOfWork,
@@ -93,6 +98,7 @@ export function createContainer(
   const properties = new DrizzlePropertySearchQuery(db);
   const searchProperties = new SearchProperties({ properties });
   const getPropertyDetail = new GetPropertyDetail({ properties });
+  const getOfferAvailability = new GetOfferAvailability({ properties });
   const findPropertyByPortalAd = new FindPropertyByPortalAd({ ads: new DrizzlePortalAdLookup(db) });
   const registerContact = new RegisterContact({
     uow: createClientsUnitOfWork(db, { ids, clock }),
@@ -173,6 +179,13 @@ export function createContainer(
           siteUrl: env.PUBLIC_SITE_URL,
           searchProperties,
           getPropertyDetail,
+          getOfferAvailability,
+          contact: {
+            contactPageUrl: new URL('/contacto', env.PUBLIC_SITE_URL).toString(),
+            whatsapp: env.AGENT_CONTACT_WHATSAPP,
+            phone: env.AGENT_CONTACT_PHONE,
+            email: env.AGENT_CONTACT_EMAIL,
+          },
           findPropertyByPortalAd,
           registerContact,
         });
@@ -210,6 +223,7 @@ export function createContainer(
       assistant,
       actor: AGENT_ACTOR,
       breaker: newBreaker(),
+      memoryResetAfterHours: env.CONVERSATION_IDLE_RESET_HOURS,
       budget,
       siteUrl: env.PUBLIC_SITE_URL,
       notices: new NoticeThrottle(HOUR_MS),
@@ -252,6 +266,7 @@ export function createContainer(
       assistant,
       actor: AGENT_ACTOR,
       breaker: newBreaker(),
+      memoryResetAfterHours: env.CONVERSATION_IDLE_RESET_HOURS,
       budget,
       siteUrl: env.PUBLIC_SITE_URL,
       now: () => clock.now(),

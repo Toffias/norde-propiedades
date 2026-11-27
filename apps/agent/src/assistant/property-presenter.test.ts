@@ -52,6 +52,34 @@ describe('presentSummary', () => {
       surfaceCoveredM2: 90,
     });
   });
+
+  it('adds up rent and expenses in pesos, so the model never does the sum', async () => {
+    const rent = await summaryOf(
+      aPropertyRecord({
+        operations: [
+          { operation: 'rent', priceCents: 65_000_000n, currency: 'ARS', priceOnRequest: false },
+        ],
+        expensesCents: 19_000_000n,
+      }),
+    );
+    const sale = await summaryOf(
+      aPropertyRecord({
+        operations: [
+          { operation: 'sale', priceCents: 9_000_000n, currency: 'USD', priceOnRequest: false },
+        ],
+        expensesCents: 5_000_000n,
+      }),
+    );
+
+    expect(presentSummary(rent, 'https://norde.com.ar')).toMatchObject({
+      price: '$ 650.000',
+      expenses: '$ 190.000',
+      monthlyTotalWithExpenses: '$ 840.000',
+    });
+    expect(presentSummary(sale, 'https://norde.com.ar')).not.toHaveProperty(
+      'monthlyTotalWithExpenses',
+    );
+  });
 });
 
 describe('propertyReference', () => {

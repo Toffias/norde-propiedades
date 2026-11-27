@@ -83,6 +83,7 @@ export function presentSummary(property: PropertySummary, siteUrl: string) {
         }
       : {}),
     expenses: property.expenses ? formatMoney(property.expenses) : null,
+    ...monthlyTotal(property),
     rooms: property.rooms,
     bedrooms: property.bedrooms,
     bathrooms: property.bathrooms,
@@ -96,6 +97,22 @@ export function presentSummary(property: PropertySummary, siteUrl: string) {
     amenities: property.amenities,
     url: propertyUrl(siteUrl, property.slug),
     hasPhotos: property.photoCount > 0,
+  };
+}
+
+/**
+ * Alquiler en pesos con expensas: el total por mes ya sumado, para que el modelo no haga la cuenta
+ * (y no diga que $840.000 entra en un tope de $700.000). Las expensas siempre están en pesos.
+ */
+function monthlyTotal(property: PropertySummary): { readonly monthlyTotalWithExpenses?: string } {
+  const price = property.operations.find((o) => o.operation === 'rent')?.price;
+  const expenses = property.expenses;
+  if (!price || !expenses || price.currency !== 'ARS' || expenses.currency !== 'ARS') return {};
+  return {
+    monthlyTotalWithExpenses: formatMoney({
+      amountCents: price.amountCents + expenses.amountCents,
+      currency: 'ARS',
+    }),
   };
 }
 
@@ -115,9 +132,20 @@ export function presentCard(property: PropertySummary, siteUrl: string): ShownPr
   };
 }
 
+/**
+ * Si acepta mascotas sale solo de la característica que tilda el administrador, nunca de la
+ * descripción: el modelo recibe la respuesta ya armada.
+ */
+export function petsAnswer(amenities: readonly string[]): string {
+  return amenities.some((amenity) => /mascota/i.test(amenity))
+    ? 'Sí: figura como apto mascotas en la ficha'
+    : 'No figura como apto mascotas en la ficha: lo confirma un asesor';
+}
+
 export function presentDetail(property: PropertyDetail, siteUrl: string) {
   return {
     ...presentSummary(property, siteUrl),
+    petsAllowed: petsAnswer(property.amenities),
     description: property.description,
     address: property.address ?? 'A confirmar con el asesor',
     photos: property.photoCount,

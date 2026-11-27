@@ -1,7 +1,7 @@
 import type { Currency, MapArea, Operation, PropertyType, PublicSort } from '../../contracts';
 import type { FeatureKind } from '../../domain/feature';
 import type { MediaKind, MediaProcessingStatus, MediaVariants } from '../../domain/media-item';
-import type { PropertyStatus } from '../../domain/property-status';
+import type { ListingVisibility, PropertyStatus } from '../../domain/property-status';
 import type { AgeRange, CountFacet, CountRange, PriceBounds } from '../../domain/public-search';
 
 export interface PropertyOperationRecord {
@@ -106,6 +106,11 @@ export interface PropertySearchCriteria {
    * precio en la web quedan afuera: el filtro no puede revelarlo.
    */
   readonly priceBounds?: readonly PriceBounds[] | undefined;
+  /**
+   * Tope de precio + expensas, en centavos de pesos: solo para las operaciones publicadas en pesos
+   * (las expensas siempre están en pesos).
+   */
+  readonly maxArsPriceWithExpensesCents?: bigint | undefined;
   readonly minRooms?: number | undefined;
   readonly maxRooms?: number | undefined;
   readonly minBedrooms?: number | undefined;
@@ -180,4 +185,10 @@ export interface PropertySearchQuery {
   findByCode(code: string): Promise<PropertyRecord | undefined>;
   /** La propiedad dueña de una foto, plano o link de la galería (la ruta pública de fotos). */
   findByMediaId(mediaId: string): Promise<PropertyRecord | undefined>;
+  /** Estado y publicación de estas propiedades (ids ya validados). Las de la papelera no vuelven. */
+  findVisibility(ids: readonly string[]): Promise<readonly PropertyVisibility[]>;
+}
+
+export interface PropertyVisibility extends ListingVisibility {
+  readonly id: string;
 }

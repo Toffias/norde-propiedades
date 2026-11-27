@@ -46,6 +46,7 @@ export function toPublicFilterCriteria(
     age,
     furnished,
     withParking,
+    maxPriceIncludesExpenses,
     ...rest
   } = filters;
   const filtersPrice = minPriceCents !== undefined || maxPriceCents !== undefined;
@@ -62,6 +63,9 @@ export function toPublicFilterCriteria(
     ...(age && { age: ageRange(age) }),
     ...(furnished && { furnished: true }),
     ...(withParking && { withParking: true }),
+    ...(maxPriceIncludesExpenses &&
+      currency === 'ARS' &&
+      maxPriceCents !== undefined && { maxArsPriceWithExpensesCents: maxPriceCents }),
   };
 }
 

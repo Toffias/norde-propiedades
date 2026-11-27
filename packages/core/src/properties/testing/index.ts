@@ -393,7 +393,10 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
                   b.currency === o.currency &&
                   (b.minCents === undefined || (o.priceCents ?? 0n) >= b.minCents) &&
                   (b.maxCents === undefined || (o.priceCents ?? 0n) <= b.maxCents),
-              ),
+              ) &&
+              (criteria.maxArsPriceWithExpensesCents === undefined ||
+                o.currency !== 'ARS' ||
+                o.priceCents + (r.expensesCents ?? 0n) <= criteria.maxArsPriceWithExpensesCents),
           )) &&
         matchesRanges(r.rooms, criteria.roomRanges) &&
         matchesRanges(r.bedrooms, criteria.bedroomRanges) &&
@@ -417,6 +420,14 @@ export class InMemoryPropertySearchQuery implements PropertySearchQuery {
 
   findByMediaId(mediaId: string) {
     return Promise.resolve(this.records.find((r) => r.media.some((m) => m.id === mediaId)));
+  }
+
+  findVisibility(ids: readonly string[]) {
+    return Promise.resolve(
+      this.records
+        .filter((r) => ids.includes(r.id))
+        .map(({ id, status, publishedOnWeb }) => ({ id, status, publishedOnWeb })),
+    );
   }
 }
 

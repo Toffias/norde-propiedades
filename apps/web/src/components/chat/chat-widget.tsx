@@ -9,6 +9,8 @@ import {
   SendHorizontal,
   X,
 } from 'lucide-react';
+import { WhatsAppIcon } from '@norde/ui/components/whatsapp-icon';
+import Link from 'next/link';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 import { SkeletonImage } from '../layout/skeleton-image';
@@ -17,12 +19,17 @@ import { internalPath } from '../../lib/chat/markdown';
 import { resetChatSession, sendChatMessage } from '../../lib/chat/send-chat-message';
 import {
   isTranscriptInactive,
+  loadDraft,
   loadLastActivity,
   loadTranscript,
+  saveDraft,
   saveLastActivity,
   saveTranscript,
+  TRANSCRIPT_STORAGE_KEY,
   type ChatEntry,
 } from '../../lib/chat/transcript';
+import { routes } from '../../lib/seo/routes';
+import { whatsappHref } from '../../lib/whatsapp';
 
 import { ChatLauncherOrbit } from './chat-launcher-orbit';
 import { ChatPropertyCard } from './chat-property-card';
@@ -33,6 +40,10 @@ const WELCOME =
   '¡Hola! Soy el asistente virtual de Norde. Contame qué estás buscando: si querés comprar o alquilar, qué tipo de propiedad y en qué zona.';
 const SUGGESTIONS = ['Quiero comprar', 'Quiero alquilar', 'Quiero tasar mi propiedad'];
 const FAILED = 'No pudimos enviar tu mensaje. Revisá tu conexión y probá de nuevo.';
+/** Desde acá se muestra cuánto falta para el máximo de caracteres. */
+const COUNTER_FROM = Math.floor(CHAT_MAX_CHARS * 0.8);
+const MAX_CHARS_LABEL = CHAT_MAX_CHARS.toLocaleString('es-AR');
+const BUSY_WHATSAPP_TEXT = 'Hola, vengo del chat de la web de Norde.';
 
 const CHIP =
   'border-primary/40 text-primary hover:bg-primary/10 focus-visible:ring-ring/50 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors outline-none focus-visible:ring-[3px] disabled:opacity-50';
@@ -71,10 +82,11 @@ function assistantEntry(reply: ChatReply): ChatEntry {
     listingUrl: reply.listingUrl,
     buttons: [...reply.buttons],
     error: false,
+    busy: false,
   };
 }
 
-function errorEntry(message: string): ChatEntry {
+function errorEntry(message: string, busy = false): ChatEntry {
   return {
     id: crypto.randomUUID(),
     role: 'assistant',
@@ -84,6 +96,7 @@ function errorEntry(message: string): ChatEntry {
     listingUrl: null,
     buttons: [],
     error: true,
+    busy,
   };
 }
 
@@ -160,6 +173,22 @@ export function ChatWidget({
     if (loaded) saveTranscript(entries);
   }, [entries, loaded]);
 
+  // Las pestañas del mismo navegador comparten la charla: si otra la cambia o empieza una nueva,
+  // esta muestra lo mismo en lugar de quedarse con una conversación que ya no es la del agente.
+  useEffect(() => {
+    if (!loaded) return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== TRANSCRIPT_STORAGE_KEY && event.key !== null) return;
+      const current = loadTranscript();
+      setEntries(current);
+      if (current.length === 0) setInactive(false);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [loaded]);
+
   useEffect(() => {
     // Se mueve solo la lista: `scrollIntoView` también desplazaría la página de atrás.
     const log = logRef.current;
@@ -183,6 +212,7 @@ export function ChatWidget({
     const current = loaded ? entries : loadTranscript();
     if (!loaded) {
       setEntries(current);
+      setDraft(loadDraft());
       setLoaded(true);
       if (!sizeChosen && hasCards(current)) setExpanded(true);
     }
@@ -226,14 +256,17 @@ export function ChatWidget({
         listingUrl: null,
         buttons: [],
         error: false,
+        busy: false,
       },
     ]);
     setDraft('');
+    saveDraft('');
     setPending(true);
     try {
       const result = await sendChatMessage({ messageId, text: trimmed });
       if (result.status === 'error') {
-        setEntries((current) => [...current, errorEntry(result.message)]);
+        setEntries((current) => [...current, errorEntry(result.message, result.busy === true)]);
+        restoreDraft(trimmed);
       } else if (result.reply) {
         const reply = result.reply;
         saveLastActivity();
@@ -244,14 +277,30 @@ export function ChatWidget({
     } catch {
       // La Server Action no llegó al servidor (red caída, deploy en curso).
       setEntries((current) => [...current, errorEntry(FAILED)]);
+      restoreDraft(trimmed);
     } finally {
       setPending(false);
       inputRef.current?.focus({ preventScroll: true });
     }
   };
 
+  /** Un mensaje que no se respondió vuelve al campo: el visitante decide si lo reintenta. */
+  const restoreDraft = (text: string) => {
+    setDraft((current) => {
+      if (current !== '') return current;
+      saveDraft(text);
+      return text;
+    });
+  };
+
+  const changeDraft = (text: string) => {
+    setDraft(text);
+    saveDraft(text);
+  };
+
   const restart = async () => {
     setEntries([]);
+    changeDraft('');
     setInactive(false);
     saveLastActivity(null);
     setExpanded(false);
@@ -394,6 +443,7 @@ export function ChatWidget({
                           onInternalNavigation={onInternalNavigation}
                         />
                       </div>
+                      {entry.busy && <BusyActions onInternalNavigation={onInternalNavigation} />}
                       {entry.cards.length > 0 && (
                         <ul aria-label="Propiedades sugeridas" className="space-y-2">
                           {entry.cards.map((card) => (
@@ -475,8 +525,9 @@ export function ChatWidget({
                   ref={inputRef}
                   value={draft}
                   onChange={(event) => {
-                    setDraft(event.target.value);
+                    changeDraft(event.target.value);
                   }}
+                  aria-describedby={draft.length >= COUNTER_FROM ? `${panelId}-counter` : undefined}
                   onKeyDown={onKeyDown}
                   rows={1}
                   maxLength={CHAT_MAX_CHARS}
@@ -493,6 +544,21 @@ export function ChatWidget({
                   <SendHorizontal aria-hidden className="size-5" />
                 </button>
               </div>
+              {draft.length >= COUNTER_FROM && (
+                <p
+                  id={`${panelId}-counter`}
+                  aria-live="polite"
+                  className={`mt-1.5 px-1 text-right text-xs ${
+                    draft.length >= CHAT_MAX_CHARS
+                      ? 'text-destructive font-semibold'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {draft.length >= CHAT_MAX_CHARS
+                    ? `Llegaste al máximo de ${MAX_CHARS_LABEL} caracteres: enviá este mensaje y seguí en otro.`
+                    : `${draft.length.toLocaleString('es-AR')} / ${MAX_CHARS_LABEL}`}
+                </p>
+              )}
               <p className="text-muted-foreground mt-2 text-center text-[11px]">
                 Asistente con IA: puede equivocarse. Un asesor confirma cada dato.
               </p>
@@ -502,6 +568,27 @@ export function ChatWidget({
       </div>
       {phase === 'closed' && <ChatLauncherOrbit className={ORBIT} />}
     </>
+  );
+}
+
+/** Al llegar a un límite de mensajes: seguir la consulta por WhatsApp o desde la página de contacto. */
+function BusyActions({ onInternalNavigation }: { readonly onInternalNavigation: () => void }) {
+  const whatsapp = whatsappHref(BUSY_WHATSAPP_TEXT);
+  return (
+    <div className="flex flex-wrap gap-2">
+      {whatsapp && (
+        <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={CHIP}>
+          <span className="inline-flex items-center gap-1.5">
+            <WhatsAppIcon aria-hidden className="size-4" />
+            Seguir por WhatsApp
+            <span className="sr-only"> (se abre en otra pestaña)</span>
+          </span>
+        </a>
+      )}
+      <Link href={routes.contact()} onClick={onInternalNavigation} className={CHIP}>
+        Ver otras vías de contacto
+      </Link>
+    </div>
   );
 }
 

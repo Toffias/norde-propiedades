@@ -4,24 +4,33 @@ import {
   isTranscriptInactive,
   loadLastActivity,
   loadTranscript,
+  loadDraft,
+  saveDraft,
   saveLastActivity,
   saveTranscript,
   type ChatEntry,
 } from './transcript';
 
 const store = new Map<string, string>();
+const session = new Map<string, string>();
+
+function storage(map: Map<string, string>) {
+  return {
+    getItem: (key: string) => map.get(key) ?? null,
+    setItem: (key: string, value: string) => map.set(key, value),
+    removeItem: (key: string) => map.delete(key),
+  };
+}
 
 beforeEach(() => {
-  const localStorage = {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => store.set(key, value),
-    removeItem: (key: string) => store.delete(key),
-  };
-  Object.assign(globalThis, { window: { localStorage } });
+  Object.assign(globalThis, {
+    window: { localStorage: storage(store), sessionStorage: storage(session) },
+  });
 });
 
 afterEach(() => {
   store.clear();
+  session.clear();
 });
 
 const entry: ChatEntry = {
@@ -46,6 +55,7 @@ const entry: ChatEntry = {
   listingUrl: '/propiedades?operacion=alquiler&zona=Palermo',
   buttons: [],
   error: false,
+  busy: false,
 };
 
 describe('transcript', () => {
@@ -55,15 +65,26 @@ describe('transcript', () => {
   });
 
   it('reads entries saved before the cards existed', () => {
-    const { cards: _cards, listingUrl: _listingUrl, ...older } = entry;
+    const { cards: _cards, listingUrl: _listingUrl, busy: _busy, ...older } = entry;
     store.set('norde-chat:v1', JSON.stringify([older]));
 
-    expect(loadTranscript()).toEqual([{ ...entry, cards: [], listingUrl: null }]);
+    expect(loadTranscript()).toEqual([{ ...entry, cards: [], listingUrl: null, busy: false }]);
   });
 
   it('starts empty when the stored value is not valid', () => {
     store.set('norde-chat:v1', '{nope');
     expect(loadTranscript()).toEqual([]);
+  });
+});
+
+describe('draft', () => {
+  it('keeps the unsent text in the tab and forgets it when emptied', () => {
+    saveDraft('Busco 2 ambientes en Liniers');
+    expect(loadDraft()).toBe('Busco 2 ambientes en Liniers');
+    expect(store.size).toBe(0);
+
+    saveDraft('');
+    expect(loadDraft()).toBe('');
   });
 });
 

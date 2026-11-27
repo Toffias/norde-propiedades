@@ -364,18 +364,23 @@ describe('several locations, web options and chips', () => {
     expect(activeFilterCount(filters)).toBe(10);
   });
 
-  it('clears the search when the operation changes, keeping the view and the sort', () => {
+  it('keeps the area and the rest of the search when the operation changes, without the price', () => {
     const filters = parseListingFilters({
       operacion: 'venta',
+      tipo: 'ph',
       ubicacion: MATADEROS,
+      moneda: 'usd',
       desde: '80000',
+      ambientes: '2',
       orden: 'recientes',
       vista: 'mapa',
     });
     expect(operationHref(filters, 'rent')).toBe(
-      '/propiedades?operacion=alquiler&orden=recientes&vista=mapa',
+      `/propiedades?operacion=alquiler&tipo=ph&ubicacion=${MATADEROS}&ambientes=2&orden=recientes&vista=mapa`,
     );
-    expect(operationHref(filters, undefined)).toBe('/propiedades?orden=recientes&vista=mapa');
+    expect(operationHref(filters, undefined)).toBe(
+      `/propiedades?tipo=ph&ubicacion=${MATADEROS}&ambientes=2&orden=recientes&vista=mapa`,
+    );
   });
 });
 

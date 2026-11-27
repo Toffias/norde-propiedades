@@ -78,7 +78,10 @@ export function toAboutContent(page: AboutPage | null): AboutContent {
 }
 
 export function toTeamMemberCard(
-  member: Pick<TeamMember, 'id' | 'name' | 'role' | 'area' | 'license' | 'photo' | 'whatsapp'>,
+  member: Pick<
+    TeamMember,
+    'id' | 'name' | 'role' | 'area' | 'license' | 'photo' | 'whatsapp' | 'showWhatsapp'
+  >,
   fallbackWhatsapp: string | null = BUSINESS.whatsapp,
 ): TeamMemberCard {
   return {
@@ -88,7 +91,8 @@ export function toTeamMemberCard(
     area: clean(member.area),
     license: clean(member.license),
     photo: asMedia(member.photo),
-    whatsapp: clean(member.whatsapp) ?? fallbackWhatsapp,
+    // Con "Mostrar Escribile" destildado, la tarjeta va sin WhatsApp (ni el propio ni el de Norde).
+    whatsapp: member.showWhatsapp === false ? null : (clean(member.whatsapp) ?? fallbackWhatsapp),
   };
 }
 

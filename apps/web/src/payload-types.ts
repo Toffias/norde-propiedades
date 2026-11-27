@@ -355,6 +355,10 @@ export interface TeamMember {
    */
   whatsapp?: string | null;
   /**
+   * Destildado, la tarjeta no muestra el botón de WhatsApp de esta persona.
+   */
+  showWhatsapp?: boolean | null;
+  /**
    * Menor número, más arriba.
    */
   order?: number | null;
@@ -658,6 +662,7 @@ export interface TeamMembersSelect<T extends boolean = true> {
   license?: T;
   photo?: T;
   whatsapp?: T;
+  showWhatsapp?: T;
   order?: T;
   active?: T;
   updatedAt?: T;

@@ -67,6 +67,16 @@ export const TeamMembers: CollectionConfig<'team-members'> = {
       admin: {
         description:
           'Solo números, con el código de país (ej.: 5491161798942). Vacío: se usa el WhatsApp de la inmobiliaria.',
+        condition: (_, siblingData) => siblingData.showWhatsapp !== false,
+      },
+    },
+    {
+      name: 'showWhatsapp',
+      label: 'Mostrar "Escribile"',
+      type: 'checkbox',
+      defaultValue: true,
+      admin: {
+        description: 'Destildado, la tarjeta no muestra el botón de WhatsApp de esta persona.',
       },
     },
     {

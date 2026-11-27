@@ -48,7 +48,15 @@ export const listTeamMembers = unstable_cache(
       limit: MAX_TEAM_MEMBERS,
       sort: ['order', 'name'],
       where: { active: { equals: true } },
-      select: { name: true, role: true, area: true, license: true, photo: true, whatsapp: true },
+      select: {
+        name: true,
+        role: true,
+        area: true,
+        license: true,
+        photo: true,
+        whatsapp: true,
+        showWhatsapp: true,
+      },
     });
     return result.docs.map((member) => toTeamMemberCard(member));
   },

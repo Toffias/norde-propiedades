@@ -77,6 +77,18 @@ describe('toTeamMemberCard', () => {
       toTeamMemberCard({ ...member, whatsapp: '5491122223333' }, '5491100000000').whatsapp,
     ).toBe('5491122223333');
   });
+
+  it('drops the WhatsApp, own or fallback, when "Escribile" is turned off', () => {
+    expect(
+      toTeamMemberCard({ ...member, showWhatsapp: false }, '5491100000000').whatsapp,
+    ).toBeNull();
+    expect(
+      toTeamMemberCard(
+        { ...member, whatsapp: '5491122223333', showWhatsapp: false },
+        '5491100000000',
+      ).whatsapp,
+    ).toBeNull();
+  });
 });
 
 describe('formatStat', () => {

@@ -5,6 +5,7 @@ import * as migration_20261029_195908_about_stat_icon from './20261029_195908_ab
 import * as migration_20261102_014740_site_appearance from './20261102_014740_site_appearance';
 import * as migration_20261104_180209_google_reviews from './20261104_180209_google_reviews';
 import * as migration_20261115_013758_users_admin_role from './20261115_013758_users_admin_role';
+import * as migration_20261127_164724_team_member_show_whatsapp from './20261127_164724_team_member_show_whatsapp';
 
 export const migrations = [
   {
@@ -40,6 +41,11 @@ export const migrations = [
   {
     up: migration_20261115_013758_users_admin_role.up,
     down: migration_20261115_013758_users_admin_role.down,
-    name: '20261115_013758_users_admin_role'
+    name: '20261115_013758_users_admin_role',
+  },
+  {
+    up: migration_20261127_164724_team_member_show_whatsapp.up,
+    down: migration_20261127_164724_team_member_show_whatsapp.down,
+    name: '20261127_164724_team_member_show_whatsapp'
   },
 ];

@@ -49,4 +49,12 @@ describe('parseEnv', () => {
     const secret = 'cambiar-por-un-secreto-largo-y-aleatorio';
     expect(parseEnv(env({ PAYLOAD_SECRET: secret })).PAYLOAD_SECRET).toBe(secret);
   });
+
+  it('defaults the chat limit to 40 messages per 10 minutes and reads it from the env', () => {
+    expect(parseEnv(env({})).CHAT_MESSAGES_PER_10_MIN).toBe(40);
+    expect(parseEnv(env({ CHAT_MESSAGES_PER_10_MIN: '60' })).CHAT_MESSAGES_PER_10_MIN).toBe(60);
+    expect(() => parseEnv(env({ CHAT_MESSAGES_PER_10_MIN: '0' }))).toThrow(
+      /CHAT_MESSAGES_PER_10_MIN/,
+    );
+  });
 });

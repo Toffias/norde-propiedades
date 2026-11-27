@@ -23,8 +23,15 @@ const SESSION_MAX_AGE_S = 30 * 24 * 3600;
 
 const DAY_MS = 24 * 3_600_000;
 
-/** Mensajes por IP cada 10 minutos. El agente suma sus propios límites por sesión. */
-const allow = createRateLimiter(20, () => Date.now());
+/**
+ * Mensajes por IP cada 10 minutos (`CHAT_MESSAGES_PER_10_MIN`). El agente suma sus propios límites
+ * por sesión. Se arma al primer mensaje: el módulo también se carga en el build, sin entorno.
+ */
+let allowShortTerm: ((key: string) => boolean) | undefined;
+function allow(ip: string): boolean {
+  allowShortTerm ??= createRateLimiter(getEnv().CHAT_MESSAGES_PER_10_MIN, () => Date.now());
+  return allowShortTerm(ip);
+}
 /** Mensajes por IP por día: cada uno es un turno del LLM. */
 const allowToday = createRateLimiter(150, () => Date.now(), DAY_MS);
 /**

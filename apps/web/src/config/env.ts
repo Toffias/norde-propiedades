@@ -67,6 +67,8 @@ const EnvSchema = z.object({
    * `CONVERSATION_IDLE_RESET_HOURS`. Pasado ese tiempo, el chat ofrece empezar una nueva.
    */
   CHAT_IDLE_RESET_HOURS: z.coerce.number().int().positive().default(24),
+  /** Mensajes del chat por IP cada 10 minutos: frena a quien escribe en loop antes del agente. */
+  CHAT_MESSAGES_PER_10_MIN: z.coerce.number().int().positive().default(40),
 
   /**
    * `true` solo para crear el primer editor desde `/admin` con la base vacía. Sin ella, el alta del
